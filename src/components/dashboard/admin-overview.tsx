@@ -16,6 +16,7 @@ import { PatientRegistrationForm } from "./patient-registration-form"
 import * as React from "react"
 import { PatientsList } from "./patients-list"
 import { allBeds } from "@/lib/data"
+import { BedManagement } from "./bed-management"
 
 export function AdminOverview({ patients }: { patients: Patient[] }) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -66,6 +67,7 @@ export function AdminOverview({ patients }: { patients: Patient[] }) {
         ))}
         </div>
 
+        <BedManagement />
         <PatientsList patients={patients} />
     </div>
   )
