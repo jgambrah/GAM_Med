@@ -11,26 +11,16 @@ export interface User {
 // Core Patient Demographics as per the new specification
 export interface Patient {
   patientId: string; // The unique patient identifier, will also be the document ID
-  title?: string; // e.g., 'Mr', 'Mrs', 'Dr'
+  title?: string;
   firstName: string;
   lastName: string;
   fullName: string; // For easy searching
-  otherNames?: string;
   ghanaCardId?: string; // For linking with national ID systems
-  dob: Date; // Using 'any' for Firebase Timestamp placeholder
+  dob: Date; 
   gender: "Male" | "Female" | "Other";
-  maritalStatus?: "Single" | "Married" | "Divorced" | "Widowed";
-  occupation?: string;
   contact: {
-    primaryPhone: string; // e.g., +233241234567
-    alternatePhone?: string;
+    primaryPhone: string;
     email?: string;
-  };
-  address: {
-    street: string;
-    city: string;
-    region: string;
-    country: string;
   };
   emergencyContact: {
     name: string;
@@ -41,19 +31,11 @@ export interface Patient {
     providerName: string;
     policyNumber: string;
     isActive: boolean;
-    expiryDate: Date; // Using 'any' for Firebase Timestamp placeholder
-  };
-  medicalHistory?: {
-    allergies: string[];
-    preExistingConditions: string[];
-    pastSurgeries: { name: string; date: any }[];
+    expiryDate: Date;
   };
   isAdmitted: boolean;
-  currentAdmissionId?: string;
-  lastVisitDate?: Date;
-  status: 'active' | 'inactive' | 'deceased';
-  createdAt: Date; // Using 'any' for Firebase Timestamp placeholder
-  updatedAt: Date; // Using 'any' for Firebase Timestamp placeholder
+  createdAt: Date; 
+  updatedAt: Date; 
 }
 
 export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
@@ -64,20 +46,20 @@ export interface Admission {
   admissionId: string;
   patientId: string;
   type: AdmissionType;
-  admissionDate: Date; // Using 'any' for Firebase Timestamp placeholder
-  dischargeDate?: Date; // Using 'any' for Firebase Timestamp placeholder
+  admissionDate: Date; 
+  dischargeDate?: Date; 
   reasonForVisit: string;
   ward?: string;
   bedId?: string; // reference to beds collection
   attendingDoctorId: string; // reference to users collection
   status: AdmissionStatus;
   referralDetails?: {
-    referredBy: string; // e.g., 'Korle Bu Teaching Hospital'
+    referredBy: string; 
     referralReason: string;
   };
   dischargeSummary?: string;
-  createdAt: Date; // Using 'any' for Firebase Timestamp placeholder
-  updatedAt: Date; // Using 'any' for Firebase Timestamp placeholder
+  createdAt: Date; 
+  updatedAt: Date; 
   isDischarged?: boolean; // Legacy field for simpler logic
 }
 
@@ -91,10 +73,10 @@ export interface Bed {
     roomNumber: string;
     status: BedStatus;
     currentPatientId?: string; // The ID of the patient currently occupying the bed
-    occupiedSince?: Date; // Using 'any' for Firebase Timestamp placeholder
+    occupiedSince?: Date; 
     cleaningNeeded: boolean;
-    createdAt: Date; // Using 'any' for Firebase Timestamp placeholder
-    updatedAt: Date; // Using 'any' for Firebase Timestamp placeholder
+    createdAt: Date; 
+    updatedAt: Date; 
 }
 
 
