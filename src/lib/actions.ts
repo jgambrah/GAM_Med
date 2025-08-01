@@ -104,16 +104,17 @@ export async function registerPatientAction(
     firstName: firstName,
     lastName: lastName,
     fullName: values.name,
-    dob: values.dateOfBirth,
+    dob: new Date(values.dateOfBirth),
     gender: values.gender as "Male" | "Female" | "Other",
-    contact: { phone: values.phone, email: values.email },
-    address: { street: values.address, city: 'Accra', region: 'Greater Accra' },
+    contact: { primaryPhone: values.phone, email: values.email },
+    address: { street: values.address, city: 'Accra', region: 'Greater Accra', country: 'Ghana' },
     emergencyContact: {
         name: values.emergencyContactName,
         relationship: values.emergencyContactRelationship,
         phone: values.emergencyContactPhone
     },
     isAdmitted: values.admissionStatus === "Inpatient",
+    status: 'active',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -124,7 +125,7 @@ export async function registerPatientAction(
 
   // Follow-up actions that would be part of a Firestore Trigger:
   console.log(`[Simulated] Firebase Auth user creation logic would go here for ${newPatient.patientId}.`);
-  console.log(`[Simulated] Sending welcome notification to ${newPatient.contact.phone}.`);
+  console.log(`[Simulated] Sending welcome notification to ${newPatient.contact.primaryPhone}.`);
   console.log(`[Simulated] Creating default EHR sub-collection for ${newPatient.patientId}.`);
   
   return {
@@ -170,12 +171,13 @@ export async function admitPatientAction(
         patientId,
         type: 'Inpatient',
         admissionDate: new Date(),
-        reasonForAdmission,
+        reasonForVisit: reasonForAdmission,
         ward,
         bedId,
         attendingDoctorId,
-        isDischarged: false,
+        status: 'Admitted',
         createdAt: new Date(),
+        updatedAt: new Date(),
     };
     allAdmissions.push(newAdmission);
     console.log('[Simulated] Created new admission record:', newAdmission);
@@ -246,7 +248,7 @@ export async function dischargePatientAction(
     console.log(`[Simulated] Updated patient ${patientId} to discharged.`);
 
     // 2. Update admission record
-    allAdmissions[admissionIndex].isDischarged = true;
+    allAdmissions[admissionIndex].status = 'Discharged';
     allAdmissions[admissionIndex].dischargeDate = new Date();
     console.log(`[Simulated] Updated admission ${admissionId} to discharged.`);
 

@@ -1,6 +1,3 @@
-
-
-
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -20,7 +17,7 @@ export interface Patient {
   fullName: string; // For easy searching
   otherNames?: string;
   ghanaCardId?: string; // For linking with national ID systems
-  dob: any; // Using 'any' for Firebase Timestamp placeholder
+  dob: Date; // Using 'any' for Firebase Timestamp placeholder
   gender: "Male" | "Female" | "Other";
   maritalStatus?: "Single" | "Married" | "Divorced" | "Widowed";
   occupation?: string;
@@ -44,7 +41,7 @@ export interface Patient {
     providerName: string;
     policyNumber: string;
     isActive: boolean;
-    expiryDate: any; // Using 'any' for Firebase Timestamp placeholder
+    expiryDate: Date; // Using 'any' for Firebase Timestamp placeholder
   };
   medicalHistory?: {
     allergies: string[];
@@ -53,10 +50,10 @@ export interface Patient {
   };
   isAdmitted: boolean;
   currentAdmissionId?: string;
-  lastVisitDate?: any;
+  lastVisitDate?: Date;
   status: 'active' | 'inactive' | 'deceased';
-  createdAt: any; // Using 'any' for Firebase Timestamp placeholder
-  updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
+  createdAt: Date; // Using 'any' for Firebase Timestamp placeholder
+  updatedAt: Date; // Using 'any' for Firebase Timestamp placeholder
 }
 
 export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
@@ -67,8 +64,8 @@ export interface Admission {
   admissionId: string;
   patientId: string;
   type: AdmissionType;
-  admissionDate: any; // Using 'any' for Firebase Timestamp placeholder
-  dischargeDate?: any; // Using 'any' for Firebase Timestamp placeholder
+  admissionDate: Date; // Using 'any' for Firebase Timestamp placeholder
+  dischargeDate?: Date; // Using 'any' for Firebase Timestamp placeholder
   reasonForVisit: string;
   ward?: string;
   bedId?: string; // reference to beds collection
@@ -79,8 +76,9 @@ export interface Admission {
     referralReason: string;
   };
   dischargeSummary?: string;
-  createdAt: any; // Using 'any' for Firebase Timestamp placeholder
-  updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
+  createdAt: Date; // Using 'any' for Firebase Timestamp placeholder
+  updatedAt: Date; // Using 'any' for Firebase Timestamp placeholder
+  isDischarged?: boolean; // Legacy field for simpler logic
 }
 
 
@@ -93,10 +91,10 @@ export interface Bed {
     roomNumber: string;
     status: BedStatus;
     currentPatientId?: string; // The ID of the patient currently occupying the bed
-    occupiedSince?: any; // Using 'any' for Firebase Timestamp placeholder
+    occupiedSince?: Date; // Using 'any' for Firebase Timestamp placeholder
     cleaningNeeded: boolean;
-    createdAt: any; // Using 'any' for Firebase Timestamp placeholder
-    updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
+    createdAt: Date; // Using 'any' for Firebase Timestamp placeholder
+    updatedAt: Date; // Using 'any' for Firebase Timestamp placeholder
 }
 
 

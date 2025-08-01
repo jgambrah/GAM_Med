@@ -163,7 +163,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                         {patient.currentAdmissionId ? (allAdmissions.find(a => a.admissionId === patient.currentAdmissionId)?.bedId || 'N/A') : 'N/A'}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                        {patient.contact.phone}
+                        {patient.contact.primaryPhone}
                     </TableCell>
                     <TableCell className="text-right">
                         {patient.isAdmitted ? (

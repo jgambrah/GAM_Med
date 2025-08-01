@@ -50,7 +50,7 @@ export function PatientAdmissionForm({ patient, onFormSubmit }: PatientAdmission
 
   const availableBeds = allBeds.filter(b => b.status === "vacant");
   const doctors = allUsers.filter(u => u.role === "Doctor");
-  const wards = [...new Set(availableBeds.map(b => b.ward))];
+  const wards = [...new Set(availableBeds.map(b => b.wardName))];
   
   const form = useForm<AdmissionFormValues>({
     resolver: zodResolver(admissionFormSchema),
@@ -143,7 +143,7 @@ export function PatientAdmissionForm({ patient, onFormSubmit }: PatientAdmission
                     </FormControl>
                     <SelectContent>
                       {availableBeds
-                        .filter(b => b.ward === selectedWard)
+                        .filter(b => b.wardName === selectedWard)
                         .map(bed => (
                           <SelectItem key={bed.bedId} value={bed.bedId}>{bed.bedId} ({bed.roomNumber})</SelectItem>
                         ))}

@@ -25,12 +25,18 @@ const statusConfig = {
         label: "Maintenance",
         color: "bg-yellow-100 border-yellow-200 text-yellow-800",
         badge: "secondary" as const,
+    },
+    cleaning: {
+        icon: Wrench,
+        label: "Cleaning",
+        color: "bg-blue-100 border-blue-200 text-blue-800",
+        badge: "secondary" as const,
     }
 }
 
 
 export function BedManagement() {
-  const wards = [...new Set(allBeds.map(b => b.ward))];
+  const wards = [...new Set(allBeds.map(b => b.wardName))];
 
   return (
      <Card>
@@ -42,7 +48,7 @@ export function BedManagement() {
                 <div key={ward}>
                     <h3 className="text-lg font-semibold mb-3 font-headline">{ward} Ward</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {allBeds.filter(b => b.ward === ward).map(bed => {
+                        {allBeds.filter(b => b.wardName === ward).map(bed => {
                             const config = statusConfig[bed.status];
                             return (
                                 <div key={bed.bedId} className={cn("rounded-lg border p-4 flex flex-col items-center justify-center space-y-2", config.color)}>

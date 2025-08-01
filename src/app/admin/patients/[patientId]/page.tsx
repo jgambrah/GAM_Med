@@ -15,7 +15,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
 
   const patientAdmissions = allAdmissions.filter(a => a.patientId === params.patientId);
   
-  const getAge = (dob: string) => {
+  const getAge = (dob: Date) => {
     const birthDate = new Date(dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -50,7 +50,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
           <div className="space-y-1">
             <p className="font-medium text-muted-foreground">Date of Birth</p>
-            <p>{patient.dob} ({getAge(patient.dob)} years old)</p>
+            <p>{format(new Date(patient.dob), 'PPP')} ({getAge(patient.dob)} years old)</p>
           </div>
           <div className="space-y-1">
             <p className="font-medium text-muted-foreground">Gender</p>
@@ -58,7 +58,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
           </div>
            <div className="space-y-1">
             <p className="font-medium text-muted-foreground">Phone Number</p>
-            <p>{patient.contact.phone}</p>
+            <p>{patient.contact.primaryPhone}</p>
           </div>
            <div className="space-y-1">
             <p className="font-medium text-muted-foreground">Email Address</p>
@@ -113,11 +113,11 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
                             <TableRow key={admission.admissionId}>
                                 <TableCell className="font-mono">{admission.admissionId}</TableCell>
                                 <TableCell>{format(new Date(admission.admissionDate), "PPP")}</TableCell>
-                                <TableCell>{admission.reasonForAdmission}</TableCell>
+                                <TableCell>{admission.reasonForVisit}</TableCell>
                                 <TableCell>{admission.ward}</TableCell>
                                 <TableCell>
-                                    <Badge variant={admission.isDischarged ? "secondary" : "default"}>
-                                        {admission.isDischarged ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : "Active"}
+                                    <Badge variant={admission.dischargeDate ? "secondary" : "default"}>
+                                        {admission.dischargeDate ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : admission.status}
                                     </Badge>
                                 </TableCell>
                             </TableRow>
