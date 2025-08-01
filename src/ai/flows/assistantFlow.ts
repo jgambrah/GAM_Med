@@ -32,7 +32,7 @@ export async function assistantFlow(
 ): Promise<AssistantFlowOutput> {
   const {output} = await ai.generate({
     prompt: input.prompt,
-    model: 'googleai/gemini-2.0-flash',
+    model: 'googleai/gemini-2.5-pro',
     system: systemPrompt,
     output: {
       format: 'text',
