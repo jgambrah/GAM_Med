@@ -16,19 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import type { Patient } from "@/lib/types"
+import type { Patient, Admission } from "@/lib/types"
 
-const getStatusBadgeVariant = (status: Patient['admissionStatus']) => {
-  switch (status) {
-    case 'Inpatient':
-      return 'default';
-    case 'Outpatient':
-      return 'secondary';
-    case 'Discharged':
-      return 'outline';
-    default:
-      return 'outline';
-  }
+const getStatusBadgeVariant = (isAdmitted: boolean) => {
+    return isAdmitted ? 'default' : 'secondary';
 };
 
 
@@ -57,14 +48,14 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
           </TableHeader>
           <TableBody>
             {patients.map((patient) => (
-              <TableRow key={patient.id}>
+              <TableRow key={patient.patientId}>
                 <TableCell className="font-mono">{patient.patientId}</TableCell>
-                <TableCell className="font-medium">{patient.name}</TableCell>
+                <TableCell className="font-medium">{patient.fullName}</TableCell>
                  <TableCell>
-                  <Badge variant={getStatusBadgeVariant(patient.admissionStatus)}>{patient.admissionStatus}</Badge>
+                  <Badge variant={getStatusBadgeVariant(patient.isAdmitted)}>{patient.isAdmitted ? 'Inpatient' : 'Outpatient'}</Badge>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {patient.bed || 'N/A'}
+                  {patient.currentAdmissionId || 'N/A'}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {patient.contact.phone}

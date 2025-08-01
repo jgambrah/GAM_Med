@@ -15,15 +15,17 @@ import {
 import { PatientRegistrationForm } from "./patient-registration-form"
 import * as React from "react"
 import { PatientsList } from "./patients-list"
+import { allBeds } from "@/lib/data"
 
 export function AdminOverview({ patients }: { patients: Patient[] }) {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const availableBeds = allBeds.filter(b => b.status === 'vacant').length;
 
   const stats = [
     { title: "Total Patients", value: patients.length, icon: Users },
     { title: "Appointments Today", value: "87", icon: Calendar },
     { title: "Doctors on Duty", value: "12", icon: Stethoscope },
-    { title: "Available Beds", value: "45", icon: Hospital },
+    { title: "Available Beds", value: availableBeds, icon: Hospital },
   ]
 
   return (
