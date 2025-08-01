@@ -1,8 +1,8 @@
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Appointment, User, Patient, Admission, Bed} from './types';
-import {allPatients, allAdmissions, allBeds} from './data';
+import type {Admission, Appointment, Bed, Patient, User} from './types';
+import {allAdmissions, allBeds, allPatients} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -25,12 +25,11 @@ const patientFormSchema = z.object({
 
 const admissionFormSchema = z.object({
   patientId: z.string(),
-  reasonForAdmission: z.string().min(3, "Reason is too short."),
-  ward: z.string().min(3, "Ward is required."),
-  bedId: z.string().min(1, "Bed selection is required."),
-  attendingDoctorId: z.string().min(1, "Doctor selection is required."),
+  reasonForAdmission: z.string().min(3, 'Reason is too short.'),
+  ward: z.string().min(3, 'Ward is required.'),
+  bedId: z.string().min(1, 'Bed selection is required.'),
+  attendingDoctorId: z.string().min(1, 'Doctor selection is required.'),
 });
-
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -78,8 +77,10 @@ async function generatePatientId(): Promise<string> {
 
   let highestId = 0;
   if (patientsToday.length > 0) {
-      const lastPatientId = patientsToday.sort((a,b) => a.patientId.localeCompare(b.patientId)).pop()!.patientId;
-      highestId = parseInt(lastPatientId.split('-')[2], 10);
+    const lastPatientId = patientsToday
+      .sort((a, b) => a.patientId.localeCompare(b.patientId))
+      .pop()!.patientId;
+    highestId = parseInt(lastPatientId.split('-')[2], 10);
   }
 
   const nextId = (highestId + 1).toString().padStart(4, '0');
@@ -93,9 +94,8 @@ async function generatePatientId(): Promise<string> {
 export async function registerPatientAction(
   values: z.infer<typeof patientFormSchema>
 ) {
-  
   const newPatientId = await generatePatientId();
-  
+
   const [firstName, ...lastNameParts] = values.name.split(' ');
   const lastName = lastNameParts.join(' ');
 
@@ -105,29 +105,43 @@ export async function registerPatientAction(
     lastName: lastName,
     fullName: values.name,
     dob: new Date(values.dateOfBirth),
-    gender: values.gender as "Male" | "Female" | "Other",
-    contact: { primaryPhone: values.phone, email: values.email },
-    address: { street: values.address, city: 'Accra', region: 'Greater Accra', country: 'Ghana' },
-    emergencyContact: {
-        name: values.emergencyContactName,
-        relationship: values.emergencyContactRelationship,
-        phone: values.emergencyContactPhone
+    gender: values.gender as 'Male' | 'Female' | 'Other',
+    contact: {primaryPhone: values.phone, email: values.email},
+    address: {
+      street: values.address,
+      city: 'Accra',
+      region: 'Greater Accra',
+      country: 'Ghana',
     },
-    isAdmitted: values.admissionStatus === "Inpatient",
+    emergencyContact: {
+      name: values.emergencyContactName,
+      relationship: values.emergencyContactRelationship,
+      phone: values.emergencyContactPhone,
+    },
+    isAdmitted: values.admissionStatus === 'Inpatient',
     status: 'active',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  
+
   // In a real Firestore app, this would be a single atomic `setDoc` operation.
-  console.log('[Simulated] Registering new patient with server action:', newPatient);
+  console.log(
+    '[Simulated] Registering new patient with server action:',
+    newPatient
+  );
   allPatients.push(newPatient);
 
   // Follow-up actions that would be part of a Firestore Trigger:
-  console.log(`[Simulated] Firebase Auth user creation logic would go here for ${newPatient.patientId}.`);
-  console.log(`[Simulated] Sending welcome notification to ${newPatient.contact.primaryPhone}.`);
-  console.log(`[Simulated] Creating default EHR sub-collection for ${newPatient.patientId}.`);
-  
+  console.log(
+    `[Simulated] Firebase Auth user creation logic would go here for ${newPatient.patientId}.`
+  );
+  console.log(
+    `[Simulated] Sending welcome notification to ${newPatient.contact.primaryPhone}.`
+  );
+  console.log(
+    `[Simulated] Creating default EHR sub-collection for ${newPatient.patientId}.`
+  );
+
   return {
     success: true,
     message: `${newPatient.fullName} has been registered with ID ${newPatient.patientId}.`,
@@ -152,43 +166,43 @@ export async function admitPatientAction(
 
   // In a real app, this would be a Firestore transaction
   try {
-    const { patientId, ward, bedId, reasonForAdmission, attendingDoctorId } = values;
+    const {patientId, ward, bedId, reasonForAdmission, attendingDoctorId} =
+      values;
 
     // 1. Find patient and bed
     const patientIndex = allPatients.findIndex(p => p.patientId === patientId);
-    if (patientIndex === -1) throw new Error("Patient not found.");
-    
+    if (patientIndex === -1) throw new Error('Patient not found.');
+
     const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
-    if (bedIndex === -1) throw new Error("Bed not found.");
-    if (allBeds[bedIndex].status !== 'vacant') throw new Error("Selected bed is not vacant.");
+    if (bedIndex === -1) throw new Error('Bed not found.');
+    if (allBeds[bedIndex].status !== 'vacant')
+      throw new Error('Selected bed is not vacant.');
 
     // 2. Generate new admission ID
     const newAdmissionId = await generateAdmissionId();
-    
+
     // 3. Create new admission record
     const newAdmission: Admission = {
-        admissionId: newAdmissionId,
-        patientId,
-        type: 'Inpatient',
-        admissionDate: new Date(),
-        reasonForVisit: reasonForAdmission,
-        ward,
-        bedId,
-        attendingDoctorId,
-        status: 'Admitted',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      admissionId: newAdmissionId,
+      patientId,
+      type: 'Inpatient',
+      admissionDate: new Date(),
+      reasonForVisit: reasonForAdmission,
+      ward,
+      bedId,
+      attendingDoctorId,
+      status: 'Admitted',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     allAdmissions.push(newAdmission);
     console.log('[Simulated] Created new admission record:', newAdmission);
-
 
     // 4. Update patient document
     allPatients[patientIndex].isAdmitted = true;
     allPatients[patientIndex].currentAdmissionId = newAdmissionId;
     allPatients[patientIndex].updatedAt = new Date();
     console.log('[Simulated] Updated patient record:', allPatients[patientIndex]);
-
 
     // 5. Update bed document
     allBeds[bedIndex].status = 'occupied';
@@ -200,14 +214,13 @@ export async function admitPatientAction(
       success: true,
       message: `Patient admitted successfully with Admission ID: ${newAdmissionId}`,
       admissionId: newAdmissionId,
-    }
-
+    };
   } catch (error: any) {
-    console.error("Error in admitPatientAction:", error);
+    console.error('Error in admitPatientAction:', error);
     return {
       success: false,
-      message: error.message || "An unexpected error occurred during admission.",
-    }
+      message: error.message || 'An unexpected error occurred during admission.',
+    };
   }
 }
 
@@ -219,20 +232,24 @@ export async function dischargePatientAction(
   patientId: string,
   admissionId: string
 ) {
-  console.log(`[Simulated] Running dischargePatientAction for patient ${patientId} and admission ${admissionId}`);
+  console.log(
+    `[Simulated] Running dischargePatientAction for patient ${patientId} and admission ${admissionId}`
+  );
 
   try {
     const patientIndex = allPatients.findIndex(p => p.patientId === patientId);
-    if (patientIndex === -1) throw new Error("Patient not found.");
-    
-    const admissionIndex = allAdmissions.findIndex(a => a.admissionId === admissionId);
-    if (admissionIndex === -1) throw new Error("Admission record not found.");
-    
-    const { bedId } = allAdmissions[admissionIndex];
-    if (!bedId) throw new Error("No bed assigned to this admission.");
+    if (patientIndex === -1) throw new Error('Patient not found.');
+
+    const admissionIndex = allAdmissions.findIndex(
+      a => a.admissionId === admissionId
+    );
+    if (admissionIndex === -1) throw new Error('Admission record not found.');
+
+    const {bedId} = allAdmissions[admissionIndex];
+    if (!bedId) throw new Error('No bed assigned to this admission.');
 
     const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
-    if (bedIndex === -1) throw new Error("Assigned bed not found.");
+    if (bedIndex === -1) throw new Error('Assigned bed not found.');
 
     // In a real app, these three updates would be in a single atomic batch write.
     // const batch = writeBatch(db);
@@ -259,19 +276,22 @@ export async function dischargePatientAction(
     console.log(`[Simulated] Updated bed ${bedId} to vacant.`);
 
     // 4. Trigger follow-up actions (simulated)
-    console.log(`[Simulated] Triggering generation of discharge summary for admission ${admissionId}.`);
-    console.log(`[Simulated] Triggering final bill generation for admission ${admissionId}.`);
+    console.log(
+      `[Simulated] Triggering generation of discharge summary for admission ${admissionId}.`
+    );
+    console.log(
+      `[Simulated] Triggering final bill generation for admission ${admissionId}.`
+    );
 
     return {
       success: true,
-      message: `Patient ${allPatients[patientIndex].fullName} has been discharged.`
+      message: `Patient ${allPatients[patientIndex].fullName} has been discharged.`,
     };
-
   } catch (error: any) {
-    console.error("Error in dischargePatientAction:", error);
+    console.error('Error in dischargePatientAction:', error);
     return {
       success: false,
-      message: error.message || "An unexpected error occurred during discharge.",
+      message: error.message || 'An unexpected error occurred during discharge.',
     };
   }
 }

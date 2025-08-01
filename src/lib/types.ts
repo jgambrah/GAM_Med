@@ -41,7 +41,13 @@ export interface Patient {
 }
 
 export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
-export type AdmissionStatus = 'Admitted' | 'In Treatment' | 'Discharged';
+
+// Inpatient status reflects the journey within the hospital stay.
+export type InpatientStatus = 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged';
+// Outpatient status reflects a single visit or appointment.
+export type OutpatientStatus = 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled';
+// AdmissionStatus is a union of all possible statuses.
+export type AdmissionStatus = InpatientStatus | OutpatientStatus;
 
 // Represents a single admission event for a patient.
 export interface Admission {
