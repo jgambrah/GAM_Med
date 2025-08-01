@@ -1,8 +1,10 @@
-import { allPatients } from "@/lib/data";
+import { allPatients, allAdmissions } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
 
 export default function PatientDetailsPage({ params }: { params: { patientId: string } }) {
   const patient = allPatients.find(p => p.patientId === params.patientId);
@@ -10,6 +12,8 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
   if (!patient) {
     notFound();
   }
+
+  const patientAdmissions = allAdmissions.filter(a => a.patientId === params.patientId);
   
   const getAge = (dob: string) => {
     const birthDate = new Date(dob);
@@ -87,17 +91,48 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
         </CardContent>
       </Card>
       
-      {/* Placeholder for future tabs like Admissions History, Clinical Notes, etc. */}
-       <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm h-64">
-          <div className="flex flex-col items-center gap-1 text-center">
-            <h3 className="text-2xl font-bold tracking-tight font-headline">
-              Admissions & Notes
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              This area will contain tabs for admission history, clinical notes, and billing information.
-            </p>
-          </div>
-        </div>
+      <Card>
+        <CardHeader>
+            <CardTitle>Admission History</CardTitle>
+            <CardDescription>A log of all past and current admissions for this patient.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Admission ID</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Ward</TableHead>
+                        <TableHead>Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {patientAdmissions.length > 0 ? (
+                        patientAdmissions.map((admission) => (
+                            <TableRow key={admission.admissionId}>
+                                <TableCell className="font-mono">{admission.admissionId}</TableCell>
+                                <TableCell>{format(new Date(admission.admissionDate), "PPP")}</TableCell>
+                                <TableCell>{admission.reasonForAdmission}</TableCell>
+                                <TableCell>{admission.ward}</TableCell>
+                                <TableCell>
+                                    <Badge variant={admission.isDischarged ? "secondary" : "default"}>
+                                        {admission.isDischarged ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : "Active"}
+                                    </Badge>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                                No admission history found.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </CardContent>
+      </Card>
 
     </div>
   );
