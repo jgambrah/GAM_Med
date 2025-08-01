@@ -7,10 +7,9 @@ import { Header } from "@/components/dashboard/header";
 import { MainNav } from "@/components/dashboard/main-nav";
 import { PatientsList } from "@/components/dashboard/patients-list";
 import { UserNav } from "@/components/dashboard/user-nav";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { allUsers, allAppointments, allPatients } from "@/lib/data";
-import type { UserRole } from "@/lib/types";
+import { allAppointments, allPatients } from "@/lib/data";
+import { useAuth } from "@/components/auth-provider";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -28,36 +27,38 @@ function PlaceholderView({ role }: { role: string }) {
 }
 
 export default function Dashboard() {
-  const [currentUserRole, setCurrentUserRole] = React.useState<UserRole>("Doctor");
-  const currentUser = React.useMemo(() => {
-    return allUsers.find((user) => user.role === currentUserRole) || allUsers[0];
-  }, [currentUserRole]);
+  const { user } = useAuth();
 
   const userAppointments = React.useMemo(() => {
-    if (currentUser.role === 'Patient') {
-      return allAppointments.filter(app => app.patientId === currentUser.id);
+    if (!user) return [];
+    if (user.role === 'Patient') {
+      return allAppointments.filter(app => app.patientId === user.id);
     }
-    if (currentUser.role === 'Doctor') {
-      return allAppointments.filter(app => app.doctorId === currentUser.id);
+    if (user.role === 'Doctor') {
+      return allAppointments.filter(app => app.doctorId === user.id);
     }
     return allAppointments;
-  }, [currentUser]);
+  }, [user]);
+  
+  if (!user) {
+    return null;
+  }
 
   const renderContent = () => {
-    switch (currentUser.role) {
+    switch (user.role) {
       case "Admin":
         return <AdminOverview />;
       case "Doctor":
         return (
           <div className="space-y-6">
-            <AppointmentsView appointments={userAppointments} user={currentUser} />
+            <AppointmentsView appointments={userAppointments} user={user} />
             <PatientsList patients={allPatients} />
           </div>
         );
       case "Patient":
-        return <AppointmentsView appointments={userAppointments} user={currentUser} />;
+        return <AppointmentsView appointments={userAppointments} user={user} />;
       case "Nurse":
-        return <AppointmentsView appointments={userAppointments} user={currentUser} />;
+        return <AppointmentsView appointments={userAppointments} user={user} />;
       case "Pharmacist":
         return <PlaceholderView role="Pharmacist" />;
       default:
@@ -72,13 +73,13 @@ export default function Dashboard() {
           <div className="p-4">
              <h1 className="text-2xl font-bold font-headline text-primary-foreground">MedFlow GH</h1>
           </div>
-          <MainNav role={currentUser.role} />
+          <MainNav role={user.role} />
         </div>
       </Sidebar>
       <SidebarInset>
         <div className="flex flex-col h-screen">
           <Header>
-            <UserNav user={currentUser} onRoleChange={setCurrentUserRole} />
+            <UserNav user={user} />
           </Header>
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
             {renderContent()}

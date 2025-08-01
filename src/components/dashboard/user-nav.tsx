@@ -1,5 +1,7 @@
 "use client";
 
+import { getAuth, signOut } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,38 +13,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { User, UserRole } from "@/lib/types";
-import { allUsers } from "@/lib/data";
+import type { User } from "@/lib/types";
+import { app } from "@/lib/firebase";
+
 
 interface UserNavProps {
   user: User;
-  onRoleChange: (role: UserRole) => void;
 }
 
-export function UserNav({ user, onRoleChange }: UserNavProps) {
+export function UserNav({ user }: UserNavProps) {
+  const auth = getAuth(app);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
+
+
   return (
     <div className="flex items-center gap-4">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Role:</span>
-        <Select value={user.role} onValueChange={(value) => onRoleChange(value as UserRole)}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Select role" />
-          </SelectTrigger>
-          <SelectContent>
-            {allUsers.map((u) => (
-              <SelectItem key={u.id} value={u.role}>
-                {u.role}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <span className="text-sm font-semibold">{user.role}</span>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -68,7 +61,7 @@ export function UserNav({ user, onRoleChange }: UserNavProps) {
             <DropdownMenuItem>Settings</DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Log out</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
