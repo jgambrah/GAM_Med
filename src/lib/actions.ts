@@ -62,28 +62,34 @@ export async function getSmsReminderAction(
 }
 
 /**
- * Generates a unique patient ID.
- * In a real application, this would query the Firestore database.
- * For now, it simulates this by checking the mock data.
- * @returns {string} A new unique patient ID.
+ * Conceptual `generatePatientId` Function (as a Server Action helper)
+ * Generates a unique patient ID based on the current date.
+ * @returns {string} A new unique patient ID (e.g., P-240821-0001).
  */
 async function generatePatientId(): Promise<string> {
   const today = new Date();
   const datePrefix = today.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
   const prefix = `P-${datePrefix}`;
 
+  // In a real app, this would query Firestore:
+  // const q = query(collection(db, "patients"), where("patientId", ">=", prefix), orderBy("patientId", "desc"), limit(1));
+  // const querySnapshot = await getDocs(q);
   const patientsToday = allPatients.filter(p => p.patientId.startsWith(prefix));
 
-  const highestId = patientsToday.reduce((max, p) => {
-    const currentNum = parseInt(p.patientId.split('-')[2], 10);
-    return currentNum > max ? currentNum : max;
-  }, 0);
+  let highestId = 0;
+  if (patientsToday.length > 0) {
+      const lastPatientId = patientsToday.sort((a,b) => a.patientId.localeCompare(b.patientId)).pop()!.patientId;
+      highestId = parseInt(lastPatientId.split('-')[2], 10);
+  }
 
   const nextId = (highestId + 1).toString().padStart(4, '0');
   return `${prefix}-${nextId}`;
 }
 
-
+/**
+ * Conceptual `onPatientRegister` Logic (as part of `registerPatientAction`)
+ * Handles creating a patient record and triggering follow-up actions.
+ */
 export async function registerPatientAction(
   values: z.infer<typeof patientFormSchema>
 ) {
@@ -112,9 +118,11 @@ export async function registerPatientAction(
     updatedAt: new Date(),
   };
   
+  // In a real Firestore app, this would be a single atomic `setDoc` operation.
   console.log('[Simulated] Registering new patient with server action:', newPatient);
   allPatients.push(newPatient);
 
+  // Follow-up actions that would be part of a Firestore Trigger:
   console.log(`[Simulated] Firebase Auth user creation logic would go here for ${newPatient.patientId}.`);
   console.log(`[Simulated] Sending welcome notification to ${newPatient.contact.phone}.`);
   console.log(`[Simulated] Creating default EHR sub-collection for ${newPatient.patientId}.`);
@@ -132,7 +140,10 @@ async function generateAdmissionId(): Promise<string> {
   return `${prefix}-${nextId}`;
 }
 
-
+/**
+ * Conceptual `handlePatientAdmission` Function (as a Server Action)
+ * Handles the logic for admitting a patient.
+ */
 export async function admitPatientAction(
   values: z.infer<typeof admissionFormSchema>
 ) {
@@ -198,6 +209,10 @@ export async function admitPatientAction(
   }
 }
 
+/**
+ * Conceptual `handlePatientDischarge` Function (as a Server Action)
+ * Handles the logic for discharging a patient.
+ */
 export async function dischargePatientAction(
   patientId: string,
   admissionId: string
@@ -217,6 +232,13 @@ export async function dischargePatientAction(
     const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
     if (bedIndex === -1) throw new Error("Assigned bed not found.");
 
+    // In a real app, these three updates would be in a single atomic batch write.
+    // const batch = writeBatch(db);
+    // batch.update(patientRef, { isAdmitted: false, currentAdmissionId: null });
+    // batch.update(admissionRef, { isDischarged: true, dischargeDate: serverTimestamp() });
+    // batch.update(bedRef, { status: 'vacant', currentPatientId: null });
+    // await batch.commit();
+
     // 1. Update patient
     allPatients[patientIndex].isAdmitted = false;
     allPatients[patientIndex].currentAdmissionId = undefined;
@@ -234,7 +256,7 @@ export async function dischargePatientAction(
     allBeds[bedIndex].occupiedSince = undefined;
     console.log(`[Simulated] Updated bed ${bedId} to vacant.`);
 
-    // 4. Trigger follow-up actions
+    // 4. Trigger follow-up actions (simulated)
     console.log(`[Simulated] Triggering generation of discharge summary for admission ${admissionId}.`);
     console.log(`[Simulated] Triggering final bill generation for admission ${admissionId}.`);
 
