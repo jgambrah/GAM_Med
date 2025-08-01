@@ -2,56 +2,63 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Get user role from the 'users' collection for the currently authenticated user.
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+
+    // Helper function to get the user's role from their UID
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Check if the user has one of the allowed roles.
-    function isOneOfRoles(allowedRoles) {
-      return getUserRole() in allowedRoles;
+    // Helper function to check if the user has one of the specified roles
+    function hasOneOfRoles(roles) {
+      return isAuthenticated() && getUserRole(request.auth.uid) in roles;
+    }
+    
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+        return request.auth.uid == userId;
     }
 
-    // users collection:
-    // - Users can read their own data.
-    // - Admins can read anyone's data.
-    // - Users can create their own user document on sign-up.
-    // - Users can update their own profile data.
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isOneOfRoles(['Admin']);
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId;
+      // Any authenticated user can read their own user profile
+      // Only Admins can read all user profiles
+      allow read: if isAuthenticated() && (isOwner(userId) || hasOneOfRoles(['Admin']));
+      // Users can create their own profile upon signup
+      // Admins can create other users
+      allow create: if isAuthenticated(); 
+      // Users can update their own profile
+      // Admins can update any user's profile
+      allow update: if isAuthenticated() && (isOwner(userId) || hasOneOfRoles(['Admin']));
+      // Only admins can delete users
+      allow delete: if hasOneOfRoles(['Admin']);
     }
 
-    // patients collection:
-    // - Patients can read their own data.
-    // - Doctors, Nurses, and Admins can read all patient data.
-    // - Admins can create and update patient records.
+    // Rules for the 'patients' collection
     match /patients/{patientId} {
-      allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId == patientId 
-                   || isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
-      allow create, update: if isOneOfRoles(['Admin']);
-      allow delete: if false; // Disallow deletion of patient records.
-
-      // admissions sub-collection:
-      // - Rules are inherited from patients, but we can add more specific ones.
-      // - Doctors, Nurses, and Admins can manage admissions.
-      match /admissions/{admissionId} {
-        allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId == patientId 
-                     || isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
-        allow create, update: if isOneOfRoles(['Admin', 'Doctor']);
-        allow delete: if false;
-      }
+      allow read: if hasOneOfRoles(['Admin', 'Doctor', 'Nurse']) || (hasOneOfRoles(['Patient']) && resource.data.authUid == request.auth.uid);
+      allow create: if hasOneOfRoles(['Admin', 'BillingClerk']);
+      allow update: if hasOneOfRoles(['Admin', 'BillingClerk', 'Doctor', 'Nurse']);
+      allow delete: if hasOneOfRoles(['Admin']);
     }
 
-    // beds collection:
-    // - Only Doctors, Nurses, and Admins can view bed status.
-    // - Only Admins can modify bed documents (e.g., add new beds, put into maintenance).
-    // - Admission/discharge logic handles occupied/vacant status via secure server-side functions.
+    // Rules for the 'admissions' sub-collection within patients
+    match /patients/{patientId}/admissions/{admissionId} {
+        allow read: if hasOneOfRoles(['Admin', 'Doctor', 'Nurse']) || (hasOneOfRoles(['Patient']) && patientId == request.auth.uid);
+        allow create: if hasOneOfRoles(['Admin', 'Doctor']); // Doctors or Admins can admit patients
+        allow update: if hasOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        allow delete: if hasOneOfRoles(['Admin']);
+    }
+
+    // Rules for the 'beds' collection
     match /beds/{bedId} {
-      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
-      allow write: if isOneOfRoles(['Admin']);
+        allow read: if hasOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        allow list: if hasOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        allow create, update, delete: if hasOneOfRoles(['Admin']); // Only Admins can manage bed inventory
     }
   }
 }
