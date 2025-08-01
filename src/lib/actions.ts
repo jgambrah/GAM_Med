@@ -1,6 +1,5 @@
 "use server";
 
-import { runAction } from "genkit/next/server";
 import { generateSmsReminder } from "@/ai/flows/generateSmsReminder";
 import type { Appointment, User } from "./types";
 
@@ -10,7 +9,7 @@ export async function getSmsReminderAction(
   appointments: Appointment[]
 ) {
   try {
-    const sms = await runAction(generateSmsReminder, {
+    const sms = await generateSmsReminder({
       role,
       userName,
       appointments: appointments.map((a) => ({
