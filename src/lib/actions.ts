@@ -197,3 +197,57 @@ export async function admitPatientAction(
     }
   }
 }
+
+export async function dischargePatientAction(
+  patientId: string,
+  admissionId: string
+) {
+  console.log(`[Simulated] Running dischargePatientAction for patient ${patientId} and admission ${admissionId}`);
+
+  try {
+    const patientIndex = allPatients.findIndex(p => p.patientId === patientId);
+    if (patientIndex === -1) throw new Error("Patient not found.");
+    
+    const admissionIndex = allAdmissions.findIndex(a => a.admissionId === admissionId);
+    if (admissionIndex === -1) throw new Error("Admission record not found.");
+    
+    const { bedId } = allAdmissions[admissionIndex];
+    if (!bedId) throw new Error("No bed assigned to this admission.");
+
+    const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
+    if (bedIndex === -1) throw new Error("Assigned bed not found.");
+
+    // 1. Update patient
+    allPatients[patientIndex].isAdmitted = false;
+    allPatients[patientIndex].currentAdmissionId = undefined;
+    allPatients[patientIndex].updatedAt = new Date();
+    console.log(`[Simulated] Updated patient ${patientId} to discharged.`);
+
+    // 2. Update admission record
+    allAdmissions[admissionIndex].isDischarged = true;
+    allAdmissions[admissionIndex].dischargeDate = new Date();
+    console.log(`[Simulated] Updated admission ${admissionId} to discharged.`);
+
+    // 3. Update bed status
+    allBeds[bedIndex].status = 'vacant';
+    allBeds[bedIndex].currentPatientId = undefined;
+    allBeds[bedIndex].occupiedSince = undefined;
+    console.log(`[Simulated] Updated bed ${bedId} to vacant.`);
+
+    // 4. Trigger follow-up actions
+    console.log(`[Simulated] Triggering generation of discharge summary for admission ${admissionId}.`);
+    console.log(`[Simulated] Triggering final bill generation for admission ${admissionId}.`);
+
+    return {
+      success: true,
+      message: `Patient ${allPatients[patientIndex].fullName} has been discharged.`
+    };
+
+  } catch (error: any) {
+    console.error("Error in dischargePatientAction:", error);
+    return {
+      success: false,
+      message: error.message || "An unexpected error occurred during discharge.",
+    };
+  }
+}
