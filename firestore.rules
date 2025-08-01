@@ -1,68 +1,93 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get the role of the requesting user
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    // Helper function to check if the user is authenticated
+    // Helper functions to check user roles and authentication
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isRole(role) {
+        return isAuthenticated() && getUserData().role == role;
+    }
+    
+    function isOneOfRoles(roles) {
+        return isAuthenticated() && getUserData().role in roles;
+    }
+
     // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow users to read their own profile
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      // Allow users to create their own profile upon signup
+      // Users can read their own profile information
+      allow read: if isUser(userId);
+      // New users can create their own profile during sign-up
       allow create: if isAuthenticated();
-      // Allow users to update their own profile
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+      // Users can update their own profile
+      allow update: if isUser(userId);
+      // Deletion should be restricted, e.g., only by an Admin
+      allow delete: if isRole('Admin');
     }
 
     // Rules for the 'patients' collection
     match /patients/{patientId} {
-      allow read: if isAuthenticated() && (
-        getUserRole() in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'] ||
-        // Patients can read their own data, assuming patientId matches their auth uid
-        (getUserRole() == 'Patient' && request.auth.uid == patientId)
-      );
+      // READ:
+      // - The patient themselves can read their own record.
+      // - Doctors, Nurses, and Admins can read any patient record.
+      allow read: if (isUser(patientId) && isRole('Patient')) || isOneOfRoles(['Doctor', 'Nurse', 'Admin']);
+
+      // CREATE:
+      // - Only Admins can create new patient records.
+      allow create: if isRole('Admin');
       
-      allow create: if isAuthenticated() && getUserRole() in ['Admin', 'BillingClerk'];
-      
-      allow update: if isAuthenticated() && (
-        // Admins and Billing Clerks can update administrative fields
-        getUserRole() in ['Admin', 'BillingClerk'] ||
-        // Doctors and Nurses can update specific clinical fields (e.g., via a trusted server action)
-        (getUserRole() in ['Doctor', 'Nurse'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAdmitted', 'currentAdmissionId', 'updatedAt']))
-      );
+      // UPDATE:
+      // - Admins can update any field.
+      // - Doctors/Nurses can only update admission status fields.
+      allow update: if isOneOfRoles(['Admin']) || 
+                     (isOneOfRoles(['Doctor', 'Nurse']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAdmitted', 'currentAdmissionId', 'updatedAt']));
+
+      // DELETE:
+      // - Deleting patient records is a sensitive operation and restricted to Admins.
+      // - In a production environment, this might be disallowed entirely in favor of an 'inactive' status.
+      allow delete: if isRole('Admin');
 
       // Rules for the 'admissions' sub-collection
       match /admissions/{admissionId} {
-        allow read: if isAuthenticated() && (
-          getUserRole() in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'] ||
-          (getUserRole() == 'Patient' && request.auth.uid == patientId)
-        );
+        // READ:
+        // - Access is inherited from the parent patient document.
+        allow read: if (isUser(patientId) && isRole('Patient')) || isOneOfRoles(['Doctor', 'Nurse', 'Admin']);
         
-        allow create: if isAuthenticated() && getUserRole() in ['Admin', 'BillingClerk'];
-
-        // Updates are restricted and typically handled by server-side logic (e.g., discharging a patient)
-        allow update: if isAuthenticated() && getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+        // CREATE:
+        // - Admins, Doctors, or Nurses can create admission records.
+        allow create: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        
+        // UPDATE:
+        // - Admins or clinical staff can update admission records (e.g., to discharge).
+        allow update: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        
+        // DELETE:
+        // - Deletion is restricted to Admins.
+        allow delete: if isRole('Admin');
       }
     }
-    
+
     // Rules for the 'beds' collection
     match /beds/{bedId} {
-      allow read: if isAuthenticated() && getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+      // READ:
+      // - Bed status is generally not sensitive. Allow any authenticated user to see bed availability.
+      allow read: if isAuthenticated();
       
-      // Only Admins or trusted server-side logic should modify bed status
-      allow update: if isAuthenticated() && getUserRole() == 'Admin';
-      
-      // Disallow client-side creation/deletion of beds
-      allow create, delete: if false;
+      // WRITE (create, update, delete):
+      // - Managing beds (allocating, cleaning, maintenance) is a clinical/admin task.
+      allow write: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
     }
   }
 }
