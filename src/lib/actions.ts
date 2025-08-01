@@ -1,8 +1,8 @@
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Appointment, User, Patient} from './types';
-import {allPatients} from './data';
+import type {Appointment, User, Patient, Admission, Bed} from './types';
+import {allPatients, allAdmissions, allBeds} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -22,6 +22,15 @@ const patientFormSchema = z.object({
   admissionStatus: z.enum(['Inpatient', 'Outpatient']),
   bed: z.string().optional(),
 });
+
+const admissionFormSchema = z.object({
+  patientId: z.string(),
+  reasonForAdmission: z.string().min(3, "Reason is too short."),
+  ward: z.string().min(3, "Ward is required."),
+  bedId: z.string().min(1, "Bed selection is required."),
+  attendingDoctorId: z.string().min(1, "Doctor selection is required."),
+});
+
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -63,9 +72,6 @@ async function generatePatientId(): Promise<string> {
   const datePrefix = today.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
   const prefix = `P-${datePrefix}`;
 
-  // In a real app, this would be a query like:
-  // const q = query(collection(db, "patients"), where("patientId", ">=", prefix), where("patientId", "<", prefix + "z"));
-  // For mock data, we filter the array.
   const patientsToday = allPatients.filter(p => p.patientId.startsWith(prefix));
 
   const highestId = patientsToday.reduce((max, p) => {
@@ -95,43 +101,99 @@ export async function registerPatientAction(
     dob: values.dateOfBirth,
     gender: values.gender as "Male" | "Female" | "Other",
     contact: { phone: values.phone, email: values.email },
-    address: { street: values.address, city: 'Accra', region: 'Greater Accra' }, // Mocked city/region
+    address: { street: values.address, city: 'Accra', region: 'Greater Accra' },
     emergencyContact: {
         name: values.emergencyContactName,
         relationship: values.emergencyContactRelationship,
         phone: values.emergencyContactPhone
     },
     isAdmitted: values.admissionStatus === "Inpatient",
-    // In a real scenario, you'd create an admission record if they are inpatient
-    // currentAdmissionId: values.admissionStatus === "Inpatient" ? "some-new-id" : undefined, 
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-
-  // In a real app, this would be a call to `setDoc(doc(db, "patients", newPatientId), newPatient)`
-  console.log('Registering new patient with server action:', newPatient);
-  allPatients.push(newPatient); // Mocking the data update
-
-  // --- Post-Registration Logic (Simulating Firestore Triggers) ---
   
-  // 1. (Optional) Create Firebase Auth user. The main /register page already does this.
-  //    For admin-created patients, this could be a separate step or handled here if needed.
+  console.log('[Simulated] Registering new patient with server action:', newPatient);
+  allPatients.push(newPatient);
+
   console.log(`[Simulated] Firebase Auth user creation logic would go here for ${newPatient.patientId}.`);
-
-  // 2. Send welcome email/SMS. This would call another Genkit flow.
   console.log(`[Simulated] Sending welcome notification to ${newPatient.contact.phone}.`);
-  // await sendWelcomeSmsFlow({ patientName: newPatient.fullName, patientId: newPatient.patientId });
-
-  // 3. Create default sub-collections (e.g., EHR).
-  //    In a real app: await setDoc(doc(db, `patients/${newPatient.patientId}/ehr`, 'summary'), { initialData: true });
   console.log(`[Simulated] Creating default EHR sub-collection for ${newPatient.patientId}.`);
   
-  // --- End of Post-Registration Logic ---
-
-
   return {
     success: true,
     message: `${newPatient.fullName} has been registered with ID ${newPatient.patientId}.`,
     patientId: newPatient.patientId,
   };
+}
+
+async function generateAdmissionId(): Promise<string> {
+  const prefix = 'ADM';
+  const nextId = (allAdmissions.length + 1).toString().padStart(4, '0');
+  return `${prefix}-${nextId}`;
+}
+
+
+export async function admitPatientAction(
+  values: z.infer<typeof admissionFormSchema>
+) {
+  console.log('[Simulated] Running admitPatientAction for:', values);
+
+  // In a real app, this would be a Firestore transaction
+  try {
+    const { patientId, ward, bedId, reasonForAdmission, attendingDoctorId } = values;
+
+    // 1. Find patient and bed
+    const patientIndex = allPatients.findIndex(p => p.patientId === patientId);
+    if (patientIndex === -1) throw new Error("Patient not found.");
+    
+    const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
+    if (bedIndex === -1) throw new Error("Bed not found.");
+    if (allBeds[bedIndex].status !== 'vacant') throw new Error("Selected bed is not vacant.");
+
+    // 2. Generate new admission ID
+    const newAdmissionId = await generateAdmissionId();
+    
+    // 3. Create new admission record
+    const newAdmission: Admission = {
+        admissionId: newAdmissionId,
+        patientId,
+        type: 'Inpatient',
+        admissionDate: new Date(),
+        reasonForAdmission,
+        ward,
+        bedId,
+        attendingDoctorId,
+        isDischarged: false,
+        createdAt: new Date(),
+    };
+    allAdmissions.push(newAdmission);
+    console.log('[Simulated] Created new admission record:', newAdmission);
+
+
+    // 4. Update patient document
+    allPatients[patientIndex].isAdmitted = true;
+    allPatients[patientIndex].currentAdmissionId = newAdmissionId;
+    allPatients[patientIndex].updatedAt = new Date();
+    console.log('[Simulated] Updated patient record:', allPatients[patientIndex]);
+
+
+    // 5. Update bed document
+    allBeds[bedIndex].status = 'occupied';
+    allBeds[bedIndex].currentPatientId = patientId;
+    allBeds[bedIndex].occupiedSince = new Date();
+    console.log('[Simulated] Updated bed record:', allBeds[bedIndex]);
+
+    return {
+      success: true,
+      message: `Patient admitted successfully with Admission ID: ${newAdmissionId}`,
+      admissionId: newAdmissionId,
+    }
+
+  } catch (error: any) {
+    console.error("Error in admitPatientAction:", error);
+    return {
+      success: false,
+      message: error.message || "An unexpected error occurred during admission.",
+    }
+  }
 }

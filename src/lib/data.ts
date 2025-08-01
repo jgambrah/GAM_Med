@@ -2,6 +2,7 @@ import type { User, Patient, Appointment, Bed, Admission } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
+  { id: 'doc2', name: 'Dr. Kofi Anan', email: 'k.anan@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=KA' },
   { id: 'pat1', name: 'Kwame Osei', email: 'k.osei@email.com', role: 'Patient', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=KO' },
   { id: 'adm1', name: 'Afi Johnson', email: 'a.johnson@medflow.gh', role: 'Admin', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=AJ' },
   { id: 'nur1', name: 'Grace Adjei', email: 'g.adjei@medflow.gh', role: 'Nurse', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=GA' },
@@ -121,6 +122,22 @@ export const allBeds: Bed[] = [
         roomNumber: '204',
         status: 'maintenance',
         lastCleaned: new Date('2024-07-23T11:00:00Z'),
+        createdAt: now,
+    },
+     {
+        bedId: 'G-101',
+        ward: 'General',
+        roomNumber: 'G1',
+        status: 'vacant',
+        lastCleaned: new Date('2024-07-25T10:00:00Z'),
+        createdAt: now,
+    },
+      {
+        bedId: 'G-102',
+        ward: 'General',
+        roomNumber: 'G1',
+        status: 'vacant',
+        lastCleaned: new Date('2024-07-25T10:00:00Z'),
         createdAt: now,
     }
 ];
