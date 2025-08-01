@@ -12,7 +12,7 @@ export interface User {
 export interface Patient {
   patientId: string; // The unique patient identifier, will also be the document ID
   firstName: string;
-  lastName:string;
+  lastName: string;
   fullName: string; // For easy searching
   dob: string; // YYYY-MM-DD
   gender: "Male" | "Female" | "Other";

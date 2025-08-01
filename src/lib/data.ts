@@ -1,4 +1,4 @@
-import type { User, Patient, Appointment } from './types';
+import type { User, Patient, Appointment, Bed, Admission } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -8,62 +8,123 @@ export const allUsers: User[] = [
   { id: 'pha1', name: 'Ben Carter', email: 'b.carter@medflow.gh', role: 'Pharmacist', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=BC' },
 ];
 
+const now = new Date();
+
 export const allPatients: Patient[] = [
   {
-    id: 'pat1',
-    patientId: 'MF-0001',
-    name: 'Kwame Osei',
-    dateOfBirth: '1985-05-20',
+    patientId: 'P-250801-0001',
+    firstName: 'Kwame',
+    lastName: 'Osei',
+    fullName: 'Kwame Osei',
+    dob: '1985-05-20',
     gender: 'Male',
-    contact: { phone: '024-123-4567' },
-    address: '123 Anum Street, Accra',
-    emergencyContact: { name: 'Adwoa Osei', phone: '024-765-4321', relationship: 'Spouse' },
-    bloodGroup: 'O+',
-    allergies: ['Penicillin'],
-    admissionStatus: 'Inpatient',
-    bed: 'Ward A, Bed 101',
+    contact: { phone: '+233241234567', email: 'k.osei@email.com' },
+    address: { street: '123 Anum Street', city: 'Accra', region: 'Greater Accra' },
+    emergencyContact: { name: 'Adwoa Osei', relationship: 'Spouse', phone: '+233247654321' },
+    insurance: { providerName: 'NHIS', policyNumber: '12345678', expiryDate: new Date('2025-12-31') },
+    isAdmitted: true,
+    currentAdmissionId: 'ADM-0001',
+    createdAt: now,
+    updatedAt: now,
   },
   {
-    id: 'pat2',
-    patientId: 'MF-0002',
-    name: 'Ama Serwaa',
-    dateOfBirth: '1992-11-15',
+    patientId: 'P-250801-0002',
+    firstName: 'Ama',
+    lastName: 'Serwaa',
+    fullName: 'Ama Serwaa',
+    dob: '1992-11-15',
     gender: 'Female',
-    contact: { phone: '020-987-6543' },
-    address: '456 Palm Avenue, Kumasi',
-    emergencyContact: { name: 'Kofi Serwaa', phone: '020-345-6789', relationship: 'Brother' },
-    bloodGroup: 'A-',
-    allergies: [],
-    admissionStatus: 'Outpatient',
+    contact: { phone: '+233209876543' },
+    address: { street: '456 Palm Avenue', city: 'Kumasi', region: 'Ashanti' },
+    emergencyContact: { name: 'Kofi Serwaa', relationship: 'Brother', phone: '+233203456789' },
+    isAdmitted: false,
+    createdAt: now,
+    updatedAt: now,
   },
-  {
-    id: 'pat3',
-    patientId: 'MF-0003',
-    name: 'Femi Adebayo',
-    dateOfBirth: '1978-01-30',
+    {
+    patientId: 'P-250801-0003',
+    firstName: 'Femi',
+    lastName: 'Adebayo',
+    fullName: 'Femi Adebayo',
+    dob: '1978-01-30',
     gender: 'Male',
-    contact: { phone: '055-555-0101' },
-    address: '789 Baobab Lane, Takoradi',
-    emergencyContact: { name: 'Sade Adebayo', phone: '055-555-0102', relationship: 'Wife' },
-    bloodGroup: 'B+',
-    allergies: ['Dust', 'Pollen'],
-    admissionStatus: 'Inpatient',
-    bed: 'Ward B, Bed 203',
-  },
-   {
-    id: 'pat4',
-    patientId: 'MF-0004',
-    name: 'Esi Parker',
-    dateOfBirth: '2001-08-10',
-    gender: 'Female',
-    contact: { phone: '027-111-2222' },
-    address: '10 Cocoa Close, Tema',
-    emergencyContact: { name: 'Yaw Parker', phone: '027-222-3333', relationship: 'Father' },
-    bloodGroup: 'AB+',
-    allergies: [],
-    admissionStatus: 'Discharged',
+    contact: { phone: '+233555550101', email: 'f.adebayo@email.com' },
+    address: { street: '789 Baobab Lane', city: 'Takoradi', region: 'Western' },
+    emergencyContact: { name: 'Sade Adebayo', relationship: 'Wife', phone: '+233555550102' },
+    isAdmitted: true,
+    currentAdmissionId: 'ADM-0002',
+    createdAt: now,
+    updatedAt: now,
   },
 ];
+
+
+export const allAdmissions: Admission[] = [
+    {
+        admissionId: 'ADM-0001',
+        patientId: 'P-250801-0001',
+        type: 'Inpatient',
+        admissionDate: new Date('2024-07-20T10:00:00Z'),
+        reasonForAdmission: 'Chest Pains',
+        ward: 'Cardiology',
+        bedId: 'C-101',
+        attendingDoctorId: 'doc1',
+        isDischarged: false,
+        createdAt: new Date('2024-07-20T10:00:00Z'),
+    },
+    {
+        admissionId: 'ADM-0002',
+        patientId: 'P-250801-0003',
+        type: 'Inpatient',
+        admissionDate: new Date('2024-07-22T14:30:00Z'),
+        reasonForAdmission: 'Severe Migraine',
+        ward: 'Neurology',
+        bedId: 'N-203',
+        attendingDoctorId: 'doc1',
+        isDischarged: false,
+        createdAt: new Date('2024-07-22T14:30:00Z'),
+    },
+];
+
+export const allBeds: Bed[] = [
+    {
+        bedId: 'C-101',
+        ward: 'Cardiology',
+        roomNumber: '101',
+        status: 'occupied',
+        currentPatientId: 'P-250801-0001',
+        occupiedSince: new Date('2024-07-20T10:00:00Z'),
+        lastCleaned: new Date('2024-07-20T08:00:00Z'),
+        createdAt: now,
+    },
+    {
+        bedId: 'C-102',
+        ward: 'Cardiology',
+        roomNumber: '101',
+        status: 'vacant',
+        lastCleaned: new Date('2024-07-24T09:00:00Z'),
+        createdAt: now,
+    },
+    {
+        bedId: 'N-203',
+        ward: 'Neurology',
+        roomNumber: '203',
+        status: 'occupied',
+        currentPatientId: 'P-250801-0003',
+        occupiedSince: new Date('2024-07-22T14:30:00Z'),
+        lastCleaned: new Date('2024-07-22T12:00:00Z'),
+        createdAt: now,
+    },
+     {
+        bedId: 'N-204',
+        ward: 'Neurology',
+        roomNumber: '204',
+        status: 'maintenance',
+        lastCleaned: new Date('2024-07-23T11:00:00Z'),
+        createdAt: now,
+    }
+];
+
 
 const today = new Date();
 const tomorrow = new Date();
@@ -72,7 +133,7 @@ tomorrow.setDate(today.getDate() + 1);
 export const allAppointments: Appointment[] = [
   {
     id: 'app1',
-    patientId: 'pat1',
+    patientId: 'P-250801-0001',
     patientName: 'Kwame Osei',
     doctorId: 'doc1',
     doctorName: 'Evelyn Mensah',
@@ -84,7 +145,7 @@ export const allAppointments: Appointment[] = [
   },
   {
     id: 'app2',
-    patientId: 'pat2',
+    patientId: 'P-250801-0002',
     patientName: 'Ama Serwaa',
     doctorId: 'doc1',
     doctorName: 'Evelyn Mensah',
@@ -96,7 +157,7 @@ export const allAppointments: Appointment[] = [
   },
   {
     id: 'app3',
-    patientId: 'pat3',
+    patientId: 'P-250801-0003',
     patientName: 'Femi Adebayo',
     doctorId: 'doc1',
     doctorName: 'Evelyn Mensah',
