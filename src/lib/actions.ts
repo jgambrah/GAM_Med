@@ -112,6 +112,23 @@ export async function registerPatientAction(
   console.log('Registering new patient with server action:', newPatient);
   allPatients.push(newPatient); // Mocking the data update
 
+  // --- Post-Registration Logic (Simulating Firestore Triggers) ---
+  
+  // 1. (Optional) Create Firebase Auth user. The main /register page already does this.
+  //    For admin-created patients, this could be a separate step or handled here if needed.
+  console.log(`[Simulated] Firebase Auth user creation logic would go here for ${newPatient.patientId}.`);
+
+  // 2. Send welcome email/SMS. This would call another Genkit flow.
+  console.log(`[Simulated] Sending welcome notification to ${newPatient.contact.phone}.`);
+  // await sendWelcomeSmsFlow({ patientName: newPatient.fullName, patientId: newPatient.patientId });
+
+  // 3. Create default sub-collections (e.g., EHR).
+  //    In a real app: await setDoc(doc(db, `patients/${newPatient.patientId}/ehr`, 'summary'), { initialData: true });
+  console.log(`[Simulated] Creating default EHR sub-collection for ${newPatient.patientId}.`);
+  
+  // --- End of Post-Registration Logic ---
+
+
   return {
     success: true,
     message: `${newPatient.fullName} has been registered with ID ${newPatient.patientId}.`,
