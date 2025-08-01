@@ -26,7 +26,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
     <div className="space-y-6">
        <div className="flex items-center space-x-4">
         <Avatar className="h-24 w-24 border">
-          <AvatarImage src={`https://placehold.co/100x100/E3F2FD/333?text=${patient.firstName.charAt(0)}${patient.lastName.charAt(0)}`} alt={patient.fullName} />
+          <AvatarImage src={`https://placehold.co/100x100/E3F2FD/333?text=${patient.firstName.charAt(0)}${patient.lastName.charAt(0)}`} alt={patient.fullName} data-ai-hint="avatar profile" />
           <AvatarFallback>{patient.firstName.charAt(0)}{patient.lastName.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>
