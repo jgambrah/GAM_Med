@@ -203,7 +203,7 @@ export async function admitPatientAction(
     allAdmissions.push(newAdmission);
     console.log('[Simulated] Created new admission record:', newAdmission);
 
-    // 4. Update patient document
+    // 4. Update patient record
     allPatients[patientIndex].isAdmitted = true;
     allPatients[patientIndex].currentAdmissionId = newAdmissionId;
     allPatients[patientIndex].updatedAt = new Date();
@@ -235,7 +235,8 @@ export async function admitPatientAction(
  */
 export async function dischargePatientAction(
   patientId: string,
-  admissionId: string
+  admissionId: string,
+  dischargeSummary?: string
 ) {
   console.log(
     `[Simulated] Running dischargePatientAction for patient ${patientId} and admission ${admissionId}`
@@ -272,10 +273,13 @@ export async function dischargePatientAction(
     // 2. Update admission record
     allAdmissions[admissionIndex].status = 'Discharged';
     allAdmissions[admissionIndex].dischargeDate = new Date();
+    if (dischargeSummary) {
+      allAdmissions[admissionIndex].dischargeSummary = dischargeSummary;
+    }
     console.log(`[Simulated] Updated admission ${admissionId} to discharged.`);
 
     // 3. Update bed status
-    allBeds[bedIndex].status = 'vacant';
+    allBeds[bedIndex].status = 'cleaning';
     allBeds[bedIndex].currentPatientId = undefined;
     allBeds[bedIndex].occupiedSince = undefined;
     console.log(`[Simulated] Updated bed ${bedId} to vacant.`);

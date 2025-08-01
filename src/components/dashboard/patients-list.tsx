@@ -46,6 +46,8 @@ import { dischargePatientAction } from "@/lib/actions"
 import { Loader2, Search } from "lucide-react"
 import { Input } from "../ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
 
 const getStatusBadgeVariant = (isAdmitted: boolean) => {
     return isAdmitted ? 'default' : 'secondary';
@@ -56,6 +58,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   const [isDischarging, setIsDischarging] = React.useState<string | null>(null);
+  const [dischargeSummary, setDischargeSummary] = React.useState("");
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -91,9 +94,10 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     }
     setIsDischarging(patient.patientId);
     try {
-        const result = await dischargePatientAction(patient.patientId, patient.currentAdmissionId);
+        const result = await dischargePatientAction(patient.patientId, patient.currentAdmissionId, dischargeSummary);
         if (result.success) {
             toast({ title: "Patient Discharged", description: result.message });
+            setDischargeSummary("");
         } else {
             toast({ variant: "destructive", title: "Discharge Failed", description: result.message });
         }
@@ -180,15 +184,24 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                             <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogTitle>Discharge Patient: {patient.fullName}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                This action will discharge {patient.fullName}. This will update the patient's record and free up their assigned bed. This action cannot be undone.
+                                This action will discharge {patient.fullName}. This will update the patient's record and free up their assigned bed. Please provide a discharge summary below. This action cannot be undone.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
+                             <div className="grid gap-2">
+                                <Label htmlFor="discharge-summary">Discharge Summary (Optional)</Label>
+                                <Textarea 
+                                    id="discharge-summary"
+                                    placeholder="Patient responded well to treatment..."
+                                    value={dischargeSummary}
+                                    onChange={(e) => setDischargeSummary(e.target.value)}
+                                />
+                            </div>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction onClick={() => handleDischarge(patient)}>
-                                Continue
+                                Confirm Discharge
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                             </AlertDialogContent>
