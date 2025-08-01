@@ -4,6 +4,7 @@ import {
   CalendarDays,
   HeartPulse,
   LayoutDashboard,
+  LogIn,
   Pill,
   ShieldCheck,
   Stethoscope,
@@ -22,6 +23,7 @@ import type { UserRole } from "@/lib/types"
 const navItems = {
   Admin: [
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/admin/admissions", icon: LogIn, label: "Admissions" },
     { href: "#", icon: UsersRound, label: "Patients" },
     { href: "#", icon: UsersRound, label: "Staff Management" },
     { href: "#", icon: Stethoscope, label: "Departments" },
