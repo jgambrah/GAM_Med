@@ -8,8 +8,11 @@ export interface User {
   avatarUrl: string;
 }
 
+export type AdmissionStatus = "Inpatient" | "Outpatient" | "Discharged";
+
 export interface Patient {
-  id: string; // Unique Patient ID
+  id: string; // Firestore document ID
+  patientId: string; // Custom, human-readable Patient ID
   name: string;
   dateOfBirth: string;
   gender: "Male" | "Female" | "Other";
@@ -25,6 +28,8 @@ export interface Patient {
   };
   bloodGroup: string;
   allergies: string[];
+  admissionStatus: AdmissionStatus;
+  bed?: string; // e.g. "Ward A, Bed 101"
 }
 
 export interface Appointment {

@@ -49,7 +49,7 @@ export default function Dashboard() {
   const renderContent = () => {
     switch (user.role) {
       case "Admin":
-        return <AdminOverview />;
+        return <AdminOverview patients={allPatients} />;
       case "Doctor":
         return (
           <div className="space-y-6">
@@ -60,7 +60,12 @@ export default function Dashboard() {
       case "Patient":
         return <AppointmentsView appointments={userAppointments} user={user} />;
       case "Nurse":
-        return <AppointmentsView appointments={userAppointments} user={user} />;
+        return (
+            <div className="space-y-6">
+                <AppointmentsView appointments={userAppointments} user={user} />
+                <PatientsList patients={allPatients} />
+            </div>
+        );
       case "Pharmacist":
         return <PlaceholderView role="Pharmacist" />;
       default:

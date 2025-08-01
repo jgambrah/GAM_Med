@@ -11,6 +11,7 @@ export const allUsers: User[] = [
 export const allPatients: Patient[] = [
   {
     id: 'pat1',
+    patientId: 'MF-0001',
     name: 'Kwame Osei',
     dateOfBirth: '1985-05-20',
     gender: 'Male',
@@ -19,9 +20,12 @@ export const allPatients: Patient[] = [
     emergencyContact: { name: 'Adwoa Osei', phone: '024-765-4321', relationship: 'Spouse' },
     bloodGroup: 'O+',
     allergies: ['Penicillin'],
+    admissionStatus: 'Inpatient',
+    bed: 'Ward A, Bed 101',
   },
   {
     id: 'pat2',
+    patientId: 'MF-0002',
     name: 'Ama Serwaa',
     dateOfBirth: '1992-11-15',
     gender: 'Female',
@@ -29,10 +33,12 @@ export const allPatients: Patient[] = [
     address: '456 Palm Avenue, Kumasi',
     emergencyContact: { name: 'Kofi Serwaa', phone: '020-345-6789', relationship: 'Brother' },
     bloodGroup: 'A-',
-    allergies: ['None'],
+    allergies: [],
+    admissionStatus: 'Outpatient',
   },
   {
     id: 'pat3',
+    patientId: 'MF-0003',
     name: 'Femi Adebayo',
     dateOfBirth: '1978-01-30',
     gender: 'Male',
@@ -41,6 +47,21 @@ export const allPatients: Patient[] = [
     emergencyContact: { name: 'Sade Adebayo', phone: '055-555-0102', relationship: 'Wife' },
     bloodGroup: 'B+',
     allergies: ['Dust', 'Pollen'],
+    admissionStatus: 'Inpatient',
+    bed: 'Ward B, Bed 203',
+  },
+   {
+    id: 'pat4',
+    patientId: 'MF-0004',
+    name: 'Esi Parker',
+    dateOfBirth: '2001-08-10',
+    gender: 'Female',
+    contact: { phone: '027-111-2222' },
+    address: '10 Cocoa Close, Tema',
+    emergencyContact: { name: 'Yaw Parker', phone: '027-222-3333', relationship: 'Father' },
+    bloodGroup: 'AB+',
+    allergies: [],
+    admissionStatus: 'Discharged',
   },
 ];
 
