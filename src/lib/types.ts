@@ -36,6 +36,7 @@ export interface Patient {
   isAdmitted: boolean; // True if the patient is currently in a bed
   status: 'active' | 'inactive' | 'deceased'; // Overall status in the system
   currentAdmissionId?: string; // Link to the active admission document if admitted
+  lastVisitDate?: Date; // Timestamp of the last completed visit
   createdAt: Date; 
   updatedAt: Date; 
 }
@@ -45,7 +46,7 @@ export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
 // Inpatient status reflects the journey within the hospital stay.
 export type InpatientStatus = 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged';
 // Outpatient status reflects a single visit or appointment.
-export type OutpatientStatus = 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled';
+export type OutpatientStatus = 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
 // AdmissionStatus is a union of all possible statuses.
 export type AdmissionStatus = InpatientStatus | OutpatientStatus;
 
@@ -97,6 +98,6 @@ export interface Appointment {
   date: string;
   time: string;
   reason: string;
-  status: "Scheduled" | "Completed" | "Cancelled";
+  status: "Scheduled" | "Completed" | "Cancelled" | "In Progress";
   resource?: string; // e.g., 'Operating Theater 1'
 }

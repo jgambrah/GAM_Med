@@ -1,8 +1,8 @@
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User} from './types';
-import {allAdmissions, allBeds, allPatients} from './data';
+import type {Admission, Appointment, Bed, Patient, User, OutpatientStatus} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -29,6 +29,11 @@ const admissionFormSchema = z.object({
   ward: z.string().min(3, 'Ward is required.'),
   bedId: z.string().min(1, 'Bed selection is required.'),
   attendingDoctorId: z.string().min(1, 'Doctor selection is required.'),
+});
+
+const updateOutpatientStatusSchema = z.object({
+    appointmentId: z.string(),
+    newStatus: z.enum(['Scheduled', 'In Progress', 'Completed', 'Cancelled']),
 });
 
 export async function getSmsReminderAction(
@@ -294,4 +299,47 @@ export async function dischargePatientAction(
       message: error.message || 'An unexpected error occurred during discharge.',
     };
   }
+}
+
+export async function updateOutpatientStatusAction(
+    values: z.infer<typeof updateOutpatientStatusSchema>
+) {
+    console.log('[Simulated] Running updateOutpatientStatusAction with:', values);
+
+    try {
+        const { appointmentId, newStatus } = values;
+
+        const appointmentIndex = allAppointments.findIndex(a => a.id === appointmentId);
+        if (appointmentIndex === -1) {
+            throw new Error("Appointment not found.");
+        }
+
+        const appointment = allAppointments[appointmentIndex];
+        
+        // Update appointment status
+        allAppointments[appointmentIndex].status = newStatus;
+        console.log(`[Simulated] Updated appointment ${appointmentId} status to ${newStatus}.`);
+
+
+        if (newStatus === 'Completed') {
+            const patientIndex = allPatients.findIndex(p => p.patientId === appointment.patientId);
+            if (patientIndex !== -1) {
+                allPatients[patientIndex].lastVisitDate = new Date();
+                allPatients[patientIndex].updatedAt = new Date();
+                console.log(`[Simulated] Updated patient ${appointment.patientId} lastVisitDate.`);
+            }
+        }
+        
+        return {
+            success: true,
+            message: `Appointment status updated to ${newStatus}.`,
+        };
+
+    } catch (error: any) {
+        console.error('Error in updateOutpatientStatusAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred.',
+        };
+    }
 }
