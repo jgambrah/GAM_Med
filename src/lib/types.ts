@@ -1,3 +1,4 @@
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -40,10 +41,18 @@ export interface Patient {
   insurance?: {
     providerName: string;
     policyNumber: string;
+    isActive: boolean;
     expiryDate: any; // Using 'any' for Firebase Timestamp placeholder
+  };
+  medicalHistory?: {
+    allergies: string[];
+    preExistingConditions: string[];
+    pastSurgeries: { name: string; date: any }[];
   };
   isAdmitted: boolean;
   currentAdmissionId?: string;
+  lastVisitDate?: any;
+  status: 'active' | 'inactive' | 'deceased';
   createdAt: any; // Using 'any' for Firebase Timestamp placeholder
   updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
 }
