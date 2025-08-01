@@ -1,43 +1,57 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+  
+    // Get user role from the 'users' collection for the currently authenticated user.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
     
-    // Helper function to get user role
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    // Check if the user has one of the allowed roles.
+    function isOneOfRoles(allowedRoles) {
+      return getUserRole() in allowedRoles;
     }
 
-    // Users can read their own data.
-    // Admins can read anyone's data.
+    // users collection:
+    // - Users can read their own data.
+    // - Admins can read anyone's data.
+    // - Users can create their own user document on sign-up.
+    // - Users can update their own profile data.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId 
-                  || getUserRole(request.auth.uid) == 'Admin';
-      allow create: if request.auth.uid != null;
-      allow write: if request.auth.uid == userId 
-                   || getUserRole(request.auth.uid) == 'Admin';
+      allow read: if request.auth.uid == userId || isOneOfRoles(['Admin']);
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
     }
 
-    // Patients can only read their own appointments.
-    // Doctors can read appointments assigned to them.
-    // Nurses and Admins can read all appointments.
-    match /appointments/{appointmentId} {
-      allow read: if (getUserRole(request.auth.uid) == 'Patient' && resource.data.patientId == request.auth.uid)
-                  || (getUserRole(request.auth.uid) == 'Doctor' && resource.data.doctorId == request.auth.uid)
-                  || (getUserRole(request.auth.uid) == 'Nurse')
-                  || (getUserRole(request.auth.uid) == 'Admin');
-      
-      // Allow creation/updates for Admins, or Doctors/Nurses for scheduling
-      allow write: if getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse'];
-    }
-
-    // Patients can read their own records.
-    // Doctors, Nurses, and Admins can read all patient records.
+    // patients collection:
+    // - Patients can read their own data.
+    // - Doctors, Nurses, and Admins can read all patient data.
+    // - Admins can create and update patient records.
     match /patients/{patientId} {
-       allow read: if (getUserRole(request.auth.uid) == 'Patient' && request.auth.uid == patientId)
-                  || getUserRole(request.auth.uid) in ['Doctor', 'Nurse', 'Admin'];
+      allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId == patientId 
+                   || isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+      allow create, update: if isOneOfRoles(['Admin']);
+      allow delete: if false; // Disallow deletion of patient records.
 
-      // Allow creation/updates for Admins, Doctors, Nurses
-       allow write: if getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse'];
+      // admissions sub-collection:
+      // - Rules are inherited from patients, but we can add more specific ones.
+      // - Doctors, Nurses, and Admins can manage admissions.
+      match /admissions/{admissionId} {
+        allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId == patientId 
+                     || isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        allow create, update: if isOneOfRoles(['Admin', 'Doctor']);
+        allow delete: if false;
+      }
+    }
+
+    // beds collection:
+    // - Only Doctors, Nurses, and Admins can view bed status.
+    // - Only Admins can modify bed documents (e.g., add new beds, put into maintenance).
+    // - Admission/discharge logic handles occupied/vacant status via secure server-side functions.
+    match /beds/{bedId} {
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+      allow write: if isOneOfRoles(['Admin']);
     }
   }
 }
