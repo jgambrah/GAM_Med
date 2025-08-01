@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -109,7 +110,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
               {patients.map((patient) => (
                 <TableRow key={patient.patientId}>
                   <TableCell className="font-mono">{patient.patientId}</TableCell>
-                  <TableCell className="font-medium">{patient.fullName}</TableCell>
+                  <TableCell className="font-medium">
+                     <Link href={`/admin/patients/${patient.patientId}`} className="hover:underline">
+                      {patient.fullName}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={getStatusBadgeVariant(patient.isAdmitted)}>{patient.isAdmitted ? 'Inpatient' : 'Outpatient'}</Badge>
                   </TableCell>
