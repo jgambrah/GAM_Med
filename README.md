@@ -8,10 +8,13 @@ This is a Next.js application for MedFlow GH, an end-to-end Hospital Management 
 *   **Role-Based Access Control (RBAC)**: Frontend UI adapts to user roles (Admin, Doctor, Patient, etc.).
 *   **AI Assistant**: An integrated Genkit-powered AI assistant to help users navigate the app.
 *   **Patient Management**:
-    *   Register new patients with unique, auto-generated IDs.
-    *   View a list of all patients.
+    *   Register new patients with a comprehensive form and unique, auto-generated IDs.
+    *   View a list of all patients with search and filtering capabilities.
+    *   Detailed patient record view showing demographics, contacts, and admission history.
     *   Admit and discharge patients with proper state management.
-*   **Appointment Viewing**: Basic appointment viewing for different roles.
+*   **Bed Management**:
+    *   A visual, real-time dashboard showing the status of all hospital beds (vacant, occupied, maintenance).
+*   **Appointment Viewing**: Basic appointment viewing for different roles with SMS reminder generation.
 
 ## Backend Logic (Server Actions)
 
