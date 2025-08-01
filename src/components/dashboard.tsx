@@ -7,9 +7,10 @@ import { Header } from "@/components/dashboard/header";
 import { MainNav } from "@/components/dashboard/main-nav";
 import { PatientsList } from "@/components/dashboard/patients-list";
 import { UserNav } from "@/components/dashboard/user-nav";
-import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarInset, SidebarFooter } from "@/components/ui/sidebar";
 import { allAppointments, allPatients } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
+import { AiAssistant } from "./dashboard/ai-assistant";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -25,6 +26,8 @@ function PlaceholderView({ role }: { role: string }) {
     </div>
   );
 }
+
+const useGeminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY !== undefined;
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -81,6 +84,11 @@ export default function Dashboard() {
              <h1 className="text-2xl font-bold font-headline text-primary-foreground">MedFlow GH</h1>
           </div>
           <MainNav role={user.role} />
+          {useGeminiApiKey && (
+            <SidebarFooter>
+              <AiAssistant />
+            </SidebarFooter>
+          )}
         </div>
       </Sidebar>
       <SidebarInset>
