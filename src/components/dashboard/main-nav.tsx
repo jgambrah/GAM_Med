@@ -22,6 +22,7 @@ import type { UserRole } from "@/lib/types"
 const navItems = {
   Admin: [
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "#", icon: UsersRound, label: "Patients" },
     { href: "#", icon: UsersRound, label: "Staff Management" },
     { href: "#", icon: Stethoscope, label: "Departments" },
   ],
@@ -53,6 +54,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   Nurse: HeartPulse,
   Pharmacist: Pill,
   Patient: User,
+  BillingClerk: User,
 }
 
 export function MainNav({ role }: { role: UserRole }) {
