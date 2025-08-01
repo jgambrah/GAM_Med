@@ -77,7 +77,6 @@ export const allAdmissions: Admission[] = [
         bedId: 'C-101',
         attendingDoctorId: 'doc1',
         status: 'Admitted',
-        isDischarged: false, // Legacy field for simpler logic, to be removed
         createdAt: new Date('2024-07-20T10:00:00Z'),
         updatedAt: new Date('2024-07-20T10:00:00Z'),
     },
@@ -91,7 +90,6 @@ export const allAdmissions: Admission[] = [
         bedId: 'N-203',
         attendingDoctorId: 'doc1',
         status: 'Admitted',
-        isDischarged: false, // Legacy field
         createdAt: new Date('2024-07-22T14:30:00Z'),
         updatedAt: new Date('2024-07-22T14:30:00Z'),
     },
