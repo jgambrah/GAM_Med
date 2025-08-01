@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,12 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { allPatients } from "@/lib/data";
+import { registerPatientAction } from "@/lib/actions";
+import { Loader2 } from "lucide-react";
+
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
-  dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format.",
+  dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)) && val.length > 0, {
+    message: "Please enter a valid date.",
   }),
   gender: z.enum(["Male", "Female", "Other"]),
   phone: z.string().min(10, "Phone number is too short."),
@@ -51,6 +54,8 @@ interface PatientRegistrationFormProps {
 
 export function PatientRegistrationForm({ onFormSubmit }: PatientRegistrationFormProps) {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -70,20 +75,34 @@ export function PatientRegistrationForm({ onFormSubmit }: PatientRegistrationFor
     },
   });
 
-  function onSubmit(data: PatientFormValues) {
-    // In a real app, this would submit to a Firestore collection
-    // and generate a unique patient ID.
-    const newPatientId = `MF-${(allPatients.length + 1).toString().padStart(4, '0')}`;
-    console.log("New Patient Registered:", { patientId: newPatientId, ...data });
+  async function onSubmit(data: PatientFormValues) {
+    setIsSubmitting(true);
+    try {
+      const result = await registerPatientAction(data);
 
-    toast({
-      title: "Patient Registered Successfully",
-      description: `${data.name} has been added with ID ${newPatientId}.`,
-    });
-    
-    // Reset form and close dialog
-    form.reset();
-    onFormSubmit();
+      if (result.success) {
+        toast({
+          title: "Patient Registered Successfully",
+          description: result.message,
+        });
+        form.reset();
+        onFormSubmit();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Registration Failed",
+          description: result.message,
+        });
+      }
+    } catch (error) {
+       toast({
+          variant: "destructive",
+          title: "An Error Occurred",
+          description: "Something went wrong. Please try again.",
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   return (
@@ -297,7 +316,10 @@ export function PatientRegistrationForm({ onFormSubmit }: PatientRegistrationFor
             </div>
         </fieldset>
 
-        <Button type="submit" className="w-full">Register Patient</Button>
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Register Patient
+        </Button>
       </form>
     </Form>
   );

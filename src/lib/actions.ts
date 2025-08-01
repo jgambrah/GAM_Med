@@ -1,10 +1,30 @@
-"use server";
+'use server';
 
-import { generateSmsReminder } from "@/ai/flows/generateSmsReminder";
-import type { Appointment, User } from "./types";
+import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
+import type {Appointment, User, Patient} from './types';
+import {allPatients} from './data';
+import {z} from 'zod';
+
+const patientFormSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters.'),
+  dateOfBirth: z.string().refine(val => !isNaN(Date.parse(val)), {
+    message: 'Invalid date format.',
+  }),
+  gender: z.enum(['Male', 'Female', 'Other']),
+  phone: z.string().min(10, 'Phone number is too short.'),
+  email: z.string().email('Invalid email address.').optional().or(z.literal('')),
+  address: z.string().min(5, 'Address is too short.'),
+  emergencyContactName: z.string().min(2, 'Contact name is too short.'),
+  emergencyContactPhone: z.string().min(10, 'Contact phone is too short.'),
+  emergencyContactRelationship: z.string().min(2, 'Relationship is too short.'),
+  bloodGroup: z.string().min(1, 'Blood group is required.'),
+  allergies: z.string().optional(),
+  admissionStatus: z.enum(['Inpatient', 'Outpatient']),
+  bed: z.string().optional(),
+});
 
 export async function getSmsReminderAction(
-  role: User["role"],
+  role: User['role'],
   userName: string,
   appointments: Appointment[]
 ) {
@@ -12,7 +32,7 @@ export async function getSmsReminderAction(
     const sms = await generateSmsReminder({
       role,
       userName,
-      appointments: appointments.map((a) => ({
+      appointments: appointments.map(a => ({
         id: a.id,
         patientName: a.patientName,
         doctorName: a.doctorName,
@@ -22,12 +42,57 @@ export async function getSmsReminderAction(
         status: a.status,
       })),
     });
-    return { success: true, message: sms };
+    return {success: true, message: sms};
   } catch (error) {
-    console.error("Error running generateSmsReminder flow:", error);
+    console.error('Error running generateSmsReminder flow:', error);
     return {
       success: false,
-      message: "Failed to generate reminder. Please try again later.",
+      message: 'Failed to generate reminder. Please try again later.',
     };
   }
+}
+
+export async function registerPatientAction(
+  values: z.infer<typeof patientFormSchema>
+) {
+  // In a real app, you would use a transaction to safely get the latest patient count
+  // and generate a new ID. For now, we'll use the mock data length.
+  const today = new Date();
+  const datePrefix = today.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+  const nextId = (allPatients.length + 1).toString().padStart(4, '0');
+  const newPatientId = `P-${datePrefix}-${nextId}`;
+  
+  const [firstName, ...lastNameParts] = values.name.split(' ');
+  const lastName = lastNameParts.join(' ');
+
+  const newPatient: Patient = {
+    patientId: newPatientId,
+    firstName: firstName,
+    lastName: lastName,
+    fullName: values.name,
+    dob: values.dateOfBirth,
+    gender: values.gender as "Male" | "Female" | "Other",
+    contact: { phone: values.phone, email: values.email },
+    address: { street: values.address, city: 'Accra', region: 'Greater Accra' }, // Mocked city/region
+    emergencyContact: {
+        name: values.emergencyContactName,
+        relationship: values.emergencyContactRelationship,
+        phone: values.emergencyContactPhone
+    },
+    isAdmitted: values.admissionStatus === "Inpatient",
+    // In a real scenario, you'd create an admission record if they are inpatient
+    // currentAdmissionId: values.admissionStatus === "Inpatient" ? "some-new-id" : undefined, 
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // In a real app, this would be a call to `setDoc(doc(db, "patients", newPatientId), newPatient)`
+  console.log('Registering new patient with server action:', newPatient);
+  allPatients.push(newPatient); // Mocking the data update
+
+  return {
+    success: true,
+    message: `${newPatient.fullName} has been registered with ID ${newPatient.patientId}.`,
+    patientId: newPatient.patientId,
+  };
 }
