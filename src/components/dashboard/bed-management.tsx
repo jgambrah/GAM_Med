@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +12,8 @@ const statusConfig = {
     occupied: {
         icon: BedDouble,
         label: "Occupied",
-        color: "bg-red-100 border-red-200 text-red-800",
-        badge: "destructive" as const,
+        color: "bg-blue-100 border-blue-200 text-blue-800",
+        badge: "default" as const,
     },
     vacant: {
         icon: BedDouble,
@@ -23,13 +24,13 @@ const statusConfig = {
     maintenance: {
         icon: Wrench,
         label: "Maintenance",
-        color: "bg-yellow-100 border-yellow-200 text-yellow-800",
-        badge: "secondary" as const,
+        color: "bg-red-100 border-red-200 text-red-800",
+        badge: "destructive" as const,
     },
     cleaning: {
         icon: Wrench,
         label: "Cleaning",
-        color: "bg-blue-100 border-blue-200 text-blue-800",
+        color: "bg-yellow-100 border-yellow-200 text-yellow-800",
         badge: "secondary" as const,
     }
 }
