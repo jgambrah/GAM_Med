@@ -10,11 +10,10 @@ export interface User {
 
 // Core Patient Demographics as per the new specification
 export interface Patient {
-  id: string; // Document ID, which will be the patientId
-  patientId: string; // Unique patient identifier
+  patientId: string; // The unique patient identifier, will also be the document ID
   firstName: string;
-  lastName: string;
-  fullName: string;
+  lastName:string;
+  fullName: string; // For easy searching
   dob: string; // YYYY-MM-DD
   gender: "Male" | "Female" | "Other";
   contact: {
@@ -64,16 +63,19 @@ export interface Admission {
 }
 
 
-export type BedStatus = "Available" | "Occupied" | "Maintenance";
+export type BedStatus = "occupied" | "vacant" | "maintenance";
 
 // Represents a bed in the hospital.
 export interface Bed {
-    id: string; // Firestore document ID (e.g., "WA-101")
-    ward: string; // e.g., "Maternity", "Pediatrics"
+    bedId: string; // Document ID (e.g., "C-101")
+    ward: string; // e.g., "Cardiology", "Pediatrics"
     roomNumber: string;
-    bedNumber: string;
     status: BedStatus;
-    patientId?: string; // The ID of the patient currently occupying the bed
+    isReserved?: boolean;
+    currentPatientId?: string; // The ID of the patient currently occupying the bed
+    occupiedSince?: any; // Using 'any' for Firebase Timestamp placeholder
+    lastCleaned?: any; // Using 'any' for Firebase Timestamp placeholder
+    createdAt: any; // Using 'any' for Firebase Timestamp placeholder
 }
 
 
