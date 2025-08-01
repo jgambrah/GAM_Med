@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -11,6 +12,7 @@ import { SidebarProvider, Sidebar, SidebarInset, SidebarFooter } from "@/compone
 import { allAppointments, allPatients } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import { AiAssistant } from "./dashboard/ai-assistant";
+import { BedManagement } from "./dashboard/bed-management";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -65,6 +67,7 @@ export default function Dashboard() {
       case "Nurse":
         return (
             <div className="space-y-6">
+                <BedManagement />
                 <AppointmentsView appointments={userAppointments} user={user} />
                 <PatientsList patients={allPatients} />
             </div>
