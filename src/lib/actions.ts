@@ -52,15 +52,37 @@ export async function getSmsReminderAction(
   }
 }
 
+/**
+ * Generates a unique patient ID.
+ * In a real application, this would query the Firestore database.
+ * For now, it simulates this by checking the mock data.
+ * @returns {string} A new unique patient ID.
+ */
+async function generatePatientId(): Promise<string> {
+  const today = new Date();
+  const datePrefix = today.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+  const prefix = `P-${datePrefix}`;
+
+  // In a real app, this would be a query like:
+  // const q = query(collection(db, "patients"), where("patientId", ">=", prefix), where("patientId", "<", prefix + "z"));
+  // For mock data, we filter the array.
+  const patientsToday = allPatients.filter(p => p.patientId.startsWith(prefix));
+
+  const highestId = patientsToday.reduce((max, p) => {
+    const currentNum = parseInt(p.patientId.split('-')[2], 10);
+    return currentNum > max ? currentNum : max;
+  }, 0);
+
+  const nextId = (highestId + 1).toString().padStart(4, '0');
+  return `${prefix}-${nextId}`;
+}
+
+
 export async function registerPatientAction(
   values: z.infer<typeof patientFormSchema>
 ) {
-  // In a real app, you would use a transaction to safely get the latest patient count
-  // and generate a new ID. For now, we'll use the mock data length.
-  const today = new Date();
-  const datePrefix = today.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
-  const nextId = (allPatients.length + 1).toString().padStart(4, '0');
-  const newPatientId = `P-${datePrefix}-${nextId}`;
+  
+  const newPatientId = await generatePatientId();
   
   const [firstName, ...lastNameParts] = values.name.split(' ');
   const lastName = lastNameParts.join(' ');
