@@ -1,93 +1,88 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to check user roles and authentication
+    // Helper functions to simplify rule definitions
     function isAuthenticated() {
       return request.auth != null;
     }
 
     function isUser(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    function getUserData() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return request.auth.uid == userId;
     }
 
+    // Get the user's role from their document in the 'users' collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
     function isRole(role) {
-        return isAuthenticated() && getUserData().role == role;
+        return isAuthenticated() && getUserRole() == role;
+    }
+
+    function isOneOfRoles(roles) {
+      return isAuthenticated() && getUserRole() in roles;
     }
     
-    function isOneOfRoles(roles) {
-        return isAuthenticated() && getUserData().role in roles;
+    // Check if incoming data for an update only contains allowed fields
+    function isUpdatingAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
     }
 
-    // Rules for the 'users' collection
+    // --- Users Collection Rules ---
+    // Users can read their own data.
+    // Only authenticated users can create their own user record (during sign-up).
+    // Users can only update their own data.
     match /users/{userId} {
-      // Users can read their own profile information
-      allow read: if isUser(userId);
-      // New users can create their own profile during sign-up
+      allow read, update: if isAuthenticated() && isUser(userId);
       allow create: if isAuthenticated();
-      // Users can update their own profile
-      allow update: if isUser(userId);
-      // Deletion should be restricted, e.g., only by an Admin
-      allow delete: if isRole('Admin');
     }
 
-    // Rules for the 'patients' collection
+    // --- Patients Collection Rules ---
     match /patients/{patientId} {
-      // READ:
-      // - The patient themselves can read their own record.
-      // - Doctors, Nurses, and Admins can read any patient record.
-      allow read: if (isUser(patientId) && isRole('Patient')) || isOneOfRoles(['Doctor', 'Nurse', 'Admin']);
+      // READ: Admins, Doctors, Nurses, and BillingClerks can read any patient data.
+      // A patient can read their own record (assuming patientId might be linked to auth UID in a real scenario,
+      // but for RBAC, role is the primary gatekeeper).
+      // For this ruleset, we will rely on role-based access for clinical/admin staff.
+      // A rule for patients reading their own data would require a field like `uid` on the patient doc:
+      // `|| isUser(resource.data.uid)`
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk']);
 
-      // CREATE:
-      // - Only Admins can create new patient records.
-      allow create: if isRole('Admin');
-      
-      // UPDATE:
-      // - Admins can update any field.
-      // - Doctors/Nurses can only update admission status fields.
-      allow update: if isOneOfRoles(['Admin']) || 
-                     (isOneOfRoles(['Doctor', 'Nurse']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAdmitted', 'currentAdmissionId', 'updatedAt']));
+      // CREATE: Only Admins and BillingClerks can register new patients.
+      allow create: if isOneOfRoles(['Admin', 'BillingClerk']);
 
-      // DELETE:
-      // - Deleting patient records is a sensitive operation and restricted to Admins.
-      // - In a production environment, this might be disallowed entirely in favor of an 'inactive' status.
-      allow delete: if isRole('Admin');
+      // UPDATE: Admins/BillingClerks can update administrative fields.
+      // Clinical staff (Doctors/Nurses) can only update admission status as part of a workflow.
+      allow update: if isOneOfRoles(['Admin', 'BillingClerk']) ||
+                      (isOneOfRoles(['Doctor', 'Nurse']) && isUpdatingAllowedFields(['isAdmitted', 'currentAdmissionId', 'updatedAt']));
+                      
+      // DELETE: No one can delete patient records through the client. Deletion should be a backend process.
+      allow delete: if false;
 
-      // Rules for the 'admissions' sub-collection
+      // --- Admissions Sub-collection Rules ---
       match /admissions/{admissionId} {
-        // READ:
-        // - Access is inherited from the parent patient document.
-        allow read: if (isUser(patientId) && isRole('Patient')) || isOneOfRoles(['Doctor', 'Nurse', 'Admin']);
+        // READ: Access is granted if the user has rights to read the parent patient document.
+        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk']);
         
-        // CREATE:
-        // - Admins, Doctors, or Nurses can create admission records.
+        // CREATE: Clinical staff and admins can create admission records.
         allow create: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
         
-        // UPDATE:
-        // - Admins or clinical staff can update admission records (e.g., to discharge).
+        // UPDATE/DELETE: Primarily handled by server-side logic (simulated by Server Actions).
+        // Limited client-side updates can be allowed for specific fields if necessary.
         allow update: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
-        
-        // DELETE:
-        // - Deletion is restricted to Admins.
-        allow delete: if isRole('Admin');
+        allow delete: if false;
       }
     }
-
-    // Rules for the 'beds' collection
+    
+    // --- Beds Collection Rules ---
     match /beds/{bedId} {
-      // READ:
-      // - Bed status is generally not sensitive. Allow any authenticated user to see bed availability.
-      allow read: if isAuthenticated();
-      
-      // WRITE (create, update, delete):
-      // - Managing beds (allocating, cleaning, maintenance) is a clinical/admin task.
-      allow write: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        // READ: All clinical and admin staff can see bed statuses.
+        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        
+        // WRITE (Create, Update, Delete): Only clinical staff and admins can manage beds.
+        // This is crucial for the admission/discharge/transfer workflows.
+        allow write: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
     }
   }
 }
