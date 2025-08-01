@@ -2,49 +2,74 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user's role from the 'users' collection
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+
+    // Helper function to get the role of the currently authenticated user
+    function getUserRole() {
+      // In a real application, you would also check if the user document exists
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-    // Helper function to check if a user has a specific role
-    function isRole(role) {
-      return request.auth != null && getUserRole(request.auth.uid) == role;
+    // Helper function to check if the request is coming from a specific set of roles
+    function isOneOfRoles(allowedRoles) {
+      return getUserRole() in allowedRoles;
     }
 
-    // Helper function to check if a user has one of several roles
-    function isOneOfRoles(roles) {
-      return request.auth != null && getUserRole(request.auth.uid) in roles;
-    }
-
-    // Rules for the 'users' collection (basic setup)
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId || isRole('Admin');
+      // Users can read their own data. Admins can read anyone's data.
+      allow read: if request.auth.uid == userId || isOneOfRoles(['Admin']);
+      // Users can update their own data. Admins can update anyone's data.
+      allow update: if request.auth.uid == userId || isOneOfRoles(['Admin']);
+      // Only admins can create or delete user records.
+      allow create, delete: if isOneOfRoles(['Admin']);
     }
 
     // Rules for the 'patients' collection
     match /patients/{patientId} {
-      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk']) || request.auth.uid == patientId;
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'Pharmacist', 'BillingClerk']);
       
       allow create: if isOneOfRoles(['Admin', 'BillingClerk'])
+                    // Enforce that the document ID and the patientId field inside it match
                     && request.resource.id == request.resource.data.patientId;
-                    
-      allow update: if isOneOfRoles(['Admin', 'BillingClerk', 'Doctor', 'Nurse'])
+
+      allow update: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk'])
+                    // Prevent the patientId from being changed after creation
                     && request.resource.data.patientId == resource.data.patientId;
+                    
+      allow delete: if isOneOfRoles(['Admin']);
 
       // Rules for the 'admissions' sub-collection
       match /admissions/{admissionId} {
-        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk']) || request.auth.uid == patientId;
-        allow write: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk']) ||
+                     // A patient can read their own admission records.
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId == patientId);
+
+        allow create: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        
+        // Admins have full update rights.
+        // Clinical staff can update clinical fields.
+        // Billing staff can update billing fields.
+        allow update: if isOneOfRoles(['Admin']) || 
+                       (isOneOfRoles(['Doctor', 'Nurse']) && onlyFieldsChanged(['status', 'attendingDoctorId', 'dischargeSummary'])) ||
+                       (isOneOfRoles(['BillingClerk']) && onlyFieldsChanged(['billingStatus'])); // Assuming a 'billingStatus' field exists
+                       
+        allow delete: if isOneOfRoles(['Admin']);
       }
     }
 
     // Rules for the 'beds' collection
     match /beds/{bedId} {
-      allow read: if request.auth != null; // Any authenticated user can see bed status
-      allow write: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+      // Clinical and admin staff can see bed status.
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+      // Only Admins can create/delete bed records.
+      // Clinical staff can update bed status (e.g., occupied, cleaning).
+      allow update: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+      allow create, delete: if isOneOfRoles(['Admin']);
+    }
+    
+    // A helper function to check if only specific fields are being changed during an update.
+    function onlyFieldsChanged(allowedFields) {
+      return request.resource.data.keys().hasOnly(resource.data.keys().remove(allowedFields).concat(allowedFields));
     }
   }
 }
