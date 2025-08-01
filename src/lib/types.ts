@@ -40,29 +40,29 @@ export interface Patient {
   currentAdmissionId?: string;
   createdAt: any; // Using 'any' for Firebase Timestamp placeholder
   updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
-  // The following fields from the old model are not in the new one:
-  // bloodGroup: string;
-  // allergies: string[];
 }
 
-
-export type AdmissionStatus = "Admitted" | "Discharged" | "Pending";
-export type PatientType = "Inpatient" | "Outpatient";
+export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
 
 // Represents a single admission event for a patient.
 // This will be a document in a sub-collection under a patient.
 export interface Admission {
-    id: string; // Firestore document ID
-    patientId: string;
-    admissionDate: string; // ISO 8601 string
-    dischargeDate?: string; // ISO 8601 string
-    status: AdmissionStatus;
-    patientType: PatientType;
-    admittingDoctor: string; // Doctor's User ID
-    ward?: string; // e.g., "Maternity", "Pediatrics"
-    bedId?: string; // Links to a document in the 'beds' collection
-    diagnosis: string;
+  admissionId: string;
+  patientId: string;
+  type: AdmissionType;
+  admissionDate: any; // Using 'any' for Firebase Timestamp placeholder
+  dischargeDate?: any; // Using 'any' for Firebase Timestamp placeholder
+  reasonForAdmission: string;
+  ward?: string;
+  bedId?: string;
+  attendingDoctorId: string;
+  isDischarged: boolean;
+  dischargeSummary?: string;
+  followUpInstructions?: string;
+  finalBillId?: string;
+  createdAt: any; // Using 'any' for Firebase Timestamp placeholder
 }
+
 
 export type BedStatus = "Available" | "Occupied" | "Maintenance";
 
