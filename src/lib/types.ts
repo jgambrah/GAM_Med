@@ -8,26 +8,43 @@ export interface User {
   avatarUrl: string;
 }
 
-// Core Patient Demographics
+// Core Patient Demographics as per the new specification
 export interface Patient {
-  id: string; // Firestore document ID
-  patientId: string; // Custom, human-readable Patient ID
-  name: string;
-  dateOfBirth: string;
+  id: string; // Document ID, which will be the patientId
+  patientId: string; // Unique patient identifier
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  dob: string; // YYYY-MM-DD
   gender: "Male" | "Female" | "Other";
   contact: {
-    phone: string;
+    phone: string; // e.g., +233241234567
     email?: string;
   };
-  address: string;
+  address: {
+    street: string;
+    city: string;
+    region: string;
+  };
   emergencyContact: {
     name: string;
-    phone: string;
     relationship: string;
+    phone: string;
   };
-  bloodGroup: string;
-  allergies: string[];
+  insurance?: {
+    providerName: string;
+    policyNumber: string;
+    expiryDate: any; // Using 'any' for Firebase Timestamp placeholder
+  };
+  isAdmitted: boolean;
+  currentAdmissionId?: string;
+  createdAt: any; // Using 'any' for Firebase Timestamp placeholder
+  updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
+  // The following fields from the old model are not in the new one:
+  // bloodGroup: string;
+  // allergies: string[];
 }
+
 
 export type AdmissionStatus = "Admitted" | "Discharged" | "Pending";
 export type PatientType = "Inpatient" | "Outpatient";
