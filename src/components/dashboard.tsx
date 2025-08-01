@@ -85,7 +85,7 @@ export default function Dashboard() {
           </div>
           <MainNav role={user.role} />
           {useGeminiApiKey && (
-            <SidebarFooter>
+            <SidebarFooter className="p-2 mt-auto">
               <AiAssistant />
             </SidebarFooter>
           )}
