@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -83,19 +84,19 @@ export interface Admission {
 }
 
 
-export type BedStatus = "occupied" | "vacant" | "maintenance";
+export type BedStatus = "occupied" | "vacant" | "cleaning" | "maintenance";
 
 // Represents a bed in the hospital.
 export interface Bed {
     bedId: string; // Document ID (e.g., "C-101")
-    ward: string; // e.g., "Cardiology", "Pediatrics"
+    wardName: string; // e.g., "Cardiology", "Pediatrics"
     roomNumber: string;
     status: BedStatus;
-    isReserved?: boolean;
     currentPatientId?: string; // The ID of the patient currently occupying the bed
     occupiedSince?: any; // Using 'any' for Firebase Timestamp placeholder
-    lastCleaned?: any; // Using 'any' for Firebase Timestamp placeholder
+    cleaningNeeded: boolean;
     createdAt: any; // Using 'any' for Firebase Timestamp placeholder
+    updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
 }
 
 
