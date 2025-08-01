@@ -6,23 +6,45 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import * as React from "react";
+import { assistantFlow } from "@/ai/flows/assistantFlow";
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 export function AiAssistant() {
   const [prompt, setPrompt] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
+  const [messages, setMessages] = React.useState<Message[]>([]);
+  const chatContainerRef = React.useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
+
+  React.useEffect(() => {
+    if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages])
+
+  const handleSend = async () => {
+    if (!prompt.trim()) return;
+
     setIsSending(true);
-    // In a real application, you would send the prompt to your AI backend here.
-    // For now, we can just log it to the console as a test.
-    console.log("User prompt:", prompt);
-    
-    // Simulate network delay
-    setTimeout(() => {
-        alert(`AI Assistant received: "${prompt}"`);
-        setPrompt("");
+    const userMessage: Message = { role: 'user', content: prompt };
+    setMessages(prev => [...prev, userMessage]);
+    setPrompt("");
+
+    try {
+        const response = await assistantFlow({ prompt });
+        const assistantMessage: Message = { role: 'assistant', content: response };
+        setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+        console.error("Error calling assistant flow:", error);
+        const errorMessage: Message = { role: 'assistant', content: "Sorry, I encountered an error. Please try again." };
+        setMessages(prev => [...prev, errorMessage]);
+    } finally {
         setIsSending(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -40,20 +62,35 @@ export function AiAssistant() {
             AI Assistant
           </DialogTitle>
           <DialogDescription>
-            Ask the assistant to make changes to your app. Provide clear, specific instructions.
+            Ask me anything about the hospital, patients, or schedules.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4 space-y-4">
-          {/* This could be a chat history in the future */}
-          <div className="h-64 rounded-lg border bg-muted p-4">
-            <p className="text-sm text-muted-foreground">Chat history will appear here.</p>
+          <div ref={chatContainerRef} className="h-64 rounded-lg border bg-muted p-4 space-y-4 overflow-y-auto">
+            {messages.length === 0 ? (
+                 <p className="text-sm text-muted-foreground">Chat history will appear here.</p>
+            ) : (
+                messages.map((message, index) => (
+                    <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-lg px-4 py-2 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background'}`}>
+                           <p className="text-sm">{message.content}</p>
+                        </div>
+                    </div>
+                ))
+            )}
           </div>
           <div className="relative">
             <Textarea
-              placeholder="e.g., 'Change the primary color to green'"
+              placeholder="e.g., 'How many patients are currently admitted?'"
               className="w-full text-sm pr-20"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+              }}
               rows={3}
             />
             <Button 
