@@ -22,13 +22,13 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { Patient } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
+import { allAdmissions } from "@/lib/data"
 
 const getStatusBadgeVariant = (isAdmitted: boolean) => {
     return isAdmitted ? 'default' : 'secondary';
