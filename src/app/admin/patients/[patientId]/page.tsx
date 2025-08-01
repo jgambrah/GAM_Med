@@ -13,6 +13,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
     notFound();
   }
 
+  // In a real app, this would be a sub-collection query: db.collection('patients').doc(patientId).collection('admissions').get()
   const patientAdmissions = allAdmissions.filter(a => a.patientId === params.patientId);
   
   const getAge = (dob: Date) => {
@@ -102,6 +103,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
                     <TableRow>
                         <TableHead>Admission ID</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Reason</TableHead>
                         <TableHead>Ward</TableHead>
                         <TableHead>Status</TableHead>
@@ -113,8 +115,11 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
                             <TableRow key={admission.admissionId}>
                                 <TableCell className="font-mono">{admission.admissionId}</TableCell>
                                 <TableCell>{format(new Date(admission.admissionDate), "PPP")}</TableCell>
+                                <TableCell>
+                                  <Badge variant={admission.type === 'Inpatient' ? 'outline' : 'secondary'}>{admission.type}</Badge>
+                                </TableCell>
                                 <TableCell>{admission.reasonForVisit}</TableCell>
-                                <TableCell>{admission.ward}</TableCell>
+                                <TableCell>{admission.ward || 'N/A'}</TableCell>
                                 <TableCell>
                                     <Badge variant={admission.dischargeDate ? "secondary" : "default"}>
                                         {admission.dischargeDate ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : admission.status}
@@ -124,7 +129,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
+                            <TableCell colSpan={6} className="h-24 text-center">
                                 No admission history found.
                             </TableCell>
                         </TableRow>
