@@ -11,19 +11,26 @@ export interface User {
 // Core Patient Demographics as per the new specification
 export interface Patient {
   patientId: string; // The unique patient identifier, will also be the document ID
+  title?: string; // e.g., 'Mr', 'Mrs', 'Dr'
   firstName: string;
-  lastName:string;
+  lastName: string;
   fullName: string; // For easy searching
-  dob: string; // YYYY-MM-DD
+  otherNames?: string;
+  ghanaCardId?: string; // For linking with national ID systems
+  dob: any; // Using 'any' for Firebase Timestamp placeholder
   gender: "Male" | "Female" | "Other";
+  maritalStatus?: "Single" | "Married" | "Divorced" | "Widowed";
+  occupation?: string;
   contact: {
-    phone: string; // e.g., +233241234567
+    primaryPhone: string; // e.g., +233241234567
+    alternatePhone?: string;
     email?: string;
   };
   address: {
     street: string;
     city: string;
     region: string;
+    country: string;
   };
   emergencyContact: {
     name: string;
