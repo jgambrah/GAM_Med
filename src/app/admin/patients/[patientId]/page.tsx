@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Hospital, Stethoscope } from "lucide-react";
 
 export default function PatientDetailsPage({ params }: { params: { patientId: string } }) {
   const patient = allPatients.find(p => p.patientId === params.patientId);
@@ -13,8 +15,8 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
     notFound();
   }
 
-  // In a real app, this would be a sub-collection query: db.collection('patients').doc(patientId).collection('admissions').get()
   const patientAdmissions = allAdmissions.filter(a => a.patientId === params.patientId);
+  const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
   
   const getAge = (dob: Date) => {
     const birthDate = new Date(dob);
@@ -37,11 +39,30 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
         <div>
           <h1 className="text-3xl font-bold font-headline">{patient.fullName}</h1>
           <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
-          <Badge className="mt-2" variant={patient.isAdmitted ? "default" : "secondary"}>
-            {patient.isAdmitted ? "Inpatient" : "Outpatient"}
-          </Badge>
         </div>
       </div>
+
+      {patient.isAdmitted && currentAdmission ? (
+        <Alert>
+          <Hospital className="h-4 w-4" />
+          <AlertTitle>Currently Admitted</AlertTitle>
+          <AlertDescription>
+            Inpatient in <strong>{currentAdmission.ward} Ward</strong>, Bed <strong>{currentAdmission.bedId}</strong>.
+            Admitted on {format(new Date(currentAdmission.admissionDate), 'PPP')}.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert variant="default">
+           <Stethoscope className="h-4 w-4" />
+          <AlertTitle>Outpatient</AlertTitle>
+          <AlertDescription>
+            {patient.lastVisitDate 
+              ? `Last visit on ${format(new Date(patient.lastVisitDate), 'PPP')}.`
+              : "No recent visit history."}
+          </AlertDescription>
+        </Alert>
+      )}
+
 
       <Card>
         <CardHeader>
