@@ -32,10 +32,12 @@ export default function Dashboard() {
   const userAppointments = React.useMemo(() => {
     if (!user) return [];
     if (user.role === 'Patient') {
-      return allAppointments.filter(app => app.patientId === user.id);
+      // In a real app, user.id would be used here. For mock, we use a default patient.
+      return allAppointments.filter(app => app.patientId === 'pat1');
     }
     if (user.role === 'Doctor') {
-      return allAppointments.filter(app => app.doctorId === user.id);
+       // In a real app, user.id would be used here. For mock, we use a default doctor.
+      return allAppointments.filter(app => app.doctorId === 'doc1');
     }
     return allAppointments;
   }, [user]);

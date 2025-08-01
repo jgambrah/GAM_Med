@@ -16,16 +16,23 @@ import {
 import type { User } from "@/lib/types";
 import { app } from "@/lib/firebase";
 
+const useMockAuth = process.env.NEXT_PUBLIC_FIREBASE_API_KEY === undefined;
 
 interface UserNavProps {
   user: User;
 }
 
 export function UserNav({ user }: UserNavProps) {
-  const auth = getAuth(app);
   const router = useRouter();
 
   const handleLogout = async () => {
+    if (useMockAuth) {
+        // In mock mode, we don't need to do anything for logout
+        // as there is no session.
+        alert("Logout is disabled in Mock Mode.");
+        return;
+    }
+    const auth = getAuth(app);
     await signOut(auth);
     router.push("/login");
   };

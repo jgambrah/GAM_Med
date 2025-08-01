@@ -5,22 +5,28 @@ import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { useRouter, usePathname } from 'next/navigation';
 import { app } from '@/lib/firebase';
-import type { User } from '@/lib/types';
+import type { User, UserRole } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
+import { allUsers } from '@/lib/data';
+import { MockRoleSwitcher } from './dashboard/mock-role-switcher';
 
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
+  setMockUserRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   firebaseUser: null,
   loading: true,
+  setMockUserRole: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
+
+const useMockAuth = process.env.NEXT_PUBLIC_FIREBASE_API_KEY === undefined;
 
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -28,17 +34,33 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  
+
+  const setMockUserRole = (role: UserRole) => {
+    if (useMockAuth) {
+      const mockUser = allUsers.find(u => u.role === role) || allUsers[0];
+      setUser(mockUser);
+    }
+  };
 
   useEffect(() => {
+    if (useMockAuth) {
+      // Use mock user if Firebase is not configured
+      setUser(allUsers.find(u => u.role === 'Admin')!);
+      setLoading(false);
+      return;
+    }
+    
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
         const userDocRef = doc(db, 'users', fbUser.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
+          setUser({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
             // Handle case where user exists in Auth but not Firestore
             setUser(null);
@@ -56,7 +78,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [auth, db, router, pathname]);
+  }, [router, pathname]);
 
   if (loading) {
     return (
@@ -65,25 +87,29 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         </div>
     )
   }
+  
+  if (!useMockAuth) {
+    if (!user && (pathname !== '/login' && pathname !== '/register')) {
+      return (
+          <div className="flex items-center justify-center min-h-screen">
+              <p>Redirecting to login...</p>
+          </div>
+      );
+    }
 
-  if (!user && (pathname !== '/login' && pathname !== '/register')) {
-     return (
-        <div className="flex items-center justify-center min-h-screen">
-            <p>Redirecting to login...</p>
-        </div>
-     );
+    if (user && (pathname === '/login' || pathname === '/register')) {
+      return (
+          <div className="flex items-center justify-center min-h-screen">
+              <p>Redirecting to dashboard...</p>
+          </div>
+      );
+    }
   }
 
-  if (user && (pathname === '/login' || pathname === '/register')) {
-    return (
-        <div className="flex items-center justify-center min-h-screen">
-            <p>Redirecting to dashboard...</p>
-        </div>
-     );
-  }
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser, loading, setMockUserRole }}>
+      {useMockAuth && <MockRoleSwitcher />}
       {children}
     </AuthContext.Provider>
   );
