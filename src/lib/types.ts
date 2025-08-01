@@ -1,4 +1,5 @@
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -58,24 +59,27 @@ export interface Patient {
 }
 
 export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
+export type AdmissionStatus = 'Admitted' | 'In Treatment' | 'Discharged';
 
 // Represents a single admission event for a patient.
-// This will be a document in a sub-collection under a patient.
 export interface Admission {
   admissionId: string;
   patientId: string;
   type: AdmissionType;
   admissionDate: any; // Using 'any' for Firebase Timestamp placeholder
   dischargeDate?: any; // Using 'any' for Firebase Timestamp placeholder
-  reasonForAdmission: string;
+  reasonForVisit: string;
   ward?: string;
-  bedId?: string;
-  attendingDoctorId: string;
-  isDischarged: boolean;
+  bedId?: string; // reference to beds collection
+  attendingDoctorId: string; // reference to users collection
+  status: AdmissionStatus;
+  referralDetails?: {
+    referredBy: string; // e.g., 'Korle Bu Teaching Hospital'
+    referralReason: string;
+  };
   dischargeSummary?: string;
-  followUpInstructions?: string;
-  finalBillId?: string;
   createdAt: any; // Using 'any' for Firebase Timestamp placeholder
+  updatedAt: any; // Using 'any' for Firebase Timestamp placeholder
 }
 
 
