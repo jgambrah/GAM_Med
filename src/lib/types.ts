@@ -33,7 +33,9 @@ export interface Patient {
     isActive: boolean;
     expiryDate: Date;
   };
-  isAdmitted: boolean;
+  isAdmitted: boolean; // True if the patient is currently in a bed
+  status: 'active' | 'inactive' | 'deceased'; // Overall status in the system
+  currentAdmissionId?: string; // Link to the active admission document if admitted
   createdAt: Date; 
   updatedAt: Date; 
 }
@@ -49,8 +51,8 @@ export interface Admission {
   admissionDate: Date; 
   dischargeDate?: Date; 
   reasonForVisit: string;
-  ward?: string;
-  bedId?: string; // reference to beds collection
+  ward?: string; // Only for Inpatient
+  bedId?: string; // Only for Inpatient, reference to beds collection
   attendingDoctorId: string; // reference to users collection
   status: AdmissionStatus;
   referralDetails?: {
@@ -60,7 +62,6 @@ export interface Admission {
   dischargeSummary?: string;
   createdAt: Date; 
   updatedAt: Date; 
-  isDischarged?: boolean; // Legacy field for simpler logic
 }
 
 
