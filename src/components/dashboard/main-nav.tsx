@@ -12,6 +12,7 @@ import {
   UsersRound,
   FileText,
 } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 import {
   SidebarMenu,
@@ -23,12 +24,12 @@ import type { UserRole } from "@/lib/types"
 
 const navItems = {
   Admin: [
-    { href: "#", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/admin/admissions", icon: LogIn, label: "Admissions" },
-    { href: "#", icon: UsersRound, label: "Patients" },
-    { href: "/admin/billing", icon: FileText, label: "Billing" },
-    { href: "#", icon: UsersRound, label: "Staff Management" },
-    { href: "#", icon: Stethoscope, label: "Departments" },
+    { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/admin/dashboard" },
+    { href: "/admin/admissions", icon: LogIn, label: "Admissions", match: "/admin/admissions" },
+    { href: "/admin/patients", icon: UsersRound, label: "Patients", match: "/admin/patients" },
+    { href: "/admin/billing", icon: FileText, label: "Billing", match: "/admin/billing" },
+    { href: "/admin/staff", icon: UsersRound, label: "Staff Management", match: "/admin/staff" },
+    { href: "/admin/departments", icon: Stethoscope, label: "Departments", match: "/admin/departments" },
   ],
   Doctor: [
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },
@@ -66,7 +67,13 @@ const roleIcons: Record<UserRole, React.ElementType> = {
 }
 
 export function MainNav({ role }: { role: UserRole }) {
+  const pathname = usePathname();
   const RoleIcon = roleIcons[role];
+
+  const isActive = (matchPattern?: string) => {
+    if (!matchPattern) return false;
+    return pathname.startsWith(matchPattern);
+  }
 
   return (
     <div className="flex flex-col gap-4 px-2 py-4">
@@ -75,7 +82,7 @@ export function MainNav({ role }: { role: UserRole }) {
           <SidebarMenuItem key={index}>
             <SidebarMenuButton
               href={item.href}
-              isActive={index === 1}
+              isActive={isActive(item.match)}
               className="justify-start"
               asChild
             >

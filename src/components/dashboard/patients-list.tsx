@@ -4,6 +4,7 @@
 
 import * as React from "react"
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -42,16 +43,11 @@ import { Badge } from "@/components/ui/badge"
 import type { Patient } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
-import { allAdmissions, allUsers } from "@/lib/data"
-import { finalizeDischargeSummaryAction, dischargePatientAction } from "@/lib/actions"
+import { allAdmissions } from "@/lib/data"
+import { dischargePatientAction } from "@/lib/actions"
 import { Loader2, Search } from "lucide-react"
 import { Input } from "../ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
-import { useAuth } from "../auth-provider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-
 
 const getStatusBadgeVariant = (status: "Inpatient" | "Outpatient" | "Pending Discharge") => {
     if (status === 'Inpatient') return 'default';
@@ -61,20 +57,12 @@ const getStatusBadgeVariant = (status: "Inpatient" | "Outpatient" | "Pending Dis
 
 
 export function PatientsList({ patients }: { patients: Patient[] }) {
-  const { user } = useAuth();
+  const router = useRouter();
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
-  const [isDischargeDialogOpen, setIsDischargeDialogOpen] = React.useState(false);
 
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
-  // Discharge form state
-  const [diagnosis, setDiagnosis] = React.useState("");
-  const [treatment, setTreatment] = React.useState("");
-  const [condition, setCondition] = React.useState("");
-  const [medications, setMedications] = React.useState("");
-  const [instructions, setInstructions] = React.useState("");
-
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -94,50 +82,12 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       );
   }, [patients, searchQuery, statusFilter]);
 
-  const resetDischargeForm = () => {
-    setDiagnosis("");
-    setTreatment("");
-    setCondition("");
-    setMedications("");
-    setInstructions("");
-  }
-
-
   const handleAdmissionSuccess = (patientName: string) => {
     setIsAdmissionDialogOpen(false);
     toast({
       title: "Patient Admitted",
       description: `${patientName} has been successfully admitted.`
     });
-  }
-  
-  const handleFinalizeDischarge = async (patient: Patient) => {
-    if (!patient.currentAdmissionId || !user) {
-       toast({ variant: "destructive", title: "Error", description: "Required patient or user information is missing." });
-       return;
-    }
-    setIsSubmitting(true);
-    try {
-        const summaryData = {
-            diagnosisOnDischarge: diagnosis,
-            treatmentProvided: treatment,
-            conditionAtDischarge: condition,
-            medicationAtDischarge: medications.split(',').map(name => ({ name: name.trim(), dosage: "As prescribed", instructions: "As instructed" })),
-            followUpInstructions: instructions,
-        }
-        const result = await finalizeDischargeSummaryAction(patient.currentAdmissionId, summaryData, user.id);
-        if (result.success) {
-            toast({ title: "Summary Finalized", description: result.message });
-            resetDischargeForm();
-            setIsDischargeDialogOpen(false);
-        } else {
-            toast({ variant: "destructive", title: "Finalization Failed", description: result.message });
-        }
-    } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
-    } finally {
-        setIsSubmitting(false);
-    }
   }
 
   const handleDischarge = async (patient: Patient) => {
@@ -234,10 +184,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                            <Button 
                                 variant="destructive" 
                                 size="sm"
-                                onClick={() => {
-                                    setSelectedPatient(patient);
-                                    setIsDischargeDialogOpen(true);
-                                }}
+                                onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}
                             >
                                 Finalize Summary
                             </Button>
@@ -309,76 +256,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={isDischargeDialogOpen} onOpenChange={setIsDischargeDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-           <DialogHeader>
-            <DialogTitle>Finalize Discharge Summary: {selectedPatient?.fullName}</DialogTitle>
-            <DialogDescription>
-                Complete the clinical summary below. Once finalized, it will be sent for financial clearance before the patient can be officially discharged.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedPatient && (
-            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto p-1">
-                <div className="grid gap-2">
-                    <Label htmlFor="diagnosis">Diagnosis at Discharge</Label>
-                    <Input 
-                        id="diagnosis"
-                        placeholder="e.g., Acute Myocardial Infarction"
-                        value={diagnosis}
-                        onChange={(e) => setDiagnosis(e.target.value)}
-                    />
-                </div>
-                 <div className="grid gap-2">
-                    <Label htmlFor="condition">Condition at Discharge</Label>
-                    <Select onValueChange={setCondition} value={condition}>
-                        <SelectTrigger id="condition">
-                            <SelectValue placeholder="Select condition" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Stable">Stable</SelectItem>
-                            <SelectItem value="Improved">Improved</SelectItem>
-                             <SelectItem value="Unchanged">Unchanged</SelectItem>
-                            <SelectItem value="Referred">Referred</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="summary">Summary of Treatment</Label>
-                    <Textarea 
-                        id="summary"
-                        placeholder="Patient responded well to thrombolytic therapy..."
-                        value={treatment}
-                        onChange={(e) => setTreatment(e.target.value)}
-                        rows={5}
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="medications">Medications on Discharge (comma-separated)</Label>
-                    <Textarea 
-                        id="medications"
-                        placeholder="Aspirin 81mg, Lisinopril 10mg"
-                        value={medications}
-                        onChange={(e) => setMedications(e.target.value)}
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="instructions">Follow-up Instructions</Label>
-                    <Textarea 
-                        id="instructions"
-                        placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
-                        value={instructions}
-                        onChange={(e) => setInstructions(e.target.value)}
-                        rows={3}
-                    />
-                </div>
-                <Button onClick={() => handleFinalizeDischarge(selectedPatient)} disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Finalize Summary & Request Financial Clearance
-                </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
