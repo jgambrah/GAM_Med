@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -47,6 +48,9 @@ export interface Patient {
   lastVisitDate?: Date; // Timestamp of the last completed visit
   createdAt: Date; 
   updatedAt: Date; 
+  diagnosisAtDischarge?: string;
+  summaryOfTreatment?: string;
+  medicationsOnDischarge?: Medication[];
 }
 
 export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
@@ -99,6 +103,9 @@ export interface Admission {
   summaryPDF_URL?: string;
   createdAt: Date; 
   updatedAt: Date; 
+  diagnosisAtDischarge?: string;
+  summaryOfTreatment?: string;
+  medicationsOnDischarge?: Medication[];
 }
 
 
