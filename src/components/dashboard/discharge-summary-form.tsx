@@ -80,11 +80,17 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
   const [followUpInstructions, setFollowUpInstructions] = useState('');
 
   useEffect(() => {
-    form.setValue('treatmentProvided', treatmentProvided, { shouldValidate: true, shouldDirty: true });
+    // Manually set the value for react-hook-form and trigger validation
+    if (treatmentProvided) {
+      form.setValue('treatmentProvided', treatmentProvided, { shouldValidate: true, shouldDirty: true });
+    }
   }, [treatmentProvided, form]);
 
   useEffect(() => {
-    form.setValue('followUpInstructions', followUpInstructions, { shouldValidate: true, shouldDirty: true });
+    // Manually set the value for react-hook-form and trigger validation
+    if (followUpInstructions) {
+      form.setValue('followUpInstructions', followUpInstructions, { shouldValidate: true, shouldDirty: true });
+    }
   }, [followUpInstructions, form]);
 
 
@@ -193,17 +199,17 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
               )}
             />
 
-            <FormItem>
+            <div className="space-y-2">
                 <FormLabel>Summary of Treatment</FormLabel>
-                <FormControl>
-                    <RichTextEditor
-                    placeholder="Patient responded well to thrombolytic therapy..."
-                    value={treatmentProvided}
-                    onChange={setTreatmentProvided}
-                    />
-                </FormControl>
-                <FormMessage>{form.formState.errors.treatmentProvided?.message}</FormMessage>
-            </FormItem>
+                <RichTextEditor
+                placeholder="Patient responded well to thrombolytic therapy..."
+                value={treatmentProvided}
+                onChange={setTreatmentProvided}
+                />
+                {form.formState.errors.treatmentProvided && (
+                    <p className="text-sm font-medium text-destructive">{form.formState.errors.treatmentProvided.message}</p>
+                )}
+            </div>
 
             
             <FormField
@@ -224,17 +230,17 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
               )}
             />
              
-            <FormItem>
+            <div className="space-y-2">
                 <FormLabel>Follow-up Instructions</FormLabel>
-                <FormControl>
-                    <RichTextEditor
+                <RichTextEditor
                     placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
                     value={followUpInstructions}
                     onChange={setFollowUpInstructions}
-                    />
-                </FormControl>
-                <FormMessage>{form.formState.errors.followUpInstructions?.message}</FormMessage>
-            </FormItem>
+                />
+                {form.formState.errors.followUpInstructions && (
+                    <p className="text-sm font-medium text-destructive">{form.formState.errors.followUpInstructions.message}</p>
+                )}
+            </div>
 
           </CardContent>
           <CardFooter>
