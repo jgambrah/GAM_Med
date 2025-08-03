@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -21,7 +22,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -187,7 +187,8 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
                   <FormControl>
                     <RichTextEditor
                       placeholder="Patient responded well to thrombolytic therapy..."
-                      {...field}
+                      value={field.value}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />
@@ -220,7 +221,8 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
                   <FormControl>
                     <RichTextEditor
                       placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
-                      {...field}
+                      value={field.value}
+                      onChange={field.onChange}
                     />
                   </FormControl>
                   <FormMessage />
@@ -239,3 +241,4 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
     </Card>
   );
 }
+
