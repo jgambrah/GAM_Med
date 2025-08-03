@@ -1,4 +1,5 @@
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -63,6 +64,12 @@ export interface Medication {
     frequency: string;
 }
 
+export interface MedicationAtDischarge {
+    name: string;
+    dosage: string;
+    instructions: string;
+}
+
 // Represents a single admission event for a patient.
 export interface Admission {
   admissionId: string;
@@ -74,14 +81,22 @@ export interface Admission {
   ward?: string; // Only for Inpatient
   bedId?: string; // Only for Inpatient, reference to beds collection
   attendingDoctorId: string; // reference to users collection
+  dischargeByDoctorId?: string; // Who authorized the discharge
   status: AdmissionStatus;
   referralDetails?: {
     referredBy: string; 
     referralReason: string;
   };
-  diagnosisAtDischarge?: string;
-  summaryOfTreatment?: string;
-  medicationsOnDischarge?: Medication[];
+  dischargeSummary?: {
+    diagnosisOnDischarge: string;
+    treatmentProvided: string; // rich text/markdown
+    conditionAtDischarge: string;
+    medicationAtDischarge: MedicationAtDischarge[];
+    followUpInstructions: string; // rich text/markdown
+  };
+  isSummaryFinalized?: boolean; // Defaults to false
+  finalBillId?: string;
+  summaryPDF_URL?: string;
   createdAt: Date; 
   updatedAt: Date; 
 }
