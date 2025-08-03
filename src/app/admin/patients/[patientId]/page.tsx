@@ -6,7 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope } from "lucide-react";
+import { Hospital, Stethoscope, FileText } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function PatientDetailsPage({ params }: { params: { patientId: string } }) {
   const patient = allPatients.find(p => p.patientId === params.patientId);
@@ -124,10 +126,9 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
                     <TableRow>
                         <TableHead>Admission ID</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Reason</TableHead>
                         <TableHead>Ward</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Summary</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -136,21 +137,29 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
                             <TableRow key={admission.admissionId}>
                                 <TableCell className="font-mono">{admission.admissionId}</TableCell>
                                 <TableCell>{format(new Date(admission.admissionDate), "PPP")}</TableCell>
-                                <TableCell>
-                                  <Badge variant={admission.type === 'Inpatient' ? 'outline' : 'secondary'}>{admission.type}</Badge>
-                                </TableCell>
-                                <TableCell>{admission.reasonForVisit}</TableCell>
                                 <TableCell>{admission.ward || 'N/A'}</TableCell>
                                 <TableCell>
                                     <Badge variant={admission.dischargeDate ? "secondary" : "default"}>
                                         {admission.dischargeDate ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : admission.status}
                                     </Badge>
                                 </TableCell>
+                                <TableCell>
+                                  {admission.summaryPDF_URL ? (
+                                    <Button variant="outline" size="sm" asChild>
+                                      <Link href={admission.summaryPDF_URL} target="_blank">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        View PDF
+                                      </Link>
+                                    </Button>
+                                  ) : (
+                                    <span className="text-muted-foreground">N/A</span>
+                                  )}
+                                </TableCell>
                             </TableRow>
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center">
+                            <TableCell colSpan={5} className="h-24 text-center">
                                 No admission history found.
                             </TableCell>
                         </TableRow>
