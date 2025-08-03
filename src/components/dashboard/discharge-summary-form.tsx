@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -37,7 +37,6 @@ import { finalizeDischargeSummaryAction } from "@/lib/actions";
 import { useAuth } from "../auth-provider";
 import { Loader2 } from "lucide-react";
 import { allAdmissions } from "@/lib/data";
-import { RichTextEditor } from "../ui/rich-text-editor";
 import { Textarea } from "../ui/textarea";
 
 
@@ -74,25 +73,6 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
   });
 
   const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
-
-  // Decouple Rich Text Editors from React Hook Form's Controller
-  const [treatmentProvided, setTreatmentProvided] = useState('');
-  const [followUpInstructions, setFollowUpInstructions] = useState('');
-
-  useEffect(() => {
-    // Manually set the value for react-hook-form and trigger validation
-    if (treatmentProvided) {
-      form.setValue('treatmentProvided', treatmentProvided, { shouldValidate: true, shouldDirty: true });
-    }
-  }, [treatmentProvided, form]);
-
-  useEffect(() => {
-    // Manually set the value for react-hook-form and trigger validation
-    if (followUpInstructions) {
-      form.setValue('followUpInstructions', followUpInstructions, { shouldValidate: true, shouldDirty: true });
-    }
-  }, [followUpInstructions, form]);
-
 
   const handleFinalizeDischarge = async (data: DischargeFormValues) => {
     if (!patient.currentAdmissionId || !user) {
@@ -199,18 +179,23 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
               )}
             />
 
-            <div className="space-y-2">
-                <FormLabel>Summary of Treatment</FormLabel>
-                <RichTextEditor
-                placeholder="Patient responded well to thrombolytic therapy..."
-                value={treatmentProvided}
-                onChange={setTreatmentProvided}
-                />
-                {form.formState.errors.treatmentProvided && (
-                    <p className="text-sm font-medium text-destructive">{form.formState.errors.treatmentProvided.message}</p>
-                )}
-            </div>
-
+            <FormField
+              control={form.control}
+              name="treatmentProvided"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Summary of Treatment</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Patient responded well to thrombolytic therapy..."
+                      className="min-h-[120px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}
@@ -230,17 +215,23 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
               )}
             />
              
-            <div className="space-y-2">
-                <FormLabel>Follow-up Instructions</FormLabel>
-                <RichTextEditor
-                    placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
-                    value={followUpInstructions}
-                    onChange={setFollowUpInstructions}
-                />
-                {form.formState.errors.followUpInstructions && (
-                    <p className="text-sm font-medium text-destructive">{form.formState.errors.followUpInstructions.message}</p>
-                )}
-            </div>
+            <FormField
+              control={form.control}
+              name="followUpInstructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Follow-up Instructions</FormLabel>
+                   <FormControl>
+                    <Textarea
+                        placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
+                        className="min-h-[120px]"
+                       {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
           </CardContent>
           <CardFooter>
