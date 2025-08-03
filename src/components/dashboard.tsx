@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { AdminOverview } from "@/components/dashboard/admin-overview";
 import { AppointmentsView } from "@/components/dashboard/appointments-view";
 import { Header } from "@/components/dashboard/header";
@@ -30,10 +31,27 @@ function PlaceholderView({ role }: { role: string }) {
   );
 }
 
+function DoctorDashboard({ user }: { user: any }) {
+    const userAppointments = React.useMemo(() => {
+        if (!user) return [];
+        // In a real app, user.id would be used here. For mock, a default doctor is used.
+        return allAppointments.filter(app => app.doctorId === 'doc1');
+    }, [user]);
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-3xl font-bold tracking-tight font-headline">Doctor's Dashboard</h2>
+            <AppointmentsView appointments={userAppointments} user={user} />
+            <PatientsList patients={allPatients} />
+        </div>
+    )
+}
+
 const useGeminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY !== undefined;
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const pathname = usePathname();
 
   const userAppointments = React.useMemo(() => {
     if (!user) return [];
@@ -53,16 +71,26 @@ export default function Dashboard() {
   }
 
   const renderContent = () => {
+    // Handle Doctor routes
+    if (user.role === 'Doctor') {
+        if (pathname.startsWith('/doctor/dashboard')) {
+            return <DoctorDashboard user={user} />;
+        }
+        if (pathname.startsWith('/doctor/appointments')) {
+            return <AppointmentsView appointments={userAppointments} user={user} />;
+        }
+        if (pathname.startsWith('/doctor/patients')) {
+            return <PatientsList patients={allPatients} />;
+        }
+        return <DoctorDashboard user={user} />; // Default view for doctor
+    }
+
+    // Handle other roles
     switch (user.role) {
       case "Admin":
+        // This allows admin to view different pages based on the URL, which will be handled by Next.js router.
+        // We just need to ensure the layout is here. For the root of the admin dashboard, we show the overview.
         return <AdminOverview patients={allPatients} />;
-      case "Doctor":
-        return (
-          <div className="space-y-6">
-            <AppointmentsView appointments={userAppointments} user={user} />
-            <PatientsList patients={allPatients} />
-          </div>
-        );
       case "Patient":
         return <AppointmentsView appointments={userAppointments} user={user} />;
       case "Nurse":
@@ -78,9 +106,20 @@ export default function Dashboard() {
       case "BillingClerk":
         return <BillingPage />;
       default:
-        return null;
+        // Default to a placeholder if the root page is accessed without a specific role view
+        return <PlaceholderView role="User" />;
     }
   };
+
+  const renderRoutedContent = () => {
+      if (user.role === 'Admin' && pathname === '/admin/dashboard') {
+          return <AdminOverview patients={allPatients} />;
+      }
+      // This is where you would add `if` blocks for other routes like `/admin/patients`, etc.
+      // But since those are handled by `app/admin/patients/page.tsx`, we don't need to render them here.
+      // We just render the default view for the role if the path doesn't match a specific dashboard page.
+      return renderContent();
+  }
 
   return (
     <SidebarProvider>
@@ -103,7 +142,7 @@ export default function Dashboard() {
             <UserNav user={user} />
           </Header>
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-            {renderContent()}
+            {renderRoutedContent()}
           </main>
         </div>
       </SidebarInset>

@@ -32,9 +32,9 @@ const navItems = {
     { href: "/admin/departments", icon: Stethoscope, label: "Departments", match: "/admin/departments" },
   ],
   Doctor: [
-    { href: "#", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "#", icon: CalendarDays, label: "Appointments" },
-    { href: "#", icon: UsersRound, label: "Patients" },
+    { href: "/doctor/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/doctor/dashboard" },
+    { href: "/doctor/appointments", icon: CalendarDays, label: "Appointments", match: "/doctor/appointments" },
+    { href: "/doctor/patients", icon: UsersRound, label: "Patients", match: "/doctor/patients" },
   ],
   Nurse: [
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },
@@ -72,6 +72,13 @@ export function MainNav({ role }: { role: UserRole }) {
 
   const isActive = (matchPattern?: string) => {
     if (!matchPattern) return false;
+    // Special handling for patient details and discharge pages
+    if (matchPattern === "/admin/patients" && (pathname.startsWith("/admin/patients/") || pathname.startsWith("/admin/patients/[patientId]"))) {
+        return true;
+    }
+     if (matchPattern === "/doctor/patients" && (pathname.startsWith("/doctor/patients/") || pathname.startsWith("/doctor/patients/[patientId]"))) {
+        return true;
+    }
     return pathname.startsWith(matchPattern);
   }
 
