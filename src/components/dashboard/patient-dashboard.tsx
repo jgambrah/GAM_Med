@@ -28,7 +28,9 @@ import { FileText } from "lucide-react";
 
 export default function PatientDashboard({ user }: { user: User }) {
     
-  const patient = allPatients.find(p => p.patientId === 'pat1'); // Mock patient for now
+  // Find the patient record that corresponds to the logged-in user.
+  // In a real app, this would be a fetch using user.id. Here we match by name.
+  const patient = allPatients.find(p => p.fullName === user.name);
   
   const userAppointments = React.useMemo(() => {
     if (!patient) return [];
