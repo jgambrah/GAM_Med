@@ -1,3 +1,4 @@
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -21,6 +22,12 @@ export interface Patient {
   contact: {
     primaryPhone: string;
     email?: string;
+  };
+  address: {
+    street: string;
+    city: string;
+    region: string;
+    country: string;
   };
   emergencyContact: {
     name: string;
@@ -50,6 +57,12 @@ export type OutpatientStatus = 'Scheduled' | 'In Progress' | 'Completed' | 'Canc
 // AdmissionStatus is a union of all possible statuses.
 export type AdmissionStatus = InpatientStatus | OutpatientStatus;
 
+export interface Medication {
+    name: string;
+    dosage: string;
+    frequency: string;
+}
+
 // Represents a single admission event for a patient.
 export interface Admission {
   admissionId: string;
@@ -66,7 +79,9 @@ export interface Admission {
     referredBy: string; 
     referralReason: string;
   };
-  dischargeSummary?: string;
+  diagnosisAtDischarge?: string;
+  summaryOfTreatment?: string;
+  medicationsOnDischarge?: Medication[];
   createdAt: Date; 
   updatedAt: Date; 
 }
