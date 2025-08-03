@@ -236,7 +236,11 @@ export async function admitPatientAction(
 export async function dischargePatientAction(
   patientId: string,
   admissionId: string,
-  dischargeSummary?: string
+  dischargeDetails: {
+    diagnosisAtDischarge?: string;
+    summaryOfTreatment?: string;
+    medicationsOnDischarge?: string;
+  }
 ) {
   console.log(
     `[Simulated] Running dischargePatientAction for patient ${patientId} and admission ${admissionId}`
@@ -273,9 +277,18 @@ export async function dischargePatientAction(
     // 2. Update admission record
     allAdmissions[admissionIndex].status = 'Discharged';
     allAdmissions[admissionIndex].dischargeDate = new Date();
-    if (dischargeSummary) {
-      allAdmissions[admissionIndex].dischargeSummary = dischargeSummary;
+    if (dischargeDetails.diagnosisAtDischarge) {
+        allAdmissions[admissionIndex].diagnosisAtDischarge = dischargeDetails.diagnosisAtDischarge;
     }
+    if (dischargeDetails.summaryOfTreatment) {
+        allAdmissions[admissionIndex].summaryOfTreatment = dischargeDetails.summaryOfTreatment;
+    }
+     if (dischargeDetails.medicationsOnDischarge) {
+        // Simple string to array conversion for mock data
+        allAdmissions[admissionIndex].medicationsOnDischarge = dischargeDetails.medicationsOnDischarge.split(',').map(name => ({ name: name.trim(), dosage: "As prescribed", frequency: "As prescribed" }));
+    }
+
+
     console.log(`[Simulated] Updated admission ${admissionId} to discharged.`);
 
     // 3. Update bed status

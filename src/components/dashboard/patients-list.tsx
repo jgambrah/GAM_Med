@@ -58,7 +58,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   const [isDischarging, setIsDischarging] = React.useState<string | null>(null);
-  const [dischargeSummary, setDischargeSummary] = React.useState("");
+  
+  const [diagnosis, setDiagnosis] = React.useState("");
+  const [summary, setSummary] = React.useState("");
+  const [medications, setMedications] = React.useState("");
+
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -94,10 +98,18 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     }
     setIsDischarging(patient.patientId);
     try {
-        const result = await dischargePatientAction(patient.patientId, patient.currentAdmissionId, dischargeSummary);
+        const dischargeDetails = {
+            diagnosisAtDischarge: diagnosis,
+            summaryOfTreatment: summary,
+            medicationsOnDischarge: medications,
+        }
+        const result = await dischargePatientAction(patient.patientId, patient.currentAdmissionId, dischargeDetails);
         if (result.success) {
             toast({ title: "Patient Discharged", description: result.message });
-            setDischargeSummary("");
+            // Reset form fields
+            setDiagnosis("");
+            setSummary("");
+            setMedications("");
         } else {
             toast({ variant: "destructive", title: "Discharge Failed", description: result.message });
         }
@@ -182,21 +194,41 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                                     Discharge
                                 </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent className="sm:max-w-md">
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Discharge Patient: {patient.fullName}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                This action will discharge {patient.fullName}. This will update the patient's record and free up their assigned bed. Please provide a discharge summary below. This action cannot be undone.
+                                This action will discharge {patient.fullName}. Please provide the final details below.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                             <div className="grid gap-2">
-                                <Label htmlFor="discharge-summary">Discharge Summary (Optional)</Label>
-                                <Textarea 
-                                    id="discharge-summary"
-                                    placeholder="Patient responded well to treatment..."
-                                    value={dischargeSummary}
-                                    onChange={(e) => setDischargeSummary(e.target.value)}
-                                />
+                             <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="diagnosis">Diagnosis at Discharge</Label>
+                                    <Input 
+                                        id="diagnosis"
+                                        placeholder="e.g., Acute Myocardial Infarction"
+                                        value={diagnosis}
+                                        onChange={(e) => setDiagnosis(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="summary">Summary of Treatment</Label>
+                                    <Textarea 
+                                        id="summary"
+                                        placeholder="Patient responded well to thrombolytic therapy..."
+                                        value={summary}
+                                        onChange={(e) => setSummary(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="medications">Medications on Discharge</Label>
+                                    <Textarea 
+                                        id="medications"
+                                        placeholder="Aspirin 81mg, Lisinopril 10mg"
+                                        value={medications}
+                                        onChange={(e) => setMedications(e.target.value)}
+                                    />
+                                </div>
                             </div>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
