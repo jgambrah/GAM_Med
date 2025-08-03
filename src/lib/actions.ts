@@ -217,7 +217,7 @@ export async function finalizeDischargeSummaryAction(
     allAdmissions[admissionIndex].status = 'Pending Discharge';
     allAdmissions[admissionIndex].dischargeSummary = dischargeSummary;
     allAdmissions[admissionIndex].dischargeByDoctorId = dischargeByDoctorId;
-    allAdmissions[admissionIndex].isSummaryFinalized = true;
+    allAdmissions[admissionIndex].isSummaryFinalized = true; // Set the flag here
     allAdmissions[admissionIndex].updatedAt = new Date();
     
     console.log('[Simulated] Updated admission record:', allAdmissions[admissionIndex]);
@@ -259,7 +259,8 @@ export async function dischargePatientAction(
       a => a.admissionId === admissionId
     );
     if (admissionIndex === -1) throw new Error('Admission record not found.');
-    if (allAdmissions[admissionIndex].status !== 'Pending Discharge') {
+    // This is the key check for the two-step workflow.
+    if (!allAdmissions[admissionIndex].isSummaryFinalized || allAdmissions[admissionIndex].status !== 'Pending Discharge') {
         throw new Error('Discharge summary must be finalized before discharging.');
     }
 
