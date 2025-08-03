@@ -40,7 +40,11 @@ const dischargeSummarySchema = z.object({
     diagnosisOnDischarge: z.string().min(3, "Diagnosis is required."),
     treatmentProvided: z.string().min(10, "Treatment summary is required."),
     conditionAtDischarge: z.string().min(3, "Condition is required."),
-    medicationAtDischarge: z.string(), // Simple string for now
+    medicationAtDischarge: z.array(z.object({
+        name: z.string(),
+        dosage: z.string(),
+        instructions: z.string(),
+    })),
     followUpInstructions: z.string().min(10, "Follow-up instructions are required."),
 });
 

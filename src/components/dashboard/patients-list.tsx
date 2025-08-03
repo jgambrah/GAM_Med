@@ -70,8 +70,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   
   // Discharge form state
   const [diagnosis, setDiagnosis] = React.useState("");
+  const [treatment, setTreatment] = React.useState("");
   const [condition, setCondition] = React.useState("");
-  const [summary, setSummary] = React.useState("");
   const [medications, setMedications] = React.useState("");
   const [instructions, setInstructions] = React.useState("");
 
@@ -96,8 +96,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
 
   const resetDischargeForm = () => {
     setDiagnosis("");
+    setTreatment("");
     setCondition("");
-    setSummary("");
     setMedications("");
     setInstructions("");
   }
@@ -120,7 +120,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     try {
         const summaryData = {
             diagnosisOnDischarge: diagnosis,
-            treatmentProvided: summary,
+            treatmentProvided: treatment,
             conditionAtDischarge: condition,
             medicationAtDischarge: medications.split(',').map(name => ({ name: name.trim(), dosage: "As prescribed", instructions: "As instructed" })),
             followUpInstructions: instructions,
@@ -347,8 +347,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                     <Textarea 
                         id="summary"
                         placeholder="Patient responded well to thrombolytic therapy..."
-                        value={summary}
-                        onChange={(e) => setSummary(e.g.target.value)}
+                        value={treatment}
+                        onChange={(e) => setTreatment(e.target.value)}
                         rows={5}
                     />
                 </div>
