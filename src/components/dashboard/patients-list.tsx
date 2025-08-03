@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import * as React from "react"
@@ -59,21 +58,20 @@ const getStatusBadgeVariant = (status: "Inpatient" | "Outpatient" | "Pending Dis
 export function PatientsList({ patients }: { patients: Patient[] }) {
   const router = useRouter();
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
-
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<"all" | "inpatient" | "outpatient">("all");
+  const [statusFilter, setStatusFilter] = React.useState<"all" | "inpatient" | "outpatient" | "pending">("all");
 
   const filteredPatients = React.useMemo(() => {
     return patients
       .filter(patient => {
         const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
-        if (statusFilter === "inpatient") return patient.isAdmitted;
-        if (statusFilter === "outpatient") return !patient.isAdmitted && (!admission || admission.status !== 'Pending Discharge');
+        const status = getPatientStatus(patient);
+        if (statusFilter === "inpatient") return status === 'Inpatient';
+        if (statusFilter === "outpatient") return status === 'Outpatient';
+        if (statusFilter === "pending") return status === 'Pending Discharge';
         return true;
       })
       .filter(patient => 
@@ -89,20 +87,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       description: `${patientName} has been successfully admitted.`
     });
   }
-
-  const handleDischarge = async (patient: Patient) => {
-     if (!patient.currentAdmissionId) return;
-     setIsSubmitting(true);
-     const result = await dischargePatientAction(patient.patientId, patient.currentAdmissionId);
-     if (result.success) {
-       toast({ title: "Patient Discharged", description: result.message });
-     } else {
-       toast({ variant: "destructive", title: "Discharge Failed", description: result.message });
-     }
-     setIsSubmitting(false);
-  }
-
-
+  
   const getPatientStatus = (patient: Patient): "Inpatient" | "Outpatient" | "Pending Discharge" => {
     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
     if (patient.isAdmitted) {
@@ -140,6 +125,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                         <TabsTrigger value="all">All</TabsTrigger>
                         <TabsTrigger value="inpatient">Inpatient</TabsTrigger>
                         <TabsTrigger value="outpatient">Outpatient</TabsTrigger>
+                        <TabsTrigger value="pending">Pending Discharge</TabsTrigger>
                     </TabsList>
                 </Tabs>
             </div>
@@ -182,7 +168,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                     <TableCell className="text-right">
                         {status === 'Inpatient' && (
                            <Button 
-                                variant="destructive" 
+                                variant="secondary" 
                                 size="sm"
                                 onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}
                             >
@@ -190,26 +176,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                             </Button>
                         )}
                          {status === 'Pending Discharge' && (
-                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm" disabled={isSubmitting}>
-                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Discharge Patient
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                    <AlertDialogTitle>Confirm Final Discharge</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will officially discharge {patient.fullName} and free up their bed. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDischarge(patient)}>Confirm</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                             <span className="text-sm text-muted-foreground italic">Awaiting financial clearance</span>
                          )}
                         {status === 'Outpatient' && (
                             <Button 

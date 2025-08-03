@@ -1,3 +1,4 @@
+
 "use client"
 
 import {
@@ -52,8 +53,7 @@ const navItems = {
     { href: "#", icon: Pill, label: "My Prescriptions" },
   ],
   BillingClerk: [
-      { href: "#", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/admin/billing", icon: FileText, label: "Pending Bills" },
+      { href: "/admin/billing", icon: FileText, label: "Discharge Queue", match: "/admin/billing" },
   ]
 }
 
