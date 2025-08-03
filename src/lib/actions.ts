@@ -237,9 +237,9 @@ export async function dischargePatientAction(
   patientId: string,
   admissionId: string,
   dischargeDetails: {
-    diagnosisAtDischarge?: string;
-    summaryOfTreatment?: string;
-    medicationsOnDischarge?: string;
+    diagnosisAtDischarge: string;
+    summaryOfTreatment: string;
+    medicationsOnDischarge: string;
   }
 ) {
   console.log(
@@ -264,7 +264,7 @@ export async function dischargePatientAction(
     // In a real app, these three updates would be in a single atomic batch write.
     // const batch = writeBatch(db);
     // batch.update(patientRef, { isAdmitted: false, currentAdmissionId: null });
-    // batch.update(admissionRef, { isDischarged: true, dischargeDate: serverTimestamp() });
+    // batch.update(admissionRef, { ... });
     // batch.update(bedRef, { status: 'vacant', currentPatientId: null });
     // await batch.commit();
 
@@ -277,19 +277,16 @@ export async function dischargePatientAction(
     // 2. Update admission record
     allAdmissions[admissionIndex].status = 'Discharged';
     allAdmissions[admissionIndex].dischargeDate = new Date();
-    if (dischargeDetails.diagnosisAtDischarge) {
-        allAdmissions[admissionIndex].diagnosisAtDischarge = dischargeDetails.diagnosisAtDischarge;
+    allAdmissions[admissionIndex].dischargeSummary = {
+        diagnosisOnDischarge: dischargeDetails.diagnosisAtDischarge,
+        treatmentProvided: dischargeDetails.summaryOfTreatment,
+        conditionAtDischarge: 'Stable', // Mocked for now
+        medicationAtDischarge: dischargeDetails.medicationsOnDischarge.split(',').map(name => ({ name: name.trim(), dosage: "As prescribed", instructions: "As instructed" })),
+        followUpInstructions: "Follow up with specialist in 2 weeks." // Mocked
     }
-    if (dischargeDetails.summaryOfTreatment) {
-        allAdmissions[admissionIndex].summaryOfTreatment = dischargeDetails.summaryOfTreatment;
-    }
-     if (dischargeDetails.medicationsOnDischarge) {
-        // Simple string to array conversion for mock data
-        allAdmissions[admissionIndex].medicationsOnDischarge = dischargeDetails.medicationsOnDischarge.split(',').map(name => ({ name: name.trim(), dosage: "As prescribed", frequency: "As prescribed" }));
-    }
-
-
-    console.log(`[Simulated] Updated admission ${admissionId} to discharged.`);
+    allAdmissions[admissionIndex].isSummaryFinalized = true; // Finalize on discharge for now
+    
+    console.log(`[Simulated] Updated admission ${admissionId} with full discharge summary.`);
 
     // 3. Update bed status
     allBeds[bedIndex].status = 'cleaning';
