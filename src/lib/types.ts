@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
