@@ -1,0 +1,61 @@
+diff --git a/node_modules/react-quill/lib/index.js b/node_modules/react-quill/lib/index.js
+index 2737083..52f4657 100644
+--- a/node_modules/react-quill/lib/index.js
++++ b/node_modules/react-quill/lib/index.js
+@@ -1,6 +1,7 @@
+ 'use strict';
+ 
+ var React = require('react');
++var ReactDOM = require('react-dom');
+ var Quill = require('quill');
+ var PropTypes = require('prop-types');
+ 
+@@ -582,7 +583,7 @@
+ 	},
+ 
+ 	getEditingArea: function() {
+-		return this.getDOMNode().querySelector('.ql-editor');
++		return ReactDOM.findDOMNode(this).querySelector('.ql-editor');
+ 	},
+ 
+ 	getEditor: function() {
+diff --git a/node_modules/react-quill/lib/mixin.js b/node_modules/react-quill/lib/mixin.js
+index 92c8188..42e23d7 100644
+--- a/node_modules/react-quill/lib/mixin.js
++++ b/node_modules/react-quill/lib/mixin.js
+@@ -1,4 +1,5 @@
+ 'use strict';
++var ReactDOM = require('react-dom');
+ var Quill = require('quill');
+ 
+ /*
+@@ -321,7 +322,7 @@
+ 	},
+ 
+ 	getEditingArea: function() {
+-		return this.getDOMNode().querySelector('.ql-editor');
++		return ReactDOM.findDOMNode(this).querySelector('.ql-editor');
+ 	},
+ 
+ 	getEditor: function() {
+diff --git a/node_modules/react-quill/react-quill.js b/node_modules/react-quill/react-quill.js
+index 1ba2d39..f0c18d7 100644
+--- a/node_modules/react-quill/react-quill.js
++++ b/node_modules/react-quill/react-quill.js
+@@ -1,6 +1,7 @@
+ 'use strict';
+ 
+ var React = require('react');
++var ReactDOM = require('react-dom');
+ var Quill = require('quill');
+ var PropTypes = require('prop-types');
+ 
+@@ -582,7 +583,7 @@
+ 	},
+ 
+ 	getEditingArea: function() {
+-		return this.getDOMNode().querySelector('.ql-editor');
++		return ReactDOM.findDOMNode(this).querySelector('.ql-editor');
+ 	},
+ 
+ 	getEditor: function() {
