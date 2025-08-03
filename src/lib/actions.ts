@@ -238,6 +238,37 @@ export async function finalizeDischargeSummaryAction(
   }
 }
 
+/**
+ * Simulates the generation of a PDF, saving it to storage, and notifying the patient.
+ */
+async function generateAndNotifyDischargeSummary(patient: Patient, admission: Admission) {
+    console.log(`[AUTO-TRIGGER] Starting PDF generation for admission ${admission.admissionId}.`);
+    
+    // 1. Generate PDF (Simulated)
+    // In a real app, you'd use a library like Puppeteer or an API to create a PDF from the admission.dischargeSummary
+    console.log(`[AUTO-TRIGGER] Rendering PDF for patient ${patient.fullName}...`);
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate async PDF creation
+    const summaryPDF_URL = `/storage/summaries/${admission.admissionId}.pdf`;
+    console.log(`[AUTO-TRIGGER] PDF successfully generated.`);
+
+    // 2. Upload to Storage and Update Record (Simulated)
+    console.log(`[AUTO-TRIGGER] Uploading PDF to Firebase Storage at ${summaryPDF_URL}...`);
+    admission.summaryPDF_URL = summaryPDF_URL;
+    admission.updatedAt = new Date();
+    console.log(`[AUTO-TRIGGER] Admission record updated with PDF URL.`);
+
+    // 3. Notify Patient (Simulated)
+    const patientContact = patient.contact.email || patient.contact.primaryPhone;
+    if (patientContact) {
+        console.log(`[AUTO-TRIGGER] Sending notification to patient at ${patientContact}...`);
+        console.log(`[AUTO-TRIGGER] Message: "Dear ${patient.fullName}, your discharge summary is ready. Please visit the patient portal to view it."`);
+    } else {
+        console.log(`[AUTO-TRIGGER] No contact info available for patient notification.`);
+    }
+
+    console.log(`[AUTO-TRIGGER] Process complete for admission ${admission.admissionId}.`);
+}
+
 
 /**
  * Admin-facing action to complete the discharge process after clinical
@@ -254,31 +285,34 @@ export async function dischargePatientAction(
   try {
     const patientIndex = allPatients.findIndex(p => p.patientId === patientId);
     if (patientIndex === -1) throw new Error('Patient not found.');
+    const patient = allPatients[patientIndex];
 
     const admissionIndex = allAdmissions.findIndex(
       a => a.admissionId === admissionId
     );
     if (admissionIndex === -1) throw new Error('Admission record not found.');
+    const admission = allAdmissions[admissionIndex];
+
     // This is the key check for the two-step workflow.
-    if (!allAdmissions[admissionIndex].isSummaryFinalized || allAdmissions[admissionIndex].status !== 'Pending Discharge') {
+    if (!admission.isSummaryFinalized || admission.status !== 'Pending Discharge') {
         throw new Error('Discharge summary must be finalized before discharging.');
     }
 
-    const {bedId} = allAdmissions[admissionIndex];
+    const {bedId} = admission;
     if (!bedId) throw new Error('No bed assigned to this admission.');
 
     const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
     if (bedIndex === -1) throw new Error('Assigned bed not found.');
 
     // Update patient
-    allPatients[patientIndex].isAdmitted = false;
-    allPatients[patientIndex].currentAdmissionId = undefined;
-    allPatients[patientIndex].updatedAt = new Date();
-    allPatients[patientIndex].lastVisitDate = new Date();
+    patient.isAdmitted = false;
+    patient.currentAdmissionId = undefined;
+    patient.updatedAt = new Date();
+    patient.lastVisitDate = new Date();
 
     // Update admission record
-    allAdmissions[admissionIndex].status = 'Discharged';
-    allAdmissions[admissionIndex].dischargeDate = new Date();
+    admission.status = 'Discharged';
+    admission.dischargeDate = new Date();
     
     // Update bed status
     allBeds[bedIndex].status = 'cleaning';
@@ -289,9 +323,12 @@ export async function dischargePatientAction(
       `[Simulated] Triggering final bill generation for admission ${admissionId}.`
     );
 
+    // Call the automated PDF generation and notification function
+    await generateAndNotifyDischargeSummary(patient, admission);
+
     return {
       success: true,
-      message: `Patient ${allPatients[patientIndex].fullName} has been discharged.`,
+      message: `Patient ${patient.fullName} has been discharged.`,
     };
   } catch (error: any) {
     console.error('Error in dischargePatientAction:', error);
