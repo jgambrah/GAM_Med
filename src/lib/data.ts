@@ -7,6 +7,7 @@ export const allUsers: User[] = [
   { id: 'adm1', name: 'Afi Johnson', email: 'a.johnson@medflow.gh', role: 'Admin', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=AJ' },
   { id: 'nur1', name: 'Grace Adjei', email: 'g.adjei@medflow.gh', role: 'Nurse', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=GA' },
   { id: 'pha1', name: 'Ben Carter', email: 'b.carter@medflow.gh', role: 'Pharmacist', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=BC' },
+  { id: 'bil1', name: 'Esi Annan', email: 'e.annan@medflow.gh', role: 'BillingClerk', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EA' },
 ];
 
 const now = new Date();

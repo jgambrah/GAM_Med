@@ -2,6 +2,7 @@
 
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -54,11 +55,7 @@ export interface Patient {
 export type AdmissionType = "Inpatient" | "Outpatient" | "Emergency";
 
 // Inpatient status reflects the journey within the hospital stay.
-export type InpatientStatus = 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged';
-// Outpatient status reflects a single visit or appointment.
-export type OutpatientStatus = 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
-// AdmissionStatus is a union of all possible statuses.
-export type AdmissionStatus = InpatientStatus | OutpatientStatus;
+export type AdmissionStatus = 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged' | 'Cancelled';
 
 
 export interface MedicationAtDischarge {

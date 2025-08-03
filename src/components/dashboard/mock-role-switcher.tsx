@@ -35,6 +35,7 @@ export function MockRoleSwitcher() {
               <SelectItem value="Nurse">Nurse</SelectItem>
               <SelectItem value="Pharmacist">Pharmacist</SelectItem>
               <SelectItem value="Patient">Patient</SelectItem>
+              <SelectItem value="BillingClerk">Billing Clerk</SelectItem>
             </SelectContent>
           </Select>
         </div>

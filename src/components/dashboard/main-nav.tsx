@@ -10,6 +10,7 @@ import {
   Stethoscope,
   User,
   UsersRound,
+  FileText,
 } from "lucide-react"
 
 import {
@@ -25,6 +26,7 @@ const navItems = {
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/admin/admissions", icon: LogIn, label: "Admissions" },
     { href: "#", icon: UsersRound, label: "Patients" },
+    { href: "/admin/billing", icon: FileText, label: "Billing" },
     { href: "#", icon: UsersRound, label: "Staff Management" },
     { href: "#", icon: Stethoscope, label: "Departments" },
   ],
@@ -48,6 +50,10 @@ const navItems = {
     { href: "#", icon: CalendarDays, label: "My Appointments" },
     { href: "#", icon: Pill, label: "My Prescriptions" },
   ],
+  BillingClerk: [
+      { href: "#", icon: LayoutDashboard, label: "Dashboard" },
+      { href: "/admin/billing", icon: FileText, label: "Pending Bills" },
+  ]
 }
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -56,7 +62,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   Nurse: HeartPulse,
   Pharmacist: Pill,
   Patient: User,
-  BillingClerk: User,
+  BillingClerk: FileText,
 }
 
 export function MainNav({ role }: { role: UserRole }) {

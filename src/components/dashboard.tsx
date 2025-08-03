@@ -13,6 +13,7 @@ import { allAppointments, allPatients } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import { AiAssistant } from "./dashboard/ai-assistant";
 import { BedManagement } from "./dashboard/bed-management";
+import BillingPage from "@/app/admin/billing/page";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -37,11 +38,11 @@ export default function Dashboard() {
   const userAppointments = React.useMemo(() => {
     if (!user) return [];
     if (user.role === 'Patient') {
-      // In a real app, user.id would be used here. For mock, we use a default patient.
+      // In a real app, user.id would be used here. For mock, a default patient is used.
       return allAppointments.filter(app => app.patientId === 'pat1');
     }
     if (user.role === 'Doctor') {
-       // In a real app, user.id would be used here. For mock, we use a default doctor.
+       // In a real app, user.id would be used here. For mock, a default doctor is used.
       return allAppointments.filter(app => app.doctorId === 'doc1');
     }
     return allAppointments;
@@ -74,6 +75,8 @@ export default function Dashboard() {
         );
       case "Pharmacist":
         return <PlaceholderView role="Pharmacist" />;
+      case "BillingClerk":
+        return <BillingPage />;
       default:
         return null;
     }
