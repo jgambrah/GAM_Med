@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,7 +23,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -39,6 +38,8 @@ import { useAuth } from "../auth-provider";
 import { Loader2 } from "lucide-react";
 import { allAdmissions } from "@/lib/data";
 import { RichTextEditor } from "../ui/rich-text-editor";
+import { Textarea } from "../ui/textarea";
+
 
 interface DischargeSummaryFormProps {
   patient: Patient;
@@ -73,6 +74,19 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
   });
 
   const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
+
+  // Decouple Rich Text Editors from React Hook Form's Controller
+  const [treatmentProvided, setTreatmentProvided] = useState('');
+  const [followUpInstructions, setFollowUpInstructions] = useState('');
+
+  useEffect(() => {
+    form.setValue('treatmentProvided', treatmentProvided, { shouldValidate: true, shouldDirty: true });
+  }, [treatmentProvided, form]);
+
+  useEffect(() => {
+    form.setValue('followUpInstructions', followUpInstructions, { shouldValidate: true, shouldDirty: true });
+  }, [followUpInstructions, form]);
+
 
   const handleFinalizeDischarge = async (data: DischargeFormValues) => {
     if (!patient.currentAdmissionId || !user) {
@@ -178,23 +192,20 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="treatmentProvided"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Summary of Treatment</FormLabel>
-                  <FormControl>
+
+            <FormItem>
+                <FormLabel>Summary of Treatment</FormLabel>
+                <FormControl>
                     <RichTextEditor
-                      placeholder="Patient responded well to thrombolytic therapy..."
-                      value={field.value}
-                      onChange={field.onChange}
+                    placeholder="Patient responded well to thrombolytic therapy..."
+                    value={treatmentProvided}
+                    onChange={setTreatmentProvided}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </FormControl>
+                <FormMessage>{form.formState.errors.treatmentProvided?.message}</FormMessage>
+            </FormItem>
+
+            
             <FormField
               control={form.control}
               name="medicationAtDischarge"
@@ -212,23 +223,19 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
                 </FormItem>
               )}
             />
-             <FormField
-              control={form.control}
-              name="followUpInstructions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Follow-up Instructions</FormLabel>
-                  <FormControl>
+             
+            <FormItem>
+                <FormLabel>Follow-up Instructions</FormLabel>
+                <FormControl>
                     <RichTextEditor
-                      placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
-                      value={field.value}
-                      onChange={field.onChange}
+                    placeholder="Follow up with specialist in 2 weeks. Monitor blood pressure daily."
+                    value={followUpInstructions}
+                    onChange={setFollowUpInstructions}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </FormControl>
+                <FormMessage>{form.formState.errors.followUpInstructions?.message}</FormMessage>
+            </FormItem>
+
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSubmitting}>
@@ -241,4 +248,3 @@ export function DischargeSummaryForm({ patient }: DischargeSummaryFormProps) {
     </Card>
   );
 }
-
