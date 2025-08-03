@@ -1,6 +1,7 @@
 
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -66,6 +67,14 @@ export interface MedicationAtDischarge {
     instructions: string;
 }
 
+export interface DischargeSummary {
+    diagnosisOnDischarge: string;
+    treatmentProvided: string;
+    conditionAtDischarge: string;
+    medicationAtDischarge: MedicationAtDischarge[];
+    followUpInstructions: string;
+}
+
 // Represents a single admission event for a patient.
 export interface Admission {
   admissionId: string;
@@ -83,13 +92,7 @@ export interface Admission {
     referredBy: string; 
     referralReason: string;
   };
-  dischargeSummary?: {
-    diagnosisOnDischarge: string;
-    treatmentProvided: string; // rich text/markdown
-    conditionAtDischarge: string;
-    medicationAtDischarge: MedicationAtDischarge[];
-    followUpInstructions: string; // rich text/markdown
-  };
+  dischargeSummary?: DischargeSummary;
   isSummaryFinalized?: boolean; // Defaults to false
   finalBillId?: string;
   summaryPDF_URL?: string;
