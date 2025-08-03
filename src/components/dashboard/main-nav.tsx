@@ -48,8 +48,8 @@ const navItems = {
     { href: "#", icon: LayoutDashboard, label: "Inventory" },
   ],
   Patient: [
-    { href: "#", icon: LayoutDashboard, label: "My Dashboard" },
-    { href: "#", icon: CalendarDays, label: "My Appointments" },
+    { href: "/patient/dashboard", icon: LayoutDashboard, label: "My Dashboard", match: "/patient/dashboard" },
+    { href: "/patient/appointments", icon: CalendarDays, label: "My Appointments", match: "/patient/appointments" },
     { href: "#", icon: Pill, label: "My Prescriptions" },
   ],
   BillingClerk: [

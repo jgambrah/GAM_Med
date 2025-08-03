@@ -15,6 +15,7 @@ import { useAuth } from "@/components/auth-provider";
 import { AiAssistant } from "./dashboard/ai-assistant";
 import { BedManagement } from "./dashboard/bed-management";
 import BillingPage from "@/app/admin/billing/page";
+import PatientDashboard from "./dashboard/patient-dashboard";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -85,14 +86,24 @@ export default function Dashboard() {
         return <DoctorDashboard user={user} />; // Default view for doctor
     }
 
+     // Handle Patient routes
+    if (user.role === 'Patient') {
+        if (pathname.startsWith('/patient/dashboard')) {
+            return <PatientDashboard user={user} />;
+        }
+        if (pathname.startsWith('/patient/appointments')) {
+            return <AppointmentsView appointments={userAppointments} user={user} />;
+        }
+        return <PatientDashboard user={user} />; // Default view for patient
+    }
+
+
     // Handle other roles
     switch (user.role) {
       case "Admin":
         // This allows admin to view different pages based on the URL, which will be handled by Next.js router.
         // We just need to ensure the layout is here. For the root of the admin dashboard, we show the overview.
         return <AdminOverview patients={allPatients} />;
-      case "Patient":
-        return <AppointmentsView appointments={userAppointments} user={user} />;
       case "Nurse":
         return (
             <div className="space-y-6">
