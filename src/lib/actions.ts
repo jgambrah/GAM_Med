@@ -1,3 +1,4 @@
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
@@ -30,6 +31,13 @@ const admissionFormSchema = z.object({
   bedId: z.string().min(1, 'Bed selection is required.'),
   attendingDoctorId: z.string().min(1, 'Doctor selection is required.'),
 });
+
+const bedTransferSchema = z.object({
+  admissionId: z.string(),
+  newBedId: z.string().min(1, "New bed selection is required."),
+  reason: z.string().optional(),
+});
+
 
 const updateOutpatientStatusSchema = z.object({
     appointmentId: z.string(),
@@ -184,6 +192,7 @@ export async function admitPatientAction(
 
     allBeds[bedIndex].status = 'occupied';
     allBeds[bedIndex].currentPatientId = patientId;
+    allBeds[bedIndex].currentAdmissionId = newAdmissionId;
     allBeds[bedIndex].occupiedSince = new Date();
 
     return {
@@ -338,6 +347,55 @@ export async function dischargePatientAction(
     };
   }
 }
+
+export async function transferPatientBedAction(values: z.infer<typeof bedTransferSchema>) {
+  console.log('[Simulated] Running transferPatientBedAction with:', values);
+  
+  try {
+    const { admissionId, newBedId } = values;
+
+    const admissionIndex = allAdmissions.findIndex(a => a.admissionId === admissionId);
+    if (admissionIndex === -1) throw new Error('Admission not found.');
+    
+    const admission = allAdmissions[admissionIndex];
+    const oldBedId = admission.bedId;
+
+    if (oldBedId === newBedId) throw new Error("Patient is already in this bed.");
+
+    const oldBedIndex = allBeds.findIndex(b => b.bedId === oldBedId);
+    if (oldBedIndex === -1) throw new Error('Old bed not found.');
+
+    const newBedIndex = allBeds.findIndex(b => b.bedId === newBedId);
+    if (newBedIndex === -1) throw new Error('New bed not found.');
+
+    if (allBeds[newBedIndex].status !== 'vacant') throw new Error('New bed is not vacant.');
+
+    // Vacate old bed
+    allBeds[oldBedIndex].status = 'cleaning';
+    allBeds[oldBedIndex].currentPatientId = undefined;
+    allBeds[oldBedIndex].currentAdmissionId = undefined;
+    allBeds[oldBedIndex].occupiedSince = undefined;
+
+    // Occupy new bed
+    allBeds[newBedIndex].status = 'occupied';
+    allBeds[newBedIndex].currentPatientId = admission.patientId;
+    allBeds[newBedIndex].currentAdmissionId = admissionId;
+    allBeds[newBedIndex].occupiedSince = new Date();
+
+    // Update admission record
+    allAdmissions[admissionIndex].bedId = newBedId;
+    allAdmissions[admissionIndex].ward = allBeds[newBedIndex].wardName; // Update ward if it changed
+    allAdmissions[admissionIndex].updatedAt = new Date();
+
+    console.log(`[Simulated] Patient from admission ${admissionId} transferred from bed ${oldBedId} to ${newBedId}`);
+
+    return { success: true, message: `Patient successfully transferred to bed ${newBedId}.` };
+  } catch (error: any) {
+    console.error('Error in transferPatientBedAction:', error);
+    return { success: false, message: error.message || 'An unexpected error occurred during transfer.' };
+  }
+}
+
 
 export async function updateOutpatientStatusAction(
     values: z.infer<typeof updateOutpatientStatusSchema>

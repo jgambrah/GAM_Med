@@ -1,74 +1,54 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the user's role from the 'users' collection
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-    
-    // Helper function to check if the summary is already finalized
-    function isSummaryFinalized() {
-        return resource.data.isSummaryFinalized == true;
+
+    // Helper function to get user's role from the 'users' collection
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
 
+    // Security rules for the 'users' collection
     match /users/{userId} {
-      // Users can read their own profile, admins can read any profile
-      allow read: if request.auth.uid == userId || getUserRole() == 'Admin';
-      // Users can only create their own profile upon signup
-      allow create: if request.auth.uid == userId;
-      // Users can update their own profile, admins can update any profile
-      allow update: if request.auth.uid == userId || getUserRole() == 'Admin';
+      // Any authenticated user can create their own user profile document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Users can only read their own data
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Users can only update their own data, but cannot change their role
+      allow update: if request.auth != null && request.auth.uid == userId && request.resource.data.role == resource.data.role;
     }
 
+    // Security rules for the 'patients' collection
     match /patients/{patientId} {
-      // Admins, Doctors, and Nurses can read any patient record.
-      // Patients can read their own record if their auth UID matches a linked field.
-      // (Assuming a 'userId' field on the patient document linking to the auth user)
-      allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse'] || request.auth.uid == resource.data.userId;
-      
-      // Only Admins or a trusted backend process should create patients.
-      allow create: if getUserRole() == 'Admin';
-      
-      // Only Admins, Doctors or a trusted backend process should update patients.
-      allow update: if getUserRole() in ['Admin', 'Doctor'];
-      
-      // Admissions sub-collection rules
-      match /admissions/{admissionId} {
-        
-        // READ: Admins, Doctors, Nurses, and Billing Clerks can read admissions.
-        // A patient can read their own admission records.
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'] 
-                    || get(/databases/$(database)/documents/patients/$(patientId)).data.userId == request.auth.uid;
-                    
-        // CREATE: New admissions can be created by Admins or Doctors.
-        allow create: if getUserRole() in ['Admin', 'Doctor'];
-
-        // UPDATE (Doctor/Admin for Clinical Summary):
-        // Can update IF the summary is not yet finalized.
-        // This rule allows doctors and admins to fill out and save the discharge summary.
-        allow update: if isSummaryFinalized() == false && getUserRole() in ['Admin', 'Doctor'];
-        
-        // UPDATE (Billing Clerk for Bill ID):
-        // Can update ONLY the `finalBillId` field, and only if the summary is finalized.
-        // This prevents billing from altering clinical data.
-        allow update: if isSummaryFinalized() == true 
-                      && getUserRole() == 'BillingClerk'
-                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finalBillId']);
-                      
-        // The final state change from 'Pending Discharge' to 'Discharged' would be handled
-        // by a trusted server environment (e.g., a Server Action or Cloud Function)
-        // which has elevated privileges and is not subject to these rules.
-        // Direct client updates for this final step would be disallowed.
-      }
+      // Admins and Nurses can create new patients
+      allow create: if getUserRole(request.auth.uid) in ['Admin', 'Nurse'];
+      // Admins, Nurses, and Doctors can read any patient's data
+      // Patients can read their own data (requires linking auth UID to patient record)
+      allow read: if getUserRole(request.auth.uid) in ['Admin', 'Nurse', 'Doctor'] || resource.data.authUid == request.auth.uid;
+       // Admins and Nurses can update patient data
+      allow update: if getUserRole(request.auth.uid) in ['Admin', 'Nurse'];
     }
     
+    // Security rules for the 'admissions' collection
+    match /admissions/{admissionId} {
+        // Admins, Nurses, and Doctors can create admission records
+        allow create: if getUserRole(request.auth.uid) in ['Admin', 'Nurse', 'Doctor'];
+        // Admins, Nurses, and Doctors can read any admission record
+        // Patients can read their own admission records
+        allow read: if getUserRole(request.auth.uid) in ['Admin', 'Nurse', 'Doctor'] || get(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.authUid == request.auth.uid;
+        // Admins, Nurses, and Doctors can update admission records
+        allow update: if getUserRole(request.auth.uid) in ['Admin', 'Nurse', 'Doctor'];
+    }
+
+    // Security rules for the 'beds' collection
     match /beds/{bedId} {
-      // All authenticated users can see bed status for allocation purposes.
-      allow read: if request.auth != null;
-      // Only Admins, Nurses, or a backend process can update bed status.
-      allow update: if getUserRole() in ['Admin', 'Nurse'];
+        // Only Admins can create or delete bed records (initial setup)
+        allow create, delete: if getUserRole(request.auth.uid) == 'Admin';
+        // Any authenticated user can view the status of beds
+        allow read: if request.auth != null;
+        // Only Admins and Nurses can update bed statuses (e.g., for allocation, transfer, maintenance)
+        allow update: if getUserRole(request.auth.uid) in ['Admin', 'Nurse'];
     }
   }
 }

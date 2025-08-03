@@ -1,3 +1,4 @@
+
 import type { User, Patient, Appointment, Bed, Admission } from './types';
 
 export const allUsers: User[] = [
@@ -103,6 +104,7 @@ export const allBeds: Bed[] = [
         roomNumber: '101',
         status: 'occupied',
         currentPatientId: 'P-240821-0001',
+        currentAdmissionId: 'ADM-0001',
         occupiedSince: new Date('2024-07-20T10:00:00Z'),
         cleaningNeeded: false,
         createdAt: now,
@@ -123,6 +125,7 @@ export const allBeds: Bed[] = [
         roomNumber: '203',
         status: 'occupied',
         currentPatientId: 'P-240821-0003',
+        currentAdmissionId: 'ADM-0002',
         occupiedSince: new Date('2024-07-22T14:30:00Z'),
         cleaningNeeded: false,
         createdAt: now,

@@ -1,12 +1,23 @@
 
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BedDouble, User, Wrench } from "lucide-react"
-import type { Bed } from "@/lib/types"
-import { allBeds } from "@/lib/data"
+import { BedDouble, User, Wrench, Ban } from "lucide-react"
+import type { Bed, Patient } from "@/lib/types"
+import { allBeds, allPatients } from "@/lib/data"
 import { cn } from "@/lib/utils"
+import * as React from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { PatientAdmissionForm } from "./patient-admission-form"
+import { useToast } from "@/hooks/use-toast"
+import { BedTransferForm } from "./bed-transfer-form"
 
 const statusConfig = {
     occupied: {
@@ -14,35 +25,78 @@ const statusConfig = {
         label: "Occupied",
         color: "bg-blue-100 border-blue-200 text-blue-800",
         badge: "default" as const,
+        cursor: "cursor-pointer hover:shadow-lg hover:border-blue-300",
     },
     vacant: {
         icon: BedDouble,
         label: "Vacant",
         color: "bg-green-100 border-green-200 text-green-800",
         badge: "default" as const,
+        cursor: "cursor-pointer hover:shadow-lg hover:border-green-300",
     },
     maintenance: {
         icon: Wrench,
         label: "Maintenance",
         color: "bg-red-100 border-red-200 text-red-800",
         badge: "destructive" as const,
+        cursor: "cursor-not-allowed",
     },
     cleaning: {
         icon: Wrench,
         label: "Cleaning",
         color: "bg-yellow-100 border-yellow-200 text-yellow-800",
         badge: "secondary" as const,
+        cursor: "cursor-not-allowed",
     }
 }
 
 
 export function BedManagement() {
-  const wards = [...new Set(allBeds.map(b => b.wardName))];
+  const { toast } = useToast();
+  const [wards, setWards] = React.useState([...new Set(allBeds.map(b => b.wardName))]);
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [dialogContent, setDialogContent] = React.useState<React.ReactNode | null>(null);
+  const [dialogTitle, setDialogTitle] = React.useState("");
+
+  const handleBedClick = (bed: Bed) => {
+    if (bed.status === 'maintenance' || bed.status === 'cleaning') {
+      toast({ variant: "destructive", title: "Bed Unavailable", description: `This bed is currently under ${bed.status} and cannot be used.` });
+      return;
+    }
+
+    if (bed.status === 'vacant') {
+      setDialogTitle(`Admit Patient to Bed ${bed.bedId}`);
+      // In a real app, you'd likely show a searchable list of patients to admit.
+      // For this mock, we'll assume we can admit any non-admitted patient.
+      setDialogContent(<PatientAdmissionForm patient={allPatients.find(p => !p.isAdmitted)!} onFormSubmit={() => {
+          setIsDialogOpen(false);
+          toast({ title: "Patient Admitted", description: `Patient has been assigned to bed ${bed.bedId}`});
+          // Here you would refresh the data
+      }} />);
+      setIsDialogOpen(true);
+    }
+
+    if (bed.status === 'occupied' && bed.currentPatientId && bed.currentAdmissionId) {
+      const patient = allPatients.find(p => p.patientId === bed.currentPatientId);
+      if (patient) {
+        setDialogTitle(`Transfer Patient: ${patient.fullName}`);
+        setDialogContent(<BedTransferForm patient={patient} admissionId={bed.currentAdmissionId} currentBed={bed} onFormSubmit={() => {
+          setIsDialogOpen(false);
+          toast({ title: "Transfer Successful", description: `${patient.fullName} has been transferred.` });
+           // Here you would refresh the data
+        }} />);
+        setIsDialogOpen(true);
+      }
+    }
+  }
+
 
   return (
+    <>
      <Card>
         <CardHeader>
           <CardTitle className="font-headline text-2xl">Bed Management</CardTitle>
+          <CardDescription>Click on a bed to perform an action like admission or transfer.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
             {wards.map(ward => (
@@ -52,14 +106,23 @@ export function BedManagement() {
                         {allBeds.filter(b => b.wardName === ward).map(bed => {
                             const config = statusConfig[bed.status];
                             return (
-                                <div key={bed.bedId} className={cn("rounded-lg border p-4 flex flex-col items-center justify-center space-y-2", config.color)}>
+                                <div 
+                                    key={bed.bedId} 
+                                    className={cn("rounded-lg border p-4 flex flex-col items-center justify-center space-y-2 transition-shadow", config.color, config.cursor)}
+                                    onClick={() => handleBedClick(bed)}
+                                >
                                     <config.icon className="w-8 h-8"/>
                                     <p className="font-bold text-lg">{bed.bedId}</p>
                                     <Badge variant={config.badge}>{config.label}</Badge>
-                                    {bed.status === 'occupied' && (
-                                        <div className="flex items-center text-xs pt-1">
+                                    {bed.status === 'occupied' && bed.currentPatientId ? (
+                                        <div className="flex items-center text-xs pt-1 text-center">
                                             <User className="w-3 h-3 mr-1" />
-                                            <span>{bed.currentPatientId}</span>
+                                            <span>{allPatients.find(p => p.patientId === bed.currentPatientId)?.fullName || 'Unknown'}</span>
+                                        </div>
+                                    ) : bed.status !== 'vacant' && (
+                                        <div className="flex items-center text-xs pt-1 text-center">
+                                            <Ban className="w-3 h-3 mr-1" />
+                                            <span>Unavailable</span>
                                         </div>
                                     )}
                                 </div>
@@ -70,5 +133,15 @@ export function BedManagement() {
             ))}
         </CardContent>
       </Card>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>{dialogTitle}</DialogTitle>
+              </DialogHeader>
+              {dialogContent}
+          </DialogContent>
+      </Dialog>
+    </>
   )
 }

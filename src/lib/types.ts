@@ -3,6 +3,7 @@
 
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk";
 
 export interface User {
@@ -107,6 +108,7 @@ export interface Bed {
     roomNumber: string;
     status: BedStatus;
     currentPatientId?: string; // The ID of the patient currently occupying the bed
+    currentAdmissionId?: string; // The ID of the admission associated with the occupancy
     occupiedSince?: Date; 
     cleaningNeeded: boolean;
     createdAt: Date; 
