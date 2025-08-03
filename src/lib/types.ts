@@ -98,14 +98,15 @@ export type BedStatus = "occupied" | "vacant" | "cleaning" | "maintenance";
 
 // Represents a bed in the hospital.
 export interface Bed {
-    bedId: string; // Document ID (e.g., "C-101")
-    wardName: string; // e.g., "Cardiology", "Pediatrics"
-    roomNumber: string;
-    status: BedStatus;
+    bedId: string; // Document ID (e.g., "WARD-A-ROOM-101-BED-1")
+    wardName: string; // e.g., "Cardiology Ward"
+    roomNumber: string; // e.g., "101"
+    status: BedStatus; // e.g., 'vacant', 'occupied', 'cleaning', 'maintenance'
     currentPatientId?: string; // The ID of the patient currently occupying the bed
     currentAdmissionId?: string; // The ID of the admission associated with the occupancy
     occupiedSince?: Date; 
-    cleaningNeeded: boolean;
+    cleaningNeeded: boolean; // True if the bed needs cleaning
+    isReserved?: boolean; // True if the bed is reserved for an incoming patient
     createdAt: Date; 
     updatedAt: Date; 
 }
