@@ -64,10 +64,20 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "inpatient" | "outpatient" | "pending">("all");
 
+  const getPatientStatus = (patient: Patient): "Inpatient" | "Outpatient" | "Pending Discharge" => {
+    const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
+    if (patient.isAdmitted) {
+      if (admission?.status === 'Pending Discharge') {
+        return 'Pending Discharge';
+      }
+      return 'Inpatient';
+    }
+    return 'Outpatient';
+  }
+
   const filteredPatients = React.useMemo(() => {
     return patients
       .filter(patient => {
-        const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
         const status = getPatientStatus(patient);
         if (statusFilter === "inpatient") return status === 'Inpatient';
         if (statusFilter === "outpatient") return status === 'Outpatient';
@@ -87,18 +97,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       description: `${patientName} has been successfully admitted.`
     });
   }
-  
-  const getPatientStatus = (patient: Patient): "Inpatient" | "Outpatient" | "Pending Discharge" => {
-    const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
-    if (patient.isAdmitted) {
-      if (admission?.status === 'Pending Discharge') {
-        return 'Pending Discharge';
-      }
-      return 'Inpatient';
-    }
-    return 'Outpatient';
-  }
-
 
   return (
     <>
