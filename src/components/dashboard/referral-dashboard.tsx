@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { allReferrals } from "@/lib/data";
 import type { Referral, User } from "@/lib/types";
 import { format } from "date-fns";
 import { FilePlus, MoreHorizontal, UserPlus } from "lucide-react";
@@ -16,10 +16,11 @@ import * as React from "react";
 import { ReferralForm } from "./referral-form";
 
 const statusConfig = {
-    "Pending Review": { variant: "secondary" as const, label: "Pending Review" },
+    "Pending": { variant: "secondary" as const, label: "Pending Review" },
     "Assigned": { variant: "default" as const, label: "Assigned" },
-    "Completed": { variant: "outline" as const, label: "Completed" },
-    "Declined": { variant: "destructive" as const, label: "Declined" },
+    "Scheduled": { variant: "default" as const, label: "Scheduled" },
+    "Patient Seen": { variant: "outline" as const, label: "Completed" },
+    "Canceled": { variant: "destructive" as const, label: "Canceled" },
 };
 
 export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[], doctors: User[] }) {
@@ -70,7 +71,7 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
                                 <TableHead>Date</TableHead>
                                 <TableHead>Patient</TableHead>
                                 <TableHead>Referring Facility</TableHead>
-                                <TableHead>Urgency</TableHead>
+                                <TableHead>Department</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Assigned To</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -84,11 +85,9 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
                                     return (
                                         <TableRow key={ref.referralId}>
                                             <TableCell>{format(new Date(ref.referralDate), "PPP")}</TableCell>
-                                            <TableCell className="font-medium">{ref.patientFirstName} {ref.patientLastName}</TableCell>
-                                            <TableCell>{ref.referringProviderFacility}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={ref.urgency === 'Urgent' ? 'destructive' : 'secondary'}>{ref.urgency}</Badge>
-                                            </TableCell>
+                                            <TableCell className="font-medium">{ref.patientDetails.fullName}</TableCell>
+                                            <TableCell>{ref.referringProvider.name}</TableCell>
+                                            <TableCell>{ref.referredToDepartment}</TableCell>
                                             <TableCell>
                                                 <Badge variant={config.variant}>{config.label}</Badge>
                                             </TableCell>

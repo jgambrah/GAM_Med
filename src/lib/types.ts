@@ -1,5 +1,4 @@
 
-
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -127,20 +126,29 @@ export interface Appointment {
   resource?: string; // e.g., 'Operating Theater 1'
 }
 
+export type ReferralStatus = 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';
+
 export interface Referral {
   referralId: string;
-  patientFirstName: string;
-  patientLastName: string;
-  patientDob: Date;
-  patientPhone: string;
-  referringProviderName: string;
-  referringProviderFacility: string;
+  patientId?: string; // Optional, linked after registration/visit
+  patientDetails: {
+    fullName: string;
+    dob: Date;
+    contactPhone: string;
+  };
+  referringProvider: {
+    name: string; // e.g., 'Korle Bu Teaching Hospital'
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+  };
+  reasonForReferral: string; // Can support markdown/rich text
+  referredToDepartment: string;
+  assignedToDoctorId?: string; // Optional, linked after triage
+  status: ReferralStatus;
   referralDate: Date;
-  reasonForReferral: string;
-  urgency: "Routine" | "Urgent" | "Emergency";
-  status: "Pending Review" | "Assigned" | "Completed" | "Declined";
-  notes?: string;
-  assignedToDoctorId?: string;
+  scannedDocumentURL?: string; // Optional URL to Firebase Storage
+  appointmentId?: string; // Optional, linked when appointment is made
   createdAt: Date;
   updatedAt: Date;
 }

@@ -209,32 +209,40 @@ export const allAppointments: Appointment[] = [
 export const allReferrals: Referral[] = [
   {
     referralId: 'REF-001',
-    patientFirstName: 'Yaw',
-    patientLastName: 'Asante',
-    patientDob: new Date('1965-03-12'),
-    patientPhone: '+233271234567',
-    referringProviderName: 'Dr. Anna Miller',
-    referringProviderFacility: 'Korle Bu Clinic',
+    patientDetails: {
+      fullName: 'Yaw Asante',
+      dob: new Date('1965-03-12'),
+      contactPhone: '+233271234567',
+    },
+    referringProvider: {
+      name: 'Korle Bu Clinic',
+      contactPerson: 'Dr. Anna Miller',
+    },
     referralDate: new Date('2024-07-28'),
     reasonForReferral: 'Persistent headaches and dizziness, requires neurological assessment.',
-    urgency: 'Urgent',
-    status: 'Pending Review',
+    referredToDepartment: 'Neurology',
+    status: 'Pending',
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     referralId: 'REF-002',
-    patientFirstName: 'Abena',
-    patientLastName: 'Danso',
-    patientDob: new Date('1999-08-02'),
-    patientPhone: '+233209876543',
-    referringProviderName: 'Dr. Ben Carter',
-    referringProviderFacility: '37 Military Hospital',
+    patientId: 'P-240821-0002', // This patient already exists
+    patientDetails: {
+        fullName: 'Abena Danso',
+        dob: new Date('1999-08-02'),
+        contactPhone: '+233209876543',
+    },
+    referringProvider: {
+        name: '37 Military Hospital',
+        contactPerson: 'Dr. Ben Carter',
+    },
     referralDate: new Date('2024-07-25'),
     reasonForReferral: 'Follow-up cardiology consultation after recent ECG.',
-    urgency: 'Routine',
+    referredToDepartment: 'Cardiology',
     status: 'Assigned',
     assignedToDoctorId: 'doc1',
+    appointmentId: 'app4', // Hypothetical future appointment
     createdAt: new Date(),
     updatedAt: new Date(),
   }

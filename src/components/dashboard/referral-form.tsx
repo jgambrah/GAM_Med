@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,14 +17,12 @@ import { createReferralAction } from "@/lib/actions";
 import { Loader2 } from "lucide-react";
 
 const referralFormSchema = z.object({
-    patientFirstName: z.string().min(2, "First name is too short."),
-    patientLastName: z.string().min(2, "Last name is too short."),
+    patientFullName: z.string().min(2, "Full name is too short."),
     patientDob: z.string().refine(val => !isNaN(Date.parse(val)) && val.length > 0, { message: "Please enter a valid date." }),
     patientPhone: z.string().min(10, "Phone number is too short."),
     referringProviderName: z.string().min(2, "Provider name is required."),
-    referringProviderFacility: z.string().min(3, "Provider facility is required."),
+    referredToDepartment: z.string().min(3, "Department is required."),
     reasonForReferral: z.string().min(10, "Reason for referral is required."),
-    urgency: z.enum(["Routine", "Urgent", "Emergency"]),
     notes: z.string().optional(),
 });
 
@@ -40,14 +39,12 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
     const form = useForm<ReferralFormValues>({
         resolver: zodResolver(referralFormSchema),
         defaultValues: {
-            patientFirstName: "",
-            patientLastName: "",
+            patientFullName: "",
             patientDob: "",
             patientPhone: "",
             referringProviderName: "",
-            referringProviderFacility: "",
+            referredToDepartment: "",
             reasonForReferral: "",
-            urgency: "Routine",
             notes: "",
         },
     });
@@ -75,14 +72,9 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
                 <fieldset className="border p-4 rounded-md">
                     <legend className="text-sm font-medium px-1">Patient Details</legend>
                     <div className="space-y-4 mt-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="patientFirstName" render={({ field }) => (
-                                <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="Ama" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                            <FormField control={form.control} name="patientLastName" render={({ field }) => (
-                                <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Serwaa" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                        </div>
+                        <FormField control={form.control} name="patientFullName" render={({ field }) => (
+                            <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Ama Serwaa" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="patientDob" render={({ field }) => (
                                 <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
@@ -97,28 +89,25 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
                 <fieldset className="border p-4 rounded-md">
                     <legend className="text-sm font-medium px-1">Referral Information</legend>
                     <div className="space-y-4 mt-2">
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="referringProviderName" render={({ field }) => (
-                                <FormItem><FormLabel>Referring Provider Name</FormLabel><FormControl><Input placeholder="Dr. Evelyn Amenya" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                            <FormField control={form.control} name="referringProviderFacility" render={({ field }) => (
-                                <FormItem><FormLabel>Referring Facility</FormLabel><FormControl><Input placeholder="Peace and Love Hospital" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                        </div>
-                        <FormField control={form.control} name="reasonForReferral" render={({ field }) => (
-                            <FormItem><FormLabel>Reason for Referral</FormLabel><FormControl><Textarea placeholder="Detailed clinical reason for the referral..." {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormField control={form.control} name="referringProviderName" render={({ field }) => (
+                            <FormItem><FormLabel>Referring Facility Name</FormLabel><FormControl><Input placeholder="Peace and Love Hospital" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="urgency" render={({ field }) => (
-                            <FormItem><FormLabel>Urgency</FormLabel>
+                        <FormField control={form.control} name="referredToDepartment" render={({ field }) => (
+                            <FormItem><FormLabel>Department</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select urgency level" /></SelectTrigger></FormControl>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Routine">Routine</SelectItem>
-                                        <SelectItem value="Urgent">Urgent</SelectItem>
-                                        <SelectItem value="Emergency">Emergency</SelectItem>
+                                        <SelectItem value="Cardiology">Cardiology</SelectItem>
+                                        <SelectItem value="Neurology">Neurology</SelectItem>
+                                        <SelectItem value="Oncology">Oncology</SelectItem>
+                                        <SelectItem value="Orthopedics">Orthopedics</SelectItem>
+                                        <SelectItem value="General Surgery">General Surgery</SelectItem>
                                     </SelectContent>
                                 </Select><FormMessage />
                             </FormItem>
+                        )} />
+                        <FormField control={form.control} name="reasonForReferral" render={({ field }) => (
+                            <FormItem><FormLabel>Reason for Referral</FormLabel><FormControl><Textarea placeholder="Detailed clinical reason for the referral..." {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                          <FormField control={form.control} name="notes" render={({ field }) => (
                             <FormItem><FormLabel>Additional Notes (Optional)</FormLabel><FormControl><Textarea placeholder="Any other relevant information..." {...field} /></FormControl><FormMessage /></FormItem>

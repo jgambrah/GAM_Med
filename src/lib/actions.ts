@@ -62,14 +62,12 @@ const markBedAsCleanSchema = z.object({
 });
 
 const referralFormSchema = z.object({
-    patientFirstName: z.string().min(2, "First name is too short."),
-    patientLastName: z.string().min(2, "Last name is too short."),
+    patientFullName: z.string().min(2, "Full name is too short."),
     patientDob: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Please enter a valid date." }),
     patientPhone: z.string().min(10, "Phone number is too short."),
     referringProviderName: z.string().min(2, "Provider name is required."),
-    referringProviderFacility: z.string().min(3, "Provider facility is required."),
+    referredToDepartment: z.string().min(3, "Department is required."),
     reasonForReferral: z.string().min(10, "Reason for referral is required."),
-    urgency: z.enum(["Routine", "Urgent", "Emergency"]),
     notes: z.string().optional(),
 });
 
@@ -496,17 +494,19 @@ export async function createReferralAction(values: z.infer<typeof referralFormSc
         const newReferralId = await generateReferralId();
         const newReferral: Referral = {
             referralId: newReferralId,
-            patientFirstName: values.patientFirstName,
-            patientLastName: values.patientLastName,
-            patientDob: new Date(values.patientDob),
-            patientPhone: values.patientPhone,
-            referringProviderName: values.referringProviderName,
-            referringProviderFacility: values.referringProviderFacility,
+            patientDetails: {
+                fullName: values.patientFullName,
+                dob: new Date(values.patientDob),
+                contactPhone: values.patientPhone,
+            },
+            referringProvider: {
+                name: values.referringProviderName,
+            },
             reasonForReferral: values.reasonForReferral,
-            urgency: values.urgency,
+            referredToDepartment: values.referredToDepartment,
             notes: values.notes,
             referralDate: new Date(),
-            status: 'Pending Review',
+            status: 'Pending',
             createdAt: new Date(),
             updatedAt: new Date(),
         };
@@ -517,7 +517,7 @@ export async function createReferralAction(values: z.infer<typeof referralFormSc
 
         return {
             success: true,
-            message: `New referral for ${values.patientFirstName} ${values.patientLastName} has been created with ID ${newReferralId}.`,
+            message: `New referral for ${values.patientFullName} has been created with ID ${newReferralId}.`,
             referralId: newReferralId
         };
     } catch (error: any) {
