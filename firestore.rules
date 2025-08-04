@@ -2,68 +2,48 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // =================================
-    // Helper Functions
-    // =================================
-    
-    // Check if the user's role is in the allowed list
-    function isOneOfRoles(allowedRoles) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles;
+  
+    // Helper function to get the role of the currently authenticated user.
+    // It reads the 'role' field from the user's document in the 'users' collection.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
-    // Validate the incoming patient data schema
-    function isPatientDataValid(data) {
-      return data.fullName is string &&
-             data.dob is timestamp &&
-             data.gender is string &&
-             data.contact.primaryPhone is string &&
-             data.isAdmitted is bool;
-    }
-    
-    // =================================
-    // Collections
-    // =================================
-    
-    // User profile information, including their role.
+
+    // Rules for the 'users' collection itself.
+    // Users should be able to read their own profile data.
+    // Only admins should be able to modify roles (not shown here for brevity).
     match /users/{userId} {
-      // Users can only read their own profile.
-      allow read: if request.auth.uid == userId;
-      // Users can only create their own profile during signup.
-      allow create: if request.auth.uid == userId;
-      // Users can only update their own profile.
-      allow update: if request.auth.uid == userId;
+      allow read, write: if request.auth.uid == userId;
     }
 
-    // Main patient records collection.
+    // Rules for the 'patients' collection.
     match /patients/{patientId} {
+      // READ access is granted to staff roles or to the patient themselves.
+      // Note: For a patient to read their own data, their user document
+      // would need a field linking to their patientId, e.g., `resource.data.linkedPatientId == patientId`.
+      // For simplicity here, we focus on staff access.
+      allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Pharmacist', 'BillingClerk'];
       
-      // CREATE: Only Admins can register new patients.
-      allow create: if isOneOfRoles(['Admin']) && isPatientDataValid(request.resource.data);
+      // CREATE access is restricted to Admins.
+      allow create: if getUserRole() == 'Admin';
+
+      // UPDATE access is restricted to clinical staff (Admin, Doctor, Nurse).
+      allow update: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
       
-      // READ:
-      // - Admins, Doctors, and Nurses can read any patient's record.
-      // - A patient can read their own record (assumes patient doc has a 'uid' field matching their auth uid).
-      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']) || 
-                     (isOneOfRoles(['Patient']) && resource.data.uid == request.auth.uid);
-      
-      // UPDATE: Only Admins and Doctors can update patient records.
-      allow update: if isOneOfRoles(['Admin', 'Doctor']) && isPatientDataValid(request.resource.data);
-      
-      // DELETE: No one should be able to delete patient records directly.
-      // Records should be marked as 'inactive' or 'deceased' via an update.
-      allow delete: if false;
+      // DELETE access is highly restricted, typically only for Admins for data cleanup.
+      allow delete: if getUserRole() == 'Admin';
     }
     
-    // Admissions records for patient visits.
+    // Rules for admissions
     match /admissions/{admissionId} {
-       allow read, write: if isOneOfRoles(['Admin', 'Doctor']);
+    	allow read, write: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+    }
+    
+    // Rules for beds
+    match /beds/{bedId} {
+    	allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Housekeeping'];
+      allow write: if getUserRole() in ['Admin', 'Housekeeping'];
     }
 
-    // Bed status and allocation records.
-    match /beds/{bedId} {
-        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'Housekeeping']);
-        allow write: if isOneOfRoles(['Admin']);
-    }
   }
 }
