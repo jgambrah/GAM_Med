@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { Referral, User } from "@/lib/types";
+import type { Referral, ReferralStatus, User } from "@/lib/types";
 import { format } from "date-fns";
 import { FilePlus, MoreHorizontal, UserPlus, Stethoscope, Loader2 } from "lucide-react";
 import * as React from "react";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { assignDoctorToReferralAction } from "@/lib/actions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 const statusConfig = {
     "Pending": { variant: "secondary" as const, label: "Pending Review" },
@@ -90,16 +91,84 @@ function AssignDoctorDialog({ referral, doctors, onAssignment }: { referral: Ref
     )
 }
 
+function ReferralTable({ referrals, doctors, onAssignmentSuccess }: { referrals: Referral[], doctors: User[], onAssignmentSuccess: () => void }) {
+    if (referrals.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg">
+                <FilePlus className="w-12 h-12 text-muted-foreground" />
+                <p className="mt-4 text-muted-foreground">
+                    No referrals found for this status.
+                </p>
+            </div>
+        )
+    }
+    return (
+         <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Referring Facility</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {referrals.map((ref) => {
+                    const config = statusConfig[ref.status];
+                    const assignedDoctor = doctors.find(d => d.id === ref.assignedToDoctorId);
+                    return (
+                        <TableRow key={ref.referralId}>
+                            <TableCell>{format(new Date(ref.referralDate), "PPP")}</TableCell>
+                            <TableCell className="font-medium">{ref.patientDetails.fullName}</TableCell>
+                            <TableCell>{ref.referringProvider.name}</TableCell>
+                            <TableCell>{ref.referredToDepartment}</TableCell>
+                            <TableCell>
+                                <Badge variant={config.variant}>{config.label}</Badge>
+                            </TableCell>
+                            <TableCell>{assignedDoctor?.name || 'N/A'}</TableCell>
+                            <TableCell className="text-right">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                                        {ref.status === 'Pending' && (
+                                            <AssignDoctorDialog referral={ref} doctors={doctors} onAssignment={onAssignmentSuccess} />
+                                        )}
+                                        <DropdownMenuItem>
+                                            <UserPlus className="mr-2 h-4 w-4" />
+                                            Register as Patient
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                    );
+                })}
+            </TableBody>
+        </Table>
+    );
+}
 
 export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[], doctors: User[] }) {
     const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [referralList, setReferralList] = React.useState(referrals);
+    const [filter, setFilter] = React.useState<ReferralStatus | "All">("Pending");
+
 
     const handleFormSuccess = (message: string) => {
         setIsFormOpen(false);
         toast({ title: "Success", description: message });
         // Here you would typically refetch the referrals data
+        // For now, we assume the new referral is pending
+        setFilter("Pending");
     };
 
     const handleAssignmentSuccess = () => {
@@ -107,6 +176,11 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
         // This is a simplified approach for the mock environment.
         toast({ title: "Data Refresh Needed", description: "In a real app, the list would now be updated." });
     }
+
+    const filteredReferrals = React.useMemo(() => {
+        if (filter === "All") return referralList;
+        return referralList.filter(r => r.status === filter);
+    }, [filter, referralList]);
 
     return (
         <div className="space-y-6">
@@ -136,70 +210,20 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Incoming Referrals</CardTitle>
-                    <CardDescription>A list of all patient referrals requiring action.</CardDescription>
+                   <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} >
+                        <TabsList>
+                            <TabsTrigger value="Pending">Pending</TabsTrigger>
+                            <TabsTrigger value="Assigned">Assigned</TabsTrigger>
+                            <TabsTrigger value="All">All Referrals</TabsTrigger>
+                        </TabsList>
+                   </Tabs>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Patient</TableHead>
-                                <TableHead>Referring Facility</TableHead>
-                                <TableHead>Department</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Assigned To</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {referralList.length > 0 ? (
-                                referralList.map((ref) => {
-                                    const config = statusConfig[ref.status];
-                                    const assignedDoctor = doctors.find(d => d.id === ref.assignedToDoctorId);
-                                    return (
-                                        <TableRow key={ref.referralId}>
-                                            <TableCell>{format(new Date(ref.referralDate), "PPP")}</TableCell>
-                                            <TableCell className="font-medium">{ref.patientDetails.fullName}</TableCell>
-                                            <TableCell>{ref.referringProvider.name}</TableCell>
-                                            <TableCell>{ref.referredToDepartment}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={config.variant}>{config.label}</Badge>
-                                            </TableCell>
-                                            <TableCell>{assignedDoctor?.name || 'N/A'}</TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent>
-                                                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                        {ref.status === 'Pending' && (
-                                                           <AssignDoctorDialog referral={ref} doctors={doctors} onAssignment={handleAssignmentSuccess} />
-                                                        )}
-                                                        <DropdownMenuItem>
-                                                          <UserPlus className="mr-2 h-4 w-4" />
-                                                          Register as Patient
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
-                                        No referrals found.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                    <ReferralTable referrals={filteredReferrals} doctors={doctors} onAssignmentSuccess={handleAssignmentSuccess} />
                 </CardContent>
             </Card>
         </div>
     );
 }
+
+    

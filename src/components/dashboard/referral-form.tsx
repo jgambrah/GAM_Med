@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { createReferralAction } from "@/lib/actions";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 
 const referralFormSchema = z.object({
     patientFullName: z.string().min(2, "Full name is too short."),
@@ -24,6 +24,7 @@ const referralFormSchema = z.object({
     referredToDepartment: z.string().min(3, "Department is required."),
     reasonForReferral: z.string().min(10, "Reason for referral is required."),
     notes: z.string().optional(),
+    scannedDocument: z.any().optional(),
 });
 
 type ReferralFormValues = z.infer<typeof referralFormSchema>;
@@ -52,6 +53,11 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
     async function onSubmit(data: ReferralFormValues) {
         setIsSubmitting(true);
         try {
+            // In a real app, you would handle the file upload here.
+            // For now, we'll just log the file name if it exists.
+            if (data.scannedDocument && data.scannedDocument.length > 0) {
+                console.log("Simulating upload for:", data.scannedDocument[0].name);
+            }
             const result = await createReferralAction(data);
             if (result.success) {
                 form.reset();
@@ -112,6 +118,17 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
                          <FormField control={form.control} name="notes" render={({ field }) => (
                             <FormItem><FormLabel>Additional Notes (Optional)</FormLabel><FormControl><Textarea placeholder="Any other relevant information..." {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
+                          <FormField control={form.control} name="scannedDocument" render={({ field }) => (
+                            <FormItem><FormLabel>Scanned Referral Letter (PDF, JPG)</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <Upload className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input type="file" className="pl-10" onChange={(e) => field.onChange(e.target.files)} />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )} />
                     </div>
                 </fieldset>
 
@@ -123,3 +140,5 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
         </Form>
     );
 }
+
+    

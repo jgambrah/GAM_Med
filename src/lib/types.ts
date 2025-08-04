@@ -151,6 +151,9 @@ export interface Referral {
   referralDate: Date;
   scannedDocumentURL?: string; // Optional URL to Firebase Storage
   appointmentId?: string; // Optional, linked when appointment is made
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+    
