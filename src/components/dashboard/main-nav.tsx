@@ -40,6 +40,7 @@ const navItems = {
     { href: "/doctor/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/doctor/dashboard" },
     { href: "/doctor/appointments", icon: CalendarDays, label: "Appointments", match: "/doctor/appointments" },
     { href: "/doctor/patients", icon: UsersRound, label: "Patients", match: "/doctor/patients" },
+    { href: "/doctor/referrals", icon: Share2, label: "Referrals", match: "/doctor/referrals" },
   ],
   Nurse: [
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },

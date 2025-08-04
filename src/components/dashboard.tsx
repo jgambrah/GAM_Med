@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -10,13 +11,14 @@ import { MainNav } from "@/components/dashboard/main-nav";
 import { PatientsList } from "@/components/dashboard/patients-list";
 import { UserNav } from "@/components/dashboard/user-nav";
 import { SidebarProvider, Sidebar, SidebarInset, SidebarFooter } from "@/components/ui/sidebar";
-import { allAppointments, allPatients } from "@/lib/data";
+import { allAppointments, allPatients, allReferrals, allUsers } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import { AiAssistant } from "./dashboard/ai-assistant";
 import { BedManagement } from "./dashboard/bed-management";
 import BillingPage from "@/app/admin/billing/page";
 import PatientDashboard from "./dashboard/patient-dashboard";
 import HousekeepingDashboard from "./dashboard/housekeeping-dashboard";
+import { ReferralDashboard } from "./dashboard/referral-dashboard";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -84,6 +86,17 @@ export default function Dashboard() {
         if (pathname.startsWith('/doctor/patients')) {
             return <PatientsList patients={allPatients} />;
         }
+        if (pathname.startsWith('/doctor/referrals')) {
+             const doctors = allUsers.filter(u => u.role === 'Doctor');
+             const doctorReferrals = allReferrals.filter(ref => ref.assignedToDoctorId === user.id);
+             return (
+                 <div>
+                    <h2 className="text-3xl font-bold tracking-tight font-headline">My Assigned Referrals</h2>
+                    <p className="text-muted-foreground mb-6">A list of all patients referred to you for review and consultation.</p>
+                    <ReferralDashboard referrals={doctorReferrals} doctors={doctors} />
+                </div>
+             )
+        }
         return <DoctorDashboard user={user} />; // Default view for doctor
     }
 
@@ -128,6 +141,17 @@ export default function Dashboard() {
   const renderRoutedContent = () => {
       if (user.role === 'Admin' && pathname === '/admin/dashboard') {
           return <AdminOverview patients={allPatients} />;
+      }
+       if (user.role === 'Doctor' && pathname === '/doctor/referrals') {
+          const doctors = allUsers.filter(u => u.role === 'Doctor');
+          const doctorReferrals = allReferrals.filter(ref => ref.assignedToDoctorId === 'doc1');
+          return (
+             <div>
+                <h2 className="text-3xl font-bold tracking-tight font-headline">My Assigned Referrals</h2>
+                <p className="text-muted-foreground mb-6">A list of all patients referred to you for review and consultation.</p>
+                <ReferralDashboard referrals={doctorReferrals} doctors={doctors} />
+            </div>
+          )
       }
       if (user.role === 'Housekeeping' && pathname === '/housekeeping/dashboard') {
           return <HousekeepingDashboard />;
