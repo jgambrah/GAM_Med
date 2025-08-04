@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -128,3 +129,22 @@ export interface Appointment {
   referralId?: string; // Bidirectional link to the referral
 }
     
+export interface Referral {
+  referralId: string;
+  patientDetails: {
+    fullName: string;
+    contactPhone: string;
+    reasonForReferral: string;
+  };
+  referringProvider: {
+    name: string;
+    contact: string;
+  };
+  referredToDepartment: string;
+  status: 'Pending' | 'Assigned' | 'Completed' | 'Cancelled';
+  referralDate: Date;
+  assignedToDoctorId?: string; // Reference to User id
+  appointmentId?: string; // Reference to Appointment id
+  createdAt: Date;
+  updatedAt: Date;
+}

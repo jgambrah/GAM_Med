@@ -1,10 +1,11 @@
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -60,6 +61,22 @@ const dischargeSummarySchema = z.object({
 const markBedAsCleanSchema = z.object({
   bedId: z.string(),
 });
+
+const referralFormSchema = z.object({
+  patientName: z.string().min(2, "Patient name is required."),
+  patientPhone: z.string().min(10, "A valid phone number is required."),
+  reason: z.string().min(10, "Reason for referral is required."),
+  referringFacility: z.string().min(3, "Referring facility is required."),
+  referringDoctor: z.string().min(2, "Referring doctor is required."),
+  department: z.string().min(3, "Department is required."),
+  // Note: File upload is handled on the client, so not part of the Zod schema
+});
+
+const assignDoctorSchema = z.object({
+    referralId: z.string(),
+    doctorId: z.string(),
+});
+
 
 
 export async function getSmsReminderAction(
@@ -467,6 +484,86 @@ export async function markBedAsCleanAction(values: z.infer<typeof markBedAsClean
         return {
             success: false,
             message: error.message || 'An unexpected error occurred.',
+        };
+    }
+}
+
+async function generateReferralId(): Promise<string> {
+    const prefix = 'REF';
+    const nextId = (allReferrals.length + 1).toString().padStart(3, '0');
+    return `${prefix}-${nextId}`;
+}
+
+export async function processIncomingReferralAction(values: z.infer<typeof referralFormSchema>) {
+    console.log('[Simulated] Creating new referral with action:', values);
+    try {
+        const newReferralId = await generateReferralId();
+        const newReferral: Referral = {
+            referralId: newReferralId,
+            patientDetails: {
+                fullName: values.patientName,
+                contactPhone: values.patientPhone,
+                reasonForReferral: values.reason,
+            },
+            referringProvider: {
+                name: values.referringFacility,
+                contact: values.referringDoctor,
+            },
+            referredToDepartment: values.department,
+            status: 'Pending',
+            referralDate: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        allReferrals.unshift(newReferral); // Add to the beginning of the list
+
+        console.log(`[Simulated] Notifying triage for new referral ${newReferralId}`);
+
+        return {
+            success: true,
+            message: `New referral for ${values.patientName} created successfully.`,
+            referral: newReferral
+        };
+    } catch (error: any) {
+        console.error('Error in processIncomingReferralAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred during referral creation.',
+        };
+    }
+}
+
+export async function assignDoctorToReferralAction(values: z.infer<typeof assignDoctorSchema>) {
+    console.log('[Simulated] Assigning doctor with action:', values);
+    try {
+        const { referralId, doctorId } = values;
+        const referralIndex = allReferrals.findIndex(r => r.referralId === referralId);
+        if (referralIndex === -1) {
+            throw new Error("Referral not found.");
+        }
+        const doctor = allUsers.find(u => u.id === doctorId);
+        if (!doctor) {
+            throw new Error("Doctor not found.");
+        }
+
+        allReferrals[referralIndex].assignedToDoctorId = doctorId;
+        allReferrals[referralIndex].status = 'Assigned';
+        allReferrals[referralIndex].updatedAt = new Date();
+
+        console.log(`[Simulated] Notifying Dr. ${doctor.name} of new referral assignment.`);
+        
+        return {
+            success: true,
+            message: `Referral assigned to Dr. ${doctor.name}.`,
+            referral: allReferrals[referralIndex],
+        };
+
+    } catch (error: any) {
+        console.error('Error in assignDoctorToReferralAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred during assignment.',
         };
     }
 }

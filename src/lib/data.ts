@@ -1,5 +1,5 @@
 
-import type { User, Patient, Appointment, Bed, Admission } from './types';
+import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -202,5 +202,63 @@ export const allAppointments: Appointment[] = [
     time: '09:00 AM',
     reason: 'Initial Consultation',
     status: 'Scheduled',
+  },
+];
+
+
+export const allReferrals: Referral[] = [
+  {
+    referralId: 'REF-001',
+    patientDetails: {
+      fullName: 'Yaa Asantewaa',
+      contactPhone: '+233241112233',
+      reasonForReferral: 'Persistent headaches and dizziness post-concussion.',
+    },
+    referringProvider: {
+      name: 'Korle Bu Teaching Hospital',
+      contact: 'Dr. Smith',
+    },
+    referredToDepartment: 'Neurology',
+    status: 'Pending',
+    referralDate: new Date('2024-07-25T09:00:00Z'),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    referralId: 'REF-002',
+    patientDetails: {
+      fullName: 'Kweku Mensah',
+      contactPhone: '+233204445566',
+      reasonForReferral: 'Needs urgent cardiac evaluation.',
+    },
+    referringProvider: {
+      name: '37 Military Hospital',
+      contact: 'Dr. Jones',
+    },
+    referredToDepartment: 'Cardiology',
+    status: 'Assigned',
+    assignedToDoctorId: 'doc2', // Dr. Kofi Anan
+    referralDate: new Date('2024-07-24T15:30:00Z'),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+    {
+    referralId: 'REF-003',
+    patientDetails: {
+      fullName: 'Ngozi Okonjo',
+      contactPhone: '+233557778899',
+      reasonForReferral: 'Follow-up for diabetes management.',
+    },
+    referringProvider: {
+      name: 'Ridge Hospital',
+      contact: 'Dr. Brown',
+    },
+    referredToDepartment: 'Endocrinology',
+    status: 'Completed',
+    assignedToDoctorId: 'doc1',
+    appointmentId: 'app1', // Fictional completed appointment
+    referralDate: new Date('2024-07-20T11:00:00Z'),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   },
 ];
