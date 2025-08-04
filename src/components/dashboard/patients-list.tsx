@@ -31,10 +31,8 @@ import { Badge } from "@/components/ui/badge"
 import type { Patient } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
-import { allAdmissions } from "@/lib/data"
-import { Search } from "lucide-react"
-import { Input } from "../ui/input"
-import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
+import { allAdmissions, allPatients } from "@/lib/data"
+import { PatientSearchComponent } from "./patient-search";
 
 type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge";
 
@@ -50,9 +48,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   const { toast } = useToast();
-  
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<"all" | "inpatient" | "outpatient" | "pending">("all");
 
   const getPatientStatus = (patient: Patient): PatientStatus => {
     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
@@ -64,37 +59,12 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     }
     return 'Outpatient';
   }
-
-  const filteredPatients = React.useMemo(() => {
-    const lowercasedQuery = searchQuery.toLowerCase().trim();
-    
-    return patients
-      .map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
-      .filter(patient => {
-        // Status Filter
-        if (statusFilter !== 'all') {
-            const statusMap = {
-                inpatient: 'Inpatient',
-                outpatient: 'Outpatient',
-                pending: 'Pending Discharge'
-            };
-            if (patient.computedStatus !== statusMap[statusFilter]) {
-                return false;
-            }
-        }
-        
-        // Search Query Filter
-        if (!lowercasedQuery) return true;
-        
-        const searchCorpus = [
-            patient.fullName.toLowerCase(),
-            patient.patientId.toLowerCase(),
-            patient.contact.primaryPhone
-        ].join(' ');
-
-        return searchCorpus.includes(lowercasedQuery);
-      });
-  }, [patients, searchQuery, statusFilter]);
+  
+  // The search component now handles filtering, so we just use the full list here
+  // and map the status onto it.
+  const displayPatients = React.useMemo(() => {
+     return patients.map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
+  }, [patients])
 
   const handleAdmissionSuccess = (patientName: string) => {
     setIsAdmissionDialogOpen(false);
@@ -102,8 +72,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       title: "Patient Admitted",
       description: `${patientName} has been successfully admitted.`
     });
-    // In a real app, you'd likely refetch or revalidate data here.
-    // For now, the user can manually refresh to see changes propagate fully.
   }
 
   return (
@@ -111,29 +79,13 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       <Card>
         <CardHeader className="gap-4">
             <div>
-                <CardTitle className="font-headline text-2xl">Patients</CardTitle>
+                <CardTitle className="font-headline text-2xl">Patient Records</CardTitle>
                 <CardDescription>
-                    Search, filter, and manage all patients in the system.
+                    Search for patients or browse the complete list below.
                 </CardDescription>
             </div>
             <div className="flex items-center justify-between gap-4">
-                <div className="relative w-full max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Search by name, patient ID, or phone..." 
-                        className="pl-10"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-                    <TabsList>
-                        <TabsTrigger value="all">All</TabsTrigger>
-                        <TabsTrigger value="inpatient">Inpatient</TabsTrigger>
-                        <TabsTrigger value="outpatient">Outpatient</TabsTrigger>
-                        <TabsTrigger value="pending">Pending Discharge</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                <PatientSearchComponent />
             </div>
         </CardHeader>
         <CardContent>
@@ -149,8 +101,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPatients.length > 0 ? (
-                filteredPatients.map((patient) => {
+              {displayPatients.length > 0 ? (
+                displayPatients.map((patient) => {
                     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
                     return (
                     <TableRow key={patient.patientId}>
@@ -201,7 +153,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    No patients found matching your criteria.
+                    No patients found.
                   </TableCell>
                 </TableRow>
               )}
