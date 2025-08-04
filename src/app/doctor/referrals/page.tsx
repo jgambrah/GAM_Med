@@ -11,10 +11,9 @@ export default function DoctorReferralsPage() {
     const doctors = allUsers.filter(u => u.role === 'Doctor');
 
     const doctorReferrals = React.useMemo(() => {
-        if (!user) return [];
-        // In a real app, this would be a Firestore query. For mock data, we filter.
-        // For this demo, we'll assume the logged-in doctor is 'doc1'
-        return allReferrals.filter(ref => ref.assignedToDoctorId === 'doc1');
+        if (!user || user.role !== 'Doctor') return [];
+        // Use the actual logged-in user's ID to filter their referrals.
+        return allReferrals.filter(ref => ref.assignedToDoctorId === user.id);
     }, [user]);
 
     if (!user || user.role !== 'Doctor') {
