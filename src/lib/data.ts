@@ -1,5 +1,5 @@
 
-import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
+import type { User, Patient, Appointment, Bed, Admission } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -203,64 +203,4 @@ export const allAppointments: Appointment[] = [
     reason: 'Initial Consultation',
     status: 'Scheduled',
   },
-];
-
-export const allReferrals: Referral[] = [
-  {
-    referralId: 'REF-001',
-    patientDetails: {
-      fullName: 'Yaw Asante',
-      dob: new Date('1965-03-12'),
-      contactPhone: '+233271234567',
-    },
-    referringProvider: {
-      name: 'Korle Bu Clinic',
-      contactPerson: 'Dr. Anna Miller',
-    },
-    referralDate: new Date('2024-07-28'),
-    reasonForReferral: 'Persistent headaches and dizziness, requires neurological assessment.',
-    referredToDepartment: 'Neurology',
-    status: 'Assigned',
-    assignedToDoctorId: 'doc2',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    referralId: 'REF-002',
-    patientId: 'P-240821-0002', // This patient already exists
-    patientDetails: {
-        fullName: 'Abena Danso',
-        dob: new Date('1999-08-02'),
-        contactPhone: '+233209876543',
-    },
-    referringProvider: {
-        name: '37 Military Hospital',
-        contactPerson: 'Dr. Ben Carter',
-    },
-    referralDate: new Date('2024-07-25'),
-    reasonForReferral: 'Follow-up cardiology consultation after recent ECG.',
-    referredToDepartment: 'Cardiology',
-    status: 'Assigned',
-    assignedToDoctorId: 'doc1',
-    appointmentId: 'app4', // Hypothetical future appointment
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    referralId: 'REF-003',
-    patientDetails: {
-      fullName: 'Adwoa Mensah',
-      dob: new Date('1988-09-01'),
-      contactPhone: '+233261112233',
-    },
-    referringProvider: {
-      name: 'Sunshine Medical Center',
-    },
-    referralDate: new Date('2024-07-29'),
-    reasonForReferral: 'Evaluation for knee pain.',
-    referredToDepartment: 'Orthopedics',
-    status: 'Pending',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }
 ];

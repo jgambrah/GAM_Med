@@ -3,8 +3,8 @@
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -59,26 +59,6 @@ const dischargeSummarySchema = z.object({
 
 const markBedAsCleanSchema = z.object({
   bedId: z.string(),
-});
-
-const referralFormSchema = z.object({
-    patientFullName: z.string().min(2, "Full name is too short."),
-    patientDob: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Please enter a valid date." }),
-    patientPhone: z.string().min(10, "Phone number is too short."),
-    referringProviderName: z.string().min(2, "Provider name is required."),
-    referredToDepartment: z.string().min(3, "Department is required."),
-    reasonForReferral: z.string().min(10, "Reason for referral is required."),
-    notes: z.string().optional(),
-});
-
-const assignDoctorSchema = z.object({
-    referralId: z.string(),
-    doctorId: z.string(),
-});
-
-const linkReferralSchema = z.object({
-    referralId: z.string(),
-    appointmentId: z.string(),
 });
 
 
@@ -484,137 +464,6 @@ export async function markBedAsCleanAction(values: z.infer<typeof markBedAsClean
             message: `Bed ${bedId} has been marked as clean and is now available.`
         };
     } catch(error: any) {
-        return {
-            success: false,
-            message: error.message || 'An unexpected error occurred.',
-        };
-    }
-}
-
-
-async function generateReferralId(): Promise<string> {
-    const prefix = 'REF';
-    const nextId = (allReferrals.length + 1).toString().padStart(3, '0');
-    return `${prefix}-${nextId}`;
-}
-
-export async function createReferralAction(values: z.infer<typeof referralFormSchema>) {
-    console.log('[Simulated] Running createReferralAction with:', values);
-    try {
-        const newReferralId = await generateReferralId();
-        
-        const newReferral: Referral = {
-            referralId: newReferralId,
-            patientDetails: {
-                fullName: values.patientFullName,
-                dob: new Date(values.patientDob),
-                contactPhone: values.patientPhone,
-            },
-            referringProvider: {
-                name: values.referringProviderName,
-            },
-            reasonForReferral: values.reasonForReferral,
-            referredToDepartment: values.referredToDepartment,
-            notes: values.notes,
-            referralDate: new Date(),
-            status: 'Pending',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        };
-
-        // Check if patient already exists by phone number
-        const existingPatient = allPatients.find(p => p.contact.primaryPhone === values.patientPhone);
-        if (existingPatient) {
-            newReferral.patientId = existingPatient.patientId;
-            console.log(`[Simulated] Existing patient ${existingPatient.patientId} found and linked to referral.`);
-        }
-
-        allReferrals.push(newReferral);
-
-        console.log(`[Simulated] Notification sent to Triage team for new referral: ${newReferralId}`);
-
-        return {
-            success: true,
-            message: `New referral for ${values.patientFullName} has been created with ID ${newReferralId}.`,
-            referralId: newReferralId
-        };
-    } catch (error: any) {
-        console.error('Error in createReferralAction:', error);
-        return {
-            success: false,
-            message: error.message || 'An unexpected error occurred while creating the referral.',
-        };
-    }
-}
-
-export async function assignDoctorToReferralAction(values: z.infer<typeof assignDoctorSchema>) {
-    console.log('[Simulated] Running assignDoctorToReferralAction with:', values);
-    try {
-        const { referralId, doctorId } = values;
-
-        const referralIndex = allReferrals.findIndex(r => r.referralId === referralId);
-        if (referralIndex === -1) {
-            throw new Error("Referral not found.");
-        }
-        
-        const doctor = allUsers.find(u => u.id === doctorId);
-        if (!doctor) {
-            throw new Error("Doctor not found.");
-        }
-
-        // Update the referral
-        allReferrals[referralIndex].assignedToDoctorId = doctorId;
-        allReferrals[referralIndex].status = 'Assigned';
-        allReferrals[referralIndex].updatedAt = new Date();
-        
-        // This is where the notification logic would go
-        console.log(`[Simulated Notification] Sending notification to ${doctor.email}...`);
-        console.log(`Subject: New Referral Assignment: ${allReferrals[referralIndex].patientDetails.fullName}`);
-        console.log(`Body: You have been assigned a new referral for patient ${allReferrals[referralIndex].patientDetails.fullName}. Reason: ${allReferrals[referralIndex].reasonForReferral}`);
-
-
-        return {
-            success: true,
-            message: `Referral assigned to ${doctor.name}. They have been notified.`
-        };
-
-    } catch (error: any) {
-        console.error('Error in assignDoctorToReferralAction:', error);
-        return {
-            success: false,
-            message: error.message || 'An unexpected error occurred.',
-        };
-    }
-}
-
-export async function linkReferralToAppointmentAction(values: z.infer<typeof linkReferralSchema>) {
-    console.log('[Simulated] Running linkReferralToAppointmentAction with:', values);
-    try {
-        const { referralId, appointmentId } = values;
-
-        // In a real app, this would be an atomic Firestore transaction.
-        const referralIndex = allReferrals.findIndex(r => r.referralId === referralId);
-        if (referralIndex === -1) throw new Error("Referral not found.");
-        
-        const appointmentIndex = allAppointments.findIndex(a => a.id === appointmentId);
-        if (appointmentIndex === -1) throw new Error("Appointment not found.");
-
-        // Update referral
-        allReferrals[referralIndex].status = 'Scheduled';
-        allReferrals[referralIndex].appointmentId = appointmentId;
-        allReferrals[referralIndex].updatedAt = new Date();
-
-        // Update appointment
-        allAppointments[appointmentIndex].referralId = referralId;
-
-        console.log(`[Simulated] Referral ${referralId} linked to Appointment ${appointmentId}.`);
-
-        return {
-            success: true,
-            message: 'Referral successfully linked to the appointment.'
-        };
-    } catch (error: any) {
-        console.error('Error in linkReferralToAppointmentAction:', error);
         return {
             success: false,
             message: error.message || 'An unexpected error occurred.',

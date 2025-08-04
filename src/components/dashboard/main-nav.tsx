@@ -31,7 +31,6 @@ const navItems = {
     { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/admin/dashboard" },
     { href: "/admin/admissions", icon: LogIn, label: "Admissions", match: "/admin/admissions" },
     { href: "/admin/patients", icon: UsersRound, label: "Patients", match: "/admin/patients" },
-    { href: "/admin/referrals", icon: Share2, label: "Referrals", match: "/admin/referrals" },
     { href: "/admin/billing", icon: FileText, label: "Billing", match: "/admin/billing" },
     { href: "/admin/staff", icon: UsersRound, label: "Staff Management", match: "/admin/staff" },
     { href: "/admin/departments", icon: Stethoscope, label: "Departments", match: "/admin/departments" },
@@ -40,7 +39,6 @@ const navItems = {
     { href: "/doctor/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/doctor/dashboard" },
     { href: "/doctor/appointments", icon: CalendarDays, label: "Appointments", match: "/doctor/appointments" },
     { href: "/doctor/patients", icon: UsersRound, label: "Patients", match: "/doctor/patients" },
-    { href: "/doctor/referrals", icon: Share2, label: "Referrals", match: "/doctor/referrals" },
   ],
   Nurse: [
     { href: "#", icon: LayoutDashboard, label: "Dashboard" },

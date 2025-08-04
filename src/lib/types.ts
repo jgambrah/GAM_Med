@@ -127,33 +127,4 @@ export interface Appointment {
   resource?: string; // e.g., 'Operating Theater 1'
   referralId?: string; // Bidirectional link to the referral
 }
-
-export type ReferralStatus = 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';
-
-export interface Referral {
-  referralId: string;
-  patientId?: string; // Optional, linked after registration/visit
-  patientDetails: {
-    fullName: string;
-    dob: Date;
-    contactPhone: string;
-  };
-  referringProvider: {
-    name: string; // e.g., 'Korle Bu Teaching Hospital'
-    contactPerson?: string;
-    phone?: string;
-    email?: string;
-  };
-  reasonForReferral: string; // Can support markdown/rich text
-  referredToDepartment: string;
-  assignedToDoctorId?: string; // Optional, linked after triage
-  status: ReferralStatus;
-  referralDate: Date;
-  scannedDocumentURL?: string; // Optional URL to Firebase Storage
-  appointmentId?: string; // Optional, linked when appointment is made
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
     
