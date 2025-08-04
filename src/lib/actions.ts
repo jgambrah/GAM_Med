@@ -359,11 +359,13 @@ export async function transferPatientBedAction(values: z.infer<typeof bedTransfe
     
     const admission = allAdmissions[admissionIndex];
     const oldBedId = admission.bedId;
+    const patientId = admission.patientId;
 
     if (oldBedId === newBedId) throw new Error("Patient is already in this bed.");
 
     const oldBedIndex = allBeds.findIndex(b => b.bedId === oldBedId);
     if (oldBedIndex === -1) throw new Error('Old bed not found.');
+    if (allBeds[oldBedIndex].currentPatientId !== patientId) throw new Error('Patient mismatch on current bed.');
 
     const newBedIndex = allBeds.findIndex(b => b.bedId === newBedId);
     if (newBedIndex === -1) throw new Error('New bed not found.');
