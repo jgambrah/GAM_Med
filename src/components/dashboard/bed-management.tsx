@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BedDouble, User, Wrench, Ban, Sparkles } from "lucide-react"
+import { BedDouble, User, Wrench, Ban, Sparkles, X } from "lucide-react"
 import type { Bed, Patient } from "@/lib/types"
 import { allBeds, allPatients } from "@/lib/data"
 import { cn } from "@/lib/utils"
@@ -27,9 +27,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
-import { BedTransferForm } from "./bed-transfer-form"
-import { markBedAsCleanAction } from "@/lib/actions"
+import { markBedAsCleanAction, transferPatientBedAction } from "@/lib/actions"
 import { Button } from "../ui/button"
+import { Loader2 } from "lucide-react"
 
 const statusConfig = {
     occupied: {
@@ -67,11 +67,20 @@ export function BedManagement() {
   const { toast } = useToast();
   const [beds, setBeds] = React.useState(allBeds);
   const [wards, setWards] = React.useState([...new Set(beds.map(b => b.wardName))]);
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [dialogContent, setDialogContent] = React.useState<React.ReactNode | null>(null);
-  const [dialogTitle, setDialogTitle] = React.useState("");
+  
+  // State for dialogs/alerts
+  const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
+  const [isCleaningAlertOpen, setIsCleaningAlertOpen] = React.useState(false);
+  const [isTransferConfirmAlertOpen, setIsTransferConfirmAlertOpen] = React.useState(false);
+  
+  // State for data handling
   const [selectedBed, setSelectedBed] = React.useState<Bed | null>(null);
+  const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // State for the new transfer workflow
+  const [isTransferMode, setIsTransferMode] = React.useState(false);
+  const [transferSource, setTransferSource] = React.useState<{ patient: Patient; currentBed: Bed } | null>(null);
 
   const handleDataRefresh = () => {
     // In a real app, you'd fetch the latest data from your server.
@@ -82,6 +91,7 @@ export function BedManagement() {
 
   const handleMarkClean = async () => {
       if (!selectedBed) return;
+      setIsSubmitting(true);
       const result = await markBedAsCleanAction({ bedId: selectedBed.bedId });
       if (result.success) {
           toast({ title: "Bed Status Updated", description: result.message });
@@ -89,47 +99,77 @@ export function BedManagement() {
       } else {
           toast({ variant: "destructive", title: "Update Failed", description: result.message });
       }
-      setIsAlertOpen(false);
+      setIsSubmitting(false);
+      setIsCleaningAlertOpen(false);
       setSelectedBed(null);
   }
 
+  const handleBedTransfer = async () => {
+      if (!transferSource || !selectedBed) return;
+
+      setIsSubmitting(true);
+      const result = await transferPatientBedAction({
+        admissionId: transferSource.currentBed.currentAdmissionId!,
+        newBedId: selectedBed.bedId,
+      });
+
+      if (result.success) {
+        toast({ title: "Transfer Successful", description: result.message });
+        handleDataRefresh();
+      } else {
+        toast({ variant: "destructive", title: "Transfer Failed", description: result.message });
+      }
+
+      // Reset all states
+      setIsSubmitting(false);
+      setIsTransferMode(false);
+      setTransferSource(null);
+      setSelectedBed(null);
+      setIsTransferConfirmAlertOpen(false);
+  }
+
   const handleBedClick = (bed: Bed) => {
+    if (isSubmitting) return;
+
+    // --- Transfer Workflow ---
+    if (isTransferMode) {
+        if (bed.status === 'vacant') {
+            setSelectedBed(bed);
+            setIsTransferConfirmAlertOpen(true);
+        } else {
+            toast({ variant: "destructive", title: "Invalid Selection", description: "Please select a vacant bed for the transfer."})
+        }
+        return;
+    }
+
+    // --- Standard Workflow ---
     if (bed.status === 'maintenance') {
-      toast({ variant: "destructive", title: "Bed Unavailable", description: `This bed is currently under ${bed.status} and cannot be used.` });
+      toast({ variant: "destructive", title: "Bed Unavailable", description: `This bed is currently under maintenance and cannot be used.` });
       return;
     }
     
     if (bed.status === 'cleaning') {
       setSelectedBed(bed);
-      setIsAlertOpen(true);
+      setIsCleaningAlertOpen(true);
       return;
     }
 
     if (bed.status === 'vacant') {
-      setDialogTitle(`Admit Patient to Bed ${bed.bedId}`);
       const patientToAdmit = allPatients.find(p => !p.isAdmitted);
-      if (!patientToAdmit) {
+       if (!patientToAdmit) {
         toast({ variant: "destructive", title: "No Patients to Admit", description: "There are no outpatients available to be admitted." });
         return;
       }
-      setDialogContent(<PatientAdmissionForm patient={patientToAdmit} onFormSubmit={() => {
-          setIsDialogOpen(false);
-          toast({ title: "Patient Admitted", description: `Patient has been assigned to bed ${bed.bedId}`});
-          handleDataRefresh();
-      }} />);
-      setIsDialogOpen(true);
+      setSelectedPatient(patientToAdmit);
+      setIsAdmissionDialogOpen(true);
     }
 
-    if (bed.status === 'occupied' && bed.currentPatientId && bed.currentAdmissionId) {
+    if (bed.status === 'occupied' && bed.currentPatientId) {
       const patient = allPatients.find(p => p.patientId === bed.currentPatientId);
       if (patient) {
-        setDialogTitle(`Transfer Patient: ${patient.fullName}`);
-        setDialogContent(<BedTransferForm patient={patient} admissionId={bed.currentAdmissionId} currentBed={bed} onFormSubmit={() => {
-          setIsDialogOpen(false);
-          toast({ title: "Transfer Successful", description: `${patient.fullName} has been transferred.` });
-          handleDataRefresh();
-        }} />);
-        setIsDialogOpen(true);
+        setIsTransferMode(true);
+        setTransferSource({ patient, currentBed: bed });
+        toast({ title: "Transfer Mode Activated", description: `Select a vacant bed for ${patient.fullName}.`})
       }
     }
   }
@@ -139,8 +179,26 @@ export function BedManagement() {
     <>
      <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl">Bed Management</CardTitle>
-          <CardDescription>Click on a bed to perform an action like admission or transfer.</CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="font-headline text-2xl">Bed Management</CardTitle>
+              <CardDescription>
+                {isTransferMode 
+                    ? `Transferring ${transferSource?.patient.fullName}. Please select a vacant bed.`
+                    : "Click on a bed to perform an action like admission or transfer."
+                }
+              </CardDescription>
+            </div>
+            {isTransferMode && (
+                <Button variant="destructive" onClick={() => {
+                    setIsTransferMode(false);
+                    setTransferSource(null);
+                }}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel Transfer
+                </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
             {wards.map(ward => (
@@ -149,11 +207,19 @@ export function BedManagement() {
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         {beds.filter(b => b.wardName === ward).map(bed => {
                             const config = statusConfig[bed.status];
+                            const isClickable = !isTransferMode || bed.status === 'vacant';
+
                             return (
                                 <div 
                                     key={bed.bedId} 
-                                    className={cn("rounded-lg border p-4 flex flex-col items-center justify-center space-y-2 transition-shadow", config.color, config.cursor)}
-                                    onClick={() => handleBedClick(bed)}
+                                    className={cn(
+                                      "rounded-lg border p-4 flex flex-col items-center justify-center space-y-2 transition-all ease-in-out duration-200", 
+                                      config.color, 
+                                      isClickable ? config.cursor : "cursor-not-allowed opacity-50",
+                                      isTransferMode && bed.status === 'vacant' && "animate-pulse border-2 border-green-500 shadow-lg ring-4 ring-green-300 ring-opacity-50",
+                                      isTransferMode && bed.status !== 'vacant' && "grayscale"
+                                    )}
+                                    onClick={() => isClickable && handleBedClick(bed)}
                                 >
                                     <config.icon className="w-8 h-8"/>
                                     <p className="font-bold text-lg">{bed.bedId}</p>
@@ -163,15 +229,10 @@ export function BedManagement() {
                                             <User className="w-3 h-3 mr-1" />
                                             <span>{allPatients.find(p => p.patientId === bed.currentPatientId)?.fullName || 'Unknown'}</span>
                                         </div>
-                                    ) : bed.status === 'vacant' ? (
-                                         <div className="flex items-center text-xs pt-1 text-center text-transparent">
+                                    ) : (
+                                        <div className="flex items-center text-xs pt-1 text-center text-transparent">
                                             <Ban className="w-3 h-3 mr-1" />
                                             <span>-</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center text-xs pt-1 text-center">
-                                            <Ban className="w-3 h-3 mr-1" />
-                                            <span>Unavailable</span>
                                         </div>
                                     )}
                                 </div>
@@ -183,16 +244,25 @@ export function BedManagement() {
         </CardContent>
       </Card>
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isAdmissionDialogOpen} onOpenChange={setIsAdmissionDialogOpen}>
           <DialogContent>
               <DialogHeader>
-                  <DialogTitle>{dialogTitle}</DialogTitle>
+                  <DialogTitle>Admit Patient: {selectedPatient?.fullName}</DialogTitle>
+                   <DialogDescription>
+                    Fill out the admission details below.
+                  </DialogDescription>
               </DialogHeader>
-              {dialogContent}
+              {selectedPatient && 
+                <PatientAdmissionForm patient={selectedPatient} onFormSubmit={() => {
+                  setIsAdmissionDialogOpen(false);
+                  toast({ title: "Patient Admitted", description: `${selectedPatient.fullName} has been admitted.`});
+                  handleDataRefresh();
+                }} />
+              }
           </DialogContent>
       </Dialog>
       
-       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+       <AlertDialog open={isCleaningAlertOpen} onOpenChange={setIsCleaningAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Bed Cleaning</AlertDialogTitle>
@@ -202,10 +272,35 @@ export function BedManagement() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSelectedBed(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMarkClean}>Confirm & Mark as Vacant</AlertDialogAction>
+            <AlertDialogAction onClick={handleMarkClean} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm & Mark as Vacant
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AlertDialog open={isTransferConfirmAlertOpen} onOpenChange={setIsTransferConfirmAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Patient Transfer</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to transfer <span className="font-bold">{transferSource?.patient.fullName}</span> from bed <span className="font-mono">{transferSource?.currentBed.bedId}</span> to bed <span className="font-mono">{selectedBed?.bedId}</span>?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setSelectedBed(null);
+                setIsTransferConfirmAlertOpen(false);
+              }}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBedTransfer} disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm Transfer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
     </>
   )
 }
