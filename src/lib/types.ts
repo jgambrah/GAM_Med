@@ -1,4 +1,5 @@
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -124,6 +125,7 @@ export interface Appointment {
   reason: string;
   status: "Scheduled" | "Completed" | "Cancelled" | "In Progress";
   resource?: string; // e.g., 'Operating Theater 1'
+  referralId?: string; // Bidirectional link to the referral
 }
 
 export type ReferralStatus = 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';

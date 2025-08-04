@@ -76,6 +76,11 @@ const assignDoctorSchema = z.object({
     doctorId: z.string(),
 });
 
+const linkReferralSchema = z.object({
+    referralId: z.string(),
+    appointmentId: z.string(),
+});
+
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -575,6 +580,41 @@ export async function assignDoctorToReferralAction(values: z.infer<typeof assign
 
     } catch (error: any) {
         console.error('Error in assignDoctorToReferralAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred.',
+        };
+    }
+}
+
+export async function linkReferralToAppointmentAction(values: z.infer<typeof linkReferralSchema>) {
+    console.log('[Simulated] Running linkReferralToAppointmentAction with:', values);
+    try {
+        const { referralId, appointmentId } = values;
+
+        // In a real app, this would be an atomic Firestore transaction.
+        const referralIndex = allReferrals.findIndex(r => r.referralId === referralId);
+        if (referralIndex === -1) throw new Error("Referral not found.");
+        
+        const appointmentIndex = allAppointments.findIndex(a => a.id === appointmentId);
+        if (appointmentIndex === -1) throw new Error("Appointment not found.");
+
+        // Update referral
+        allReferrals[referralIndex].status = 'Scheduled';
+        allReferrals[referralIndex].appointmentId = appointmentId;
+        allReferrals[referralIndex].updatedAt = new Date();
+
+        // Update appointment
+        allAppointments[appointmentIndex].referralId = referralId;
+
+        console.log(`[Simulated] Referral ${referralId} linked to Appointment ${appointmentId}.`);
+
+        return {
+            success: true,
+            message: 'Referral successfully linked to the appointment.'
+        };
+    } catch (error: any) {
+        console.error('Error in linkReferralToAppointmentAction:', error);
         return {
             success: false,
             message: error.message || 'An unexpected error occurred.',
