@@ -492,6 +492,7 @@ export async function createReferralAction(values: z.infer<typeof referralFormSc
     console.log('[Simulated] Running createReferralAction with:', values);
     try {
         const newReferralId = await generateReferralId();
+        
         const newReferral: Referral = {
             referralId: newReferralId,
             patientDetails: {
@@ -511,9 +512,16 @@ export async function createReferralAction(values: z.infer<typeof referralFormSc
             updatedAt: new Date(),
         };
 
+        // Check if patient already exists by phone number
+        const existingPatient = allPatients.find(p => p.contact.primaryPhone === values.patientPhone);
+        if (existingPatient) {
+            newReferral.patientId = existingPatient.patientId;
+            console.log(`[Simulated] Existing patient ${existingPatient.patientId} found and linked to referral.`);
+        }
+
         allReferrals.push(newReferral);
 
-        console.log('[Simulated] Notifying relevant department/doctor queue about new referral:', newReferralId);
+        console.log(`[Simulated] Notification sent to Triage team for new referral: ${newReferralId}`);
 
         return {
             success: true,
@@ -528,5 +536,3 @@ export async function createReferralAction(values: z.infer<typeof referralFormSc
         };
     }
 }
-
-    
