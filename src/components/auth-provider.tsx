@@ -38,16 +38,18 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setMockUserRole = (role: UserRole) => {
     if (useMockAuth) {
-      // Corrected logic: Find the specific mock user for the selected role.
-      // We will default to Dr. Kofi Anan for 'Doctor' to ensure referrals are visible.
       let mockUser;
+      // This is the definitive fix: When 'Doctor' is selected, ALWAYS use 'doc2' (Dr. Kofi Anan)
+      // to ensure the user with assigned referrals is selected for the demo.
       if (role === 'Doctor') {
-        mockUser = allUsers.find(u => u.id === 'doc2'); // Ensures we get Dr. Kofi Anan
+        mockUser = allUsers.find(u => u.id === 'doc2');
       } else {
+        // For all other roles, find the first user with that role.
         mockUser = allUsers.find(u => u.role === role);
       }
       
-      setUser(mockUser || allUsers.find(u => u.role === 'Admin')!); // Fallback to admin
+      // Fallback to Admin if no specific user is found, to prevent crashes.
+      setUser(mockUser || allUsers.find(u => u.role === 'Admin')!);
     }
   };
 
