@@ -56,6 +56,10 @@ const dischargeSummarySchema = z.object({
     followUpInstructions: z.string().min(10, "Follow-up instructions are required."),
 });
 
+const markBedAsCleanSchema = z.object({
+  bedId: z.string(),
+});
+
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -431,6 +435,34 @@ export async function updateOutpatientStatusAction(
 
     } catch (error: any) {
         console.error('Error in updateOutpatientStatusAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred.',
+        };
+    }
+}
+
+export async function markBedAsCleanAction(values: z.infer<typeof markBedAsCleanSchema>) {
+    console.log('[Simulated] Running markBedAsCleanAction with:', values);
+    try {
+        const { bedId } = values;
+        const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
+        if (bedIndex === -1) {
+            throw new Error("Bed not found.");
+        }
+        if (allBeds[bedIndex].status !== 'cleaning') {
+            throw new Error("Bed is not currently marked for cleaning.");
+        }
+
+        allBeds[bedIndex].status = 'vacant';
+        allBeds[bedIndex].cleaningNeeded = false;
+        allBeds[bedIndex].updatedAt = new Date();
+        
+        return {
+            success: true,
+            message: `Bed ${bedId} has been marked as clean and is now available.`
+        };
+    } catch(error: any) {
         return {
             success: false,
             message: error.message || 'An unexpected error occurred.',
