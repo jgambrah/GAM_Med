@@ -4,162 +4,22 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { AdminOverview } from "@/components/dashboard/admin-overview";
-import { AppointmentsView } from "@/components/dashboard/appointments-view";
 import { Header } from "@/components/dashboard/header";
 import { MainNav } from "@/components/dashboard/main-nav";
-import { PatientsList } from "@/components/dashboard/patients-list";
 import { UserNav } from "@/components/dashboard/user-nav";
 import { SidebarProvider, Sidebar, SidebarInset, SidebarFooter } from "@/components/ui/sidebar";
-import { allAppointments, allPatients, allReferrals, allUsers } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import { AiAssistant } from "./dashboard/ai-assistant";
-import { BedManagement } from "./dashboard/bed-management";
-import BillingPage from "@/app/admin/billing/page";
-import PatientDashboard from "./dashboard/patient-dashboard";
-import HousekeepingDashboard from "./dashboard/housekeeping-dashboard";
-import { ReferralDashboard } from "./dashboard/referral-dashboard";
-
-function PlaceholderView({ role }: { role: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm h-full">
-      <div className="flex flex-col items-center gap-1 text-center">
-        <h3 className="text-2xl font-bold tracking-tight font-headline">
-          {role} View
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          This is a placeholder for the {role} dashboard.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function DoctorDashboard({ user }: { user: any }) {
-    const userAppointments = React.useMemo(() => {
-        if (!user) return [];
-        // In a real app, user.id would be used here. For mock, a default doctor is used.
-        return allAppointments.filter(app => app.doctorId === 'doc1');
-    }, [user]);
-
-    return (
-        <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight font-headline">Doctor's Dashboard</h2>
-            <AppointmentsView appointments={userAppointments} user={user} />
-            <PatientsList patients={allPatients} />
-        </div>
-    )
-}
 
 const useGeminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY !== undefined;
 
-export default function Dashboard() {
+export default function Dashboard({ children }: { children?: React.ReactNode }) {
   const { user } = useAuth();
-  const pathname = usePathname();
-
-  const userAppointments = React.useMemo(() => {
-    if (!user) return [];
-    if (user.role === 'Patient') {
-      // In a real app, user.id would be used here. For mock, a default patient is used.
-      return allAppointments.filter(app => app.patientId === 'pat1');
-    }
-    if (user.role === 'Doctor') {
-       // In a real app, user.id would be used here. For mock, a default doctor is used.
-      return allAppointments.filter(app => app.doctorId === 'doc1');
-    }
-    return allAppointments;
-  }, [user]);
   
   if (!user) {
+    // This can happen briefly during initial load or redirect.
+    // Returning null prevents rendering the dashboard for a non-existent user.
     return null;
-  }
-
-  const renderContent = () => {
-    // Handle Doctor routes
-    if (user.role === 'Doctor') {
-        if (pathname.startsWith('/doctor/dashboard')) {
-            return <DoctorDashboard user={user} />;
-        }
-        if (pathname.startsWith('/doctor/appointments')) {
-            return <AppointmentsView appointments={userAppointments} user={user} />;
-        }
-        if (pathname.startsWith('/doctor/patients')) {
-            return <PatientsList patients={allPatients} />;
-        }
-        if (pathname.startsWith('/doctor/referrals')) {
-             const doctors = allUsers.filter(u => u.role === 'Doctor');
-             const doctorReferrals = allReferrals.filter(ref => ref.assignedToDoctorId === user.id);
-             return (
-                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight font-headline">My Assigned Referrals</h2>
-                    <p className="text-muted-foreground mb-6">A list of all patients referred to you for review and consultation.</p>
-                    <ReferralDashboard referrals={doctorReferrals} doctors={doctors} />
-                </div>
-             )
-        }
-        return <DoctorDashboard user={user} />; // Default view for doctor
-    }
-
-     // Handle Patient routes
-    if (user.role === 'Patient') {
-        if (pathname.startsWith('/patient/dashboard')) {
-            return <PatientDashboard user={user} />;
-        }
-        if (pathname.startsWith('/patient/appointments')) {
-            return <AppointmentsView appointments={userAppointments} user={user} />;
-        }
-        return <PatientDashboard user={user} />; // Default view for patient
-    }
-
-
-    // Handle other roles
-    switch (user.role) {
-      case "Admin":
-        // This allows admin to view different pages based on the URL, which will be handled by Next.js router.
-        // We just need to ensure the layout is here. For the root of the admin dashboard, we show the overview.
-        return <AdminOverview patients={allPatients} />;
-      case "Nurse":
-        return (
-            <div className="space-y-6">
-                <BedManagement />
-                <AppointmentsView appointments={userAppointments} user={user} />
-                <PatientsList patients={allPatients} />
-            </div>
-        );
-      case "Pharmacist":
-        return <PlaceholderView role="Pharmacist" />;
-      case "BillingClerk":
-        return <BillingPage />;
-      case "Housekeeping":
-        return <HousekeepingDashboard />;
-      default:
-        // Default to a placeholder if the root page is accessed without a specific role view
-        return <PlaceholderView role="User" />;
-    }
-  };
-
-  const renderRoutedContent = () => {
-      if (user.role === 'Admin' && pathname === '/admin/dashboard') {
-          return <AdminOverview patients={allPatients} />;
-      }
-       if (user.role === 'Doctor' && pathname === '/doctor/referrals') {
-          const doctors = allUsers.filter(u => u.role === 'Doctor');
-          const doctorReferrals = allReferrals.filter(ref => ref.assignedToDoctorId === 'doc1');
-          return (
-             <div>
-                <h2 className="text-3xl font-bold tracking-tight font-headline">My Assigned Referrals</h2>
-                <p className="text-muted-foreground mb-6">A list of all patients referred to you for review and consultation.</p>
-                <ReferralDashboard referrals={doctorReferrals} doctors={doctors} />
-            </div>
-          )
-      }
-      if (user.role === 'Housekeeping' && pathname === '/housekeeping/dashboard') {
-          return <HousekeepingDashboard />;
-      }
-      // This is where you would add `if` blocks for other routes like `/admin/patients`, etc.
-      // But since those are handled by `app/admin/patients/page.tsx`, we don't need to render them here.
-      // We just render the default view for the role if the path doesn't match a specific dashboard page.
-      return renderContent();
   }
 
   return (
@@ -183,7 +43,14 @@ export default function Dashboard() {
             <UserNav user={user} />
           </Header>
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-            {renderRoutedContent()}
+             {/* 
+                By removing the complex routing logic from this component,
+                we now let Next.js's App Router do its job. The `children`
+                prop will be whatever page component Next.js has matched
+                for the current URL (e.g., `app/admin/referrals/page.tsx`).
+                This is a much cleaner and more reliable pattern.
+             */}
+            {children}
           </main>
         </div>
       </SidebarInset>
