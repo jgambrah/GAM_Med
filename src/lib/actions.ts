@@ -71,6 +71,11 @@ const referralFormSchema = z.object({
     notes: z.string().optional(),
 });
 
+const assignDoctorSchema = z.object({
+    referralId: z.string(),
+    doctorId: z.string(),
+});
+
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -533,6 +538,46 @@ export async function createReferralAction(values: z.infer<typeof referralFormSc
         return {
             success: false,
             message: error.message || 'An unexpected error occurred while creating the referral.',
+        };
+    }
+}
+
+export async function assignDoctorToReferralAction(values: z.infer<typeof assignDoctorSchema>) {
+    console.log('[Simulated] Running assignDoctorToReferralAction with:', values);
+    try {
+        const { referralId, doctorId } = values;
+
+        const referralIndex = allReferrals.findIndex(r => r.referralId === referralId);
+        if (referralIndex === -1) {
+            throw new Error("Referral not found.");
+        }
+        
+        const doctor = allUsers.find(u => u.id === doctorId);
+        if (!doctor) {
+            throw new Error("Doctor not found.");
+        }
+
+        // Update the referral
+        allReferrals[referralIndex].assignedToDoctorId = doctorId;
+        allReferrals[referralIndex].status = 'Assigned';
+        allReferrals[referralIndex].updatedAt = new Date();
+        
+        // This is where the notification logic would go
+        console.log(`[Simulated Notification] Sending notification to ${doctor.email}...`);
+        console.log(`Subject: New Referral Assignment: ${allReferrals[referralIndex].patientDetails.fullName}`);
+        console.log(`Body: You have been assigned a new referral for patient ${allReferrals[referralIndex].patientDetails.fullName}. Reason: ${allReferrals[referralIndex].reasonForReferral}`);
+
+
+        return {
+            success: true,
+            message: `Referral assigned to ${doctor.name}. They have been notified.`
+        };
+
+    } catch (error: any) {
+        console.error('Error in assignDoctorToReferralAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred.',
         };
     }
 }

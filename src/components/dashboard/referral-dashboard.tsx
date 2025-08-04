@@ -11,9 +11,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import type { Referral, User } from "@/lib/types";
 import { format } from "date-fns";
-import { FilePlus, MoreHorizontal, UserPlus } from "lucide-react";
+import { FilePlus, MoreHorizontal, UserPlus, Stethoscope, Loader2 } from "lucide-react";
 import * as React from "react";
 import { ReferralForm } from "./referral-form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { assignDoctorToReferralAction } from "@/lib/actions";
 
 const statusConfig = {
     "Pending": { variant: "secondary" as const, label: "Pending Review" },
@@ -23,15 +31,82 @@ const statusConfig = {
     "Canceled": { variant: "destructive" as const, label: "Canceled" },
 };
 
+function AssignDoctorDialog({ referral, doctors, onAssignment }: { referral: Referral, doctors: User[], onAssignment: () => void }) {
+    const { toast } = useToast();
+    const [selectedDoctorId, setSelectedDoctorId] = React.useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isOpen, setIsOpen] = React.useState(false);
+
+    const handleSubmit = async () => {
+        if (!selectedDoctorId) {
+            toast({ variant: "destructive", title: "No Doctor Selected", description: "Please select a doctor to assign." });
+            return;
+        }
+        setIsSubmitting(true);
+        const result = await assignDoctorToReferralAction({ referralId: referral.referralId, doctorId: selectedDoctorId });
+        if (result.success) {
+            toast({ title: "Doctor Assigned", description: result.message });
+            onAssignment(); // This will trigger a data refresh in the parent
+            setIsOpen(false);
+        } else {
+            toast({ variant: "destructive", title: "Assignment Failed", description: result.message });
+        }
+        setIsSubmitting(false);
+    }
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Stethoscope className="mr-2 h-4 w-4" />
+                    Assign Doctor
+                </DropdownMenuItem>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Assign Doctor to Referral</DialogTitle>
+                    <DialogDescription>
+                        Assign a doctor to review the referral for patient: <span className="font-bold">{referral.patientDetails.fullName}</span>
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <Select onValueChange={setSelectedDoctorId}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a doctor..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {doctors.map(doc => (
+                                <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Button onClick={handleSubmit} disabled={isSubmitting || !selectedDoctorId} className="w-full">
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirm Assignment
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+
 export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[], doctors: User[] }) {
     const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
+    const [referralList, setReferralList] = React.useState(referrals);
 
     const handleFormSuccess = (message: string) => {
         setIsFormOpen(false);
         toast({ title: "Success", description: message });
         // Here you would typically refetch the referrals data
     };
+
+    const handleAssignmentSuccess = () => {
+        // In a real app, you would refetch data. Here we just update the state to reflect the change.
+        // This is a simplified approach for the mock environment.
+        toast({ title: "Data Refresh Needed", description: "In a real app, the list would now be updated." });
+    }
 
     return (
         <div className="space-y-6">
@@ -78,8 +153,8 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {referrals.length > 0 ? (
-                                referrals.map((ref) => {
+                            {referralList.length > 0 ? (
+                                referralList.map((ref) => {
                                     const config = statusConfig[ref.status];
                                     const assignedDoctor = doctors.find(d => d.id === ref.assignedToDoctorId);
                                     return (
@@ -101,7 +176,9 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent>
                                                         <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                        <DropdownMenuItem>Assign Doctor</DropdownMenuItem>
+                                                        {ref.status === 'Pending' && (
+                                                           <AssignDoctorDialog referral={ref} doctors={doctors} onAssignment={handleAssignmentSuccess} />
+                                                        )}
                                                         <DropdownMenuItem>
                                                           <UserPlus className="mr-2 h-4 w-4" />
                                                           Register as Patient
