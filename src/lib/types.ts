@@ -1,4 +1,5 @@
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -124,4 +125,22 @@ export interface Appointment {
   reason: string;
   status: "Scheduled" | "Completed" | "Cancelled" | "In Progress";
   resource?: string; // e.g., 'Operating Theater 1'
+}
+
+export interface Referral {
+  referralId: string;
+  patientFirstName: string;
+  patientLastName: string;
+  patientDob: Date;
+  patientPhone: string;
+  referringProviderName: string;
+  referringProviderFacility: string;
+  referralDate: Date;
+  reasonForReferral: string;
+  urgency: "Routine" | "Urgent" | "Emergency";
+  status: "Pending Review" | "Assigned" | "Completed" | "Declined";
+  notes?: string;
+  assignedToDoctorId?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

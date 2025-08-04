@@ -1,5 +1,6 @@
 
-import type { User, Patient, Appointment, Bed, Admission } from './types';
+
+import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -203,4 +204,38 @@ export const allAppointments: Appointment[] = [
     reason: 'Initial Consultation',
     status: 'Scheduled',
   },
+];
+
+export const allReferrals: Referral[] = [
+  {
+    referralId: 'REF-001',
+    patientFirstName: 'Yaw',
+    patientLastName: 'Asante',
+    patientDob: new Date('1965-03-12'),
+    patientPhone: '+233271234567',
+    referringProviderName: 'Dr. Anna Miller',
+    referringProviderFacility: 'Korle Bu Clinic',
+    referralDate: new Date('2024-07-28'),
+    reasonForReferral: 'Persistent headaches and dizziness, requires neurological assessment.',
+    urgency: 'Urgent',
+    status: 'Pending Review',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    referralId: 'REF-002',
+    patientFirstName: 'Abena',
+    patientLastName: 'Danso',
+    patientDob: new Date('1999-08-02'),
+    patientPhone: '+233209876543',
+    referringProviderName: 'Dr. Ben Carter',
+    referringProviderFacility: '37 Military Hospital',
+    referralDate: new Date('2024-07-25'),
+    reasonForReferral: 'Follow-up cardiology consultation after recent ECG.',
+    urgency: 'Routine',
+    status: 'Assigned',
+    assignedToDoctorId: 'doc1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
 ];

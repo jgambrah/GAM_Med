@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import {
@@ -13,6 +14,7 @@ import {
   UsersRound,
   FileText,
   Sparkles,
+  Share2,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 
@@ -29,6 +31,7 @@ const navItems = {
     { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/admin/dashboard" },
     { href: "/admin/admissions", icon: LogIn, label: "Admissions", match: "/admin/admissions" },
     { href: "/admin/patients", icon: UsersRound, label: "Patients", match: "/admin/patients" },
+    { href: "/admin/referrals", icon: Share2, label: "Referrals", match: "/admin/referrals" },
     { href: "/admin/billing", icon: FileText, label: "Billing", match: "/admin/billing" },
     { href: "/admin/staff", icon: UsersRound, label: "Staff Management", match: "/admin/staff" },
     { href: "/admin/departments", icon: Stethoscope, label: "Departments", match: "/admin/departments" },

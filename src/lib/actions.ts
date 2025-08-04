@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -58,6 +59,18 @@ const dischargeSummarySchema = z.object({
 
 const markBedAsCleanSchema = z.object({
   bedId: z.string(),
+});
+
+const referralFormSchema = z.object({
+    patientFirstName: z.string().min(2, "First name is too short."),
+    patientLastName: z.string().min(2, "Last name is too short."),
+    patientDob: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Please enter a valid date." }),
+    patientPhone: z.string().min(10, "Phone number is too short."),
+    referringProviderName: z.string().min(2, "Provider name is required."),
+    referringProviderFacility: z.string().min(3, "Provider facility is required."),
+    reasonForReferral: z.string().min(10, "Reason for referral is required."),
+    urgency: z.enum(["Routine", "Urgent", "Emergency"]),
+    notes: z.string().optional(),
 });
 
 
@@ -466,6 +479,52 @@ export async function markBedAsCleanAction(values: z.infer<typeof markBedAsClean
         return {
             success: false,
             message: error.message || 'An unexpected error occurred.',
+        };
+    }
+}
+
+
+async function generateReferralId(): Promise<string> {
+    const prefix = 'REF';
+    const nextId = (allReferrals.length + 1).toString().padStart(3, '0');
+    return `${prefix}-${nextId}`;
+}
+
+export async function createReferralAction(values: z.infer<typeof referralFormSchema>) {
+    console.log('[Simulated] Running createReferralAction with:', values);
+    try {
+        const newReferralId = await generateReferralId();
+        const newReferral: Referral = {
+            referralId: newReferralId,
+            patientFirstName: values.patientFirstName,
+            patientLastName: values.patientLastName,
+            patientDob: new Date(values.patientDob),
+            patientPhone: values.patientPhone,
+            referringProviderName: values.referringProviderName,
+            referringProviderFacility: values.referringProviderFacility,
+            reasonForReferral: values.reasonForReferral,
+            urgency: values.urgency,
+            notes: values.notes,
+            referralDate: new Date(),
+            status: 'Pending Review',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        allReferrals.push(newReferral);
+
+        console.log('[Simulated] Notifying relevant department/doctor queue about new referral:', newReferralId);
+
+        return {
+            success: true,
+            message: `New referral for ${values.patientFirstName} ${values.patientLastName} has been created with ID ${newReferralId}.`,
+            referralId: newReferralId
+        };
+    } catch (error: any) {
+        console.error('Error in createReferralAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred while creating the referral.',
         };
     }
 }
