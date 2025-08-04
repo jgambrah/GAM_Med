@@ -26,29 +26,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { Patient } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
 import { allAdmissions } from "@/lib/data"
-import { dischargePatientAction } from "@/lib/actions"
-import { Loader2, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { Input } from "../ui/input"
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
 
-const getStatusBadgeVariant = (status: "Inpatient" | "Outpatient" | "Pending Discharge") => {
+type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge";
+
+const getStatusBadgeVariant = (status: PatientStatus) => {
     if (status === 'Inpatient') return 'default';
     if (status === 'Pending Discharge') return 'destructive';
     return 'secondary';
@@ -64,7 +54,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "inpatient" | "outpatient" | "pending">("all");
 
-  const getPatientStatus = (patient: Patient): "Inpatient" | "Outpatient" | "Pending Discharge" => {
+  const getPatientStatus = (patient: Patient): PatientStatus => {
     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
     if (patient.isAdmitted) {
       if (admission?.status === 'Pending Discharge') {
@@ -76,18 +66,34 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const filteredPatients = React.useMemo(() => {
+    const lowercasedQuery = searchQuery.toLowerCase().trim();
+    
     return patients
+      .map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
       .filter(patient => {
-        const status = getPatientStatus(patient);
-        if (statusFilter === "inpatient") return status === 'Inpatient';
-        if (statusFilter === "outpatient") return status === 'Outpatient';
-        if (statusFilter === "pending") return status === 'Pending Discharge';
-        return true;
-      })
-      .filter(patient => 
-        patient.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.patientId.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+        // Status Filter
+        if (statusFilter !== 'all') {
+            const statusMap = {
+                inpatient: 'Inpatient',
+                outpatient: 'Outpatient',
+                pending: 'Pending Discharge'
+            };
+            if (patient.computedStatus !== statusMap[statusFilter]) {
+                return false;
+            }
+        }
+        
+        // Search Query Filter
+        if (!lowercasedQuery) return true;
+        
+        const searchCorpus = [
+            patient.fullName.toLowerCase(),
+            patient.patientId.toLowerCase(),
+            patient.contact.primaryPhone
+        ].join(' ');
+
+        return searchCorpus.includes(lowercasedQuery);
+      });
   }, [patients, searchQuery, statusFilter]);
 
   const handleAdmissionSuccess = (patientName: string) => {
@@ -96,6 +102,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       title: "Patient Admitted",
       description: `${patientName} has been successfully admitted.`
     });
+    // In a real app, you'd likely refetch or revalidate data here.
+    // For now, the user can manually refresh to see changes propagate fully.
   }
 
   return (
@@ -112,7 +120,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                 <div className="relative w-full max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Search by name or patient ID..." 
+                        placeholder="Search by name, patient ID, or phone..." 
                         className="pl-10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -143,9 +151,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             <TableBody>
               {filteredPatients.length > 0 ? (
                 filteredPatients.map((patient) => {
-                    const status = getPatientStatus(patient);
                     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
-
                     return (
                     <TableRow key={patient.patientId}>
                     <TableCell className="font-mono">{patient.patientId}</TableCell>
@@ -155,7 +161,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                         </Link>
                     </TableCell>
                     <TableCell>
-                        <Badge variant={getStatusBadgeVariant(status)}>{status}</Badge>
+                        <Badge variant={getStatusBadgeVariant(patient.computedStatus)}>{patient.computedStatus}</Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                         {patient.isAdmitted ? (admission?.bedId || 'N/A') : 'N/A'}
@@ -164,7 +170,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                         {patient.contact.primaryPhone}
                     </TableCell>
                     <TableCell className="text-right">
-                        {status === 'Inpatient' && (
+                        {patient.computedStatus === 'Inpatient' && (
                            <Button 
                                 variant="secondary" 
                                 size="sm"
@@ -173,10 +179,10 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                                 Finalize Summary
                             </Button>
                         )}
-                         {status === 'Pending Discharge' && (
+                         {patient.computedStatus === 'Pending Discharge' && (
                              <span className="text-sm text-muted-foreground italic">Awaiting financial clearance</span>
                          )}
-                        {status === 'Outpatient' && (
+                        {patient.computedStatus === 'Outpatient' && (
                             <Button 
                                 variant="outline" 
                                 size="sm"
@@ -195,7 +201,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    No patients found.
+                    No patients found matching your criteria.
                   </TableCell>
                 </TableRow>
               )}
