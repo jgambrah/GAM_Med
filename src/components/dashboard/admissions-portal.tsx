@@ -12,6 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,9 +30,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import type { Appointment, Patient } from "@/lib/types";
 import { format } from "date-fns";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Loader2, X, BedDouble } from "lucide-react";
 import * as React from "react";
-import { PatientsList } from "./patients-list";
+import Link from "next/link";
+import { PatientAdmissionForm } from "./patient-admission-form";
 
 function OutpatientCheckinDashboard() {
   const { toast } = useToast();
@@ -136,11 +144,96 @@ function OutpatientCheckinDashboard() {
 }
 
 function InpatientAdmissionDashboard({ patients }: { patients: Patient[] }) {
+    const { toast } = useToast();
+    const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
+    const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
+    
     const outpatients = React.useMemo(() => {
         return patients.filter(p => !p.isAdmitted);
     }, [patients]);
     
-    return <PatientsList patients={outpatients} />;
+    const handleAdmissionSuccess = (patientName: string) => {
+        setIsAdmissionDialogOpen(false);
+        toast({
+            title: "Patient Admitted",
+            description: `${patientName} has been successfully admitted.`
+        });
+        // In a real app, data would be re-fetched. Here we might need a manual refresh.
+    }
+    
+    return (
+        <>
+        <Card>
+            <CardHeader>
+                <CardTitle>Outpatients Awaiting Admission</CardTitle>
+                <CardDescription>
+                    Select a patient from this list to admit them to an available bed.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Patient ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Gender</TableHead>
+                            <TableHead>Last Visit</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {outpatients.length > 0 ? (
+                            outpatients.map(patient => (
+                                <TableRow key={patient.patientId}>
+                                    <TableCell className="font-mono">{patient.patientId}</TableCell>
+                                    <TableCell>
+                                        <Link href={`/admin/patients/${patient.patientId}`} className="font-medium hover:underline">
+                                            {patient.fullName}
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell>{patient.gender}</TableCell>
+                                    <TableCell>{patient.lastVisitDate ? format(patient.lastVisitDate, 'PPP') : 'N/A'}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button size="sm" onClick={() => {
+                                            setSelectedPatient(patient);
+                                            setIsAdmissionDialogOpen(true);
+                                        }}>
+                                            <BedDouble className="mr-2 h-4 w-4" />
+                                            Admit
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                    No outpatients are awaiting admission.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+
+        <Dialog open={isAdmissionDialogOpen} onOpenChange={setIsAdmissionDialogOpen}>
+            <DialogContent>
+               <DialogHeader>
+                <DialogTitle>Admit Patient: {selectedPatient?.fullName}</DialogTitle>
+                <DialogDescription>
+                  Fill out the admission details below.
+                </DialogDescription>
+              </DialogHeader>
+              {selectedPatient && (
+                <PatientAdmissionForm 
+                  patient={selectedPatient} 
+                  onFormSubmit={() => handleAdmissionSuccess(selectedPatient.fullName)}
+                />
+              )}
+            </DialogContent>
+        </Dialog>
+        </>
+    );
 }
 
 export function AdmissionsPortal() {
@@ -151,7 +244,7 @@ export function AdmissionsPortal() {
         <p className="text-muted-foreground">Manage outpatient check-ins and new inpatient admissions.</p>
       </div>
 
-      <Tabs defaultValue="outpatient-checkin">
+      <Tabs defaultValue="inpatient-admission">
         <TabsList>
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="inpatient-admission">Inpatient Admission</TabsTrigger>
@@ -166,3 +259,5 @@ export function AdmissionsPortal() {
     </div>
   );
 }
+
+    
