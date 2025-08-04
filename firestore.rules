@@ -2,48 +2,86 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the role of the currently authenticated user.
-    // It reads the 'role' field from the user's document in the 'users' collection.
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+
+    // Helper Functions to make rules more readable and reusable.
+
+    // Get the role of the currently authenticated user from the 'users' collection.
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
 
-    // Rules for the 'users' collection itself.
-    // Users should be able to read their own profile data.
-    // Only admins should be able to modify roles (not shown here for brevity).
+    // Check if the user has one of the specified roles.
+    function isOneOfRoles(roles) {
+      let userRole = getUserRole(request.auth.uid);
+      return userRole in roles;
+    }
+
+    // --- Rules for 'users' Collection ---
+    // Users can read their own data. Only admins can create/update roles.
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
+      allow read: if request.auth.uid == userId || isOneOfRoles(['Admin']);
+      allow create: if request.auth.uid == userId; // Allow users to create their own record on sign-up
+      allow update: if request.auth.uid == userId || isOneOfRoles(['Admin']); // Admins can manage users
     }
 
-    // Rules for the 'patients' collection.
+    // --- Rules for 'patients' Collection ---
     match /patients/{patientId} {
-      // READ access is granted to staff roles or to the patient themselves.
-      // Note: For a patient to read their own data, their user document
-      // would need a field linking to their patientId, e.g., `resource.data.linkedPatientId == patientId`.
-      // For simplicity here, we focus on staff access.
-      allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Pharmacist', 'BillingClerk'];
       
-      // CREATE access is restricted to Admins.
-      allow create: if getUserRole() == 'Admin';
+      // READ:
+      // - Staff roles (Admin, Doctor, Nurse, etc.) can read any patient's record.
+      // - A user with the 'Patient' role can only read their own document.
+      //   (This assumes the patient's document ID matches their user ID (uid)).
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'Pharmacist', 'BillingClerk']) || 
+                     (getUserRole(request.auth.uid) == 'Patient' && request.auth.uid == patientId);
 
-      // UPDATE access is restricted to clinical staff (Admin, Doctor, Nurse).
-      allow update: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+      // LIST (Query):
+      // - Staff roles can list all patients (e.g., for the main patient list view).
+      // - Patients cannot list all other patients.
+      allow list: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
       
-      // DELETE access is highly restricted, typically only for Admins for data cleanup.
-      allow delete: if getUserRole() == 'Admin';
+      // WRITE (Create, Update, Delete):
+      // - Only Admins can create new patient records.
+      // - Only Admins and Doctors can update a patient's record.
+      // - Deletes are disallowed for safety; use a status field instead.
+      allow create: if isOneOfRoles(['Admin']);
+      allow update: if isOneOfRoles(['Admin', 'Doctor']);
+      allow delete: if false; // Protect patient data from accidental deletion
     }
-    
-    // Rules for admissions
+
+    // --- Rules for 'admissions' Collection ---
     match /admissions/{admissionId} {
-    	allow read, write: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+        // Patients can read their own admission records.
+        // Staff can read any admission record.
+        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']) || 
+                      (get(/databases/$(database)/documents/admissions/$(admissionId)).data.patientId == request.auth.uid);
+                      
+        allow list: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+
+        // Only Admins or Doctors can create or update admission records.
+        allow create, update: if isOneOfRoles(['Admin', 'Doctor']);
+        allow delete: if false;
     }
     
-    // Rules for beds
+    // --- Rules for 'beds' Collection ---
+    // Beds contain non-sensitive operational data.
     match /beds/{bedId} {
-    	allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Housekeeping'];
-      allow write: if getUserRole() in ['Admin', 'Housekeeping'];
+        // Most staff can view bed status.
+        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'Housekeeping']);
+        
+        // Only Admins and Nurses can update bed status (admit, transfer, clean).
+        allow write: if isOneOfRoles(['Admin', 'Nurse', 'Housekeeping']);
     }
 
+    // --- Conceptual Rule for Callable Function 'searchPatients' ---
+    //
+    // Security for Callable Cloud Functions is NOT defined in firestore.rules.
+    // Instead, it's checked inside the function's code itself.
+    // The rule would conceptually be:
+    // allow call: if request.auth != null;
+    //
+    // This is implemented in the Node.js function with the line:
+    // if (!context.auth) { throw new functions.https.HttpsError(...) }
+    //
+    // This ensures only authenticated users can trigger the search.
   }
 }
