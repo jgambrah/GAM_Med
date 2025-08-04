@@ -1,73 +1,78 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user's role from the 'users' collection
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    // Helper functions to get user data and check roles
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Helper function to check if the user is an authenticated staff member
-    function isStaff() {
-      return request.auth != null && getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'];
-    }
-    
-    // Helper function to check for Admin role
-    function isAdmin() {
-      return request.auth != null && getUserRole(request.auth.uid) == 'Admin';
+    function isOneOfRoles(allowedRoles) {
+      return getUserData().role in allowedRoles;
     }
 
-    // Helper function to check for Nurse or Admin role
-    function isNurseOrAdmin() {
-      return request.auth != null && getUserRole(request.auth.uid) in ['Admin', 'Nurse'];
-    }
-
-    // Rules for the 'users' collection
+    // Rules for the users collection
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
+      // Users can read their own data.
+      allow read: if request.auth.uid == userId;
+      // Users can create their own user document upon signup.
+      allow create: if request.auth.uid == userId;
+      // Users can update their own data, but cannot change their role.
+      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
     }
 
-    // Rules for the 'patients' collection
+    // Rules for the patients collection
     match /patients/{patientId} {
-      allow read: if isStaff() || (request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name == resource.data.fullName);
-      allow create: if isStaff();
-      allow update: if isStaff();
-      allow delete: if isAdmin();
-    }
-    
-    // Rules for the 'admissions' collection
-    match /admissions/{admissionId} {
-       allow read: if isStaff() || (request.auth != null && get(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.fullName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name);
-       allow create: if isNurseOrAdmin();
-       allow update: if isNurseOrAdmin();
-       allow delete: if isAdmin();
-    }
-
-    // --- Bed Management Security Rules ---
-    match /beds/{bedId} {
-      // Allow read access to all staff members
-      allow read: if isStaff();
+      // Admins, Doctors, and Nurses can read all patient data.
+      // Patients can only read their own data (we'd need to match patientId to a field in their user doc).
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
       
-      // Only Admins can create or delete bed documents
-      allow create, delete: if isAdmin();
+      // Admins can create new patients.
+      allow create: if isOneOfRoles(['Admin']);
+      
+      // Admins, Doctors, and Nurses can update patient records.
+      allow update: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+      
+      // Only Admins can delete patient records (soft-delete preferred).
+      allow delete: if isOneOfRoles(['Admin']);
+    }
 
-      // Allow updates only by authorized staff and under specific conditions
-      allow update: if isNurseOrAdmin() &&
-        (
-          // Case 1: Admin can do anything
-          isAdmin() ||
-          
-          // Case 2: Admitting a patient (vacant -> occupied)
-          (request.resource.data.status == 'occupied' && resource.data.status == 'vacant' && request.resource.data.currentPatientId != null) ||
-          
-          // Case 3: Discharging or transferring a patient (occupied -> cleaning)
-          (request.resource.data.status == 'cleaning' && resource.data.status == 'occupied' && request.resource.data.currentPatientId == null) ||
-          
-          // Case 4: Marking a bed as clean after service (cleaning -> vacant)
-          (request.resource.data.status == 'vacant' && resource.data.status == 'cleaning' && request.resource.data.currentPatientId == null)
-        );
+    // Rules for the admissions sub-collection
+    match /admissions/{admissionId} {
+        // Admins, Doctors, and Nurses can read all admission data.
+        allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+        // Admins, Doctors, and Nurses can create and update admissions.
+        allow write: if isOneOfRoles(['Admin', 'Doctor', 'Nurse']);
+    }
+
+    // Rules for the beds collection
+    match /beds/{bedId} {
+      // Allow read access to all clinical and administrative staff.
+      allow read: if isOneOfRoles(['Admin', 'Doctor', 'Nurse', 'BillingClerk']);
+
+      // Only Admins can create new bed documents during initial system setup.
+      allow create: if isOneOfRoles(['Admin']);
+
+      // Allow updates based on role and valid state transitions.
+      // Server-side actions with admin privileges will bypass these client-side rules.
+      allow update: if 
+        // Admins have full update access.
+        isOneOfRoles(['Admin']) ||
+        
+        // A Nurse can perform valid state transitions.
+        (isOneOfRoles(['Nurse']) && (
+            // Nurse can mark a bed as clean (cleaning -> vacant)
+            (resource.data.status == 'cleaning' && request.resource.data.status == 'vacant') ||
+            // Nurse can transfer a patient (occupied -> cleaning for the old bed)
+            (resource.data.status == 'occupied' && request.resource.data.status == 'cleaning') ||
+            // Nurse can admit a patient (vacant -> occupied)
+            (resource.data.status == 'vacant' && request.resource.data.status == 'occupied')
+        ));
+        
+       // No one should be able to delete a bed document from the client.
+       allow delete: if false;
     }
   }
 }
