@@ -9,6 +9,7 @@ export const allUsers: User[] = [
   { id: 'nur1', name: 'Grace Adjei', email: 'g.adjei@medflow.gh', role: 'Nurse', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=GA' },
   { id: 'pha1', name: 'Ben Carter', email: 'b.carter@medflow.gh', role: 'Pharmacist', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=BC' },
   { id: 'bil1', name: 'Esi Annan', email: 'e.annan@medflow.gh', role: 'BillingClerk', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EA' },
+  { id: 'hou1', name: 'Kojo Williams', email: 'k.williams@medflow.gh', role: 'Housekeeping', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=KW' },
 ];
 
 const now = new Date();
@@ -114,7 +115,7 @@ export const allBeds: Bed[] = [
         bedId: 'C-102',
         wardName: 'Cardiology',
         roomNumber: '101',
-        status: 'vacant',
+        status: 'cleaning',
         cleaningNeeded: true,
         createdAt: now,
         updatedAt: now,

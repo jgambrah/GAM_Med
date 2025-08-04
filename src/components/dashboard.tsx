@@ -16,6 +16,7 @@ import { AiAssistant } from "./dashboard/ai-assistant";
 import { BedManagement } from "./dashboard/bed-management";
 import BillingPage from "@/app/admin/billing/page";
 import PatientDashboard from "./dashboard/patient-dashboard";
+import HousekeepingDashboard from "./dashboard/housekeeping-dashboard";
 
 function PlaceholderView({ role }: { role: string }) {
   return (
@@ -116,6 +117,8 @@ export default function Dashboard() {
         return <PlaceholderView role="Pharmacist" />;
       case "BillingClerk":
         return <BillingPage />;
+      case "Housekeeping":
+        return <HousekeepingDashboard />;
       default:
         // Default to a placeholder if the root page is accessed without a specific role view
         return <PlaceholderView role="User" />;
@@ -125,6 +128,9 @@ export default function Dashboard() {
   const renderRoutedContent = () => {
       if (user.role === 'Admin' && pathname === '/admin/dashboard') {
           return <AdminOverview patients={allPatients} />;
+      }
+      if (user.role === 'Housekeeping' && pathname === '/housekeeping/dashboard') {
+          return <HousekeepingDashboard />;
       }
       // This is where you would add `if` blocks for other routes like `/admin/patients`, etc.
       // But since those are handled by `app/admin/patients/page.tsx`, we don't need to render them here.

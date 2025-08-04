@@ -12,6 +12,7 @@ import {
   User,
   UsersRound,
   FileText,
+  Sparkles,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 
@@ -54,6 +55,9 @@ const navItems = {
   ],
   BillingClerk: [
       { href: "/admin/billing", icon: FileText, label: "Discharge Queue", match: "/admin/billing" },
+  ],
+  Housekeeping: [
+      { href: "/housekeeping/dashboard", icon: Sparkles, label: "Cleaning Tasks", match: "/housekeeping/dashboard" },
   ]
 }
 
@@ -64,6 +68,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   Pharmacist: Pill,
   Patient: User,
   BillingClerk: FileText,
+  Housekeeping: Sparkles,
 }
 
 export function MainNav({ role }: { role: UserRole }) {

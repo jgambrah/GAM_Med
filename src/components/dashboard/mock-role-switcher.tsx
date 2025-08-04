@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/components/auth-provider";
@@ -36,6 +37,7 @@ export function MockRoleSwitcher() {
               <SelectItem value="Pharmacist">Pharmacist</SelectItem>
               <SelectItem value="Patient">Patient</SelectItem>
               <SelectItem value="BillingClerk">Billing Clerk</SelectItem>
+              <SelectItem value="Housekeeping">Housekeeping</SelectItem>
             </SelectContent>
           </Select>
         </div>
