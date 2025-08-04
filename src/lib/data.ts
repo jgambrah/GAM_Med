@@ -1,5 +1,4 @@
 
-
 import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
 
 export const allUsers: User[] = [
@@ -244,6 +243,23 @@ export const allReferrals: Referral[] = [
     status: 'Assigned',
     assignedToDoctorId: 'doc1',
     appointmentId: 'app4', // Hypothetical future appointment
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    referralId: 'REF-003',
+    patientDetails: {
+      fullName: 'Adwoa Mensah',
+      dob: new Date('1988-09-01'),
+      contactPhone: '+233261112233',
+    },
+    referringProvider: {
+      name: 'Sunshine Medical Center',
+    },
+    referralDate: new Date('2024-07-29'),
+    reasonForReferral: 'Evaluation for knee pain.',
+    referredToDepartment: 'Orthopedics',
+    status: 'Pending',
     createdAt: new Date(),
     updatedAt: new Date(),
   }

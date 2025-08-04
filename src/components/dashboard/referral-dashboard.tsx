@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { assignDoctorToReferralAction } from "@/lib/actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { useAuth } from "../auth-provider";
 
 const statusConfig = {
     "Pending": { variant: "secondary" as const, label: "Pending Review" },
@@ -92,13 +92,19 @@ function AssignDoctorDialog({ referral, doctors, onAssignment }: { referral: Ref
 }
 
 function ReferralTable({ referrals, doctors, onAssignmentSuccess }: { referrals: Referral[], doctors: User[], onAssignmentSuccess: () => void }) {
+    const { user } = useAuth();
     if (referrals.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg">
                 <FilePlus className="w-12 h-12 text-muted-foreground" />
                 <p className="mt-4 text-muted-foreground">
-                    No referrals found for this status.
+                    No referrals found for this view.
                 </p>
+                {user?.role === 'Doctor' && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        You have no assigned referrals at this time.
+                    </p>
+                )}
             </div>
         )
     }
@@ -138,13 +144,15 @@ function ReferralTable({ referrals, doctors, onAssignmentSuccess }: { referrals:
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent>
                                         <DropdownMenuItem>View Details</DropdownMenuItem>
-                                        {ref.status === 'Pending' && (
+                                        {user?.role === 'Admin' && ref.status === 'Pending' && (
                                             <AssignDoctorDialog referral={ref} doctors={doctors} onAssignment={onAssignmentSuccess} />
                                         )}
+                                        {user?.role === 'Admin' && (
                                         <DropdownMenuItem>
                                             <UserPlus className="mr-2 h-4 w-4" />
                                             Register as Patient
                                         </DropdownMenuItem>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </TableCell>
@@ -158,9 +166,14 @@ function ReferralTable({ referrals, doctors, onAssignmentSuccess }: { referrals:
 
 export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[], doctors: User[] }) {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [referralList, setReferralList] = React.useState(referrals);
     const [filter, setFilter] = React.useState<ReferralStatus | "All">("Pending");
+
+    React.useEffect(() => {
+        setReferralList(referrals);
+    }, [referrals]);
 
 
     const handleFormSuccess = (message: string) => {
@@ -184,7 +197,8 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+           {user?.role === 'Admin' && (
+             <div className="flex justify-between items-center">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight font-headline">Referral Management</h2>
                     <p className="text-muted-foreground">Triage and manage incoming patient referrals.</p>
@@ -207,23 +221,29 @@ export function ReferralDashboard({ referrals, doctors }: { referrals: Referral[
                     </DialogContent>
                 </Dialog>
             </div>
+           )}
 
             <Card>
-                <CardHeader>
-                   <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} >
-                        <TabsList>
-                            <TabsTrigger value="Pending">Pending</TabsTrigger>
-                            <TabsTrigger value="Assigned">Assigned</TabsTrigger>
-                            <TabsTrigger value="All">All Referrals</TabsTrigger>
-                        </TabsList>
-                   </Tabs>
-                </CardHeader>
+                {user?.role === 'Admin' && (
+                    <CardHeader>
+                        <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} >
+                                <TabsList>
+                                    <TabsTrigger value="Pending">Pending</TabsTrigger>
+                                    <TabsTrigger value="Assigned">Assigned</TabsTrigger>
+                                    <TabsTrigger value="All">All Referrals</TabsTrigger>
+                                </TabsList>
+                        </Tabs>
+                    </CardHeader>
+                )}
                 <CardContent>
-                    <ReferralTable referrals={filteredReferrals} doctors={doctors} onAssignmentSuccess={handleAssignmentSuccess} />
+                    {user?.role === 'Admin' ? (
+                         <ReferralTable referrals={filteredReferrals} doctors={doctors} onAssignmentSuccess={handleAssignmentSuccess} />
+                    ) : (
+                         <ReferralTable referrals={referralList} doctors={doctors} onAssignmentSuccess={handleAssignmentSuccess} />
+                    )}
+                   
                 </CardContent>
             </Card>
         </div>
     );
 }
-
-    
