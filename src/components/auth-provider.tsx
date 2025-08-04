@@ -54,7 +54,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (useMockAuth) {
       // Initialize with Admin role
-      setUser(allUsers.find(u => u.role === 'Admin')!);
+      const initialUser = allUsers.find(u => u.role === 'Admin')!
+      setUser(initialUser);
       setLoading(false);
       return;
     }
