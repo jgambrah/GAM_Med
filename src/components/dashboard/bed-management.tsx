@@ -222,7 +222,7 @@ export function BedManagement() {
                                     onClick={() => isClickable && handleBedClick(bed)}
                                 >
                                     <config.icon className="w-8 h-8"/>
-                                    <p className="font-bold text-lg">{bed.bedId}</p>
+                                    <p className="font-bold text-lg">{bed.bedId} <span className="text-sm font-normal text-muted-foreground">({bed.roomNumber})</span></p>
                                     <Badge variant={config.badge}>{config.label}</Badge>
                                     {bed.status === 'occupied' && bed.currentPatientId ? (
                                         <div className="flex items-center text-xs pt-1 text-center">
