@@ -38,14 +38,22 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setMockUserRole = (role: UserRole) => {
     if (useMockAuth) {
-      const mockUser = allUsers.find(u => u.role === role) || allUsers[0];
-      setUser(mockUser);
+      // Corrected logic: Find the specific mock user for the selected role.
+      // We will default to Dr. Kofi Anan for 'Doctor' to ensure referrals are visible.
+      let mockUser;
+      if (role === 'Doctor') {
+        mockUser = allUsers.find(u => u.id === 'doc2'); // Ensures we get Dr. Kofi Anan
+      } else {
+        mockUser = allUsers.find(u => u.role === role);
+      }
+      
+      setUser(mockUser || allUsers.find(u => u.role === 'Admin')!); // Fallback to admin
     }
   };
 
   useEffect(() => {
     if (useMockAuth) {
-      // Use mock user if Firebase is not configured
+      // Initialize with Admin role
       setUser(allUsers.find(u => u.role === 'Admin')!);
       setLoading(false);
       return;
