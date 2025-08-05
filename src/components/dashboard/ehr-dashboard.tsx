@@ -30,7 +30,7 @@ import { Textarea } from "../ui/textarea";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "../ui/dialog";
 import { useAuth } from "../auth-provider";
 
 const ClinicalNotesTab = () => {
@@ -478,5 +478,3 @@ export function EHRDashboard({ patient }: EHRDashboardProps) {
     </div>
   );
 }
-
-    
