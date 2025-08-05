@@ -1,4 +1,7 @@
 
+// A server component can't use useAuth, so we create a client component wrapper
+"use client";
+
 import { allPatients, allAdmissions } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,8 +15,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 
-// A server component can't use useAuth, so we create a client component wrapper
-"use client";
 
 export default function PatientDetailsPage({ params }: { params: { patientId: string } }) {
   const { user } = useAuth();
