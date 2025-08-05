@@ -78,7 +78,7 @@ const getReferralStatusVariant = (status: Referral['status']) => {
 };
 
 
-export function PatientsList() {
+export function PatientsList({ patients }: { patients: Patient[] }) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -88,11 +88,11 @@ export function PatientsList() {
   const [isDeceasedAlertOpen, setIsDeceasedAlertOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   
-  const [displayPatients, setDisplayPatients] = React.useState(allPatients);
+  const [displayPatients, setDisplayPatients] = React.useState(patients);
 
   React.useEffect(() => {
-    setDisplayPatients(allPatients);
-  }, []);
+    setDisplayPatients(patients);
+  }, [patients]);
 
 
   const getPatientStatus = (patient: Patient): PatientStatus => {
@@ -117,7 +117,8 @@ export function PatientsList() {
       title: "Patient Admitted",
       description: `${patientName} has been successfully admitted.`
     });
-    setDisplayPatients(prev => [...prev]);
+    // Re-filter allPatients to refresh the view
+    setDisplayPatients([...allPatients]);
   }
   
   const handleReferralSuccess = (newReferral: Referral) => {
@@ -126,7 +127,8 @@ export function PatientsList() {
         title: "Referral Submitted",
         description: `Referral for ${newReferral.patientDetails.fullName} sent to triage.`
     });
-    setDisplayPatients(prev => [...prev]);
+    // Re-filter allPatients to refresh the view
+    setDisplayPatients([...allPatients]);
   }
   
   const handleRecommendSurgery = async (patientId: string) => {
@@ -146,9 +148,8 @@ export function PatientsList() {
       variant: result.success ? "default" : "destructive",
     });
      if (result.success) {
-      setDisplayPatients(prev => 
-        prev.map(p => p.patientId === patientId ? { ...p, status: 'deceased' } : p)
-      );
+      // Re-filter allPatients to refresh the view
+      setDisplayPatients([...allPatients]);
     }
     setIsDeceasedAlertOpen(false);
     setSelectedPatient(null);
@@ -171,11 +172,19 @@ export function PatientsList() {
   }
 
   const getPatientLink = (patientId: string) => {
-    return user?.role === 'Doctor' ? `/doctor/patients/${patientId}` : `/admin/patients/${patientId}`;
+    const rolePrefix = user?.role?.toLowerCase();
+    if (rolePrefix === 'doctor') {
+      return `/doctor/patients/${patientId}`;
+    }
+    return `/admin/patients/${patientId}`;
   }
 
   const getEhrLink = (patientId: string) => {
-    return user?.role === 'Doctor' ? `/doctor/patients/${patientId}/ehr` : `/admin/patients/${patientId}/ehr`;
+    const rolePrefix = user?.role?.toLowerCase();
+    if (rolePrefix === 'doctor') {
+      return `/doctor/patients/${patientId}/ehr`;
+    }
+    return `/admin/patients/${patientId}/ehr`;
   }
 
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
