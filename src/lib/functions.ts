@@ -75,7 +75,7 @@ export const onLabResultComplete = functions.firestore
         // Check if the status has just been changed to 'Completed'.
         if (beforeData.status !== 'Completed' && afterData.status === 'Completed') {
             const patientId = context.params.patientId;
-            const doctorId = afterData.orderedBy;
+            const doctorId = afterData.orderedByDoctorId;
 
             // 1. Get the doctor's details for notification (e.g., email or push token).
             const doctorDoc = await db.collection("users").doc(doctorId).get();
@@ -83,12 +83,14 @@ export const onLabResultComplete = functions.firestore
                 console.error(`Doctor ${doctorId} not found for notification.`);
                 return null;
             }
-            const doctorEmail = doctorDoc.data().email;
+            const doctorData = doctorDoc.data()
+            const doctorEmail = doctorData.email;
 
             // 2. Send the notification.
             console.log(`NOTIFICATION to ${doctorEmail}: Lab results for patient ${patientId} are ready for review.`);
-            console.log(`Test: ${afterData.testName}, Result: ${afterData.resultValue}`);
+            console.log(`Test: ${afterData.testName}, Result: ${afterData.result}`);
             // In a real app, use a service like Firebase Cloud Messaging or an email provider.
+            // e.g., await sendEmail({ to: doctorEmail, subject: "...", body: "..." });
 
             return { success: true, message: "Notification sent to ordering doctor." };
         }
