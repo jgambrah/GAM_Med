@@ -93,3 +93,39 @@ export const onNewLabTestOrdered = functions.firestore
         return { success: true, message: `Lab request ${testId} successfully queued for the lab.` };
     });
 */
+
+/**
+ * Firestore Trigger: onLabResultCompleted
+ * Listens for an update to a lab result and notifies the ordering doctor when it's complete.
+ * @trigger `onUpdate` on the `/patients/{patientId}/lab_results/{testId}` path.
+ */
+/*
+export const onLabResultCompleted = functions.firestore
+    .document("patients/{patientId}/lab_results/{testId}")
+    .onUpdate(async (change, context) => {
+        const beforeData = change.before.data();
+        const afterData = change.after.data();
+
+        // Condition: Only proceed if the status changed from something else to 'Completed'.
+        if (beforeData.status !== 'Completed' && afterData.status === 'Completed') {
+            const patientId = context.params.patientId;
+            const testId = context.params.testId;
+            const doctorId = afterData.orderedByDoctorId;
+            const testName = afterData.testName;
+
+            console.log(`Lab result ${testId} for patient ${patientId} is now complete.`);
+
+            // Fetch the doctor's details to get their email or notification token.
+            // const doctorDoc = await db.collection("users").doc(doctorId).get();
+            // const doctorData = doctorDoc.data();
+            
+            // Logic to send a notification (e.g., email, push notification, etc.).
+            console.log(`NOTIFICATION to Doctor ${doctorId}: The result for lab test "${testName}" for patient ${patientId} is now available for review.`);
+
+            return { success: true, message: `Doctor ${doctorId} notified about completed test ${testId}.` };
+        }
+
+        // If the condition is not met, do nothing.
+        return null;
+    });
+*/
