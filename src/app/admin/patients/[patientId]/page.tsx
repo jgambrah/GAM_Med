@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope, FileText } from "lucide-react";
+import { Hospital, Stethoscope, FileText, FileHeart } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -33,16 +33,25 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center space-x-4">
-        <Avatar className="h-24 w-24 border">
-          <AvatarImage src={`https://placehold.co/100x100/E3F2FD/333?text=${patient.firstName.charAt(0)}${patient.lastName.charAt(0)}`} alt={patient.fullName} data-ai-hint="avatar profile" />
-          <AvatarFallback>{patient.firstName.charAt(0)}{patient.lastName.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div>
-          <h1 className="text-3xl font-bold font-headline">{patient.fullName}</h1>
-          <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
-        </div>
-      </div>
+       <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Avatar className="h-24 w-24 border">
+              <AvatarImage src={`https://placehold.co/100x100/E3F2FD/333?text=${patient.firstName.charAt(0)}${patient.lastName.charAt(0)}`} alt={patient.fullName} data-ai-hint="avatar profile" />
+              <AvatarFallback>{patient.firstName.charAt(0)}{patient.lastName.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-3xl font-bold font-headline">{patient.fullName}</h1>
+              <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
+            </div>
+          </div>
+          <Button asChild>
+            <Link href={`/admin/patients/${patient.patientId}/ehr`}>
+                <FileHeart className="mr-2 h-4 w-4" />
+                View Full EHR
+            </Link>
+          </Button>
+       </div>
+
 
       {patient.isAdmitted && currentAdmission ? (
         <Alert>
