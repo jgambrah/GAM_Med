@@ -174,7 +174,7 @@ export function EHRDashboard({ patient }: EHRDashboardProps) {
           <TabsTrigger value="medications">
             <Pill className="mr-2 h-4 w-4" />
             Medications
-          </Tabs.Trigger>
+          </TabsTrigger>
           <TabsTrigger value="lab_results">
             <FlaskConical className="mr-2 h-4 w-4" />
             Lab Results
