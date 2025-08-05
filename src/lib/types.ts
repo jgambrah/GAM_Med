@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -135,7 +129,7 @@ export interface Appointment {
     
 export interface Referral {
   referralId: string;
-  patientId?: string;
+  patientId: string; // explicit link to patient document
   patientDetails: {
     fullName: string;
     contactPhone: string;
@@ -161,6 +155,10 @@ export interface Referral {
 
 export type NoteType = 'Doctor' | 'Nurse' | 'Consultation' | 'DischargeSummary';
 
+/**
+ * @collection /patients/{patientId}/clinical_notes
+ * @description Records all clinical notes, observations, and summaries from staff.
+ */
 export interface ClinicalNote {
   noteId: string;
   patientId: string;
@@ -172,6 +170,10 @@ export interface ClinicalNote {
   createdAt: Date;
 }
 
+/**
+ * @collection /patients/{patientId}/vitals
+ * @description Stores time-series data of patient vital signs.
+ */
 export interface VitalSign {
   vitalId: string;
   patientId: string;
@@ -188,8 +190,50 @@ export interface VitalSign {
   oxygenSaturation: number; // percentage
 }
 
+
+export type DiagnosisStatus = 'Active' | 'Resolved' | 'Provisional';
+
+/**
+ * @collection /patients/{patientId}/diagnoses
+ * @description A list of formal diagnoses for the patient.
+ */
+export interface Diagnosis {
+  diagnosisId: string;
+  patientId: string;
+  admissionId?: string;
+  diagnosisCode: string; // e.g., ICD-10 code
+  description: string;
+  status: DiagnosisStatus;
+  diagnosedBy: string; // Doctor User ID
+  diagnosedAt: Date;
+}
+
+export type MedicationOrderStatus = 'Active' | 'Discontinued' | 'Filled' | 'Pending';
+
+/**
+ * @collection /patients/{patientId}/medication_history (or medication_orders)
+ * @description A record of all medications prescribed to the patient.
+ */
+export interface MedicationOrder {
+  orderId: string;
+  patientId: string;
+  admissionId?: string;
+  medicationName: string;
+  dosage: string;
+  route: string; // e.g., 'Oral', 'IV'
+  frequency: string; // e.g., 'Twice a day'
+  status: MedicationOrderStatus;
+  orderedBy: string; // Doctor User ID
+  orderedAt: Date;
+  notes?: string;
+}
+
 export type LabStatus = 'Ordered' | 'SampleCollected' | 'InProgress' | 'Completed' | 'Cancelled';
 
+/**
+ * @collection /patients/{patientId}/lab_results
+ * @description Stores results from laboratory tests.
+ */
 export interface LabResult {
   labResultId: string;
   patientId: string;
@@ -202,22 +246,6 @@ export interface LabResult {
   referenceRange?: string;
   isAbnormal: boolean;
   completedAt?: Date;
-  notes?: string;
-}
-
-export type MedicationOrderStatus = 'Active' | 'Discontinued' | 'Filled' | 'Pending';
-
-export interface MedicationOrder {
-  orderId: string;
-  patientId: string;
-  admissionId?: string;
-  medicationName: string;
-  dosage: string;
-  route: string; // e.g., 'Oral', 'IV'
-  frequency: string; // e.g., 'Twice a day'
-  status: MedicationOrderStatus;
-  orderedBy: string; // Doctor User ID
-  orderedAt: Date;
   notes?: string;
 }
 
