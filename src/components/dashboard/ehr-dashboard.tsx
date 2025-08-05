@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -10,6 +11,7 @@ import {
   PlusCircle,
   Save,
   Send,
+  Trash2,
 } from "lucide-react";
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,7 +30,7 @@ import { Textarea } from "../ui/textarea";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 
 const ClinicalNotesTab = () => {
     const { toast } = useToast();
@@ -218,65 +220,126 @@ const DiagnosesTab = () => {
     )
 };
 
+interface Medication {
+    id: number;
+    name: string;
+    dosage: string;
+    frequency: string;
+  }
+  
 const MedicationsTab = () => {
     const { toast } = useToast();
-    const formRef = React.useRef<HTMLFormElement>(null);
+    const [medications, setMedications] = React.useState<Medication[]>([
+        { id: 1, name: "", dosage: "", frequency: "" }
+    ]);
+
+    const handleMedicationChange = (index: number, field: keyof Omit<Medication, 'id'>, value: string) => {
+        const newMedications = [...medications];
+        newMedications[index][field] = value;
+        setMedications(newMedications);
+    };
+
+    const addMedication = () => {
+        setMedications([...medications, { id: Date.now(), name: "", dosage: "", frequency: "" }]);
+    };
+
+    const removeMedication = (index: number) => {
+        const newMedications = medications.filter((_, i) => i !== index);
+        setMedications(newMedications);
+    };
 
     const handlePrescribe = (e: React.FormEvent) => {
         e.preventDefault();
-        const formData = new FormData(e.currentTarget as HTMLFormElement);
-        const medication = {
-            name: formData.get("medicationName"),
-            dosage: formData.get("dosage"),
-            frequency: formData.get("frequency"),
-        }
-        if (!medication.name || !medication.dosage || !medication.frequency) {
-            toast({ variant: "destructive", title: "All fields are required."});
+        const validMedications = medications.filter(
+            med => med.name.trim() && med.dosage.trim() && med.frequency.trim()
+        );
+
+        if (validMedications.length === 0) {
+            toast({ variant: "destructive", title: "No valid medications to prescribe.", description: "Please fill out at least one complete medication row." });
             return;
         }
-        console.log("Prescribing Medication:", medication);
-        toast({ title: "Medication Prescribed", description: `${medication.name} has been ordered and sent to the pharmacy.`});
-        formRef.current?.reset();
-    }
+
+        console.log("Prescribing Medications:", validMedications);
+        toast({ title: "Medications Prescribed", description: `${validMedications.length} medication(s) have been ordered and sent to the pharmacy.` });
+        
+        // Reset the form
+        setMedications([{ id: 1, name: "", dosage: "", frequency: "" }]);
+    };
 
     return (
-      <Card>
-        <CardHeader>
-            <CardTitle>Medications</CardTitle>
-            <CardDescription>
-                Prescribe new medications and view prescription history.
-            </CardDescription>
-        </CardHeader>
-        <form ref={formRef} onSubmit={handlePrescribe}>
-            <CardContent className="space-y-4">
-                <div className="p-4 border rounded-lg space-y-4">
-                    <h4 className="font-medium">New Prescription</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="medicationName">Medication Name</Label>
-                            <Input id="medicationName" name="medicationName" placeholder="e.g., Lisinopril" />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="dosage">Dosage</Label>
-                            <Input id="dosage" name="dosage" placeholder="e.g., 10mg" />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="frequency">Frequency</Label>
-                            <Input id="frequency" name="frequency" placeholder="e.g., Once daily" />
+        <Card>
+            <CardHeader>
+                <CardTitle>Medications</CardTitle>
+                <CardDescription>
+                    Prescribe new medications and view prescription history.
+                </CardDescription>
+            </CardHeader>
+            <form onSubmit={handlePrescribe}>
+                <CardContent className="space-y-4">
+                    <div className="p-4 border rounded-lg space-y-4">
+                        <h4 className="font-medium">New Prescription</h4>
+                        {medications.map((med, index) => (
+                            <div key={med.id} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-end">
+                                <div className="space-y-2 md:col-span-4">
+                                    <Label htmlFor={`medicationName-${index}`}>Medication Name</Label>
+                                    <Input 
+                                        id={`medicationName-${index}`} 
+                                        placeholder="e.g., Lisinopril" 
+                                        value={med.name}
+                                        onChange={(e) => handleMedicationChange(index, 'name', e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label htmlFor={`dosage-${index}`}>Dosage</Label>
+                                    <Input 
+                                        id={`dosage-${index}`} 
+                                        placeholder="e.g., 10mg" 
+                                        value={med.dosage}
+                                        onChange={(e) => handleMedicationChange(index, 'dosage', e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-3">
+                                    <Label htmlFor={`frequency-${index}`}>Frequency</Label>
+                                    <Input 
+                                        id={`frequency-${index}`} 
+                                        placeholder="e.g., Once daily" 
+                                        value={med.frequency}
+                                        onChange={(e) => handleMedicationChange(index, 'frequency', e.target.value)}
+                                    />
+                                </div>
+                                <div className="md:col-span-1">
+                                    {medications.length > 1 && (
+                                        <Button 
+                                            type="button" 
+                                            variant="destructive" 
+                                            size="icon" 
+                                            onClick={() => removeMedication(index)}
+                                            aria-label="Remove medication"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        <div className="flex gap-4">
+                           <Button type="button" variant="outline" onClick={addMedication}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add Another Medication
+                            </Button>
+                            <Button type="submit">
+                                <Send className="mr-2 h-4 w-4" />
+                                Send Prescription to Pharmacy
+                            </Button>
                         </div>
                     </div>
-                     <Button type="submit">
-                        <Send className="mr-2 h-4 w-4" />
-                        Send Prescription to Pharmacy
-                    </Button>
-                </div>
-                 <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
-                    <Pill className="mx-auto h-12 w-12" />
-                    <p className="mt-4">Medication history will appear here.</p>
-                </div>
-            </CardContent>
-        </form>
-      </Card>
+                    <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                        <Pill className="mx-auto h-12 w-12" />
+                        <p className="mt-4">Medication history will appear here.</p>
+                    </div>
+                </CardContent>
+            </form>
+        </Card>
     );
 };
 
