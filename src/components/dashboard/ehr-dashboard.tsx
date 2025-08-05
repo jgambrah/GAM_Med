@@ -28,6 +28,7 @@ import { Textarea } from "../ui/textarea";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "../ui/dialog";
 
 const ClinicalNotesTab = () => {
     const { toast } = useToast();
@@ -73,47 +74,149 @@ const ClinicalNotesTab = () => {
     );
 };
 
-const VitalsTab = () => (
-  <Card>
-    <CardHeader>
-      <div className="flex justify-between items-center">
-        <CardTitle>Vitals</CardTitle>
-        <Button size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Record Vitals
-        </Button>
-      </div>
-      <CardDescription>
-        Historical and real-time patient vital signs.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="text-center text-muted-foreground py-12">
-      <HeartPulse className="mx-auto h-12 w-12" />
-      <p className="mt-4">No vital signs recorded.</p>
-    </CardContent>
-  </Card>
-);
+const VitalsTab = () => {
+    const { toast } = useToast();
+    const [isVitalsOpen, setIsVitalsOpen] = React.useState(false);
+    const formRef = React.useRef<HTMLFormElement>(null);
 
-const DiagnosesTab = () => (
-  <Card>
-    <CardHeader>
+    const handleRecordVitals = (e: React.FormEvent) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget as HTMLFormElement);
+        const vitals = {
+            temperature: formData.get("temperature"),
+            bloodPressure: formData.get("bloodPressure"),
+            heartRate: formData.get("heartRate"),
+            oxygenSaturation: formData.get("oxygenSaturation"),
+        };
+        if (!vitals.temperature || !vitals.bloodPressure || !vitals.heartRate || !vitals.oxygenSaturation) {
+            toast({ variant: "destructive", title: "All vitals fields are required."});
+            return;
+        }
+        console.log("Recording Vitals:", vitals);
+        toast({ title: "Vitals Recorded", description: `New vital signs have been saved to the patient's chart.`});
+        formRef.current?.reset();
+        setIsVitalsOpen(false);
+    }
+
+    return (
+    <Card>
+        <CardHeader>
         <div className="flex justify-between items-center">
-            <CardTitle>Diagnoses</CardTitle>
-            <Button size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Diagnosis
-            </Button>
+            <CardTitle>Vitals</CardTitle>
+            <Dialog open={isVitalsOpen} onOpenChange={setIsVitalsOpen}>
+                <DialogTrigger asChild>
+                    <Button size="sm">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Record Vitals
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Record New Vital Signs</DialogTitle>
+                    </DialogHeader>
+                    <form ref={formRef} onSubmit={handleRecordVitals} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="temperature">Temperature (°C)</Label>
+                                <Input id="temperature" name="temperature" type="number" step="0.1" placeholder="e.g., 37.5" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="bloodPressure">Blood Pressure</Label>
+                                <Input id="bloodPressure" name="bloodPressure" placeholder="e.g., 120/80" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="heartRate">Heart Rate (bpm)</Label>
+                                <Input id="heartRate" name="heartRate" type="number" placeholder="e.g., 75" />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="oxygenSaturation">O₂ Saturation (%)</Label>
+                                <Input id="oxygenSaturation" name="oxygenSaturation" type="number" placeholder="e.g., 98" />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit">Save Vitals</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
-      <CardDescription>
-        A log of all recorded diagnoses for the patient.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="text-center text-muted-foreground py-12">
-      <Stethoscope className="mx-auto h-12 w-12" />
-      <p className="mt-4">No diagnoses recorded.</p>
-    </CardContent>
-  </Card>
-);
+        <CardDescription>
+            Historical and real-time patient vital signs.
+        </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+        <HeartPulse className="mx-auto h-12 w-12" />
+        <p className="mt-4">Recorded vital signs will appear here.</p>
+        </CardContent>
+    </Card>
+    )
+};
+
+const DiagnosesTab = () => {
+    const { toast } = useToast();
+    const [isDiagnosisOpen, setIsDiagnosisOpen] = React.useState(false);
+    const formRef = React.useRef<HTMLFormElement>(null);
+
+    const handleNewDiagnosis = (e: React.FormEvent) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget as HTMLFormElement);
+        const diagnosis = {
+            icd10Code: formData.get("icd10Code"),
+            diagnosisText: formData.get("diagnosisText"),
+        };
+        if (!diagnosis.icd10Code || !diagnosis.diagnosisText) {
+            toast({ variant: "destructive", title: "All diagnosis fields are required."});
+            return;
+        }
+        console.log("Recording Diagnosis:", diagnosis);
+        toast({ title: "Diagnosis Recorded", description: `New diagnosis has been added to the patient's record.`});
+        formRef.current?.reset();
+        setIsDiagnosisOpen(false);
+    }
+    
+    return (
+    <Card>
+        <CardHeader>
+            <div className="flex justify-between items-center">
+                <CardTitle>Diagnoses</CardTitle>
+                <Dialog open={isDiagnosisOpen} onOpenChange={setIsDiagnosisOpen}>
+                    <DialogTrigger asChild>
+                        <Button size="sm">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            New Diagnosis
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add New Diagnosis</DialogTitle>
+                        </DialogHeader>
+                        <form ref={formRef} onSubmit={handleNewDiagnosis} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="icd10Code">ICD-10 Code</Label>
+                                <Input id="icd10Code" name="icd10Code" placeholder="e.g., I21.9" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="diagnosisText">Diagnosis Description</Label>
+                                <Textarea id="diagnosisText" name="diagnosisText" placeholder="e.g., Acute Myocardial Infarction, unspecified" />
+                            </div>
+                             <DialogFooter>
+                                <Button type="submit">Save Diagnosis</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        <CardDescription>
+            A log of all recorded diagnoses for the patient.
+        </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+        <Stethoscope className="mx-auto h-12 w-12" />
+        <p className="mt-4">Recorded diagnoses will appear here.</p>
+        </CardContent>
+    </Card>
+    )
+};
 
 const MedicationsTab = () => {
     const { toast } = useToast();
@@ -295,5 +398,3 @@ export function EHRDashboard({ patient }: EHRDashboardProps) {
     </div>
   );
 }
-
-    
