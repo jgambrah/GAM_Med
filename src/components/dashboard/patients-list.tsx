@@ -172,18 +172,13 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    const rolePrefix = user?.role?.toLowerCase();
-    if (rolePrefix === 'doctor') {
-      return `/doctor/patients/${patientId}`;
-    }
+    // The patient details page is under /admin/patients for all roles that can see it.
+    // The page itself handles role-based UI differences.
     return `/admin/patients/${patientId}`;
   }
 
   const getEhrLink = (patientId: string) => {
-    const rolePrefix = user?.role?.toLowerCase();
-    if (rolePrefix === 'doctor') {
-      return `/doctor/patients/${patientId}/ehr`;
-    }
+    // The EHR page is under /admin/patients for all roles that can see it.
     return `/admin/patients/${patientId}/ehr`;
   }
 
