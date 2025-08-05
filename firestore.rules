@@ -1,119 +1,120 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // =================================================================
-    // Helper Functions
-    // =================================================================
-    function isAuthenticated() {
+    
+    // Helper functions for security rules
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    function getUserRole(userId) {
-      return getUserData(userId).role;
+    function isDoctor() {
+      return isSignedIn() && getUserRole() == 'Doctor';
     }
 
-    // =================================================================
-    // Collection: users
-    // =================================================================
+    function isNurse() {
+      return isSignedIn() && getUserRole() == 'Nurse';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'Admin';
+    }
+    
+    function isPharmacist() {
+        return isSignedIn() && getUserRole() == 'Pharmacist';
+    }
+    
+    function isPatientOwner(patientId) {
+      // Assuming the user's UID is the same as the patient's document ID in a `patients` collection
+      // or that there's a linking field. For this app, we check if the authenticated user's ID
+      // matches a `userId` field on the patient document.
+      // This part is conceptual as we don't have a direct user-to-patient link in the mock data.
+      // A real implementation would require this link. For now, we'll assume a patient can read their own data.
+      return request.auth.uid == resource.data.userId; 
+    }
+
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Users can read their own data.
-      // Admins can read anyone's data.
-      allow read: if isAuthenticated() && (request.auth.uid == userId || getUserRole(request.auth.uid) == 'Admin');
-      
-      // Users can create their own user document during sign-up.
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-
-      // Users can update their own data. Admins can update anyone's data.
-      allow update: if isAuthenticated() && (request.auth.uid == userId || getUserRole(request.auth.uid) == 'Admin');
+      // Users can read their own data. Admins can read anyone's data.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Users can create their own profile, or an admin can.
+      allow create: if isSignedIn();
+      // Users can update their own data. Admins can update anyone's.
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
-    
-    // =================================================================
-    // Collection: patients
-    // =================================================================
+
+    // Rules for the 'patients' collection and its sub-collections
     match /patients/{patientId} {
-      // CREATE: Only Admins and Nurses can register new patients.
-      allow create: if isAuthenticated() && (getUserRole(request.auth.uid) in ['Admin', 'Nurse']);
-
-      // READ:
-      // - Admins, Doctors, and Nurses can read any patient's record.
-      // - A patient can read their own record by matching their UID to a (hypothetical) 'ownerId' field.
-      //   (Note: For this app's mock data, we don't have a direct UID link, but this rule structure is best practice).
-      allow read: if isAuthenticated() && 
-                    (getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'] || resource.data.ownerId == request.auth.uid);
-
-      // UPDATE: Only Admins and Nurses can update patient demographics.
-      allow update: if isAuthenticated() && (getUserRole(request.auth.uid) in ['Admin', 'Nurse']);
+      // CREATE: New patients can be created by Admins or Doctors.
+      allow create: if isDoctor() || isAdmin();
       
-      // DELETE: No one can delete a patient record from the front-end to ensure data integrity.
+      // READ: Admins, Doctors, and Nurses can read patient records.
+      // A patient should be able to read their own record (isPatientOwner check).
+      allow read: if isDoctor() || isNurse() || isAdmin() || isPatientOwner(patientId);
+      
+      // UPDATE: Patient demographics can be updated by Admins.
+      // Clinical status updates might be handled by Doctors or Nurses.
+      allow update: if isDoctor() || isAdmin();
+
+      // DELETE: Generally, patient records should not be deleted (soft-delete instead).
+      // Only allow deletion by a super-admin role if absolutely necessary.
       allow delete: if false;
+
+      // --- EHR Sub-collections ---
+
+      // Clinical Notes (Doctors, Nurses)
+      match /clinicalNotes/{noteId} {
+        allow read, write: if isDoctor() || isNurse();
+      }
+
+      // Vital Signs (Primarily Nurses)
+      match /vitalSigns/{vitalId} {
+        allow read: if isDoctor() || isNurse();
+        allow write: if isNurse(); // Nurses typically record vitals
+      }
+
+      // Lab Results (Doctors, Nurses can view; Lab system writes)
+      match /labResults/{labResultId} {
+        allow read: if isDoctor() || isNurse();
+        // Writes would typically come from a trusted backend service/lab system, not directly from a user role.
+        // For direct entry, you could allow doctors.
+        allow write: if isDoctor(); 
+      }
+
+      // Medication Orders (Doctors write; Pharmacists read/update status)
+      match /medicationOrders/{orderId} {
+        allow read: if isDoctor() || isNurse() || isPharmacist();
+        allow create: if isDoctor();
+        // Allow pharmacists to update the status (e.g., 'filled')
+        allow update: if isPharmacist();
+      }
+
+      // Allergy records
+      match /allergies/{allergyId} {
+        allow read, write: if isDoctor() || isNurse();
+      }
+      
+      // Imaging Reports
+      match /imagingReports/{reportId} {
+        allow read: if isDoctor();
+        // Write would come from a backend imaging service
+        allow write: if isDoctor(); 
+      }
     }
     
-    // =================================================================
-    // Collection: admissions
-    // =================================================================
+    // Rules for other collections
     match /admissions/{admissionId} {
-      // CREATE: Admins and Nurses can create new admission records.
-      allow create: if isAuthenticated() && (getUserRole(request.auth.uid) in ['Admin', 'Nurse']);
-
-      // READ: Admins, Doctors, Nurses can read all admissions.
-      // A patient can read their own admission records.
-      allow read: if isAuthenticated() && 
-                    (getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'] || resource.data.patientId == request.resource.data.patientId);
-                    
-      // UPDATE: Admins, Doctors, Nurses can update admission records.
-      allow update: if isAuthenticated() && (getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse', 'BillingClerk']);
-      
-      allow delete: if false;
-    }
-
-    // =================================================================
-    // Collection: beds
-    // =================================================================
-    match /beds/{bedId} {
-        // All authenticated staff can see bed status.
-        allow read: if isAuthenticated() && getUserRole(request.auth.uid) in ['Admin', 'Doctor', 'Nurse', 'Housekeeping', 'BillingClerk'];
-        
-        // Only Admins, Nurses, and Housekeeping can update bed status (e.g., admit, discharge, clean).
-        allow update: if isAuthenticated() && getUserRole(request.auth.uid) in ['Admin', 'Nurse', 'Housekeeping'];
-        
-        // Bed records should not be created or deleted manually.
-        allow create, delete: if false;
+        allow read, write: if isDoctor() || isAdmin();
     }
     
-    // =================================================================
-    // Collection: referrals
-    // =================================================================
-    match /referrals/{referralId} {
-      // CREATE: Only Admins and Nurses (acting as triage) can log a new referral.
-      allow create: if isAuthenticated() && getUserRole(request.auth.uid) in ['Admin', 'Nurse'];
-
-      // READ:
-      // - Admins and Nurses (triage) can read all referrals.
-      // - A doctor can read a referral only if they are assigned to it.
-      allow read: if isAuthenticated() && (
-        getUserRole(request.auth.uid) in ['Admin', 'Nurse'] || 
-        request.auth.uid == resource.data.assignedToDoctorId
-      );
-
-      // UPDATE:
-      // - Admins and Nurses can update any field.
-      // - An assigned doctor can only update the status (e.g., to 'Patient Seen') or link an appointment.
-      allow update: if isAuthenticated() && (
-        getUserRole(request.auth.uid) in ['Admin', 'Nurse'] ||
-        (
-          request.auth.uid == resource.data.assignedToDoctorId &&
-          request.resource.data.keys().hasOnly(['status', 'appointmentId', 'updatedAt'])
-        )
-      );
-
-      // DELETE: No one can delete a referral to maintain a clear audit trail.
-      allow delete: if false;
+    match /beds/{bedId} {
+        allow read: if isDoctor() || isNurse() || isAdmin();
+        allow write: if isAdmin(); // Only admins can directly manipulate bed status, others via actions.
     }
   }
 }

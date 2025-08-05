@@ -4,6 +4,7 @@
 
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -134,7 +135,7 @@ export interface Appointment {
     
 export interface Referral {
   referralId: string;
-  patientId: string;
+  patientId?: string;
   patientDetails: {
     fullName: string;
     contactPhone: string;
@@ -151,4 +152,83 @@ export interface Referral {
   appointmentId?: string; // Reference to Appointment id
   createdAt: Date;
   updatedAt: Date;
+}
+
+// =================================================================
+// EHR (Electronic Health Record) Sub-collection Types
+// These documents would live under /patients/{patientId}/<collectionName>
+// =================================================================
+
+export type NoteType = 'Doctor' | 'Nurse' | 'Consultation' | 'DischargeSummary';
+
+export interface ClinicalNote {
+  noteId: string;
+  patientId: string;
+  admissionId?: string; // Optional: link to a specific admission
+  noteType: NoteType;
+  content: string;
+  createdBy: string; // User ID of the creator
+  creatorRole: UserRole;
+  createdAt: Date;
+}
+
+export interface VitalSign {
+  vitalId: string;
+  patientId: string;
+  admissionId?: string;
+  recordedAt: Date;
+  recordedBy: string; // Nurse User ID
+  bloodPressure: {
+    systolic: number;
+    diastolic: number;
+  };
+  heartRate: number; // beats per minute
+  respiratoryRate: number; // breaths per minute
+  temperature: number; // in Celsius
+  oxygenSaturation: number; // percentage
+}
+
+export type LabStatus = 'Ordered' | 'SampleCollected' | 'InProgress' | 'Completed' | 'Cancelled';
+
+export interface LabResult {
+  labResultId: string;
+  patientId: string;
+  orderId: string;
+  testName: string;
+  status: LabStatus;
+  orderedBy: string; // Doctor User ID
+  orderedAt: Date;
+  resultValue?: string;
+  referenceRange?: string;
+  isAbnormal: boolean;
+  completedAt?: Date;
+  notes?: string;
+}
+
+export type MedicationOrderStatus = 'Active' | 'Discontinued' | 'Filled' | 'Pending';
+
+export interface MedicationOrder {
+  orderId: string;
+  patientId: string;
+  admissionId?: string;
+  medicationName: string;
+  dosage: string;
+  route: string; // e.g., 'Oral', 'IV'
+  frequency: string; // e.g., 'Twice a day'
+  status: MedicationOrderStatus;
+  orderedBy: string; // Doctor User ID
+  orderedAt: Date;
+  notes?: string;
+}
+
+export type AllergySeverity = 'Mild' | 'Moderate' | 'Severe' | 'Life-threatening';
+
+export interface Allergy {
+  allergyId: string;
+  patientId: string;
+  substance: string;
+  reaction: string;
+  severity: AllergySeverity;
+  recordedBy: string;
+  recordedAt: Date;
 }
