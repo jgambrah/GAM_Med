@@ -2,6 +2,7 @@
 
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -132,7 +133,7 @@ export interface Appointment {
     
 export interface Referral {
   referralId: string;
-  patientId?: string; // Now explicitly linking to patient
+  patientId: string;
   patientDetails: {
     fullName: string;
     contactPhone: string;

@@ -3,6 +3,7 @@
 
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
@@ -65,7 +66,7 @@ const markBedAsCleanSchema = z.object({
 });
 
 const referralFormSchema = z.object({
-  patientId: z.string(), // Added patientId
+  patientId: z.string(),
   patientName: z.string().min(2, "Patient name is required."),
   patientPhone: z.string().min(10, "A valid phone number is required."),
   reason: z.string().min(10, "Reason for referral is required."),
