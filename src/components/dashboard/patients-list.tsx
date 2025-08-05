@@ -20,6 +20,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,7 +43,8 @@ import { allAdmissions, allPatients, allReferrals } from "@/lib/data"
 import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
-import { Share2 } from "lucide-react";
+import { Share2, MoreHorizontal, FileText, BedDouble, LogOut, UserRound } from "lucide-react";
+
 
 type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge";
 
@@ -79,7 +88,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   
   const displayPatients = React.useMemo(() => {
      return patients.map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
-  }, [patients])
+  }, [patients]);
 
   const handleAdmissionSuccess = (patientName: string) => {
     setIsAdmissionDialogOpen(false);
@@ -102,10 +111,52 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     setSelectedPatient(patient);
     setIsReferralDialogOpen(true);
   }
+  
+  const openAdmissionDialog = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setIsAdmissionDialogOpen(true);
+  }
 
   const getActions = (patient: Patient) => {
     const activeReferral = allReferrals.find(
       (r) => r.patientId === patient.patientId && (r.status === 'Pending' || r.status === 'Assigned')
+    );
+
+    const commonActions = (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}`)}>
+                    <UserRound className="mr-2 h-4 w-4" />
+                    View Details
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {patient.computedStatus === 'Outpatient' && !activeReferral && (
+                    <DropdownMenuItem onClick={() => openReferralDialog(patient)}>
+                       <Share2 className="mr-2 h-4 w-4" />
+                       Refer Patient
+                    </DropdownMenuItem>
+                )}
+                 {patient.computedStatus === 'Outpatient' && (
+                    <DropdownMenuItem onClick={() => openAdmissionDialog(patient)}>
+                       <BedDouble className="mr-2 h-4 w-4" />
+                       Admit Patient
+                    </DropdownMenuItem>
+                )}
+                 {patient.computedStatus === 'Inpatient' && (
+                    <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>
+                       <LogOut className="mr-2 h-4 w-4" />
+                       Finalize Discharge
+                    </DropdownMenuItem>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 
     switch (user?.role) {
@@ -117,18 +168,20 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                 return <span className="text-sm text-muted-foreground italic">Awaiting financial clearance</span>
             }
             if (patient.computedStatus === 'Outpatient') {
-                return <Button variant="outline" size="sm" onClick={() => { setSelectedPatient(patient); setIsAdmissionDialogOpen(true); }}>Admit</Button>
+                return <Button variant="outline" size="sm" onClick={() => { openAdmissionDialog(patient) }}>Admit</Button>
             }
             return null;
         case 'Doctor':
-            if (activeReferral) {
-                return (
-                    <Badge variant={getReferralStatusVariant(activeReferral.status)}>
-                        Referral: {activeReferral.status}
-                    </Badge>
-                );
-            }
-            return <Button variant="outline" size="sm" onClick={() => openReferralDialog(patient)}><Share2 className="mr-2 h-4 w-4" />Refer Patient</Button>
+            return (
+              <div className="flex items-center justify-end gap-2">
+                {activeReferral && (
+                  <Badge variant={getReferralStatusVariant(activeReferral.status)}>
+                    Referral: {activeReferral.status}
+                  </Badge>
+                )}
+                {commonActions}
+              </div>
+            );
         default:
             return null;
     }
@@ -237,3 +290,5 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     </>
   )
 }
+
+    
