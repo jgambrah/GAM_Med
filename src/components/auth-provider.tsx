@@ -29,6 +29,8 @@ export const useAuth = () => useContext(AuthContext);
 
 const useMockAuth = process.env.NEXT_PUBLIC_FIREBASE_API_KEY === undefined;
 
+let lastDoctorIndex = 0;
+
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -40,10 +42,14 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const setMockUserRole = (role: UserRole) => {
     if (useMockAuth) {
       let mockUser;
-      // This is the definitive fix: When 'Doctor' is selected, ALWAYS use 'doc2' (Dr. Kofi Anan)
-      // to ensure the user with assigned referrals is selected for the demo.
+      
+      // If Doctor role is selected, cycle between the available mock doctors.
       if (role === 'Doctor') {
-        mockUser = allUsers.find(u => u.id === 'doc2');
+        const doctors = allUsers.filter(u => u.role === 'Doctor');
+        if (doctors.length > 0) {
+            mockUser = doctors[lastDoctorIndex % doctors.length];
+            lastDoctorIndex++;
+        }
       } else {
         // For all other roles, find the first user with that role.
         mockUser = allUsers.find(u => u.role === role);

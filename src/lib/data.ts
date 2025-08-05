@@ -254,8 +254,8 @@ export const allReferrals: Referral[] = [
       contact: 'Dr. Brown',
     },
     referredToDepartment: 'Endocrinology',
-    status: 'Completed',
-    assignedToDoctorId: 'doc1',
+    status: 'Assigned',
+    assignedToDoctorId: 'doc1', // Dr. Evelyn Mensah
     appointmentId: 'app1', // Fictional completed appointment
     referralDate: new Date('2024-07-20T11:00:00Z'),
     createdAt: new Date(),
