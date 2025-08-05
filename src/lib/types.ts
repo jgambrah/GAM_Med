@@ -158,7 +158,7 @@ export interface Referral {
  * @description For doctor's notes and progress reports.
  */
 export interface ClinicalNote {
-  noteId: string; // Unique ID for the note
+  noteId: string; // Unique ID for the note, will be document ID
   patientId: string; // Denormalized for easier queries
   noteText: string; // The content of the note, can support rich text/markdown
   noteType: 'Progress Note' | 'Consultation Note' | 'Discharge Summary';
@@ -171,7 +171,7 @@ export interface ClinicalNote {
  * @description For nurses to log vital signs.
  */
 export interface VitalSign {
-  vitalId: string; // Unique ID for the vital sign entry
+  vitalId: string; // Unique ID for the vital sign entry, will be document ID
   patientId: string; // Denormalized for easier queries
   temperature: number; // in Celsius
   bloodPressure: string; // e.g., '120/80'
@@ -186,7 +186,7 @@ export interface VitalSign {
  * @description A list of patient diagnoses.
  */
 export interface Diagnosis {
-  diagnosisId: string; // Unique ID for the diagnosis
+  diagnosisId: string; // Unique ID for the diagnosis, will be document ID
   patientId: string; // Denormalized for easier queries
   icd10Code: string; // e.g., 'A09'
   diagnosisText: string; // e.g., 'Infectious gastroenteritis and colitis'
@@ -200,7 +200,7 @@ export interface Diagnosis {
  * @description A record of all medications prescribed. This is the link to the Pharmacy module.
  */
 export interface MedicationHistory {
-  prescriptionId: string; // Unique ID for the prescription
+  prescriptionId: string; // Unique ID for the prescription, will be document ID
   patientId: string; // Denormalized for easier queries
   medicationName: string;
   dosage: string;
@@ -216,7 +216,7 @@ export interface MedicationHistory {
  * @description A record of all lab tests ordered and their results. This is the link to the Lab module.
  */
 export interface LabResult {
-  testId: string; // Unique ID for the test
+  testId: string; // Unique ID for the test, will be document ID
   patientId: string; // Denormalized for easier queries
   testName: string;
   status: 'Ordered' | 'In Progress' | 'Completed';
