@@ -81,14 +81,19 @@ export function MainNav({ role }: { role: UserRole }) {
 
   const isActive = (matchPattern?: string) => {
     if (!matchPattern) return false;
-    // Special handling for patient details and discharge pages
-    if (matchPattern === "/admin/patients" && (pathname.startsWith("/admin/patients/") || pathname.startsWith("/admin/patients/[patientId]"))) {
+    
+    // This handles exact matches and directory-level matches (e.g., /admin/patients matches /admin/patients/some-id)
+    if (pathname === matchPattern || pathname.startsWith(`${matchPattern}/`)) {
         return true;
     }
-     if (matchPattern === "/doctor/patients" && (pathname.startsWith("/doctor/patients/") || pathname.startsWith("/doctor/patients/[patientId]"))) {
+
+    // Special case to handle the shared patient routes for all roles.
+    // This ensures "Patients" stays active when a doctor views a patient record.
+    if ((matchPattern === "/admin/patients" || matchPattern === "/doctor/patients") && pathname.startsWith("/admin/patients/")) {
         return true;
     }
-    return pathname.startsWith(matchPattern);
+
+    return false;
   }
 
   return (

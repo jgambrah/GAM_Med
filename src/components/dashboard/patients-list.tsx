@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -55,7 +56,7 @@ import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
 import { pronouncePatientDeadAction, recommendSurgeryAction } from "@/lib/actions";
-import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins, Activity } from "lucide-react";
+import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins, Activity, FileHeart } from "lucide-react";
 
 
 type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge" | "Deceased";
@@ -199,6 +200,10 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                     <UserRound className="mr-2 h-4 w-4" />
                     View Details
                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/ehr`)}>
+                    <FileHeart className="mr-2 h-4 w-4" />
+                    View Full EHR
+                </DropdownMenuItem>
                 
                 <DropdownMenuSeparator />
 
@@ -269,7 +274,13 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
               </div>
             );
         default:
-            return null;
+            // For Nurse, Patient, etc., a simple view action.
+             return (
+                <Button variant="outline" size="sm" onClick={() => router.push(`/admin/patients/${patient.patientId}`)}>
+                    <UserRound className="mr-2 h-4 w-4" />
+                    View
+                </Button>
+             );
     }
   }
 
