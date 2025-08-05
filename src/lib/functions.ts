@@ -61,40 +61,35 @@ export const onNewMedicationPrescribed = functions.firestore
 */
 
 /**
- * Firestore Trigger: onLabResultComplete
- * Listens for a lab result's status changing to 'Completed' and notifies the ordering doctor.
- * @trigger `onUpdate` on the `/patients/{patientId}/lab_results/{labResultId}` path.
+ * Firestore Trigger: onNewLabTestOrdered
+ * Listens for a new lab test being ordered and notifies the lab system/module.
+ * @trigger `onCreate` on the `/patients/{patientId}/lab_results/{testId}` path.
  */
 /*
-export const onLabResultComplete = functions.firestore
-    .document("patients/{patientId}/lab_results/{labResultId}")
-    .onUpdate(async (change, context) => {
-        const beforeData = change.before.data();
-        const afterData = change.after.data();
+export const onNewLabTestOrdered = functions.firestore
+    .document("patients/{patientId}/lab_results/{testId}")
+    .onCreate(async (snap, context) => {
+        const labTestData = snap.data();
+        const patientId = context.params.patientId;
+        const testId = context.params.testId;
 
-        // Check if the status has just been changed to 'Completed'.
-        if (beforeData.status !== 'Completed' && afterData.status === 'Completed') {
-            const patientId = context.params.patientId;
-            const doctorId = afterData.orderedByDoctorId;
+        console.log(`New lab test request ${testId} for patient ${patientId} received.`);
+        console.log(`Test Name: ${labTestData.testName}`);
 
-            // 1. Get the doctor's details for notification (e.g., email or push token).
-            const doctorDoc = await db.collection("users").doc(doctorId).get();
-            if (!doctorDoc.exists) {
-                console.error(`Doctor ${doctorId} not found for notification.`);
-                return null;
-            }
-            const doctorData = doctorDoc.data()
-            const doctorEmail = doctorData.email;
+        // 1. Create a new document in the lab_requests collection to trigger the lab's workflow.
+        const labRequestRef = db.collection("lab_requests").doc(testId);
+        await labRequestRef.set({
+            testId: testId,
+            testName: labTestData.testName,
+            patientId: patientId,
+            orderedByDoctorId: labTestData.orderedByDoctorId,
+            status: 'New Request', // Initial status for the lab team
+            requestReceivedAt: new Date(),
+        });
 
-            // 2. Send the notification.
-            console.log(`NOTIFICATION to ${doctorEmail}: Lab results for patient ${patientId} are ready for review.`);
-            console.log(`Test: ${afterData.testName}, Result: ${afterData.result}`);
-            // In a real app, use a service like Firebase Cloud Messaging or an email provider.
-            // e.g., await sendEmail({ to: doctorEmail, subject: "...", body: "..." });
+        // 2. (Optional) Send a real-time notification to the lab technicians' dashboard.
+        console.log(`NOTIFICATION to Lab: New test request for patient ${patientId} is ready for processing.`);
 
-            return { success: true, message: "Notification sent to ordering doctor." };
-        }
-
-        return null; // No action needed if the status wasn't changed to 'Completed'.
+        return { success: true, message: `Lab request ${testId} successfully queued for the lab.` };
     });
 */
