@@ -27,47 +27,47 @@
  */
 
 /**
- * Firestore Trigger: onMedicationOrderCreate
- * Listens for new medication orders and notifies the pharmacy system/module.
- * @trigger `onCreate` on the `/patients/{patientId}/medicationOrders/{orderId}` path.
+ * Firestore Trigger: onNewMedicationPrescribed
+ * Listens for new medication prescriptions and notifies the pharmacy system/module.
+ * @trigger `onCreate` on the `/patients/{patientId}/medication_history/{prescriptionId}` path.
  */
 /*
-export const onMedicationOrderCreate = functions.firestore
-    .document("patients/{patientId}/medicationOrders/{orderId}")
+export const onNewMedicationPrescribed = functions.firestore
+    .document("patients/{patientId}/medication_history/{prescriptionId}")
     .onCreate(async (snap, context) => {
-        const orderData = snap.data();
+        const prescriptionData = snap.data();
         const patientId = context.params.patientId;
-        const orderId = context.params.orderId;
+        const prescriptionId = context.params.prescriptionId;
 
-        console.log(`New medication order ${orderId} for patient ${patientId}.`);
-        console.log(`Medication: ${orderData.medicationName}, Dosage: ${orderData.dosage}`);
+        console.log(`New prescription ${prescriptionId} for patient ${patientId} received.`);
+        console.log(`Medication: ${prescriptionData.medicationName}, Dosage: ${prescriptionData.dosage}`);
 
-        // 1. Log the order for pharmacy fulfillment.
-        // This could involve writing to a dedicated 'pharmacyQueue' collection
-        // or calling an external pharmacy management system's API.
-        const pharmacyQueueRef = db.collection("pharmacyQueue").doc(orderId);
-        await pharmacyQueueRef.set({
+        // 1. Create a new document in the pharmacy_prescriptions collection
+        //    to trigger the pharmacy's workflow.
+        const pharmacyPrescriptionRef = db.collection("pharmacy_prescriptions").doc(prescriptionId);
+        await pharmacyPrescriptionRef.set({
             patientId: patientId,
-            order: orderData,
-            status: 'PendingFulfillment',
+            prescription: prescriptionData, // Copy of the original prescription details
+            prescribedByDoctorId: prescriptionData.prescribedByDoctorId,
+            status: 'Pending Fulfillment',
             receivedAt: new Date(),
         });
 
-        // 2. (Optional) Send a notification to the pharmacy staff channel.
-        console.log(`NOTIFICATION to Pharmacy: New prescription for patient ${patientId} needs fulfillment.`);
+        // 2. (Optional) Send a real-time notification to the pharmacy staff dashboard.
+        console.log(`NOTIFICATION to Pharmacy: New prescription for patient ${patientId} is ready for fulfillment.`);
 
-        return { success: true, message: `Order ${orderId} sent to pharmacy.` };
+        return { success: true, message: `Prescription ${prescriptionId} successfully queued for pharmacy.` };
     });
 */
 
 /**
  * Firestore Trigger: onLabResultComplete
  * Listens for a lab result's status changing to 'Completed' and notifies the ordering doctor.
- * @trigger `onUpdate` on the `/patients/{patientId}/labResults/{labResultId}` path.
+ * @trigger `onUpdate` on the `/patients/{patientId}/lab_results/{labResultId}` path.
  */
 /*
 export const onLabResultComplete = functions.firestore
-    .document("patients/{patientId}/labResults/{labResultId}")
+    .document("patients/{patientId}/lab_results/{labResultId}")
     .onUpdate(async (change, context) => {
         const beforeData = change.before.data();
         const afterData = change.after.data();
