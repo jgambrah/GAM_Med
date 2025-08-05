@@ -31,10 +31,13 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
+import { useAuth } from "../auth-provider";
 
 const ClinicalNotesTab = () => {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [note, setNote] = React.useState("");
+    const isDoctor = user?.role === 'Doctor';
 
     const handleSaveNote = () => {
         if (!note.trim()) {
@@ -56,10 +59,11 @@ const ClinicalNotesTab = () => {
         </CardHeader>
         <CardContent className="space-y-4">
             <Textarea 
-                placeholder="Type your new clinical note here..." 
+                placeholder={isDoctor ? "Type your new clinical note here..." : "Read-only access to clinical notes."}
                 className="min-h-[200px]"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
+                disabled={!isDoctor}
             />
              <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
                 <FileText className="mx-auto h-12 w-12" />
@@ -67,7 +71,7 @@ const ClinicalNotesTab = () => {
             </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSaveNote} disabled={!note.trim()}>
+            <Button onClick={handleSaveNote} disabled={!note.trim() || !isDoctor}>
                 <Save className="mr-2 h-4 w-4" />
                 Save Note
             </Button>
@@ -156,8 +160,10 @@ const VitalsTab = () => {
 
 const DiagnosesTab = () => {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [isDiagnosisOpen, setIsDiagnosisOpen] = React.useState(false);
     const formRef = React.useRef<HTMLFormElement>(null);
+    const isDoctor = user?.role === 'Doctor';
 
     const handleNewDiagnosis = (e: React.FormEvent) => {
         e.preventDefault();
@@ -183,7 +189,7 @@ const DiagnosesTab = () => {
                 <CardTitle>Diagnoses</CardTitle>
                 <Dialog open={isDiagnosisOpen} onOpenChange={setIsDiagnosisOpen}>
                     <DialogTrigger asChild>
-                        <Button size="sm">
+                        <Button size="sm" disabled={!isDoctor}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             New Diagnosis
                         </Button>
@@ -229,9 +235,11 @@ interface Medication {
   
 const MedicationsTab = () => {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [medications, setMedications] = React.useState<Medication[]>([
         { id: 1, name: "", dosage: "", frequency: "" }
     ]);
+    const isDoctor = user?.role === 'Doctor';
 
     const handleMedicationChange = (index: number, field: keyof Omit<Medication, 'id'>, value: string) => {
         const newMedications = [...medications];
@@ -271,12 +279,12 @@ const MedicationsTab = () => {
             <CardHeader>
                 <CardTitle>Medications</CardTitle>
                 <CardDescription>
-                    Prescribe new medications and view prescription history.
+                    {isDoctor ? "Prescribe new medications and view prescription history." : "View prescription history. Read-only."}
                 </CardDescription>
             </CardHeader>
             <form onSubmit={handlePrescribe}>
                 <CardContent className="space-y-4">
-                    <div className="p-4 border rounded-lg space-y-4">
+                    <fieldset disabled={!isDoctor} className="p-4 border rounded-lg space-y-4 disabled:opacity-70 disabled:cursor-not-allowed">
                         <h4 className="font-medium">New Prescription</h4>
                         {medications.map((med, index) => (
                             <div key={med.id} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-end">
@@ -332,7 +340,7 @@ const MedicationsTab = () => {
                                 Send Prescription to Pharmacy
                             </Button>
                         </div>
-                    </div>
+                    </fieldset>
                     <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
                         <Pill className="mx-auto h-12 w-12" />
                         <p className="mt-4">Medication history will appear here.</p>
@@ -346,7 +354,10 @@ const MedicationsTab = () => {
 
 const LabResultsTab = () => {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [testName, setTestName] = React.useState("");
+    const isDoctor = user?.role === 'Doctor';
+
 
     const handleOrderTest = () => {
         if (!testName.trim()) {
@@ -363,11 +374,11 @@ const LabResultsTab = () => {
             <CardHeader>
                 <CardTitle>Lab Results</CardTitle>
                 <CardDescription>
-                    Order new lab tests and view results.
+                    {isDoctor ? "Order new lab tests and view results." : "View lab test history and results. Read-only."}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                 <div className="p-4 border rounded-lg space-y-4">
+                 <fieldset disabled={!isDoctor} className="p-4 border rounded-lg space-y-4 disabled:opacity-70 disabled:cursor-not-allowed">
                     <h4 className="font-medium">New Lab Order</h4>
                     <div className="flex items-end gap-4">
                          <div className="space-y-2 flex-1">
@@ -379,7 +390,7 @@ const LabResultsTab = () => {
                             Order Test
                         </Button>
                     </div>
-                </div>
+                </fieldset>
                 <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
                     <FlaskConical className="mx-auto h-12 w-12" />
                     <p className="mt-4">Lab test history and results will appear here.</p>
@@ -395,6 +406,12 @@ interface EHRDashboardProps {
 }
 
 export function EHRDashboard({ patient }: EHRDashboardProps) {
+  const { user } = useAuth();
+
+  if (!user) {
+    return null; // Or a loading spinner
+  }
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
@@ -461,3 +478,5 @@ export function EHRDashboard({ patient }: EHRDashboardProps) {
     </div>
   );
 }
+
+    
