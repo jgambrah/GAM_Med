@@ -34,6 +34,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { Patient, Referral } from "@/lib/types"
@@ -43,14 +54,16 @@ import { allAdmissions, allReferrals } from "@/lib/data"
 import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
-import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound } from "lucide-react";
+import { pronouncePatientDeadAction, recommendSurgeryAction } from "@/lib/actions";
+import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins, Activity } from "lucide-react";
 
 
-type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge";
+type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge" | "Deceased";
 
 const getStatusBadgeVariant = (status: PatientStatus) => {
     if (status === 'Inpatient') return 'default';
     if (status === 'Pending Discharge') return 'destructive';
+    if (status === 'Deceased') return 'destructive';
     return 'secondary';
 };
 
@@ -73,9 +86,20 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
 
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
   const [isReferralDialogOpen, setIsReferralDialogOpen] = React.useState(false);
+  const [isDeceasedAlertOpen, setIsDeceasedAlertOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
+  
+  // A local state to manage the patient list to reflect UI changes instantly
+  const [displayPatients, setDisplayPatients] = React.useState(patients);
+
+  React.useEffect(() => {
+    // This keeps the local state in sync if the parent prop changes
+    setDisplayPatients(patients);
+  }, [patients]);
+
 
   const getPatientStatus = (patient: Patient): PatientStatus => {
+    if (patient.status === 'deceased') return 'Deceased';
     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
     if (patient.isAdmitted) {
       if (admission?.status === 'Pending Discharge') {
@@ -86,9 +110,9 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     return 'Outpatient';
   }
   
-  const displayPatients = React.useMemo(() => {
-     return patients.map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
-  }, [patients]);
+  const computedPatients = React.useMemo(() => {
+     return displayPatients.map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
+  }, [displayPatients]);
 
   const handleAdmissionSuccess = (patientName: string) => {
     setIsAdmissionDialogOpen(false);
@@ -96,6 +120,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       title: "Patient Admitted",
       description: `${patientName} has been successfully admitted.`
     });
+    // Refresh local state to show updated status
+    setDisplayPatients(prev => [...prev]);
   }
   
   const handleReferralSuccess = (newReferral: Referral) => {
@@ -103,8 +129,37 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     toast({
         title: "Referral Submitted",
         description: `Referral for ${newReferral.patientDetails.fullName} sent to triage.`
-    })
+    });
+     // Refresh local state to show updated status
+    setDisplayPatients(prev => [...prev]);
   }
+  
+  const handleRecommendSurgery = async (patientId: string) => {
+    const result = await recommendSurgeryAction(patientId);
+     toast({
+      title: result.success ? "Surgery Recommended" : "Action Failed",
+      description: result.message,
+      variant: result.success ? "default" : "destructive",
+    });
+  }
+
+  const handlePronounceDead = async (patientId: string) => {
+    const result = await pronouncePatientDeadAction(patientId);
+    toast({
+      title: result.success ? "Action Recorded" : "Action Failed",
+      description: result.message,
+      variant: result.success ? "default" : "destructive",
+    });
+     if (result.success) {
+      // Find and update the patient in the local state
+      setDisplayPatients(prev => 
+        prev.map(p => p.patientId === patientId ? { ...p, status: 'deceased' } : p)
+      );
+    }
+    setIsDeceasedAlertOpen(false);
+    setSelectedPatient(null);
+  }
+
   
   const openReferralDialog = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -116,10 +171,19 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     setIsAdmissionDialogOpen(true);
   }
 
-  const getActions = (patient: Patient) => {
+  const openDeceasedDialog = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setIsDeceasedAlertOpen(true);
+  }
+
+  const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
     const activeReferral = allReferrals.find(
       (r) => r.patientId === patient.patientId && (r.status === 'Pending' || r.status === 'Assigned')
     );
+    
+    if (patient.computedStatus === 'Deceased') {
+      return <Badge variant="destructive">Deceased</Badge>;
+    }
 
     const commonActions = (
         <DropdownMenu>
@@ -135,25 +199,43 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                     <UserRound className="mr-2 h-4 w-4" />
                     View Details
                 </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
-                {patient.computedStatus === 'Outpatient' && !activeReferral && (
-                    <DropdownMenuItem onClick={() => openReferralDialog(patient)}>
-                       <Share2 className="mr-2 h-4 w-4" />
-                       Refer Patient
-                    </DropdownMenuItem>
-                )}
-                 {patient.computedStatus === 'Outpatient' && (
+
+                {patient.computedStatus === 'Outpatient' && (
+                  <>
                     <DropdownMenuItem onClick={() => openAdmissionDialog(patient)}>
                        <BedDouble className="mr-2 h-4 w-4" />
                        Admit Patient
                     </DropdownMenuItem>
+                    {!activeReferral && (
+                      <DropdownMenuItem onClick={() => openReferralDialog(patient)}>
+                         <Share2 className="mr-2 h-4 w-4" />
+                         Refer Patient
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
-                 {patient.computedStatus === 'Inpatient' && (
+                 
+                {patient.computedStatus === 'Inpatient' && (
+                  <>
                     <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>
                        <LogOut className="mr-2 h-4 w-4" />
                        Finalize Discharge
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleRecommendSurgery(patient.patientId)}>
+                        <Activity className="mr-2 h-4 w-4" />
+                        Recommend Surgery
+                    </DropdownMenuItem>
+                  </>
                 )}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => openDeceasedDialog(patient)}>
+                   <HeartOff className="mr-2 h-4 w-4" />
+                   Pronounce Patient Dead
+                </DropdownMenuItem>
+
             </DropdownMenuContent>
         </DropdownMenu>
     );
@@ -161,10 +243,15 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     switch (user?.role) {
         case 'Admin':
              if (patient.computedStatus === 'Inpatient') {
-                return <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>Finalize Summary</Button>
+                return <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>Discharge</Button>
             }
             if (patient.computedStatus === 'Pending Discharge') {
-                return <span className="text-sm text-muted-foreground italic">Awaiting financial clearance</span>
+                 return (
+                    <Button size="sm" variant="destructive" onClick={() => router.push(`/admin/billing`)}>
+                        <HandCoins className="mr-2 h-4 w-4" />
+                        Clear Bill
+                    </Button>
+                );
             }
             if (patient.computedStatus === 'Outpatient') {
                 return <Button variant="outline" size="sm" onClick={() => { openAdmissionDialog(patient) }}>Admit</Button>
@@ -174,7 +261,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             return (
               <div className="flex items-center justify-end gap-2">
                 {activeReferral && (
-                  <Badge variant={getReferralStatusVariant(activeReferral.status)}>
+                  <Badge variant={getReferralStatusVariant(activeReferral.status)} className="hidden md:inline-flex">
                     Referral: {activeReferral.status}
                   </Badge>
                 )}
@@ -194,7 +281,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             <div>
                 <CardTitle className="font-headline text-2xl">Patient Records</CardTitle>
                 <CardDescription>
-                    Search for patients or browse the complete list below.
+                    Search for patients or browse the complete list below. Use the actions menu to manage patients.
                 </CardDescription>
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -214,11 +301,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayPatients.length > 0 ? (
-                displayPatients.map((patient) => {
+              {computedPatients.length > 0 ? (
+                computedPatients.map((patient) => {
                     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
                     return (
-                    <TableRow key={patient.patientId}>
+                    <TableRow key={patient.patientId} className={patient.computedStatus === 'Deceased' ? 'bg-muted/50 text-muted-foreground' : ''}>
                     <TableCell className="font-mono">{patient.patientId}</TableCell>
                     <TableCell className="font-medium">
                         <Link href={`/admin/patients/${patient.patientId}`} className="hover:underline">
@@ -286,6 +373,28 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={isDeceasedAlertOpen} onOpenChange={setIsDeceasedAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="mr-2 text-destructive" />
+                Confirm Critical Action
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+                This action will permanently mark {selectedPatient?.fullName} as deceased. The record will become read-only. This cannot be undone. Are you absolutely sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedPatient(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => handlePronounceDead(selectedPatient!.patientId)}
+            >
+              Confirm and Pronounce Deceased
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

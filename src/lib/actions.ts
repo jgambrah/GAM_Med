@@ -4,6 +4,7 @@
 
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
@@ -547,5 +548,58 @@ export async function assignDoctorToReferralAction(values: z.infer<typeof assign
             success: false,
             message: error.message || 'An unexpected error occurred during assignment.',
         };
+    }
+}
+
+
+// New actions for expanded doctor capabilities
+
+export async function recommendSurgeryAction(patientId: string) {
+    console.log(`[Simulated] Recommending surgery for patient ${patientId}`);
+    // In a real app, this would create a surgery request, schedule OR, etc.
+    // For now, we just log it and return a success message.
+    return { success: true, message: `Surgery recommended. The surgical department has been notified.` };
+}
+
+export async function pronouncePatientDeadAction(patientId: string) {
+    console.log(`[Simulated] Critical Action: Pronouncing patient ${patientId} as deceased.`);
+    try {
+        const patientIndex = allPatients.findIndex(p => p.patientId === patientId);
+        if (patientIndex === -1) {
+            throw new Error("Patient not found.");
+        }
+        
+        const patient = allPatients[patientIndex];
+        
+        if (patient.status === 'deceased') {
+            return { success: false, message: 'Patient is already marked as deceased.' };
+        }
+
+        patient.status = 'deceased';
+        patient.isAdmitted = false; // A deceased patient is no longer considered admitted
+        patient.updatedAt = new Date();
+        
+        // If the patient was in a bed, mark it for cleaning
+        if (patient.currentAdmissionId) {
+            const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
+            if (admission && admission.bedId) {
+                const bedIndex = allBeds.findIndex(b => b.bedId === admission.bedId);
+                if (bedIndex !== -1) {
+                    allBeds[bedIndex].status = 'cleaning';
+                    allBeds[bedIndex].currentPatientId = undefined;
+                    allBeds[bedIndex].currentAdmissionId = undefined;
+                    allBeds[bedIndex].occupiedSince = undefined;
+                    console.log(`[Simulated] Bed ${allBeds[bedIndex].bedId} has been vacated and marked for cleaning.`);
+                }
+            }
+        }
+        
+        console.log(`[Simulated] Notifying morgue and administrative departments.`);
+        
+        return { success: true, message: `Patient ${patient.fullName} has been recorded as deceased.` };
+
+    } catch (error: any) {
+        console.error('Error in pronouncePatientDeadAction:', error);
+        return { success: false, message: error.message || 'An unexpected error occurred.' };
     }
 }
