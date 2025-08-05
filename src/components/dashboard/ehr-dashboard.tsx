@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -7,42 +8,70 @@ import {
   Pill,
   FlaskConical,
   PlusCircle,
+  Save,
+  Send,
 } from "lucide-react";
+import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Patient } from "@/lib/types";
+import { Textarea } from "../ui/textarea";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { useToast } from "@/hooks/use-toast";
 
-// These are placeholder components for each tab's content.
-// In a real implementation, they would fetch and display data from Firestore.
+const ClinicalNotesTab = () => {
+    const { toast } = useToast();
+    const [note, setNote] = React.useState("");
 
-const ClinicalNotesTab = () => (
-  <Card>
-    <CardHeader>
-      <div className="flex justify-between items-center">
-        <CardTitle>Clinical Notes</CardTitle>
-        <Button size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Note
-        </Button>
-      </div>
-      <CardDescription>
-        Progress notes, consultation reports, and discharge summaries.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="text-center text-muted-foreground py-12">
-      <FileText className="mx-auto h-12 w-12" />
-      <p className="mt-4">No clinical notes available.</p>
-    </CardContent>
-  </Card>
-);
+    const handleSaveNote = () => {
+        if (!note.trim()) {
+            toast({ variant: "destructive", title: "Cannot save empty note."})
+            return;
+        };
+        console.log("Saving clinical note:", { note });
+        toast({ title: "Note Saved", description: "The clinical note has been added to the patient's record."});
+        setNote("");
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+            <CardTitle>Clinical Notes</CardTitle>
+            <CardDescription>
+                Progress notes, consultation reports, and discharge summaries.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <Textarea 
+                placeholder="Type your new clinical note here..." 
+                className="min-h-[200px]"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+            />
+             <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                <FileText className="mx-auto h-12 w-12" />
+                <p className="mt-4">Previous notes will appear here.</p>
+            </div>
+        </CardContent>
+        <CardFooter>
+            <Button onClick={handleSaveNote} disabled={!note.trim()}>
+                <Save className="mr-2 h-4 w-4" />
+                Save Note
+            </Button>
+        </CardFooter>
+      </Card>
+    );
+};
 
 const VitalsTab = () => (
   <Card>
@@ -86,47 +115,114 @@ const DiagnosesTab = () => (
   </Card>
 );
 
-const MedicationsTab = () => (
-  <Card>
-    <CardHeader>
-        <div className="flex justify-between items-center">
-            <CardTitle>Medications</CardTitle>
-            <Button size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Prescription
-            </Button>
-        </div>
-      <CardDescription>
-        A history of all prescribed medications.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="text-center text-muted-foreground py-12">
-      <Pill className="mx-auto h-12 w-12" />
-      <p className="mt-4">No medications prescribed.</p>
-    </CardContent>
-  </Card>
-);
+const MedicationsTab = () => {
+    const { toast } = useToast();
+    const formRef = React.useRef<HTMLFormElement>(null);
 
-const LabResultsTab = () => (
-  <Card>
-    <CardHeader>
-        <div className="flex justify-between items-center">
-            <CardTitle>Lab Results</CardTitle>
-            <Button size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Lab Order
-            </Button>
-        </div>
-      <CardDescription>
-        Results from all ordered laboratory tests.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="text-center text-muted-foreground py-12">
-      <FlaskConical className="mx-auto h-12 w-12" />
-      <p className="mt-4">No lab results available.</p>
-    </CardContent>
-  </Card>
-);
+    const handlePrescribe = (e: React.FormEvent) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget as HTMLFormElement);
+        const medication = {
+            name: formData.get("medicationName"),
+            dosage: formData.get("dosage"),
+            frequency: formData.get("frequency"),
+        }
+        if (!medication.name || !medication.dosage || !medication.frequency) {
+            toast({ variant: "destructive", title: "All fields are required."});
+            return;
+        }
+        console.log("Prescribing Medication:", medication);
+        toast({ title: "Medication Prescribed", description: `${medication.name} has been ordered and sent to the pharmacy.`});
+        formRef.current?.reset();
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+            <CardTitle>Medications</CardTitle>
+            <CardDescription>
+                Prescribe new medications and view prescription history.
+            </CardDescription>
+        </CardHeader>
+        <form ref={formRef} onSubmit={handlePrescribe}>
+            <CardContent className="space-y-4">
+                <div className="p-4 border rounded-lg space-y-4">
+                    <h4 className="font-medium">New Prescription</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="medicationName">Medication Name</Label>
+                            <Input id="medicationName" name="medicationName" placeholder="e.g., Lisinopril" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="dosage">Dosage</Label>
+                            <Input id="dosage" name="dosage" placeholder="e.g., 10mg" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="frequency">Frequency</Label>
+                            <Input id="frequency" name="frequency" placeholder="e.g., Once daily" />
+                        </div>
+                    </div>
+                     <Button type="submit">
+                        <Send className="mr-2 h-4 w-4" />
+                        Send Prescription to Pharmacy
+                    </Button>
+                </div>
+                 <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                    <Pill className="mx-auto h-12 w-12" />
+                    <p className="mt-4">Medication history will appear here.</p>
+                </div>
+            </CardContent>
+        </form>
+      </Card>
+    );
+};
+
+
+const LabResultsTab = () => {
+    const { toast } = useToast();
+    const [testName, setTestName] = React.useState("");
+
+    const handleOrderTest = () => {
+        if (!testName.trim()) {
+            toast({ variant: "destructive", title: "Test name is required."});
+            return;
+        }
+        console.log("Ordering Lab Test:", { testName });
+        toast({ title: "Lab Test Ordered", description: `A request for "${testName}" has been sent to the lab.`});
+        setTestName("");
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Lab Results</CardTitle>
+                <CardDescription>
+                    Order new lab tests and view results.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="p-4 border rounded-lg space-y-4">
+                    <h4 className="font-medium">New Lab Order</h4>
+                    <div className="flex items-end gap-4">
+                         <div className="space-y-2 flex-1">
+                            <Label htmlFor="testName">Test Name</Label>
+                            <Input id="testName" placeholder="e.g., Complete Blood Count" value={testName} onChange={(e) => setTestName(e.target.value)} />
+                        </div>
+                        <Button onClick={handleOrderTest}>
+                           <Send className="mr-2 h-4 w-4" />
+                            Order Test
+                        </Button>
+                    </div>
+                </div>
+                <div className="text-center text-muted-foreground py-12 border-2 border-dashed rounded-lg">
+                    <FlaskConical className="mx-auto h-12 w-12" />
+                    <p className="mt-4">Lab test history and results will appear here.</p>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 
 interface EHRDashboardProps {
   patient: Patient;
@@ -199,3 +295,5 @@ export function EHRDashboard({ patient }: EHRDashboardProps) {
     </div>
   );
 }
+
+    
