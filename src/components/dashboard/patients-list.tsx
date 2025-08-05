@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge"
 import type { Patient, Referral } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
-import { allAdmissions, allPatients } from "@/lib/data"
+import { allAdmissions, allPatients, allReferrals } from "@/lib/data"
 import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
@@ -43,6 +43,17 @@ const getStatusBadgeVariant = (status: PatientStatus) => {
     if (status === 'Inpatient') return 'default';
     if (status === 'Pending Discharge') return 'destructive';
     return 'secondary';
+};
+
+const getReferralStatusVariant = (status: Referral['status']) => {
+  switch (status) {
+    case 'Pending':
+      return 'secondary';
+    case 'Assigned':
+      return 'default';
+    default:
+      return 'outline';
+  }
 };
 
 
@@ -93,6 +104,10 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getActions = (patient: Patient) => {
+    const activeReferral = allReferrals.find(
+      (r) => r.patientId === patient.patientId && (r.status === 'Pending' || r.status === 'Assigned')
+    );
+
     switch (user?.role) {
         case 'Admin':
              if (patient.computedStatus === 'Inpatient') {
@@ -106,6 +121,13 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             }
             return null;
         case 'Doctor':
+            if (activeReferral) {
+                return (
+                    <Badge variant={getReferralStatusVariant(activeReferral.status)}>
+                        Referral: {activeReferral.status}
+                    </Badge>
+                );
+            }
             return <Button variant="outline" size="sm" onClick={() => openReferralDialog(patient)}><Share2 className="mr-2 h-4 w-4" />Refer Patient</Button>
         default:
             return null;

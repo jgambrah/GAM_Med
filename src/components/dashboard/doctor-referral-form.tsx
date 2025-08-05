@@ -31,6 +31,7 @@ import type { Patient, Referral, User } from "@/lib/types";
 import { useAuth } from "../auth-provider";
 
 const referralFormSchema = z.object({
+  patientId: z.string(), // Hidden field
   reason: z.string().min(10, "Reason for referral is required."),
   referredToDepartment: z.string().min(3, "Department is required."),
   referredToFacility: z.string().optional(),
@@ -51,6 +52,7 @@ export function DoctorReferralForm({ patient, onFormSubmit }: DoctorReferralForm
   const form = useForm<ReferralFormValues>({
     resolver: zodResolver(referralFormSchema),
     defaultValues: {
+      patientId: patient.patientId,
       reason: "",
       referredToDepartment: "Cardiology",
       referredToFacility: "MedFlow GH (Internal)",
@@ -65,6 +67,7 @@ export function DoctorReferralForm({ patient, onFormSubmit }: DoctorReferralForm
     setIsSubmitting(true);
     try {
       const referralData = {
+          patientId: data.patientId,
           patientName: patient.fullName,
           patientPhone: patient.contact.primaryPhone,
           reason: data.reason,
