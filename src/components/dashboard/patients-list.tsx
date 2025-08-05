@@ -179,10 +179,10 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
 
   const getPatientLink = (patientId: string) => {
     const rolePrefix = user?.role?.toLowerCase() || 'admin';
-    if (rolePrefix === 'admin' || rolePrefix === 'doctor') {
-      return `/${rolePrefix}/patients/${patientId}`;
+    if (rolePrefix === 'doctor') {
+      return `/doctor/patients/${patientId}`;
     }
-    // Default for other roles like nurse, etc.
+    // Default for admin and other roles that might view this page
     return `/admin/patients/${patientId}`;
   }
 
