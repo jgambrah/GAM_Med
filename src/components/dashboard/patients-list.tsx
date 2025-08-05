@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -50,7 +49,7 @@ import { Badge } from "@/components/ui/badge"
 import type { Patient, Referral } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
-import { allAdmissions, allReferrals } from "@/lib/data"
+import { allAdmissions, allPatients, allReferrals } from "@/lib/data"
 import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
@@ -79,7 +78,7 @@ const getReferralStatusVariant = (status: Referral['status']) => {
 };
 
 
-export function PatientsList({ patients }: { patients: Patient[] }) {
+export function PatientsList() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -89,11 +88,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [isDeceasedAlertOpen, setIsDeceasedAlertOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   
-  const [displayPatients, setDisplayPatients] = React.useState(patients);
+  const [displayPatients, setDisplayPatients] = React.useState(allPatients);
 
   React.useEffect(() => {
-    setDisplayPatients(patients);
-  }, [patients]);
+    setDisplayPatients(allPatients);
+  }, []);
 
 
   const getPatientStatus = (patient: Patient): PatientStatus => {
@@ -172,11 +171,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    return `/admin/patients/${patientId}`;
+    return user?.role === 'Doctor' ? `/doctor/patients/${patientId}` : `/admin/patients/${patientId}`;
   }
 
   const getEhrLink = (patientId: string) => {
-    return `/admin/patients/${patientId}/ehr`;
+    return user?.role === 'Doctor' ? `/doctor/patients/${patientId}/ehr` : `/admin/patients/${patientId}/ehr`;
   }
 
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
