@@ -28,11 +28,14 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import type { Patient } from "@/lib/types"
+import type { Patient, Referral } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
 import { allAdmissions, allPatients } from "@/lib/data"
 import { PatientSearchComponent } from "./patient-search";
+import { useAuth } from "../auth-provider";
+import { DoctorReferralForm } from "./doctor-referral-form";
+import { Share2 } from "lucide-react";
 
 type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge";
 
@@ -45,9 +48,12 @@ const getStatusBadgeVariant = (status: PatientStatus) => {
 
 export function PatientsList({ patients }: { patients: Patient[] }) {
   const router = useRouter();
-  const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
-  const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
+  const { user } = useAuth();
   const { toast } = useToast();
+
+  const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
+  const [isReferralDialogOpen, setIsReferralDialogOpen] = React.useState(false);
+  const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
 
   const getPatientStatus = (patient: Patient): PatientStatus => {
     const admission = allAdmissions.find(a => a.admissionId === patient.currentAdmissionId);
@@ -60,8 +66,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     return 'Outpatient';
   }
   
-  // The search component now handles filtering, so we just use the full list here
-  // and map the status onto it.
   const displayPatients = React.useMemo(() => {
      return patients.map(p => ({ ...p, computedStatus: getPatientStatus(p) }))
   }, [patients])
@@ -73,6 +77,41 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       description: `${patientName} has been successfully admitted.`
     });
   }
+  
+  const handleReferralSuccess = (newReferral: Referral) => {
+    setIsReferralDialogOpen(false);
+    // In a real app, we would re-fetch referrals data. For now, we just show a toast.
+    toast({
+        title: "Referral Submitted",
+        description: `Referral for ${newReferral.patientDetails.fullName} sent to triage.`
+    })
+  }
+  
+  const openReferralDialog = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setIsReferralDialogOpen(true);
+  }
+
+  const getActions = (patient: Patient) => {
+    switch (user?.role) {
+        case 'Admin':
+             if (patient.computedStatus === 'Inpatient') {
+                return <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>Finalize Summary</Button>
+            }
+            if (patient.computedStatus === 'Pending Discharge') {
+                return <span className="text-sm text-muted-foreground italic">Awaiting financial clearance</span>
+            }
+            if (patient.computedStatus === 'Outpatient') {
+                return <Button variant="outline" size="sm" onClick={() => { setSelectedPatient(patient); setIsAdmissionDialogOpen(true); }}>Admit</Button>
+            }
+            return null;
+        case 'Doctor':
+            return <Button variant="outline" size="sm" onClick={() => openReferralDialog(patient)}><Share2 className="mr-2 h-4 w-4" />Refer Patient</Button>
+        default:
+            return null;
+    }
+  }
+
 
   return (
     <>
@@ -122,30 +161,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                         {patient.contact.primaryPhone}
                     </TableCell>
                     <TableCell className="text-right">
-                        {patient.computedStatus === 'Inpatient' && (
-                           <Button 
-                                variant="secondary" 
-                                size="sm"
-                                onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}
-                            >
-                                Finalize Summary
-                            </Button>
-                        )}
-                         {patient.computedStatus === 'Pending Discharge' && (
-                             <span className="text-sm text-muted-foreground italic">Awaiting financial clearance</span>
-                         )}
-                        {patient.computedStatus === 'Outpatient' && (
-                            <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                setSelectedPatient(patient);
-                                setIsAdmissionDialogOpen(true);
-                                }}
-                            >
-                                Admit
-                            </Button>
-                        )}
+                        {getActions(patient)}
                     </TableCell>
                     </TableRow>
                     )
@@ -179,6 +195,23 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
         </DialogContent>
       </Dialog>
       
+      <Dialog open={isReferralDialogOpen} onOpenChange={setIsReferralDialogOpen}>
+        <DialogContent>
+           <DialogHeader>
+            <DialogTitle>Create Outgoing Referral</DialogTitle>
+            <DialogDescription>
+              Complete the form to refer {selectedPatient?.fullName} to another department or facility.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPatient && (
+            <DoctorReferralForm
+              patient={selectedPatient} 
+              onFormSubmit={handleReferralSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
     </>
   )
 }

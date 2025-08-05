@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MoreHorizontal, PlusCircle, FileText } from "lucide-react";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { ReferralForm } from "./referral-form";
 import type { Referral, User } from "@/lib/types";
 import { format } from "date-fns";
@@ -82,7 +82,6 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
      setReferralList(prev => 
         prev.map(r => r.referralId === updatedReferral.referralId ? updatedReferral : r)
      );
-     // Close the details dialog after assignment
      setIsDetailsOpen(false);
      setSelectedReferral(null);
      toast({
@@ -184,7 +183,6 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
         </CardContent>
       </Card>
       
-      {/* Details/Assignment Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent>
           <DialogHeader>
@@ -202,7 +200,6 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
                 <p><strong>Department:</strong> {selectedReferral.referredToDepartment}</p>
                 <p><strong>Assigned Doctor:</strong> {allUsers.find(u => u.id === selectedReferral.assignedToDoctorId)?.name || 'Not yet assigned'}</p>
                 
-                {/* Show assignment UI only for Admins and on Pending referrals */}
                 {user?.role === 'Admin' && selectedReferral.status === 'Pending' && (
                     <div className="pt-4 border-t">
                       <h3 className="font-semibold mb-2 mt-2">Assign Doctor</h3>

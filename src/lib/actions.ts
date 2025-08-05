@@ -1,6 +1,7 @@
 
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
@@ -69,7 +70,6 @@ const referralFormSchema = z.object({
   referringFacility: z.string().min(3, "Referring facility is required."),
   referringDoctor: z.string().min(2, "Referring doctor is required."),
   department: z.string().min(3, "Department is required."),
-  // Note: File upload is handled on the client, so not part of the Zod schema
 });
 
 const assignDoctorSchema = z.object({
@@ -244,16 +244,14 @@ export async function finalizeDischargeSummaryAction(
     const admissionIndex = allAdmissions.findIndex(a => a.admissionId === admissionId);
     if (admissionIndex === -1) throw new Error('Admission record not found.');
 
-    // In a real app, this would be a single atomic transaction.
     allAdmissions[admissionIndex].status = 'Pending Discharge';
     allAdmissions[admissionIndex].dischargeSummary = dischargeSummary;
     allAdmissions[admissionIndex].dischargeByDoctorId = dischargeByDoctorId;
-    allAdmissions[admissionIndex].isSummaryFinalized = true; // Set the flag here
+    allAdmissions[admissionIndex].isSummaryFinalized = true; 
     allAdmissions[admissionIndex].updatedAt = new Date();
     
     console.log('[Simulated] Updated admission record:', allAdmissions[admissionIndex]);
     
-    // Simulate notifying billing department
     console.log(`[Simulated] Notifying billing department for admission ${admissionId}.`);
 
     return {
@@ -269,26 +267,19 @@ export async function finalizeDischargeSummaryAction(
   }
 }
 
-/**
- * Simulates the generation of a PDF, saving it to storage, and notifying the patient.
- */
 async function generateAndNotifyDischargeSummary(patient: Patient, admission: Admission) {
     console.log(`[AUTO-TRIGGER] Starting PDF generation for admission ${admission.admissionId}.`);
     
-    // 1. Generate PDF (Simulated)
-    // In a real app, you'd use a library like Puppeteer or an API to create a PDF from the admission.dischargeSummary
     console.log(`[AUTO-TRIGGER] Rendering PDF for patient ${patient.fullName}...`);
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate async PDF creation
+    await new Promise(resolve => setTimeout(resolve, 1500)); 
     const summaryPDF_URL = `/storage/summaries/${admission.admissionId}.pdf`;
     console.log(`[AUTO-TRIGGER] PDF successfully generated.`);
 
-    // 2. Upload to Storage and Update Record (Simulated)
     console.log(`[AUTO-TRIGGER] Uploading PDF to Firebase Storage at ${summaryPDF_URL}...`);
     admission.summaryPDF_URL = summaryPDF_URL;
     admission.updatedAt = new Date();
     console.log(`[AUTO-TRIGGER] Admission record updated with PDF URL.`);
 
-    // 3. Notify Patient (Simulated)
     const patientContact = patient.contact.email || patient.contact.primaryPhone;
     if (patientContact) {
         console.log(`[AUTO-TRIGGER] Sending notification to patient at ${patientContact}...`);
@@ -300,11 +291,6 @@ async function generateAndNotifyDischargeSummary(patient: Patient, admission: Ad
     console.log(`[AUTO-TRIGGER] Process complete for admission ${admission.admissionId}.`);
 }
 
-
-/**
- * Admin-facing action to complete the discharge process after clinical
- * and financial clearance.
- */
 export async function dischargePatientAction(
   patientId: string,
   admissionId: string
@@ -324,7 +310,6 @@ export async function dischargePatientAction(
     if (admissionIndex === -1) throw new Error('Admission record not found.');
     const admission = allAdmissions[admissionIndex];
 
-    // This is the key check for the two-step workflow.
     if (!admission.isSummaryFinalized || admission.status !== 'Pending Discharge') {
         throw new Error('Discharge summary must be finalized before discharging.');
     }
@@ -335,17 +320,14 @@ export async function dischargePatientAction(
     const bedIndex = allBeds.findIndex(b => b.bedId === bedId);
     if (bedIndex === -1) throw new Error('Assigned bed not found.');
 
-    // Update patient
     patient.isAdmitted = false;
     patient.currentAdmissionId = undefined;
     patient.updatedAt = new Date();
     patient.lastVisitDate = new Date();
 
-    // Update admission record
     admission.status = 'Discharged';
     admission.dischargeDate = new Date();
     
-    // Update bed status
     allBeds[bedIndex].status = 'cleaning';
     allBeds[bedIndex].currentPatientId = undefined;
     allBeds[bedIndex].occupiedSince = undefined;
@@ -354,7 +336,6 @@ export async function dischargePatientAction(
       `[Simulated] Triggering final bill generation for admission ${admissionId}.`
     );
 
-    // Call the automated PDF generation and notification function
     await generateAndNotifyDischargeSummary(patient, admission);
 
     return {
@@ -394,21 +375,18 @@ export async function transferPatientBedAction(values: z.infer<typeof bedTransfe
 
     if (allBeds[newBedIndex].status !== 'vacant') throw new Error('New bed is not vacant.');
 
-    // Vacate old bed
     allBeds[oldBedIndex].status = 'cleaning';
     allBeds[oldBedIndex].currentPatientId = undefined;
     allBeds[oldBedIndex].currentAdmissionId = undefined;
     allBeds[oldBedIndex].occupiedSince = undefined;
 
-    // Occupy new bed
     allBeds[newBedIndex].status = 'occupied';
     allBeds[newBedIndex].currentPatientId = admission.patientId;
     allBeds[newBedIndex].currentAdmissionId = admissionId;
     allBeds[newBedIndex].occupiedSince = new Date();
 
-    // Update admission record
     allAdmissions[admissionIndex].bedId = newBedId;
-    allAdmissions[admissionIndex].ward = allBeds[newBedIndex].wardName; // Update ward if it changed
+    allAdmissions[admissionIndex].ward = allBeds[newBedIndex].wardName; 
     allAdmissions[admissionIndex].updatedAt = new Date();
 
     console.log(`[Simulated] Patient from admission ${admissionId} transferred from bed ${oldBedId} to ${newBedId}`);
@@ -516,7 +494,7 @@ export async function processIncomingReferralAction(values: z.infer<typeof refer
             updatedAt: new Date(),
         };
 
-        allReferrals.unshift(newReferral); // Add to the beginning of the list
+        allReferrals.unshift(newReferral);
 
         console.log(`[Simulated] Notifying triage for new referral ${newReferralId}`);
 
