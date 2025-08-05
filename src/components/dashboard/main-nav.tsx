@@ -87,12 +87,8 @@ export function MainNav({ role }: { role: UserRole }) {
         return true;
     }
 
-    // Special case to handle the shared patient routes for all roles.
-    // This ensures "Patients" stays active when a doctor views a patient record.
-    if ((matchPattern === "/doctor/patients") && pathname.startsWith("/doctor/patients/")) {
-        return true;
-    }
-    if ((matchPattern === "/admin/patients") && pathname.startsWith("/admin/patients/")) {
+    // Special case for doctors viewing patient records, which are on the admin path
+    if (role === 'Doctor' && matchPattern === '/doctor/patients' && pathname.startsWith('/admin/patients/')) {
         return true;
     }
 

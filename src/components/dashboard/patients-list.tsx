@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -88,11 +89,9 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   const [isDeceasedAlertOpen, setIsDeceasedAlertOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   
-  // A local state to manage the patient list to reflect UI changes instantly
   const [displayPatients, setDisplayPatients] = React.useState(patients);
 
   React.useEffect(() => {
-    // This keeps the local state in sync if the parent prop changes
     setDisplayPatients(patients);
   }, [patients]);
 
@@ -119,7 +118,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       title: "Patient Admitted",
       description: `${patientName} has been successfully admitted.`
     });
-    // Refresh local state to show updated status
     setDisplayPatients(prev => [...prev]);
   }
   
@@ -129,7 +127,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
         title: "Referral Submitted",
         description: `Referral for ${newReferral.patientDetails.fullName} sent to triage.`
     });
-     // Refresh local state to show updated status
     setDisplayPatients(prev => [...prev]);
   }
   
@@ -150,7 +147,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
       variant: result.success ? "default" : "destructive",
     });
      if (result.success) {
-      // Find and update the patient in the local state
       setDisplayPatients(prev => 
         prev.map(p => p.patientId === patientId ? { ...p, status: 'deceased' } : p)
       );
@@ -176,16 +172,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    const rolePrefix = user?.role?.toLowerCase() || 'admin';
-    if (rolePrefix === 'doctor') {
-      return `/doctor/patients/${patientId}`;
-    }
-    // Default for admin and other roles that might view this page
     return `/admin/patients/${patientId}`;
   }
 
   const getEhrLink = (patientId: string) => {
-    return `${getPatientLink(patientId)}/ehr`;
+    return `/admin/patients/${patientId}/ehr`;
   }
 
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
@@ -285,7 +276,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
               </div>
             );
         default:
-            // For Nurse, Patient, etc., a simple view action.
              return (
                 <Button variant="outline" size="sm" onClick={() => router.push(getPatientLink(patient.patientId))}>
                     <UserRound className="mr-2 h-4 w-4" />
