@@ -153,100 +153,79 @@ export interface Referral {
 // These documents would live under /patients/{patientId}/<collectionName>
 // =================================================================
 
-export type NoteType = 'Doctor' | 'Nurse' | 'Consultation' | 'DischargeSummary';
-
 /**
  * @collection /patients/{patientId}/clinical_notes
- * @description Records all clinical notes, observations, and summaries from staff.
+ * @description For doctor's notes and progress reports.
  */
 export interface ClinicalNote {
-  noteId: string;
-  patientId: string;
-  admissionId?: string; // Optional: link to a specific admission
-  noteType: NoteType;
-  content: string;
-  createdBy: string; // User ID of the creator
-  creatorRole: UserRole;
-  createdAt: Date;
+  noteId: string; // Unique ID for the note
+  patientId: string; // Denormalized for easier queries
+  noteText: string; // The content of the note, can support rich text/markdown
+  noteType: 'Progress Note' | 'Consultation Note' | 'Discharge Summary';
+  recordedByUserId: string; // Reference to the user who wrote the note
+  recordedAt: Date; // Timestamp of when the note was created
 }
 
 /**
  * @collection /patients/{patientId}/vitals
- * @description Stores time-series data of patient vital signs.
+ * @description For nurses to log vital signs.
  */
 export interface VitalSign {
-  vitalId: string;
-  patientId: string;
-  admissionId?: string;
-  recordedAt: Date;
-  recordedBy: string; // Nurse User ID
-  bloodPressure: {
-    systolic: number;
-    diastolic: number;
-  };
-  heartRate: number; // beats per minute
-  respiratoryRate: number; // breaths per minute
+  vitalId: string; // Unique ID for the vital sign entry
+  patientId: string; // Denormalized for easier queries
   temperature: number; // in Celsius
+  bloodPressure: string; // e.g., '120/80'
+  heartRate: number; // beats per minute
   oxygenSaturation: number; // percentage
+  recordedByUserId: string; // Reference to the user who recorded the vitals
+  recordedAt: Date; // Timestamp of when the vitals were recorded
 }
-
-
-export type DiagnosisStatus = 'Active' | 'Resolved' | 'Provisional';
 
 /**
  * @collection /patients/{patientId}/diagnoses
- * @description A list of formal diagnoses for the patient.
+ * @description A list of patient diagnoses.
  */
 export interface Diagnosis {
-  diagnosisId: string;
-  patientId: string;
-  admissionId?: string;
-  diagnosisCode: string; // e.g., ICD-10 code
-  description: string;
-  status: DiagnosisStatus;
-  diagnosedBy: string; // Doctor User ID
-  diagnosedAt: Date;
+  diagnosisId: string; // Unique ID for the diagnosis
+  patientId: string; // Denormalized for easier queries
+  icd10Code: string; // e.g., 'A09'
+  diagnosisText: string; // e.g., 'Infectious gastroenteritis and colitis'
+  isPrimary: boolean; // Indicates if this is the primary diagnosis
+  diagnosedByDoctorId: string; // Reference to the doctor who made the diagnosis
+  diagnosedAt: Date; // Timestamp of when the diagnosis was made
 }
-
-export type MedicationOrderStatus = 'Active' | 'Discontinued' | 'Filled' | 'Pending';
 
 /**
- * @collection /patients/{patientId}/medication_history (or medication_orders)
- * @description A record of all medications prescribed to the patient.
+ * @collection /patients/{patientId}/medication_history
+ * @description A record of all medications prescribed. This is the link to the Pharmacy module.
  */
-export interface MedicationOrder {
-  orderId: string;
-  patientId: string;
-  admissionId?: string;
+export interface MedicationHistory {
+  prescriptionId: string; // Unique ID for the prescription
+  patientId: string; // Denormalized for easier queries
   medicationName: string;
   dosage: string;
-  route: string; // e.g., 'Oral', 'IV'
-  frequency: string; // e.g., 'Twice a day'
-  status: MedicationOrderStatus;
-  orderedBy: string; // Doctor User ID
-  orderedAt: Date;
-  notes?: string;
+  frequency: string;
+  instructions: string;
+  prescribedByDoctorId: string; // Reference to the prescribing doctor
+  prescribedAt: Date;
+  status: 'Active' | 'Discontinued' | 'Filled';
 }
-
-export type LabStatus = 'Ordered' | 'SampleCollected' | 'InProgress' | 'Completed' | 'Cancelled';
 
 /**
  * @collection /patients/{patientId}/lab_results
- * @description Stores results from laboratory tests.
+ * @description A record of all lab tests ordered and their results. This is the link to the Lab module.
  */
 export interface LabResult {
-  labResultId: string;
-  patientId: string;
-  orderId: string;
+  testId: string; // Unique ID for the test
+  patientId: string; // Denormalized for easier queries
   testName: string;
-  status: LabStatus;
-  orderedBy: string; // Doctor User ID
+  status: 'Ordered' | 'In Progress' | 'Completed';
+  result?: string; // Rich text or structured data for the result
+  units?: string; // e.g., 'mg/dL'
+  orderedByDoctorId: string; // Reference to the doctor who ordered the test
+  labTechnicianId?: string; // Reference to the technician who performed the test
   orderedAt: Date;
-  resultValue?: string;
-  referenceRange?: string;
-  isAbnormal: boolean;
   completedAt?: Date;
-  notes?: string;
 }
 
 export type AllergySeverity = 'Mild' | 'Moderate' | 'Severe' | 'Life-threatening';
