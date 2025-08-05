@@ -1,3 +1,4 @@
+
 import { allPatients, allAdmissions } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,8 +10,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Hospital, Stethoscope, FileText, FileHeart } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth-provider";
+
+// A server component can't use useAuth, so we create a client component wrapper
+"use client";
 
 export default function PatientDetailsPage({ params }: { params: { patientId: string } }) {
+  const { user } = useAuth();
   const patient = allPatients.find(p => p.patientId === params.patientId);
 
   if (!patient) {
@@ -31,6 +37,15 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
     return age;
   }
 
+  const getEhrLink = () => {
+    const rolePrefix = user?.role?.toLowerCase();
+    if (rolePrefix === 'doctor') {
+      return `/doctor/patients/${patient.patientId}/ehr`;
+    }
+    // Default for admin and other roles that might view this page
+    return `/admin/patients/${patient.patientId}/ehr`;
+  }
+
   return (
     <div className="space-y-6">
        <div className="flex items-center justify-between">
@@ -45,7 +60,7 @@ export default function PatientDetailsPage({ params }: { params: { patientId: st
             </div>
           </div>
           <Button asChild>
-            <Link href={`/admin/patients/${patient.patientId}/ehr`}>
+            <Link href={getEhrLink()}>
                 <FileHeart className="mr-2 h-4 w-4" />
                 View Full EHR
             </Link>

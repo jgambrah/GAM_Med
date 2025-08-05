@@ -177,6 +177,19 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     setIsDeceasedAlertOpen(true);
   }
 
+  const getPatientLink = (patientId: string) => {
+    const rolePrefix = user?.role?.toLowerCase() || 'admin';
+    if (rolePrefix === 'admin' || rolePrefix === 'doctor') {
+      return `/${rolePrefix}/patients/${patientId}`;
+    }
+    // Default for other roles like nurse, etc.
+    return `/admin/patients/${patientId}`;
+  }
+
+  const getEhrLink = (patientId: string) => {
+    return `${getPatientLink(patientId)}/ehr`;
+  }
+
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
     const activeReferral = allReferrals.find(
       (r) => r.patientId === patient.patientId && (r.status === 'Pending' || r.status === 'Assigned')
@@ -196,11 +209,11 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}`)}>
+                <DropdownMenuItem onClick={() => router.push(getPatientLink(patient.patientId))}>
                     <UserRound className="mr-2 h-4 w-4" />
                     View Details
                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/ehr`)}>
+                 <DropdownMenuItem onClick={() => router.push(getEhrLink(patient.patientId))}>
                     <FileHeart className="mr-2 h-4 w-4" />
                     View Full EHR
                 </DropdownMenuItem>
@@ -276,7 +289,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
         default:
             // For Nurse, Patient, etc., a simple view action.
              return (
-                <Button variant="outline" size="sm" onClick={() => router.push(`/admin/patients/${patient.patientId}`)}>
+                <Button variant="outline" size="sm" onClick={() => router.push(getPatientLink(patient.patientId))}>
                     <UserRound className="mr-2 h-4 w-4" />
                     View
                 </Button>
@@ -319,7 +332,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                     <TableRow key={patient.patientId} className={patient.computedStatus === 'Deceased' ? 'bg-muted/50 text-muted-foreground' : ''}>
                     <TableCell className="font-mono">{patient.patientId}</TableCell>
                     <TableCell className="font-medium">
-                        <Link href={`/admin/patients/${patient.patientId}`} className="hover:underline">
+                        <Link href={getPatientLink(patient.patientId)} className="hover:underline">
                         {patient.fullName}
                         </Link>
                     </TableCell>
