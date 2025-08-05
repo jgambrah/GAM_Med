@@ -1,15 +1,16 @@
 
 import { allPatients } from "@/lib/data";
-import PatientDetailsPage from "@/app/admin/patients/[patientId]/page";
+import { notFound } from "next/navigation";
+import { PatientDetailsView } from "@/components/dashboard/patient-details-view";
 
-// This route reuses the same component as the admin view,
+// This route reuses the same component structure as the admin view,
 // but keeps the user within the /doctor/* URL space for consistent navigation.
 export default function DoctorPatientDetailsPage({ params }: { params: { patientId: string } }) {
     const patient = allPatients.find(p => p.patientId === params.patientId);
 
     if (!patient) {
-        return <p>Patient not found.</p>;
+        notFound();
     }
 
-    return <PatientDetailsPage params={params} />;
+    return <PatientDetailsView patient={patient} />;
 }
