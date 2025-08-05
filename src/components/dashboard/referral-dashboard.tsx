@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import { allUsers } from "@/lib/data";
 import { AssignDoctorDialog } from "./assign-doctor-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "../auth-provider";
 
 interface ReferralDashboardProps {
   referrals: Referral[];
@@ -56,19 +57,34 @@ const getStatusVariant = (status: Referral['status']) => {
 
 export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps) {
   const { toast } = useToast();
-  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const { user } = useAuth();
+  const [isNewReferralOpen, setIsNewReferralOpen] = React.useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
+  const [selectedReferral, setSelectedReferral] = React.useState<Referral | null>(null);
+
   const [referralList, setReferralList] = React.useState(referrals);
   const [filter, setFilter] = React.useState<Referral['status'] | 'All'>('Pending');
 
+  React.useEffect(() => {
+    setReferralList(referrals);
+  }, [referrals]);
+
   const onNewReferral = (newReferral: Referral) => {
     setReferralList(prev => [newReferral, ...prev]);
-    setIsFormOpen(false);
+    setIsNewReferralOpen(false);
+    toast({
+        title: "Referral Created",
+        description: `New referral for ${newReferral.patientDetails.fullName} created successfully.`
+    });
   };
   
   const onAssignmentSuccess = (updatedReferral: Referral) => {
      setReferralList(prev => 
         prev.map(r => r.referralId === updatedReferral.referralId ? updatedReferral : r)
      );
+     // Close the details dialog after assignment
+     setIsDetailsOpen(false);
+     setSelectedReferral(null);
      toast({
         title: "Assignment Successful",
         description: `Referral has been assigned to a doctor.`
@@ -91,7 +107,8 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
                 A list of all patient referrals. Default view shows pending cases.
               </CardDescription>
             </div>
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            {user?.role === 'Admin' && (
+            <Dialog open={isNewReferralOpen} onOpenChange={setIsNewReferralOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
@@ -108,6 +125,7 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
                 <ReferralForm onFormSubmit={onNewReferral} />
               </DialogContent>
             </Dialog>
+            )}
           </div>
           <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} className="pt-4">
             <TabsList>
@@ -135,7 +153,7 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
                     const assignedDoctor = ref.assignedToDoctorId ? allUsers.find(u => u.id === ref.assignedToDoctorId) : null;
                     return (
                         <TableRow key={ref.referralId}>
-                            <TableCell>{format(ref.referralDate, 'PPP')}</TableCell>
+                            <TableCell>{format(new Date(ref.referralDate), 'PPP')}</TableCell>
                             <TableCell className="font-medium">{ref.patientDetails.fullName}</TableCell>
                             <TableCell>{ref.referringProvider.name}</TableCell>
                             <TableCell>{assignedDoctor?.name || 'N/A'}</TableCell>
@@ -143,32 +161,12 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
                                 <Badge variant={getStatusVariant(ref.status)}>{ref.status}</Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                                <Dialog>
-                                    <DialogTrigger asChild>
-                                        <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                                    </DialogTrigger>
-                                     <DialogContent>
-                                        <DialogHeader>
-                                        <DialogTitle>Referral Details</DialogTitle>
-                                        <DialogDescription>
-                                            Full details for referral ID: {ref.referralId}
-                                        </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4 py-4 text-sm">
-                                            <p><strong>Patient:</strong> {ref.patientDetails.fullName}</p>
-                                            <p><strong>Contact:</strong> {ref.patientDetails.contactPhone}</p>
-                                            <p><strong>Reason:</strong> {ref.patientDetails.reasonForReferral}</p>
-                                            <p><strong>Referring Facility:</strong> {ref.referringProvider.name} ({ref.referringProvider.contact})</p>
-                                            <p><strong>Department:</strong> {ref.referredToDepartment}</p>
-                                            <p><strong>Assigned Doctor:</strong> {assignedDoctor?.name || 'Not yet assigned'}</p>
-                                             {ref.status === 'Pending' && (
-                                                <div className="pt-4">
-                                                    <AssignDoctorDialog referral={ref} doctors={doctors} onAssignment={onAssignmentSuccess} />
-                                                </div>
-                                             )}
-                                        </div>
-                                    </DialogContent>
-                                </Dialog>
+                                <Button variant="ghost" size="icon" onClick={() => {
+                                    setSelectedReferral(ref);
+                                    setIsDetailsOpen(true);
+                                }}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
                             </TableCell>
                         </TableRow>
                     )
@@ -176,7 +174,8 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
                ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    No referrals found for this status.
+                    <p className="font-semibold">No Referrals Found</p>
+                    <p className="text-muted-foreground text-sm">There are no referrals matching the current filter.</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -184,6 +183,40 @@ export function ReferralDashboard({ referrals, doctors }: ReferralDashboardProps
           </Table>
         </CardContent>
       </Card>
+      
+      {/* Details/Assignment Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Referral Details</DialogTitle>
+            <DialogDescription>
+              Full details for referral ID: {selectedReferral?.referralId}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedReferral && (
+            <div className="space-y-4 py-4 text-sm">
+                <p><strong>Patient:</strong> {selectedReferral.patientDetails.fullName}</p>
+                <p><strong>Contact:</strong> {selectedReferral.patientDetails.contactPhone}</p>
+                <p><strong>Reason:</strong> {selectedReferral.patientDetails.reasonForReferral}</p>
+                <p><strong>Referring Facility:</strong> {selectedReferral.referringProvider.name} ({selectedReferral.referringProvider.contact})</p>
+                <p><strong>Department:</strong> {selectedReferral.referredToDepartment}</p>
+                <p><strong>Assigned Doctor:</strong> {allUsers.find(u => u.id === selectedReferral.assignedToDoctorId)?.name || 'Not yet assigned'}</p>
+                
+                {/* Show assignment UI only for Admins and on Pending referrals */}
+                {user?.role === 'Admin' && selectedReferral.status === 'Pending' && (
+                    <div className="pt-4 border-t">
+                      <h3 className="font-semibold mb-2 mt-2">Assign Doctor</h3>
+                      <AssignDoctorDialog 
+                        referral={selectedReferral} 
+                        doctors={doctors} 
+                        onAssignment={onAssignmentSuccess} 
+                      />
+                    </div>
+                )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
