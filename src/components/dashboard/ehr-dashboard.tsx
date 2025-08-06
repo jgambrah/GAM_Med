@@ -22,15 +22,11 @@ import { allClinicalNotes } from "@/lib/data";
 import { format } from "date-fns";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { ClinicalNoteForm } from "./clinical-note-form";
-import { usePathname } from "next/navigation";
-
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-  const pathname = usePathname();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
   
-  // In a real app, this would be a fetch. For now, we filter the mock data.
   const [patientNotes, setPatientNotes] = React.useState<ClinicalNote[]>(() => 
     allClinicalNotes.filter(n => n.patientId === patient.patientId)
   );
@@ -52,9 +48,8 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
   }
 
   const getPatientDetailsLinkPath = () => {
-    // We can determine the base path from the current URL to be safe
-    const basePath = pathname.includes('/doctor/') ? `/doctor/patients/${patient.patientId}` : `/admin/patients/${patient.patientId}`;
-    return basePath;
+    // This now correctly points to the single source of truth for patient details
+    return `/admin/patients/${patient.patientId}`;
   }
 
   return (

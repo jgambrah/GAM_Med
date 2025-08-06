@@ -82,6 +82,11 @@ export function MainNav({ role }: { role: UserRole }) {
   const isActive = (matchPattern?: string) => {
     if (!matchPattern) return false;
     
+    // For doctors, we want the "Patients" tab to be active even if they are on an admin page for a patient
+    if (role === 'Doctor' && matchPattern === '/doctor/patients' && pathname.startsWith('/admin/patients/')) {
+        return true;
+    }
+    
     // This handles exact matches and directory-level matches 
     // e.g., /admin/patients matches /admin/patients/some-id
     return pathname === matchPattern || pathname.startsWith(`${matchPattern}/`);

@@ -45,11 +45,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
             </div>
           </div>
            <Button asChild>
-                <Link href={
-                  user?.role === 'Doctor' 
-                    ? `/doctor/patients/${patient.patientId}/ehr` 
-                    : `/admin/patients/${patient.patientId}/ehr`
-                }>
+                <Link href={`/admin/patients/${patient.patientId}/ehr`}>
                     <Activity className="mr-2 h-4 w-4" />
                     View Full EHR
                 </Link>

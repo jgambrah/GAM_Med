@@ -172,9 +172,9 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     setIsDeceasedAlertOpen(true);
   }
 
+  // This is the unified link generator. All roles use the same patient page.
   const getPatientLink = (patientId: string) => {
-    const basePath = user?.role === 'Doctor' ? '/doctor' : '/admin';
-    return `${basePath}/patients/${patientId}`;
+    return `/admin/patients/${patientId}`;
   }
 
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
