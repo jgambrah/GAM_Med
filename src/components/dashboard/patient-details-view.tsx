@@ -1,6 +1,7 @@
+
 "use client";
 
-import { allAdmissions, allPatients } from "@/lib/data";
+import { allAdmissions } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,11 +13,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Patient } from "@/lib/types";
 import { useAuth } from "../auth-provider";
-import { usePathname } from "next/navigation";
 
 export function PatientDetailsView({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-  const pathname = usePathname();
 
   const patientAdmissions = allAdmissions.filter(a => a.patientId === patient.patientId);
   const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
@@ -33,6 +32,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
   }
   
   const getEhrLinkPath = () => {
+    // This is the corrected logic. It checks the role to determine the path.
     if (user?.role === 'Doctor') {
       return `/doctor/patients/${patient.patientId}/ehr`;
     }
@@ -189,3 +189,5 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
     </div>
   );
 }
+
+    
