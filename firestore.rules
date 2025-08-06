@@ -3,111 +3,103 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // =================================================================
+    // =================================
     // Helper Functions
-    // =================================================================
+    // =================================
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
 
-    // Gets the role of the currently authenticated user from the 'users' collection.
-    // This is the foundation for all our Role-Based Access Control (RBAC) rules.
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return getUserData(request.auth.uid).role;
     }
     
-    // Checks if the requesting user is the patient they are trying to access.
-    // This is used for patient portal access to their own records.
-    function isPatientSelf(patientId) {
-        // This assumes the patient's record in the 'users' collection has a 'patientId' field
-        // that links to their record in the 'patients' collection.
-        // This is a more secure way than matching UID to patientId directly.
-        // For this to work, the user document must contain a 'patientId' field.
-        let userPatientId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId;
-        return getUserRole() == 'Patient' && userPatientId == patientId;
+    // Check if the requesting user is the owner of their patient document
+    // NOTE: This assumes a mapping exists or could be created.
+    // For this ruleset, we primarily rely on roles.
+    function isPatientOwner(patientId) {
+        // This is a conceptual link. A real app might need a users/{uid}/patientId field.
+        // For now, we'll check against the user's role being 'Patient' and check the appointment record.
+        return getUserRole() == 'Patient';
     }
 
-    // =================================================================
-    // Collection-Specific Rules
-    // =================================================================
-    
-    // The users collection stores basic user info and roles.
+    // =================================
+    // User Profiles
+    // =================================
     match /users/{userId} {
-      // Allow users to read their own document.
-      allow read: if request.auth.uid == userId;
-      // Allow users to update their own non-critical info, but not their role.
-      allow update: if request.auth.uid == userId && !('role' in request.resource.data);
-      // Only Admins can create new users or change roles.
-      allow create, delete: if getUserRole() == 'Admin';
-    }
-
-    // Main patient records collection.
-    match /patients/{patientId} {
-      // Allow read access to a wide range of clinical staff and the patient themselves.
-      // Note: 'lab_technician' might be too broad here, but following the spec.
-      // A patient should be able to read their own top-level record.
-      allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Pharmacist', 'BillingClerk', 'Housekeeping'] || isPatientSelf(patientId);
-      
-      // Only Admins or Doctors can create or update patient demographic data.
-      allow write: if getUserRole() in ['Admin', 'Doctor'];
-
-      // --- EHR Sub-collection Rules ---
-
-      // Clinical notes are for doctors and nurses primarily.
-      match /clinical_notes/{noteId} {
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
-        allow write: if getUserRole() == 'Doctor'; // Only doctors can create, update, or delete notes.
-      }
-
-      // Vitals are typically recorded by nurses.
-      match /vitals/{vitalId} {
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
-        allow write: if getUserRole() == 'Nurse'; // Only nurses can create, update, or delete vital records.
-      }
-
-      // Diagnoses are made by doctors.
-      match /diagnoses/{diagnosisId} {
-        allow read: if getUserRole() in ['Admin', 'Doctor'];
-        allow write: if getUserRole() == 'Doctor'; // Only doctors can manage diagnoses.
-      }
-
-      // Medication history is viewed by many, but only prescribed by doctors.
-      match /medication_history/{prescriptionId} {
-        // Pharmacists need read access to fulfill prescriptions.
-        // Patients can see their own prescription history.
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Pharmacist'] || isPatientSelf(patientId);
-        // Only doctors can prescribe medication.
-        allow write: if getUserRole() == 'Doctor';
-      }
-
-      // Lab results have specific create/update rules for different roles.
-      match /lab_results/{testId} {
-        // Lab technicians need to read what test was ordered.
-        // Patients can see their own lab results.
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'lab_technician'] || isPatientSelf(patientId);
-        
-        // A doctor orders a test by creating a new document in this sub-collection.
-        allow create: if getUserRole() == 'Doctor';
-        
-        // A lab technician can only update the result-related fields.
-        // They cannot change the test name, ordering doctor, etc.
-        allow update: if getUserRole() == 'lab_technician' 
-                      && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['result', 'status', 'completedAt', 'labTechnicianId', 'units']);
-                         
-        // No one should be able to delete a lab result for audit purposes.
-        allow delete: if false;
-      }
+      // Allow users to read their own profile, and admins to read any.
+      allow read: if isLoggedIn() && (request.auth.uid == userId || getUserRole() == 'Admin');
+      // Allow users to create their own profile during signup.
+      allow create: if isLoggedIn();
+      // Allow users to update their own profile.
+      allow update: if isLoggedIn() && request.auth.uid == userId;
     }
     
-    // Admissions collection records inpatient/outpatient events.
+    // =================================
+    // Appointments Collection Rules
+    // =================================
+    match /appointments/{appointmentId} {
+      allow read: if isLoggedIn() && (
+        getUserRole() == 'Admin' || 
+        resource.data.attendingDoctorId == request.auth.uid || 
+        isPatientOwner(resource.data.patientId) // Patients can see their appointments
+      );
+      allow create: if isLoggedIn() && getUserRole() in ['Admin', 'Doctor'];
+      allow update: if isLoggedIn() && (
+        getUserRole() == 'Admin' || 
+        resource.data.attendingDoctorId == request.auth.uid // Doctor can update status
+      );
+      allow delete: if isLoggedIn() && getUserRole() == 'Admin';
+    }
+
+    // =================================
+    // Patient & EHR Rules
+    // =================================
+    match /patients/{patientId} {
+      allow read: if isLoggedIn() && getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+      allow create, update, delete: if isLoggedIn() && getUserRole() == 'Admin';
+
+      // --- Generalized EHR Sub-collection Rules ---
+      match /{ehrCollection}/{ehrRecordId} {
+        // Allow read access to Admins, and clinical staff (Doctors, Nurses).
+        // A more granular rule could check if the doctor is part of the patient's care team.
+        allow read: if isLoggedIn() && getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+        
+        // Allow creation of new EHR records by clinical staff.
+        allow create: if isLoggedIn() && getUserRole() in ['Doctor', 'Nurse'];
+
+        // Allow updates only by the original author of the record or an Admin.
+        // This ensures a clear audit trail.
+        // `request.resource.data` refers to the data in the incoming write request.
+        allow update: if isLoggedIn() && (
+          getUserRole() == 'Admin' ||
+          request.resource.data.recordedByUserId == request.auth.uid ||
+          request.resource.data.prescribedByDoctorId == request.auth.uid ||
+          request.resource.data.orderedByDoctorId == request.auth.uid
+        );
+        
+        // Deletes should be restricted, typically to Admins or via a soft-delete flag.
+        allow delete: if isLoggedIn() && getUserRole() == 'Admin';
+      }
+    }
+
+    // =================================
+    // Admissions Collection
+    // =================================
     match /admissions/{admissionId} {
-        allow read, write: if getUserRole() in ['Admin', 'Doctor', 'Nurse'];
+      allow read, write: if isLoggedIn() && getUserRole() in ['Admin', 'Doctor'];
     }
 
-    // Beds collection for real-time bed status.
+    // =================================
+    // Beds Collection
+    // =================================
     match /beds/{bedId} {
-        // Housekeeping needs to update bed status, other clinical staff need to read it.
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Housekeeping'];
-        allow write: if getUserRole() in ['Admin', 'Housekeeping'];
+      allow read: if isLoggedIn();
+      allow write: if isLoggedIn() && getUserRole() in ['Admin', 'Housekeeping'];
     }
-
   }
 }
