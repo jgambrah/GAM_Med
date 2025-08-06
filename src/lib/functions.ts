@@ -129,3 +129,137 @@ export const onLabResultCompleted = functions.firestore
         return null;
     });
 */
+
+/**
+ * =================================================================
+ * Doctor's Workbench Callable Functions (Conceptual)
+ * =================================================================
+ */
+
+/**
+ * Callable Function: setAppointmentStatus
+ * Allows a doctor to update the status of an appointment from the workbench.
+ */
+/*
+export const setAppointmentStatus = functions.https.onCall(async (data, context) => {
+    // 1. Check for authentication
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    const { appointmentId, status, patientId } = data;
+    
+    // 2. Update appointment status
+    const appointmentRef = db.collection('appointments').doc(appointmentId);
+    await appointmentRef.update({ status: status, updatedAt: new Date() });
+
+    // 3. Handle side-effects based on status
+    if (status === 'Completed') {
+        const patientRef = db.collection('patients').doc(patientId);
+        await patientRef.update({ lastVisitDate: new Date(), updatedAt: new Date() });
+    }
+
+    return { success: true, message: `Appointment ${appointmentId} status updated to ${status}.` };
+});
+*/
+
+/**
+ * Callable Function: writePrescription
+ * Allows a doctor to write a prescription, which also queues it for the pharmacy.
+ * Uses a Firestore transaction to ensure atomicity.
+ */
+/*
+export const writePrescription = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    
+    const { patientId, medicationName, dosage, frequency, instructions } = data;
+    const prescribedByDoctorId = context.auth.uid;
+    
+    const prescriptionRef = db.collection('patients').doc(patientId).collection('medication_history').doc();
+    const pharmacyQueueRef = db.collection('pharmacy_prescriptions').doc(prescriptionRef.id);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            // Create the prescription in the patient's record
+            transaction.set(prescriptionRef, {
+                prescriptionId: prescriptionRef.id,
+                patientId,
+                medicationName,
+                dosage,
+                frequency,
+                instructions,
+                prescribedByDoctorId,
+                prescribedAt: new Date(),
+                status: 'Active',
+            });
+            
+            // Create a corresponding job for the pharmacy module
+            transaction.set(pharmacyQueueRef, {
+                prescriptionId: prescriptionRef.id,
+                patientId,
+                medicationName,
+                status: 'Pending Fulfillment',
+                receivedAt: new Date(),
+            });
+        });
+        
+        console.log(`Prescription ${prescriptionRef.id} created for patient ${patientId} and queued for pharmacy.`);
+        return { success: true, prescriptionId: prescriptionRef.id };
+
+    } catch (error) {
+        console.error("Transaction failure:", error);
+        throw new functions.https.HttpsError('internal', 'Failed to write prescription.');
+    }
+});
+*/
+
+/**
+ * Callable Function: orderLabTest
+ * Allows a doctor to order a lab test, which also queues it for the lab.
+ * Uses a Firestore transaction for atomicity.
+ */
+/*
+export const orderLabTest = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    
+    const { patientId, testName, testDetails } = data;
+    const orderedByDoctorId = context.auth.uid;
+    
+    const labResultRef = db.collection('patients').doc(patientId).collection('lab_results').doc();
+    const labQueueRef = db.collection('lab_requests').doc(labResultRef.id);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            // Create the lab order in the patient's record
+            transaction.set(labResultRef, {
+                testId: labResultRef.id,
+                patientId,
+                testName,
+                testDetails,
+                orderedByDoctorId,
+                orderedAt: new Date(),
+                status: 'Ordered',
+            });
+            
+            // Create a corresponding job for the lab module
+            transaction.set(labQueueRef, {
+                testId: labResultRef.id,
+                patientId,
+                testName,
+                status: 'New Request',
+                requestReceivedAt: new Date(),
+            });
+        });
+        
+        console.log(`Lab test ${labResultRef.id} ordered for patient ${patientId} and queued for the lab.`);
+        return { success: true, testId: labResultRef.id };
+
+    } catch (error) {
+        console.error("Transaction failure:", error);
+        throw new functions.https.HttpsError('internal', 'Failed to order lab test.');
+    }
+});
+*/
