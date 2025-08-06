@@ -1,9 +1,11 @@
+
 "use client";
 import { useAuth } from "@/components/auth-provider";
 import { AppointmentsView } from "@/components/dashboard/appointments-view";
 import { PatientsList } from "@/components/dashboard/patients-list";
 import { allAppointments, allPatients } from "@/lib/data";
 import * as React from "react";
+import { DoctorActions } from "@/components/dashboard/doctor-actions";
 
 function DoctorDashboard({ user }: { user: any }) {
     const userAppointments = React.useMemo(() => {
@@ -14,7 +16,8 @@ function DoctorDashboard({ user }: { user: any }) {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight font-headline">Doctor's Dashboard</h2>
+            <h2 className="text-3xl font-bold tracking-tight font-headline">Doctor's Workbench</h2>
+            <DoctorActions />
             <AppointmentsView appointments={userAppointments} user={user} />
             <PatientsList patients={allPatients} />
         </div>
