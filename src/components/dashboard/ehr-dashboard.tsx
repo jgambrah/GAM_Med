@@ -22,10 +22,12 @@ import { allClinicalNotes } from "@/lib/data";
 import { format } from "date-fns";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { ClinicalNoteForm } from "./clinical-note-form";
+import { usePathname } from "next/navigation";
 
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
   const { user } = useAuth();
+  const pathname = usePathname();
   const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
   
   // In a real app, this would be a fetch. For now, we filter the mock data.
@@ -49,6 +51,12 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     setIsNoteDialogOpen(false);
   }
 
+  const getPatientDetailsLinkPath = () => {
+    // We can determine the base path from the current URL to be safe
+    const basePath = pathname.includes('/doctor/') ? `/doctor/patients/${patient.patientId}` : `/admin/patients/${patient.patientId}`;
+    return basePath;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -65,7 +73,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
             </div>
         </div>
         <Button variant="outline" asChild>
-            <Link href={`/admin/patients/${patient.patientId}`}>
+            <Link href={getPatientDetailsLinkPath()}>
                 <User className="mr-2 h-4 w-4" />
                 Back to Patient Details
             </Link>

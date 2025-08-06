@@ -11,8 +11,13 @@ import { Hospital, Stethoscope, FileText, Activity } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Patient } from "@/lib/types";
+import { useAuth } from "../auth-provider";
+import { usePathname } from "next/navigation";
 
 export function PatientDetailsView({ patient }: { patient: Patient }) {
+  const { user } = useAuth();
+  const pathname = usePathname();
+
   const patientAdmissions = allAdmissions.filter(a => a.patientId === patient.patientId);
   const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
   
@@ -25,6 +30,13 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
         age--;
     }
     return age;
+  }
+  
+  const getEhrLinkPath = () => {
+    if (user?.role === 'Doctor') {
+      return `/doctor/patients/${patient.patientId}/ehr`;
+    }
+    return `/admin/patients/${patient.patientId}/ehr`;
   }
 
   return (
@@ -41,7 +53,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
             </div>
           </div>
            <Button asChild>
-                <Link href={`/admin/patients/${patient.patientId}/ehr`}>
+                <Link href={getEhrLinkPath()}>
                     <Activity className="mr-2 h-4 w-4" />
                     View Full EHR
                 </Link>

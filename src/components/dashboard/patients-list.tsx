@@ -173,7 +173,8 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    return `/admin/patients/${patientId}`;
+    const basePath = user?.role === 'Doctor' ? '/doctor' : '/admin';
+    return `${basePath}/patients/${patientId}`;
   }
 
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
@@ -219,7 +220,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                  
                 {patient.computedStatus === 'Inpatient' && (
                   <>
-                    <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>
+                    <DropdownMenuItem onClick={() => router.push(`${getPatientLink(patient.patientId)}/discharge`)}>
                        <LogOut className="mr-2 h-4 w-4" />
                        Finalize Discharge
                     </DropdownMenuItem>

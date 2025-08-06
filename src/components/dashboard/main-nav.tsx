@@ -82,17 +82,9 @@ export function MainNav({ role }: { role: UserRole }) {
   const isActive = (matchPattern?: string) => {
     if (!matchPattern) return false;
     
-    // This handles exact matches and directory-level matches (e.g., /admin/patients matches /admin/patients/some-id)
-    if (pathname === matchPattern || pathname.startsWith(`${matchPattern}/`)) {
-        return true;
-    }
-
-    // Special case for doctors viewing patient records, which are on the admin path
-    if (role === 'Doctor' && matchPattern === '/doctor/patients' && pathname.startsWith('/admin/patients/')) {
-        return true;
-    }
-
-    return false;
+    // This handles exact matches and directory-level matches 
+    // e.g., /admin/patients matches /admin/patients/some-id
+    return pathname === matchPattern || pathname.startsWith(`${matchPattern}/`);
   }
 
   return (
