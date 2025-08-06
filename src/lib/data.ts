@@ -1,5 +1,6 @@
 
-import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
+
+import type { User, Patient, Appointment, Bed, Admission, Referral, ClinicalNote } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -262,3 +263,24 @@ export const allReferrals: Referral[] = [
     updatedAt: new Date(),
   },
 ];
+
+export const allClinicalNotes: ClinicalNote[] = [
+    {
+        noteId: 'NOTE-001',
+        patientId: 'P-240821-0001',
+        noteType: 'Consultation Note',
+        noteText: 'Patient presents with chest pain, consistent with previous reports. ECG shows minor ST elevation. Continuing with current medication and monitoring.',
+        recordedByUserId: 'doc1',
+        recordedByUserName: 'Dr. Evelyn Mensah',
+        recordedAt: new Date('2024-07-21T11:00:00Z'),
+    },
+    {
+        noteId: 'NOTE-002',
+        patientId: 'P-240821-0001',
+        noteType: 'Progress Note',
+        noteText: 'Pain has subsided after administration of GTN spray. Patient reports feeling better. Vitals are stable. Will continue to observe.',
+        recordedByUserId: 'nur1',
+        recordedByUserName: 'Grace Adjei',
+        recordedAt: new Date('2024-07-21T15:30:00Z'),
+    }
+]

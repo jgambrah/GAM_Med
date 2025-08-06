@@ -1,4 +1,5 @@
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -163,6 +164,7 @@ export interface ClinicalNote {
   noteText: string; // The content of the note, can support rich text/markdown
   noteType: 'Progress Note' | 'Consultation Note' | 'Discharge Summary';
   recordedByUserId: string; // Reference to the user who wrote the note
+  recordedByUserName: string;
   recordedAt: Date; // Timestamp of when the note was created
 }
 

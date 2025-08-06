@@ -1,7 +1,8 @@
+
 "use client";
 
-import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User } from "lucide-react";
-import type { Patient } from "@/lib/types";
+import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, PlusCircle, Notebook } from "lucide-react";
+import type { Patient, ClinicalNote } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "../ui/button";
@@ -15,8 +16,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "../ui/badge";
+import * as React from "react";
+import { useAuth } from "../auth-provider";
+import { allClinicalNotes } from "@/lib/data";
+import { format } from "date-fns";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { ClinicalNoteForm } from "./clinical-note-form";
+
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
+  const { user } = useAuth();
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
+  
+  // In a real app, this would be a fetch. For now, we filter the mock data.
+  const [patientNotes, setPatientNotes] = React.useState<ClinicalNote[]>(() => 
+    allClinicalNotes.filter(n => n.patientId === patient.patientId)
+  );
   
   const getAge = (dob: Date) => {
     const today = new Date();
@@ -28,6 +43,11 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     }
     return age;
   };
+  
+  const handleNoteAdded = (newNote: ClinicalNote) => {
+    setPatientNotes(prev => [newNote, ...prev]);
+    setIsNoteDialogOpen(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -84,6 +104,56 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
           </CardContent>
         </Card>
       </div>
+
+       <Card>
+        <CardHeader className="flex items-center justify-between">
+          <div>
+            <CardTitle>Clinical Notes</CardTitle>
+            <CardDescription>A log of all clinical notes and observations.</CardDescription>
+          </div>
+          {(user?.role === 'Doctor' || user?.role === 'Nurse') && (
+            <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add New Note
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Clinical Note</DialogTitle>
+                        <DialogDescription>
+                            Record a new progress, consultation, or other note for {patient.fullName}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ClinicalNoteForm patient={patient} onNoteAdded={handleNoteAdded} />
+                </DialogContent>
+            </Dialog>
+          )}
+        </CardHeader>
+        <CardContent>
+            {patientNotes.length > 0 ? (
+                <div className="space-y-4">
+                    {patientNotes.map(note => (
+                        <div key={note.noteId} className="border-l-4 pl-4 py-2">
+                            <div className="flex justify-between items-baseline">
+                                <p className="font-semibold">{note.noteType}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}
+                                </p>
+                            </div>
+                            <p className="text-sm mt-1">{note.noteText}</p>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <Notebook className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
+                </div>
+            )}
+        </CardContent>
+      </Card>
 
        <Card>
         <CardHeader>

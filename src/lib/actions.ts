@@ -5,11 +5,12 @@
 
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral, ClinicalNote} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals, allClinicalNotes} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -79,6 +80,14 @@ const referralFormSchema = z.object({
 const assignDoctorSchema = z.object({
     referralId: z.string(),
     doctorId: z.string(),
+});
+
+const clinicalNoteSchema = z.object({
+    patientId: z.string(),
+    noteType: z.enum(['Progress Note', 'Consultation Note', 'Discharge Summary']),
+    noteText: z.string().min(10, "Note content is too short."),
+    recordedByUserId: z.string(),
+    recordedByUserName: z.string(),
 });
 
 
@@ -601,5 +610,42 @@ export async function pronouncePatientDeadAction(patientId: string) {
     } catch (error: any) {
         console.error('Error in pronouncePatientDeadAction:', error);
         return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+async function generateNoteId(): Promise<string> {
+    const prefix = 'NOTE';
+    const nextId = (allClinicalNotes.length + 1).toString().padStart(3, '0');
+    return `${prefix}-${nextId}`;
+}
+
+export async function addClinicalNoteAction(values: z.infer<typeof clinicalNoteSchema>) {
+    console.log('[Simulated] Adding clinical note with action:', values);
+    try {
+        const newNoteId = await generateNoteId();
+        const newNote: ClinicalNote = {
+            noteId: newNoteId,
+            patientId: values.patientId,
+            noteType: values.noteType,
+            noteText: values.noteText,
+            recordedByUserId: values.recordedByUserId,
+            recordedByUserName: values.recordedByUserName,
+            recordedAt: new Date(),
+        };
+
+        allClinicalNotes.unshift(newNote); // Add to the beginning of the array
+
+        return {
+            success: true,
+            message: 'Clinical note successfully added.',
+            note: newNote,
+        };
+
+    } catch (error: any) {
+        console.error('Error in addClinicalNoteAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred while adding the note.',
+        };
     }
 }
