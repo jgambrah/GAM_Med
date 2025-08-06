@@ -30,9 +30,9 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
     return age;
   }
   
-  const getPatientListLink = () => {
-    if (user?.role === 'Doctor') return '/doctor/patients';
-    return '/admin/patients';
+  const getEhrLink = () => {
+    const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
+    return `${base}/patients/${patient.patientId}/ehr`;
   }
 
   return (
@@ -49,14 +49,8 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-                <Link href={getPatientListLink()}>
-                    <UserRound className="mr-2 h-4 w-4" />
-                    Back to Patient List
-                </Link>
-            </Button>
             <Button asChild>
-                <Link href={user?.role === 'Doctor' ? `/doctor/patients/${patient.patientId}/ehr` : `/admin/patients/${patient.patientId}/ehr`}>
+                <Link href={getEhrLink()}>
                     <Activity className="mr-2 h-4 w-4" />
                     View Full EHR
                 </Link>

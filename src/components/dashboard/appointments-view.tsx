@@ -46,11 +46,16 @@ const statusConfig = {
     }
 }
 
+interface AppointmentsViewProps {
+  appointments: Appointment[];
+  user: User;
+  onSelectPatient?: (patientId: string) => void;
+}
 
-export function AppointmentsView({ appointments, user }: { appointments: Appointment[]; user: User }) {
+
+export function AppointmentsView({ appointments, user, onSelectPatient }: AppointmentsViewProps) {
   const { toast } = useToast();
   const [date, setDate] = React.useState<Date | undefined>(new Date());
-  const [view, setView] = React.useState<"calendar" | "list">("list");
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState<string | null>(null);
   const [reminderSms, setReminderSms] = React.useState("");
@@ -113,82 +118,59 @@ export function AppointmentsView({ appointments, user }: { appointments: Appoint
     }
   };
 
+  const handleCardClick = (patientId: string) => {
+    if (onSelectPatient) {
+        onSelectPatient(patientId);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-start">
             <div>
-                <CardTitle className="font-headline text-2xl">Appointments</CardTitle>
-                <CardDescription>View and manage upcoming appointments.</CardDescription>
+                <CardTitle className="font-headline text-2xl">Today's Appointments</CardTitle>
+                <CardDescription>Select an appointment to view details.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-                <Button variant={view === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setView('list')}>
-                    <List className="h-4 w-4" />
-                </Button>
-                <Button variant={view === 'calendar' ? 'default' : 'outline'} size="icon" onClick={() => setView('calendar')}>
-                    <CalendarIcon className="h-4 w-4" />
-                </Button>
-                 <Button onClick={handleGenerateSms} disabled={isGenerating}>
+                 <Button onClick={handleGenerateSms} disabled={isGenerating} size="sm">
                     {isGenerating ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                         <Bell className="mr-2 h-4 w-4" />
                     )}
-                    Generate SMS Reminder
+                    SMS Reminder
                 </Button>
             </div>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-1">
+      <CardContent>
           <Calendar
             mode="single"
             selected={date}
             onSelect={setDate}
-            className="rounded-md border"
+            className="rounded-md border mb-4"
           />
-        </div>
-        <div className="md:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 font-headline">
-            {date ? format(date, "PPP") : "All Upcoming"}
-          </h3>
           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-4">
             {filteredAppointments.length > 0 ? (
               filteredAppointments.map((appointment) => {
                 const config = statusConfig[appointment.status] || statusConfig.Scheduled;
                 return (
-                    <div key={appointment.appointmentId} className="flex items-center p-3 bg-secondary rounded-lg">
-                    <div className="flex-1 space-y-1">
-                        <p className="font-medium">{format(appointment.appointmentDateTime, 'p')} - {user.role === 'Doctor' ? appointment.patientName : `Dr. ${appointment.doctorName}`}</p>
-                        <p className="text-sm text-muted-foreground">{appointment.reasonForVisit}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Badge variant={config.variant}>
-                            <config.icon className="mr-2 h-3 w-3" />
-                            {appointment.status}
-                        </Badge>
-                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" disabled={isUpdatingStatus === appointment.appointmentId}>
-                                {isUpdatingStatus === appointment.appointmentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.appointmentId, 'In Progress')}>
-                                    <PlayCircle className="mr-2 h-4 w-4" />
-                                    Mark as In Progress
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.appointmentId, 'Completed')}>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Mark as Completed
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.appointmentId, 'Cancelled')}>
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Mark as Cancelled
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
+                    <div 
+                        key={appointment.appointmentId} 
+                        className={cn("flex items-center p-3 rounded-lg transition-colors", onSelectPatient && "cursor-pointer hover:bg-muted")}
+                        onClick={() => handleCardClick(appointment.patientId)}
+                    >
+                        <div className="flex-1 space-y-1">
+                            <p className="font-medium">{format(appointment.appointmentDateTime, 'p')} - {user.role === 'Doctor' ? appointment.patientName : `Dr. ${appointment.doctorName}`}</p>
+                            <p className="text-sm text-muted-foreground">{appointment.reasonForVisit}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Badge variant={config.variant}>
+                                <config.icon className="mr-2 h-3 w-3" />
+                                {appointment.status}
+                            </Badge>
+                        </div>
                     </div>
                 )
             })
@@ -198,7 +180,6 @@ export function AppointmentsView({ appointments, user }: { appointments: Appoint
               </p>
             )}
           </div>
-        </div>
       </CardContent>
 
       <Dialog open={isSmsDialogOpen} onOpenChange={setIsSmsDialogOpen}>
