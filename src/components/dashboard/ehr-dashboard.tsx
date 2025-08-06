@@ -265,5 +265,3 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     </div>
   );
 }
-
-    
