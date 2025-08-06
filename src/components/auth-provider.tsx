@@ -32,12 +32,20 @@ const useMockAuth = process.env.NEXT_PUBLIC_FIREBASE_API_KEY === undefined;
 let lastDoctorIndex = 0;
 
 const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Corrected state initialization:
+  // This function runs ONLY ONCE on initial mount for mock auth.
+  // It sets the default role to Admin without re-running on navigation.
+  const [user, setUser] = useState<User | null>(() => {
+    if (useMockAuth) {
+      return allUsers.find(u => u.role === 'Admin')!;
+    }
+    return null;
+  });
+
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!useMockAuth); // In mock mode, we are never loading.
   const router = useRouter();
   const pathname = usePathname();
-  
 
   const setMockUserRole = (role: UserRole) => {
     if (useMockAuth) {
@@ -56,16 +64,26 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Fallback to Admin if no specific user is found, to prevent crashes.
-      setUser(mockUser || allUsers.find(u => u.role === 'Admin')!);
+      const newActiveUser = mockUser || allUsers.find(u => u.role === 'Admin')!;
+      setUser(newActiveUser);
+      
+      // After changing role, redirect to a safe root page based on the new role.
+      switch(newActiveUser.role) {
+        case 'Doctor':
+          router.push('/doctor/dashboard');
+          break;
+        case 'Patient':
+          router.push('/patient/dashboard');
+          break;
+        default:
+          router.push('/');
+      }
     }
   };
 
   useEffect(() => {
+    // This effect is now ONLY for real Firebase authentication.
     if (useMockAuth) {
-      // Initialize with Admin role
-      const initialUser = allUsers.find(u => u.role === 'Admin')!
-      setUser(initialUser);
-      setLoading(false);
       return;
     }
     
@@ -123,7 +141,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
     }
   }
-
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, loading, setMockUserRole }}>
