@@ -227,6 +227,7 @@ export const allReferrals: Referral[] = [
   },
   {
     referralId: 'REF-002',
+    patientId: 'doc2', // Dr. Kofi Anan
     patientDetails: {
       fullName: 'Kweku Mensah',
       contactPhone: '+233204445566',
@@ -238,13 +239,14 @@ export const allReferrals: Referral[] = [
     },
     referredToDepartment: 'Cardiology',
     status: 'Assigned',
-    assignedToDoctorId: 'doc2', // Dr. Kofi Anan
+    assignedToDoctorId: 'doc2',
     referralDate: new Date('2024-07-24T15:30:00Z'),
     createdAt: new Date(),
     updatedAt: new Date(),
   },
     {
     referralId: 'REF-003',
+    patientId: 'doc1', // Dr. Evelyn Mensah
     patientDetails: {
       fullName: 'Ngozi Okonjo',
       contactPhone: '+233557778899',
@@ -256,7 +258,7 @@ export const allReferrals: Referral[] = [
     },
     referredToDepartment: 'Endocrinology',
     status: 'Assigned',
-    assignedToDoctorId: 'doc1', // Dr. Evelyn Mensah
+    assignedToDoctorId: 'doc1',
     appointmentId: 'app1', // Fictional completed appointment
     referralDate: new Date('2024-07-20T11:00:00Z'),
     createdAt: new Date(),

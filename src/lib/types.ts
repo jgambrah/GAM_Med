@@ -130,7 +130,7 @@ export interface Appointment {
     
 export interface Referral {
   referralId: string;
-  patientId: string; // explicit link to patient document
+  patientId?: string; // explicit link to patient document
   patientDetails: {
     fullName: string;
     contactPhone: string;

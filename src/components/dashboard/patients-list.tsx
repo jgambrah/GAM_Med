@@ -173,7 +173,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    // The patient details page is under /admin/patients for all roles that can see it.
     return `/admin/patients/${patientId}`;
   }
 

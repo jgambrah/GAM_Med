@@ -6,6 +6,7 @@
 
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
@@ -68,7 +69,7 @@ const markBedAsCleanSchema = z.object({
 });
 
 const referralFormSchema = z.object({
-  patientId: z.string(),
+  patientId: z.string().optional(),
   patientName: z.string().min(2, "Patient name is required."),
   patientPhone: z.string().min(10, "A valid phone number is required."),
   reason: z.string().min(10, "Reason for referral is required."),
@@ -491,7 +492,7 @@ export async function processIncomingReferralAction(values: z.infer<typeof refer
         const newReferralId = await generateReferralId();
         const newReferral: Referral = {
             referralId: newReferralId,
-            patientId: values.patientId, // Include patientId
+            patientId: values.patientId,
             patientDetails: {
                 fullName: values.patientName,
                 contactPhone: values.patientPhone,
