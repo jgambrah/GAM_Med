@@ -38,7 +38,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Helper function to find a user by role
   const findUserByRole = (role: UserRole): User => {
     let mockUser;
     if (role === 'Doctor') {
@@ -55,32 +54,23 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setMockUserRole = (role: UserRole) => {
     if (useMockAuth) {
-      const newActiveUser = findUserByRole(role);
       sessionStorage.setItem('mockUserRole', role); // Persist role choice
+      const newActiveUser = findUserByRole(role);
       setUser(newActiveUser);
-      
-      switch(newActiveUser.role) {
-        case 'Doctor':
-          router.push('/doctor/dashboard');
-          break;
-        case 'Patient':
-          router.push('/patient/dashboard');
-          break;
-        default:
-          router.push('/');
-      }
     }
   };
 
   useEffect(() => {
     if (useMockAuth) {
-      // On initial load, try to get the role from sessionStorage, or default to 'Admin'
       const savedRole = sessionStorage.getItem('mockUserRole') as UserRole | null;
       const initialRole = savedRole || 'Admin';
+      if (!savedRole) {
+        sessionStorage.setItem('mockUserRole', 'Admin');
+      }
       const initialUser = findUserByRole(initialRole);
       setUser(initialUser);
       setLoading(false);
-      return; // End of mock auth logic
+      return; 
     }
     
     // Real Firebase auth logic
@@ -110,7 +100,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [router, pathname]); // router and pathname are for real auth redirects
+  }, [router, pathname]);
 
   if (loading) {
     return (
