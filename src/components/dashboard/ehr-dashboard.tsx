@@ -152,7 +152,10 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                         <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
                             <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Add New Note</Button></DialogTrigger>
                             <DialogContent>
-                                <DialogHeader><DialogTitle>Add Clinical Note for {patient.fullName}</DialogTitle></DialogHeader>
+                                <DialogHeader>
+                                  <DialogTitle>Add Clinical Note for {patient.fullName}</DialogTitle>
+                                  <DialogDescription>Fill out the note details below. The note will be time-stamped upon saving.</DialogDescription>
+                                </DialogHeader>
                                 <ClinicalNoteForm patient={patient} onNoteAdded={handleNoteAdded} />
                             </DialogContent>
                         </Dialog>
@@ -191,7 +194,10 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                         <Dialog open={isMedicationDialogOpen} onOpenChange={setIsMedicationDialogOpen}>
                             <DialogTrigger asChild><Button><Pill className="mr-2 h-4 w-4" /> Prescribe Medication</Button></DialogTrigger>
                             <DialogContent>
-                                <DialogHeader><DialogTitle>Prescribe Medication for {patient.fullName}</DialogTitle></DialogHeader>
+                                <DialogHeader>
+                                  <DialogTitle>Prescribe Medication for {patient.fullName}</DialogTitle>
+                                  <DialogDescription>Enter the medication details. The prescription will be sent to the pharmacy module upon saving.</DialogDescription>
+                                </DialogHeader>
                                 <MedicationForm patient={patient} onMedicationAdded={handleMedicationAdded} />
                             </DialogContent>
                         </Dialog>
@@ -227,7 +233,10 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                         <Dialog open={isLabDialogOpen} onOpenChange={setIsLabDialogOpen}>
                             <DialogTrigger asChild><Button><FlaskConical className="mr-2 h-4 w-4" /> Order Lab Test</Button></DialogTrigger>
                             <DialogContent>
-                                <DialogHeader><DialogTitle>Order Lab Test for {patient.fullName}</DialogTitle></DialogHeader>
+                                <DialogHeader>
+                                  <DialogTitle>Order Lab Test for {patient.fullName}</DialogTitle>
+                                  <DialogDescription>Select a test and provide a reason. The request will be sent to the laboratory module.</DialogDescription>
+                                </DialogHeader>
                                 <LabRequestForm patient={patient} onLabRequestAdded={handleLabRequestAdded} />
                             </DialogContent>
                         </Dialog>
@@ -256,7 +265,3 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     </div>
   );
 }
-
-    
-
-    
