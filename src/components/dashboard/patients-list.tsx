@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -54,7 +55,7 @@ import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
 import { pronouncePatientDeadAction, recommendSurgeryAction } from "@/lib/actions";
-import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins, Activity, FileHeart } from "lucide-react";
+import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins, Activity } from "lucide-react";
 
 
 type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge" | "Deceased";
@@ -177,11 +178,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     return `/admin/patients/${patientId}`;
   }
 
-  const getEhrLink = (patientId: string) => {
-    // The EHR page is under /admin/patients for all roles that can see it.
-    return `/admin/patients/${patientId}/ehr`;
-  }
-
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
     const activeReferral = allReferrals.find(
       (r) => r.patientId === patient.patientId && (r.status === 'Pending' || r.status === 'Assigned')
@@ -204,10 +200,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
                 <DropdownMenuItem onClick={() => router.push(getPatientLink(patient.patientId))}>
                     <UserRound className="mr-2 h-4 w-4" />
                     View Details
-                </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => router.push(getEhrLink(patient.patientId))}>
-                    <FileHeart className="mr-2 h-4 w-4" />
-                    View Full EHR
                 </DropdownMenuItem>
                 
                 <DropdownMenuSeparator />

@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope, FileText, FileHeart } from "lucide-react";
+import { Hospital, Stethoscope, FileText } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
@@ -31,11 +31,6 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
     return age;
   }
 
-  const getEhrLink = () => {
-    // The EHR page is always under /admin/patients/...
-    return `/admin/patients/${patient.patientId}/ehr`;
-  }
-
   if (!user) {
     return null; // Or a loading skeleton
   }
@@ -53,12 +48,6 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
               <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
             </div>
           </div>
-          <Button asChild>
-            <Link href={getEhrLink()}>
-                <FileHeart className="mr-2 h-4 w-4" />
-                View Full EHR
-            </Link>
-          </Button>
        </div>
 
 
