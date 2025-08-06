@@ -1,5 +1,4 @@
 
-import { useAuth } from "@/components/auth-provider";
 import { PatientsList } from "@/components/dashboard/patients-list";
 import { allPatients } from "@/lib/data";
 

@@ -32,11 +32,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
   }
 
   const getEhrLink = () => {
-    const rolePrefix = user?.role?.toLowerCase();
-    if (rolePrefix === 'doctor') {
-      return `/admin/patients/${patient.patientId}/ehr`;
-    }
-    // Default for admin and other roles that might view this page
+    // The EHR page is always under /admin/patients/...
     return `/admin/patients/${patient.patientId}/ehr`;
   }
 
