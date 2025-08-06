@@ -1,8 +1,8 @@
 
 "use client";
 
-import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, PlusCircle, Notebook, UserRound, FlaskConical, Beaker } from "lucide-react";
-import type { Patient, ClinicalNote, MedicationHistory, LabResult } from "@/lib/types";
+import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User } from "lucide-react";
+import type { Patient, ClinicalNote } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "../ui/button";
@@ -18,32 +18,12 @@ import {
 import { Badge } from "../ui/badge";
 import * as React from "react";
 import { useAuth } from "../auth-provider";
-import { allClinicalNotes, allMedications, allLabResults } from "@/lib/data";
+import { allClinicalNotes } from "@/lib/data";
 import { format } from "date-fns";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
-import { ClinicalNoteForm } from "./clinical-note-form";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MedicationForm } from "./medication-form";
-import { LabRequestForm } from "./lab-request-form";
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-  
-  // State for dialogs
-  const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
-  const [isMedicationDialogOpen, setIsMedicationDialogOpen] = React.useState(false);
-  const [isLabDialogOpen, setIsLabDialogOpen] = React.useState(false);
-  
-  // State for data
-  const [patientNotes, setPatientNotes] = React.useState<ClinicalNote[]>(() => 
-    allClinicalNotes.filter(n => n.patientId === patient.patientId).sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
-  );
-  const [patientMedications, setPatientMedications] = React.useState<MedicationHistory[]>(() =>
-    allMedications.filter(m => m.patientId === patient.patientId).sort((a, b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime())
-  );
-  const [patientLabResults, setPatientLabResults] = React.useState<LabResult[]>(() =>
-    allLabResults.filter(l => l.patientId === patient.patientId).sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime())
-  );
+  const patientNotes = allClinicalNotes.filter(n => n.patientId === patient.patientId);
   
   const getAge = (dob: Date) => {
     const today = new Date();
@@ -56,28 +36,10 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     return age;
   };
   
-  // --- Handlers for form submissions to update state ---
-  const handleNoteAdded = (newNote: ClinicalNote) => {
-    setPatientNotes(prev => [newNote, ...prev]);
-    setIsNoteDialogOpen(false);
-  }
-
-  const handleMedicationAdded = (newMed: MedicationHistory) => {
-    setPatientMedications(prev => [newMed, ...prev]);
-    setIsMedicationDialogOpen(false);
-  }
-  
-  const handleLabRequestAdded = (newLab: LabResult) => {
-    setPatientLabResults(prev => [newLab, ...prev]);
-    setIsLabDialogOpen(false);
-  }
-
   const getPatientDetailsLinkPath = () => {
     const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
     return `${base}/patients/${patient.patientId}`;
   }
-
-  const isClinician = user?.role === 'Doctor' || user?.role === 'Nurse';
 
   return (
     <div className="space-y-6">
@@ -96,7 +58,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </div>
         <Button variant="outline" asChild>
             <Link href={getPatientDetailsLinkPath()}>
-                <UserRound className="mr-2 h-4 w-4" />
+                <User className="mr-2 h-4 w-4" />
                 Back to Patient Details
             </Link>
         </Button>
@@ -135,133 +97,32 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </Card>
       </div>
 
-      <Tabs defaultValue="notes">
-        <TabsList>
-            <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
-            <TabsTrigger value="medications">Medications</TabsTrigger>
-            <TabsTrigger value="labs">Lab Results</TabsTrigger>
-        </TabsList>
-        <TabsContent value="notes">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Clinical Notes</CardTitle>
-                        <CardDescription>A log of all clinical notes and observations.</CardDescription>
-                    </div>
-                    {isClinician && (
-                        <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
-                            <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Add New Note</Button></DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Add Clinical Note for {patient.fullName}</DialogTitle>
-                                  <DialogDescription>Fill out the note details below. The note will be time-stamped upon saving.</DialogDescription>
-                                </DialogHeader>
-                                <ClinicalNoteForm patient={patient} onNoteAdded={handleNoteAdded} />
-                            </DialogContent>
-                        </Dialog>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    {patientNotes.length > 0 ? (
-                        <div className="space-y-4">
-                            {patientNotes.map(note => (
-                                <div key={note.noteId} className="border-l-4 pl-4 py-2">
-                                    <div className="flex justify-between items-baseline">
-                                        <p className="font-semibold">{note.noteType}</p>
-                                        <p className="text-xs text-muted-foreground">{format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}</p>
-                                    </div>
-                                    <p className="text-sm mt-1">{note.noteText}</p>
-                                </div>
-                            ))}
+      <Card>
+        <CardHeader>
+          <CardTitle>Clinical Notes</CardTitle>
+          <CardDescription>A log of all clinical notes and observations.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {patientNotes.length > 0 ? (
+                <div className="space-y-4">
+                    {patientNotes.map(note => (
+                        <div key={note.noteId} className="border-l-4 pl-4 py-2">
+                            <div className="flex justify-between items-baseline">
+                                <p className="font-semibold">{note.noteType}</p>
+                                <p className="text-xs text-muted-foreground">{format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}</p>
+                            </div>
+                            <p className="text-sm mt-1">{note.noteText}</p>
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                            <Notebook className="w-10 h-10 text-muted-foreground" />
-                            <p className="mt-4 text-muted-foreground">No clinical notes recorded.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="medications">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Medications</CardTitle>
-                        <CardDescription>Current and past prescribed medications.</CardDescription>
-                    </div>
-                     {isClinician && (
-                        <Dialog open={isMedicationDialogOpen} onOpenChange={setIsMedicationDialogOpen}>
-                            <DialogTrigger asChild><Button><Pill className="mr-2 h-4 w-4" /> Prescribe Medication</Button></DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Prescribe Medication for {patient.fullName}</DialogTitle>
-                                  <DialogDescription>Enter the medication details. The prescription will be sent to the pharmacy module upon saving.</DialogDescription>
-                                </DialogHeader>
-                                <MedicationForm patient={patient} onMedicationAdded={handleMedicationAdded} />
-                            </DialogContent>
-                        </Dialog>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader><TableRow><TableHead>Medication</TableHead><TableHead>Dosage</TableHead><TableHead>Status</TableHead><TableHead>Prescribed On</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {patientMedications.length > 0 ? patientMedications.map(med => (
-                                <TableRow key={med.prescriptionId}>
-                                    <TableCell className="font-medium">{med.medicationName}</TableCell>
-                                    <TableCell>{med.dosage}</TableCell>
-                                    <TableCell><Badge variant={med.status === 'Active' ? 'default' : 'secondary'}>{med.status}</Badge></TableCell>
-                                    <TableCell>{format(new Date(med.prescribedAt), 'PPP')}</TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow><TableCell colSpan={4} className="h-24 text-center">No medications prescribed.</TableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="labs">
-           <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Lab Results</CardTitle>
-                        <CardDescription>Ordered tests and their results.</CardDescription>
-                    </div>
-                    {isClinician && (
-                        <Dialog open={isLabDialogOpen} onOpenChange={setIsLabDialogOpen}>
-                            <DialogTrigger asChild><Button><FlaskConical className="mr-2 h-4 w-4" /> Order Lab Test</Button></DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Order Lab Test for {patient.fullName}</DialogTitle>
-                                  <DialogDescription>Select a test and provide a reason. The request will be sent to the laboratory module.</DialogDescription>
-                                </DialogHeader>
-                                <LabRequestForm patient={patient} onLabRequestAdded={handleLabRequestAdded} />
-                            </DialogContent>
-                        </Dialog>
-                    )}
-                </CardHeader>
-                <CardContent>
-                     <Table>
-                        <TableHeader><TableRow><TableHead>Test Name</TableHead><TableHead>Status</TableHead><TableHead>Result</TableHead><TableHead>Ordered On</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {patientLabResults.length > 0 ? patientLabResults.map(lab => (
-                                <TableRow key={lab.testId}>
-                                    <TableCell className="font-medium">{lab.testName}</TableCell>
-                                    <TableCell><Badge variant={lab.status === 'Completed' ? 'outline' : 'secondary'}>{lab.status}</TableCell>
-                                    <TableCell>{lab.result || 'N/A'}</TableCell>
-                                    <TableCell>{format(new Date(lab.orderedAt), 'PPP')}</TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow><TableCell colSpan={4} className="h-24 text-center">No lab tests ordered.</TableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </TabsContent>
-      </Tabs>
+                    ))}
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <FileText className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
+                </div>
+            )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
