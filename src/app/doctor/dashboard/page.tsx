@@ -8,6 +8,7 @@ import * as React from "react";
 import { DoctorActions } from "@/components/dashboard/doctor-actions";
 import { PatientDetailsView } from "@/components/dashboard/patient-details-view";
 import type { Patient } from "@/lib/types";
+import { Card, CardContent } from "@/components/ui/card";
 
 function DoctorDashboard({ user }: { user: any }) {
     const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
@@ -38,8 +39,8 @@ function DoctorDashboard({ user }: { user: any }) {
                     {selectedPatient ? (
                         <PatientDetailsView patient={selectedPatient} />
                     ) : (
-                        <Card className="h-full flex items-center justify-center">
-                            <CardContent className="text-center">
+                        <Card className="h-full flex items-center justify-center min-h-[400px]">
+                            <CardContent className="text-center pt-6">
                                 <p className="text-lg font-semibold">No Patient Selected</p>
                                 <p className="text-muted-foreground">Select an appointment to view patient details.</p>
                             </CardContent>
