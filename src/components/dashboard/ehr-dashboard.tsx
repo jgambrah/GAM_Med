@@ -249,7 +249,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                             {patientLabResults.length > 0 ? patientLabResults.map(lab => (
                                 <TableRow key={lab.testId}>
                                     <TableCell className="font-medium">{lab.testName}</TableCell>
-                                    <TableCell><Badge variant={lab.status === 'Completed' ? 'outline' : 'secondary'}>{lab.status}</Badge></TableCell>
+                                    <TableCell><Badge variant={lab.status === 'Completed' ? 'outline' : 'secondary'}>{lab.status}</TableCell>
                                     <TableCell>{lab.result || 'N/A'}</TableCell>
                                     <TableCell>{format(new Date(lab.orderedAt), 'PPP')}</TableCell>
                                 </TableRow>
@@ -265,3 +265,5 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     </div>
   );
 }
+
+    
