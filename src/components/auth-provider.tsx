@@ -32,42 +32,33 @@ const useMockAuth = process.env.NEXT_PUBLIC_FIREBASE_API_KEY === undefined;
 let lastDoctorIndex = 0;
 
 const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Corrected state initialization:
-  // This function runs ONLY ONCE on initial mount for mock auth.
-  // It sets the default role to Admin without re-running on navigation.
-  const [user, setUser] = useState<User | null>(() => {
-    if (useMockAuth) {
-      return allUsers.find(u => u.role === 'Admin')!;
-    }
-    return null;
-  });
-
+  const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(!useMockAuth); // In mock mode, we are never loading.
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
+  // Helper function to find a user by role
+  const findUserByRole = (role: UserRole): User => {
+    let mockUser;
+    if (role === 'Doctor') {
+      const doctors = allUsers.filter(u => u.role === 'Doctor');
+      if (doctors.length > 0) {
+        mockUser = doctors[lastDoctorIndex % doctors.length];
+        lastDoctorIndex++;
+      }
+    } else {
+      mockUser = allUsers.find(u => u.role === role);
+    }
+    return mockUser || allUsers.find(u => u.role === 'Admin')!;
+  };
+
   const setMockUserRole = (role: UserRole) => {
     if (useMockAuth) {
-      let mockUser;
-      
-      // If Doctor role is selected, cycle between the available mock doctors.
-      if (role === 'Doctor') {
-        const doctors = allUsers.filter(u => u.role === 'Doctor');
-        if (doctors.length > 0) {
-            mockUser = doctors[lastDoctorIndex % doctors.length];
-            lastDoctorIndex++;
-        }
-      } else {
-        // For all other roles, find the first user with that role.
-        mockUser = allUsers.find(u => u.role === role);
-      }
-      
-      // Fallback to Admin if no specific user is found, to prevent crashes.
-      const newActiveUser = mockUser || allUsers.find(u => u.role === 'Admin')!;
+      const newActiveUser = findUserByRole(role);
+      sessionStorage.setItem('mockUserRole', role); // Persist role choice
       setUser(newActiveUser);
       
-      // After changing role, redirect to a safe root page based on the new role.
       switch(newActiveUser.role) {
         case 'Doctor':
           router.push('/doctor/dashboard');
@@ -82,11 +73,17 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // This effect is now ONLY for real Firebase authentication.
     if (useMockAuth) {
-      return;
+      // On initial load, try to get the role from sessionStorage, or default to 'Admin'
+      const savedRole = sessionStorage.getItem('mockUserRole') as UserRole | null;
+      const initialRole = savedRole || 'Admin';
+      const initialUser = findUserByRole(initialRole);
+      setUser(initialUser);
+      setLoading(false);
+      return; // End of mock auth logic
     }
     
+    // Real Firebase auth logic
     const auth = getAuth(app);
     const db = getFirestore(app);
 
@@ -98,7 +95,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (userDoc.exists()) {
           setUser({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
-            // Handle case where user exists in Auth but not Firestore
             setUser(null);
         }
         if (pathname === '/login' || pathname === '/register') {
@@ -114,7 +110,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [router, pathname]);
+  }, [router, pathname]); // router and pathname are for real auth redirects
 
   if (loading) {
     return (
