@@ -11,12 +11,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Hospital, Stethoscope, FileText } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/auth-provider";
 import type { Patient } from "@/lib/types";
 
 export function PatientDetailsView({ patient }: { patient: Patient }) {
-  const { user } = useAuth();
-
   const patientAdmissions = allAdmissions.filter(a => a.patientId === patient.patientId);
   const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
   
@@ -29,10 +26,6 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
         age--;
     }
     return age;
-  }
-
-  if (!user) {
-    return null; // Or a loading skeleton
   }
 
   return (
