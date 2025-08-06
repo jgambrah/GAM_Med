@@ -1,14 +1,13 @@
-
 "use client";
 
-import { allAdmissions } from "@/lib/data";
+import { allAdmissions, allPatients } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope, FileText } from "lucide-react";
+import { Hospital, Stethoscope, FileText, Activity } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Patient } from "@/lib/types";
@@ -30,7 +29,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center justify-between">
+       <div className="flex items-start justify-between">
           <div className="flex items-center space-x-4">
             <Avatar className="h-24 w-24 border">
               <AvatarImage src={`https://placehold.co/100x100/E3F2FD/333?text=${patient.firstName.charAt(0)}${patient.lastName.charAt(0)}`} alt={patient.fullName} data-ai-hint="avatar profile" />
@@ -41,6 +40,12 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
               <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
             </div>
           </div>
+           <Button asChild>
+                <Link href={`/admin/patients/${patient.patientId}/ehr`}>
+                    <Activity className="mr-2 h-4 w-4" />
+                    View Full EHR
+                </Link>
+            </Button>
        </div>
 
 
