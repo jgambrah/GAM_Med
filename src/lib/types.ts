@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -198,7 +199,7 @@ export interface Diagnosis {
 }
 
 /**
- * @collection /patients/{patientId}/medication_history
+ * @collection /patients/{patientId}/medications
  * @description A record of all medications prescribed. This is the link to the Pharmacy module.
  */
 export interface MedicationHistory {
@@ -222,6 +223,7 @@ export interface LabResult {
   patientId: string; // Denormalized for easier queries
   testName: string;
   status: 'Ordered' | 'In Progress' | 'Completed';
+  reason?: string;
   result?: string; // Rich text or structured data for the result
   units?: string; // e.g., 'mg/dL'
   orderedByDoctorId: string; // Reference to the doctor who ordered the test
@@ -241,3 +243,5 @@ export interface Allergy {
   recordedBy: string;
   recordedAt: Date;
 }
+
+    

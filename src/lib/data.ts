@@ -1,6 +1,7 @@
 
 
-import type { User, Patient, Appointment, Bed, Admission, Referral, ClinicalNote } from './types';
+
+import type { User, Patient, Appointment, Bed, Admission, Referral, ClinicalNote, MedicationHistory, LabResult } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -285,4 +286,53 @@ export const allClinicalNotes: ClinicalNote[] = [
         recordedByUserName: 'Grace Adjei',
         recordedAt: new Date('2024-07-21T15:30:00Z'),
     }
-]
+];
+
+export const allMedications: MedicationHistory[] = [
+    {
+        prescriptionId: 'RX-001',
+        patientId: 'P-240821-0001',
+        medicationName: 'Lisinopril',
+        dosage: '10mg',
+        frequency: 'Once daily',
+        instructions: 'Take in the morning.',
+        prescribedByDoctorId: 'doc1',
+        prescribedAt: new Date('2024-07-21T11:00:00Z'),
+        status: 'Active'
+    },
+     {
+        prescriptionId: 'RX-002',
+        patientId: 'P-240821-0001',
+        medicationName: 'Aspirin',
+        dosage: '81mg',
+        frequency: 'Once daily',
+        instructions: 'Take with food.',
+        prescribedByDoctorId: 'doc1',
+        prescribedAt: new Date('2024-07-21T11:00:00Z'),
+        status: 'Active'
+    }
+];
+
+export const allLabResults: LabResult[] = [
+    {
+        testId: 'LAB-001',
+        patientId: 'P-240821-0001',
+        testName: 'Troponin I',
+        status: 'Completed',
+        result: '0.04 ng/mL',
+        units: 'ng/mL',
+        orderedByDoctorId: 'doc1',
+        orderedAt: new Date('2024-07-21T11:05:00Z'),
+        completedAt: new Date('2024-07-21T12:00:00Z'),
+    },
+     {
+        testId: 'LAB-002',
+        patientId: 'P-240821-0001',
+        testName: 'Complete Blood Count (CBC)',
+        status: 'Ordered',
+        orderedByDoctorId: 'doc1',
+        orderedAt: new Date('2024-07-22T09:15:00Z'),
+    }
+];
+
+    

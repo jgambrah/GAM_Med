@@ -7,11 +7,12 @@
 
 
 
+
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral, ClinicalNote} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals, allClinicalNotes} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral, ClinicalNote, MedicationHistory, LabResult} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals, allClinicalNotes, allMedications, allLabResults} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -91,6 +92,21 @@ const clinicalNoteSchema = z.object({
     recordedByUserName: z.string(),
 });
 
+const medicationSchema = z.object({
+    patientId: z.string(),
+    medicationName: z.string().min(2, "Medication name is required."),
+    dosage: z.string().min(1, "Dosage is required."),
+    frequency: z.string().min(2, "Frequency is required."),
+    instructions: z.string().optional(),
+    prescribedByDoctorId: z.string(),
+});
+
+const labRequestSchema = z.object({
+    patientId: z.string(),
+    testName: z.string().min(3, "Test name is required."),
+    reason: z.string().optional(),
+    orderedByDoctorId: z.string(),
+});
 
 
 export async function getSmsReminderAction(
@@ -650,3 +666,85 @@ export async function addClinicalNoteAction(values: z.infer<typeof clinicalNoteS
         };
     }
 }
+
+async function generatePrescriptionId(): Promise<string> {
+    const prefix = 'RX';
+    const nextId = (allMedications.length + 1).toString().padStart(3, '0');
+    return `${prefix}-${nextId}`;
+}
+
+export async function prescribeMedicationAction(values: z.infer<typeof medicationSchema>) {
+    console.log('[Simulated] Prescribing medication with action:', values);
+    try {
+        const newPrescriptionId = await generatePrescriptionId();
+        const newMedication: MedicationHistory = {
+            prescriptionId: newPrescriptionId,
+            patientId: values.patientId,
+            medicationName: values.medicationName,
+            dosage: values.dosage,
+            frequency: values.frequency,
+            instructions: values.instructions || 'As directed',
+            prescribedByDoctorId: values.prescribedByDoctorId,
+            prescribedAt: new Date(),
+            status: 'Active',
+        };
+
+        allMedications.unshift(newMedication);
+
+        console.log(`[Simulated] Notifying pharmacy of new prescription ${newPrescriptionId}.`);
+
+        return {
+            success: true,
+            message: 'Medication successfully prescribed.',
+            medication: newMedication,
+        };
+
+    } catch (error: any) {
+        console.error('Error in prescribeMedicationAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred while prescribing.',
+        };
+    }
+}
+
+async function generateLabTestId(): Promise<string> {
+    const prefix = 'LAB';
+    const nextId = (allLabResults.length + 1).toString().padStart(3, '0');
+    return `${prefix}-${nextId}`;
+}
+
+export async function orderLabTestAction(values: z.infer<typeof labRequestSchema>) {
+    console.log('[Simulated] Ordering lab test with action:', values);
+    try {
+        const newTestId = await generateLabTestId();
+        const newLabResult: LabResult = {
+            testId: newTestId,
+            patientId: values.patientId,
+            testName: values.testName,
+            status: 'Ordered',
+            reason: values.reason,
+            orderedByDoctorId: values.orderedByDoctorId,
+            orderedAt: new Date(),
+        };
+
+        allLabResults.unshift(newLabResult);
+
+        console.log(`[Simulated] Notifying laboratory of new test order ${newTestId}.`);
+
+        return {
+            success: true,
+            message: 'Lab test successfully ordered.',
+            labResult: newLabResult,
+        };
+
+    } catch (error: any) {
+        console.error('Error in orderLabTestAction:', error);
+        return {
+            success: false,
+            message: error.message || 'An unexpected error occurred while ordering the test.',
+        };
+    }
+}
+
+    
