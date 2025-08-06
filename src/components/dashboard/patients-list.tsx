@@ -173,8 +173,10 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
-    return `${base}/patients/${patientId}`;
+    if (user?.role === 'Doctor') {
+        return `/doctor/patients/${patientId}`;
+    }
+    return `/admin/patients/${patientId}`;
   }
 
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
