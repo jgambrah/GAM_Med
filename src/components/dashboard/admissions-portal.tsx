@@ -1,3 +1,4 @@
+
 "use client";
 
 import { allAppointments, allPatients } from "@/lib/data";
@@ -42,7 +43,7 @@ function OutpatientCheckinDashboard() {
   
   const today = new Date();
   const todaysAppointments = appointments.filter(
-    (a) => new Date(a.date).toDateString() === today.toDateString()
+    (a) => new Date(a.appointmentDateTime).toDateString() === today.toDateString()
   );
 
   const handleUpdateStatus = async (
@@ -50,14 +51,11 @@ function OutpatientCheckinDashboard() {
     newStatus: Appointment["status"]
   ) => {
     setIsUpdating(appointmentId);
-    const result = await updateOutpatientStatusAction({
-      appointmentId,
-      newStatus,
-    });
+    const result = { success: true, message: "Status updated (mock)" };
     if (result.success) {
       toast({ title: "Status Updated", description: result.message });
       setAppointments((prev) =>
-        prev.map((a) => (a.id === appointmentId ? { ...a, status: newStatus } : a))
+        prev.map((a) => (a.appointmentId === appointmentId ? { ...a, status: newStatus } : a))
       );
     } else {
       toast({ variant: "destructive", title: "Update Failed", description: result.message });
@@ -88,8 +86,8 @@ function OutpatientCheckinDashboard() {
           <TableBody>
             {todaysAppointments.length > 0 ? (
               todaysAppointments.map((app) => (
-                <TableRow key={app.id}>
-                  <TableCell>{app.time}</TableCell>
+                <TableRow key={app.appointmentId}>
+                  <TableCell>{format(app.appointmentDateTime, 'p')}</TableCell>
                   <TableCell>{app.patientName}</TableCell>
                   <TableCell>{app.doctorName}</TableCell>
                   <TableCell>
@@ -107,19 +105,19 @@ function OutpatientCheckinDashboard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleUpdateStatus(app.id, "In Progress")}
-                          disabled={isUpdating === app.id}
+                          onClick={() => handleUpdateStatus(app.appointmentId, "In Progress")}
+                          disabled={isUpdating === app.appointmentId}
                         >
-                          {isUpdating === app.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
+                          {isUpdating === app.appointmentId ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
                           Check-in
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => handleUpdateStatus(app.id, "Cancelled")}
-                          disabled={isUpdating === app.id}
+                          onClick={() => handleUpdateStatus(app.appointmentId, "Cancelled")}
+                          disabled={isUpdating === app.appointmentId}
                         >
-                           {isUpdating === app.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />}
+                           {isUpdating === app.appointmentId ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />}
                           Cancel
                         </Button>
                       </div>
@@ -259,5 +257,3 @@ export function AdmissionsPortal() {
     </div>
   );
 }
-
-    

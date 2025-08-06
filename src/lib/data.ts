@@ -1,6 +1,4 @@
 
-
-
 import type { User, Patient, Appointment, Bed, Admission, Referral, ClinicalNote, MedicationHistory, LabResult } from './types';
 
 export const allUsers: User[] = [
@@ -168,42 +166,46 @@ const today = new Date();
 const tomorrow = new Date();
 tomorrow.setDate(today.getDate() + 1);
 
+const todayAt10 = new Date(today.setHours(10, 0, 0, 0));
+const todayAt1130 = new Date(today.setHours(11, 30, 0, 0));
+const tomorrowAt9 = new Date(tomorrow.setHours(9, 0, 0, 0));
+
 export const allAppointments: Appointment[] = [
   {
-    id: 'app1',
+    appointmentId: 'app1',
     patientId: 'P-240821-0001',
     patientName: 'Kwame Osei',
-    doctorId: 'doc1',
-    doctorName: 'Evelyn Mensah',
-    department: 'Cardiology',
-    date: today.toISOString().split('T')[0],
-    time: '10:00 AM',
-    reason: 'Follow-up consultation',
+    attendingDoctorId: 'doc1',
+    doctorName: 'Dr. Evelyn Mensah',
+    appointmentDateTime: todayAt10,
+    reasonForVisit: 'Follow-up consultation',
     status: 'Scheduled',
+    createdAt: now,
+    updatedAt: now,
   },
   {
-    id: 'app2',
+    appointmentId: 'app2',
     patientId: 'P-240821-0002',
     patientName: 'Ama Serwaa',
-    doctorId: 'doc1',
-    doctorName: 'Evelyn Mensah',
-    department: 'Cardiology',
-    date: today.toISOString().split('T')[0],
-    time: '11:30 AM',
-    reason: 'Annual Checkup',
+    attendingDoctorId: 'doc1',
+    doctorName: 'Dr. Evelyn Mensah',
+    appointmentDateTime: todayAt1130,
+    reasonForVisit: 'Annual Checkup',
     status: 'Scheduled',
+    createdAt: now,
+    updatedAt: now,
   },
   {
-    id: 'app3',
+    appointmentId: 'app3',
     patientId: 'P-240821-0003',
     patientName: 'Femi Adebayo',
-    doctorId: 'doc1',
-    doctorName: 'Evelyn Mensah',
-    department: 'Cardiology',
-    date: tomorrow.toISOString().split('T')[0],
-    time: '09:00 AM',
-    reason: 'Initial Consultation',
+    attendingDoctorId: 'doc2',
+    doctorName: 'Dr. Kofi Anan',
+    appointmentDateTime: tomorrowAt9,
+    reasonForVisit: 'Initial Consultation',
     status: 'Scheduled',
+    createdAt: now,
+    updatedAt: now,
   },
 ];
 
@@ -334,5 +336,3 @@ export const allLabResults: LabResult[] = [
         orderedAt: new Date('2024-07-22T09:15:00Z'),
     }
 ];
-
-    

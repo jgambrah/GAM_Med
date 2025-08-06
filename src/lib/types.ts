@@ -1,6 +1,4 @@
 
-
-
 export type UserRole = "Admin" | "Doctor" | "Nurse" | "Pharmacist" | "Patient" | "BillingClerk" | "Housekeeping";
 
 export interface User {
@@ -113,20 +111,20 @@ export interface Bed {
     updatedAt: Date; 
 }
 
-
+// Updated Appointment structure
 export interface Appointment {
-  id: string;
+  appointmentId: string;
   patientId: string;
-  patientName: string;
-  doctorId: string;
-  doctorName: string;
-  department: string;
-  date: string;
-  time: string;
-  reason: string;
-  status: "Scheduled" | "Completed" | "Cancelled" | "In Progress";
-  resource?: string; // e.g., 'Operating Theater 1'
-  referralId?: string; // Bidirectional link to the referral
+  attendingDoctorId: string; // Key for filtering the workbench view
+  appointmentDateTime: Date;
+  reasonForVisit: string;
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
+  isWalkIn?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  // Denormalized fields for easier display
+  patientName?: string; 
+  doctorName?: string;
 }
     
 export interface Referral {
@@ -199,7 +197,7 @@ export interface Diagnosis {
 }
 
 /**
- * @collection /patients/{patientId}/medications
+ * @collection /patients/{patientId}/medication_history
  * @description A record of all medications prescribed. This is the link to the Pharmacy module.
  */
 export interface MedicationHistory {
@@ -243,5 +241,3 @@ export interface Allergy {
   recordedBy: string;
   recordedAt: Date;
 }
-
-    

@@ -1,3 +1,4 @@
+
 "use client";
 import { useAuth } from "@/components/auth-provider";
 import { AppointmentsView } from "@/components/dashboard/appointments-view";
@@ -9,8 +10,7 @@ export default function DoctorAppointmentsPage() {
 
     const userAppointments = React.useMemo(() => {
     if (!user) return [];
-    // In a real app, user.id would be used here. For mock, a default doctor is used.
-    return allAppointments.filter(app => app.doctorId === 'doc1');
+    return allAppointments.filter(app => app.attendingDoctorId === user.id);
   }, [user]);
 
     if (!user || user.role !== 'Doctor') {

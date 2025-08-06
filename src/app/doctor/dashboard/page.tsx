@@ -10,8 +10,7 @@ import { DoctorActions } from "@/components/dashboard/doctor-actions";
 function DoctorDashboard({ user }: { user: any }) {
     const userAppointments = React.useMemo(() => {
         if (!user) return [];
-        // In a real app, user.id would be used here. For mock, a default doctor is used.
-        return allAppointments.filter(app => app.doctorId === 'doc1');
+        return allAppointments.filter(app => app.attendingDoctorId === user.id);
     }, [user]);
 
     return (
