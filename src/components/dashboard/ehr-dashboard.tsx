@@ -153,6 +153,9 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                 <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
                     <Notebook className="w-10 h-10 text-muted-foreground" />
                     <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
+                     {(user?.role === 'Doctor' || user?.role === 'Nurse') && (
+                        <p className="mt-1 text-sm text-muted-foreground">Click "Add New Note" to get started.</p>
+                     )}
                 </div>
             )}
         </CardContent>
