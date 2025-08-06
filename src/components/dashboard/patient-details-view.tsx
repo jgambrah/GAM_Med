@@ -35,11 +35,6 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
     return '/admin/patients';
   }
 
-  const getEhrLinkPath = () => {
-    const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
-    return `${base}/patients/${patient.patientId}/ehr`;
-  }
-
   return (
     <div className="space-y-6">
        <div className="flex items-start justify-between">
@@ -61,7 +56,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
                 </Link>
             </Button>
             <Button asChild>
-                <Link href={getEhrLinkPath()}>
+                <Link href={user?.role === 'Doctor' ? `/doctor/patients/${patient.patientId}/ehr` : `/admin/patients/${patient.patientId}/ehr`}>
                     <Activity className="mr-2 h-4 w-4" />
                     View Full EHR
                 </Link>
