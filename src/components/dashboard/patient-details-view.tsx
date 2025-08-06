@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope, FileText, Activity } from "lucide-react";
+import { Hospital, Stethoscope, FileText, Activity, UserRound } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Patient } from "@/lib/types";
@@ -16,7 +16,6 @@ import { useAuth } from "../auth-provider";
 
 export function PatientDetailsView({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-
   const patientAdmissions = allAdmissions.filter(a => a.patientId === patient.patientId);
   const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
   
@@ -31,6 +30,16 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
     return age;
   }
   
+  const getPatientListLink = () => {
+    if (user?.role === 'Doctor') return '/doctor/patients';
+    return '/admin/patients';
+  }
+
+  const getEhrLinkPath = () => {
+    const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
+    return `${base}/patients/${patient.patientId}/ehr`;
+  }
+
   return (
     <div className="space-y-6">
        <div className="flex items-start justify-between">
@@ -44,12 +53,20 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
               <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
             </div>
           </div>
-           <Button asChild>
-                <Link href={`/admin/patients/${patient.patientId}/ehr`}>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+                <Link href={getPatientListLink()}>
+                    <UserRound className="mr-2 h-4 w-4" />
+                    Back to Patient List
+                </Link>
+            </Button>
+            <Button asChild>
+                <Link href={getEhrLinkPath()}>
                     <Activity className="mr-2 h-4 w-4" />
                     View Full EHR
                 </Link>
             </Button>
+           </div>
        </div>
 
 

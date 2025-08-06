@@ -3,7 +3,7 @@ import { allPatients } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { PatientDetailsView } from "@/components/dashboard/patient-details-view";
 
-// This is now a Server Component. It fetches data and passes it to the client component.
+// This is a Server Component. It fetches data and passes it to the client component.
 export default function PatientDetailsPage({ params }: { params: { patientId: string } }) {
   const patient = allPatients.find(p => p.patientId === params.patientId);
 

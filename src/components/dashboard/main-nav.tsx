@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import {
@@ -28,40 +27,38 @@ import type { UserRole } from "@/lib/types"
 
 const navItems = {
   Admin: [
-    { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/admin/dashboard" },
+    { href: "/", icon: LayoutDashboard, label: "Dashboard", match: "/" },
     { href: "/admin/admissions", icon: LogIn, label: "Admissions", match: "/admin/admissions" },
     { href: "/admin/patients", icon: UsersRound, label: "Patients", match: "/admin/patients" },
     { href: "/admin/referrals", icon: Share2, label: "Referrals", match: "/admin/referrals" },
     { href: "/admin/billing", icon: FileText, label: "Billing", match: "/admin/billing" },
-    { href: "/admin/staff", icon: UsersRound, label: "Staff Management", match: "/admin/staff" },
-    { href: "/admin/departments", icon: Stethoscope, label: "Departments", match: "/admin/departments" },
   ],
   Doctor: [
-    { href: "/doctor/dashboard", icon: LayoutDashboard, label: "Dashboard", match: "/doctor/dashboard" },
+    { href: "/", icon: LayoutDashboard, label: "Dashboard", match: "/" },
     { href: "/doctor/appointments", icon: CalendarDays, label: "Appointments", match: "/doctor/appointments" },
     { href: "/doctor/patients", icon: UsersRound, label: "Patients", match: "/doctor/patients" },
     { href: "/doctor/referrals", icon: Share2, label: "Referrals", match: "/doctor/referrals" },
   ],
   Nurse: [
-    { href: "#", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "#", icon: CalendarDays, label: "Appointments" },
-    { href: "#", icon: UsersRound, label: "Patient Vitals" },
+    { href: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/nurse/appointments", icon: CalendarDays, label: "Appointments" },
+    { href: "/nurse/vitals", icon: UsersRound, label: "Patient Vitals" },
   ],
   Pharmacist: [
-    { href: "#", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "#", icon: Pill, label: "Prescriptions" },
-    { href: "#", icon: LayoutDashboard, label: "Inventory" },
+    { href: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/pharmacist/prescriptions", icon: Pill, label: "Prescriptions" },
+    { href: "/pharmacist/inventory", icon: LayoutDashboard, label: "Inventory" },
   ],
   Patient: [
-    { href: "/patient/dashboard", icon: LayoutDashboard, label: "My Dashboard", match: "/patient/dashboard" },
+    { href: "/", icon: LayoutDashboard, label: "My Dashboard", match: "/" },
     { href: "/patient/appointments", icon: CalendarDays, label: "My Appointments", match: "/patient/appointments" },
-    { href: "#", icon: Pill, label: "My Prescriptions" },
+    { href: "/patient/prescriptions", icon: Pill, label: "My Prescriptions" },
   ],
   BillingClerk: [
-      { href: "/admin/billing", icon: FileText, label: "Discharge Queue", match: "/admin/billing" },
+      { href: "/", icon: FileText, label: "Discharge Queue", match: "/" },
   ],
   Housekeeping: [
-      { href: "/housekeeping/dashboard", icon: Sparkles, label: "Cleaning Tasks", match: "/housekeeping/dashboard" },
+      { href: "/", icon: Sparkles, label: "Cleaning Tasks", match: "/" },
   ]
 }
 
@@ -81,14 +78,10 @@ export function MainNav({ role }: { role: UserRole }) {
 
   const isActive = (matchPattern?: string) => {
     if (!matchPattern) return false;
-    
-    // For doctors, we want the "Patients" tab to be active even if they are on an admin page for a patient
-    if (role === 'Doctor' && matchPattern === '/doctor/patients' && pathname.startsWith('/admin/patients/')) {
-        return true;
-    }
+    if (matchPattern === "/") return pathname === "/";
     
     // This handles exact matches and directory-level matches 
-    // e.g., /admin/patients matches /admin/patients/some-id
+    // e.g., /patients matches /patients/some-id
     return pathname === matchPattern || pathname.startsWith(`${matchPattern}/`);
   }
 

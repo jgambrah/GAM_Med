@@ -1,4 +1,3 @@
-
 import { allPatients } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { EhrDashboard } from "@/components/dashboard/ehr-dashboard";

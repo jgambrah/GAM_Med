@@ -1,7 +1,7 @@
 
 "use client";
 
-import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, PlusCircle, Notebook } from "lucide-react";
+import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, PlusCircle, Notebook, UserRound } from "lucide-react";
 import type { Patient, ClinicalNote } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,7 +28,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
   const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
   
   const [patientNotes, setPatientNotes] = React.useState<ClinicalNote[]>(() => 
-    allClinicalNotes.filter(n => n.patientId === patient.patientId)
+    allClinicalNotes.filter(n => n.patientId === patient.patientId).sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
   );
   
   const getAge = (dob: Date) => {
@@ -48,8 +48,8 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
   }
 
   const getPatientDetailsLinkPath = () => {
-    // This now correctly points to the single source of truth for patient details
-    return `/admin/patients/${patient.patientId}`;
+    const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
+    return `${base}/patients/${patient.patientId}`;
   }
 
   return (
@@ -69,7 +69,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </div>
         <Button variant="outline" asChild>
             <Link href={getPatientDetailsLinkPath()}>
-                <User className="mr-2 h-4 w-4" />
+                <UserRound className="mr-2 h-4 w-4" />
                 Back to Patient Details
             </Link>
         </Button>

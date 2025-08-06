@@ -8,6 +8,8 @@ import { AdminOverview } from '@/components/dashboard/admin-overview';
 import { allPatients } from '@/lib/data';
 import DoctorDashboardPage from './doctor/dashboard/page';
 import PatientDashboardPage from './patient/dashboard/page';
+import HousekeepingDashboard from '@/components/dashboard/housekeeping-dashboard';
+import BillingPage from './admin/billing/page';
 
 function DashboardContent() {
   const { user } = useAuth();
@@ -26,9 +28,13 @@ function DashboardContent() {
       return <DoctorDashboardPage />;
     case 'Patient':
       return <PatientDashboardPage />;
+    case 'Housekeeping':
+      return <HousekeepingDashboard />;
+    case 'BillingClerk':
+        return <BillingPage />;
     // Add cases for other roles to show their default dashboard
     default:
-      return <AdminOverview patients={allPatients} />;
+      return <p>Dashboard for role {user.role} not found.</p>;
   }
 }
 
