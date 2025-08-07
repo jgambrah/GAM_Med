@@ -35,6 +35,7 @@ import { FilePlus2, UserCheck, AlertCircle } from "lucide-react";
 import { ReferralForm } from "./referral-form";
 import { AssignDoctorDialog } from "./assign-doctor-dialog";
 import { useAuth } from "../auth-provider";
+import { DoctorReferralView } from "./doctor-referral-view";
 
 interface AdminReferralViewProps {
   referrals: Referral[];
@@ -237,7 +238,11 @@ export function ReferralDashboard() {
   if (user.role === 'Admin') {
      return <AdminReferralView referrals={referrals} doctors={doctors} onReferralUpdate={handleReferralUpdate} />;
   }
+  
+  if (user.role === 'Doctor') {
+      return <DoctorReferralView user={user} allReferrals={referrals} />;
+  }
 
-  // Fallback for other roles (like Doctor, etc.)
-  return <div>Referral dashboard being built.</div>;
+  // Fallback for other roles
+  return <p>Referral dashboard not available for your role.</p>;
 }

@@ -227,5 +227,24 @@ export const allReferrals: Referral[] = [
         referralDate: new Date('2024-07-23T09:00:00Z'),
         createdAt: new Date(),
         updatedAt: new Date(),
+    },
+    {
+        referralId: 'REF-240724-0002',
+        patientDetails: {
+            fullName: 'Ebo Taylor',
+            dob: new Date('1956-03-12'),
+            contactPhone: '0249876543',
+        },
+        referringProvider: {
+            name: 'Korle Bu Teaching Hospital'
+        },
+        reasonForReferral: 'Urgent neurological consult for persistent headaches and blurred vision.',
+        referredToDepartment: 'Neurology',
+        status: 'Assigned',
+        assignedToDoctorId: 'doc1',
+        doctorName: 'Dr. Evelyn Mensah',
+        referralDate: new Date('2024-07-24T11:00:00Z'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
     }
 ];
