@@ -71,75 +71,33 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
            </div>
        </div>
 
-      <Tabs defaultValue="notes">
-        <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="vitals">Vitals</TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="meds">Medication</TabsTrigger>
-            <TabsTrigger value="labs">Labs</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+      <Tabs defaultValue="history">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="info">Patient Info</TabsTrigger>
+            <TabsTrigger value="history">Admission History</TabsTrigger>
         </TabsList>
-        <TabsContent value="vitals" className="mt-4">
+        <TabsContent value="info" className="mt-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Vitals</CardTitle>
-                    <CardDescription>This feature is coming soon.</CardDescription>
+                    <CardTitle>Patient Information</CardTitle>
+                    <CardDescription>Demographic and contact details.</CardDescription>
                 </CardHeader>
-                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                    <CalendarClock className="w-10 h-10 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Vital signs monitoring will be available here.</p>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="notes" className="mt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Clinical Notes</CardTitle>
-                    <CardDescription>A log of all clinical notes and observations.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {clinicalNotes.length > 0 ? (
-                        <div className="space-y-4">
-                            {clinicalNotes.map(note => (
-                                <div key={note.noteId} className="border-l-4 pl-4 py-2">
-                                    <div className="flex justify-between items-baseline">
-                                        <p className="font-semibold">{note.noteType}</p>
-                                        <p className="text-xs text-muted-foreground">{format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}</p>
-                                    </div>
-                                    <p className="text-sm mt-1">{note.noteText}</p>
-                                </div>
-                            ))}
+                 <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><span className="font-semibold">Gender:</span> {patient.gender}</div>
+                        <div><span className="font-semibold">DOB:</span> {format(patient.dob, "PPP")}</div>
+                        <div><span className="font-semibold">Phone:</span> {patient.contact.primaryPhone}</div>
+                        <div><span className="font-semibold">Email:</span> {patient.contact.email || 'N/A'}</div>
+                        <div className="col-span-2"><span className="font-semibold">Address:</span> {patient.address.street}, {patient.address.city}</div>
+                    </div>
+                     <div className="pt-4 border-t">
+                        <h4 className="font-semibold text-sm mb-2">Emergency Contact</h4>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                           <div><span className="font-semibold">Name:</span> {patient.emergencyContact.name}</div>
+                           <div><span className="font-semibold">Relationship:</span> {patient.emergencyContact.relationship}</div>
+                           <div className="col-span-2"><span className="font-semibold">Phone:</span> {patient.emergencyContact.phone}</div>
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                            <NotebookPen className="w-10 h-10 text-muted-foreground" />
-                            <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="meds" className="mt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Medication</CardTitle>
-                    <CardDescription>This feature is coming soon.</CardDescription>
-                </CardHeader>
-                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                    <Pill className="w-10 h-10 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Active and past prescriptions will be listed here.</p>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="labs" className="mt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Lab Results</CardTitle>
-                    <CardDescription>This feature is coming soon.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                    <Microscope className="w-10 h-10 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Ordered lab tests and their results will appear here.</p>
+                    </div>
                 </CardContent>
             </Card>
         </TabsContent>
