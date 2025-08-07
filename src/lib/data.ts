@@ -1,40 +1,58 @@
 
 import { User, Patient, Appointment } from './types';
 
+const now = new Date().toISOString();
+
 // Mock Users for development, allowing easy role switching
 export const allUsers: User[] = [
   {
     uid: 'admin1',
     email: 'admin@gammed.com',
-    displayName: 'Admin User',
-    role: 'Admin',
+    name: 'Admin User',
+    role: 'admin',
+    is_active: true,
+    created_at: now,
+    last_login: now,
   },
   {
     uid: 'doc1',
     email: 'e.mensah@gammed.com',
-    displayName: 'Dr. Evelyn Mensah',
-    role: 'Doctor',
+    name: 'Dr. Evelyn Mensah',
+    role: 'doctor',
+    is_active: true,
     specialty: 'Cardiology',
     department: 'Cardiology',
+    created_at: now,
+    last_login: now,
   },
   {
     uid: 'nurse1',
     email: 'f.agyepong@gammed.com',
-    displayName: 'Florence Agyepong',
-    role: 'Nurse',
+    name: 'Florence Agyepong',
+    role: 'nurse',
+    is_active: true,
     department: 'General Ward',
+    created_at: now,
+    last_login: now,
   },
   {
     uid: 'pharma1',
     email: 'j.boateng@gammed.com',
-    displayName: 'James Boateng',
-    role: 'Pharmacist',
+    name: 'James Boateng',
+    role: 'pharmacist',
+    is_active: true,
+    created_at: now,
+    last_login: now,
   },
   {
     uid: 'patient1',
     email: 'k.owusu@email.com',
-    displayName: 'Kwame Owusu',
-    role: 'Patient',
+    name: 'Kwame Owusu',
+    role: 'patient',
+    is_active: true,
+    patient_id: 'GM-PT-000001',
+    created_at: now,
+    last_login: now,
   },
 ];
 

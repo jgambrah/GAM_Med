@@ -9,6 +9,9 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard } from 'lucide-react';
+import { User } from '@/lib/types';
+
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -19,37 +22,37 @@ export function MainNav() {
       href: '/dashboard',
       label: 'Dashboard',
       icon: Home,
-      roles: ['Admin', 'Doctor', 'Nurse', 'Pharmacist', 'Patient'],
+      roles: allRoles,
     },
     {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['Admin', 'Doctor', 'Nurse'],
+      roles: ['admin', 'doctor', 'nurse'],
     },
     {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['Admin', 'Doctor', 'Nurse'],
+      roles: ['admin', 'doctor', 'nurse'],
     },
     {
       href: '/dashboard/prescriptions',
       label: 'Prescriptions',
       icon: Pill,
-      roles: ['Doctor', 'Pharmacist', 'Patient'],
+      roles: ['doctor', 'pharmacist', 'patient'],
     },
     {
       href: '/dashboard/my-practice',
       label: 'My Practice',
       icon: Stethoscope,
-      roles: ['Doctor'],
+      roles: ['doctor'],
     },
     {
       href: '/dashboard/admin',
       label: 'Admin Panel',
       icon: LayoutDashboard,
-      roles: ['Admin'],
+      roles: ['admin'],
     },
   ];
 

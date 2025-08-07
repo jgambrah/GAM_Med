@@ -4,14 +4,18 @@
  * The document ID in the 'users' collection should correspond to the Firebase Auth UID.
  */
 export interface User {
-  uid: string;
+  uid: string; // Corresponds to Firebase Auth UID
   email: string;
-  displayName: string;
-  photoURL?: string;
-  role: 'Admin' | 'Doctor' | 'Nurse' | 'Pharmacist' | 'Patient';
+  name: string;
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient';
+  is_active: boolean;
+  patient_id?: string; // Link to the patient document, for patient users
+  created_at: string; // ISO 8601 format
+  last_login: string; // ISO 8601 format
   // Doctor-specific fields
   specialty?: string; // e.g., 'Cardiology', 'Pediatrics'
   department?: string;
+  photoURL?: string; // Optional: For profile pictures
 }
 
 /**
