@@ -1,43 +1,40 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get the requesting user's data from the 'users' collection
+    
+    // Helper function to get user data
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
-    // Helper function to get the user's role
+    // Helper function to get user role
     function getUserRole() {
       return getUserData().role;
     }
 
-    // Global rule for authenticated users to manage their own user data
+    // Users can read and update their own user document
+    // Users can be created by any authenticated user during signup
     match /users/{userId} {
       allow read, update: if request.auth.uid == userId;
-      // Allow creation of a user document if one doesn't already exist for the auth UID
-      allow create: if request.auth.uid != null && !exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      allow create: if request.auth.uid != null;
     }
 
     // Role-based access for the 'patients' collection
     match /patients/{patientId} {
-      // Admins, Doctors, and Nurses can read all patient data.
-      // A patient can read their own data via the patient portal.
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || getUserData().patient_id == patientId;
-      
+      // Admins, Doctors, and Nurses can read/update all patient data
+      allow read, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
       // Admins can create new patient records
       allow create: if getUserRole() == 'admin';
-      
-      // Admins, Doctors, and Nurses can update patient records
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      // No one can delete patient records directly (soft delete should be used)
-      allow delete: if false;
+      // Patients can read their own data via a linked patient_id
+      allow read: if getUserData().patient_id == patientId;
     }
-
-    // Rules for other collections will go here...
-    // e.g., appointments, EHR, billing, etc.
-
+    
+    // Rules for the 'admissions' sub-collection
+    match /patients/{patientId}/admissions/{admissionId} {
+        // Admins, Doctors, and Nurses can read/write admission data
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
   }
 }

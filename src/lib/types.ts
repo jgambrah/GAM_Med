@@ -23,36 +23,50 @@ export interface User {
  * This model is designed to be comprehensive and searchable.
  */
 export interface Patient {
-  patientId: string; // Unique, system-generated ID (e.g., GM-PT-000001)
-  ghanaCardId?: string; // National ID, for verification
-  primaryContact: {
-    phone: string;
+  patient_id: string; // Unique, system-generated ID (e.g., P-123456)
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  dob: string; // ISO 8601 format (YYYY-MM-DD)
+  gender: 'Male' | 'Female' | 'Other';
+  contact: {
+    phone_number: string;
     email?: string;
+    address: {
+      street: string;
+      city: string;
+      region: string;
+    };
   };
-  personalDetails: {
-    firstName: string;
-    lastName: string;
-    otherNames?: string;
-    dateOfBirth: string; // ISO 8601 format (YYYY-MM-DD)
-    gender: 'Male' | 'Female' | 'Other';
-  };
-  address: {
-    street: string;
-    city: string;
-    region: string;
-  };
-  emergencyContact: {
+  emergency_contact: {
     name: string;
-    phone: string;
     relationship: string;
+    phone_number: string;
   };
-  insuranceDetails?: {
-    provider: string; // e.g., 'NHIS', 'Private'
-    policyNumber: string;
+  insurance?: {
+    provider_name: string;
+    policy_number: string;
+    expiry_date: string; // ISO 8601 format (YYYY-MM-DD)
   };
-  createdAt: string; // ISO 8601 format
-  updatedAt: string; // ISO 8601 format
+  status: 'active' | 'discharged' | 'deceased';
+  created_at: string; // ISO 8601 format
 }
+
+
+/**
+ * Represents an admission record in the sub-collection 'admissions' under a patient.
+ */
+export interface Admission {
+  admission_id: string; // e.g., A-001
+  admission_date: string; // ISO 8601 format
+  ward: string;
+  bed_number: string;
+  reason_for_admission: string;
+  attending_doctor_id: string; // Reference to doctor user ID
+  discharge_date: string | null; // Will be filled upon discharge
+  created_at: string; // ISO 8601 format
+}
+
 
 /**
  * Represents an appointment in the 'appointments' collection.

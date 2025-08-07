@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment } from './types';
+import { User, Patient, Appointment, Admission } from './types';
 
 const now = new Date().toISOString();
 
@@ -50,7 +50,7 @@ export const allUsers: User[] = [
     name: 'Kwame Owusu',
     role: 'patient',
     is_active: true,
-    patient_id: 'GM-PT-000001',
+    patient_id: 'P-123456',
     created_at: now,
     last_login: now,
   },
@@ -59,42 +59,56 @@ export const allUsers: User[] = [
 // Mock Patient Data
 export const allPatients: Patient[] = [
   {
-    patientId: 'GM-PT-000001',
-    ghanaCardId: 'GHA-123456789-0',
-    primaryContact: {
-      phone: '0244123456',
+    patient_id: 'P-123456',
+    full_name: 'Kwame Owusu',
+    first_name: 'Kwame',
+    last_name: 'Owusu',
+    dob: '1985-05-20',
+    gender: 'Male',
+    contact: {
+      phone_number: '+233241234567',
       email: 'k.owusu@email.com',
+      address: {
+        street: '123 Osu Oxford Street',
+        city: 'Accra',
+        region: 'Greater Accra',
+      },
     },
-    personalDetails: {
-      firstName: 'Kwame',
-      lastName: 'Owusu',
-      dateOfBirth: '1985-05-20',
-      gender: 'Male',
-    },
-    address: {
-      street: '123 Osu Oxford Street',
-      city: 'Accra',
-      region: 'Greater Accra',
-    },
-    emergencyContact: {
+    emergency_contact: {
       name: 'Adwoa Owusu',
-      phone: '0204123789',
       relationship: 'Spouse',
+      phone_number: '+233204123789',
     },
-    insuranceDetails: {
-      provider: 'NHIS',
-      policyNumber: '87654321',
+    insurance: {
+      provider_name: 'NHIS',
+      policy_number: '87654321',
+      expiry_date: '2025-12-31'
     },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    status: 'active',
+    created_at: new Date().toISOString(),
   },
 ];
+
+// Mock Admission Data
+export const allAdmissions: Admission[] = [
+    {
+        admission_id: 'A-001',
+        admission_date: new Date().toISOString(),
+        ward: 'Cardiology',
+        bed_number: 'C-101',
+        reason_for_admission: 'Follow-up on hypertension',
+        attending_doctor_id: 'doc1',
+        discharge_date: null,
+        created_at: new Date().toISOString(),
+    }
+];
+
 
 // Mock Appointment Data
 export const allAppointments: Appointment[] = [
     {
         appointmentId: 'GM-APPT-000001',
-        patientId: 'GM-PT-000001',
+        patientId: 'P-123456',
         doctorId: 'doc1',
         department: 'Cardiology',
         appointmentDateTime: new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
