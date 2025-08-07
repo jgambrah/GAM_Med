@@ -1,5 +1,5 @@
 
-import type { User, Patient, Appointment, Bed, Admission } from './types';
+import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -208,3 +208,6 @@ export const allAppointments: Appointment[] = [
     updatedAt: now,
   },
 ];
+
+
+export const allReferrals: Referral[] = [];
