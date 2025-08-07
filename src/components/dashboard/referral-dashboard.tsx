@@ -158,8 +158,15 @@ function DoctorReferralView({ user }: { user: User }) {
 }
 
 export function ReferralDashboard() {
-    const { user } = useAuth();
-    if (!user) return <p>Loading...</p>;
+    const { user, loading } = useAuth();
+    
+    if (loading) {
+        return <p>Loading...</p>;
+    }
+
+    if (!user) {
+        return <p>Error: Could not find user information.</p>;
+    }
 
     return user.role === 'Admin' ? <AdminReferralView /> : <DoctorReferralView user={user} />;
 }
