@@ -145,7 +145,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
              <Card>
-                <CardHeader className="flex justify-between items-center">
+                <CardHeader className="flex flex-row justify-between items-center">
                     <div>
                         <CardTitle>Clinical Notes</CardTitle>
                         <CardDescription>A log of all clinical notes and observations.</CardDescription>
@@ -172,7 +172,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                 </CardHeader>
                 <CardContent>
                     {patientClinicalNotes.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {patientClinicalNotes.map(note => (
                                 <div key={note.noteId} className="border-l-4 pl-4 py-2">
                                     <div className="flex justify-between items-baseline">
@@ -194,7 +194,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </TabsContent>
         <TabsContent value="meds" className="mt-4">
             <Card>
-                <CardHeader className="flex justify-between items-center">
+                <CardHeader className="flex flex-row justify-between items-center">
                     <div>
                         <CardTitle>Medication</CardTitle>
                         <CardDescription>Active and past prescriptions.</CardDescription>
@@ -221,7 +221,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                 </CardHeader>
                  <CardContent>
                     {patientMedications.length > 0 ? (
-                         <div className="space-y-4">
+                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {patientMedications.map(med => (
                                 <div key={med.prescriptionId} className="border-l-4 pl-4 py-2">
                                     <div className="flex justify-between items-baseline">
@@ -244,7 +244,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </TabsContent>
         <TabsContent value="labs" className="mt-4">
             <Card>
-                <CardHeader className="flex justify-between items-center">
+                <CardHeader className="flex flex-row justify-between items-center">
                     <div>
                         <CardTitle>Lab Results</CardTitle>
                         <CardDescription>Ordered lab tests and their results.</CardDescription>
@@ -271,7 +271,7 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
                 </CardHeader>
                 <CardContent>
                     {patientLabResults.length > 0 ? (
-                         <div className="space-y-4">
+                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {patientLabResults.map(lab => (
                                 <div key={lab.testId} className="border-l-4 pl-4 py-2">
                                     <div className="flex justify-between items-baseline">
