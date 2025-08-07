@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -36,6 +37,7 @@ const referralFormSchema = z.object({
   referringFacility: z.string().min(3, "Referring facility is required."),
   reasonForReferral: z.string().min(10, "Reason for referral is required."),
   referredToDepartment: z.string().min(3, "Department is required."),
+  scannedDocument: z.any().optional(),
 });
 
 type ReferralFormValues = z.infer<typeof referralFormSchema>;
@@ -62,8 +64,19 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
 
   async function onSubmit(data: ReferralFormValues) {
     setIsSubmitting(true);
+    // In a real app, you would handle the file upload here.
+    // For this simulation, we'll just log that a file was included.
+    if (data.scannedDocument && data.scannedDocument.length > 0) {
+      console.log("File to upload:", data.scannedDocument[0].name);
+      // The server action would receive this and upload to Firebase Storage,
+      // then save the URL in the referral document.
+    }
+    
     try {
-      const result = await processIncomingReferralAction(data);
+      const result = await processIncomingReferralAction({
+        ...data,
+        scannedDocumentURL: data.scannedDocument?.[0]?.name ? `/uploads/${data.scannedDocument[0].name}` : undefined
+      });
       if (result.success && result.referral) {
         toast({
           title: "Referral Created",
@@ -130,6 +143,26 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
                         <FormItem>
                         <FormLabel>Reason for Referral</FormLabel>
                         <FormControl><Textarea placeholder="Describe the patient's condition and why they need a referral..." {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="scannedDocument"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Scanned Referral Letter (PDF, JPG)</FormLabel>
+                        <FormControl>
+                            <Input 
+                                type="file" 
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => field.onChange(e.target.files)}
+                             />
+                        </FormControl>
+                        <FormDescription>
+                            Optional: Upload a copy of the physical referral document.
+                        </FormDescription>
                         <FormMessage />
                         </FormItem>
                     )}

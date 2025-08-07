@@ -68,6 +68,7 @@ const referralSchema = z.object({
     referringFacility: z.string().min(3, "Referring facility is required."),
     reasonForReferral: z.string().min(10, "Reason for referral is required."),
     referredToDepartment: z.string().min(3, "Department is required."),
+    scannedDocumentURL: z.string().optional(),
 });
 
 const assignDoctorSchema = z.object({
@@ -536,6 +537,7 @@ export async function processIncomingReferralAction(values: z.infer<typeof refer
             referredToDepartment: values.referredToDepartment,
             status: 'Pending',
             referralDate: new Date(),
+            scannedDocumentURL: values.scannedDocumentURL,
             createdAt: new Date(),
             updatedAt: new Date(),
         };
