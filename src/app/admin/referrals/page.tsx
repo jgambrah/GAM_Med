@@ -1,15 +1,11 @@
 
 "use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
+import { ReferralDashboard } from "@/components/dashboard/referral-dashboard";
+import { useAuth } from "@/components/auth-provider";
 
 export default function ReferralsPage() {
-    return (
-      <div className="space-y-4">
-          <Skeleton className="h-8 w-1/4" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-64 w-full" />
-          <p>This feature is being rebuilt.</p>
-      </div>
-    )
+    const { user } = useAuth();
+    // This page will render the dashboard which will handle role-specific views.
+    return <ReferralDashboard />;
 }

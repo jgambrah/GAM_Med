@@ -30,12 +30,14 @@ const navItems = {
     { href: "/", icon: LayoutDashboard, label: "Dashboard", match: "/" },
     { href: "/admin/admissions", icon: LogIn, label: "Admissions", match: "/admin/admissions" },
     { href: "/admin/patients", icon: UsersRound, label: "Patients", match: "/admin/patients" },
+    { href: "/admin/referrals", icon: Share2, label: "Referrals", match: "/admin/referrals" },
     { href: "/admin/billing", icon: FileText, label: "Billing", match: "/admin/billing" },
   ],
   Doctor: [
     { href: "/", icon: LayoutDashboard, label: "Dashboard", match: "/" },
     { href: "/doctor/appointments", icon: CalendarDays, label: "Appointments", match: "/doctor/appointments" },
     { href: "/doctor/patients", icon: UsersRound, label: "Patients", match: "/doctor/patients" },
+    { href: "/doctor/referrals", icon: Share2, label: "Referrals", match: "/doctor/referrals" },
   ],
   Nurse: [
     { href: "/", icon: LayoutDashboard, label: "Dashboard" },

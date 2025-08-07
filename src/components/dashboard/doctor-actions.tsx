@@ -25,6 +25,12 @@ export function DoctorActions() {
             description: "Access the full list of patients in the hospital.",
         },
         {
+            href: "/doctor/referrals",
+            icon: Share2,
+            title: "My Referrals",
+            description: "View and manage all referrals assigned to you.",
+        },
+        {
             href: "#", // Placeholder for future surgery schedule page
             icon: Activity,
             title: "Today's Surgeries",
