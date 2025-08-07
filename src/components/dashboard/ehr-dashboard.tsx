@@ -1,31 +1,41 @@
 
 "use client";
 
-import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, NotebookPen, CalendarClock } from "lucide-react";
-import type { Patient, ClinicalNote } from "@/lib/types";
+import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, NotebookPen, CalendarClock, PlusCircle } from "lucide-react";
+import type { Patient, ClinicalNote, MedicationHistory, LabResult } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Badge } from "../ui/badge";
 import * as React from "react";
 import { useAuth } from "../auth-provider";
-import { allClinicalNotes } from "@/lib/data";
+import { allClinicalNotes, allLabResults, allMedications } from "@/lib/data";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { ClinicalNoteForm } from "./clinical-note-form";
+import { MedicationForm } from "./medication-form";
+import { LabRequestForm } from "./lab-request-form";
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-  const clinicalNotes = allClinicalNotes.filter(n => n.patientId === patient.patientId);
+  const [patientClinicalNotes, setPatientClinicalNotes] = React.useState<ClinicalNote[]>(() => allClinicalNotes.filter(n => n.patientId === patient.patientId));
+  const [patientMedications, setPatientMedications] = React.useState<MedicationHistory[]>(() => allMedications.filter(m => m.patientId === patient.patientId));
+  const [patientLabResults, setPatientLabResults] = React.useState<LabResult[]>(() => allLabResults.filter(l => l.patientId === patient.patientId));
+
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
+  const [isMedDialogOpen, setIsMedDialogOpen] = React.useState(false);
+  const [isLabDialogOpen, setIsLabDialogOpen] = React.useState(false);
+
+  const isClinician = user?.role === 'Doctor' || user?.role === 'Nurse';
   
   const getAge = (dob: Date) => {
     const today = new Date();
@@ -41,6 +51,21 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
   const getPatientDetailsLinkPath = () => {
     const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
     return `${base}/patients/${patient.patientId}`;
+  }
+
+  const handleNoteAdded = (newNote: ClinicalNote) => {
+    setPatientClinicalNotes(prev => [newNote, ...prev]);
+    setIsNoteDialogOpen(false);
+  }
+
+  const handleMedicationAdded = (newMed: MedicationHistory) => {
+    setPatientMedications(prev => [newMed, ...prev]);
+    setIsMedDialogOpen(false);
+  }
+
+  const handleLabRequestAdded = (newLab: LabResult) => {
+    setPatientLabResults(prev => [newLab, ...prev]);
+    setIsLabDialogOpen(false);
   }
 
   return (
@@ -120,14 +145,35 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
              <Card>
-                <CardHeader>
-                    <CardTitle>Clinical Notes</CardTitle>
-                    <CardDescription>A log of all clinical notes and observations.</CardDescription>
+                <CardHeader className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Clinical Notes</CardTitle>
+                        <CardDescription>A log of all clinical notes and observations.</CardDescription>
+                    </div>
+                    {isClinician && (
+                       <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Add New Note
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                               <DialogHeader>
+                                <DialogTitle>New Clinical Note</DialogTitle>
+                                <DialogDescription>
+                                  Record a new note for {patient.fullName}.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <ClinicalNoteForm patient={patient} onNoteAdded={handleNoteAdded} />
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </CardHeader>
                 <CardContent>
-                    {clinicalNotes.length > 0 ? (
+                    {patientClinicalNotes.length > 0 ? (
                         <div className="space-y-4">
-                            {clinicalNotes.map(note => (
+                            {patientClinicalNotes.map(note => (
                                 <div key={note.noteId} className="border-l-4 pl-4 py-2">
                                     <div className="flex justify-between items-baseline">
                                         <p className="font-semibold">{note.noteType}</p>
@@ -148,25 +194,106 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </TabsContent>
         <TabsContent value="meds" className="mt-4">
             <Card>
-                <CardHeader>
-                    <CardTitle>Medication</CardTitle>
-                    <CardDescription>This feature is coming soon.</CardDescription>
+                <CardHeader className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Medication</CardTitle>
+                        <CardDescription>Active and past prescriptions.</CardDescription>
+                    </div>
+                     {isClinician && (
+                       <Dialog open={isMedDialogOpen} onOpenChange={setIsMedDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Prescribe
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                               <DialogHeader>
+                                <DialogTitle>Prescribe Medication</DialogTitle>
+                                <DialogDescription>
+                                  Create a new prescription for {patient.fullName}.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <MedicationForm patient={patient} onMedicationAdded={handleMedicationAdded} />
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </CardHeader>
-                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                    <Pill className="w-10 h-10 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Active and past prescriptions will be listed here.</p>
+                 <CardContent>
+                    {patientMedications.length > 0 ? (
+                         <div className="space-y-4">
+                            {patientMedications.map(med => (
+                                <div key={med.prescriptionId} className="border-l-4 pl-4 py-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <p className="font-semibold">{med.medicationName} ({med.dosage})</p>
+                                        <p className="text-xs text-muted-foreground">{format(new Date(med.prescribedAt), 'PPP p')}</p>
+                                    </div>
+                                    <p className="text-sm mt-1">Frequency: {med.frequency}</p>
+                                     <p className="text-sm text-muted-foreground mt-1">Instructions: {med.instructions}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                            <Pill className="w-10 h-10 text-muted-foreground" />
+                            <p className="mt-4 text-muted-foreground">No medication history recorded.</p>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </TabsContent>
         <TabsContent value="labs" className="mt-4">
             <Card>
-                <CardHeader>
-                    <CardTitle>Lab Results</CardTitle>
-                    <CardDescription>This feature is coming soon.</CardDescription>
+                <CardHeader className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Lab Results</CardTitle>
+                        <CardDescription>Ordered lab tests and their results.</CardDescription>
+                    </div>
+                     {isClinician && (
+                       <Dialog open={isLabDialogOpen} onOpenChange={setIsLabDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Order Test
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                               <DialogHeader>
+                                <DialogTitle>Order Lab Test</DialogTitle>
+                                <DialogDescription>
+                                  Request a new lab test for {patient.fullName}.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <LabRequestForm patient={patient} onLabRequestAdded={handleLabRequestAdded} />
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                    <Microscope className="w-10 h-10 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">Ordered lab tests and their results will appear here.</p>
+                <CardContent>
+                    {patientLabResults.length > 0 ? (
+                         <div className="space-y-4">
+                            {patientLabResults.map(lab => (
+                                <div key={lab.testId} className="border-l-4 pl-4 py-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <p className="font-semibold">{lab.testName}</p>
+                                        <Badge variant={lab.status === 'Completed' ? 'default' : 'secondary'}>{lab.status}</Badge>
+                                    </div>
+                                    <p className="text-sm mt-1">
+                                        Result: {lab.result || 'Pending'} {lab.units}
+                                    </p>
+                                     <p className="text-xs text-muted-foreground mt-1">
+                                        Ordered: {format(new Date(lab.orderedAt), 'PPP p')}
+                                        {lab.completedAt && ` | Completed: ${format(new Date(lab.completedAt), 'PPP p')}`}
+                                     </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                            <Microscope className="w-10 h-10 text-muted-foreground" />
+                            <p className="mt-4 text-muted-foreground">No lab results found.</p>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </TabsContent>
@@ -174,4 +301,3 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
     </div>
   );
 }
-
