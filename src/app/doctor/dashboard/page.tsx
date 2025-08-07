@@ -1,51 +1,35 @@
 
 "use client";
 import { useAuth } from "@/components/auth-provider";
-import { AppointmentsView } from "@/components/dashboard/appointments-view";
-import { PatientsList } from "@/components/dashboard/patients-list";
-import { allAppointments, allPatients } from "@/lib/data";
-import * as React from "react";
+import { AdminOverview } from "@/components/dashboard/admin-overview";
+import { allPatients, allAppointments } from "@/lib/data";
 import { DoctorActions } from "@/components/dashboard/doctor-actions";
-import { PatientDetailsView } from "@/components/dashboard/patient-details-view";
-import type { Patient } from "@/lib/types";
-import { Card, CardContent } from "@/components/ui/card";
+import { PatientsList } from "@/components/dashboard/patients-list";
+import { AppointmentsView } from "@/components/dashboard/appointments-view";
+import * as React from "react";
 
 function DoctorDashboard({ user }: { user: any }) {
-    const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
-
     const userAppointments = React.useMemo(() => {
         if (!user) return [];
         return allAppointments.filter(app => app.attendingDoctorId === user.id);
     }, [user]);
 
-    const handleSelectPatient = (patientId: string) => {
-        const patient = allPatients.find(p => p.patientId === patientId);
-        setSelectedPatient(patient || null);
-    }
-
     return (
         <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight font-headline">Doctor's Workbench</h2>
+            <h2 className="text-3xl font-bold tracking-tight font-headline">Doctor's Dashboard</h2>
+             <p className="text-muted-foreground">
+                Welcome, Dr. {user.name}. Here is an overview of your day.
+            </p>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 space-y-6">
-                    <AppointmentsView 
+                <div className="lg:col-span-1">
+                     <AppointmentsView 
                         appointments={userAppointments} 
                         user={user}
-                        onSelectPatient={handleSelectPatient}
                     />
-                    <DoctorActions />
                 </div>
-                <div className="lg:col-span-2">
-                    {selectedPatient ? (
-                        <PatientDetailsView patient={selectedPatient} />
-                    ) : (
-                        <Card className="h-full flex items-center justify-center min-h-[400px]">
-                            <CardContent className="text-center pt-6">
-                                <p className="text-lg font-semibold">No Patient Selected</p>
-                                <p className="text-muted-foreground">Select an appointment to view patient details.</p>
-                            </CardContent>
-                        </Card>
-                    )}
+                 <div className="lg:col-span-2">
+                    <DoctorActions />
                 </div>
             </div>
             

@@ -49,11 +49,10 @@ const statusConfig = {
 interface AppointmentsViewProps {
   appointments: Appointment[];
   user: User;
-  onSelectPatient?: (patientId: string) => void;
 }
 
 
-export function AppointmentsView({ appointments, user, onSelectPatient }: AppointmentsViewProps) {
+export function AppointmentsView({ appointments, user }: AppointmentsViewProps) {
   const { toast } = useToast();
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   const [isGenerating, setIsGenerating] = React.useState(false);
@@ -118,19 +117,13 @@ export function AppointmentsView({ appointments, user, onSelectPatient }: Appoin
     }
   };
 
-  const handleCardClick = (patientId: string) => {
-    if (onSelectPatient) {
-        onSelectPatient(patientId);
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-start">
             <div>
                 <CardTitle className="font-headline text-2xl">Today's Appointments</CardTitle>
-                <CardDescription>Select an appointment to view details.</CardDescription>
+                <CardDescription>A list of your scheduled appointments.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
                  <Button onClick={handleGenerateSms} disabled={isGenerating} size="sm">
@@ -158,8 +151,7 @@ export function AppointmentsView({ appointments, user, onSelectPatient }: Appoin
                 return (
                     <div 
                         key={appointment.appointmentId} 
-                        className={cn("flex items-center p-3 rounded-lg transition-colors", onSelectPatient && "cursor-pointer hover:bg-muted")}
-                        onClick={() => handleCardClick(appointment.patientId)}
+                        className="flex items-center p-3 rounded-lg"
                     >
                         <div className="flex-1 space-y-1">
                             <p className="font-medium">{format(appointment.appointmentDateTime, 'p')} - {user.role === 'Doctor' ? appointment.patientName : `Dr. ${appointment.doctorName}`}</p>
