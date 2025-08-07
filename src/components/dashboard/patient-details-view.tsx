@@ -1,14 +1,15 @@
 
 "use client";
 
-import { allAdmissions } from "@/lib/data";
+import { allAdmissions, allClinicalNotes, allLabResults, allMedications } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope, FileText, Activity, UserRound } from "lucide-react";
+import { Hospital, Stethoscope, FileText, Activity, UserRound, Pill, Microscope, NotebookPen, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Patient } from "@/lib/types";
@@ -18,6 +19,7 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
   const { user } = useAuth();
   const patientAdmissions = allAdmissions.filter(a => a.patientId === patient.patientId);
   const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
+  const clinicalNotes = allClinicalNotes.filter(n => n.patientId === patient.patientId);
   
   const getAge = (dob: Date) => {
     const birthDate = new Date(dob);
@@ -45,7 +47,18 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
             </Avatar>
             <div>
               <h1 className="text-3xl font-bold font-headline">{patient.fullName}</h1>
-              <p className="text-muted-foreground">Patient ID: {patient.patientId}</p>
+              <p className="text-muted-foreground">ID: {patient.patientId} &bull; {getAge(patient.dob)} years old</p>
+               {patient.isAdmitted && currentAdmission ? (
+                <Badge className="mt-2">
+                    <Hospital className="mr-2 h-3 w-3" />
+                    Admitted to {currentAdmission.ward}, Bed {currentAdmission.bedId}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="mt-2">
+                  <Stethoscope className="mr-2 h-3 w-3" />
+                  Outpatient
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -58,132 +71,134 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
            </div>
        </div>
 
-
-      {patient.isAdmitted && currentAdmission ? (
-        <Alert>
-          <Hospital className="h-4 w-4" />
-          <AlertTitle>Currently Admitted</AlertTitle>
-          <AlertDescription>
-            Inpatient in <strong>{currentAdmission.ward} Ward</strong>, Bed <strong>{currentAdmission.bedId}</strong>.
-            Admitted on {format(new Date(currentAdmission.admissionDate), 'PPP')}.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert variant="default">
-           <Stethoscope className="h-4 w-4" />
-          <AlertTitle>Outpatient</AlertTitle>
-          <AlertDescription>
-            {patient.lastVisitDate 
-              ? `Last visit on ${format(new Date(patient.lastVisitDate), 'PPP')}.`
-              : "No recent visit history."}
-          </AlertDescription>
-        </Alert>
-      )}
-
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Patient Information</CardTitle>
-          <CardDescription>Demographic and contact details.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
-          <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Date of Birth</p>
-            <p>{format(new Date(patient.dob), 'PPP')} ({getAge(patient.dob)} years old)</p>
-          </div>
-          <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Gender</p>
-            <p>{patient.gender}</p>
-          </div>
-           <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Phone Number</p>
-            <p>{patient.contact.primaryPhone}</p>
-          </div>
-           <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Email Address</p>
-            <p>{patient.contact.email || 'N/A'}</p>
-          </div>
-           <div className="space-y-1 md:col-span-2">
-            <p className="font-medium text-muted-foreground">Address</p>
-            <p>{patient.address.street}, {patient.address.city}, {patient.address.region}</p>
-          </div>
-        </CardContent>
-      </Card>
-      
-       <Card>
-        <CardHeader>
-          <CardTitle>Emergency Contact</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
-          <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Name</p>
-            <p>{patient.emergencyContact.name}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Relationship</p>
-            <p>{patient.emergencyContact.relationship}</p>
-          </div>
-           <div className="space-y-1">
-            <p className="font-medium text-muted-foreground">Phone Number</p>
-            <p>{patient.emergencyContact.phone}</p>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-            <CardTitle>Admission History</CardTitle>
-            <CardDescription>A log of all past and current admissions for this patient.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Admission ID</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Ward</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Summary</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {patientAdmissions.length > 0 ? (
-                        patientAdmissions.map((admission) => (
-                            <TableRow key={admission.admissionId}>
-                                <TableCell className="font-mono">{admission.admissionId}</TableCell>
-                                <TableCell>{format(new Date(admission.admissionDate), "PPP")}</TableCell>
-                                <TableCell>{admission.ward || 'N/A'}</TableCell>
-                                <TableCell>
-                                    <Badge variant={admission.dischargeDate ? "secondary" : "default"}>
-                                        {admission.dischargeDate ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : admission.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {admission.summaryPDF_URL ? (
-                                    <Button variant="outline" size="sm" asChild>
-                                      <Link href={admission.summaryPDF_URL} target="_blank">
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        View PDF
-                                      </Link>
-                                    </Button>
-                                  ) : (
-                                    <span className="text-muted-foreground">N/A</span>
-                                  )}
-                                </TableCell>
-                            </TableRow>
-                        ))
+      <Tabs defaultValue="notes">
+        <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="vitals">Vitals</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="meds">Medication</TabsTrigger>
+            <TabsTrigger value="labs">Labs</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="vitals" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Vitals</CardTitle>
+                    <CardDescription>This feature is coming soon.</CardDescription>
+                </CardHeader>
+                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <CalendarClock className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Vital signs monitoring will be available here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="notes" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Clinical Notes</CardTitle>
+                    <CardDescription>A log of all clinical notes and observations.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {clinicalNotes.length > 0 ? (
+                        <div className="space-y-4">
+                            {clinicalNotes.map(note => (
+                                <div key={note.noteId} className="border-l-4 pl-4 py-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <p className="font-semibold">{note.noteType}</p>
+                                        <p className="text-xs text-muted-foreground">{format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}</p>
+                                    </div>
+                                    <p className="text-sm mt-1">{note.noteText}</p>
+                                </div>
+                            ))}
+                        </div>
                     ) : (
-                        <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
-                                No admission history found.
-                            </TableCell>
-                        </TableRow>
+                        <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                            <NotebookPen className="w-10 h-10 text-muted-foreground" />
+                            <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
+                        </div>
                     )}
-                </TableBody>
-            </Table>
-        </CardContent>
-      </Card>
-
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="meds" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Medication</CardTitle>
+                    <CardDescription>This feature is coming soon.</CardDescription>
+                </CardHeader>
+                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <Pill className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Active and past prescriptions will be listed here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="labs" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Lab Results</CardTitle>
+                    <CardDescription>This feature is coming soon.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <Microscope className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Ordered lab tests and their results will appear here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+         <TabsContent value="history" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Admission History</CardTitle>
+                    <CardDescription>A log of all past and current admissions for this patient.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Admission ID</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Ward</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Summary</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {patientAdmissions.length > 0 ? (
+                                patientAdmissions.map((admission) => (
+                                    <TableRow key={admission.admissionId}>
+                                        <TableCell className="font-mono">{admission.admissionId}</TableCell>
+                                        <TableCell>{format(new Date(admission.admissionDate), "PPP")}</TableCell>
+                                        <TableCell>{admission.ward || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={admission.dischargeDate ? "secondary" : "default"}>
+                                                {admission.dischargeDate ? `Discharged on ${format(new Date(admission.dischargeDate!), "PPP")}` : admission.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          {admission.summaryPDF_URL ? (
+                                            <Button variant="outline" size="sm" asChild>
+                                              <Link href={admission.summaryPDF_URL} target="_blank">
+                                                <FileText className="mr-2 h-4 w-4" />
+                                                View PDF
+                                              </Link>
+                                            </Button>
+                                          ) : (
+                                            <span className="text-muted-foreground">N/A</span>
+                                          )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">
+                                        No admission history found.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

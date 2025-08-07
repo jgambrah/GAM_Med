@@ -1,7 +1,7 @@
 
 "use client";
 
-import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User } from "lucide-react";
+import { AlertCircle, FileText, HeartPulse, Microscope, Pill, Stethoscope, User, NotebookPen, CalendarClock } from "lucide-react";
 import type { Patient, ClinicalNote } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,10 +20,12 @@ import * as React from "react";
 import { useAuth } from "../auth-provider";
 import { allClinicalNotes } from "@/lib/data";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-  const patientNotes = allClinicalNotes.filter(n => n.patientId === patient.patientId);
+  const clinicalNotes = allClinicalNotes.filter(n => n.patientId === patient.patientId);
   
   const getAge = (dob: Date) => {
     const today = new Date();
@@ -97,32 +99,79 @@ export function EhrDashboard({ patient }: { patient: Patient }) {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Clinical Notes</CardTitle>
-          <CardDescription>A log of all clinical notes and observations.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            {patientNotes.length > 0 ? (
-                <div className="space-y-4">
-                    {patientNotes.map(note => (
-                        <div key={note.noteId} className="border-l-4 pl-4 py-2">
-                            <div className="flex justify-between items-baseline">
-                                <p className="font-semibold">{note.noteType}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}</p>
-                            </div>
-                            <p className="text-sm mt-1">{note.noteText}</p>
+      <Tabs defaultValue="notes" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="vitals">Vitals</TabsTrigger>
+            <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
+            <TabsTrigger value="meds">Medication</TabsTrigger>
+            <TabsTrigger value="labs">Lab Results</TabsTrigger>
+        </TabsList>
+        <TabsContent value="vitals" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Vitals</CardTitle>
+                    <CardDescription>This feature is coming soon.</CardDescription>
+                </CardHeader>
+                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <CalendarClock className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Vital signs monitoring will be available here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="notes" className="mt-4">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Clinical Notes</CardTitle>
+                    <CardDescription>A log of all clinical notes and observations.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {clinicalNotes.length > 0 ? (
+                        <div className="space-y-4">
+                            {clinicalNotes.map(note => (
+                                <div key={note.noteId} className="border-l-4 pl-4 py-2">
+                                    <div className="flex justify-between items-baseline">
+                                        <p className="font-semibold">{note.noteType}</p>
+                                        <p className="text-xs text-muted-foreground">{format(new Date(note.recordedAt), 'PPP p')} by {note.recordedByUserName}</p>
+                                    </div>
+                                    <p className="text-sm mt-1">{note.noteText}</p>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
-                    <FileText className="w-10 h-10 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
-                </div>
-            )}
-        </CardContent>
-      </Card>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                            <NotebookPen className="w-10 h-10 text-muted-foreground" />
+                            <p className="mt-4 text-muted-foreground">No clinical notes recorded for this patient.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="meds" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Medication</CardTitle>
+                    <CardDescription>This feature is coming soon.</CardDescription>
+                </CardHeader>
+                 <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <Pill className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Active and past prescriptions will be listed here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="labs" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Lab Results</CardTitle>
+                    <CardDescription>This feature is coming soon.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg">
+                    <Microscope className="w-10 h-10 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">Ordered lab tests and their results will appear here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
