@@ -74,7 +74,11 @@ export function ReferralForm({ onFormSubmit }: ReferralFormProps) {
     
     try {
       const result = await processIncomingReferralAction({
-        ...data,
+        patientName: data.patientFullName,
+        patientPhone: data.patientPhone,
+        reason: data.reasonForReferral,
+        referringFacility: data.referringFacility,
+        department: data.referredToDepartment,
         scannedDocumentURL: data.scannedDocument?.[0]?.name ? `/uploads/${data.scannedDocument[0].name}` : undefined
       });
       if (result.success && result.referral) {

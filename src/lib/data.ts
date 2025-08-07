@@ -204,10 +204,28 @@ export const allAppointments: Appointment[] = [
     appointmentDateTime: tomorrowAt9,
     reasonForVisit: 'Initial Consultation',
     status: 'Scheduled',
-    createdAt: now,
+createdAt: now,
     updatedAt: now,
   },
 ];
 
 
-export const allReferrals: Referral[] = [];
+export const allReferrals: Referral[] = [
+    {
+        referralId: 'REF-240723-0001',
+        patientDetails: {
+            fullName: 'Yaa Asantewaa',
+            dob: new Date('1988-08-08'),
+            contactPhone: '0201122334',
+        },
+        referringProvider: {
+            name: '37 Military Hospital'
+        },
+        reasonForReferral: 'Patient requires specialized cardiac evaluation following persistent palpitations and shortness of breath.',
+        referredToDepartment: 'Cardiology',
+        status: 'Pending',
+        referralDate: new Date('2024-07-23T09:00:00Z'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    }
+];

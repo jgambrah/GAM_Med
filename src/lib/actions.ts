@@ -2,8 +2,8 @@
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -59,6 +59,23 @@ const dischargeSummarySchema = z.object({
 const markBedAsCleanSchema = z.object({
   bedId: z.string(),
 });
+
+// Schema for creating a referral from an external source
+const incomingReferralSchema = z.object({
+  patientName: z.string(),
+  patientPhone: z.string(),
+  reason: z.string(),
+  referringFacility: z.string(),
+  department: z.string(),
+  scannedDocumentURL: z.string().optional(),
+});
+
+// Schema for assigning a doctor to a referral
+const assignDoctorSchema = z.object({
+  referralId: z.string(),
+  doctorId: z.string(),
+});
+
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -485,6 +502,71 @@ export async function pronouncePatientDeadAction(patientId: string) {
 
     } catch (error: any) {
         console.error('Error in pronouncePatientDeadAction:', error);
+        return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+async function generateReferralId(): Promise<string> {
+    const prefix = 'REF';
+    const today = new Date();
+    const datePart = today.toISOString().slice(2, 10).replace(/-/g, ""); // YYMMDD
+    const nextId = (allReferrals.length + 1).toString().padStart(4, '0');
+    return `${prefix}-${datePart}-${nextId}`;
+}
+
+export async function processIncomingReferralAction(values: z.infer<typeof incomingReferralSchema>) {
+    console.log('[Simulated] Running processIncomingReferralAction with:', values);
+    try {
+        const newReferralId = await generateReferralId();
+        const newReferral: Referral = {
+            referralId: newReferralId,
+            patientDetails: {
+                fullName: values.patientName,
+                // Assuming DOB is not collected in this simplified form. 
+                // In a real app, it would be.
+                dob: new Date(), 
+                contactPhone: values.patientPhone,
+            },
+            referringProvider: {
+                name: values.referringFacility,
+            },
+            reasonForReferral: values.reason,
+            referredToDepartment: values.department,
+            status: 'Pending',
+            referralDate: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            scannedDocumentURL: values.scannedDocumentURL,
+        };
+        
+        allReferrals.push(newReferral);
+        console.log('[Simulated] Triage/Admin team would be notified about this new referral.');
+        
+        return { success: true, referral: newReferral, message: 'Referral processed successfully.' };
+    } catch (error: any) {
+        return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+export async function assignDoctorToReferralAction(values: z.infer<typeof assignDoctorSchema>) {
+    console.log('[Simulated] Running assignDoctorToReferralAction with:', values);
+    try {
+        const referralIndex = allReferrals.findIndex(r => r.referralId === values.referralId);
+        if (referralIndex === -1) throw new Error("Referral not found.");
+
+        const doctor = allUsers.find(u => u.id === values.doctorId);
+        if (!doctor) throw new Error("Doctor not found.");
+
+        const referral = allReferrals[referralIndex];
+        referral.assignedToDoctorId = values.doctorId;
+        referral.doctorName = doctor.name; // Denormalize for easier display
+        referral.status = 'Assigned';
+        referral.updatedAt = new Date();
+        
+        console.log(`[Simulated] Notification sent to Dr. ${doctor.name} about the new referral.`);
+        
+        return { success: true, referral, message: 'Doctor assigned successfully.' };
+    } catch (error: any) {
         return { success: false, message: error.message || 'An unexpected error occurred.' };
     }
 }
