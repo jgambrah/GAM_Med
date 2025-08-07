@@ -73,15 +73,17 @@ export interface Admission {
  * This model links patients, doctors, and resources.
  */
 export interface Appointment {
-  appointmentId: string; // Unique, system-generated ID
-  patientId: string; // Reference to the 'patients' collection
-  doctorId: string; // Reference to the 'users' collection (a user with 'Doctor' role)
+  appointment_id: string; // Unique, system-generated ID (e.g., AP-001)
+  patient_id: string; // Reference to the 'patients' collection
+  patient_name: string; // Denormalized for quick access
+  doctor_id: string; // Reference to the 'users' collection (a user with 'Doctor' role)
+  doctor_name: string; // Denormalized for quick access
+  appointment_date: string; // ISO 8601 format, start time
+  end_time: string; // ISO 8601 format
+  duration: number; // in minutes
+  type: 'consultation' | 'follow-up' | 'procedure';
   department: string;
-  appointmentDateTime: string; // ISO 8601 format
-  reason: string; // Reason for the visit
-  status: 'Scheduled' | 'Completed' | 'Canceled' | 'No-show';
-  resourceId?: string; // Optional: for booking specific rooms or equipment
-  notes?: string; // Doctor's notes post-appointment
-  createdAt: string; // ISO 8601 format
-  updatedAt: string; // ISO 8601 format
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  notes: string; // Reason for the visit, or pre-appointment notes
+  created_at: string; // ISO 8601 format
 }

@@ -3,19 +3,18 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user data
+
+    // Helper function to get user data for role checking
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
-    // Helper function to get user role
     function getUserRole() {
       return getUserData().role;
     }
 
-    // Users can read and update their own user document
-    // Users can be created by any authenticated user during signup
+    // Global rule for authenticated users to read/update their own user data
+    // Users can create their own user document upon signup
     match /users/{userId} {
       allow read, update: if request.auth.uid == userId;
       allow create: if request.auth.uid != null;
@@ -24,17 +23,30 @@ service cloud.firestore {
     // Role-based access for the 'patients' collection
     match /patients/{patientId} {
       // Admins, Doctors, and Nurses can read/update all patient data
-      allow read, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      // Admins can create new patient records
-      allow create: if getUserRole() == 'admin';
-      // Patients can read their own data via a linked patient_id
-      allow read: if getUserData().patient_id == patientId;
+      // Patients can read their own data
+      allow read, update: if getUserRole() in ['admin', 'doctor', 'nurse'] 
+                         || (getUserRole() == 'patient' && getUserData().patient_id == patientId);
+      // Only Admins can create or delete patient records
+      allow create, delete: if getUserRole() == 'admin';
+      
+      // Admissions sub-collection rules
+      match /admissions/{admissionId} {
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
     }
     
-    // Rules for the 'admissions' sub-collection
-    match /patients/{patientId}/admissions/{admissionId} {
-        // Admins, Doctors, and Nurses can read/write admission data
-        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    // Role-based access for the 'appointments' collection
+    match /appointments/{appointmentId} {
+      // Admin can do anything
+      allow read, write: if getUserRole() == 'admin';
+      
+      // Doctors can read their appointments, patients can read theirs.
+      // Allow update for doctors to add notes, etc.
+      allow read, update: if (getUserRole() == 'doctor' && resource.data.doctorId == request.auth.uid)
+                       || (getUserRole() == 'patient' && resource.data.patientId == getUserData().patient_id);
+                       
+      // Authenticated users can create appointments (e.g., a patient booking for themselves)
+      allow create: if request.auth.uid != null;
     }
   }
 }

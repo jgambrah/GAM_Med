@@ -107,14 +107,18 @@ export const allAdmissions: Admission[] = [
 // Mock Appointment Data
 export const allAppointments: Appointment[] = [
     {
-        appointmentId: 'GM-APPT-000001',
-        patientId: 'P-123456',
-        doctorId: 'doc1',
+        appointment_id: 'AP-001',
+        patient_id: 'P-123456',
+        patient_name: 'Kwame Owusu',
+        doctor_id: 'doc1',
+        doctor_name: 'Dr. Evelyn Mensah',
+        appointment_date: new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
+        end_time: new Date(new Date().getTime() + (2 * 24 * 60 * 60 * 1000) + (30 * 60 * 1000)).toISOString(), // 2 days and 30 minutes from now
+        duration: 30,
+        type: 'follow-up',
         department: 'Cardiology',
-        appointmentDateTime: new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
-        reason: 'Follow-up consultation for hypertension.',
-        status: 'Scheduled',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        status: 'confirmed',
+        notes: 'Follow-up consultation for hypertension.',
+        created_at: new Date().toISOString(),
     }
 ]
