@@ -126,31 +126,3 @@ export interface Appointment {
   patientName?: string; 
   doctorName?: string;
 }
-
-// Represents a referral document in the 'referrals' collection
-export interface Referral {
-    referralId: string;
-    patientId?: string; // Optional: Link to an existing patient
-    patientDetails: {
-      fullName: string;
-      dob: string;
-      contactPhone: string;
-    };
-    referringProvider: {
-      name: string;
-      contactPerson?: string;
-      phone: string;
-      email?: string;
-    };
-    reasonForReferral: string; // Can support markdown
-    referredToDepartment: string;
-    assignedToDoctorId?: string; // Optional: Link to a doctor user
-    status: 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';
-    referralDate: Date;
-    scannedDocumentURL?: string; // Link to Firebase Storage
-    appointmentId?: string; // Link to the scheduled appointment
-    createdAt: Date;
-    updatedAt: Date;
-    // Denormalized fields for easier display
-    doctorName?: string;
-}

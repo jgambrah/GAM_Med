@@ -1,5 +1,5 @@
 
-import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
+import type { User, Patient, Appointment, Bed, Admission } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -207,40 +207,4 @@ export const allAppointments: Appointment[] = [
     createdAt: now,
     updatedAt: now,
   },
-];
-
-
-export const allReferrals: Referral[] = [
-    {
-        referralId: 'REF-2024-00001',
-        patientDetails: {
-            fullName: 'Yaa Asantewaa',
-            dob: '1988-04-12',
-            contactPhone: '+233271234567',
-        },
-        referringProvider: { name: '37 Military Hospital' },
-        reasonForReferral: 'Persistent headaches and dizziness, requires specialist neurological assessment.',
-        referredToDepartment: 'Neurology',
-        status: 'Pending',
-        referralDate: new Date('2024-07-28'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    },
-    {
-        referralId: 'REF-2024-00002',
-        assignedToDoctorId: 'doc1',
-        doctorName: 'Dr. Evelyn Mensah',
-        patientDetails: {
-            fullName: 'Kwabena Jones',
-            dob: '1965-09-02',
-            contactPhone: '+233267654321',
-        },
-        referringProvider: { name: 'Ridge Hospital' },
-        reasonForReferral: 'Follow-up for cardiac stress test results.',
-        referredToDepartment: 'Cardiology',
-        status: 'Assigned',
-        referralDate: new Date('2024-07-27'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    }
 ];

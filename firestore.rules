@@ -3,53 +3,62 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user role
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    // Helper function to check user role from the 'users' collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if the user is an admin
+    function isAdmin() {
+      return getUserRole() == 'Admin';
     }
 
-    // Rules for the 'users' collection
+    // =================================================================
+    // Users Collection
+    // =================================================================
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth.uid == userId; // Allow users to create their own profile
-      allow update: if request.auth.uid == userId; // Allow users to update their own profile
+      // Allow users to read their own data
+      // Admins can read anyone's data
+      allow read: if request.auth.uid == userId || isAdmin();
+
+      // Users can only create their own user document
+      // No one can update their own role
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
     }
 
-    // Rules for the 'patients' collection
+    // =================================================================
+    // Patients Collection
+    // =================================================================
     match /patients/{patientId} {
-      allow read: if request.auth != null && (getUserRole(request.auth.uid) == 'Admin' || getUserRole(request.auth.uid) == 'Doctor');
-      // Patients can read their own data, identified by a field linking to their auth UID
-      // allow read: if request.auth.uid == resource.data.authUid; 
-      allow create, update, delete: if request.auth != null && getUserRole(request.auth.uid) == 'Admin';
+      allow read: if isAdmin() || getUserRole() == 'Doctor' || getUserRole() == 'Nurse';
+      
+      // Patients can read their own record if we can match their user ID
+      // to a field on the patient document. This requires a `userId` field
+      // on the patient document.
+      // allow read: if resource.data.userId == request.auth.uid;
+
+      allow create, update: if isAdmin() || getUserRole() == 'Doctor';
+      allow delete: if isAdmin();
     }
 
-    // Rules for the 'admissions' collection
+    // =================================================================
+    // Admissions Collection
+    // =================================================================
     match /admissions/{admissionId} {
-        allow read: if request.auth != null && (getUserRole(request.auth.uid) == 'Admin' || getUserRole(request.auth.uid) == 'Doctor');
-        // allow read: if request.auth != null && exists(/databases/$(database)/documents/patients/$(resource.data.patientId)) && request.auth.uid == get(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.authUid;
-        allow create, update: if request.auth != null && getUserRole(request.auth.uid) == 'Admin';
+        allow read, create, update: if isAdmin() || getUserRole() == 'Doctor';
+        // A patient can read their own admission history.
+        // allow read: if resource.data.patientId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patientId;
     }
 
-    // Rules for the 'beds' collection
+    // =================================================================
+    // Beds Collection
+    // =================================================================
     match /beds/{bedId} {
-        allow read: if request.auth != null; // All authenticated users can see bed status
-        allow update: if request.auth != null && (getUserRole(request.auth.uid) == 'Admin' || getUserRole(request.auth.uid) == 'Housekeeping');
-    }
-
-    // Rules for the 'referrals' collection
-    match /referrals/{referralId} {
-      // Admins can create referrals.
-      allow create: if request.auth != null && getUserRole(request.auth.uid) == 'Admin';
-
-      // Admins and the assigned doctor can read the referral.
-      allow read: if request.auth != null && 
-                    (getUserRole(request.auth.uid) == 'Admin' || request.auth.uid == resource.data.assignedToDoctorId);
-
-      // Admins can update any field. Doctors can only update the status.
-      allow update: if request.auth != null && getUserRole(request.auth.uid) == 'Admin';
-      // A more granular rule for doctors would be:
-      // allow update: if (getUserRole(request.auth.uid) == 'Admin') || 
-      //               (request.auth.uid == resource.data.assignedToDoctorId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']));
+        allow read: if isAdmin() || getUserRole() == 'Doctor' || getUserRole() == 'Nurse' || getUserRole() == 'Housekeeping';
+        allow update: if isAdmin() || getUserRole() == 'Housekeeping'; // Housekeeping can update status to 'vacant'
+        // No one can create or delete beds from the front-end.
+        allow create, delete: if false;
     }
 
   }
