@@ -126,3 +126,30 @@ export interface Appointment {
   patientName?: string; 
   doctorName?: string;
 }
+
+// Referral Data Model
+export interface Referral {
+  referralId: string; // Document ID
+  patientId?: string; // Link to the main patient record if it exists
+  patientDetails: {
+    fullName: string;
+    dob: Date;
+    contactPhone: string;
+  };
+  referringProvider: {
+    name: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+  };
+  reasonForReferral: string;
+  referredToDepartment: string;
+  assignedToDoctorId?: string;
+  doctorName?: string; // Denormalized for easy display
+  status: 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';
+  referralDate: Date;
+  scannedDocumentURL?: string;
+  appointmentId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
