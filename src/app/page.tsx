@@ -1,49 +1,8 @@
-
-'use client'
-
-import AuthProvider from '@/components/auth-provider';
-import Dashboard from '@/components/dashboard';
-import { useAuth } from '@/components/auth-provider';
-import { AdminOverview } from '@/components/dashboard/admin-overview';
-import { allPatients } from '@/lib/data';
-import DoctorDashboardPage from './doctor/dashboard/page';
-import PatientDashboardPage from './patient/dashboard/page';
-import HousekeepingDashboard from '@/components/dashboard/housekeeping-dashboard';
-import BillingPage from './admin/billing/page';
-
-function DashboardContent() {
-  const { user } = useAuth();
-
-  if (!user) {
-    return null; // or a loading skeleton
-  }
-
-  // This is a simplified router. 
-  // In a real app, you might have more complex logic 
-  // or a dedicated routing component.
-  switch (user.role) {
-    case 'Admin':
-      return <AdminOverview patients={allPatients} />;
-    case 'Doctor':
-      return <DoctorDashboardPage />;
-    case 'Patient':
-      return <PatientDashboardPage />;
-    case 'Housekeeping':
-      return <HousekeepingDashboard />;
-    case 'BillingClerk':
-        return <BillingPage />;
-    // Add cases for other roles to show their default dashboard
-    default:
-      return <p>Dashboard for role {user.role} not found.</p>;
-  }
-}
-
 export default function Home() {
   return (
-    <AuthProvider>
-      <Dashboard>
-         <DashboardContent />
-      </Dashboard>
-    </AuthProvider>
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold">Welcome to MedFlow GH</h1>
+      <p className="mt-4 text-lg text-muted-foreground">We are starting fresh.</p>
+    </main>
   );
 }

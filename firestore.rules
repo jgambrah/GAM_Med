@@ -2,69 +2,15 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get user's role from the 'users' collection
+
+    // Helper function to get user's role from their custom claims
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return request.auth.token.role;
     }
 
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Any authenticated user can create their own user document (on signup)
-      allow create: if request.auth.uid == userId;
-      // Users can only read their own document
-      allow read: if request.auth.uid == userId;
-      // Users can only update their own document
-      allow update: if request.auth.uid == userId;
-      // Users cannot delete their own document
-      allow delete: if false;
-    }
-    
-    // Rules for the 'patients' collection
-    match /patients/{patientId} {
-        // Admins can create new patient records
-        allow create: if getUserRole() == 'Admin';
-        
-        // Admins and Doctors can read any patient record
-        // Patients can only read their own record (requires a field linking auth UID to patient ID)
-        allow read: if getUserRole() == 'Admin' || getUserRole() == 'Doctor';
-        
-        // Admins can update any patient record
-        allow update: if getUserRole() == 'Admin';
-        
-        // Deleting patient records is restricted to Admins
-        allow delete: if getUserRole() == 'Admin';
-    }
-    
-    // Rules for the 'admissions' collection
-    match /admissions/{admissionId} {
-        allow create, update: if getUserRole() == 'Admin' || getUserRole() == 'Doctor';
-        allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'BillingClerk'];
-        allow delete: if getUserRole() == 'Admin';
-    }
-    
-    // Rules for the 'beds' collection
-    match /beds/{bedId} {
-      allow read: if getUserRole() in ['Admin', 'Doctor', 'Nurse', 'Housekeeping'];
-      allow update: if getUserRole() in ['Admin', 'Housekeeping']; 
-      allow create, delete: if getUserRole() == 'Admin';
-    }
-
-    // Rules for the 'referrals' collection
-    match /referrals/{referralId} {
-      // Admins (or triage officers) can create new referral documents
-      allow create: if getUserRole() == 'Admin';
-
-      // Admins can read all referrals. Doctors can only read referrals assigned to them.
-      allow read: if getUserRole() == 'Admin' || request.auth.uid == resource.data.assignedToDoctorId;
-
-      // Admins can update any field. 
-      // Doctors can only update the status of their assigned referrals.
-      allow update: if getUserRole() == 'Admin' || 
-                     (request.auth.uid == resource.data.assignedToDoctorId && request.resource.data.status != resource.data.status);
-                     
-      // Deleting referrals is restricted to Admins
-      allow delete: if getUserRole() == 'Admin';
+    // Default deny all reads/writes
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
