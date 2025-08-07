@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, UserCheck } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../auth-provider";
 import { allReferrals, allUsers } from "@/lib/data";
 import type { Referral, User } from "@/lib/types";
@@ -47,8 +46,7 @@ const getStatusBadgeVariant = (status: Referral['status']) => {
     }
 }
 
-export function ReferralDashboard() {
-  const { user } = useAuth();
+function AdminReferralView() {
   const [referrals, setReferrals] = React.useState<Referral[]>(allReferrals);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = React.useState(false);
@@ -113,13 +111,13 @@ export function ReferralDashboard() {
                 </TabsList>
 
                 <TabsContent value="pending" className="mt-4">
-                    <ReferralTable referrals={referralsByStatus('Pending')} onAssign={openAssignDialog} />
+                    <ReferralTable referrals={referralsByStatus('Pending')} onAssign={openAssignDialog} showAssignButton={true} />
                 </TabsContent>
                 <TabsContent value="assigned" className="mt-4">
-                    <ReferralTable referrals={referralsByStatus('Assigned')} />
+                    <ReferralTable referrals={referralsByStatus('Assigned')} showAssignButton={false} />
                 </TabsContent>
                 <TabsContent value="all" className="mt-4">
-                    <ReferralTable referrals={referrals} onAssign={openAssignDialog} />
+                    <ReferralTable referrals={referrals} onAssign={openAssignDialog} showAssignButton={true} />
                 </TabsContent>
             </Tabs>
         </CardContent>
@@ -137,10 +135,37 @@ export function ReferralDashboard() {
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
 
-function ReferralTable({ referrals, onAssign }: { referrals: Referral[], onAssign?: (referral: Referral) => void }) {
+
+function DoctorReferralView({ user }: { user: User }) {
+    const myReferrals = React.useMemo(() => {
+        return allReferrals.filter(r => r.assignedToDoctorId === user.id);
+    }, [user.id]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline text-2xl">My Assigned Referrals</CardTitle>
+                <CardDescription>A list of all referrals that have been assigned to you for review.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <ReferralTable referrals={myReferrals} showAssignButton={false} />
+            </CardContent>
+        </Card>
+    );
+}
+
+export function ReferralDashboard() {
+    const { user } = useAuth();
+    if (!user) return <p>Loading...</p>;
+
+    return user.role === 'Admin' ? <AdminReferralView /> : <DoctorReferralView user={user} />;
+}
+
+
+function ReferralTable({ referrals, onAssign, showAssignButton }: { referrals: Referral[], onAssign?: (referral: Referral) => void, showAssignButton: boolean }) {
     if (referrals.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg">
@@ -157,10 +182,10 @@ function ReferralTable({ referrals, onAssign }: { referrals: Referral[], onAssig
                 <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Patient</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>Referring Facility</TableHead>
                     <TableHead>Assigned To</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    {showAssignButton && <TableHead className="text-right">Action</TableHead>}
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -169,22 +194,24 @@ function ReferralTable({ referrals, onAssign }: { referrals: Referral[], onAssig
                         <TableCell>{format(new Date(referral.referralDate), "PPP")}</TableCell>
                         <TableCell>
                             <div className="font-medium">{referral.patientDetails.fullName}</div>
-                            <div className="text-sm text-muted-foreground">{referral.patientDetails.contactPhone}</div>
+                            <div className="text-sm text-muted-foreground">{referral.reasonForReferral.substring(0, 40)}...</div>
                         </TableCell>
-                        <TableCell>{referral.referredToDepartment}</TableCell>
+                         <TableCell>{referral.referringProvider.name}</TableCell>
                         <TableCell>{referral.doctorName || 'Unassigned'}</TableCell>
                         <TableCell><Badge variant={getStatusBadgeVariant(referral.status)}>{referral.status}</Badge></TableCell>
-                        <TableCell className="text-right">
-                           {referral.status === 'Pending' && onAssign && (
-                                <Button size="sm" onClick={() => onAssign(referral)}>
-                                    <UserCheck className="mr-2 h-4 w-4"/>
-                                    Assign
-                                </Button>
-                           )}
-                           {referral.status !== 'Pending' && (
-                                <span className="text-sm text-muted-foreground">No actions</span>
-                           )}
-                        </TableCell>
+                        {showAssignButton && (
+                            <TableCell className="text-right">
+                               {referral.status === 'Pending' && onAssign && (
+                                    <Button size="sm" onClick={() => onAssign(referral)}>
+                                        <UserCheck className="mr-2 h-4 w-4"/>
+                                        Assign
+                                    </Button>
+                               )}
+                               {referral.status !== 'Pending' && (
+                                    <span className="text-sm text-muted-foreground">No actions</span>
+                               )}
+                            </TableCell>
+                        )}
                     </TableRow>
                 ))}
             </TableBody>
