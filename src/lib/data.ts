@@ -211,6 +211,3 @@ export const allAppointments: Appointment[] = [
 
 
 export const allReferrals: Referral[] = [];
-export const allClinicalNotes: any[] = [];
-export const allMedications: any[] = [];
-export const allLabResults: any[] = [];

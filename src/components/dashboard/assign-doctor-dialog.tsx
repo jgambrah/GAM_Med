@@ -54,6 +54,10 @@ export function AssignDoctorDialog({ referral, doctors, onAssignment }: AssignDo
     });
 
     if (result.success && result.referral) {
+        toast({
+            title: "Referral Assigned",
+            description: `Referral for ${result.referral.patientDetails.fullName} has been assigned to Dr. ${result.referral.doctorName}.`
+        })
         onAssignment(result.referral);
     } else {
         toast({

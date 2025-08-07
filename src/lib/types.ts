@@ -133,7 +133,7 @@ export interface Referral {
     patientId?: string; // Optional: Link to an existing patient
     patientDetails: {
       fullName: string;
-      dob: Date;
+      dob: string;
       contactPhone: string;
     };
     referringProvider: {
@@ -151,4 +151,6 @@ export interface Referral {
     appointmentId?: string; // Link to the scheduled appointment
     createdAt: Date;
     updatedAt: Date;
+    // Denormalized fields for easier display
+    doctorName?: string;
 }
