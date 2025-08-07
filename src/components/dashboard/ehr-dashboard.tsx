@@ -27,9 +27,9 @@ import { LabRequestForm } from "./lab-request-form";
 
 export function EhrDashboard({ patient }: { patient: Patient }) {
   const { user } = useAuth();
-  const [patientClinicalNotes, setPatientClinicalNotes] = React.useState<ClinicalNote[]>(() => allClinicalNotes.filter(n => n.patientId === patient.patientId));
-  const [patientMedications, setPatientMedications] = React.useState<MedicationHistory[]>(() => allMedications.filter(m => m.patientId === patient.patientId));
-  const [patientLabResults, setPatientLabResults] = React.useState<LabResult[]>(() => allLabResults.filter(l => l.patientId === patient.patientId));
+  const [patientClinicalNotes, setPatientClinicalNotes] = React.useState<ClinicalNote[]>(() => allClinicalNotes.filter(n => n.patientId === patient.patientId).sort((a,b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+  const [patientMedications, setPatientMedications] = React.useState<MedicationHistory[]>(() => allMedications.filter(m => m.patientId === patient.patientId).sort((a,b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime()));
+  const [patientLabResults, setPatientLabResults] = React.useState<LabResult[]>(() => allLabResults.filter(l => l.patientId === patient.patientId).sort((a,b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime()));
 
   const [isNoteDialogOpen, setIsNoteDialogOpen] = React.useState(false);
   const [isMedDialogOpen, setIsMedDialogOpen] = React.useState(false);
