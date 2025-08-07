@@ -1,69 +1,53 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper function to get the user's role from the 'users' collection.
+    // Helper function to get user role from the 'users' collection
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // =============================================
-    // Users Collection
-    // =============================================
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Users can read their own data.
-      // Admins can read any user's data.
-      allow read: if request.auth.uid == userId
-                  || getUserData().role == 'Admin';
-                  
-      // Users can create their own user document upon registration.
+      // Allow users to read their own data
+      allow read: if request.auth.uid == userId;
+      // Allow admins to read any user data
+      allow read: if getUserData().role == 'Admin';
+      // Allow authenticated users to create their own user document
       allow create: if request.auth.uid == userId;
-      
-      // Users can update their own non-critical info. Role changes must be done by an Admin.
-      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role
-                    || getUserData().role == 'Admin';
+      // Allow users to update their own data
+      allow update: if request.auth.uid == userId;
+       // Disallow deletion of user accounts to maintain data integrity
+      allow delete: if false;
     }
 
-    // =============================================
-    // Patients Collection
-    // =============================================
+    // Rules for the 'patients' collection
     match /patients/{patientId} {
-      // Admins, Doctors, and Nurses can create new patient records.
-      allow create: if getUserData().role in ['Admin', 'Doctor', 'Nurse'];
-
-      // Admins, Doctors, and Nurses can read patient records.
-      // Patients can read their own record (requires linking auth UID to patient record).
-      allow read: if getUserData().role in ['Admin', 'Doctor', 'Nurse'];
-      
-      // Admins, Doctors, and Nurses can update patient records.
-      allow update: if getUserData().role in ['Admin', 'Doctor', 'Nurse'];
-      
-      // Only Admins can delete patient records (soft delete recommended).
+      // Admins and Nurses can create, read, and update patient records
+      allow read, create, update: if getUserData().role in ['Admin', 'Nurse'];
+      // Doctors can read patient records
+      allow read: if getUserData().role == 'Doctor';
+      // Patients can read their own records, if we add a link in their user doc
+      // allow read: if request.auth.uid == resource.data.linkedUid; 
       allow delete: if getUserData().role == 'Admin';
     }
 
-    // =============================================
-    // Appointments Collection
-    // =============================================
+    // Rules for the 'appointments' collection
     match /appointments/{appointmentId} {
-        // Admins, Doctors, and Nurses can create appointments.
-        allow create: if getUserData().role in ['Admin', 'Doctor', 'Nurse'];
+        // Admins and Nurses can manage all appointments
+        allow create, read, update: if getUserData().role in ['Admin', 'Nurse'];
+        
+        // Doctors can read appointments they are assigned to
+        allow read: if getUserData().role == 'Doctor' && getUserData().uid == resource.data.doctorId;
+        
+        // Doctors can update appointments assigned to them (e.g., to add notes)
+        allow update: if getUserData().role == 'Doctor' && getUserData().uid == resource.data.doctorId;
 
-        // Admins, Doctors, and Nurses can view any appointment.
-        // A patient can view their own appointment.
-        // A doctor can view an appointment assigned to them.
-        allow read: if getUserData().role in ['Admin', 'Doctor', 'Nurse']
-                    || resource.data.patientId == request.auth.uid // This assumes patientId is linked to auth UID
-                    || resource.data.doctorId == request.auth.uid;
-
-        // Admins, Doctors, and Nurses can update appointments.
-        // Patients can cancel their own appointments.
-        allow update: if getUserData().role in ['Admin', 'Doctor', 'Nurse']
-                      || (resource.data.patientId == request.auth.uid && request.resource.data.status == 'Canceled');
-                      
-        // Only Admins can delete appointments.
+        // Patients can read appointments they are part of
+        // allow read: if get(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.linkedUid == request.auth.uid;
+        
+        // Only Admins can delete appointments
         allow delete: if getUserData().role == 'Admin';
     }
   }
