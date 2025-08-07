@@ -11,27 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Share2, FileText, Activity, Users } from "lucide-react";
 import Link from "next/link";
-import { allReferrals } from "@/lib/data";
 import { useAuth } from "../auth-provider";
 import * as React from "react";
 
 export function DoctorActions() {
     const { user } = useAuth();
     
-    const assignedReferralsCount = React.useMemo(() => {
-        if (!user) return 0;
-        return allReferrals.filter(r => r.assignedToDoctorId === user.id && r.status === 'Assigned').length;
-    }, [user]);
-
     const actions = [
-        {
-            href: "/doctor/referrals",
-            icon: Share2,
-            title: "My Referrals",
-            description: "Review new and existing patient referrals assigned to you.",
-            count: assignedReferralsCount,
-            countLabel: "pending",
-        },
         {
             href: "/doctor/patients",
             icon: Users,
@@ -54,7 +40,7 @@ export function DoctorActions() {
                     Quick access to your most common tasks and workflows.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
                 {actions.map((action, index) => (
                     <Card key={index} className="flex flex-col">
                         <CardHeader>
@@ -72,12 +58,6 @@ export function DoctorActions() {
                                     Open
                                 </Link>
                             </Button>
-                            {action.count !== undefined && (
-                                <div className="text-right">
-                                    <p className="text-2xl font-bold">{action.count}</p>
-                                    <p className="text-xs text-muted-foreground">{action.countLabel}</p>
-                                </div>
-                            )}
                         </div>
                     </Card>
                 ))}

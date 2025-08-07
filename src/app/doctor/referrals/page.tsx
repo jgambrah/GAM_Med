@@ -1,42 +1,15 @@
 
 "use client";
 
-import { useAuth } from "@/components/auth-provider";
-import { ReferralDashboard } from "@/components/dashboard/referral-dashboard";
-import { allReferrals, allUsers } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
-import * as React from "react";
 
 export default function DoctorReferralsPage() {
-    const { user, loading } = useAuth();
-    
-    const doctors = allUsers.filter(u => u.role === 'Doctor');
-
-    const doctorReferrals = React.useMemo(() => {
-        if (!user || user.role !== 'Doctor') return [];
-        return allReferrals.filter(ref => ref.assignedToDoctorId === user.id);
-    }, [user]);
-
-    if (loading) {
-        return (
-            <div className="space-y-4">
-                <Skeleton className="h-8 w-1/4" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        )
-    }
-
-    if (!user || user.role !== 'Doctor') {
-        return <p>Access Denied. You must be a doctor to view this page.</p>;
-    }
-
     return (
-        <div>
-            <h2 className="text-3xl font-bold tracking-tight font-headline">My Assigned Referrals</h2>
-            <p className="text-muted-foreground mb-6">A list of all patients referred to you for review and consultation.</p>
-            
-            <ReferralDashboard referrals={doctorReferrals} doctors={doctors} />
-        </div>
-    );
+      <div className="space-y-4">
+          <Skeleton className="h-8 w-1/4" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <p>This feature is being rebuilt.</p>
+      </div>
+    )
 }

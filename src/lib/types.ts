@@ -126,24 +126,3 @@ export interface Appointment {
   patientName?: string; 
   doctorName?: string;
 }
-    
-export interface Referral {
-  referralId: string;
-  patientId?: string; // explicit link to patient document
-  patientDetails: {
-    fullName: string;
-    contactPhone: string;
-    reasonForReferral: string;
-  };
-  referringProvider: {
-    name: string;
-    contact: string;
-  };
-  referredToDepartment: string;
-  status: 'Pending' | 'Assigned' | 'Completed' | 'Cancelled';
-  referralDate: Date;
-  assignedToDoctorId?: string; // Reference to User id
-  appointmentId?: string; // Reference to Appointment id
-  createdAt: Date;
-  updatedAt: Date;
-}

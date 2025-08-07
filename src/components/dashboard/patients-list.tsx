@@ -47,13 +47,12 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import type { Patient, Referral } from "@/lib/types"
+import type { Patient } from "@/lib/types"
 import { PatientAdmissionForm } from "./patient-admission-form"
 import { useToast } from "@/hooks/use-toast"
-import { allAdmissions, allPatients, allReferrals } from "@/lib/data"
+import { allAdmissions, allPatients } from "@/lib/data"
 import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
-import { DoctorReferralForm } from "./doctor-referral-form";
 import { pronouncePatientDeadAction, recommendSurgeryAction } from "@/lib/actions";
 import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins } from "lucide-react";
 
