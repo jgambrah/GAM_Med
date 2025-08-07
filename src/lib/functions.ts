@@ -19,110 +19,89 @@
 // const algoliaClient = algoliasearch(functions.config().algolia.app_id, functions.config().algolia.api_key);
 // const searchIndex = algoliaClient.initIndex("patients");
 
-
 /**
  * =================================================================
- * EHR Automation Functions (Conceptual)
+ * Referral Management Functions (Conceptual)
  * =================================================================
  */
 
 /**
- * Firestore Trigger: onNewMedicationPrescribed
- * Listens for new medication prescriptions and notifies the pharmacy system/module.
- * @trigger `onCreate` on the `/patients/{patientId}/medication_history/{prescriptionId}` path.
+ * Callable Function: processIncomingReferral
+ * Creates a new referral, checks for an existing patient, and notifies triage staff.
  */
 /*
-export const onNewMedicationPrescribed = functions.firestore
-    .document("patients/{patientId}/medication_history/{prescriptionId}")
-    .onCreate(async (snap, context) => {
-        const prescriptionData = snap.data();
-        const patientId = context.params.patientId;
-        const prescriptionId = context.params.prescriptionId;
+export const processIncomingReferral = functions.https.onCall(async (data, context) => {
+    // 1. Check for authentication & authorization
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    // Optional: Check if the user has the 'Admin' or 'TriageOfficer' role.
+    
+    const { patientDetails, referringProvider, reasonForReferral, referredToDepartment, scannedDocumentURL } = data;
 
-        console.log(`New prescription ${prescriptionId} for patient ${patientId} received.`);
-        console.log(`Medication: ${prescriptionData.medicationName}, Dosage: ${prescriptionData.dosage}`);
+    // 2. Look for an existing patient record
+    let patientId = null;
+    const patientsRef = db.collection('patients');
+    const snapshot = await patientsRef.where('contact.primaryPhone', '==', patientDetails.contactPhone).limit(1).get();
+    
+    if (!snapshot.empty) {
+        patientId = snapshot.docs[0].id;
+        console.log(`Found existing patient with ID: ${patientId}`);
+    }
 
-        // 1. Create a new document in the pharmacy_prescriptions collection
-        //    to trigger the pharmacy's workflow.
-        const pharmacyPrescriptionRef = db.collection("pharmacy_prescriptions").doc(prescriptionId);
-        await pharmacyPrescriptionRef.set({
-            patientId: patientId,
-            prescription: prescriptionData, // Copy of the original prescription details
-            prescribedByDoctorId: prescriptionData.prescribedByDoctorId,
-            status: 'Pending Fulfillment',
-            receivedAt: new Date(),
-        });
+    // 3. Create the new referral document
+    const referralRef = db.collection('referrals').doc();
+    const referralId = referralRef.id;
 
-        // 2. (Optional) Send a real-time notification to the pharmacy staff dashboard.
-        console.log(`NOTIFICATION to Pharmacy: New prescription for patient ${patientId} is ready for fulfillment.`);
-
-        return { success: true, message: `Prescription ${prescriptionId} successfully queued for pharmacy.` };
+    await referralRef.set({
+        referralId: referralId,
+        patientId: patientId, // May be null if no patient was found
+        patientDetails: patientDetails,
+        referringProvider: referringProvider,
+        reasonForReferral: reasonForReferral,
+        referredToDepartment: referredToDepartment,
+        scannedDocumentURL: scannedDocumentURL || null,
+        assignedToDoctorId: null,
+        status: 'Pending',
+        referralDate: new Date(),
+        appointmentId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
     });
+
+    // 4. Send notification to triage/admin team
+    // In a real app, this could be a push notification, an email, or a document in a "notifications" collection.
+    console.log(`NOTIFICATION to TriageTeam: New referral ${referralId} for ${patientDetails.fullName} needs review.`);
+    
+    return { success: true, referralId: referralId, message: "Referral created successfully." };
+});
 */
 
 /**
- * Firestore Trigger: onNewLabTestOrdered
- * Listens for a new lab test being ordered and notifies the lab system/module.
- * @trigger `onCreate` on the `/patients/{patientId}/lab_results/{testId}` path.
+ * Firestore Trigger: onReferralAssignment
+ * Notifies a doctor when a referral is assigned to them.
+ * @trigger `onUpdate` on the `/referrals/{referralId}` path.
  */
 /*
-export const onNewLabTestOrdered = functions.firestore
-    .document("patients/{patientId}/lab_results/{testId}")
-    .onCreate(async (snap, context) => {
-        const labTestData = snap.data();
-        const patientId = context.params.patientId;
-        const testId = context.params.testId;
-
-        console.log(`New lab test request ${testId} for patient ${patientId} received.`);
-        console.log(`Test Name: ${labTestData.testName}`);
-
-        // 1. Create a new document in the lab_requests collection to trigger the lab's workflow.
-        const labRequestRef = db.collection("lab_requests").doc(testId);
-        await labRequestRef.set({
-            testId: testId,
-            testName: labTestData.testName,
-            patientId: patientId,
-            orderedByDoctorId: labTestData.orderedByDoctorId,
-            status: 'New Request', // Initial status for the lab team
-            requestReceivedAt: new Date(),
-        });
-
-        // 2. (Optional) Send a real-time notification to the lab technicians' dashboard.
-        console.log(`NOTIFICATION to Lab: New test request for patient ${patientId} is ready for processing.`);
-
-        return { success: true, message: `Lab request ${testId} successfully queued for the lab.` };
-    });
-*/
-
-/**
- * Firestore Trigger: onLabResultCompleted
- * Listens for an update to a lab result and notifies the ordering doctor when it's complete.
- * @trigger `onUpdate` on the `/patients/{patientId}/lab_results/{testId}` path.
- */
-/*
-export const onLabResultCompleted = functions.firestore
-    .document("patients/{patientId}/lab_results/{testId}")
+export const onReferralAssignment = functions.firestore
+    .document("referrals/{referralId}")
     .onUpdate(async (change, context) => {
         const beforeData = change.before.data();
         const afterData = change.after.data();
 
-        // Condition: Only proceed if the status changed from something else to 'Completed'.
-        if (beforeData.status !== 'Completed' && afterData.status === 'Completed') {
-            const patientId = context.params.patientId;
-            const testId = context.params.testId;
-            const doctorId = afterData.orderedByDoctorId;
-            const testName = afterData.testName;
+        // Condition: Only run if 'assignedToDoctorId' was just added.
+        if (!beforeData.assignedToDoctorId && afterData.assignedToDoctorId) {
+            const doctorId = afterData.assignedToDoctorId;
+            const patientName = afterData.patientDetails.fullName;
+            const reason = afterData.reasonForReferral;
 
-            console.log(`Lab result ${testId} for patient ${patientId} is now complete.`);
+            console.log(`Referral ${context.params.referralId} assigned to doctor ${doctorId}.`);
 
-            // Fetch the doctor's details to get their email or notification token.
-            // const doctorDoc = await db.collection("users").doc(doctorId).get();
-            // const doctorData = doctorDoc.data();
-            
-            // Logic to send a notification (e.g., email, push notification, etc.).
-            console.log(`NOTIFICATION to Doctor ${doctorId}: The result for lab test "${testName}" for patient ${patientId} is now available for review.`);
+            // Logic to send a notification (e.g., FCM, email, etc.)
+            console.log(`NOTIFICATION to Doctor ${doctorId}: You have a new referral for ${patientName}. Reason: ${reason.substring(0, 50)}...`);
 
-            return { success: true, message: `Doctor ${doctorId} notified about completed test ${testId}.` };
+            // Update the referral status to 'Assigned'
+            return change.after.ref.update({ status: 'Assigned', updatedAt: new Date() });
         }
 
         // If the condition is not met, do nothing.
@@ -131,135 +110,47 @@ export const onLabResultCompleted = functions.firestore
 */
 
 /**
- * =================================================================
- * Doctor's Workbench Callable Functions (Conceptual)
- * =================================================================
- */
-
-/**
- * Callable Function: setAppointmentStatus
- * Allows a doctor to update the status of an appointment from the workbench.
+ * Callable Function: linkReferralToAppointment
+ * Links a referral to a newly created appointment in a transaction.
  */
 /*
-export const setAppointmentStatus = functions.https.onCall(async (data, context) => {
-    // 1. Check for authentication
+export const linkReferralToAppointment = functions.https.onCall(async (data, context) => {
+    // Check for authentication
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-    const { appointmentId, status, patientId } = data;
     
-    // 2. Update appointment status
+    const { referralId, appointmentId } = data;
+    
+    if (!referralId || !appointmentId) {
+        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with "referralId" and "appointmentId" arguments.');
+    }
+    
+    const referralRef = db.collection('referrals').doc(referralId);
     const appointmentRef = db.collection('appointments').doc(appointmentId);
-    await appointmentRef.update({ status: status, updatedAt: new Date() });
 
-    // 3. Handle side-effects based on status
-    if (status === 'Completed') {
-        const patientRef = db.collection('patients').doc(patientId);
-        await patientRef.update({ lastVisitDate: new Date(), updatedAt: new Date() });
-    }
-
-    return { success: true, message: `Appointment ${appointmentId} status updated to ${status}.` };
-});
-*/
-
-/**
- * Callable Function: writePrescription
- * Allows a doctor to write a prescription, which also queues it for the pharmacy.
- * Uses a Firestore transaction to ensure atomicity.
- */
-/*
-export const writePrescription = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-    
-    const { patientId, medicationName, dosage, frequency, instructions } = data;
-    const prescribedByDoctorId = context.auth.uid;
-    
-    const prescriptionRef = db.collection('patients').doc(patientId).collection('medication_history').doc();
-    const pharmacyQueueRef = db.collection('pharmacy_prescriptions').doc(prescriptionRef.id);
-    
     try {
         await db.runTransaction(async (transaction) => {
-            // Create the prescription in the patient's record
-            transaction.set(prescriptionRef, {
-                prescriptionId: prescriptionRef.id,
-                patientId,
-                medicationName,
-                dosage,
-                frequency,
-                instructions,
-                prescribedByDoctorId,
-                prescribedAt: new Date(),
-                status: 'Active',
+            // Update the referral's status and link the appointment
+            transaction.update(referralRef, {
+                status: 'Scheduled',
+                appointmentId: appointmentId,
+                updatedAt: new Date()
             });
-            
-            // Create a corresponding job for the pharmacy module
-            transaction.set(pharmacyQueueRef, {
-                prescriptionId: prescriptionRef.id,
-                patientId,
-                medicationName,
-                status: 'Pending Fulfillment',
-                receivedAt: new Date(),
+
+            // Update the appointment to link back to the referral
+            transaction.update(appointmentRef, {
+                referralId: referralId,
+                updatedAt: new Date()
             });
         });
-        
-        console.log(`Prescription ${prescriptionRef.id} created for patient ${patientId} and queued for pharmacy.`);
-        return { success: true, prescriptionId: prescriptionRef.id };
+
+        console.log(`Successfully linked referral ${referralId} with appointment ${appointmentId}.`);
+        return { success: true, message: 'Referral linked to appointment successfully.' };
 
     } catch (error) {
         console.error("Transaction failure:", error);
-        throw new functions.https.HttpsError('internal', 'Failed to write prescription.');
-    }
-});
-*/
-
-/**
- * Callable Function: orderLabTest
- * Allows a doctor to order a lab test, which also queues it for the lab.
- * Uses a Firestore transaction for atomicity.
- */
-/*
-export const orderLabTest = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-    
-    const { patientId, testName, testDetails } = data;
-    const orderedByDoctorId = context.auth.uid;
-    
-    const labResultRef = db.collection('patients').doc(patientId).collection('lab_results').doc();
-    const labQueueRef = db.collection('lab_requests').doc(labResultRef.id);
-    
-    try {
-        await db.runTransaction(async (transaction) => {
-            // Create the lab order in the patient's record
-            transaction.set(labResultRef, {
-                testId: labResultRef.id,
-                patientId,
-                testName,
-                testDetails,
-                orderedByDoctorId,
-                orderedAt: new Date(),
-                status: 'Ordered',
-            });
-            
-            // Create a corresponding job for the lab module
-            transaction.set(labQueueRef, {
-                testId: labResultRef.id,
-                patientId,
-                testName,
-                status: 'New Request',
-                requestReceivedAt: new Date(),
-            });
-        });
-        
-        console.log(`Lab test ${labResultRef.id} ordered for patient ${patientId} and queued for the lab.`);
-        return { success: true, testId: labResultRef.id };
-
-    } catch (error) {
-        console.error("Transaction failure:", error);
-        throw new functions.https.HttpsError('internal', 'Failed to order lab test.');
+        throw new functions.https.HttpsError('internal', 'Failed to link referral to appointment.');
     }
 });
 */
