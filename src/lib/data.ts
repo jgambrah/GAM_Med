@@ -1,5 +1,5 @@
 
-import type { User, Patient, Appointment, Bed, Admission, Referral, ClinicalNote, MedicationHistory, LabResult } from './types';
+import type { User, Patient, Appointment, Bed, Admission, Referral } from './types';
 
 export const allUsers: User[] = [
   { id: 'doc1', name: 'Dr. Evelyn Mensah', email: 'e.mensah@medflow.gh', role: 'Doctor', avatarUrl: 'https://placehold.co/100x100/E3F2FD/333?text=EM' },
@@ -269,70 +269,6 @@ export const allReferrals: Referral[] = [
   },
 ];
 
-export const allClinicalNotes: ClinicalNote[] = [
-    {
-        noteId: 'NOTE-001',
-        patientId: 'P-240821-0001',
-        noteType: 'Consultation Note',
-        noteText: 'Patient presents with chest pain, consistent with previous reports. ECG shows minor ST elevation. Continuing with current medication and monitoring.',
-        recordedByUserId: 'doc1',
-        recordedByUserName: 'Dr. Evelyn Mensah',
-        recordedAt: new Date('2024-07-21T11:00:00Z'),
-    },
-    {
-        noteId: 'NOTE-002',
-        patientId: 'P-240821-0001',
-        noteType: 'Progress Note',
-        noteText: 'Pain has subsided after administration of GTN spray. Patient reports feeling better. Vitals are stable. Will continue to observe.',
-        recordedByUserId: 'nur1',
-        recordedByUserName: 'Grace Adjei',
-        recordedAt: new Date('2024-07-21T15:30:00Z'),
-    }
-];
-
-export const allMedications: MedicationHistory[] = [
-    {
-        prescriptionId: 'RX-001',
-        patientId: 'P-240821-0001',
-        medicationName: 'Lisinopril',
-        dosage: '10mg',
-        frequency: 'Once daily',
-        instructions: 'Take in the morning.',
-        prescribedByDoctorId: 'doc1',
-        prescribedAt: new Date('2024-07-21T11:00:00Z'),
-        status: 'Active'
-    },
-     {
-        prescriptionId: 'RX-002',
-        patientId: 'P-240821-0001',
-        medicationName: 'Aspirin',
-        dosage: '81mg',
-        frequency: 'Once daily',
-        instructions: 'Take with food.',
-        prescribedByDoctorId: 'doc1',
-        prescribedAt: new Date('2024-07-21T11:00:00Z'),
-        status: 'Active'
-    }
-];
-
-export const allLabResults: LabResult[] = [
-    {
-        testId: 'LAB-001',
-        patientId: 'P-240821-0001',
-        testName: 'Troponin I',
-        status: 'Completed',
-        result: '0.04 ng/mL',
-        units: 'ng/mL',
-        orderedByDoctorId: 'doc1',
-        orderedAt: new Date('2024-07-21T11:05:00Z'),
-        completedAt: new Date('2024-07-21T12:00:00Z'),
-    },
-     {
-        testId: 'LAB-002',
-        patientId: 'P-240821-0001',
-        testName: 'Complete Blood Count (CBC)',
-        status: 'Ordered',
-        orderedByDoctorId: 'doc1',
-        orderedAt: new Date('2024-07-22T09:15:00Z'),
-    }
-];
+export const allClinicalNotes: any[] = [];
+export const allMedications: any[] = [];
+export const allLabResults: any[] = [];

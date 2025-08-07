@@ -2,8 +2,8 @@
 'use server';
 
 import {generateSmsReminder} from '@/ai/flows/generateSmsReminder';
-import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral, ClinicalNote, MedicationHistory, LabResult} from './types';
-import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals, allClinicalNotes, allMedications, allLabResults} from './data';
+import type {Admission, Appointment, Bed, Patient, User, DischargeSummary, Referral} from './types';
+import {allAdmissions, allBeds, allPatients, allAppointments, allUsers, allReferrals} from './data';
 import {z} from 'zod';
 
 const patientFormSchema = z.object({
@@ -74,31 +74,6 @@ const assignDoctorSchema = z.object({
     referralId: z.string(),
     doctorId: z.string(),
 });
-
-const clinicalNoteSchema = z.object({
-    patientId: z.string(),
-    noteType: z.enum(['Progress Note', 'Consultation Note', 'Discharge Summary']),
-    noteText: z.string().min(10, "Note content is too short."),
-    recordedByUserId: z.string(),
-    recordedByUserName: z.string(),
-});
-
-const medicationSchema = z.object({
-    patientId: z.string(),
-    medicationName: z.string().min(2, "Medication name is required."),
-    dosage: z.string().min(1, "Dosage is required."),
-    frequency: z.string().min(2, "Frequency is required."),
-    instructions: z.string().optional(),
-    prescribedByDoctorId: z.string(),
-});
-
-const labRequestSchema = z.object({
-    patientId: z.string(),
-    testName: z.string().min(3, "Test name is required."),
-    reason: z.string().optional(),
-    orderedByDoctorId: z.string(),
-});
-
 
 export async function getSmsReminderAction(
   role: User['role'],
@@ -608,122 +583,5 @@ export async function pronouncePatientDeadAction(patientId: string) {
     } catch (error: any) {
         console.error('Error in pronouncePatientDeadAction:', error);
         return { success: false, message: error.message || 'An unexpected error occurred.' };
-    }
-}
-
-async function generateNoteId(): Promise<string> {
-    const prefix = 'NOTE';
-    const nextId = (allClinicalNotes.length + 1).toString().padStart(3, '0');
-    return `${prefix}-${nextId}`;
-}
-
-export async function addClinicalNoteAction(values: z.infer<typeof clinicalNoteSchema>) {
-    console.log('[Simulated] Adding clinical note with action:', values);
-    try {
-        const newNoteId = await generateNoteId();
-        const newNote: ClinicalNote = {
-            noteId: newNoteId,
-            patientId: values.patientId,
-            noteType: values.noteType,
-            noteText: values.noteText,
-            recordedByUserId: values.recordedByUserId,
-            recordedByUserName: values.recordedByUserName,
-            recordedAt: new Date(),
-        };
-
-        allClinicalNotes.unshift(newNote); // Add to the beginning of the array
-
-        return {
-            success: true,
-            message: 'Clinical note successfully added.',
-            note: newNote,
-        };
-
-    } catch (error: any) {
-        console.error('Error in addClinicalNoteAction:', error);
-        return {
-            success: false,
-            message: error.message || 'An unexpected error occurred while adding the note.',
-        };
-    }
-}
-
-async function generatePrescriptionId(): Promise<string> {
-    const prefix = 'RX';
-    const nextId = (allMedications.length + 1).toString().padStart(3, '0');
-    return `${prefix}-${nextId}`;
-}
-
-export async function prescribeMedicationAction(values: z.infer<typeof medicationSchema>) {
-    console.log('[Simulated] Prescribing medication with action:', values);
-    try {
-        const newPrescriptionId = await generatePrescriptionId();
-        const newMedication: MedicationHistory = {
-            prescriptionId: newPrescriptionId,
-            patientId: values.patientId,
-            medicationName: values.medicationName,
-            dosage: values.dosage,
-            frequency: values.frequency,
-            instructions: values.instructions || 'As directed',
-            prescribedByDoctorId: values.prescribedByDoctorId,
-            prescribedAt: new Date(),
-            status: 'Active',
-        };
-
-        allMedications.unshift(newMedication);
-
-        console.log(`[Simulated] Notifying pharmacy of new prescription ${newPrescriptionId}.`);
-
-        return {
-            success: true,
-            message: 'Medication successfully prescribed.',
-            medication: newMedication,
-        };
-
-    } catch (error: any) {
-        console.error('Error in prescribeMedicationAction:', error);
-        return {
-            success: false,
-            message: error.message || 'An unexpected error occurred while prescribing.',
-        };
-    }
-}
-
-async function generateLabTestId(): Promise<string> {
-    const prefix = 'LAB';
-    const nextId = (allLabResults.length + 1).toString().padStart(3, '0');
-    return `${prefix}-${nextId}`;
-}
-
-export async function orderLabTestAction(values: z.infer<typeof labRequestSchema>) {
-    console.log('[Simulated] Ordering lab test with action:', values);
-    try {
-        const newTestId = await generateLabTestId();
-        const newLabResult: LabResult = {
-            testId: newTestId,
-            patientId: values.patientId,
-            testName: values.testName,
-            status: 'Ordered',
-            reason: values.reason,
-            orderedByDoctorId: values.orderedByDoctorId,
-            orderedAt: new Date(),
-        };
-
-        allLabResults.unshift(newLabResult);
-
-        console.log(`[Simulated] Notifying laboratory of new test order ${newTestId}.`);
-
-        return {
-            success: true,
-            message: 'Lab test successfully ordered.',
-            labResult: newLabResult,
-        };
-
-    } catch (error: any) {
-        console.error('Error in orderLabTestAction:', error);
-        return {
-            success: false,
-            message: error.message || 'An unexpected error occurred while ordering the test.',
-        };
     }
 }

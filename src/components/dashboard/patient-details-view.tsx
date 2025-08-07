@@ -1,25 +1,21 @@
 
 "use client";
 
-import { allAdmissions, allClinicalNotes, allLabResults, allMedications } from "@/lib/data";
+import { allAdmissions } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Hospital, Stethoscope, FileText, Activity, UserRound, Pill, Microscope, NotebookPen, CalendarClock } from "lucide-react";
+import { Hospital, Stethoscope, FileText } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Patient } from "@/lib/types";
-import { useAuth } from "../auth-provider";
 
 export function PatientDetailsView({ patient }: { patient: Patient }) {
-  const { user } = useAuth();
   const patientAdmissions = allAdmissions.filter(a => a.patientId === patient.patientId);
   const currentAdmission = patient.isAdmitted ? patientAdmissions.find(a => a.admissionId === patient.currentAdmissionId) : null;
-  const clinicalNotes = allClinicalNotes.filter(n => n.patientId === patient.patientId);
   
   const getAge = (dob: Date) => {
     const birthDate = new Date(dob);
@@ -30,11 +26,6 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
         age--;
     }
     return age;
-  }
-  
-  const getEhrLink = () => {
-    const base = user?.role === 'Doctor' ? '/doctor' : '/admin';
-    return `${base}/patients/${patient.patientId}/ehr`;
   }
 
   return (
@@ -61,14 +52,6 @@ export function PatientDetailsView({ patient }: { patient: Patient }) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button asChild>
-                <Link href={getEhrLink()}>
-                    <Activity className="mr-2 h-4 w-4" />
-                    View Full EHR
-                </Link>
-            </Button>
-           </div>
        </div>
 
       <Tabs defaultValue="history">

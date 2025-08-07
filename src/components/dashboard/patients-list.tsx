@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import * as React from "react"
@@ -56,7 +55,7 @@ import { PatientSearchComponent } from "./patient-search";
 import { useAuth } from "../auth-provider";
 import { DoctorReferralForm } from "./doctor-referral-form";
 import { pronouncePatientDeadAction, recommendSurgeryAction } from "@/lib/actions";
-import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins, Activity, NotebookPen } from "lucide-react";
+import { Share2, MoreHorizontal, BedDouble, LogOut, UserRound, AlertTriangle, HeartOff, HandCoins } from "lucide-react";
 
 
 type PatientStatus = "Inpatient" | "Outpatient" | "Pending Discharge" | "Deceased";
@@ -68,25 +67,12 @@ const getStatusBadgeVariant = (status: PatientStatus) => {
     return 'secondary';
 };
 
-const getReferralStatusVariant = (status: Referral['status']) => {
-  switch (status) {
-    case 'Pending':
-      return 'secondary';
-    case 'Assigned':
-      return 'default';
-    default:
-      return 'outline';
-  }
-};
-
-
 export function PatientsList({ patients }: { patients: Patient[] }) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [isAdmissionDialogOpen, setIsAdmissionDialogOpen] = React.useState(false);
-  const [isReferralDialogOpen, setIsReferralDialogOpen] = React.useState(false);
   const [isDeceasedAlertOpen, setIsDeceasedAlertOpen] = React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   
@@ -123,25 +109,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     setDisplayPatients([...allPatients]);
   }
   
-  const handleReferralSuccess = (newReferral: Referral) => {
-    setIsReferralDialogOpen(false);
-    toast({
-        title: "Referral Submitted",
-        description: `Referral for ${newReferral.patientDetails.fullName} sent to triage.`
-    });
-    // Re-filter allPatients to refresh the view
-    setDisplayPatients([...allPatients]);
-  }
-  
-  const handleRecommendSurgery = async (patientId: string) => {
-    const result = await recommendSurgeryAction(patientId);
-     toast({
-      title: result.success ? "Surgery Recommended" : "Action Failed",
-      description: result.message,
-      variant: result.success ? "default" : "destructive",
-    });
-  }
-
   const handlePronounceDead = async (patientId: string) => {
     const result = await pronouncePatientDeadAction(patientId);
     toast({
@@ -157,12 +124,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     setSelectedPatient(null);
   }
 
-  
-  const openReferralDialog = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setIsReferralDialogOpen(true);
-  }
-  
   const openAdmissionDialog = (patient: Patient) => {
     setSelectedPatient(patient);
     setIsAdmissionDialogOpen(true);
@@ -174,86 +135,14 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
   }
 
   const getPatientLink = (patientId: string) => {
-    if (user?.role === 'Doctor') {
-        return `/doctor/patients/${patientId}`;
-    }
-    return `/admin/patients/${patientId}`;
+    const rolePath = user?.role?.toLowerCase() || 'admin';
+    return `/${rolePath}/patients/${patientId}`;
   }
   
-  const getEhrLink = (patientId: string) => {
-      if (user?.role === 'Doctor') {
-        return `/doctor/patients/${patientId}/ehr`;
-    }
-    return `/admin/patients/${patientId}/ehr`;
-  }
-
   const getActions = (patient: Patient & { computedStatus: PatientStatus }) => {
-    const activeReferral = allReferrals.find(
-      (r) => r.patientId === patient.patientId && (r.status === 'Pending' || r.status === 'Assigned')
-    );
-    
     if (patient.computedStatus === 'Deceased') {
       return <Badge variant="destructive">Deceased</Badge>;
     }
-
-    const commonActions = (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => router.push(getPatientLink(patient.patientId))}>
-                    <UserRound className="mr-2 h-4 w-4" />
-                    View Details
-                </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => router.push(getEhrLink(patient.patientId))}>
-                    <NotebookPen className="mr-2 h-4 w-4" />
-                    View EHR
-                </DropdownMenuItem>
-                
-                <DropdownMenuSeparator />
-
-                {patient.computedStatus === 'Outpatient' && (
-                  <>
-                    <DropdownMenuItem onClick={() => openAdmissionDialog(patient)}>
-                       <BedDouble className="mr-2 h-4 w-4" />
-                       Admit Patient
-                    </DropdownMenuItem>
-                    {!activeReferral && (
-                      <DropdownMenuItem onClick={() => openReferralDialog(patient)}>
-                         <Share2 className="mr-2 h-4 w-4" />
-                         Refer Patient
-                      </DropdownMenuItem>
-                    )}
-                  </>
-                )}
-                 
-                {patient.computedStatus === 'Inpatient' && (
-                  <>
-                    <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>
-                       <LogOut className="mr-2 h-4 w-4" />
-                       Finalize Discharge
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleRecommendSurgery(patient.patientId)}>
-                        <Activity className="mr-2 h-4 w-4" />
-                        Recommend Surgery
-                    </DropdownMenuItem>
-                  </>
-                )}
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => openDeceasedDialog(patient)}>
-                   <HeartOff className="mr-2 h-4 w-4" />
-                   Pronounce Patient Dead
-                </DropdownMenuItem>
-
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
 
     switch (user?.role) {
         case 'Admin':
@@ -274,14 +163,38 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             return null;
         case 'Doctor':
             return (
-              <div className="flex items-center justify-end gap-2">
-                {activeReferral && (
-                  <Badge variant={getReferralStatusVariant(activeReferral.status)} className="hidden md:inline-flex">
-                    Referral: {activeReferral.status}
-                  </Badge>
-                )}
-                {commonActions}
-              </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => router.push(getPatientLink(patient.patientId))}>
+                            <UserRound className="mr-2 h-4 w-4" />
+                            View Details
+                        </DropdownMenuItem>
+                        {patient.computedStatus === 'Outpatient' && (
+                          <DropdownMenuItem onClick={() => openAdmissionDialog(patient)}>
+                             <BedDouble className="mr-2 h-4 w-4" />
+                             Admit Patient
+                          </DropdownMenuItem>
+                        )}
+                        {patient.computedStatus === 'Inpatient' && (
+                          <DropdownMenuItem onClick={() => router.push(`/admin/patients/${patient.patientId}/discharge`)}>
+                             <LogOut className="mr-2 h-4 w-4" />
+                             Finalize Discharge
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => openDeceasedDialog(patient)}>
+                           <HeartOff className="mr-2 h-4 w-4" />
+                           Pronounce Patient Dead
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             );
         default:
              return (
@@ -293,7 +206,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
     }
   }
 
-
   return (
     <>
       <Card>
@@ -301,7 +213,7 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
             <div>
                 <CardTitle className="font-headline text-2xl">Patient Records</CardTitle>
                 <CardDescription>
-                    Search for patients or browse the complete list below. Use the actions menu to manage patients.
+                    Search for patients or browse the complete list below.
                 </CardDescription>
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -376,23 +288,6 @@ export function PatientsList({ patients }: { patients: Patient[] }) {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={isReferralDialogOpen} onOpenChange={setIsReferralDialogOpen}>
-        <DialogContent>
-           <DialogHeader>
-            <DialogTitle>Create Outgoing Referral</DialogTitle>
-            <DialogDescription>
-              Complete the form to refer {selectedPatient?.fullName} to another department or facility.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedPatient && (
-            <DoctorReferralForm
-              patient={selectedPatient} 
-              onFormSubmit={handleReferralSuccess}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={isDeceasedAlertOpen} onOpenChange={setIsDeceasedAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
