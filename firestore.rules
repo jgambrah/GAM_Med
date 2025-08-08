@@ -1,86 +1,84 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user has a specific role
-    function isRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    // =====================================================================
+    // Helper Functions
+    // =====================================================================
+
+    // Check if the user is authenticated.
+    function isAuth() {
+      return request.auth != null;
     }
 
-    // Helper function to check if a user is an admin, doctor, or nurse
-    function isClinicalStaff() {
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return userRole == 'admin' || userRole == 'doctor' || userRole == 'nurse';
+    // Get the data for a specific user document.
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
     }
 
-    //------------------------------------------------------------
-    // Users Collection
-    //------------------------------------------------------------
+    // Get the role of a specific user.
+    function getUserRole(uid) {
+      return getUserData(uid).role;
+    }
+    
+    // Check if a user's role is one of the allowed roles.
+    function isOneOfRoles(uid, roles) {
+      return isAuth() && getUserRole(uid) in roles;
+    }
+
+    // =====================================================================
+    // Collection: users
+    // =====================================================================
     match /users/{userId} {
-      // Admins can read/write any user profile
-      // Users can read/update their own profile
-      allow read, update: if request.auth.uid == userId || isRole('admin');
-      // Only admins can create or delete user profiles
-      allow create, delete: if isRole('admin');
+      // Allow users to read their own profile.
+      // Allow admins to read/write any user profile.
+      allow read: if isAuth() && (request.auth.uid == userId || getUserRole(request.auth.uid) == 'admin');
+      allow write: if isAuth() && getUserRole(request.auth.uid) == 'admin';
     }
 
-    //------------------------------------------------------------
-    // Patients Collection
-    //------------------------------------------------------------
+    // =====================================================================
+    // Collection: patients
+    // =====================================================================
     match /patients/{patientId} {
-      // Clinical staff can read any patient's record.
-      // A patient can read their own record (if their user doc is linked).
-      allow read: if isClinicalStaff() || 
-                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId);
-                     
-      // Clinical staff can update patient records.
-      allow update: if isClinicalStaff();
+      // READ: Allowed for clinical staff, admins, and the patient themselves.
+      // A user is the patient if their user document has a matching patient_id field.
+      allow read: if isOneOfRoles(request.auth.uid, ['admin', 'doctor', 'nurse', 'pharmacist']) ||
+                     (getUserData(request.auth.uid).patient_id == patientId);
 
-      // Only admins or nurses can create new patient records.
-      allow create: if isRole('admin') || isRole('nurse');
+      // CREATE: Allowed for staff who handle patient registration.
+      allow create: if isOneOfRoles(request.auth.uid, ['admin', 'nurse']);
 
-      // Deleting patient records should be highly restricted, e.g., only by an admin.
-      // Or, prefer soft-delete by setting a 'status' to 'archived'.
-      allow delete: if isRole('admin');
-
-      // --- Admissions Sub-collection ---
+      // UPDATE: Allowed for administrative staff.
+      // Field-level restrictions should be handled by Cloud Functions for complex validation.
+      allow update: if isOneOfRoles(request.auth.uid, ['admin', 'nurse']);
+      
+      // DELETE: Only admins can delete patient records (a destructive action).
+      allow delete: if isOneOfRoles(request.auth.uid, ['admin']);
+      
+      // --- Sub-collection: admissions ---
       match /admissions/{admissionId} {
-        // Inherit read access from the parent patient document.
-        allow read: if isClinicalStaff() || 
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId);
-        
-        // Only clinical staff can create or update admission records.
-        allow create, update: if isClinicalStaff();
-
-        // Deleting admission records should be restricted.
-        allow delete: if isRole('admin');
+        // READ: Access mirrors the parent patient document.
+        allow read: if isOneOfRoles(request.auth.uid, ['admin', 'doctor', 'nurse', 'pharmacist']) ||
+                       (getUserData(request.auth.uid).patient_id == patientId);
+                       
+        // WRITE: Admission creation/updates are highly sensitive and should be handled
+        // exclusively by trusted backend Cloud Functions to ensure data integrity.
+        allow write: if false; // No direct client writes allowed.
       }
     }
 
-    //------------------------------------------------------------
-    // Beds Collection
-    //------------------------------------------------------------
+    // =====================================================================
+    // Collection: beds
+    // =====================================================================
     match /beds/{bedId} {
-        // All clinical staff can view bed status.
-        allow read: if isClinicalStaff();
-        // Bed status is updated via server-side logic (Cloud Functions), not directly by clients.
-        // Allowing direct client updates is risky as it could lead to race conditions.
-        // For this prototype, we allow clinical staff to update. In production, this would be locked down.
-        allow write: if isClinicalStaff();
-    }
-    
-    //------------------------------------------------------------
-    // Appointments Collection
-    //------------------------------------------------------------
-    match /appointments/{appointmentId} {
-        // Clinical staff can read any appointment.
-        // A patient can read their own appointments.
-        allow read: if isClinicalStaff() || resource.data.patient_id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id;
-        
-        // Clinical staff can create/update appointments.
-        // Patients might be allowed to create/cancel their own appointments in a portal.
-        allow write: if isClinicalStaff();
+       // READ: Clinical and admin staff need to see bed status in real-time.
+      allow read: if isOneOfRoles(request.auth.uid, ['admin', 'doctor', 'nurse']);
+      
+      // WRITE: Bed status changes are critical and should only be performed
+      // by trusted backend Cloud Functions to prevent unauthorized modifications.
+      allow write: if false; // No direct client writes allowed.
     }
   }
 }
