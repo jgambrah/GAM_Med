@@ -1,13 +1,16 @@
-
 import { z } from 'zod';
 
+/**
+ * Zod schema for validating the patient registration form.
+ * Ensures data integrity on the client-side before sending to the server.
+ */
 export const PatientSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
   lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
-  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date of birth." }),
-  gender: z.enum(['Male', 'Female', 'Other']),
+  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
+  gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Gender must be selected." }),
   contact: z.object({
-    phone: z.string().min(10, { message: "Phone number is required." }),
+    phone: z.string().min(10, { message: "A valid phone number is required." }),
     email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')),
     address: z.object({
       street: z.string().min(1, { message: "Street is required." }),
@@ -27,6 +30,10 @@ export const PatientSchema = z.object({
   }).optional(),
 });
 
+/**
+ * Zod schema for validating the bed allocation form.
+ * Used when admitting a patient from the bed management dashboard.
+ */
 export const BedAllocationSchema = z.object({
     patientId: z.string().min(1, { message: "A patient must be selected."}),
     bedId: z.string().min(1, { message: "A bed must be selected."}),

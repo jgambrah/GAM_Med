@@ -2,74 +2,85 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // =================================
-    // Helper Functions
-    // =================================
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+
+    // Helper function to check if a user has a specific role
+    function isRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
-    function getUserRole() {
-      return getUserData().role;
-    }
-    
-    function isOneOfRoles(roles) {
-      return getUserRole() in roles;
+    // Helper function to check if a user is an admin, doctor, or nurse
+    function isClinicalStaff() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userRole == 'admin' || userRole == 'doctor' || userRole == 'nurse';
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // =================================
-    // User Rules
-    // =================================
+    //------------------------------------------------------------
+    // Users Collection
+    //------------------------------------------------------------
     match /users/{userId} {
-      allow read, update: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn();
+      // Admins can read/write any user profile
+      // Users can read/update their own profile
+      allow read, update: if request.auth.uid == userId || isRole('admin');
+      // Only admins can create or delete user profiles
+      allow create, delete: if isRole('admin');
     }
-    
-    // =================================
-    // Patient & Admission Rules
-    // =================================
+
+    //------------------------------------------------------------
+    // Patients Collection
+    //------------------------------------------------------------
     match /patients/{patientId} {
-      // READ: Admins, doctors, and nurses can read all patient data. 
-      // Patients can read their own data via the patient portal.
-      allow read: if isSignedIn() && (isOneOfRoles(['admin', 'doctor', 'nurse']) || getUserData().patient_id == patientId);
-      
-      // CREATE: Admins and billing clerks can create new patient records.
-      // In a real scenario, 'billing_clerk' would be a defined role. For now, we'll include it.
-      allow create: if isSignedIn() && isOneOfRoles(['admin', 'billing_clerk']);
-      
-      // UPDATE: Admins and billing clerks can update administrative data.
-      // Doctors/Nurses can update specific fields, but major updates are handled by Cloud Functions.
-      allow update: if isSignedIn() && isOneOfRoles(['admin', 'billing_clerk', 'doctor', 'nurse']);
+      // Clinical staff can read any patient's record.
+      // A patient can read their own record (if their user doc is linked).
+      allow read: if isClinicalStaff() || 
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId);
+                     
+      // Clinical staff can update patient records.
+      allow update: if isClinicalStaff();
 
-      // Sub-collection for admissions
+      // Only admins or nurses can create new patient records.
+      allow create: if isRole('admin') || isRole('nurse');
+
+      // Deleting patient records should be highly restricted, e.g., only by an admin.
+      // Or, prefer soft-delete by setting a 'status' to 'archived'.
+      allow delete: if isRole('admin');
+
+      // --- Admissions Sub-collection ---
       match /admissions/{admissionId} {
-        // READ: Staff can read admission records. Patients can read their own.
-        allow read: if isSignedIn() && (isOneOfRoles(['admin', 'doctor', 'nurse', 'billing_clerk']) || getUserData().patient_id == patientId);
+        // Inherit read access from the parent patient document.
+        allow read: if isClinicalStaff() || 
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId);
         
-        // CREATE: Admins and billing clerks can create new admissions.
-        allow create: if isSignedIn() && isOneOfRoles(['admin', 'billing_clerk']);
+        // Only clinical staff can create or update admission records.
+        allow create, update: if isClinicalStaff();
 
-        // UPDATE: Most updates are handled by trusted Cloud Functions (e.g., for discharge).
-        // Direct updates are limited to specific roles for minor changes.
-        allow update: if isSignedIn() && isOneOfRoles(['admin', 'doctor']);
+        // Deleting admission records should be restricted.
+        allow delete: if isRole('admin');
       }
     }
-    
-    // =================================
-    // Bed Management Rules
-    // =================================
+
+    //------------------------------------------------------------
+    // Beds Collection
+    //------------------------------------------------------------
     match /beds/{bedId} {
-        // READ: Admins, nurses, and doctors need to see bed status.
-        allow read: if isSignedIn() && isOneOfRoles(['admin', 'nurse', 'doctor']);
+        // All clinical staff can view bed status.
+        allow read: if isClinicalStaff();
+        // Bed status is updated via server-side logic (Cloud Functions), not directly by clients.
+        // Allowing direct client updates is risky as it could lead to race conditions.
+        // For this prototype, we allow clinical staff to update. In production, this would be locked down.
+        allow write: if isClinicalStaff();
+    }
+    
+    //------------------------------------------------------------
+    // Appointments Collection
+    //------------------------------------------------------------
+    match /appointments/{appointmentId} {
+        // Clinical staff can read any appointment.
+        // A patient can read their own appointments.
+        allow read: if isClinicalStaff() || resource.data.patient_id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id;
         
-        // UPDATE: Bed status is critical and should only be updated by Admins directly
-        // or through a secure, trusted Cloud Function (e.g., admission/discharge process).
-        allow update: if isSignedIn() && isOneOfRoles(['admin']);
+        // Clinical staff can create/update appointments.
+        // Patients might be allowed to create/cancel their own appointments in a portal.
+        allow write: if isClinicalStaff();
     }
   }
 }
