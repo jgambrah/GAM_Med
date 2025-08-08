@@ -1,9 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, LogOut } from 'lucide-react';
+import { ChevronLeft, Plus, LogOut, ArrowRightLeft } from 'lucide-react';
 import { allPatients, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,7 @@ import { ClinicalNotesTab } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
 import { admitPatient, dischargePatient } from '@/lib/actions';
+import { TransferPatientDialog } from './components/transfer-patient-dialog';
 
 
 export default function PatientDetailPage() {
@@ -52,6 +54,8 @@ export default function PatientDetailPage() {
     setIsSubmitting(false);
   };
 
+  const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
+
   return (
     <div className="space-y-6">
        <div className="flex items-center gap-4">
@@ -72,6 +76,11 @@ export default function PatientDetailPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 {isSubmitting ? 'Admitting...' : 'Admit Patient'}
             </Button>
+             <TransferPatientDialog 
+                patient={patient} 
+                currentBedId={currentAdmission?.bed_id}
+                disabled={isSubmitting || !patient.is_admitted} 
+            />
              <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
                 <LogOut className="h-4 w-4 mr-2" />
                 {isSubmitting ? 'Discharging...' : 'Discharge Patient'}

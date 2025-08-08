@@ -46,6 +46,7 @@ export async function dischargePatient(patientId: string, admissionId: string) {
     await new Promise((resolve) => setTimeout(resolve, 500));
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath('/dashboard/patients');
+    revalidatePath('/dashboard/beds');
     return { success: true, message: 'Patient discharged successfully.' };
 }
 
@@ -62,14 +63,7 @@ export async function allocateBed(values: z.infer<typeof BedAllocationSchema>) {
     console.log('Allocating bed and admitting patient:', values);
     
     // In a real app, you would call your `handlePatientAdmission` Cloud Function with these details.
-    // For example:
-    // const result = await handlePatientAdmission({
-    //     patientId: values.patientId,
-    //     bedId: values.bedId,
-    //     attendingDoctorId: values.attendingDoctorId,
-    //     reasonForAdmission: values.reasonForAdmission,
-    //     ward: bed.ward // you'd need to fetch the bed's ward info
-    // });
+    // const result = await handlePatientAdmission({ ... });
     
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -79,4 +73,21 @@ export async function allocateBed(values: z.infer<typeof BedAllocationSchema>) {
     revalidatePath(`/dashboard/patients/${values.patientId}`);
     
     return { success: true, message: 'Bed allocated and patient admitted successfully.' };
+}
+
+export async function transferPatient(patientId: string, currentBedId: string, newBedId: string) {
+    console.log(`Transferring patient ${patientId} from bed ${currentBedId} to ${newBedId}`);
+
+    // Here you would implement an atomic transaction, likely in a Cloud Function:
+    // 1. Get patient's current admission record.
+    // 2. Update admission record's `bed_id` to `newBedId`.
+    // 3. Update old bed's status to 'vacant', clear patient info.
+    // 4. Update new bed's status to 'occupied', set patient info.
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath('/dashboard/beds');
+    revalidatePath(`/dashboard/patients/${patientId}`);
+
+    return { success: true, message: 'Patient transferred successfully' };
 }
