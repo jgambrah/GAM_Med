@@ -52,7 +52,7 @@ export function PatientTable({ data }: PatientTableProps) {
                 <TableCell>{patient.full_name}</TableCell>
                 <TableCell>{patient.gender}</TableCell>
                 <TableCell>{patient.dob}</TableCell>
-                <TableCell>{patient.contact.phone_number}</TableCell>
+                <TableCell>{patient.contact.phone}</TableCell>
                 <TableCell>
                   <Badge variant={patient.status === 'active' ? 'default' : 'secondary'}>
                     {patient.status}
