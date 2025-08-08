@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard } from 'lucide-react';
+import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient'];
@@ -28,6 +28,12 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
+      roles: ['admin', 'doctor', 'nurse'],
+    },
+    {
+      href: '/dashboard/beds',
+      label: 'Beds',
+      icon: BedDouble,
       roles: ['admin', 'doctor', 'nurse'],
     },
     {
@@ -64,7 +70,7 @@ export function MainNav() {
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname === item.href}
+            isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
             tooltip={item.label}
           >
             <Link href={item.href}>
