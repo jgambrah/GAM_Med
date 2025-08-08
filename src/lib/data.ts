@@ -65,7 +65,7 @@ export const allPatients: Patient[] = [
     dob: '1985-05-20',
     gender: 'Male',
     contact: {
-      phone_number: '+233241234567',
+      phone: '+233241234567',
       email: 'k.owusu@email.com',
       address: {
         street: '123 Osu Oxford Street',
@@ -76,7 +76,7 @@ export const allPatients: Patient[] = [
     emergency_contact: {
       name: 'Adwoa Owusu',
       relationship: 'Spouse',
-      phone_number: '+233204123789',
+      phone: '+233204123789',
     },
     insurance: {
       provider_name: 'NHIS',
@@ -87,6 +87,32 @@ export const allPatients: Patient[] = [
     current_admission_id: 'A-001',
     status: 'active',
     created_at: new Date('2023-10-15T09:00:00Z').toISOString(),
+    updated_at: now.toISOString(),
+  },
+   {
+    patient_id: 'P-654321',
+    first_name: 'Aba',
+    last_name: 'Appiah',
+    full_name: 'Aba Appiah',
+    dob: '1992-11-02',
+    gender: 'Female',
+    contact: {
+      phone: '+233209876543',
+      email: 'a.appiah@email.com',
+      address: {
+        street: '456 Spintex Road',
+        city: 'Tema',
+        region: 'Greater Accra',
+      },
+    },
+    emergency_contact: {
+      name: 'Kofi Appiah',
+      relationship: 'Brother',
+      phone: '+233276543210',
+    },
+    is_admitted: false,
+    status: 'active',
+    created_at: new Date('2024-01-20T14:00:00Z').toISOString(),
     updated_at: now.toISOString(),
   },
 ];

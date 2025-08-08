@@ -29,7 +29,7 @@ export interface Patient {
   dob: string; // ISO 8601 format (YYYY-MM-DD)
   gender: 'Male' | 'Female' | 'Other';
   contact: {
-    phone_number: string;
+    phone: string;
     email?: string;
     address: {
       street: string;
@@ -40,7 +40,7 @@ export interface Patient {
   emergency_contact: {
     name: string;
     relationship: string;
-    phone_number: string;
+    phone: string;
   };
   insurance?: {
     provider_name: string;

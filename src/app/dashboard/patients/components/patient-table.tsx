@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Patient } from '@/lib/types';
 import {
   Table,
@@ -54,8 +55,8 @@ export function PatientTable({ data }: PatientTableProps) {
                 <TableCell>{patient.dob}</TableCell>
                 <TableCell>{patient.contact.phone}</TableCell>
                 <TableCell>
-                  <Badge variant={patient.status === 'active' ? 'default' : 'secondary'}>
-                    {patient.status}
+                  <Badge variant={patient.is_admitted ? 'default' : 'secondary'}>
+                    {patient.is_admitted ? 'Admitted' : 'Outpatient'}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -68,7 +69,9 @@ export function PatientTable({ data }: PatientTableProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/patients/${patient.patient_id}`}>View Details</Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem>Edit Record</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">
                         Delete Record
