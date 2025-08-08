@@ -19,4 +19,9 @@ export const PatientSchema = z.object({
     relationship: z.string().min(2, { message: "Relationship is required." }),
     phone: z.string().min(10, { message: "Emergency contact phone is required." }),
   }),
+  insurance: z.object({
+    providerName: z.string().optional(),
+    policyNumber: z.string().optional(),
+    expiryDate: z.string().optional(),
+  }).optional(),
 });

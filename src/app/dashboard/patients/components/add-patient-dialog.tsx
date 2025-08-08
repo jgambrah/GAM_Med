@@ -58,6 +58,11 @@ export function AddPatientDialog() {
         relationship: '',
         phone: '',
       },
+      insurance: {
+        providerName: '',
+        policyNumber: '',
+        expiryDate: '',
+      }
     },
   });
 
@@ -269,6 +274,50 @@ export function AddPatientDialog() {
                   )}
                 />
               </div>
+              
+              <h4 className="text-lg font-medium">Insurance Details (Optional)</h4>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="insurance.providerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Provider Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="NHIS" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="insurance.policyNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Policy Number</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="insurance.expiryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expiry Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
