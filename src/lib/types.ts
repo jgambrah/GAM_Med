@@ -28,11 +28,15 @@ export interface User {
 
 /**
  * Represents a patient record in the 'patients' collection.
- * This is the central document for all patient-related information.
- * The document ID for a patient record should be their unique `patient_id`.
+ *
+ * ARCHITECTURAL NOTE:
+ * The document ID for a patient record in Firestore should be their unique `patient_id`.
+ * This approach is highly efficient for data retrieval, as it allows for direct document lookups
+ * without needing a separate query. It also guarantees the uniqueness of the patient ID at the
+ * database level, which is critical for data integrity across the entire ERP system.
  */
 export interface Patient {
-  patient_id: string; // Unique, system-generated ID (e.g., P-250801-0001). Also the Firestore document ID.
+  patient_id: string; // Unique, system-generated ID. THIS IS ALSO THE FIRESTORE DOCUMENT ID.
   title?: string; // e.g., 'Mr', 'Mrs', 'Dr'
   first_name: string;
   last_name: string;
