@@ -172,6 +172,15 @@ export const allBeds: Bed[] = [
         updated_at: now.toISOString(),
     },
     {
+        bed_id: 'GW-206',
+        wardName: 'General Ward',
+        room_number: '20',
+        status: 'cleaning',
+        cleaningNeeded: true,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+    },
+    {
         bed_id: 'M-5',
         wardName: 'Maternity',
         room_number: '3',

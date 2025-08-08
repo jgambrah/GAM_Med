@@ -8,7 +8,6 @@ import Link from 'next/link';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -29,13 +28,13 @@ const statusConfig = {
     label: 'Occupied',
   },
   maintenance: {
-    icon: <Wrench className="h-5 w-5 text-yellow-500" />,
-    color: 'border-yellow-500 bg-yellow-50',
+    icon: <Wrench className="h-5 w-5 text-red-500" />,
+    color: 'border-red-500 bg-red-50',
     label: 'Maintenance',
   },
   cleaning: {
-    icon: <SprayCan className="h-5 w-5 text-purple-500" />,
-    color: 'border-purple-500 bg-purple-50',
+    icon: <SprayCan className="h-5 w-5 text-yellow-500" />,
+    color: 'border-yellow-500 bg-yellow-50',
     label: 'Cleaning',
   },
 };
@@ -64,7 +63,7 @@ export function BedCard({ bed }: BedCardProps) {
           </p>
         )}
          {bed.status === 'vacant' && bed.cleaningNeeded && (
-            <p className="text-xs text-purple-600 font-semibold">
+            <p className="text-xs text-yellow-600 font-semibold">
                 Cleaning Needed
             </p>
         )}
