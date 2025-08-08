@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -15,37 +16,40 @@
 // 1. Generate Unique Patient ID (Callable Function)
 // =======================================================================================
 /**
- * Generates a unique, sequential patient ID based on the current date.
+ * Generates a unique, sequential patient ID (UPID) to serve as the primary key.
+ * This function is the sole authority for creating new patient IDs, ensuring no duplicates.
  * Format: P-YYMMDD-XXXX (e.g., P-240808-0001)
  *
- * This function should be called from the client-side *before* submitting the new patient form.
- *
  * @trigger_type Callable Function (https)
- * @invocation (from client-side Server Action)
+ * @invocation This should be called from a secure backend environment (like a server action)
+ *             right before creating a new patient document in Firestore.
+ *   (Example from a Next.js server action)
  *   const generateId = httpsCallable(functions, 'generatePatientId');
  *   const result = await generateId();
  *   const newPatientId = result.data.patientId;
  */
 /*
 exports.generatePatientId = functions.region('europe-west1').https.onCall(async (data, context) => {
-  // 1. Authentication & Authorization Check
+  // 1. Authentication & Authorization Check: Ensure only authorized staff can generate IDs.
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
   const userDoc = await db.collection('users').doc(context.auth.uid).get();
   const userRole = userDoc.data()?.role;
+  // Note: Roles can be 'admin', 'nurse', 'doctor', etc. Adjust as needed.
   if (userRole !== 'admin' && userRole !== 'nurse') {
     throw new functions.https.HttpsError('permission-denied', 'User does not have permission to register patients.');
   }
 
-  // 2. Generate Date-based Prefix
+  // 2. Generate Date-based Prefix for the ID
   const today = new Date();
   const year = today.getFullYear().toString().slice(-2);
   const month = (today.getMonth() + 1).toString().padStart(2, '0');
   const day = today.getDate().toString().padStart(2, '0');
   const prefix = `P-${year}${month}${day}-`;
 
-  // 3. Find the last ID for the current day to determine the next sequence number
+  // 3. Find the last ID for the current day to determine the next sequence number.
+  // This query must be efficient. An index on the patient_id (document ID) is automatic and fast.
   const patientsRef = db.collection('patients');
   const snapshot = await patientsRef.where(admin.firestore.FieldPath.documentId(), '>=', prefix)
                                     .where(admin.firestore.FieldPath.documentId(), '<', prefix + 'z')
@@ -53,15 +57,17 @@ exports.generatePatientId = functions.region('europe-west1').https.onCall(async 
                                     .limit(1)
                                     .get();
 
-  let newIdNumber = 1;
+  let newSequenceNumber = 1;
   if (!snapshot.empty) {
     const lastId = snapshot.docs[0].id;
     const lastNumber = parseInt(lastId.split('-')[2], 10);
-    newIdNumber = lastNumber + 1;
+    newSequenceNumber = lastNumber + 1;
   }
 
-  const newPatientId = prefix + newIdNumber.toString().padStart(4, '0');
+  // 4. Construct the new, unique patient ID.
+  const newPatientId = prefix + newSequenceNumber.toString().padStart(4, '0');
 
+  // 5. Return the ID to the calling client.
   return { patientId: newPatientId };
 });
 */

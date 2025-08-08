@@ -9,16 +9,32 @@ import { PatientSchema, BedAllocationSchema } from './schemas';
 // In a real app, you would call your `generatePatientId` Cloud Function
 // and then save the data to Firestore.
 export async function addPatient(values: z.infer<typeof PatientSchema>) {
-  console.log('Adding new patient:', values);
+  console.log('Registering new patient with values:', values);
 
-  // Here you would:
-  // 1. Call the `generatePatientId` Cloud Function to get a new ID.
-  // const newPatientId = await generatePatientId();
-  // 2. Create the full patient object with the new ID, createdAt, etc.
-  // 3. Save the patient to Firestore.
-  // await db.collection('patients').doc(newPatientId).set(fullPatientData);
+  /**
+   * == Production Implementation Workflow ==
+   *
+   * 1. Call the `generatePatientId` Cloud Function to get a new, unique ID.
+   *    This is a critical step to ensure data integrity and prevent race conditions.
+   *    e.g., const newPatientId = await callCloudFunction('generatePatientId');
+   *
+   * 2. Construct the full patient document.
+   *    const patientData = {
+   *      ...values,
+   *      patient_id: newPatientId, // Use the generated ID
+   *      full_name: `${values.firstName} ${values.lastName}`,
+   *      is_admitted: false,
+   *      status: 'active',
+   *      createdAt: serverTimestamp(), // Use Firestore server-side timestamp
+   *      updatedAt: serverTimestamp(),
+   *    };
+   *
+   * 3. Save the new patient document to Firestore using the generated ID as the document ID.
+   *    e.g., await db.collection('patients').doc(newPatientId).set(patientData);
+   *
+   */
 
-  // For now, we'll just log it and simulate a delay.
+  // For this prototype, we'll just log it and simulate a delay.
   await new Promise((resolve) => setTimeout(resolve, 1000));
   
   // Revalidate the patients page to show the new patient.

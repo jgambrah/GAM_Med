@@ -29,10 +29,10 @@ export interface User {
 /**
  * Represents a patient record in the 'patients' collection.
  * This is the central document for all patient-related information.
- * Document ID should be the patient_id.
+ * The document ID for a patient record should be their unique `patient_id`.
  */
 export interface Patient {
-  patient_id: string; // Unique, system-generated ID (e.g., P-250801-0001)
+  patient_id: string; // Unique, system-generated ID (e.g., P-250801-0001). Also the Firestore document ID.
   title?: string; // e.g., 'Mr', 'Mrs', 'Dr'
   first_name: string;
   last_name: string;
