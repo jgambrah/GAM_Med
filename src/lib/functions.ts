@@ -35,7 +35,7 @@ exports.generatePatientId = functions.region('europe-west1').https.onCall(async 
   const userDoc = await db.collection('users').doc(context.auth.uid).get();
   const userRole = userDoc.data()?.role;
   if (userRole !== 'admin' && userRole !== 'nurse') {
-    throw new functions.https.HttpsError('permission-denied', 'User does not have permission to perform this action.');
+    throw new functions.https.HttpsError('permission-denied', 'User does not have permission to register patients.');
   }
 
   // 2. Generate Date-based Prefix
@@ -47,11 +47,15 @@ exports.generatePatientId = functions.region('europe-west1').https.onCall(async 
 
   // 3. Find the last ID for the current day to determine the next sequence number
   const patientsRef = db.collection('patients');
-  const snapshot = await patientsRef.where('patient_id', '>=', prefix).orderBy('patient_id', 'desc').limit(1).get();
+  const snapshot = await patientsRef.where(admin.firestore.FieldPath.documentId(), '>=', prefix)
+                                    .where(admin.firestore.FieldPath.documentId(), '<', prefix + 'z')
+                                    .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
+                                    .limit(1)
+                                    .get();
 
   let newIdNumber = 1;
   if (!snapshot.empty) {
-    const lastId = snapshot.docs[0].data().patient_id;
+    const lastId = snapshot.docs[0].id;
     const lastNumber = parseInt(lastId.split('-')[2], 10);
     newIdNumber = lastNumber + 1;
   }
@@ -71,7 +75,7 @@ exports.generatePatientId = functions.region('europe-west1').https.onCall(async 
  * This ensures data consistency across 'patients', 'beds', and the 'admissions' sub-collection.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, bedId: string, reasonForAdmission: string, attendingDoctorId: string }
+ * @input { patientId: string, bedId: string, reasonForVisit: string, attendingDoctorId: string }
  */
 /*
 exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -81,7 +85,10 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
     }
     // Add role check here if needed (e.g., admin, nurse, doctor)
 
-    const { patientId, bedId, reasonForAdmission, attendingDoctorId } = data;
+    const { patientId, bedId, reasonForVisit, attendingDoctorId } = data;
+    if (!patientId || !bedId || !reasonForVisit || !attendingDoctorId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required admission details.');
+    }
 
     const patientRef = db.collection('patients').doc(patientId);
     const bedRef = db.collection('beds').doc(bedId);
@@ -89,44 +96,43 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
 
     try {
         await db.runTransaction(async (transaction) => {
-            // 2. Verify bed is vacant
+            // 2. Read documents within the transaction
             const bedDoc = await transaction.get(bedRef);
+            const patientDoc = await transaction.get(patientRef);
+            
+            // 3. Pre-condition checks
+            if (!patientDoc.exists) throw new Error('Patient record not found.');
+            if (patientDoc.data()?.is_admitted) throw new Error('Patient is already admitted.');
             if (!bedDoc.exists || bedDoc.data()?.status !== 'vacant') {
                 throw new Error('Bed is not available.');
             }
-             const patientDoc = await transaction.get(patientRef);
-             if (!patientDoc.exists || patientDoc.data()?.is_admitted) {
-                 throw new Error('Patient is already admitted.');
-             }
 
             const admissionData = {
-                admission_id: newAdmissionRef.id,
-                patient_id: patientId,
+                admissionId: newAdmissionRef.id,
+                patientId: patientId,
                 type: 'Inpatient',
-                admission_date: admin.firestore.FieldValue.serverTimestamp(),
-                reason_for_admission: reasonForAdmission,
-                ward: bedDoc.data()?.ward,
-                bed_id: bedId,
-                attending_doctor_id: attendingDoctorId,
-                is_discharged: false,
-                created_at: admin.firestore.FieldValue.serverTimestamp(),
+                admissionDate: admin.firestore.FieldValue.serverTimestamp(),
+                reasonForVisit: reasonForVisit,
+                ward: bedDoc.data()?.wardName, // Get ward from bed data
+                bedId: bedId,
+                attendingDoctorId: attendingDoctorId,
+                status: 'Admitted',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
             };
 
-            // 3. Create new admission document
+            // 4. Perform atomic writes
             transaction.set(newAdmissionRef, admissionData);
-
-            // 4. Update patient document to reflect admission status
             transaction.update(patientRef, {
-                is_admitted: true,
-                current_admission_id: newAdmissionRef.id,
-                updated_at: admin.firestore.FieldValue.serverTimestamp(),
+                isAdmitted: true,
+                currentAdmissionId: newAdmissionRef.id,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            
-            // 5. Update bed document to 'occupied'
             transaction.update(bedRef, {
                 status: 'occupied',
-                current_patient_id: patientId,
-                occupied_since: admin.firestore.FieldValue.serverTimestamp(),
+                currentPatientId: patientId,
+                occupiedSince: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         });
 
@@ -135,7 +141,7 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
 
     } catch (error) {
         console.error('Admission transaction failed:', error);
-        throw new functions.https.HttpsError('aborted', 'Failed to admit patient.', error.message);
+        throw new functions.https.HttpsError('aborted', 'Failed to admit patient.', { message: error.message });
     }
 });
 */
@@ -148,7 +154,7 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
  * Handles the logic for discharging a patient in a single, atomic transaction.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, admissionId: string }
+ * @input { patientId: string, admissionId: string, dischargeSummary: string }
  */
 /*
 exports.handlePatientDischarge = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -157,56 +163,57 @@ exports.handlePatientDischarge = functions.region('europe-west1').https.onCall(a
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
     
-    const { patientId, admissionId } = data;
+    const { patientId, admissionId, dischargeSummary } = data;
+     if (!patientId || !admissionId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID and Admission ID are required.');
+    }
 
     const patientRef = db.collection('patients').doc(patientId);
     const admissionRef = patientRef.collection('admissions').doc(admissionId);
     
     try {
         await db.runTransaction(async (transaction) => {
-            // 2. Get admission document to find the bedId
             const admissionDoc = await transaction.get(admissionRef);
-            if (!admissionDoc.exists || admissionDoc.data()?.is_discharged) {
+            if (!admissionDoc.exists || admissionDoc.data()?.status === 'Discharged') {
                 throw new Error('Admission record not found or already discharged.');
             }
-            const bedId = admissionDoc.data()?.bed_id;
-            if (!bedId) {
-                // This might be an outpatient or emergency admission without a bed. Handle as needed.
-                console.log(`Admission ${admissionId} has no bed ID. Discharging without bed update.`);
-            }
 
-            // 3. Update the patient document
+            const bedId = admissionDoc.data()?.bedId;
+
+            // 2. Update the patient document
             transaction.update(patientRef, {
-                is_admitted: false,
-                current_admission_id: null,
-                updated_at: admin.firestore.FieldValue.serverTimestamp(),
+                isAdmitted: false,
+                currentAdmissionId: null,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
-            // 4. Update the admission document
+            // 3. Update the admission document
             transaction.update(admissionRef, {
-                discharge_date: admin.firestore.FieldValue.serverTimestamp(),
-                is_discharged: true,
+                dischargeDate: admin.firestore.FieldValue.serverTimestamp(),
+                status: 'Discharged',
+                dischargeSummary: dischargeSummary || null,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // 5. Update the bed document to make it 'vacant'
+            // 4. Update the bed document to 'cleaning' status
             if (bedId) {
                 const bedRef = db.collection('beds').doc(bedId);
                 transaction.update(bedRef, {
-                    status: 'vacant',
-                    current_patient_id: null,
-                    occupied_since: null, // Clear occupation time
-                    last_cleaned: null, // Mark as needing cleaning
+                    status: 'cleaning', // Set to 'cleaning' not 'vacant'
+                    currentPatientId: null,
+                    occupiedSince: null,
+                    cleaningNeeded: true, // Explicitly mark for cleaning
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
         });
 
         console.log(`Successfully discharged patient ${patientId}`);
-        // Can trigger follow-up functions for billing, etc. here
         return { success: true };
 
     } catch (error) {
         console.error('Discharge transaction failed:', error);
-        throw new functions.https.HttpsError('aborted', 'Failed to discharge patient.', error.message);
+        throw new functions.https.HttpsError('aborted', 'Failed to discharge patient.', { message: error.message });
     }
 });
 */
