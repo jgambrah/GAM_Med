@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, UsersRound, Pyramid, Wrench } from 'lucide-react';
+import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient'];
@@ -47,24 +47,6 @@ export function MainNav() {
       label: 'My Practice',
       icon: Stethoscope,
       roles: ['doctor'],
-    },
-    {
-      href: '/dashboard/succession-planning',
-      label: 'Succession Planning',
-      icon: UsersRound,
-      roles: ['admin'],
-    },
-    {
-      href: '/dashboard/talent-pools',
-      label: 'Talent Pools',
-      icon: Pyramid,
-      roles: ['admin'],
-    },
-    {
-      href: '/dashboard/skills-inventory',
-      label: 'Skills Inventory',
-      icon: Wrench,
-      roles: ['admin'],
     },
     {
       href: '/dashboard/admin',
