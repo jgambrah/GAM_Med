@@ -52,13 +52,9 @@ import { addPatient } from '@/lib/actions';
  *
  * Firestore Integration & Workflow:
  * - The `onSubmit` function is the trigger for the registration process.
- * - In a production app, the `addPatient` server action would first call the
- *   `generatePatientId` Cloud Function to get a new, unique patient ID.
- *   (e.g., `const newId = await callCloudFunction('generatePatientId');`)
- * - With the new ID, it would then construct the full patient document, including
- *   server-side timestamps for `createdAt` and `updatedAt`.
- * - Finally, it would write this new document to the `patients` collection in Firestore.
- *   (e.g., `await db.collection('patients').doc(newId).set(patientData);`)
+ * - It calls a single server action (`addPatient`), which orchestrates the entire
+ *   secure, two-step registration process on the server.
+ * - Upon receiving a success response, it displays a confirmation to the user.
  */
 export function AddPatientDialog() {
   const [open, setOpen] = React.useState(false);
@@ -101,16 +97,17 @@ export function AddPatientDialog() {
     /**
      * == Frontend Interaction with Cloud Functions ==
      *
-     * This is where the front-end orchestrates the two-step registration process.
-     * The `addPatient` server action encapsulates the backend calls.
+     * This is where the front-end orchestrates the secure registration process.
+     * By calling a single server action (`addPatient`), it initiates the
+     * entire backend workflow.
      *
-     * In a real app, the `addPatient` server action would:
-     * 1. First, call the `generatePatientId` Cloud Function to securely get a new ID.
-     * 2. Then, it would take the form `values` and the new ID and proceed to save
-     *    the complete patient record to Firestore.
+     * The `addPatient` action, running on the server, will:
+     * 1. First, call the `generatePatientId` Cloud Function.
+     * 2. Then, it will use the returned ID to save the patient's data.
+     * 3. Finally, it returns a single success or failure message here.
      *
-     * This two-step approach ensures the front-end never has to guess or construct
-     * an ID, and the entire creation process is securely managed on the server.
+     * This keeps the complex logic on the server and provides a simple,
+     * secure interface for the client.
      */
     const result = await addPatient(values);
     if (result.success) {

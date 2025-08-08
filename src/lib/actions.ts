@@ -5,41 +5,38 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PatientSchema, BedAllocationSchema } from './schemas';
 
-// This is a placeholder for the actual database logic.
-// In a real app, you would call your `generatePatientId` Cloud Function
-// and then save the data to Firestore.
+/**
+ * Server Action to register a new patient.
+ * This function encapsulates the entire server-side logic for the registration process,
+ * making it a secure and robust entry point for the client.
+ */
 export async function addPatient(values: z.infer<typeof PatientSchema>) {
   console.log('Registering new patient with values:', values);
 
   /**
    * == Production Implementation Workflow ==
    *
-   * This server action demonstrates the secure, two-step process for patient registration.
+   * This server action demonstrates the secure, two-step process for patient registration
+   * that would be used in a production environment.
    *
-   * 1. CALL `generatePatientId` CLOUD FUNCTION:
-   *    First, we securely call our backend function to get a new, unique ID. This function
-   *    is the sole authority for creating IDs, preventing duplicates and race conditions.
-   *    e.g., const newPatientId = await callCloudFunction('generatePatientId');
-   *    (In a real implementation, you would use the Firebase Admin SDK here or a callable function).
+   * STEP 1: GENERATE A UNIQUE PATIENT ID
+   * The first step is to call the `generatePatientId` Cloud Function. This function is the
+   * sole authority for creating IDs, which prevents race conditions and ensures every
+   * patient ID is unique and correctly formatted.
    *
-   * 2. CONSTRUCT THE FULL PATIENT DOCUMENT:
-   *    Next, we combine the validated form `values` with the newly generated `patientId`
-   *    and other server-side data.
-   *    const patientData = {
-   *      ...values,
-   *      patient_id: newPatientId, // Use the generated ID
-   *      full_name: `${values.firstName} ${values.lastName}`,
-   *      is_admitted: false,
-   *      status: 'active',
-   *      createdAt: serverTimestamp(), // Use Firestore server-side timestamp
-   *      updatedAt: serverTimestamp(),
-   *    };
+   * Example:
+   * `const idResult = await callCloudFunction('generatePatientId');`
+   * `const newPatientId = idResult.data.patientId;`
    *
-   * 3. SAVE TO FIRESTORE:
-   *    Finally, we save the new patient document to Firestore, using the `newPatientId`
-   *    as the document ID. This write operation would be protected by the Firestore
-   *    security rules we defined.
-   *    e.g., await db.collection('patients').doc(newPatientId).set(patientData);
+   * STEP 2: SAVE THE PATIENT RECORD
+   * Once the unique ID is obtained, we combine it with the validated form `values` and
+   * other server-generated data (like timestamps) to create the final patient document.
+   * This document is then saved to Firestore, using the `newPatientId` as the document ID.
+   * This could be done here or in a separate `handlePatientRegistration` function.
+   *
+   * Example:
+   * `const patientData = { ...values, patient_id: newPatientId, ... };`
+   * `await db.collection('patients').doc(newPatientId).set(patientData);`
    *
    */
 
