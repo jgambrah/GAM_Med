@@ -14,12 +14,16 @@ import {
 } from '@/components/ui/tabs';
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
+import { ClinicalNotesTab } from './components/clinical-notes-tab';
+import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { admitPatient, dischargePatient } from '@/lib/actions';
+
 
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
@@ -27,6 +31,26 @@ export default function PatientDetailPage() {
   if (!patient) {
     notFound();
   }
+
+  const handleAdmit = async () => {
+    setIsSubmitting(true);
+    await admitPatient(patient.patient_id);
+    // In a real app, we'd update state based on the result.
+    // For this mock, we rely on revalidation.
+    alert('Patient has been admitted (simulated). The page will now refresh.');
+    setIsSubmitting(false);
+  };
+
+  const handleDischarge = async () => {
+    if (!patient.current_admission_id) {
+        alert("Error: Patient has no current admission record to discharge.");
+        return;
+    }
+    setIsSubmitting(true);
+    await dischargePatient(patient.patient_id, patient.current_admission_id);
+    alert('Patient has been discharged (simulated). The page will now refresh.');
+    setIsSubmitting(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -44,13 +68,13 @@ export default function PatientDetailPage() {
            {patient.is_admitted ? 'Admitted' : 'Outpatient'}
          </Badge>
          <div className="flex items-center gap-2 ml-auto">
-            <Button variant="outline" size="sm" disabled={patient.is_admitted}>
+            <Button onClick={handleAdmit} variant="outline" size="sm" disabled={isSubmitting || patient.is_admitted}>
                 <Plus className="h-4 w-4 mr-2" />
-                Admit Patient
+                {isSubmitting ? 'Admitting...' : 'Admit Patient'}
             </Button>
-             <Button variant="destructive" size="sm" disabled={!patient.is_admitted}>
+             <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
                 <LogOut className="h-4 w-4 mr-2" />
-                Discharge Patient
+                {isSubmitting ? 'Discharging...' : 'Discharge Patient'}
             </Button>
          </div>
        </div>
@@ -69,26 +93,10 @@ export default function PatientDetailPage() {
            <AdmissionsHistoryTab admissions={admissions} />
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
-          <Card>
-            <CardHeader>
-                <CardTitle>Clinical Notes</CardTitle>
-                <CardDescription>Records of all clinical interactions and observations.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p>Clinical notes feature coming soon.</p>
-            </CardContent>
-          </Card>
+          <ClinicalNotesTab patientId={patient.patient_id} />
         </TabsContent>
          <TabsContent value="billing" className="mt-4">
-          <Card>
-            <CardHeader>
-                <CardTitle>Billing & Invoices</CardTitle>
-                <CardDescription>A history of all financial transactions and invoices.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p>Billing feature coming soon.</p>
-            </CardContent>
-          </Card>
+           <BillingTab patientId={patient.patient_id} />
         </TabsContent>
       </Tabs>
     </div>
