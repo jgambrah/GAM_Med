@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -91,6 +92,7 @@ export interface Admission {
   ward?: string; // e.g., 'Cardiology', 'Maternity'
   bed_id?: string; // e.g., 'C-101'
   attending_doctor_id: string; // Reference to doctor user ID
+  attending_doctor_name?: string; // Denormalized for quick display
   status: 'Admitted' | 'In Treatment' | 'Discharged';
   is_discharged?: boolean; // Legacy field
   referralDetails?: {

@@ -1,3 +1,4 @@
+
 import { User, Patient, Appointment, Admission, Bed } from './types';
 
 const now = new Date();
@@ -142,6 +143,7 @@ export const allAdmissions: Admission[] = [
     ward: 'Cardiology',
     bed_id: 'C-101',
     attending_doctor_id: 'doc1',
+    attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Admitted',
     is_discharged: false, // Legacy field, can be derived from status
     created_at: new Date('2024-07-28T10:30:00Z').toISOString(),

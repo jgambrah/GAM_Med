@@ -11,6 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { allPatients, allAdmissions, allUsers } from '@/lib/data';
 
 interface BedCardProps {
   bed: Bed;
@@ -43,6 +50,10 @@ export function BedCard({ bed }: BedCardProps) {
   const config = statusConfig[bed.status];
   const isOccupied = bed.status === 'occupied' && bed.current_patient_id;
 
+  const patient = isOccupied ? allPatients.find(p => p.patient_id === bed.current_patient_id) : null;
+  const admission = patient ? allAdmissions.find(a => a.admission_id === patient.current_admission_id) : null;
+  const doctor = admission ? allUsers.find(u => u.uid === admission.attending_doctor_id) : null;
+
   const CardContentWrapper = ({ children }: { children: React.ReactNode }) => (
      <Card className={cn('flex flex-col h-full', config.color)}>
         {children}
@@ -57,9 +68,9 @@ export function BedCard({ bed }: BedCardProps) {
       </CardHeader>
       <CardContent className="flex-grow">
         <div className="text-lg font-bold">{config.label}</div>
-        {bed.status === 'occupied' && (
-          <p className="text-xs text-muted-foreground">
-            Patient: {bed.current_patient_id}
+        {isOccupied && patient && (
+          <p className="text-xs text-muted-foreground truncate">
+            {patient.full_name}
           </p>
         )}
          {bed.status === 'vacant' && bed.cleaningNeeded && (
@@ -71,11 +82,26 @@ export function BedCard({ bed }: BedCardProps) {
     </>
   );
 
-  if (isOccupied) {
+  if (isOccupied && patient) {
     return (
-      <Link href={`/dashboard/patients/${bed.current_patient_id}`} className="h-full">
-         <CardContentWrapper>{cardContent}</CardContentWrapper>
-      </Link>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link href={`/dashboard/patients/${bed.current_patient_id}`} className="h-full block">
+              <CardContentWrapper>{cardContent}</CardContentWrapper>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="font-semibold">{patient.full_name}</p>
+            <p className="text-sm text-muted-foreground">
+              Doctor: {doctor?.name || 'N/A'}
+            </p>
+             <p className="text-sm text-muted-foreground">
+              Admitted: {admission ? new Date(admission.admission_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
