@@ -9,24 +9,24 @@ import { useMemo } from 'react';
 /**
  * BedStatusDashboard (Conceptual Component)
  *
- * This component renders the main visual grid for bed management.
+ * This component renders the main visual grid for bed management, providing a real-time
+ * overview of hospital capacity and patient placement.
  *
  * Structure:
- * - It fetches all bed data (from mock data in this prototype).
- * - It uses `useMemo` to efficiently group beds by their 'wardName'. This prevents
- *   re-computation on every render and is a performance best practice.
- * - It then iterates over each ward, creating a heading for the ward and a grid
- *   of `BedCard` components for each bed within that ward.
+ * - In this prototype, it fetches all bed data from a mock data file.
+ * - It uses `useMemo` to efficiently group beds by their 'wardName'. This is a performance
+ *   best practice that prevents re-computation on every render.
+ * - It then iterates over each ward, creating a heading for the ward and a grid of
+ *   `BedCard` components for each bed within that ward.
  *
- * Firestore Integration:
- * - This component would fetch all documents from the 'beds' collection.
- * - In a Next.js Server Component, this would look like:
- *   async function BedStatusGrid() {
- *     const bedsSnapshot = await db.collection('beds').orderBy('wardName').get();
- *     const allBeds = bedsSnapshot.docs.map(doc => doc.data());
- *     // ... then proceed with grouping and rendering.
- *   }
- * - For real-time updates (essential for a dashboard), you would use `onSnapshot`:
+ * Firestore Integration & Real-Time Updates:
+ * - For a production application, this component would need to be populated with live
+ *   data from the 'beds' collection in Firestore.
+ * - The most effective way to do this is with a real-time listener, `onSnapshot`, which
+ *   automatically pushes updates to the client whenever bed data changes in the database.
+ * - This ensures that the dashboard is always up-to-date without requiring manual refreshes.
+ *
+ * Example Real-Time Query (using React's `useEffect` hook):
  *   useEffect(() => {
  *     const q = query(collection(db, 'beds'));
  *     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -34,14 +34,13 @@ import { useMemo } from 'react';
  *       querySnapshot.forEach((doc) => {
  *         bedsData.push({ ...doc.data(), id: doc.id });
  *       });
- *       setBeds(bedsData); // Update state with live data
+ *       setBeds(bedsData); // Update component state with live data
  *     });
  *     return () => unsubscribe(); // Cleanup listener on component unmount
  *   }, []);
  */
 export function BedStatusGrid() {
-  // In a real app, this data would be fetched from Firestore,
-  // ideally with a real-time listener (onSnapshot).
+  // In a real app, this `allBeds` data would come from a real-time Firestore listener.
   const bedsByWard = useMemo(() => {
     return allBeds.reduce((acc, bed) => {
       const ward = bed.wardName;

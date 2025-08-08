@@ -38,24 +38,27 @@ import { addPatient } from '@/lib/actions';
 /**
  * PatientRegistrationForm (Conceptual Component)
  *
- * This component demonstrates a robust patient registration form.
+ * This component demonstrates a robust patient registration form, serving as the primary
+ * data entry point for new patients.
  *
  * Structure:
- * - Uses ShadCN's <Dialog> to appear as a modal.
- * - Managed by `react-hook-form` for state management and validation.
- * - Validation is powered by a Zod schema (`PatientSchema`) to ensure data integrity.
+ * - Uses ShadCN's <Dialog> to appear as a modal, providing a focused user experience.
+ * - State management and validation are handled by `react-hook-form` and a Zod schema
+ *   (`PatientSchema`), ensuring data integrity before any server communication.
  * - The form is organized into logical sections (Personal, Contact, Emergency, Insurance)
- *   using headers and a grid layout for clarity.
- * - Submission is handled by a Server Action (`addPatient`), which would contain the
- *   backend logic to interact with Firestore.
+ *   using headers and a grid layout for clarity and ease of use.
+ * - Submission is handled by a Server Action (`addPatient`), which encapsulates the
+ *   backend logic for creating a new patient record in Firestore.
  *
- * Firestore Integration:
- * - The `onSubmit` function calls the `addPatient` server action.
- * - In a real app, `addPatient` would:
- *   1. Call a Firebase Function to generate a unique patient ID (e.g., `generatePatientId`).
- *   2. Construct a new patient document with the form data and the generated ID.
- *   3. Use `admin.firestore().collection('patients').doc(newPatientId).set(patientData)`
- *      to save the new patient to the database.
+ * Firestore Integration & Workflow:
+ * - The `onSubmit` function is the trigger for the registration process.
+ * - In a production app, the `addPatient` server action would first call the
+ *   `generatePatientId` Cloud Function to get a new, unique patient ID.
+ *   (e.g., `const newId = await callCloudFunction('generatePatientId');`)
+ * - With the new ID, it would then construct the full patient document, including
+ *   server-side timestamps for `createdAt` and `updatedAt`.
+ * - Finally, it would write this new document to the `patients` collection in Firestore.
+ *   (e.g., `await db.collection('patients').doc(newId).set(patientData);`)
  */
 export function AddPatientDialog() {
   const [open, setOpen] = React.useState(false);
@@ -89,6 +92,7 @@ export function AddPatientDialog() {
   });
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
+    // In a real app, you would first call the `generatePatientId` Cloud Function here.
     const result = await addPatient(values);
     if (result.success) {
       alert('Patient registered successfully (simulated).');

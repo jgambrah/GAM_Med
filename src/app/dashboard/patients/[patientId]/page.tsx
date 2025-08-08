@@ -24,28 +24,30 @@ import { TransferPatientDialog } from './components/transfer-patient-dialog';
 /**
  * PatientRecordDashboard (Conceptual Component)
  *
- * This component is the main dashboard for viewing a single patient's record.
+ * This component serves as the central dashboard for viewing and managing a single
+ * patient's complete record.
  *
  * Structure:
- * - It's a dynamic Next.js page that uses the `patientId` from the URL.
- * - A header displays the patient's name, admission status (via a <Badge>), and key action buttons.
- * - Core actions (Admit, Transfer, Discharge) are available as buttons, which call server actions.
+ * - It's a dynamic Next.js page that fetches data based on the `patientId` from the URL.
+ * - The header provides at-a-glance information, including the patient's name, their
+ *   current admission status (via a <Badge>), and key action buttons.
+ * - Core clinical workflows (Admit, Transfer, Discharge) are initiated via buttons
+ *   that call server-side logic (currently simulated via Server Actions).
  * - It uses ShadCN's <Tabs> component to organize a large amount of information into
  *   digestible sections: Demographics, Admissions, Clinical Notes, and Billing.
- * - Each tab's content is delegated to a separate, dedicated component.
+ * - Each tab's content is delegated to a separate, dedicated component for modularity
+ *   and maintainability.
  *
- * Firestore Integration:
- * - This component would fetch all data for a specific patient.
- * - Example Firestore Query (in a server component or data-fetching hook):
- *   const patientRef = db.collection('patients').doc(patientId);
- *   const patientDoc = await patientRef.get();
- *   const patientData = patientDoc.data();
- *
- *   const admissionsRef = patientRef.collection('admissions').orderBy('admission_date', 'desc');
- *   const admissionsSnapshot = await admissionsRef.get();
- *   const admissionsData = admissionsSnapshot.docs.map(doc => doc.data());
- *
- *   // These datasets would then be passed as props to this component and its children.
+ * Firestore Integration & Workflow:
+ * - In a production app, this component (or its parent Server Component) would fetch all
+ *   data for a specific patient.
+ *   - Example Query 1: Get the main patient document.
+ *     `const patientDoc = await db.collection('patients').doc(patientId).get();`
+ *   - Example Query 2: Get all admission records for that patient.
+ *     `const admissionsSnapshot = await db.collection('patients').doc(patientId).collection('admissions').get();`
+ * - The "Admit" and "Discharge" buttons would invoke the corresponding Cloud Functions
+ *   (`handlePatientAdmission`, `handlePatientDischarge`) to perform these complex,
+ *   atomic operations securely on the backend.
  */
 export default function PatientDetailPage() {
   const params = useParams();
@@ -61,6 +63,7 @@ export default function PatientDetailPage() {
   }
 
   const handleAdmit = async () => {
+    // This function would call the `handlePatientAdmission` Cloud Function.
     setIsSubmitting(true);
     await admitPatient(patient.patient_id);
     alert('Patient has been admitted (simulated). The page will now refresh.');
@@ -68,6 +71,7 @@ export default function PatientDetailPage() {
   };
 
   const handleDischarge = async () => {
+    // This function would call the `handlePatientDischarge` Cloud Function.
     if (!patient.current_admission_id) {
         alert("Error: Patient has no current admission record to discharge.");
         return;
