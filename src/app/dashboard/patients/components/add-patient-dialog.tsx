@@ -49,12 +49,6 @@ import { addPatient } from '@/lib/actions';
  *   using headers and a grid layout for clarity and ease of use.
  * - Submission is handled by a Server Action (`addPatient`), which encapsulates the
  *   backend logic for creating a new patient record in Firestore.
- *
- * Firestore Integration & Workflow:
- * - The `onSubmit` function is the trigger for the registration process.
- * - It calls a single server action (`addPatient`), which orchestrates the entire
- *   secure, two-step registration process on the server.
- * - Upon receiving a success response, it displays a confirmation to the user.
  */
 export function AddPatientDialog() {
   const [open, setOpen] = React.useState(false);
@@ -95,19 +89,23 @@ export function AddPatientDialog() {
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
     /**
-     * == Frontend Interaction with Cloud Functions ==
+     * == Frontend Interaction with Backend Workflow ==
      *
-     * This is where the front-end orchestrates the secure registration process.
-     * By calling a single server action (`addPatient`), it initiates the
-     * entire backend workflow.
+     * This is where the front-end triggers the secure registration process. Instead
+     * of managing a multi-step process on the client (which is less secure and more
+     * complex), it makes a single, trusted call to the `addPatient` server action.
      *
-     * The `addPatient` action, running on the server, will:
-     * 1. First, call the `generatePatientId` Cloud Function.
-     * 2. Then, it will use the returned ID to save the patient's data.
-     * 3. Finally, it returns a single success or failure message here.
+     * STATE MANAGEMENT:
+     * The `react-hook-form` library handles the state of the form fields. There is no
+     * need for the client to store the generated `patientId` in its state. The entire
+     * two-step process (get ID, then save data) is managed securely on the server
+     * by the `addPatient` action.
      *
-     * This keeps the complex logic on the server and provides a simple,
-     * secure interface for the client.
+     * The client's only job is to:
+     * 1. Collect and validate the form data.
+     * 2. Call the `addPatient` action.
+     * 3. Wait for a single success or failure response.
+     * 4. Display a confirmation or error message to the user.
      */
     const result = await addPatient(values);
     if (result.success) {

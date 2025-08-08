@@ -17,27 +17,37 @@ export async function addPatient(values: z.infer<typeof PatientSchema>) {
    * == Production Implementation Workflow ==
    *
    * This server action demonstrates the secure, two-step process for patient registration
-   * that would be used in a production environment.
+   * that would be used in a production environment. It orchestrates calls to the
+   * backend Cloud Functions.
    *
-   * STEP 1: GENERATE A UNIQUE PATIENT ID
-   * The first step is to call the `generatePatientId` Cloud Function. This function is the
-   * sole authority for creating IDs, which prevents race conditions and ensures every
-   * patient ID is unique and correctly formatted.
+   * CONCEPTUAL CODE:
+   * try {
+   *   // STEP 1: GENERATE A UNIQUE PATIENT ID
+   *   // Call the `generatePatientId` Cloud Function. This function is the sole authority
+   *   // for creating IDs, which prevents race conditions and ensures every patient ID
+   *   // is unique and correctly formatted.
    *
-   * Example:
-   * `const idResult = await callCloudFunction('generatePatientId');`
-   * `const newPatientId = idResult.data.patientId;`
+   *   const generateId = httpsCallable(functions, 'generatePatientId');
+   *   const idResult = await generateId();
+   *   const newPatientId = idResult.data.patientId;
    *
-   * STEP 2: SAVE THE PATIENT RECORD
-   * Once the unique ID is obtained, we combine it with the validated form `values` and
-   * other server-generated data (like timestamps) to create the final patient document.
-   * This document is then saved to Firestore, using the `newPatientId` as the document ID.
-   * This could be done here or in a separate `handlePatientRegistration` function.
+   *   // STEP 2: SAVE THE PATIENT RECORD
+   *   // With the guaranteed unique ID, call the `handlePatientRegistration` Cloud Function
+   *   // to perform the final validation and atomic write to the database.
    *
-   * Example:
-   * `const patientData = { ...values, patient_id: newPatientId, ... };`
-   * `await db.collection('patients').doc(newPatientId).set(patientData);`
+   *   const registerPatient = httpsCallable(functions, 'handlePatientRegistration');
+   *   await registerPatient({ patientData: values, patientId: newPatientId });
    *
+   *   // STEP 3: RETURN SUCCESS
+   *   // Revalidate the path to update the UI and return a success message.
+   *   revalidatePath('/dashboard/patients');
+   *   return { success: true, message: `Patient registered successfully with ID: ${newPatientId}` };
+   *
+   * } catch (error) {
+   *   // Handle any errors from the Cloud Functions
+   *   console.error("Patient registration failed:", error);
+   *   return { success: false, message: error.message };
+   * }
    */
 
   // For this prototype, we'll just log it and simulate a delay.
