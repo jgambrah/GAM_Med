@@ -1,4 +1,3 @@
-
 /**
  * Represents a user in the system.
  * The document ID in the 'users' collection should correspond to the Firebase Auth UID.
@@ -23,10 +22,10 @@ export interface User {
  * This model is designed to be comprehensive and searchable.
  */
 export interface Patient {
-  patient_id: string; // Unique, system-generated ID (e.g., P-123456)
-  full_name: string;
+  patient_id: string; // Unique, system-generated ID (e.g., P-250801-0001)
   first_name: string;
   last_name: string;
+  full_name: string;
   dob: string; // ISO 8601 format (YYYY-MM-DD)
   gender: 'Male' | 'Female' | 'Other';
   contact: {
@@ -48,23 +47,46 @@ export interface Patient {
     policy_number: string;
     expiry_date: string; // ISO 8601 format (YYYY-MM-DD)
   };
+  is_admitted: boolean;
+  current_admission_id?: string;
   status: 'active' | 'discharged' | 'deceased';
   created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
 }
-
 
 /**
  * Represents an admission record in the sub-collection 'admissions' under a patient.
  */
 export interface Admission {
   admission_id: string; // e.g., A-001
+  patient_id: string;
+  type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string; // ISO 8601 format
-  ward: string;
-  bed_number: string;
+  discharge_date?: string; // ISO 8601 format
   reason_for_admission: string;
+  ward?: string;
+  bed_id?: string;
   attending_doctor_id: string; // Reference to doctor user ID
-  discharge_date: string | null; // Will be filled upon discharge
+  is_discharged: boolean;
+  discharge_summary?: string;
+  follow_up_instructions?: string;
+  final_bill_id?: string;
   created_at: string; // ISO 8601 format
+}
+
+/**
+ * Represents a hospital bed in the 'beds' collection.
+ */
+export interface Bed {
+    bed_id: string; // e.g., 'C-101'
+    ward: string;
+    room_number: string;
+    status: 'occupied' | 'vacant' | 'maintenance';
+    is_reserved?: boolean;
+    current_patient_id?: string;
+    occupied_since?: string; // ISO 8601 format
+    last_cleaned?: string; // ISO 8601 format
+    created_at: string; // ISO 8601 format
 }
 
 
