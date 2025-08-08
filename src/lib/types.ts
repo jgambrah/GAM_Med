@@ -59,9 +59,9 @@ export interface Patient {
     phone: string;
   };
   insurance?: {
-    provider_name: string; // e.g., 'NHIS', 'Glico', 'Private'
-    policy_number: string;
-    isActive: boolean;
+    provider_name?: string; // e.g., 'NHIS', 'Glico', 'Private'
+    policy_number?: string;
+    isActive?: boolean;
     expiry_date?: string; // ISO 8601 format (YYYY-MM-DD)
   };
   medicalHistory?: {
@@ -92,6 +92,7 @@ export interface Admission {
   bed_id?: string; // e.g., 'C-101'
   attending_doctor_id: string; // Reference to doctor user ID
   status: 'Admitted' | 'In Treatment' | 'Discharged';
+  is_discharged?: boolean; // Legacy field
   referralDetails?: {
     referredBy?: string; // e.g., 'Korle Bu Teaching Hospital'
     referralReason?: string;

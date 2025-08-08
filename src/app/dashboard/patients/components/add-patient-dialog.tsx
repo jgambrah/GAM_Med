@@ -65,12 +65,18 @@ export function AddPatientDialog() {
   const form = useForm<z.infer<typeof PatientSchema>>({
     resolver: zodResolver(PatientSchema),
     defaultValues: {
+      title: '',
       firstName: '',
       lastName: '',
+      otherNames: '',
+      ghanaCardId: '',
       dob: '',
       gender: undefined,
+      maritalStatus: undefined,
+      occupation: '',
       contact: {
-        phone: '',
+        primaryPhone: '',
+        alternatePhone: '',
         email: '',
         address: {
           street: '',
@@ -108,7 +114,7 @@ export function AddPatientDialog() {
       <DialogTrigger asChild>
         <Button>Add New Patient</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Register New Patient</DialogTitle>
           <DialogDescription>
@@ -120,6 +126,17 @@ export function AddPatientDialog() {
             <div className="space-y-4">
               <h4 className="text-lg font-medium">Personal Information</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <Input placeholder="Mr, Mrs, Dr" {...field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="firstName"
@@ -142,6 +159,17 @@ export function AddPatientDialog() {
                       <FormControl>
                         <Input placeholder="Owusu" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="otherNames"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Other Names (Optional)</FormLabel>
+                      <Input {...field} />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -181,16 +209,74 @@ export function AddPatientDialog() {
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="maritalStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Marital Status (Optional)</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Single">Single</SelectItem>
+                          <SelectItem value="Married">Married</SelectItem>
+                          <SelectItem value="Divorced">Divorced</SelectItem>
+                           <SelectItem value="Widowed">Widowed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="occupation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Occupation (Optional)</FormLabel>
+                      <Input {...field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ghanaCardId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ghana Card ID (Optional)</FormLabel>
+                      <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              <h4 className="text-lg font-medium">Contact Details</h4>
+              <h4 className="text-lg font-medium">Contact & Address</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField
                   control={form.control}
-                  name="contact.phone"
+                  name="contact.primaryPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                      <FormLabel>Primary Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+233..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="contact.alternatePhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternate Phone (Optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="+233..." {...field} />
                       </FormControl>
@@ -344,7 +430,7 @@ export function AddPatientDialog() {
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Saving...' : 'Save Patient'}
+                {form.formState.isSubmitting ? 'Saving...' : 'Register Patient'}
               </Button>
             </DialogFooter>
           </form>

@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, LogOut, ArrowRightLeft } from 'lucide-react';
+import { ChevronLeft, LogOut } from 'lucide-react';
 import { allPatients, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,8 +18,9 @@ import { AdmissionsHistoryTab } from './components/admissions-history-tab';
 import { ClinicalNotesTab } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
-import { admitPatient, dischargePatient } from '@/lib/actions';
+import { dischargePatient } from '@/lib/actions';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
+import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
 
 /**
  * PatientRecordDashboard (Conceptual Component)
@@ -62,14 +63,6 @@ export default function PatientDetailPage() {
     notFound();
   }
 
-  const handleAdmit = async () => {
-    // This function would call the `handlePatientAdmission` Cloud Function.
-    setIsSubmitting(true);
-    await admitPatient(patient.patient_id);
-    alert('Patient has been admitted (simulated). The page will now refresh.');
-    setIsSubmitting(false);
-  };
-
   const handleDischarge = async () => {
     // This function would call the `handlePatientDischarge` Cloud Function.
     if (!patient.current_admission_id) {
@@ -100,10 +93,10 @@ export default function PatientDetailPage() {
            {patient.is_admitted ? 'Admitted' : 'Outpatient'}
          </Badge>
          <div className="flex items-center gap-2 ml-auto">
-            <Button onClick={handleAdmit} variant="outline" size="sm" disabled={isSubmitting || patient.is_admitted}>
-                <Plus className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Admitting...' : 'Admit Patient'}
-            </Button>
+            <AllocateBedDialog 
+              patientId={patient.patient_id}
+              disabled={patient.is_admitted || isSubmitting} 
+            />
              <TransferPatientDialog 
                 patient={patient} 
                 currentBedId={currentAdmission?.bed_id}

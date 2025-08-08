@@ -5,6 +5,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -35,20 +36,33 @@ import {
 import { BedAllocationSchema } from '@/lib/schemas';
 import { allPatients, allBeds, allUsers } from '@/lib/data';
 import { allocateBed } from '@/lib/actions';
+import { Input } from '@/components/ui/input';
 
-export function AllocateBedDialog() {
+interface AllocateBedDialogProps {
+    patientId?: string;
+    disabled?: boolean;
+}
+
+export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProps) {
   const [open, setOpen] = React.useState(false);
 
   const form = useForm<z.infer<typeof BedAllocationSchema>>({
     resolver: zodResolver(BedAllocationSchema),
     defaultValues: {
-      patientId: '',
+      patientId: patientId || '',
       bedId: '',
       attendingDoctorId: '',
       reasonForAdmission: '',
     },
   });
 
+  React.useEffect(() => {
+    if (patientId) {
+        form.setValue('patientId', patientId);
+    }
+  }, [patientId, form]);
+
+  const selectedPatient = allPatients.find(p => p.patient_id === patientId);
   const unadmittedPatients = allPatients.filter(p => !p.is_admitted);
   const vacantBeds = allBeds.filter(b => b.status === 'vacant');
   const doctors = allUsers.filter(u => u.role === 'doctor');
@@ -64,10 +78,15 @@ export function AllocateBedDialog() {
     }
   };
 
+  const triggerText = patientId ? "Admit Patient" : "Allocate Bed";
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Allocate Bed</Button>
+        <Button variant={patientId ? 'outline' : 'default'} size={patientId ? 'sm' : 'default'} disabled={disabled}>
+            <Plus className="h-4 w-4 mr-2" />
+            {triggerText}
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -78,30 +97,37 @@ export function AllocateBedDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="patientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Patient</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an unadmitted patient" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {unadmittedPatients.map(p => (
-                        <SelectItem key={p.patient_id} value={p.patient_id}>
-                          {p.full_name} ({p.patient_id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {patientId && selectedPatient ? (
+                 <div>
+                    <FormLabel>Patient</FormLabel>
+                    <Input value={`${selectedPatient.full_name} (${selectedPatient.patient_id})`} readOnly disabled />
+                </div>
+            ) : (
+                <FormField
+                control={form.control}
+                name="patientId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Patient</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select an unadmitted patient" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {unadmittedPatients.map(p => (
+                            <SelectItem key={p.patient_id} value={p.patient_id}>
+                            {p.full_name} ({p.patient_id})
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
             <FormField
               control={form.control}
               name="bedId"
