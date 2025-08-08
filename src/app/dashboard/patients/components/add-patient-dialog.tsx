@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -16,7 +17,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
@@ -35,6 +35,28 @@ import {
 import { PatientSchema } from '@/lib/schemas';
 import { addPatient } from '@/lib/actions';
 
+/**
+ * PatientRegistrationForm (Conceptual Component)
+ *
+ * This component demonstrates a robust patient registration form.
+ *
+ * Structure:
+ * - Uses ShadCN's <Dialog> to appear as a modal.
+ * - Managed by `react-hook-form` for state management and validation.
+ * - Validation is powered by a Zod schema (`PatientSchema`) to ensure data integrity.
+ * - The form is organized into logical sections (Personal, Contact, Emergency, Insurance)
+ *   using headers and a grid layout for clarity.
+ * - Submission is handled by a Server Action (`addPatient`), which would contain the
+ *   backend logic to interact with Firestore.
+ *
+ * Firestore Integration:
+ * - The `onSubmit` function calls the `addPatient` server action.
+ * - In a real app, `addPatient` would:
+ *   1. Call a Firebase Function to generate a unique patient ID (e.g., `generatePatientId`).
+ *   2. Construct a new patient document with the form data and the generated ID.
+ *   3. Use `admin.firestore().collection('patients').doc(newPatientId).set(patientData)`
+ *      to save the new patient to the database.
+ */
 export function AddPatientDialog() {
   const [open, setOpen] = React.useState(false);
   const form = useForm<z.infer<typeof PatientSchema>>({
@@ -67,17 +89,13 @@ export function AddPatientDialog() {
   });
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    // Here you would call your server action
-    console.log(values);
     const result = await addPatient(values);
     if (result.success) {
-      // In a real app, you would show a success toast
-      console.log(result.message);
-      setOpen(false); // Close the dialog on success
+      alert('Patient registered successfully (simulated).');
+      setOpen(false);
       form.reset();
     } else {
-      // Handle error, maybe show an error message
-      console.error('Failed to add patient');
+      alert(`Error: ${result.message || 'Failed to add patient.'}`);
     }
   };
 

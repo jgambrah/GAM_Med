@@ -21,12 +21,38 @@ import { Badge } from '@/components/ui/badge';
 import { admitPatient, dischargePatient } from '@/lib/actions';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
 
-
+/**
+ * PatientRecordDashboard (Conceptual Component)
+ *
+ * This component is the main dashboard for viewing a single patient's record.
+ *
+ * Structure:
+ * - It's a dynamic Next.js page that uses the `patientId` from the URL.
+ * - A header displays the patient's name, admission status (via a <Badge>), and key action buttons.
+ * - Core actions (Admit, Transfer, Discharge) are available as buttons, which call server actions.
+ * - It uses ShadCN's <Tabs> component to organize a large amount of information into
+ *   digestible sections: Demographics, Admissions, Clinical Notes, and Billing.
+ * - Each tab's content is delegated to a separate, dedicated component.
+ *
+ * Firestore Integration:
+ * - This component would fetch all data for a specific patient.
+ * - Example Firestore Query (in a server component or data-fetching hook):
+ *   const patientRef = db.collection('patients').doc(patientId);
+ *   const patientDoc = await patientRef.get();
+ *   const patientData = patientDoc.data();
+ *
+ *   const admissionsRef = patientRef.collection('admissions').orderBy('admission_date', 'desc');
+ *   const admissionsSnapshot = await admissionsRef.get();
+ *   const admissionsData = admissionsSnapshot.docs.map(doc => doc.data());
+ *
+ *   // These datasets would then be passed as props to this component and its children.
+ */
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  // In a real app, this data would be fetched from Firestore.
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
 
@@ -37,8 +63,6 @@ export default function PatientDetailPage() {
   const handleAdmit = async () => {
     setIsSubmitting(true);
     await admitPatient(patient.patient_id);
-    // In a real app, we'd update state based on the result.
-    // For this mock, we rely on revalidation.
     alert('Patient has been admitted (simulated). The page will now refresh.');
     setIsSubmitting(false);
   };
