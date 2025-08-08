@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const PatientSchema = z.object({
@@ -24,4 +25,11 @@ export const PatientSchema = z.object({
     policyNumber: z.string().optional(),
     expiryDate: z.string().optional(),
   }).optional(),
+});
+
+export const BedAllocationSchema = z.object({
+    patientId: z.string().min(1, { message: "A patient must be selected."}),
+    bedId: z.string().min(1, { message: "A bed must be selected."}),
+    attendingDoctorId: z.string().min(1, { message: "A doctor must be selected."}),
+    reasonForAdmission: z.string().min(5, { message: "Reason must be at least 5 characters."}),
 });

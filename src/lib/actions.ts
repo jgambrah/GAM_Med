@@ -1,8 +1,9 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema } from './schemas';
 
 // This is a placeholder for the actual database logic.
 // In a real app, you would call your `generatePatientId` Cloud Function
@@ -54,4 +55,28 @@ export async function addClinicalNote(patientId: string, note: string) {
     await new Promise((resolve) => setTimeout(resolve, 500));
     revalidatePath(`/dashboard/patients/${patientId}`);
     return { success: true, message: 'Note added successfully.' };
+}
+
+// Placeholder for allocating a bed and admitting a patient. In a real app, this would call handlePatientAdmission.
+export async function allocateBed(values: z.infer<typeof BedAllocationSchema>) {
+    console.log('Allocating bed and admitting patient:', values);
+    
+    // In a real app, you would call your `handlePatientAdmission` Cloud Function with these details.
+    // For example:
+    // const result = await handlePatientAdmission({
+    //     patientId: values.patientId,
+    //     bedId: values.bedId,
+    //     attendingDoctorId: values.attendingDoctorId,
+    //     reasonForAdmission: values.reasonForAdmission,
+    //     ward: bed.ward // you'd need to fetch the bed's ward info
+    // });
+    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Revalidate all relevant paths to update the UI
+    revalidatePath('/dashboard/beds');
+    revalidatePath('/dashboard/patients');
+    revalidatePath(`/dashboard/patients/${values.patientId}`);
+    
+    return { success: true, message: 'Bed allocated and patient admitted successfully.' };
 }
