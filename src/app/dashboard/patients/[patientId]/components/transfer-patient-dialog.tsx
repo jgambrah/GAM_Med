@@ -36,6 +36,7 @@ import { allBeds } from '@/lib/data';
 import { transferPatient } from '@/lib/actions';
 import { Patient } from '@/lib/types';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface TransferPatientDialogProps {
   patient: Patient;
