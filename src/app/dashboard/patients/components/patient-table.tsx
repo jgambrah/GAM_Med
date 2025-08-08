@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -53,7 +54,7 @@ export function PatientTable({ data }: PatientTableProps) {
                 <TableCell>{patient.full_name}</TableCell>
                 <TableCell>{patient.gender}</TableCell>
                 <TableCell>{patient.dob}</TableCell>
-                <TableCell>{patient.contact.phone}</TableCell>
+                <TableCell>{patient.contact.primaryPhone}</TableCell>
                 <TableCell>
                   <Badge variant={patient.is_admitted ? 'default' : 'secondary'}>
                     {patient.is_admitted ? 'Admitted' : 'Outpatient'}

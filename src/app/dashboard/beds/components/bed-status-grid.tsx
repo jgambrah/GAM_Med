@@ -13,7 +13,7 @@ import { useMemo } from 'react';
  *
  * Structure:
  * - It fetches all bed data (from mock data in this prototype).
- * - It uses `useMemo` to efficiently group beds by their 'ward'. This prevents
+ * - It uses `useMemo` to efficiently group beds by their 'wardName'. This prevents
  *   re-computation on every render and is a performance best practice.
  * - It then iterates over each ward, creating a heading for the ward and a grid
  *   of `BedCard` components for each bed within that ward.
@@ -22,7 +22,7 @@ import { useMemo } from 'react';
  * - This component would fetch all documents from the 'beds' collection.
  * - In a Next.js Server Component, this would look like:
  *   async function BedStatusGrid() {
- *     const bedsSnapshot = await db.collection('beds').orderBy('ward').get();
+ *     const bedsSnapshot = await db.collection('beds').orderBy('wardName').get();
  *     const allBeds = bedsSnapshot.docs.map(doc => doc.data());
  *     // ... then proceed with grouping and rendering.
  *   }
@@ -44,7 +44,7 @@ export function BedStatusGrid() {
   // ideally with a real-time listener (onSnapshot).
   const bedsByWard = useMemo(() => {
     return allBeds.reduce((acc, bed) => {
-      const ward = bed.ward;
+      const ward = bed.wardName;
       if (!acc[ward]) {
         acc[ward] = [];
       }

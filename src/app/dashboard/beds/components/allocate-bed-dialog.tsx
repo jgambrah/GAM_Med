@@ -117,7 +117,7 @@ export function AllocateBedDialog() {
                     <SelectContent>
                       {vacantBeds.map(b => (
                         <SelectItem key={b.bed_id} value={b.bed_id}>
-                           {b.bed_id} ({b.ward})
+                           {b.bed_id} ({b.wardName})
                         </SelectItem>
                       ))}
                     </SelectContent>

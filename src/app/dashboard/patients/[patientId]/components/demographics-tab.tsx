@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Patient } from '@/lib/types';
@@ -7,10 +8,10 @@ interface DemographicsTabProps {
   patient: Patient;
 }
 
-const DetailItem = ({ label, value }: { label: string; value?: string | null }) => (
+const DetailItem = ({ label, value }: { label: string; value?: string | null | boolean }) => (
     <div>
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="text-base font-semibold">{value || 'N/A'}</p>
+        <p className="text-base font-semibold">{value === true ? 'Yes' : value === false ? 'No' : value || 'N/A'}</p>
     </div>
 );
 
@@ -22,10 +23,15 @@ export function DemographicsTab({ patient }: DemographicsTabProps) {
                 <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <DetailItem label="Title" value={patient.title} />
                 <DetailItem label="First Name" value={patient.first_name} />
                 <DetailItem label="Last Name" value={patient.last_name} />
+                <DetailItem label="Other Names" value={patient.otherNames} />
                 <DetailItem label="Date of Birth" value={patient.dob} />
                 <DetailItem label="Gender" value={patient.gender} />
+                <DetailItem label="Marital Status" value={patient.maritalStatus} />
+                <DetailItem label="Occupation" value={patient.occupation} />
+                <DetailItem label="Ghana Card ID" value={patient.ghanaCardId} />
             </CardContent>
         </Card>
 
@@ -35,11 +41,12 @@ export function DemographicsTab({ patient }: DemographicsTabProps) {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className='space-y-4'>
-                    <DetailItem label="Phone Number" value={patient.contact.phone} />
+                    <DetailItem label="Primary Phone" value={patient.contact.primaryPhone} />
+                    <DetailItem label="Alternate Phone" value={patient.contact.alternatePhone} />
                     <DetailItem label="Email Address" value={patient.contact.email} />
                 </div>
                  <div className='space-y-4'>
-                    <DetailItem label="Address" value={`${patient.contact.address.street}, ${patient.contact.address.city}, ${patient.contact.address.region}`} />
+                    <DetailItem label="Address" value={`${patient.contact.address.street}, ${patient.contact.address.city}, ${patient.contact.address.region}, ${patient.contact.address.country}`} />
                 </div>
             </CardContent>
         </Card>
@@ -62,7 +69,18 @@ export function DemographicsTab({ patient }: DemographicsTabProps) {
             <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <DetailItem label="Provider" value={patient.insurance?.provider_name} />
                 <DetailItem label="Policy Number" value={patient.insurance?.policy_number} />
+                <DetailItem label="Is Active?" value={patient.insurance?.isActive} />
                 <DetailItem label="Expiry Date" value={patient.insurance?.expiry_date} />
+            </CardContent>
+        </Card>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle>Medical History</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <DetailItem label="Allergies" value={patient.medicalHistory?.allergies?.join(', ')} />
+                <DetailItem label="Pre-existing Conditions" value={patient.medicalHistory?.preExistingConditions?.join(', ')} />
             </CardContent>
         </Card>
     </div>

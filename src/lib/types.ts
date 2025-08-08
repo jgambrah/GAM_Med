@@ -28,21 +28,29 @@ export interface User {
 /**
  * Represents a patient record in the 'patients' collection.
  * This is the central document for all patient-related information.
+ * Document ID should be the patient_id.
  */
 export interface Patient {
-  patient_id: string; // Unique, system-generated ID (e.g., P-240801-0001)
+  patient_id: string; // Unique, system-generated ID (e.g., P-250801-0001)
+  title?: string; // e.g., 'Mr', 'Mrs', 'Dr'
   first_name: string;
   last_name: string;
+  otherNames?: string;
   full_name: string; // Denormalized for searching: first_name + ' ' + last_name
+  ghanaCardId?: string; // Optional: For linking with national ID systems
   dob: string; // ISO 8601 format (YYYY-MM-DD)
   gender: 'Male' | 'Female' | 'Other';
+  maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
+  occupation?: string;
   contact: {
-    phone: string;
+    primaryPhone: string;
+    alternatePhone?: string;
     email?: string;
     address: {
       street: string;
       city: string;
       region: string;
+      country: string;
     };
   };
   emergency_contact: {
@@ -53,11 +61,18 @@ export interface Patient {
   insurance?: {
     provider_name: string; // e.g., 'NHIS', 'Glico', 'Private'
     policy_number: string;
+    isActive: boolean;
     expiry_date?: string; // ISO 8601 format (YYYY-MM-DD)
+  };
+  medicalHistory?: {
+    allergies?: string[]; // e.g., ['Penicillin', 'Latex']
+    preExistingConditions?: string[]; // e.g., ['Hypertension', 'Diabetes']
+    pastSurgeries?: { name: string; date: string }[];
   };
   is_admitted: boolean;
   current_admission_id?: string | null; // Null if not admitted
-  status: 'active' | 'archived' | 'deceased';
+  lastVisitDate?: string; // ISO 8601 format
+  status: 'active' | 'inactive' | 'deceased';
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
@@ -72,13 +87,18 @@ export interface Admission {
   type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string; // ISO 8601 format
   discharge_date?: string; // ISO 8601 format, set upon discharge
-  reason_for_admission: string;
+  reasonForVisit: string;
   ward?: string; // e.g., 'Cardiology', 'Maternity'
   bed_id?: string; // e.g., 'C-101'
   attending_doctor_id: string; // Reference to doctor user ID
-  is_discharged: boolean;
-  discharge_summary?: string;
+  status: 'Admitted' | 'In Treatment' | 'Discharged';
+  referralDetails?: {
+    referredBy?: string; // e.g., 'Korle Bu Teaching Hospital'
+    referralReason?: string;
+  };
+  dischargeSummary?: string;
   created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
 }
 
 /**
@@ -87,14 +107,14 @@ export interface Admission {
  */
 export interface Bed {
     bed_id: string; // Unique bed identifier, e.g., 'C-101'
-    ward: string;
+    wardName: string;
     room_number: string;
-    status: 'occupied' | 'vacant' | 'maintenance';
-    is_reserved?: boolean;
+    status: 'occupied' | 'vacant' | 'cleaning' | 'maintenance';
     current_patient_id?: string | null; // Null if vacant or maintenance
     occupied_since?: string | null; // ISO 8601 format, set when occupied
-    last_cleaned?: string; // ISO 8601 format
+    cleaningNeeded: boolean;
     created_at: string; // ISO 8601 format
+    updated_at: string; // ISO 8601 format
 }
 
 /**

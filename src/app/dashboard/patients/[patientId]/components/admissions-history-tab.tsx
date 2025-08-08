@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Admission } from '@/lib/types';
@@ -17,6 +18,8 @@ interface AdmissionsHistoryTabProps {
 }
 
 export function AdmissionsHistoryTab({ admissions }: AdmissionsHistoryTabProps) {
+  const isDischarged = (status: Admission['status']) => status === 'Discharged';
+  
   return (
     <div className="space-y-4">
        <h3 className="text-xl font-semibold">Admission History</h3>
@@ -44,8 +47,8 @@ export function AdmissionsHistoryTab({ admissions }: AdmissionsHistoryTabProps) 
                             </TableCell>
                             <TableCell>{admission.ward || 'N/A'}</TableCell>
                             <TableCell>
-                                <Badge variant={admission.is_discharged ? 'secondary' : 'default'}>
-                                    {admission.is_discharged ? 'Discharged' : 'Admitted'}
+                                <Badge variant={isDischarged(admission.status) ? 'secondary' : 'default'}>
+                                    {admission.status}
                                 </Badge>
                             </TableCell>
                         </TableRow>

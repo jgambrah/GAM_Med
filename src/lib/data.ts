@@ -59,18 +59,23 @@ export const allUsers: User[] = [
 export const allPatients: Patient[] = [
   {
     patient_id: 'P-123456',
+    title: 'Mr',
     first_name: 'Kwame',
     last_name: 'Owusu',
     full_name: 'Kwame Owusu',
+    ghanaCardId: 'GHA-123456789-0',
     dob: '1985-05-20',
     gender: 'Male',
+    maritalStatus: 'Married',
+    occupation: 'Software Engineer',
     contact: {
-      phone: '+233241234567',
+      primaryPhone: '+233241234567',
       email: 'k.owusu@email.com',
       address: {
         street: '123 Osu Oxford Street',
         city: 'Accra',
         region: 'Greater Accra',
+        country: 'Ghana',
       },
     },
     emergency_contact: {
@@ -81,28 +86,37 @@ export const allPatients: Patient[] = [
     insurance: {
       provider_name: 'NHIS',
       policy_number: '87654321',
+      isActive: true,
       expiry_date: '2025-12-31',
+    },
+    medicalHistory: {
+      allergies: ['Penicillin'],
+      preExistingConditions: ['Hypertension'],
     },
     is_admitted: true,
     current_admission_id: 'A-001',
     status: 'active',
+    lastVisitDate: new Date('2024-07-28T10:30:00Z').toISOString(),
     created_at: new Date('2023-10-15T09:00:00Z').toISOString(),
     updated_at: now.toISOString(),
   },
    {
     patient_id: 'P-654321',
+    title: 'Ms',
     first_name: 'Aba',
     last_name: 'Appiah',
     full_name: 'Aba Appiah',
     dob: '1992-11-02',
     gender: 'Female',
+    maritalStatus: 'Single',
     contact: {
-      phone: '+233209876543',
+      primaryPhone: '+233209876543',
       email: 'a.appiah@email.com',
       address: {
         street: '456 Spintex Road',
         city: 'Tema',
         region: 'Greater Accra',
+        country: 'Ghana'
       },
     },
     emergency_contact: {
@@ -124,12 +138,14 @@ export const allAdmissions: Admission[] = [
     patient_id: 'P-123456',
     type: 'Inpatient',
     admission_date: new Date('2024-07-28T10:30:00Z').toISOString(),
-    reason_for_admission: 'Follow-up on hypertension',
+    reasonForVisit: 'Follow-up on hypertension',
     ward: 'Cardiology',
     bed_id: 'C-101',
     attending_doctor_id: 'doc1',
-    is_discharged: false,
+    status: 'Admitted',
+    is_discharged: false, // Legacy field, can be derived from status
     created_at: new Date('2024-07-28T10:30:00Z').toISOString(),
+    updated_at: new Date('2024-07-28T10:30:00Z').toISOString(),
   },
 ];
 
@@ -137,27 +153,32 @@ export const allAdmissions: Admission[] = [
 export const allBeds: Bed[] = [
     {
         bed_id: 'C-101',
-        ward: 'Cardiology',
+        wardName: 'Cardiology',
         room_number: '10',
         status: 'occupied',
         current_patient_id: 'P-123456',
         occupied_since: new Date('2024-07-28T10:30:00Z').toISOString(),
-        created_at: now.toISOString()
+        cleaningNeeded: false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
     },
     {
         bed_id: 'GW-205',
-        ward: 'General Ward',
+        wardName: 'General Ward',
         room_number: '20',
         status: 'vacant',
-        last_cleaned: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-        created_at: now.toISOString()
+        cleaningNeeded: true,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
     },
     {
         bed_id: 'M-5',
-        ward: 'Maternity',
+        wardName: 'Maternity',
         room_number: '3',
         status: 'maintenance',
-        created_at: now.toISOString()
+        cleaningNeeded: false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
     }
 ]
 
