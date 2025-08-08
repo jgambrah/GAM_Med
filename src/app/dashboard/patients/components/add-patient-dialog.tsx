@@ -98,7 +98,20 @@ export function AddPatientDialog() {
   });
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    // In a real app, you would first call the `generatePatientId` Cloud Function here.
+    /**
+     * == Frontend Interaction with Cloud Functions ==
+     *
+     * This is where the front-end orchestrates the two-step registration process.
+     * The `addPatient` server action encapsulates the backend calls.
+     *
+     * In a real app, the `addPatient` server action would:
+     * 1. First, call the `generatePatientId` Cloud Function to securely get a new ID.
+     * 2. Then, it would take the form `values` and the new ID and proceed to save
+     *    the complete patient record to Firestore.
+     *
+     * This two-step approach ensures the front-end never has to guess or construct
+     * an ID, and the entire creation process is securely managed on the server.
+     */
     const result = await addPatient(values);
     if (result.success) {
       alert('Patient registered successfully (simulated).');

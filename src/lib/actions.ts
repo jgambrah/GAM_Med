@@ -14,11 +14,17 @@ export async function addPatient(values: z.infer<typeof PatientSchema>) {
   /**
    * == Production Implementation Workflow ==
    *
-   * 1. Call the `generatePatientId` Cloud Function to get a new, unique ID.
-   *    This is a critical step to ensure data integrity and prevent race conditions.
-   *    e.g., const newPatientId = await callCloudFunction('generatePatientId');
+   * This server action demonstrates the secure, two-step process for patient registration.
    *
-   * 2. Construct the full patient document.
+   * 1. CALL `generatePatientId` CLOUD FUNCTION:
+   *    First, we securely call our backend function to get a new, unique ID. This function
+   *    is the sole authority for creating IDs, preventing duplicates and race conditions.
+   *    e.g., const newPatientId = await callCloudFunction('generatePatientId');
+   *    (In a real implementation, you would use the Firebase Admin SDK here or a callable function).
+   *
+   * 2. CONSTRUCT THE FULL PATIENT DOCUMENT:
+   *    Next, we combine the validated form `values` with the newly generated `patientId`
+   *    and other server-side data.
    *    const patientData = {
    *      ...values,
    *      patient_id: newPatientId, // Use the generated ID
@@ -29,7 +35,10 @@ export async function addPatient(values: z.infer<typeof PatientSchema>) {
    *      updatedAt: serverTimestamp(),
    *    };
    *
-   * 3. Save the new patient document to Firestore using the generated ID as the document ID.
+   * 3. SAVE TO FIRESTORE:
+   *    Finally, we save the new patient document to Firestore, using the `newPatientId`
+   *    as the document ID. This write operation would be protected by the Firestore
+   *    security rules we defined.
    *    e.g., await db.collection('patients').doc(newPatientId).set(patientData);
    *
    */
