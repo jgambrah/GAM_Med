@@ -36,13 +36,12 @@ exports.generatePatientId = functions.region('europe-west1').https.onCall(async 
   }
   const userDoc = await db.collection('users').doc(context.auth.uid).get();
   const userRole = userDoc.data()?.role;
-  // Note: Roles can be 'admin', 'nurse', 'doctor', etc. Adjust as needed.
   if (userRole !== 'admin' && userRole !== 'nurse') {
     throw new functions.https.HttpsError('permission-denied', 'User does not have permission to register patients.');
   }
 
-  // 2. Generate Date-based Prefix for the ID
-  const today = new Date();
+  // 2. Generate Date-based Prefix for the ID (using a specific timezone if needed)
+  const today = new Date(); // Consider using a library for reliable timezone handling
   const year = today.getFullYear().toString().slice(-2);
   const month = (today.getMonth() + 1).toString().padStart(2, '0');
   const day = today.getDate().toString().padStart(2, '0');
@@ -72,9 +71,80 @@ exports.generatePatientId = functions.region('europe-west1').https.onCall(async 
 });
 */
 
+// =======================================================================================
+// 2. Handle Patient Registration (Callable Function)
+// =======================================================================================
+/**
+ * Creates the patient record in the database. In a production app, this would be combined
+ * with the ID generation into a single function to ensure the entire process is atomic.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientData: object, patientId: string }
+ */
+/*
+exports.handlePatientRegistration = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication & Authorization Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'admin' && userRole !== 'nurse') {
+        throw new functions.https.HttpsError('permission-denied', 'User does not have permission to register patients.');
+    }
+
+    const { patientData, patientId } = data;
+    if (!patientData || !patientId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient data and ID are required.');
+    }
+    
+    // 2. Server-side validation (e.g., using Zod or another library)
+    // const validationResult = PatientSchema.safeParse(patientData);
+    // if (!validationResult.success) {
+    //   throw new functions.https.HttpsError('invalid-argument', 'Patient data is invalid.');
+    // }
+
+    const patientRef = db.collection('patients').doc(patientId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(patientRef);
+            if (doc.exists) {
+                throw new Error(`Patient document with ID ${patientId} already exists.`);
+            }
+
+            const now = admin.firestore.FieldValue.serverTimestamp();
+            const finalPatientData = {
+                ...patientData,
+                patient_id: patientId, // Ensure the ID is stored in the document body as well
+                createdAt: now,
+                updatedAt: now,
+                isAdmitted: false,
+                status: 'active'
+            };
+
+            // Optional: Create a corresponding user in Firebase Auth for a patient portal
+            // if (patientData.contact.email) {
+            //   const userRecord = await admin.auth().createUser({ email: patientData.contact.email, ... });
+            //   await db.collection('users').doc(userRecord.uid).set({ ... });
+            // }
+
+            transaction.set(patientRef, finalPatientData);
+        });
+
+        console.log(`Successfully created patient ${patientId}`);
+        return { success: true, patientId: patientId };
+
+    } catch (error) {
+        console.error('Patient registration transaction failed:', error);
+        throw new functions.https.HttpsError('aborted', 'Failed to create patient record.', { message: error.message });
+    }
+});
+*/
+
 
 // =======================================================================================
-// 2. Handle Patient Admission (Callable Function)
+// 3. Handle Patient Admission (Callable Function)
 // =======================================================================================
 /**
  * Handles the logic for admitting a patient in a single, atomic transaction.
@@ -154,7 +224,7 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
 
 
 // =======================================================================================
-// 3. Handle Patient Discharge (Callable Function)
+// 4. Handle Patient Discharge (Callable Function)
 // =======================================================================================
 /**
  * Handles the logic for discharging a patient in a single, atomic transaction.
