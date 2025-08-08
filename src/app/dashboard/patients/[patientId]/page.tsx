@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { dischargePatient } from '@/lib/actions';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
 import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
+import { useAuth } from '@/hooks/use-auth';
 
 /**
  * PatientRecordDashboard (Conceptual Component)
@@ -49,10 +50,18 @@ import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
  * - The "Admit" and "Discharge" buttons would invoke the corresponding Cloud Functions
  *   (`handlePatientAdmission`, `handlePatientDischarge`) to perform these complex,
  *   atomic operations securely on the backend.
+ *
+ * Role-Based Rendering:
+ * - The UI should adapt based on the logged-in user's role. For example, a pharmacist
+ *   shouldn't see the "Admit" or "Discharge" buttons.
+ * - This is achieved by using the `useAuth` hook to get the current user's role and then
+ *   conditionally rendering the buttons. This provides a better user experience, but it's
+ *   important to remember that the ultimate security is handled by Firestore Security Rules.
  */
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
+  const { user } = useAuth(); // Get the current user
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // In a real app, this data would be fetched from Firestore.
@@ -76,6 +85,9 @@ export default function PatientDetailPage() {
   };
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
+  
+  // Determine if the user has clinical privileges for certain actions
+  const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
 
   return (
     <div className="space-y-6">
@@ -92,21 +104,23 @@ export default function PatientDetailPage() {
          <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
            {patient.is_admitted ? 'Admitted' : 'Outpatient'}
          </Badge>
-         <div className="flex items-center gap-2 ml-auto">
-            <AllocateBedDialog 
-              patientId={patient.patient_id}
-              disabled={patient.is_admitted || isSubmitting} 
-            />
-             <TransferPatientDialog 
-                patient={patient} 
-                currentBedId={currentAdmission?.bed_id}
-                disabled={isSubmitting || !patient.is_admitted} 
-            />
-             <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
-                <LogOut className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Discharging...' : 'Discharge Patient'}
-            </Button>
-         </div>
+         {hasClinicalPrivileges && (
+            <div className="flex items-center gap-2 ml-auto">
+                <AllocateBedDialog 
+                  patientId={patient.patient_id}
+                  disabled={patient.is_admitted || isSubmitting} 
+                />
+                <TransferPatientDialog 
+                    patient={patient} 
+                    currentBedId={currentAdmission?.bed_id}
+                    disabled={isSubmitting || !patient.is_admitted} 
+                />
+                <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    {isSubmitting ? 'Discharging...' : 'Discharge Patient'}
+                </Button>
+            </div>
+         )}
        </div>
 
       <Tabs defaultValue="demographics">
