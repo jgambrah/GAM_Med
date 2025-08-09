@@ -147,10 +147,6 @@ export interface Admission {
     referralReason?: string;
   };
   
-  // Legacy field, can be derived from status
-  is_discharged?: boolean; 
-  dischargeInstructions?: string; // AI-generated patient-friendly instructions
-  
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
@@ -197,21 +193,29 @@ export interface Appointment {
  * This tracks incoming patients from other healthcare providers.
  */
 export interface Referral {
-  referral_id: string; // Unique ID for the referral
-  referringProvider: string; // Name of the referring doctor or facility
-  referralDate: string; // ISO 8601 format
+  referralId: string; // Unique ID, same as document ID
+  patientId?: string; // Optional: Link to 'patients' collection if record exists
   patientDetails: {
-    name: string;
-    phone: string;
+    fullName: string;
     dob: string;
-    existingPatientId?: string; // Link if the patient is already in the system
+    contactPhone: string;
   };
-  reasonForReferral: string; // Clinical reason for the referral
+  referringProvider: {
+    name: string;
+    contactPerson?: string;
+    phone: string;
+    email?: string;
+  };
+  reasonForReferral: string;
+  referredToDepartment: string;
+  assignedToDoctorId?: string; // Optional: Link to 'users' collection
+  status: 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';
   priority: 'Routine' | 'Urgent' | 'Emergency';
-  assignedDepartment: string; // e.g., 'Cardiology', 'Orthopedics'
-  assignedDoctorId?: string; // UID of the doctor assigned to the referral
-  status: 'Pending Review' | 'Assigned' | 'Contacted' | 'Scheduled' | 'Completed' | 'Rejected';
-  notes?: string; // Any administrative or clinical notes
-  created_at: string; // ISO 8601 format
-  updated_at: string; // ISO 8601 format
+  referralDate: string; // ISO 8601 format
+  scannedDocumentURL?: string; // Optional: Link to PDF/image in Firebase Storage
+  appointmentId?: string; // Optional: Link to 'appointments' collection
+  createdAt: string; // ISO 8601 format
+  updatedAt: string; // ISO 8601 format
 }
+
+    
