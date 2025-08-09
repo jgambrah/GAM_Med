@@ -23,9 +23,9 @@ export default function ReferralsPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Referrals Queue</CardTitle>
+          <CardTitle>Referrals Inbox</CardTitle>
           <CardDescription>
-            A list of all patient referrals, organized by status.
+            A real-time list of all patient referrals. Use the filters to manage the queue.
           </CardDescription>
         </CardHeader>
         <CardContent>

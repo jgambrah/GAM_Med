@@ -53,7 +53,7 @@ export function AddReferralDialog() {
   });
 
   const onSubmit = async (values: z.infer<typeof ReferralSchema>) => {
-    // In a real app, this would call a server action that invokes the `handleNewReferral` Cloud Function.
+    // In a real app, this would call a server action that invokes the `processIncomingReferral` Cloud Function.
     console.log('New Referral Data:', values);
     alert('New referral has been submitted (simulated).');
     setOpen(false);
@@ -199,6 +199,11 @@ export function AddReferralDialog() {
                             </FormItem>
                         )}
                     />
+                     <FormItem>
+                        <FormLabel>Scanned Document (Optional)</FormLabel>
+                        <Input type="file" />
+                        <FormMessage />
+                    </FormItem>
                 </div>
             </div>
 
