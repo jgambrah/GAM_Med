@@ -522,7 +522,7 @@ exports.searchPatients = functions.region('europe-west1').https.onCall(async (da
 */
 
 // =======================================================================================
-// 10. Handle New Referral (Callable Function)
+// 10. Process Incoming Referral (Callable Function)
 // =======================================================================================
 /**
  * Handles the creation of a new referral record and initiates the necessary workflows.
@@ -531,7 +531,7 @@ exports.searchPatients = functions.region('europe-west1').https.onCall(async (da
  * @input { referralData: object } The referral data from the front-end form.
  */
 /*
-exports.handleNewReferral = functions.region('europe-west1').https.onCall(async (data, context) => {
+exports.processIncomingReferral = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Authentication & Authorization Check
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
@@ -541,13 +541,24 @@ exports.handleNewReferral = functions.region('europe-west1').https.onCall(async 
     const { referralData } = data;
     // 2. Server-side validation of referralData against a Zod schema.
 
-    const referralRef = db.collection('referrals').doc(); // Auto-generate ID
+    // 3. Check for existing patient
+    let existingPatientId = null;
+    const phone = referralData.patientDetails.phone;
+    if (phone) {
+        const snapshot = await db.collection('patients').where('contact.primaryPhone', '==', phone).limit(1).get();
+        if (!snapshot.empty) {
+            existingPatientId = snapshot.docs[0].id;
+        }
+    }
+
+    const referralRef = db.collection('referrals').doc();
 
     try {
         const now = admin.firestore.FieldValue.serverTimestamp();
         const finalReferralData = {
             ...referralData,
             referral_id: referralRef.id,
+            patientId: existingPatientId, // Store link to existing patient if found
             status: 'Pending Review',
             created_at: now,
             updated_at: now,
@@ -555,15 +566,10 @@ exports.handleNewReferral = functions.region('europe-west1').https.onCall(async 
 
         await referralRef.set(finalReferralData);
 
-        // 3. ** NOTIFICATION WORKFLOW (CONCEPTUAL) **
-        // Send an email or in-app notification to the head of the assigned department.
-        // For example, find users with role 'doctor' and department matching `referralData.assignedDepartment`.
-        // await sendNotificationToDepartment(referralData.assignedDepartment, `New referral received for ${referralData.patientDetails.name}`);
-
-        // 4. ** PATIENT CREATION (OPTIONAL) **
-        // If the patient is new, you might create a "shell" patient record.
-        // Or, wait for the referral to be accepted to create a full patient record.
-
+        // 4. ** NOTIFICATION WORKFLOW (CONCEPTUAL) **
+        // Send a notification to the triage team (e.g., users with 'triage_officer' role).
+        // await sendNotificationToRole('triage_officer', `New referral for ${referralData.patientDetails.name} needs review.`);
+        
         console.log(`Successfully created referral ${referralRef.id}`);
         return { success: true, referralId: referralRef.id };
 
@@ -573,3 +579,103 @@ exports.handleNewReferral = functions.region('europe-west1').https.onCall(async 
     }
 });
 */
+
+// =======================================================================================
+// 11. On Referral Assignment (Firestore Trigger)
+// =======================================================================================
+/**
+ * Triggers a notification when a referral is assigned to a specific doctor.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /referrals/{referralId}
+ */
+/*
+exports.onReferralAssignment = functions.region('europe-west1').firestore
+    .document('/referrals/{referralId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        
+        // 1. Condition: Execute only if assignedToDoctorId was null/undefined and now has a value.
+        if (newData.assignedToDoctorId && !oldData.assignedToDoctorId) {
+            const doctorId = newData.assignedToDoctorId;
+            const patientName = newData.patientDetails.name;
+            const reason = newData.reasonForReferral;
+            
+            console.log(`Referral ${context.params.referralId} assigned to doctor ${doctorId}.`);
+
+            // 2. Get doctor's details (e.g., for their notification preference or device token)
+            // const doctorDoc = await db.collection('users').doc(doctorId).get();
+            // const doctorData = doctorDoc.data();
+            
+            // 3. Send notification (FCM, Email, etc.)
+            // await sendNotification(doctorData.email, {
+            //     subject: 'New Referral Assignment',
+            //     body: `You have been assigned a new referral for patient ${patientName}. Reason: ${reason}`
+            // });
+
+            console.log(`Notification sent to doctor ${doctorId}.`);
+        }
+        
+        return null;
+    });
+*/
+
+
+// =======================================================================================
+// 12. Link Referral To Appointment (Callable Function)
+// =======================================================================================
+/**
+ * Atomically links a referral to a newly created appointment.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { referralId: string, appointmentId: string }
+ */
+/*
+exports.linkReferralToAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check (admin, nurse, scheduling_clerk)
+
+    const { referralId, appointmentId } = data;
+    if (!referralId || !appointmentId) {
+        throw new functions.https.HttpsError('invalid-argument', 'referralId and appointmentId are required.');
+    }
+
+    const referralRef = db.collection('referrals').doc(referralId);
+    const appointmentRef = db.collection('appointments').doc(appointmentId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const referralDoc = await transaction.get(referralRef);
+            if (!referralDoc.exists) {
+                throw new Error('Referral not found.');
+            }
+            
+            // 2. Perform atomic updates
+            transaction.update(referralRef, {
+                status: 'Scheduled',
+                appointmentId: appointmentId,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            
+            // This assumes the appointment document already exists.
+            transaction.update(appointmentRef, {
+                referralId: referralId,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        });
+        
+        console.log(`Successfully linked referral ${referralId} to appointment ${appointmentId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Linking referral to appointment failed:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not link records.', { message: error.message });
+    }
+});
+*/
+
+    
