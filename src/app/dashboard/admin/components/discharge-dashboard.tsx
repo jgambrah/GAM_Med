@@ -27,25 +27,25 @@ import Link from 'next/link';
  * This component provides a work queue for the administrative or billing department to
  * finalize the discharge process after a doctor has completed the clinical summary.
  *
- * Workflow:
- * 1.  **Data Query:** It fetches all admission records where the `status` is 'Pending Discharge'.
- *     This indicates the patient is clinically ready for discharge but awaits financial clearance.
- * 2.  **Display:** It lists these patients, showing their name, doctor, and when the summary was
- *     finalized. This gives a clear overview of pending administrative tasks.
- * 3.  **Action:** The "Process Discharge" button for each patient would trigger the final backend
- *     process. In a full implementation, this button would open a finalization view or modal
- *     showing a read-only version of the doctor's summary and the final bill breakdown.
- * 4.  **Backend Call:** After review in the finalization view, a confirmation button would call
- *     the `processPatientDischarge` Cloud Function. This function performs the final,
- *     multi-document atomic transaction to:
- *     - Update the admission status to 'Discharged'.
- *     - Update the patient's `is_admitted` flag to `false`.
- *     - Update the bed status to 'cleaning'.
- *     - Link the final bill ID.
+ * It demonstrates querying for patients in the 'Pending Discharge' state and provides
+ * the entry point for the final administrative action.
  */
 export function DischargeDashboard() {
-  // In a real app, this would be a query like:
-  // db.collectionGroup('admissions').where('status', '==', 'Pending Discharge')
+  /**
+   * == DATA QUERY (PSEUDOCODE) ==
+   * In a real application, this would be a live Firestore query to fetch all admission
+   * records where the `status` is 'Pending Discharge'. This gives the billing team a
+   * real-time work queue.
+   *
+   *   const q = query(
+   *     collectionGroup(db, 'admissions'),
+   *     where('status', '==', 'Pending Discharge'),
+   *     orderBy('updatedAt', 'desc')
+   *   );
+   *   const [pendingDischargeAdmissions, loading, error] = useCollection(q);
+   *
+   * This conceptual query efficiently fetches all relevant records across all patients.
+   */
   const pendingDischargeAdmissions = allAdmissions.filter(
     (a) => a.status === 'Pending Discharge'
   );
@@ -54,9 +54,18 @@ export function DischargeDashboard() {
       return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
   }
 
+  /**
+   * == Workflow Step 3: Administrative Finalization ==
+   * This function simulates the action taken by an admin or billing clerk.
+   * In a full implementation, this button would open a finalization view or modal.
+   * That view would display a read-only version of the doctor's summary and the final
+   * bill breakdown.
+   *
+   * After review, a confirmation button in that finalization view would call the
+   * `processPatientDischarge` Cloud Function, completing the workflow.
+   */
   const handleProcessDischarge = async (admissionId: string) => {
-    // In a real app, this would open a finalization modal/view.
-    // For this prototype, it directly simulates calling the `processPatientDischarge` Cloud Function.
+    // This simulates opening the finalization view before the backend call.
     alert(`Simulating final discharge for admission ${admissionId}. This would update patient, bed, and admission records after financial review.`);
     // On success, the component would re-render and this item would disappear from the list.
   };

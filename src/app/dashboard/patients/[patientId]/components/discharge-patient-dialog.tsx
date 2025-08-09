@@ -34,17 +34,7 @@ interface DischargePatientDialogProps {
  * and finalize the medical portion of a patient's discharge. It's an interactive form where
  * AI provides a draft that the doctor can then edit and approve.
  *
- * Workflow:
- * 1.  **Trigger:** The doctor clicks the "Discharge Patient" button on the patient's record.
- * 2.  **AI Generation:** The doctor clicks "Generate Summary" to call the `generateDischargeSummary`
- *     Genkit flow. The flow processes clinical notes and returns a structured summary.
- * 3.  **Review & Edit:** The generated `clinicalSummary` and `patientInstructions` are populated
- *     into editable text areas. The doctor can review, modify, and refine the content.
- * 4.  **Sign-off & Backend Call:** Clicking "Confirm and Discharge Patient" acts as the clinical
- *     sign-off. It calls the `dischargePatient` server action, sending the final, edited
- *     summary and instructions to the backend. This would then trigger the
- *     `finalizeDischargeSummary` Cloud Function, saving the summary and updating the
- *     admission status to 'Pending Discharge'.
+ * It demonstrates state management for summary data and guides the user through the process.
  */
 export function DischargePatientDialog({ patient, clinicalNotes, disabled }: DischargePatientDialogProps) {
   const [open, setOpen] = React.useState(false);
@@ -53,12 +43,19 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
   const [summary, setSummary] = React.useState<GenerateDischargeSummaryOutput | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   
+  /**
+   * == Workflow Step 1: AI Generation ==
+   * This function is triggered when the doctor clicks "Generate Summary".
+   * It calls the `generateDischargeSummary` Genkit flow and stores the result
+   * in the component's state, populating the form fields.
+   */
   const handleGenerateSummary = async () => {
     setIsGenerating(true);
     setError(null);
     setSummary(null);
     try {
         const result = await generateDischargeSummary({ clinicalNotes });
+        // The AI-generated data is stored in the component's state.
         setSummary(result);
     } catch (e) {
         setError('Failed to generate discharge summary. Please try again.');
@@ -68,13 +65,21 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
     }
   }
 
+  /**
+   * == Workflow Step 2: Review, Edit, and Sign-off ==
+   * This function is called when the doctor clicks "Confirm and Discharge Patient".
+   * It acts as the clinical sign-off, sending the final, potentially edited summary
+   * from the component's state to the backend via a server action.
+   * This would trigger the `finalizeDischargeSummary` Cloud Function.
+   */
   const handleDischarge = async () => {
     if (!patient.current_admission_id || !summary) {
         alert("Error: Missing admission ID or summary.");
         return;
     }
     setIsSubmitting(true);
-    // Send the potentially edited summary from the component's state
+    // The component sends the data from its state, which includes any edits
+    // made by the doctor in the Textarea components.
     const result = await dischargePatient(
         patient.patient_id, 
         patient.current_admission_id,
@@ -91,10 +96,10 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
     setIsSubmitting(false);
   };
   
+  // Resets the component's state when the dialog is closed.
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
-        // Reset state when dialog is closed
         setSummary(null);
         setError(null);
         setIsGenerating(false);
@@ -150,6 +155,7 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label htmlFor="clinicalSummary" className="font-semibold text-lg">Clinical Summary (Editable)</Label>
+                        {/* The Textarea's `onChange` handler updates the 'summary' state, allowing for edits. */}
                         <Textarea 
                             id="clinicalSummary"
                             className="h-64 font-mono text-sm"
