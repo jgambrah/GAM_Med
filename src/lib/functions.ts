@@ -521,3 +521,55 @@ exports.searchPatients = functions.region('europe-west1').https.onCall(async (da
 });
 */
 
+// =======================================================================================
+// 10. Handle New Referral (Callable Function)
+// =======================================================================================
+/**
+ * Handles the creation of a new referral record and initiates the necessary workflows.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { referralData: object } The referral data from the front-end form.
+ */
+/*
+exports.handleNewReferral = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication & Authorization Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check (admin, nurse)
+    
+    const { referralData } = data;
+    // 2. Server-side validation of referralData against a Zod schema.
+
+    const referralRef = db.collection('referrals').doc(); // Auto-generate ID
+
+    try {
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const finalReferralData = {
+            ...referralData,
+            referral_id: referralRef.id,
+            status: 'Pending Review',
+            created_at: now,
+            updated_at: now,
+        };
+
+        await referralRef.set(finalReferralData);
+
+        // 3. ** NOTIFICATION WORKFLOW (CONCEPTUAL) **
+        // Send an email or in-app notification to the head of the assigned department.
+        // For example, find users with role 'doctor' and department matching `referralData.assignedDepartment`.
+        // await sendNotificationToDepartment(referralData.assignedDepartment, `New referral received for ${referralData.patientDetails.name}`);
+
+        // 4. ** PATIENT CREATION (OPTIONAL) **
+        // If the patient is new, you might create a "shell" patient record.
+        // Or, wait for the referral to be accepted to create a full patient record.
+
+        console.log(`Successfully created referral ${referralRef.id}`);
+        return { success: true, referralId: referralRef.id };
+
+    } catch (error) {
+        console.error('Referral creation failed:', error);
+        throw new functions.https.HttpsError('internal', 'Could not create referral.');
+    }
+});
+*/

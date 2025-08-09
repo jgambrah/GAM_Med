@@ -191,3 +191,27 @@ export interface Appointment {
   notes: string;
   created_at: string; // ISO 8601 format
 }
+
+/**
+ * Represents a patient referral in the 'referrals' collection.
+ * This tracks incoming patients from other healthcare providers.
+ */
+export interface Referral {
+  referral_id: string; // Unique ID for the referral
+  referringProvider: string; // Name of the referring doctor or facility
+  referralDate: string; // ISO 8601 format
+  patientDetails: {
+    name: string;
+    phone: string;
+    dob: string;
+    existingPatientId?: string; // Link if the patient is already in the system
+  };
+  reasonForReferral: string; // Clinical reason for the referral
+  priority: 'Routine' | 'Urgent' | 'Emergency';
+  assignedDepartment: string; // e.g., 'Cardiology', 'Orthopedics'
+  assignedDoctorId?: string; // UID of the doctor assigned to the referral
+  status: 'Pending Review' | 'Assigned' | 'Contacted' | 'Scheduled' | 'Completed' | 'Rejected';
+  notes?: string; // Any administrative or clinical notes
+  created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
+}

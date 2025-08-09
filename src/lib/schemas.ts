@@ -47,3 +47,17 @@ export const BedAllocationSchema = z.object({
     attendingDoctorId: z.string().min(1, { message: "A doctor must be selected."}),
     reasonForAdmission: z.string().min(5, { message: "Reason must be at least 5 characters."}),
 });
+
+/**
+ * Zod schema for validating the new referral form.
+ */
+export const ReferralSchema = z.object({
+  referringProvider: z.string().min(2, { message: "Referring provider is required." }),
+  patientName: z.string().min(2, { message: "Patient name is required." }),
+  patientPhone: z.string().min(10, { message: "A valid phone number is required." }),
+  patientDob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
+  reasonForReferral: z.string().min(10, { message: "Reason for referral is required." }),
+  priority: z.enum(['Routine', 'Urgent', 'Emergency']),
+  assignedDepartment: z.string().min(2, { message: "A department must be assigned." }),
+  notes: z.string().optional(),
+});

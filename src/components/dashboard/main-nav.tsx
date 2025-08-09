@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble } from 'lucide-react';
+import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble, Send } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk'];
@@ -30,6 +30,12 @@ export function MainNav() {
       label: 'Patients',
       icon: Users,
       roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+    },
+    {
+      href: '/dashboard/referrals',
+      label: 'Referrals',
+      icon: Send,
+      roles: ['admin', 'doctor', 'nurse'],
     },
     {
       href: '/dashboard/beds',
