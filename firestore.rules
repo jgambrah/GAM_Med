@@ -4,59 +4,58 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get the user's role from the 'users' collection.
-    // This is more secure than relying on custom claims for this prototype.
+    // Helper function to get user's role from their user document.
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Rules for the main 'users' collection
+    // Helper function to check if the requesting user is the patient in question.
+    function isPatient(patientId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId;
+    }
+
+    // Rules for user-specific data
     match /users/{userId} {
-      // Users can read their own data. Admins can read anyone's data.
-      allow read: if request.auth.uid == userId || getUserRole() == 'admin';
-      // Only admins can create or update user roles.
-      allow write: if getUserRole() == 'admin';
+      allow read, write: if request.auth.uid == userId;
     }
 
-    // Rules for the main 'patients' collection
+    // Main collection rules
     match /patients/{patientId} {
-        // Allow creation if the user is an admin or billing clerk, AND
-        // the document ID being created matches the patientId field in the document body.
-        allow create: if (getUserRole() == 'admin' || getUserRole() == 'billing_clerk')
-                      && request.resource.id == request.resource.data.patientId;
-
-        // Allow reading for admins, clerks, doctors, and nurses.
-        // A patient can read their own record if their auth UID matches a linked user ID field (future feature).
-        allow read: if getUserRole() in ['admin', 'billing_clerk', 'doctor', 'nurse'];
-
-        // Allow updates if the user is an admin or clerk.
-        // Crucially, this rule PREVENTS the patientId field from being changed after creation.
-        allow update: if (getUserRole() == 'admin' || getUserRole() == 'billing_clerk')
-                      && request.resource.data.patientId == resource.data.patientId;
+      // Allow read access to authorized staff and the patient themselves.
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || isPatient(patientId);
+      // Allow write access only to clinical staff and admins.
+      // This is simplified; in production, you'd have more granular field-level validation.
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
     }
-    
-    // Rules for the 'admissions' sub-collection
+
+    // Rules for the admissions sub-collection
     match /patients/{patientId}/admissions/{admissionId} {
-      // Allow read access to a broad set of roles, including the patient themselves.
-      // In a real app, doctor/nurse access might be further restricted to only patients in their department.
-      allow read: if getUserRole() in ['admin', 'billing_clerk', 'doctor', 'nurse']
-                  || request.auth.uid == patientId; // Allows patient to read their own admission history
 
-      // Only admins and clerks can create new admission records (e.g., for a new visit).
-      allow create: if getUserRole() in ['admin', 'billing_clerk'];
+      // READ: Clinical staff, admins, billing, and the patient themselves can read.
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || isPatient(patientId);
+      
+      // CREATE: New admissions can be created by clinical staff or admins.
+      allow create: if getUserRole() in ['admin', 'doctor', 'nurse'];
 
-      // Allow updates based on role:
-      // - Admins can update any field.
-      // - Doctors/nurses can update clinical status fields.
-      // - Clerks might update billing-related fields (not yet defined).
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'];
+      // UPDATE: Granular update rules based on role and document state.
+      // This rule allows doctors to update a summary as long as it's not yet finalized.
+      allow update: if resource.data.isSummaryFinalized == false 
+                      && getUserRole() == 'doctor'
+                      && request.auth.uid == resource.data.dischargeByDoctorId;
+
+      // This rule allows billing clerks to ONLY update the finalBillId.
+      allow update: if resource.data.isSummaryFinalized == false
+                      && getUserRole() == 'billing_clerk'
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finalBillId']);
+      
+      // Note: Full updates to change status to 'Discharged' would be handled by a Cloud Function,
+      // which has privileged access and bypasses these end-user rules.
     }
 
-    // Rules for all other collections (beds, appointments, etc.)
-    // For this prototype, we'll allow read/write access to authenticated users.
-    // In production, these would have granular rules similar to patients/admissions.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    match /beds/{bedId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      // Writes to bed status should be handled by trusted Cloud Functions.
+      allow write: if false; 
     }
   }
 }
