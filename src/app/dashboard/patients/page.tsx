@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { allPatients } from '@/lib/data';
+import { useDebouncedCallback } from 'use-debounce';
 import { PatientTable } from './components/patient-table';
 import { AddPatientDialog } from './components/add-patient-dialog';
 import {
@@ -13,20 +13,40 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Patient } from '@/lib/types';
+import { searchPatientsAction } from '@/lib/actions';
+import { allPatients } from '@/lib/data';
 
 export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [filteredPatients, setFilteredPatients] = React.useState<Patient[]>(allPatients);
+  const [patients, setPatients] = React.useState<Patient[]>(allPatients);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
+  const handleSearch = useDebouncedCallback(async (query: string) => {
+    setIsLoading(true);
+    setError(null);
+    const result = await searchPatientsAction(query);
+    if (result.success) {
+      setPatients(result.data || []);
+    } else {
+      setError(result.message || 'Failed to search for patients.');
+      setPatients([]);
+    }
+    setIsLoading(false);
+  }, 300); // 300ms debounce delay
+
+  const onSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    handleSearch(query);
+  };
+  
+  // Initial load effect
   React.useEffect(() => {
-    const lowercasedQuery = searchQuery.toLowerCase();
-    const filtered = allPatients.filter(
-      (patient) =>
-        patient.full_name.toLowerCase().includes(lowercasedQuery) ||
-        patient.patient_id.toLowerCase().includes(lowercasedQuery)
-    );
-    setFilteredPatients(filtered);
-  }, [searchQuery]);
+    // This could also be a call to fetch all patients initially
+    // For this prototype, we start with the full mock list.
+    setPatients(allPatients);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -50,16 +70,23 @@ export default function PatientsPage() {
              </div>
              <div className="w-full sm:w-auto">
                 <Input
-                    placeholder="Search by name or ID..."
+                    placeholder="Search by name, ID, or phone..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={onSearchInputChange}
                     className="max-w-sm"
                 />
              </div>
           </div>
         </CardHeader>
         <CardContent>
-          <PatientTable data={filteredPatients} />
+           {error && <p className="text-center text-destructive">{error}</p>}
+           {isLoading ? (
+             <div className="h-24 flex items-center justify-center">
+                <p className="text-muted-foreground">Searching...</p>
+             </div>
+           ) : (
+             <PatientTable data={patients} />
+           )}
         </CardContent>
       </Card>
     </div>

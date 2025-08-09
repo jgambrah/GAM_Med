@@ -474,3 +474,50 @@ exports.generateDischargeSummaryPDF = functions.region('europe-west1').firestore
         return null;
     });
 */
+
+// =======================================================================================
+// 9. Search Patients (Callable Function)
+// =======================================================================================
+/**
+ * Performs a search for patients using a dedicated search index for performance.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { query: string } The search query string.
+ * @returns {Promise<object[]>} A promise that resolves to an array of patient objects.
+ *
+ * ARCHITECTURAL NOTE:
+ * This function acts as a secure backend for the patient search UI. It would integrate
+ * with a service like Algolia or Elasticsearch, which is kept in sync with the
+ * 'patients' Firestore collection (e.g., via a Firestore trigger). This architecture
+ * offloads complex queries from Firestore, providing a much faster and more powerful
+ * search experience that supports full-text search, typo tolerance, and custom ranking.
+ */
+/*
+exports.searchPatients = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to search for patients.');
+    }
+    // Optional: Add role-based access control here if needed.
+
+    const { query } = data;
+    if (typeof query !== 'string' || query.length < 2) {
+        throw new functions.https.HttpsError('invalid-argument', 'A search query of at least 2 characters is required.');
+    }
+
+    // 2. Integration with a search service (e.g., Algolia)
+    // const algoliaClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_ADMIN_KEY);
+    // const index = algoliaClient.initIndex('patients');
+    // const { hits } = await index.search(query, {
+    //     attributesToRetrieve: ['patient_id', 'full_name', 'dob', 'gender', 'contact', 'is_admitted'],
+    //     hitsPerPage: 20
+    // });
+
+    // 3. Return the search results
+    // return hits;
+
+    // For this prototype, we return an empty array as we can't connect to a real search service.
+    return [];
+});
+*/
+

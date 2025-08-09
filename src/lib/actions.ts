@@ -4,7 +4,8 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PatientSchema, BedAllocationSchema } from './schemas';
-import { Appointment } from './types';
+import { Appointment, Patient } from './types';
+import { allPatients } from './data';
 
 /**
  * Server Action to register a new patient.
@@ -136,4 +137,51 @@ export async function updateOutpatientStatus(appointmentId: string, newStatus: A
     revalidatePath('/dashboard/admin');
 
     return { success: true, message: `Status updated to ${newStatus}` };
+}
+
+/**
+ * Server Action to search for patients.
+ * This function acts as a bridge to the backend search logic.
+ */
+export async function searchPatientsAction(query: string): Promise<{
+    success: boolean;
+    data?: Patient[];
+    message?: string;
+  }> {
+    console.log(`Searching for patients with query: "${query}"`);
+  
+    /**
+     * == Production Implementation Workflow ==
+     *
+     * In a production environment, this server action would securely call the
+     * `searchPatients` Cloud Function, which in turn queries a dedicated
+     * search index like Algolia or Elasticsearch.
+     *
+     * CONCEPTUAL CODE:
+     * try {
+     *   const search = httpsCallable(functions, 'searchPatients');
+     *   const result = await search({ query });
+     *   return { success: true, data: result.data as Patient[] };
+     * } catch (error) {
+     *   console.error("Patient search failed:", error);
+     *   return { success: false, message: error.message };
+     * }
+     */
+  
+    // For this prototype, we'll simulate a server-side search on the mock data.
+    if (!query) {
+      return { success: true, data: allPatients };
+    }
+  
+    await new Promise((resolve) => setTimeout(resolve, 300)); // Simulate network latency
+  
+    const lowercasedQuery = query.toLowerCase();
+    const filtered = allPatients.filter(
+      (patient) =>
+        patient.full_name.toLowerCase().includes(lowercasedQuery) ||
+        patient.patient_id.toLowerCase().includes(lowercasedQuery) ||
+        patient.contact.primaryPhone.includes(lowercasedQuery)
+    );
+  
+    return { success: true, data: filtered };
 }
