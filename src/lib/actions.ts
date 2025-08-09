@@ -4,6 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PatientSchema, BedAllocationSchema } from './schemas';
+import { Appointment } from './types';
 
 /**
  * Server Action to register a new patient.
@@ -111,4 +112,16 @@ export async function transferPatient(patientId: string, currentBedId: string, n
     revalidatePath(`/dashboard/patients/${patientId}`);
 
     return { success: true, message: 'Patient transferred successfully' };
+}
+
+export async function updateOutpatientStatus(appointmentId: string, newStatus: Appointment['status']) {
+    console.log(`Updating appointment ${appointmentId} to status: ${newStatus}`);
+    
+    // This server action would call the `updateOutpatientStatus` Cloud Function.
+    // In this prototype, we'll just simulate the action.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    revalidatePath('/dashboard/admin');
+
+    return { success: true, message: `Status updated to ${newStatus}` };
 }

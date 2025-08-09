@@ -54,6 +54,15 @@ export const allUsers: User[] = [
     created_at: now.toISOString(),
     last_login: now.toISOString(),
   },
+  {
+    uid: 'billing1',
+    email: 'b.clerk@gammed.com',
+    name: 'Billing Clerk',
+    role: 'billing_clerk',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  }
 ];
 
 // Mock Patient Data
@@ -201,13 +210,28 @@ export const allAppointments: Appointment[] = [
     patient_name: 'Kwame Owusu',
     doctor_id: 'doc1',
     doctor_name: 'Dr. Evelyn Mensah',
-    appointment_date: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
-    end_time: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(), // 2 days and 30 minutes from now
+    appointment_date: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(),
+    end_time: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
     duration: 30,
     type: 'follow-up',
     department: 'Cardiology',
     status: 'confirmed',
     notes: 'Follow-up consultation for hypertension.',
+    created_at: now.toISOString(),
+  },
+   {
+    appointment_id: 'AP-002',
+    patient_id: 'P-654321',
+    patient_name: 'Aba Appiah',
+    doctor_id: 'doc1',
+    doctor_name: 'Dr. Evelyn Mensah',
+    appointment_date: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
+    end_time: new Date(new Date().setHours(14, 30, 0, 0)).toISOString(),
+    duration: 30,
+    type: 'consultation',
+    department: 'Cardiology',
+    status: 'confirmed',
+    notes: 'Initial consultation.',
     created_at: now.toISOString(),
   },
 ];
