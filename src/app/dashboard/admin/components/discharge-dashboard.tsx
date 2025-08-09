@@ -33,9 +33,11 @@ import Link from 'next/link';
  * 2.  **Display:** It lists these patients, showing their name, doctor, and when the summary was
  *     finalized. This gives a clear overview of pending administrative tasks.
  * 3.  **Action:** The "Process Discharge" button for each patient would trigger the final backend
- *     process.
- * 4.  **Backend Call:** This action would call the `processPatientDischarge` Cloud Function,
- *     which performs the final, multi-document atomic transaction to:
+ *     process. In a full implementation, this button would open a finalization view or modal
+ *     showing a read-only version of the doctor's summary and the final bill breakdown.
+ * 4.  **Backend Call:** After review in the finalization view, a confirmation button would call
+ *     the `processPatientDischarge` Cloud Function. This function performs the final,
+ *     multi-document atomic transaction to:
  *     - Update the admission status to 'Discharged'.
  *     - Update the patient's `is_admitted` flag to `false`.
  *     - Update the bed status to 'cleaning'.
@@ -53,8 +55,9 @@ export function DischargeDashboard() {
   }
 
   const handleProcessDischarge = async (admissionId: string) => {
-    // This would call the `processPatientDischarge` Cloud Function
-    alert(`Simulating final discharge for admission ${admissionId}. This would update patient, bed, and admission records.`);
+    // In a real app, this would open a finalization modal/view.
+    // For this prototype, it directly simulates calling the `processPatientDischarge` Cloud Function.
+    alert(`Simulating final discharge for admission ${admissionId}. This would update patient, bed, and admission records after financial review.`);
     // On success, the component would re-render and this item would disappear from the list.
   };
 

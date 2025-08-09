@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -11,7 +12,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble } from 'lucide-react';
 import { User } from '@/lib/types';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -28,7 +29,7 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'nurse'],
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
     },
     {
       href: '/dashboard/beds',
@@ -40,7 +41,7 @@ export function MainNav() {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'nurse'],
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
     },
     {
       href: '/dashboard/prescriptions',
