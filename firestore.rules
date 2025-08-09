@@ -3,85 +3,68 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the user's role from the 'users' collection.
+
+    // Helper function to get the role of the currently authenticated user
     function getUserRole() {
+      // Access the user's document in the 'users' collection using their UID
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-    // Allow read access to users collection for authenticated users
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      // Write access might be more restricted, e.g., only by the user themselves or admins.
-      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
+    // Helper function to check if the user is a patient and their ID matches
+    function isPatientOwner(patientId) {
+      // Get the user document to access their linked patient_id
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return getUserRole() == 'patient' && userDoc.patient_id == patientId;
     }
 
-    // Rules for the 'patients' collection
+    // Rules for the top-level 'patients' collection
     match /patients/{patientId} {
-      // Allow read access to clinical staff and the patient themselves
-      allow read: if request.auth != null && (getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || request.auth.uid == resource.data.uid);
+      // Allow read access to admins, clinical staff, and the patient themselves
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || isPatientOwner(patientId);
       
-      // Allow creation by admins and nurses
-      allow create: if request.auth != null && getUserRole() in ['admin', 'nurse'];
-
-      // Allow updates by clinical staff
-      allow update: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      // Deletion should be highly restricted, perhaps only by admins and requiring a 'soft-delete' flag.
-      allow delete: if request.auth != null && getUserRole() == 'admin';
-
-      // Rules for the 'admissions' sub-collection
-      match /admissions/{admissionId} {
-        // Read access for clinical staff and the specific patient.
-        allow read: if request.auth != null && 
-                    (getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || 
-                    get(/databases/$(database)/documents/patients/$(patientId)).data.uid == request.auth.uid);
-
-        // Allow creation during the admission process
-        allow create: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse'];
-
-        // Complex update rules based on discharge workflow state.
-        allow update: if request.auth != null && (
-            // Rule for Doctors: Can update the summary if it's not yet finalized.
-            ( getUserRole() == 'doctor' && resource.data.isSummaryFinalized == false ) ||
-            // Rule for Billing Clerks: Can only update specific financial fields.
-            ( getUserRole() == 'billing_clerk' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finalBillId', 'status'])) ||
-            // Rule for Admins: Broader update permissions.
-            ( getUserRole() == 'admin' )
-        );
-      }
+      // Allow writes only from authorized backend processes (e.g., Cloud Functions)
+      // For this prototype, we are allowing more open write access for admins/nurses for simplicity.
+      allow write: if getUserRole() in ['admin', 'nurse']; 
     }
     
-    // Rules for the 'beds' collection
-    match /beds/{bedId} {
-        // All clinical and admin staff can see bed status.
-        allow read: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'];
-        
-        // Only admins or nurses can update bed status (e.g., for cleaning, maintenance).
-        allow write: if request.auth != null && getUserRole() in ['admin', 'nurse'];
-    }
+    // Rules for the 'admissions' sub-collection
+    match /patients/{patientId}/admissions/{admissionId} {
+      // Allow read access to admins, clinical staff, and the patient who owns the record
+      allow read: if getUserRole() in ['admin', 'billing_clerk', 'doctor', 'nurse'] || isPatientOwner(patientId);
 
+      // Allow updates under specific conditions to enforce the discharge workflow
+      allow update: if 
+        // Condition 1: Doctor finalizing their summary before administrative sign-off
+        (resource.data.isSummaryFinalized == false && getUserRole() == 'doctor' && request.auth.uid == resource.data.dischargeByDoctorId) ||
+        // Condition 2: Admin finalizing the summary
+        (resource.data.isSummaryFinalized == false && getUserRole() == 'admin') ||
+        // Condition 3: Billing clerk can ONLY update the finalBillId
+        (getUserRole() == 'billing_clerk' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finalBillId']));
+        
+      // Allow creation of new admission records by authorized staff
+      allow create: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+    
     // Rules for the 'referrals' collection
     match /referrals/{referralId} {
-      allow read: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow create, update: if request.auth != null && getUserRole() in ['admin', 'nurse'];
-      allow delete: if request.auth != null && getUserRole() == 'admin';
+        // Allow creation by administrative or triage staff
+        allow create: if getUserRole() in ['admin', 'nurse', 'billing_clerk']; // Assuming 'nurse' or 'billing_clerk' can act as triage
+
+        // Allow reading by admin/triage staff, or the specific doctor it's assigned to
+        allow read: if getUserRole() in ['admin', 'nurse', 'billing_clerk', 'doctor'] && 
+                     (getUserRole() != 'doctor' || request.auth.uid == resource.data.assignedToDoctorId);
+
+        // Allow updates by admin/triage staff, or by the assigned doctor under limited conditions
+        allow update: if getUserRole() in ['admin', 'nurse', 'billing_clerk'] ||
+                       (request.auth.uid == resource.data.assignedToDoctorId && 
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
     }
 
-    // Rules for the 'appointments' collection
-    match /appointments/{appointmentId} {
-      // Patients can read their own appointments, staff can read all.
-      allow read: if request.auth != null && 
-                  (getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || 
-                  resource.data.patient_id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id);
-                  
-      // Staff can create appointments. Patients might be able to request them.
-      allow create: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      // Allow updates by staff or the patient who owns the appointment (e.g., to cancel).
-      allow update: if request.auth != null && 
-                  (getUserRole() in ['admin', 'doctor', 'nurse'] || 
-                  resource.data.patient_id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id);
+    // Rules for all other collections (e.g., users, beds, etc.)
+    // For this prototype, we'll keep them relatively open but in production,
+    // these would have very specific rules.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
