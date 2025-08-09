@@ -184,7 +184,7 @@ export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProp
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a doctor" />
-                      </Trigger>
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {doctors.map(d => (
