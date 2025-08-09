@@ -77,6 +77,7 @@ export interface Patient {
   /**
    * INPATIENT / OUTPATIENT WORKFLOW:
    * This boolean is the primary flag for distinguishing between an inpatient and an outpatient.
+   * It's ideal for fast lookups and dashboard filters (e.g., `db.collection('patients').where('is_admitted', '==', true)`).
    * - `true`: The patient is currently admitted to the hospital.
    * - `false`: The patient is an outpatient.
    * This flag is controlled by the `handlePatientAdmission` and `handlePatientDischarge` Cloud Functions.
@@ -86,6 +87,7 @@ export interface Patient {
    * INPATIENT / OUTPATIENT WORKFLOW:
    * If `is_admitted` is true, this field will contain the document ID of the current, active
    * admission record from the `/patients/{patientId}/admissions` sub-collection.
+   * This provides a direct link to the full details of their current stay.
    * If the patient is an outpatient, this field should be `null`.
    */
   current_admission_id?: string | null; // Null if not admitted
@@ -102,15 +104,23 @@ export interface Patient {
 export interface Admission {
   admission_id: string; // Unique ID for this specific admission
   patient_id: string; // Reference to the parent patient document
+  /**
+   * This field is key to differentiating workflows. It determines the lifecycle and available statuses.
+   */
   type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string; // ISO 8601 format
   discharge_date?: string; // ISO 8601 format, set upon discharge
   reasonForVisit: string;
-  ward?: string; // e.g., 'Cardiology', 'Maternity'
-  bed_id?: string; // e.g., 'C-101'
+  ward?: string; // e.g., 'Cardiology', 'Maternity', applicable to Inpatients
+  bed_id?: string; // e.g., 'C-101', applicable to Inpatients
   attending_doctor_id: string; // Reference to doctor user ID
   attending_doctor_name?: string; // Denormalized for quick display
-  status: 'Admitted' | 'In Treatment' | 'Discharged';
+  /**
+   * The status of the admission, which has different values depending on the `type`.
+   * For Outpatients: 'Scheduled', 'In Progress', 'Completed', 'Canceled'.
+   * For Inpatients: 'Admitted', 'In Treatment', 'Pending Discharge', 'Discharged'.
+   */
+  status: 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged' | 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled';
   is_discharged?: boolean; // Legacy field
   referralDetails?: {
     referredBy?: string; // e.g., 'Korle Bu Teaching Hospital'
