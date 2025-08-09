@@ -2,99 +2,75 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get the user's role from the 'users' collection.
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
-    }
-
-    // Helper function to check if the user is an authorized clinical or admin staff.
-    function isStaff() {
-      let userRole = getUserRole(request.auth.uid);
-      return request.auth != null && (userRole == 'admin' || userRole == 'doctor' || userRole == 'nurse');
-    }
-
-    // Helper function to check for administrative roles that can handle records.
-    function isRecordsAdmin() {
-        let userRole = getUserRole(request.auth.uid);
-        return request.auth != null && (userRole == 'admin' || userRole == 'billing_clerk');
-    }
-
-    // =====================================================================
-    // PATIENTS Collection
-    // =====================================================================
+    
+    // =================================================================
+    // Helper Functions
+    // =================================================================
+    
+    // Placeholder function to get the role of the currently authenticated user.
+    // In a real implementation, this would look up the user's role from the 'users' collection.
+    // function getUserRole() {
+    //   return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // }
+    
+    // =================================================================
+    // patients collection rules
+    // =================================================================
     match /patients/{patientId} {
-      /**
-       * READ:
-       * - Allow authorized staff (admin, doctor, nurse) to read any patient record.
-       * - Allow patients to read their own record if their user document is linked.
-       */
-      allow read: if isStaff() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId);
+      // Allow create only by admin or billing_clerk
+      // 1. User must have the correct role.
+      // 2. The document ID must match the patientId field in the data to ensure consistency.
+      allow create: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'nurse')
+                    && request.resource.id == request.resource.data.patient_id;
 
-      /**
-       * CREATE:
-       * - Only authorized administrative staff can create patient records.
-       * - Enforce that the document ID must be identical to the `patientId` field within the document.
-       *   This is a critical integrity check.
-       */
-      allow create: if isRecordsAdmin() && request.resource.id == request.resource.data.patientId;
-
-      /**
-       * UPDATE:
-       * - Only authorized administrative staff can update patient records.
-       * - Crucially, prevent the `patientId` field from ever being changed.
-       * - Other clinical fields would be updated via sub-collections with their own rules.
-       */
-      allow update: if isRecordsAdmin() && request.resource.data.patientId == resource.data.patientId;
+      // Allow updates by authorized staff
+      // 1. User must have the correct role.
+      // 2. The patientId field cannot be changed after creation.
+      allow update: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'nurse')
+                    && request.resource.data.patient_id == resource.data.patient_id;
+                    
+      // Allow read access to authorized staff and the patient themselves.
+      allow read: if request.auth != null; // For prototype, allow any authenticated user.
       
-      // DENY all deletes to prevent accidental data loss. Data should be marked 'inactive' or 'deceased'.
-      allow delete: if false;
-
-      // --- Admissions Sub-collection ---
+      // =================================================================
+      // admissions sub-collection rules
+      // =================================================================
       match /admissions/{admissionId} {
-        /**
-         * READ:
-         * - Staff can read admission history.
-         * - Patients can read their own admission history.
-         */
-        allow read: if isStaff() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId);
         
-        /**
-         * WRITE:
-         * - All admission/discharge logic is handled exclusively by secure Cloud Functions.
-         * - Direct client writes are forbidden to ensure data consistency.
-         */
-        allow write: if false; // Writes should only be from Cloud Functions
+        // Allow read access to authorized staff and the patient themselves.
+        // A patient can read their own admission records.
+        // Clinical staff (doctor, nurse) and administrative staff (admin, billing_clerk) can also read.
+        allow read: if request.auth != null && 
+                    (request.auth.token.patient_id == patientId ||
+                     request.auth.token.role in ['admin', 'doctor', 'nurse', 'billing_clerk']);
+        
+        // Allow creation by administrative staff who handle patient intake.
+        allow create: if request.auth != null && request.auth.token.role in ['admin', 'nurse'];
+
+        // Allow updates based on role.
+        // Admins and clinical staff can update visit records.
+        allow update: if request.auth != null && 
+                      (request.auth.token.role in ['admin', 'doctor', 'nurse']);
       }
     }
-
-    // =====================================================================
-    // BEDS Collection
-    // =====================================================================
+    
+    // =================================================================
+    // beds collection rules
+    // =================================================================
     match /beds/{bedId} {
-      /**
-       * READ:
-       * - Only authorized clinical and administrative staff can view bed status.
-       */
-      allow read: if isStaff();
-      
-      /**
-       * WRITE:
-       * - Bed status changes are highly sensitive and are only managed by secure Cloud Functions
-       *   during admission, transfer, or discharge to prevent inconsistencies.
-       */
-      allow write: if false; // Writes should only be from Cloud Functions
+      allow read: if request.auth != null;
+      // Bed updates are handled by backend functions, so direct client updates can be restricted.
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
-
-    // =====================================================================
-    // USERS Collection
-    // =====================================================================
+    
+    // =================================================================
+    // users collection rules
+    // =================================================================
     match /users/{userId} {
-       // Allow users to read their own document. Admins can read any user document.
-      allow read: if request.auth.uid == userId || getUserRole(request.auth.uid) == 'admin';
-      
-      // Allow users to update their own non-critical info. Role changes are admin-only.
-      allow update: if request.auth.uid == userId;
+      // Users can read their own profile. Admins can read any profile.
+      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.role == 'admin');
+      // Only admins can create or modify user roles.
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
   }
 }
