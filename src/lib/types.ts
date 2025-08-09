@@ -109,28 +109,52 @@ export interface Admission {
    */
   type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string; // ISO 8601 format
-  discharge_date?: string; // ISO 8601 format, set upon discharge
+  
   reasonForVisit: string;
   ward?: string; // e.g., 'Cardiology', 'Maternity', applicable to Inpatients
   bed_id?: string; // e.g., 'C-101', applicable to Inpatients
   attending_doctor_id: string; // Reference to doctor user ID
   attending_doctor_name?: string; // Denormalized for quick display
+  
   /**
    * The status of the admission, which has different values depending on the `type`.
    * For Outpatients: 'Scheduled', 'In Progress', 'Completed', 'Canceled'.
    * For Inpatients: 'Admitted', 'In Treatment', 'Pending Discharge', 'Discharged'.
    */
   status: 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged' | 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled';
-  is_discharged?: boolean; // Legacy field
+  
+  // Discharge-specific fields
+  discharge_date?: string; // ISO 8601 format, set upon discharge
+  discharge_by_doctor_id?: string; // UID of the doctor who authorized the discharge.
+  dischargeSummary?: {
+    diagnosisOnDischarge: string;
+    treatmentProvided: string;
+    conditionAtDischarge: string; // e.g., 'Stable', 'Improved'
+    medicationAtDischarge: {
+      name: string;
+      dosage: string;
+      instructions: string;
+    }[];
+    followUpInstructions: string;
+  };
+  
+  is_summary_finalized?: boolean; // Defaults to false, locks the summary from further edits.
+  final_bill_id?: string; // Optional reference to a final bill document.
+  summary_pdf_url?: string; // Optional URL to a generated PDF in Firebase Storage.
+  
   referralDetails?: {
     referredBy?: string; // e.g., 'Korle Bu Teaching Hospital'
     referralReason?: string;
   };
-  dischargeSummary?: string;
+  
+  // Legacy field, can be derived from status
+  is_discharged?: boolean; 
   dischargeInstructions?: string; // AI-generated patient-friendly instructions
+  
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
+
 
 /**
  * Represents a hospital bed in the 'beds' collection.
