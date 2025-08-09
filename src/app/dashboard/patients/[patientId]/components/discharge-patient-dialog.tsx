@@ -25,6 +25,25 @@ interface DischargePatientDialogProps {
   disabled?: boolean;
 }
 
+/**
+ * == Conceptual UI: Doctor's Discharge Summary Form ==
+ *
+ * This component serves as the primary interface for clinical staff (doctors) to initiate
+ * and finalize the medical portion of a patient's discharge.
+ *
+ * Workflow:
+ * 1.  **Trigger:** The doctor clicks the "Discharge Patient" button on the patient's record.
+ * 2.  **AI Generation:** The doctor clicks "Generate Summary" to call the `generateDischargeSummary`
+ *     Genkit flow, which processes clinical notes into a structured summary.
+ * 3.  **Review & Sign-off:** The generated clinical summary and patient instructions are displayed
+ *     for the doctor to review. Clicking "Confirm and Discharge Patient" acts as the clinical
+ *     sign-off.
+ * 4.  **Backend Call:** This final confirmation would ideally call the `finalizeDischargeSummary`
+ *     Cloud Function. This function would save the summary and update the admission status to
+ *     'Pending Discharge', officially handing off the process to the administrative/billing team.
+ *
+ *     For this prototype, it calls a simplified `dischargePatient` server action.
+ */
 export function DischargePatientDialog({ patient, clinicalNotes, disabled }: DischargePatientDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
