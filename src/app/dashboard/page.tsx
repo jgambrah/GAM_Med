@@ -4,11 +4,13 @@
 import { useAuth } from '@/hooks/use-auth';
 import { DoctorAppointments } from './components/doctor-appointments';
 import { InpatientList } from './components/inpatient-list';
+import { PatientDashboard } from './components/patient-dashboard';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   
   const isClinicalStaff = user && (user.role === 'doctor' || user.role === 'nurse');
+  const isPatient = user && user.role === 'patient';
 
   return (
     <div className="space-y-6">
@@ -20,7 +22,7 @@ export default function DashboardPage() {
         </p>
       </div>
       
-      {isClinicalStaff ? (
+      {isClinicalStaff && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="col-span-1">
                 <DoctorAppointments />
@@ -29,7 +31,11 @@ export default function DashboardPage() {
                 <InpatientList />
             </div>
         </div>
-      ) : (
+      )}
+
+      {isPatient && <PatientDashboard />}
+
+      {!isClinicalStaff && !isPatient && (
         <div className="p-8 border-2 border-dashed rounded-lg text-center">
           <p className="text-muted-foreground">Your role-specific dashboard will appear here.</p>
         </div>
