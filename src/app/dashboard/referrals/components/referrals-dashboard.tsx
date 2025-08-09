@@ -22,59 +22,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Referral } from '@/lib/types';
 import { format } from 'date-fns';
-
-const mockReferrals: Referral[] = [
-  {
-    referral_id: 'REF-001',
-    referringProvider: 'Korle Bu Polyclinic',
-    referralDate: new Date('2024-08-01T10:00:00Z').toISOString(),
-    patientDetails: {
-      name: 'Ama Serwaa',
-      phone: '+233201234567',
-      dob: '1988-02-15',
-    },
-    reasonForReferral: 'Persistent headaches and dizziness, requires neurological assessment.',
-    priority: 'Urgent',
-    assignedDepartment: 'Neurology',
-    status: 'Pending Review',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    referral_id: 'REF-002',
-    referringProvider: '37 Military Hospital',
-    referralDate: new Date('2024-07-29T14:30:00Z').toISOString(),
-    patientDetails: {
-      name: 'Kofi Mensah',
-      phone: '+233558765432',
-      dob: '1975-09-20',
-    },
-    reasonForReferral: 'Post-operative follow-up for cardiac surgery.',
-    priority: 'Routine',
-    assignedDepartment: 'Cardiology',
-    assignedDoctorId: 'doc1',
-    status: 'Assigned',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-   {
-    referral_id: 'REF-003',
-    referringProvider: 'Private Clinic',
-    referralDate: new Date('2024-07-25T09:00:00Z').toISOString(),
-    patientDetails: {
-      name: 'Esi Parker',
-      phone: '+233249998877',
-      dob: '2001-11-10',
-      existingPatientId: 'P-654321',
-    },
-    reasonForReferral: 'Scheduled consultation for acne treatment.',
-    priority: 'Routine',
-    assignedDepartment: 'Dermatology',
-    status: 'Completed',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-];
+import { mockReferrals } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
 
 const getStatusVariant = (status: Referral['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -96,7 +45,52 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
 }
 
 
+/**
+ * == Conceptual UI: Role-Based Referrals Dashboard ==
+ *
+ * This component serves a dual purpose based on the user's role, acting as the central
+ * point for the entire referral workflow.
+ *
+ * For Administrative Staff ('admin', 'triage_officer'):
+ * - It displays ALL incoming referrals, serving as the main work queue for triage.
+ * - Actions would include "Assign to Doctor" and "Update Status".
+ *
+ * For Doctors ('doctor'):
+ * - It displays ONLY the referrals specifically assigned to them.
+ * - Actions would be focused on their part of the workflow, like "Schedule Appointment"
+ *   or "Mark as Patient Seen".
+ */
 export function ReferralsDashboard() {
+  const { user } = useAuth();
+
+  /**
+   * == DATA QUERY (PSEUDOCODE) ==
+   * The query logic changes based on the user's role to fetch the correct data.
+   *
+   *   let q;
+   *   if (user.role === 'doctor') {
+   *     // Doctor's View: Fetch only referrals assigned to me.
+   *     q = query(
+   *       collection(db, 'referrals'),
+   *       where('assignedToDoctorId', '==', user.uid),
+   *       orderBy('referralDate', 'desc')
+   *     );
+   *   } else {
+   *     // Admin/Triage View: Fetch all referrals.
+   *     q = query(
+   *       collection(db, 'referrals'),
+   *       orderBy('referralDate', 'desc')
+   *     );
+   *   }
+   *   const [referrals, loading, error] = useCollection(q);
+   */
+  const referrals = React.useMemo(() => {
+    if (user?.role === 'doctor') {
+      return mockReferrals.filter(r => r.assignedDoctorId === user.uid);
+    }
+    return mockReferrals;
+  }, [user]);
+
 
   return (
     <div className="rounded-md border">
@@ -115,8 +109,8 @@ export function ReferralsDashboard() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {mockReferrals.length > 0 ? (
-            mockReferrals.map((referral) => (
+          {referrals.length > 0 ? (
+            referrals.map((referral) => (
               <TableRow key={referral.referral_id}>
                 <TableCell className="font-medium">
                   {format(new Date(referral.referralDate), 'PPP')}
@@ -140,9 +134,14 @@ export function ReferralsDashboard() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      {user?.role !== 'doctor' && (
+                         <DropdownMenuItem>Assign to Doctor</DropdownMenuItem>
+                      )}
                       <DropdownMenuItem>View Details</DropdownMenuItem>
-                      <DropdownMenuItem>Assign to Doctor</DropdownMenuItem>
                       <DropdownMenuItem>Update Status</DropdownMenuItem>
+                       {user?.role === 'doctor' && (
+                         <DropdownMenuItem>Schedule Appointment</DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

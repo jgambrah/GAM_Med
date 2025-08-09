@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral } from './types';
 
 const now = new Date();
 
@@ -154,7 +154,6 @@ export const allAdmissions: Admission[] = [
     attending_doctor_id: 'doc1',
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Admitted',
-    is_discharged: false, // Legacy field, can be derived from status
     created_at: new Date('2024-07-28T10:30:00Z').toISOString(),
     updated_at: new Date('2024-07-28T10:30:00Z').toISOString(),
   },
@@ -171,7 +170,6 @@ export const allAdmissions: Admission[] = [
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Discharged',
     summary_pdf_url: '/mock-summary.pdf', // Dummy URL for the button to appear
-    is_discharged: true, 
     created_at: new Date('2024-05-10T10:30:00Z').toISOString(),
     updated_at: new Date('2024-05-15T14:00:00Z').toISOString(),
   }
@@ -251,4 +249,58 @@ export const allAppointments: Appointment[] = [
     notes: 'Initial consultation.',
     created_at: now.toISOString(),
   },
+];
+
+
+// Mock Referrals Data
+export const mockReferrals: Referral[] = [
+  {
+    referral_id: 'REF-001',
+    referringProvider: 'Korle Bu Polyclinic',
+    referralDate: new Date('2024-08-01T10:00:00Z').toISOString(),
+    patientDetails: {
+      name: 'Ama Serwaa',
+      phone: '+233201234567',
+      dob: '1988-02-15',
+    },
+    reasonForReferral: 'Persistent headaches and dizziness, requires neurological assessment.',
+    priority: 'Urgent',
+    assignedDepartment: 'Neurology',
+    status: 'Pending Review',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    referral_id: 'REF-002',
+    referringProvider: '37 Military Hospital',
+    referralDate: new Date('2024-07-29T14:30:00Z').toISOString(),
+    patientDetails: {
+      name: 'Kofi Mensah',
+      phone: '+233558765432',
+      dob: '1975-09-20',
+    },
+    reasonForReferral: 'Post-operative follow-up for cardiac surgery.',
+    priority: 'Routine',
+    assignedDepartment: 'Cardiology',
+    assignedDoctorId: 'doc1', // Assigned to Dr. Evelyn Mensah
+    status: 'Assigned',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+   {
+    referral_id: 'REF-003',
+    referringProvider: 'Private Clinic',
+    referralDate: new Date('2024-07-25T09:00:00Z').toISOString(),
+    patientDetails: {
+      name: 'Esi Parker',
+      phone: '+233249998877',
+      dob: '2001-11-10',
+    },
+    reasonForReferral: 'Scheduled consultation for acne treatment.',
+    priority: 'Routine',
+    assignedDepartment: 'Dermatology',
+    status: 'Completed',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
 ];

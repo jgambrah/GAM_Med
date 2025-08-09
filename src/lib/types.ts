@@ -13,7 +13,7 @@ export interface User {
   uid: string; // Corresponds to Firebase Auth UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk';
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer';
   is_active: boolean;
   patient_id?: string; // Link to the patient document, for users with the 'patient' role
   created_at: string; // ISO 8601 format
@@ -127,15 +127,8 @@ export interface Admission {
   discharge_date?: string; // ISO 8601 format, set upon discharge
   discharge_by_doctor_id?: string; // UID of the doctor who authorized the discharge.
   dischargeSummary?: {
-    diagnosisOnDischarge: string;
-    treatmentProvided: string;
-    conditionAtDischarge: string; // e.g., 'Stable', 'Improved'
-    medicationAtDischarge: {
-      name: string;
-      dosage: string;
-      instructions: string;
-    }[];
-    followUpInstructions: string;
+    clinicalSummary: string;
+    patientInstructions: string;
   };
   
   is_summary_finalized?: boolean; // Defaults to false, locks the summary from further edits.
@@ -143,8 +136,9 @@ export interface Admission {
   summary_pdf_url?: string; // Optional URL to a generated PDF in Firebase Storage.
   
   referralDetails?: {
-    referredBy?: string; // e.g., 'Korle Bu Teaching Hospital'
-    referralReason?: string;
+    referralId: string;
+    referredBy: string; // e.g., 'Korle Bu Teaching Hospital'
+    referralReason: string;
   };
   
   created_at: string; // ISO 8601 format
@@ -193,29 +187,22 @@ export interface Appointment {
  * This tracks incoming patients from other healthcare providers.
  */
 export interface Referral {
-  referralId: string; // Unique ID, same as document ID
+  referral_id: string; // Unique ID, same as document ID
   patientId?: string; // Optional: Link to 'patients' collection if record exists
   patientDetails: {
-    fullName: string;
-    dob: string;
-    contactPhone: string;
-  };
-  referringProvider: {
     name: string;
-    contactPerson?: string;
+    dob: string; // YYYY-MM-DD
     phone: string;
-    email?: string;
   };
+  referringProvider: string; // e.g., 'Korle Bu Teaching Hospital'
   reasonForReferral: string;
-  referredToDepartment: string;
-  assignedToDoctorId?: string; // Optional: Link to 'users' collection
-  status: 'Pending' | 'Assigned' | 'Scheduled' | 'Patient Seen' | 'Canceled';
+  assignedDepartment: string;
+  assignedDoctorId?: string; // Optional: Link to 'users' collection
+  status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed' | 'Cancelled';
   priority: 'Routine' | 'Urgent' | 'Emergency';
   referralDate: string; // ISO 8601 format
   scannedDocumentURL?: string; // Optional: Link to PDF/image in Firebase Storage
   appointmentId?: string; // Optional: Link to 'appointments' collection
-  createdAt: string; // ISO 8601 format
-  updatedAt: string; // ISO 8601 format
+  created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
 }
-
-    
