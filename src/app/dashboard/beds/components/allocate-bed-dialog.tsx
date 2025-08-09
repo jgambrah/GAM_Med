@@ -68,7 +68,7 @@ export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProp
     }
   }, [patientId, form]);
 
-  const selectedPatient = allPatients.find(p => p.patient_id === patientId);
+  const selectedPatient = allPatients.find(p => p.patient_id === form.watch('patientId'));
   const unadmittedPatients = allPatients.filter(p => !p.is_admitted);
   const vacantBeds = allBeds.filter(b => b.status === 'vacant');
   const doctors = allUsers.filter(u => u.role === 'doctor');
