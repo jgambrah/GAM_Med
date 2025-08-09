@@ -74,7 +74,20 @@ export interface Patient {
     preExistingConditions?: string[]; // e.g., ['Hypertension', 'Diabetes']
     pastSurgeries?: { name: string; date: string }[];
   };
+  /**
+   * INPATIENT / OUTPATIENT WORKFLOW:
+   * This boolean is the primary flag for distinguishing between an inpatient and an outpatient.
+   * - `true`: The patient is currently admitted to the hospital.
+   * - `false`: The patient is an outpatient.
+   * This flag is controlled by the `handlePatientAdmission` and `handlePatientDischarge` Cloud Functions.
+   */
   is_admitted: boolean;
+  /**
+   * INPATIENT / OUTPATIENT WORKFLOW:
+   * If `is_admitted` is true, this field will contain the document ID of the current, active
+   * admission record from the `/patients/{patientId}/admissions` sub-collection.
+   * If the patient is an outpatient, this field should be `null`.
+   */
   current_admission_id?: string | null; // Null if not admitted
   lastVisitDate?: string; // ISO 8601 format
   status: 'active' | 'inactive' | 'deceased';
