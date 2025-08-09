@@ -25,39 +25,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 
 /**
- * PatientRecordDashboard (Conceptual Component)
+ * == Conceptual UI: Conditional Rendering ==
  *
  * This component serves as the central dashboard for viewing and managing a single
- * patient's complete record.
- *
- * Structure:
- * - It's a dynamic Next.js page that fetches data based on the `patientId` from the URL.
- * - The header provides at-a-glance information, including the patient's name, their
- *   current admission status (via a <Badge>), and key action buttons.
- * - Core clinical workflows (Admit, Transfer, Discharge) are initiated via buttons
- *   that call server-side logic (currently simulated via Server Actions).
- * - It uses ShadCN's <Tabs> component to organize a large amount of information into
- *   digestible sections: Demographics, Admissions, Clinical Notes, and Billing.
- * - Each tab's content is delegated to a separate, dedicated component for modularity
- *   and maintainability.
- *
- * Firestore Integration & Workflow:
- * - In a production app, this component (or its parent Server Component) would fetch all
- *   data for a specific patient.
- *   - Example Query 1: Get the main patient document.
- *     `const patientDoc = await db.collection('patients').doc(patientId).get();`
- *   - Example Query 2: Get all admission records for that patient.
- *     `const admissionsSnapshot = await db.collection('patients').doc(patientId).collection('admissions').get();`
- * - The "Admit" and "Discharge" buttons would invoke the corresponding Cloud Functions
- *   (`handlePatientAdmission`, `handlePatientDischarge`) to perform these complex,
- *   atomic operations securely on the backend.
- *
- * Role-Based Rendering:
- * - The UI should adapt based on the logged-in user's role. For example, a pharmacist
- *   shouldn't see the "Admit" or "Discharge" buttons.
- * - This is achieved by using the `useAuth` hook to get the current user's role and then
- *   conditionally rendering the buttons. This provides a better user experience, but it's
- *   important to remember that the ultimate security is handled by Firestore Security Rules.
+ * patient's complete record. It heavily uses conditional logic to tailor the
+ * displayed information and available actions based on the patient's current status.
  */
 export default function PatientDetailPage() {
   const params = useParams();
@@ -74,12 +46,12 @@ export default function PatientDetailPage() {
   }
 
   const handleDischarge = async () => {
-    // This function would call the `handlePatientDischarge` Cloud Function.
     if (!patient.current_admission_id) {
         alert("Error: Patient has no current admission record to discharge.");
         return;
     }
     setIsSubmitting(true);
+    // This function calls the `handlePatientDischarge` Cloud Function via a server action.
     await dischargePatient(patient.patient_id, patient.current_admission_id);
     alert('Patient has been discharged (simulated). The page will now refresh.');
     setIsSubmitting(false);
@@ -103,11 +75,22 @@ export default function PatientDetailPage() {
             <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
             {patient.full_name}
             </h1>
+            {/*
+              == CONDITIONAL UI: BADGE ==
+              This badge's appearance and text change based on the `is_admitted` flag,
+              providing an immediate visual cue about the patient's status.
+            */}
             <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
             {patient.is_admitted ? 'Admitted' : 'Outpatient'}
             </Badge>
             {hasClinicalPrivileges && (
                 <div className="hidden items-center gap-2 md:ml-auto md:flex">
+                    {/*
+                      == CONDITIONAL UI: ACTIONS ==
+                      The "Admit", "Transfer", and "Discharge" buttons are conditionally disabled
+                      based on the `patient.is_admitted` boolean. This prevents staff from
+                      performing invalid actions, like trying to discharge an outpatient.
+                    */}
                     <AllocateBedDialog 
                     patientId={patient.patient_id}
                     disabled={patient.is_admitted || isSubmitting} 
@@ -124,6 +107,13 @@ export default function PatientDetailPage() {
                 </div>
             )}
         </div>
+        {/*
+          == CONDITIONAL UI: CONTEXTUAL MESSAGE ==
+          This block provides a clear, human-readable summary of the patient's status.
+          If they are an inpatient, it shows their ward and bed.
+          If they are an outpatient, it shows their last visit date.
+          This logic is driven entirely by the `is_admitted` flag.
+        */}
         <div className="mt-2 text-sm text-muted-foreground">
             {patient.is_admitted && currentAdmission ? (
                 <span>

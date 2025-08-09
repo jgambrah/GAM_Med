@@ -25,12 +25,41 @@ import { format } from 'date-fns';
 import { updateOutpatientStatus } from '@/lib/actions';
 import Link from 'next/link';
 
+/**
+ * == Conceptual Code: Outpatient Check-in Dashboard ==
+ *
+ * This component serves as the UI for managing daily outpatient flow.
+ */
 export function OutpatientCheckinDashboard() {
-  // In a real app, this would be a real-time query for appointments scheduled for today.
+  /**
+   * == DATA QUERY ==
+   * In a production application, this would be a real-time Firestore query.
+   * The query would look something like this:
+   *
+   *   const today = new Date();
+   *   const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+   *   const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+   *
+   *   const q = query(
+   *     collection(db, 'appointments'),
+   *     where('type', '==', 'outpatient'), // Filter for outpatient visits
+   *     where('appointment_date', '>=', startOfToday),
+   *     where('appointment_date', '<=', endOfToday),
+   *     orderBy('appointment_date', 'asc')
+   *   );
+   *
+   * This query efficiently fetches only the relevant appointments for the day.
+   */
   const todaysOutpatientAppointments = allAppointments.filter(
     (appt) => appt.type !== 'procedure' && new Date(appt.appointment_date).toDateString() === new Date().toDateString()
   );
 
+  /**
+   * == FUNCTION TO HANDLE STATUS UPDATES ==
+   * This function is called when a receptionist clicks "Check-in" or "Cancel".
+   * It demonstrates calling the server action which would, in turn, invoke the
+   * `updateOutpatientStatus` Cloud Function.
+   */
   const handleUpdateStatus = async (appointmentId: string, newStatus: Appointment['status']) => {
     // This calls the conceptual server action which would in turn call the `updateOutpatientStatus` Cloud Function.
     const result = await updateOutpatientStatus(appointmentId, newStatus);
