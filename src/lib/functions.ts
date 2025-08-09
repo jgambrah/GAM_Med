@@ -225,77 +225,14 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
 */
 
 // =======================================================================================
-// 4. Handle Patient Discharge (Callable Function)
+// 4. Handle Patient Discharge (Legacy - Superseded by new workflow)
 // =======================================================================================
 /**
- * Handles the logic for discharging a patient in a single, atomic transaction.
- *
- * @trigger_type Callable Function (https)
- * @input { patientId: string, admissionId: string, dischargeSummary: string }
+ * This function is now superseded by the more robust two-step process:
+ * 1. `finalizeDischargeSummary` (clinical sign-off)
+ * 2. `processPatientDischarge` (administrative finalization)
  */
-/*
-exports.handlePatientDischarge = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Authentication & Authorization Check
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    }
-    // Add role check here for doctors/admins.
-    
-    const { patientId, admissionId, dischargeSummary } = data;
-     if (!patientId || !admissionId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Patient ID and Admission ID are required.');
-    }
 
-    const patientRef = db.collection('patients').doc(patientId);
-    const admissionRef = patientRef.collection('admissions').doc(admissionId);
-    
-    try {
-        await db.runTransaction(async (transaction) => {
-            const admissionDoc = await transaction.get(admissionRef);
-            if (!admissionDoc.exists || admissionDoc.data()?.status === 'Discharged') {
-                throw new Error('Admission record not found or patient is already discharged.');
-            }
-
-            const bedId = admissionDoc.data()?.bed_id;
-            const now = admin.firestore.FieldValue.serverTimestamp();
-
-            // 2. Update the main patient document to reflect outpatient status.
-            transaction.update(patientRef, {
-                is_admitted: false,
-                current_admission_id: null,
-                updated_at: now,
-            });
-
-            // 3. Update the specific admission document with discharge details.
-            transaction.update(admissionRef, {
-                discharge_date: now,
-                status: 'Discharged',
-                dischargeSummary: dischargeSummary || null,
-                updated_at: now
-            });
-
-            // 4. Update the previously occupied bed, marking it for cleaning.
-            if (bedId) {
-                const bedRef = db.collection('beds').doc(bedId);
-                transaction.update(bedRef, {
-                    status: 'cleaning', // Set to 'cleaning', not 'vacant', to trigger the cleaning workflow.
-                    current_patient_id: null,
-                    occupied_since: null,
-                    cleaningNeeded: true, // Explicitly mark for cleaning
-                    updated_at: now,
-                });
-            }
-        });
-
-        console.log(`Successfully discharged patient ${patientId}`);
-        return { success: true };
-
-    } catch (error) {
-        console.error('Discharge transaction failed:', error);
-        throw new functions.https.HttpsError('aborted', 'Failed to discharge patient.', { message: error.message });
-    }
-});
-*/
 
 // =======================================================================================
 // 5. Update Outpatient Status (Callable Function)
@@ -348,4 +285,192 @@ exports.updateOutpatientStatus = functions.region('europe-west1').https.onCall(a
         throw new functions.https.HttpsError('internal', 'Could not update outpatient status.');
     }
 });
+*/
+
+// =======================================================================================
+// 6. Finalize Discharge Summary (Callable Function - Step 1 of Discharge)
+// =======================================================================================
+/**
+ * This is the first step in the discharge process, handled by clinical staff.
+ * It atomically saves the final medical summary and moves the admission into a 'Pending Discharge' state.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, admissionId: string, dischargeSummaryData: object, dischargeByDoctorId: string }
+ */
+/*
+exports.finalizeDischargeSummary = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication & Authorization Check
+    if (!context.auth || context.auth.uid !== data.dischargeByDoctorId) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated as the discharging doctor.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'doctor') {
+        throw new functions.https.HttpsError('permission-denied', 'Only doctors can finalize a discharge summary.');
+    }
+    
+    const { patientId, admissionId, dischargeSummaryData } = data;
+    if (!patientId || !admissionId || !dischargeSummaryData) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required data.');
+    }
+
+    const admissionRef = db.collection('patients').doc(patientId).collection('admissions').doc(admissionId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const admissionDoc = await transaction.get(admissionRef);
+            if (!admissionDoc.exists || admissionDoc.data()?.status !== 'Admitted') {
+                throw new Error('Admission record not found or not in a state that can be finalized.');
+            }
+
+            transaction.update(admissionRef, {
+                dischargeSummary: dischargeSummaryData,
+                dischargeByDoctorId: context.auth.uid,
+                status: 'Pending Discharge', // Move to the next stage
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        });
+
+        console.log(`Discharge summary for admission ${admissionId} finalized.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Finalize summary transaction failed:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not finalize the summary.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 7. Process Patient Discharge (Callable Function - Step 2 of Discharge)
+// =======================================================================================
+/**
+ * This is the final administrative step in the discharge process.
+ * It updates all related records (patient, bed, admission) atomically.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, admissionId: string }
+ */
+/*
+exports.processPatientDischarge = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication & Authorization Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+     const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'admin' && userRole !== 'billing_clerk') {
+        throw new functions.https.HttpsError('permission-denied', 'User does not have permission to process discharges.');
+    }
+
+    const { patientId, admissionId } = data;
+
+    const patientRef = db.collection('patients').doc(patientId);
+    const admissionRef = patientRef.collection('admissions').doc(admissionId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const admissionDoc = await transaction.get(admissionRef);
+            if (!admissionDoc.exists || admissionDoc.data()?.status !== 'Pending Discharge') {
+                throw new Error('Admission record is not ready for final discharge.');
+            }
+
+            const bedId = admissionDoc.data()?.bed_id;
+            const now = admin.firestore.FieldValue.serverTimestamp();
+            
+            // ** BILLING INTEGRATION (CONCEPTUAL) **
+            // Here you would call a utility function to finalize the bill.
+            // const finalBillId = await generateFinalBill(transaction, patientId, admissionId);
+            const finalBillId = `B-${admissionId}`; // Placeholder
+
+            // 2. Update the admission document
+            transaction.update(admissionRef, {
+                status: 'Discharged',
+                dischargeDate: now,
+                isSummaryFinalized: true,
+                finalBillId: finalBillId,
+                updatedAt: now,
+            });
+
+            // 3. Update the main patient document
+            transaction.update(patientRef, {
+                is_admitted: false,
+                current_admission_id: null,
+                updatedAt: now,
+            });
+
+            // 4. Update the bed document
+            if (bedId) {
+                const bedRef = db.collection('beds').doc(bedId);
+                transaction.update(bedRef, {
+                    status: 'cleaning',
+                    current_patient_id: null,
+                    occupied_since: null,
+                    cleaningNeeded: true,
+                    updatedAt: now,
+                });
+            }
+        });
+
+        console.log(`Successfully discharged patient ${patientId}`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Discharge processing transaction failed:', error);
+        throw new functions.https.HttpsError('aborted', 'Failed to process discharge.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 8. Generate Discharge Summary PDF (Firestore Trigger)
+// =======================================================================================
+/**
+ * Automatically generates a PDF of the discharge summary when an admission is marked as 'Discharged'.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /patients/{patientId}/admissions/{admissionId}
+ */
+/*
+exports.generateDischargeSummaryPDF = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/admissions/{admissionId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Condition: Only run if status changed to 'Discharged' and PDF URL is not already set.
+        if (newData.status === 'Discharged' && oldData.status !== 'Discharged' && !newData.summaryPDF_URL) {
+            console.log(`Generating PDF for admission ${context.params.admissionId}`);
+            
+            // 2. PDF Generation Logic (using a service or library like Puppeteer)
+            // const pdfBuffer = await createPdfFromData(newData);
+            const pdfBuffer = Buffer.from('This is a dummy PDF.'); // Placeholder
+            
+            const filePath = `summaries/${context.params.patientId}/${context.params.admissionId}.pdf`;
+            const bucket = admin.storage().bucket();
+            const file = bucket.file(filePath);
+
+            await file.save(pdfBuffer, {
+                metadata: { contentType: 'application/pdf' },
+            });
+
+            // 3. Get a signed URL (or just save the path) and update the document.
+            const url = await file.getSignedUrl({
+                action: 'read',
+                expires: '03-09-2491' // A very long expiry date
+            });
+
+            await change.after.ref.update({ summaryPDF_URL: url[0] });
+
+            // 4. ** NOTIFICATION (CONCEPTUAL) **
+            // Send an email or SMS to the patient with a link to their portal.
+            // const patientDoc = await db.collection('patients').doc(context.params.patientId).get();
+            // if (patientDoc.data()?.contact.email) {
+            //     await sendNotification(patientDoc.data().contact.email, 'Your discharge summary is ready.');
+            // }
+
+            console.log(`PDF generated and URL saved for ${context.params.admissionId}`);
+        }
+        return null;
+    });
 */
