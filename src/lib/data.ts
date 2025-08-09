@@ -158,6 +158,23 @@ export const allAdmissions: Admission[] = [
     created_at: new Date('2024-07-28T10:30:00Z').toISOString(),
     updated_at: new Date('2024-07-28T10:30:00Z').toISOString(),
   },
+  {
+    admission_id: 'A-002-PREVIOUS',
+    patient_id: 'P-123456',
+    type: 'Inpatient',
+    admission_date: new Date('2024-05-10T10:30:00Z').toISOString(),
+    discharge_date: new Date('2024-05-15T14:00:00Z').toISOString(),
+    reasonForVisit: 'Chest Pains',
+    ward: 'Cardiology',
+    bed_id: 'C-102',
+    attending_doctor_id: 'doc1',
+    attending_doctor_name: 'Dr. Evelyn Mensah',
+    status: 'Discharged',
+    summary_pdf_url: '/mock-summary.pdf', // Dummy URL for the button to appear
+    is_discharged: true, 
+    created_at: new Date('2024-05-10T10:30:00Z').toISOString(),
+    updated_at: new Date('2024-05-15T14:00:00Z').toISOString(),
+  }
 ];
 
 // Mock Bed Data
