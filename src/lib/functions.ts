@@ -151,7 +151,7 @@ exports.handlePatientRegistration = functions.region('europe-west1').https.onCal
  * This ensures data consistency across 'patients', 'beds', and the 'admissions' sub-collection.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, bedId: string, reasonForVisit: string, attendingDoctorId: string }
+ * @input { patientId: string, bedId: string, reasonForAdmission: string, attendingDoctorId: string }
  */
 /*
 exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -159,8 +159,8 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
-    // Add role check here if needed (e.g., admin, nurse, doctor)
-
+    // Add role check here (e.g., admin, nurse, doctor) to ensure only authorized users can admit patients.
+    
     const { patientId, bedId, reasonForVisit, attendingDoctorId } = data;
     if (!patientId || !bedId || !reasonForVisit || !attendingDoctorId) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing required admission details.');
@@ -176,39 +176,41 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
             const bedDoc = await transaction.get(bedRef);
             const patientDoc = await transaction.get(patientRef);
             
-            // 3. Pre-condition checks
+            // 3. Pre-condition checks to ensure data integrity before writing.
             if (!patientDoc.exists) throw new Error('Patient record not found.');
             if (patientDoc.data()?.is_admitted) throw new Error('Patient is already admitted.');
             if (!bedDoc.exists || bedDoc.data()?.status !== 'vacant') {
-                throw new Error('Bed is not available.');
+                throw new Error('Bed is not available or does not exist.');
             }
-
+            
+            const now = admin.firestore.FieldValue.serverTimestamp();
             const admissionData = {
-                admissionId: newAdmissionRef.id,
-                patientId: patientId,
+                admission_id: newAdmissionRef.id,
+                patient_id: patientId,
                 type: 'Inpatient',
-                admissionDate: admin.firestore.FieldValue.serverTimestamp(),
+                admission_date: now,
                 reasonForVisit: reasonForVisit,
                 ward: bedDoc.data()?.wardName, // Get ward from bed data
-                bedId: bedId,
-                attendingDoctorId: attendingDoctorId,
+                bed_id: bedId,
+                attending_doctor_id: attendingDoctorId,
                 status: 'Admitted',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                created_at: now,
+                updated_at: now
             };
 
-            // 4. Perform atomic writes
+            // 4. Perform all writes atomically. If any of these fail, all will be rolled back.
             transaction.set(newAdmissionRef, admissionData);
             transaction.update(patientRef, {
-                isAdmitted: true,
-                currentAdmissionId: newAdmissionRef.id,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                is_admitted: true,
+                current_admission_id: newAdmissionRef.id,
+                updated_at: now,
             });
             transaction.update(bedRef, {
                 status: 'occupied',
-                currentPatientId: patientId,
-                occupiedSince: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                current_patient_id: patientId,
+                occupied_since: now,
+                cleaningNeeded: false,
+                updated_at: now,
             });
         });
 
@@ -221,7 +223,6 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
     }
 });
 */
-
 
 // =======================================================================================
 // 4. Handle Patient Discharge (Callable Function)
@@ -238,6 +239,7 @@ exports.handlePatientDischarge = functions.region('europe-west1').https.onCall(a
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
+    // Add role check here for doctors/admins.
     
     const { patientId, admissionId, dischargeSummary } = data;
      if (!patientId || !admissionId) {
@@ -251,35 +253,36 @@ exports.handlePatientDischarge = functions.region('europe-west1').https.onCall(a
         await db.runTransaction(async (transaction) => {
             const admissionDoc = await transaction.get(admissionRef);
             if (!admissionDoc.exists || admissionDoc.data()?.status === 'Discharged') {
-                throw new Error('Admission record not found or already discharged.');
+                throw new Error('Admission record not found or patient is already discharged.');
             }
 
-            const bedId = admissionDoc.data()?.bedId;
+            const bedId = admissionDoc.data()?.bed_id;
+            const now = admin.firestore.FieldValue.serverTimestamp();
 
-            // 2. Update the patient document
+            // 2. Update the main patient document to reflect outpatient status.
             transaction.update(patientRef, {
-                isAdmitted: false,
-                currentAdmissionId: null,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                is_admitted: false,
+                current_admission_id: null,
+                updated_at: now,
             });
 
-            // 3. Update the admission document
+            // 3. Update the specific admission document with discharge details.
             transaction.update(admissionRef, {
-                dischargeDate: admin.firestore.FieldValue.serverTimestamp(),
+                discharge_date: now,
                 status: 'Discharged',
                 dischargeSummary: dischargeSummary || null,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                updated_at: now
             });
 
-            // 4. Update the bed document to 'cleaning' status
+            // 4. Update the previously occupied bed, marking it for cleaning.
             if (bedId) {
                 const bedRef = db.collection('beds').doc(bedId);
                 transaction.update(bedRef, {
-                    status: 'cleaning', // Set to 'cleaning' not 'vacant'
-                    currentPatientId: null,
-                    occupiedSince: null,
+                    status: 'cleaning', // Set to 'cleaning', not 'vacant', to trigger the cleaning workflow.
+                    current_patient_id: null,
+                    occupied_since: null,
                     cleaningNeeded: true, // Explicitly mark for cleaning
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updated_at: now,
                 });
             }
         });
@@ -290,6 +293,59 @@ exports.handlePatientDischarge = functions.region('europe-west1').https.onCall(a
     } catch (error) {
         console.error('Discharge transaction failed:', error);
         throw new functions.https.HttpsError('aborted', 'Failed to discharge patient.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 5. Update Outpatient Status (Callable Function)
+// =======================================================================================
+/**
+ * Handles status updates for an outpatient visit (e.g., check-in, consultation complete).
+ * This is a simpler, non-transactional update.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, admissionId: string, newStatus: string }
+ */
+/*
+exports.updateOutpatientStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication & Authorization Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check here.
+
+    const { patientId, admissionId, newStatus } = data;
+    if (!patientId || !admissionId || !newStatus) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required details.');
+    }
+    
+    const validStatuses = ['In Progress', 'Completed', 'Canceled'];
+    if (!validStatuses.includes(newStatus)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid status provided.');
+    }
+
+    const admissionRef = db.collection('patients').doc(patientId).collection('admissions').doc(admissionId);
+    
+    try {
+        await admissionRef.update({ 
+            status: newStatus,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // If the visit is complete, update the last visit date on the main patient record.
+        if (newStatus === 'Completed') {
+            const patientRef = db.collection('patients').doc(patientId);
+            await patientRef.update({
+                lastVisitDate: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to update outpatient status:', error);
+        throw new functions.https.HttpsError('internal', 'Could not update outpatient status.');
     }
 });
 */
