@@ -60,15 +60,27 @@ export async function addPatient(values: z.infer<typeof PatientSchema>) {
   return { success: true, message: 'Patient registered successfully.' };
 }
 
-// Placeholder for discharging a patient. In a real app, this would call handlePatientDischarge.
-export async function dischargePatient(patientId: string, admissionId: string) {
+// In a real app, this would call handlePatientDischarge.
+export async function dischargePatient(
+    patientId: string, 
+    admissionId: string,
+    dischargeSummary: string,
+    dischargeInstructions: string
+) {
     console.log(`Discharging patient: ${patientId} from admission ${admissionId}`);
+    console.log('Summary:', dischargeSummary);
+    console.log('Instructions:', dischargeInstructions);
+    
     // Here you would call your `handlePatientDischarge` Cloud Function
-    // For now, we simulate success and revalidate the path
+    // The call would look like this:
+    // await handlePatientDischarge({ patientId, admissionId, dischargeSummary, dischargeInstructions });
+    
     await new Promise((resolve) => setTimeout(resolve, 500));
+
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath('/dashboard/patients');
     revalidatePath('/dashboard/beds');
+
     return { success: true, message: 'Patient discharged successfully.' };
 }
 

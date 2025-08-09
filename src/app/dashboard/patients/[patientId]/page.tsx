@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, LogOut } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { allPatients, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,11 +18,12 @@ import { AdmissionsHistoryTab } from './components/admissions-history-tab';
 import { ClinicalNotesTab } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
-import { dischargePatient } from '@/lib/actions';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
 import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
+import { DischargePatientDialog } from './components/discharge-patient-dialog';
+import { mockNotes } from './components/clinical-notes-tab';
 
 /**
  * == Conceptual UI: Conditional Rendering ==
@@ -44,18 +45,6 @@ export default function PatientDetailPage() {
   if (!patient) {
     notFound();
   }
-
-  const handleDischarge = async () => {
-    if (!patient.current_admission_id) {
-        alert("Error: Patient has no current admission record to discharge.");
-        return;
-    }
-    setIsSubmitting(true);
-    // This function calls the `handlePatientDischarge` Cloud Function via a server action.
-    await dischargePatient(patient.patient_id, patient.current_admission_id);
-    alert('Patient has been discharged (simulated). The page will now refresh.');
-    setIsSubmitting(false);
-  };
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
@@ -100,10 +89,11 @@ export default function PatientDetailPage() {
                         currentBedId={currentAdmission?.bed_id}
                         disabled={isSubmitting || !patient.is_admitted} 
                     />
-                    <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
-                        <LogOut className="h-4 w-4 mr-2" />
-                        {isSubmitting ? 'Discharging...' : 'Discharge Patient'}
-                    </Button>
+                    <DischargePatientDialog 
+                        patient={patient}
+                        clinicalNotes={mockNotes}
+                        disabled={isSubmitting || !patient.is_admitted}
+                    />
                 </div>
             )}
         </div>
@@ -140,10 +130,11 @@ export default function PatientDetailPage() {
                   currentBedId={currentAdmission?.bed_id}
                   disabled={isSubmitting || !patient.is_admitted} 
               />
-              <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Discharging...' : 'Discharge'}
-              </Button>
+              <DischargePatientDialog 
+                  patient={patient}
+                  clinicalNotes={mockNotes}
+                  disabled={isSubmitting || !patient.is_admitted}
+              />
           </div>
        )}
 

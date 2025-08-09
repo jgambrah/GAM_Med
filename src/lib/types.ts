@@ -127,6 +127,7 @@ export interface Admission {
     referralReason?: string;
   };
   dischargeSummary?: string;
+  dischargeInstructions?: string; // AI-generated patient-friendly instructions
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }

@@ -9,12 +9,19 @@ import { useAuth } from '@/hooks/use-auth';
 import { addClinicalNote } from '@/lib/actions';
 import { format } from 'date-fns';
 
+export interface ClinicalNote {
+    id: string;
+    author: string;
+    date: string; // ISO string
+    content: string;
+}
+
 interface ClinicalNotesTabProps {
     patientId: string;
 }
 
 // Mock data for clinical notes
-const mockNotes = [
+export const mockNotes: ClinicalNote[] = [
     {
         id: 'note-1',
         author: 'Dr. Evelyn Mensah',
