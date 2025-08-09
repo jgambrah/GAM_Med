@@ -18,6 +18,8 @@ import { dischargePatient } from '@/lib/actions';
 import { generateDischargeSummary, GenerateDischargeSummaryOutput } from '@/ai/flows/discharge-summary-flow';
 import { ClinicalNote } from './clinical-notes-tab';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface DischargePatientDialogProps {
   patient: Patient;
@@ -29,20 +31,20 @@ interface DischargePatientDialogProps {
  * == Conceptual UI: Doctor's Discharge Summary Form ==
  *
  * This component serves as the primary interface for clinical staff (doctors) to initiate
- * and finalize the medical portion of a patient's discharge.
+ * and finalize the medical portion of a patient's discharge. It's an interactive form where
+ * AI provides a draft that the doctor can then edit and approve.
  *
  * Workflow:
  * 1.  **Trigger:** The doctor clicks the "Discharge Patient" button on the patient's record.
  * 2.  **AI Generation:** The doctor clicks "Generate Summary" to call the `generateDischargeSummary`
- *     Genkit flow, which processes clinical notes into a structured summary.
- * 3.  **Review & Sign-off:** The generated clinical summary and patient instructions are displayed
- *     for the doctor to review. Clicking "Confirm and Discharge Patient" acts as the clinical
- *     sign-off.
- * 4.  **Backend Call:** This final confirmation would ideally call the `finalizeDischargeSummary`
- *     Cloud Function. This function would save the summary and update the admission status to
- *     'Pending Discharge', officially handing off the process to the administrative/billing team.
- *
- *     For this prototype, it calls a simplified `dischargePatient` server action.
+ *     Genkit flow. The flow processes clinical notes and returns a structured summary.
+ * 3.  **Review & Edit:** The generated `clinicalSummary` and `patientInstructions` are populated
+ *     into editable text areas. The doctor can review, modify, and refine the content.
+ * 4.  **Sign-off & Backend Call:** Clicking "Confirm and Discharge Patient" acts as the clinical
+ *     sign-off. It calls the `dischargePatient` server action, sending the final, edited
+ *     summary and instructions to the backend. This would then trigger the
+ *     `finalizeDischargeSummary` Cloud Function, saving the summary and updating the
+ *     admission status to 'Pending Discharge'.
  */
 export function DischargePatientDialog({ patient, clinicalNotes, disabled }: DischargePatientDialogProps) {
   const [open, setOpen] = React.useState(false);
@@ -72,6 +74,7 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
         return;
     }
     setIsSubmitting(true);
+    // Send the potentially edited summary from the component's state
     const result = await dischargePatient(
         patient.patient_id, 
         patient.current_admission_id,
@@ -81,8 +84,7 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
 
     if (result.success) {
         alert('Patient has been discharged successfully (simulated).');
-        setOpen(false);
-        setSummary(null);
+        handleOpenChange(false);
     } else {
         alert(`Error: ${result.message}`);
     }
@@ -112,7 +114,7 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
         <DialogHeader>
           <DialogTitle>Discharge Patient: {patient.full_name}</DialogTitle>
           <DialogDescription>
-            Generate an AI-powered discharge summary and confirm patient discharge.
+            Generate and review the AI-powered discharge summary before finalizing.
           </DialogDescription>
         </DialogHeader>
         
@@ -134,12 +136,12 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
             {isGenerating && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h4 className="font-semibold mb-2">Clinical Summary</h4>
-                        <Skeleton className="h-48 w-full" />
+                        <Label htmlFor="clinical-summary-skeleton" className="font-semibold mb-2 block">Clinical Summary</Label>
+                        <Skeleton id="clinical-summary-skeleton" className="h-64 w-full" />
                     </div>
                      <div>
-                        <h4 className="font-semibold mb-2">Patient Instructions</h4>
-                        <Skeleton className="h-48 w-full" />
+                        <Label htmlFor="patient-instructions-skeleton" className="font-semibold mb-2 block">Patient Instructions</Label>
+                        <Skeleton id="patient-instructions-skeleton" className="h-64 w-full" />
                     </div>
                 </div>
             )}
@@ -147,25 +149,31 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
             {summary && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <h4 className="font-semibold text-lg">Clinical Summary</h4>
-                        <div className="p-4 bg-muted rounded-md text-sm prose prose-sm max-w-none">
-                            <pre className="whitespace-pre-wrap font-sans">{summary.clinicalSummary}</pre>
-                        </div>
+                        <Label htmlFor="clinicalSummary" className="font-semibold text-lg">Clinical Summary (Editable)</Label>
+                        <Textarea 
+                            id="clinicalSummary"
+                            className="h-64 font-mono text-sm"
+                            value={summary.clinicalSummary}
+                            onChange={(e) => setSummary({ ...summary, clinicalSummary: e.target.value })}
+                        />
                     </div>
                      <div className="space-y-2">
-                        <h4 className="font-semibold text-lg">Patient-Friendly Instructions</h4>
-                         <div className="p-4 bg-blue-50 border border-blue-200 rounded-md text-sm prose prose-sm max-w-none">
-                            <pre className="whitespace-pre-wrap font-sans">{summary.patientInstructions}</pre>
-                        </div>
+                        <Label htmlFor="patientInstructions" className="font-semibold text-lg">Patient-Friendly Instructions (Editable)</Label>
+                         <Textarea 
+                            id="patientInstructions"
+                            className="h-64 font-mono text-sm"
+                            value={summary.patientInstructions}
+                            onChange={(e) => setSummary({ ...summary, patientInstructions: e.target.value })}
+                         />
                     </div>
                 </div>
             )}
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>Cancel</Button>
           <Button onClick={handleDischarge} disabled={isSubmitting || isGenerating || !summary}>
-            {isSubmitting ? 'Discharging...' : 'Confirm and Discharge Patient'}
+            {isSubmitting ? 'Confirming...' : 'Confirm and Finalize Summary'}
           </Button>
         </DialogFooter>
       </DialogContent>
