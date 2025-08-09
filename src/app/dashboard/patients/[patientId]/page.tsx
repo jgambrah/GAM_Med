@@ -22,6 +22,7 @@ import { dischargePatient } from '@/lib/actions';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
 import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
 import { useAuth } from '@/hooks/use-auth';
+import { format } from 'date-fns';
 
 /**
  * PatientRecordDashboard (Conceptual Component)
@@ -90,38 +91,71 @@ export default function PatientDetailPage() {
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
 
   return (
-    <div className="space-y-6">
-       <div className="flex items-center gap-4">
-         <Button variant="outline" size="icon" className="h-7 w-7" asChild>
-            <Link href="/dashboard/patients">
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Back</span>
-            </Link>
-         </Button>
-         <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
-           {patient.full_name}
-         </h1>
-         <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
-           {patient.is_admitted ? 'Admitted' : 'Outpatient'}
-         </Badge>
-         {hasClinicalPrivileges && (
-            <div className="flex items-center gap-2 ml-auto">
-                <AllocateBedDialog 
-                  patientId={patient.patient_id}
-                  disabled={patient.is_admitted || isSubmitting} 
-                />
-                <TransferPatientDialog 
-                    patient={patient} 
-                    currentBedId={currentAdmission?.bed_id}
-                    disabled={isSubmitting || !patient.is_admitted} 
-                />
-                <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {isSubmitting ? 'Discharging...' : 'Discharge Patient'}
-                </Button>
-            </div>
-         )}
-       </div>
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" className="h-7 w-7" asChild>
+                <Link href="/dashboard/patients">
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Back</span>
+                </Link>
+            </Button>
+            <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
+            {patient.full_name}
+            </h1>
+            <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
+            {patient.is_admitted ? 'Admitted' : 'Outpatient'}
+            </Badge>
+            {hasClinicalPrivileges && (
+                <div className="hidden items-center gap-2 md:ml-auto md:flex">
+                    <AllocateBedDialog 
+                    patientId={patient.patient_id}
+                    disabled={patient.is_admitted || isSubmitting} 
+                    />
+                    <TransferPatientDialog 
+                        patient={patient} 
+                        currentBedId={currentAdmission?.bed_id}
+                        disabled={isSubmitting || !patient.is_admitted} 
+                    />
+                    <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        {isSubmitting ? 'Discharging...' : 'Discharge Patient'}
+                    </Button>
+                </div>
+            )}
+        </div>
+        <div className="mt-2 text-sm text-muted-foreground">
+            {patient.is_admitted && currentAdmission ? (
+                <span>
+                    Currently admitted as <strong>Inpatient</strong> in <strong>{currentAdmission.ward}</strong>, Bed <strong>{currentAdmission.bed_id}</strong>.
+                </span>
+            ) : (
+                <span>
+                    {patient.lastVisitDate 
+                        ? `Last Visit: ${format(new Date(patient.lastVisitDate), 'PPP')} (Outpatient)`
+                        : 'No recent outpatient visit history.'}
+                </span>
+            )}
+        </div>
+      </div>
+      
+       {hasClinicalPrivileges && (
+          <div className="flex items-center gap-2 md:hidden">
+              <AllocateBedDialog 
+                patientId={patient.patient_id}
+                disabled={patient.is_admitted || isSubmitting} 
+              />
+              <TransferPatientDialog 
+                  patient={patient} 
+                  currentBedId={currentAdmission?.bed_id}
+                  disabled={isSubmitting || !patient.is_admitted} 
+              />
+              <Button onClick={handleDischarge} variant="destructive" size="sm" disabled={isSubmitting || !patient.is_admitted}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Discharging...' : 'Discharge'}
+              </Button>
+          </div>
+       )}
 
       <Tabs defaultValue="demographics">
         <TabsList>
