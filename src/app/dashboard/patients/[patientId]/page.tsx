@@ -24,6 +24,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { DischargePatientDialog } from './components/discharge-patient-dialog';
 import { mockNotes } from './components/clinical-notes-tab';
+import { VitalsTab } from './components/vitals-tab';
+import { DiagnosesTab } from './components/diagnoses-tab';
+import { MedicationsTab } from './components/medications-tab';
+import { LabResultsTab } from './components/lab-results-tab';
 
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
@@ -131,7 +135,7 @@ export default function PatientDetailPage() {
        )}
 
       <Tabs defaultValue="demographics">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
           {/* == EHR TABS ==
@@ -140,8 +144,11 @@ export default function PatientDetailPage() {
               from non-clinical staff, further enhancing security and usability.
            */}
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
+          <TabsTrigger value="vitals">Vitals</TabsTrigger>
+          <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
+          <TabsTrigger value="medications">Medications</TabsTrigger>
+          <TabsTrigger value="labs">Lab Results</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-          {/* Additional tabs like 'Vitals', 'Diagnoses', 'Medications', 'Lab Results' would be added here */}
         </TabsList>
         <TabsContent value="demographics" className="mt-4">
           <DemographicsTab patient={patient} />
@@ -151,6 +158,18 @@ export default function PatientDetailPage() {
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
           <ClinicalNotesTab patientId={patient.patient_id} />
+        </TabsContent>
+         <TabsContent value="vitals" className="mt-4">
+          <VitalsTab />
+        </TabsContent>
+         <TabsContent value="diagnoses" className="mt-4">
+          <DiagnosesTab />
+        </TabsContent>
+         <TabsContent value="medications" className="mt-4">
+          <MedicationsTab />
+        </TabsContent>
+        <TabsContent value="labs" className="mt-4">
+          <LabResultsTab />
         </TabsContent>
          <TabsContent value="billing" className="mt-4">
            <BillingTab patientId={patient.patient_id} />
