@@ -224,3 +224,80 @@ export interface Referral {
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
+
+
+// =========================================================================
+// == EHR Sub-Collection Data Models
+// =========================================================================
+
+/**
+ * Represents a clinical note in the `clinical_notes` sub-collection.
+ * Path: /patients/{patientId}/clinical_notes/{noteId}
+ */
+export interface ClinicalNote {
+  noteId: string; // Document ID
+  noteText: string; // Can be Markdown or plain text
+  noteType: 'Progress Note' | 'Consultation' | 'Nursing Note';
+  recordedByUserId: string; // Reference to users.uid
+  recordedAt: string; // ISO 8601 Timestamp
+}
+
+/**
+ * Represents a set of vital signs in the `vitals` sub-collection.
+ * Path: /patients/{patientId}/vitals/{vitalId}
+ */
+export interface VitalSign {
+  vitalId: string; // Document ID
+  temperature: number; // in Celsius
+  bloodPressure: string; // e.g., '120/80'
+  heartRate: number; // beats per minute
+  respiratoryRate: number; // breaths per minute
+  oxygenSaturation: number; // SpO2 percentage
+  recordedByUserId: string; // Reference to users.uid
+  recordedAt: string; // ISO 8601 Timestamp
+}
+
+/**
+ * Represents a medical diagnosis in the `diagnoses` sub-collection.
+ * Path: /patients/{patientId}/diagnoses/{diagnosisId}
+ */
+export interface Diagnosis {
+  diagnosisId: string; // Document ID
+  icd10Code: string; // e.g., 'I10'
+  diagnosisText: string; // e.g., 'Essential (primary) hypertension'
+  isPrimary: boolean;
+  diagnosedByDoctorId: string; // Reference to users.uid
+  diagnosedAt: string; // ISO 8601 Timestamp
+}
+
+/**
+ * Represents a medication record in the `medication_history` sub-collection.
+ * Path: /patients/{patientId}/medication_history/{prescriptionId}
+ */
+export interface MedicationRecord {
+  prescriptionId: string; // Document ID
+  medicationName: string; // e.g., 'Amlodipine'
+  dosage: string; // e.g., '5mg'
+  frequency: string; // e.g., 'Once daily'
+  instructions: string; // e.g., 'Take with food'
+  prescribedByDoctorId: string; // Reference to users.uid
+  prescribedAt: string; // ISO 8601 Timestamp
+  status: 'Active' | 'Discontinued' | 'Filled'; // Link to Pharmacy module
+}
+
+/**
+ * Represents a lab result in the `lab_results` sub-collection.
+ * Path: /patients/{patientId}/lab_results/{testId}
+ */
+export interface LabResult {
+  testId: string; // Document ID
+  testName: string; // e.g., 'Full Blood Count'
+  status: 'Ordered' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Cancelled';
+  result: Record<string, any> | string; // Can be a complex object or simple text
+  units?: string; // e.g., 'mmol/L'
+  referenceRange?: string; // e.g., '3.5 - 5.5'
+  orderedByDoctorId: string; // Reference to users.uid
+  labTechnicianId?: string; // Reference to users.uid
+  orderedAt: string; // ISO 8601 Timestamp
+  completedAt?: string; // ISO 8601 Timestamp
+}
