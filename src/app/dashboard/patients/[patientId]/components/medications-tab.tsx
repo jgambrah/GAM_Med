@@ -2,14 +2,39 @@
 'use client';
 
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { MedicationRecord } from '@/lib/types';
+import { NewPrescriptionSchema } from '@/lib/schemas';
+import { addPrescription } from '@/lib/actions';
+import { useParams } from 'next/navigation';
 
 // In a real application, this data would come from a real-time listener
 // on the /patients/{patientId}/medication_history sub-collection.
@@ -45,14 +70,113 @@ const getStatusVariant = (status: MedicationRecord['status']): "default" | "seco
     }
 }
 
-// NOTE: This is a conceptual component to demonstrate the workflow.
-// In a real app, you would have a more robust dialog with form validation.
 function NewPrescriptionDialog() {
+    const params = useParams();
+    const patientId = params.patientId as string;
+    const [open, setOpen] = React.useState(false);
+
+    const form = useForm<z.infer<typeof NewPrescriptionSchema>>({
+        resolver: zodResolver(NewPrescriptionSchema),
+        defaultValues: {
+            medicationName: '',
+            dosage: '',
+            frequency: '',
+            instructions: '',
+        }
+    });
+
+    const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
+        const result = await addPrescription(patientId, values);
+        if(result.success) {
+            alert('Prescription added successfully (simulated).');
+            setOpen(false);
+            form.reset();
+        } else {
+            alert(`Error: ${result.message}`);
+        }
+    }
+
     return (
-        <Button size="sm" onClick={() => alert('Opening new prescription form...')}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Prescription
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Prescription
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create New Prescription</DialogTitle>
+                    <DialogDescription>
+                        Fill out the form to add a new medication for this patient.
+                    </DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="medicationName"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Medication Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., Amlodipine" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="dosage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Dosage</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., 5mg" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="frequency"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Frequency</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Once daily" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="instructions"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Instructions (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., Take with food" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? 'Saving...' : 'Save Prescription'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                 </Form>
+            </DialogContent>
+        </Dialog>
     )
 }
 

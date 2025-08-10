@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -184,4 +184,17 @@ export async function searchPatientsAction(query: string): Promise<{
     );
   
     return { success: true, data: filtered };
+}
+
+export async function addPrescription(patientId: string, values: z.infer<typeof NewPrescriptionSchema>) {
+    console.log(`Adding prescription for patient ${patientId}:`, values);
+    
+    // This server action would call a Cloud Function `onNewMedicationPrescribed`
+    // which would create a document in the `/patients/{patientId}/medication_history` sub-collection.
+    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    
+    return { success: true, message: 'Prescription added successfully.' };
 }

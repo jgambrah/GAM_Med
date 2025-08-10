@@ -61,3 +61,13 @@ export const ReferralSchema = z.object({
   assignedDepartment: z.string().min(2, { message: "A department must be assigned." }),
   notes: z.string().optional(),
 });
+
+/**
+ * Zod schema for validating a new prescription form.
+ */
+export const NewPrescriptionSchema = z.object({
+  medicationName: z.string().min(2, { message: "Medication name is required." }),
+  dosage: z.string().min(1, { message: "Dosage is required." }),
+  frequency: z.string().min(2, { message: "Frequency is required." }),
+  instructions: z.string().optional(),
+});
