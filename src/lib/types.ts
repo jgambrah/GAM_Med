@@ -34,6 +34,24 @@ export interface User {
  * This approach is highly efficient for data retrieval, as it allows for direct document lookups
  * without needing a separate query. It also guarantees the uniqueness of the patient ID at the
  * database level, which is critical for data integrity across the entire ERP system.
+ *
+ * The patient's full Electronic Health Record (EHR) is built using a series of sub-collections
+ * nested under this main patient document. This strategy keeps the top-level patient document
+ * lean and fast to load, while allowing for scalable, organized storage of potentially vast amounts
+ * of clinical data. Each sub-collection represents a different domain of the patient's record.
+ *
+ * Example EHR Sub-collection structure:
+ * /patients/{patientId}/
+ *   - clinical_notes/{noteId}
+ *   - prescriptions/{prescriptionId}
+ *   - lab_results/{resultId}
+ *   - imaging_reports/{reportId}
+ *   - vitals/{vitalId}
+ *   - admissions/{admissionId}
+ *
+ * This structure enables granular security rules, allowing different clinical roles to access
+ * only the specific parts of the EHR they are authorized to see (e.g., a pharmacist can access
+ * prescriptions, but not necessarily clinical notes).
  */
 export interface Patient {
   patient_id: string; // Unique, system-generated ID. THIS IS ALSO THE FIRESTORE DOCUMENT ID.
