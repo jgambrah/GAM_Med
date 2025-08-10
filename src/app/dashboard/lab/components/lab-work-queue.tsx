@@ -11,19 +11,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { LabResult } from '@/lib/types';
 import { format } from 'date-fns';
 import { mockLabResults } from '@/lib/data';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { FulfillRequestDialog } from './fulfill-request-dialog';
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
         case 'Completed': return 'secondary';
         case 'Ordered': return 'default';
         case 'In Progress': return 'outline';
-        default: 'outline';
+        default: return 'outline';
     }
 };
 
@@ -57,29 +57,6 @@ export function LabWorkQueue() {
    */
   const labRequests = mockLabResults.filter(lr => lr.status !== 'Completed');
 
-  const handleFulfillRequest = (testId: string) => {
-    /**
-     * == WORKFLOW STEP: FULFILLMENT ==
-     * This function simulates the action a lab technician takes after completing a test.
-     *
-     * 1. **Open a Modal:** This button would open a dialog/modal with a form for entering
-     *    the test results. The form fields would be specific to the `testName`.
-     *
-     * 2. **Update the Document:** Upon submitting the results form, a server action would
-     *    be called. This action would update the original lab result document in the
-     *    `/patients/{patientId}/lab_results/{testId}` sub-collection. It would:
-     *    - Set the `status` to 'Completed'.
-     *    - Populate the `result` field with the data from the form.
-     *    - Set the `completedAt` timestamp.
-     *    - Set the `labTechnicianId` to the current user's UID.
-     *
-     * 3. **Trigger Notification:** This update would automatically trigger the
-     *    `onLabResultCompleted` Cloud Function, which then notifies the ordering doctor
-     *    that the results are ready for review.
-     */
-    alert(`Simulating fulfillment for test ${testId}. This would open a result entry form.`);
-  }
-
   return (
     <div className="rounded-md border">
         <Table>
@@ -109,13 +86,7 @@ export function LabWorkQueue() {
                                 <Badge variant={getStatusVariant(request.status)}>{request.status}</Badge>
                             </TableCell>
                             <TableCell>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => handleFulfillRequest(request.testId)}
-                                >
-                                    Fulfill Request
-                                </Button>
+                                <FulfillRequestDialog labRequest={request} />
                             </TableCell>
                         </TableRow>
                     ))

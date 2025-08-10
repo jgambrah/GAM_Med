@@ -99,3 +99,10 @@ export const NewVitalsSchema = z.object({
     respiratoryRate: z.number({ required_error: 'Respiratory rate is required.' }),
     oxygenSaturation: z.number({ required_error: 'SpO2 is required.' }),
 });
+
+/**
+ * Zod schema for fulfilling a lab request.
+ */
+export const FulfillLabRequestSchema = z.object({
+    result: z.string().min(5, { message: 'Result must be at least 5 characters.' }),
+});

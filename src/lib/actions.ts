@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, NewVitalsSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, NewVitalsSchema, FulfillLabRequestSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -218,4 +218,23 @@ export async function addVitals(patientId: string, values: z.infer<typeof NewVit
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
     return { success: true, message: 'Vitals recorded successfully.' };
+}
+
+export async function fulfillLabRequest(
+    patientId: string, 
+    testId: string,
+    values: z.infer<typeof FulfillLabRequestSchema>
+) {
+    console.log(`Fulfilling lab request ${testId} for patient ${patientId}:`, values);
+
+    // This server action would update the lab result document in Firestore.
+    // It would set the status to 'Completed', add the result, and set the completedAt timestamp.
+    // This update would then trigger the `onLabResultCompleted` Cloud Function to notify the doctor.
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    revalidatePath(`/dashboard/lab`);
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    
+    return { success: true, message: 'Lab request fulfilled successfully.' };
 }
