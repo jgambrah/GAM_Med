@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -235,56 +236,14 @@ exports.handlePatientAdmission = functions.region('europe-west1').https.onCall(a
 
 
 // =======================================================================================
-// 5. Update Outpatient Status (Callable Function)
+// 5. Update Outpatient Status (Legacy - Superseded by setAppointmentStatus)
 // =======================================================================================
 /**
- * Handles status updates for an outpatient visit (e.g., check-in, consultation complete).
- * This is a simpler, non-transactional update.
- *
- * @trigger_type Callable Function (https)
- * @input { patientId: string, admissionId: string, newStatus: string }
+ * This function is now superseded by `setAppointmentStatus` which provides more granular
+ * control over the appointment lifecycle from the Doctor's Workbench.
  */
 /*
-exports.updateOutpatientStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Authentication & Authorization Check
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    }
-    // Add role check here.
-
-    const { patientId, admissionId, newStatus } = data;
-    if (!patientId || !admissionId || !newStatus) {
-        throw new functions.https.HttpsError('invalid-argument', 'Missing required details.');
-    }
-    
-    const validStatuses = ['In Progress', 'Completed', 'Canceled'];
-    if (!validStatuses.includes(newStatus)) {
-        throw new functions.https.HttpsError('invalid-argument', 'Invalid status provided.');
-    }
-
-    const admissionRef = db.collection('patients').doc(patientId).collection('admissions').doc(admissionId);
-    
-    try {
-        await admissionRef.update({ 
-            status: newStatus,
-            updated_at: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        // If the visit is complete, update the last visit date on the main patient record.
-        if (newStatus === 'Completed') {
-            const patientRef = db.collection('patients').doc(patientId);
-            await patientRef.update({
-                lastVisitDate: admin.firestore.FieldValue.serverTimestamp()
-            });
-        }
-        
-        return { success: true };
-
-    } catch (error) {
-        console.error('Failed to update outpatient status:', error);
-        throw new functions.https.HttpsError('internal', 'Could not update outpatient status.');
-    }
-});
+exports.updateOutpatientStatus = functions.region('europe-west1').https.onCall(async (data, context) => { ... });
 */
 
 // =======================================================================================
@@ -788,4 +747,206 @@ exports.onLabResultCompleted = functions.region('europe-west1').firestore
         return null;
     });
 */
+
+// =======================================================================================
+// == DOCTOR'S WORKBENCH FUNCTIONS
+// =======================================================================================
+
+// =======================================================================================
+// 16. Set Appointment Status (Callable Function)
+// =======================================================================================
+/**
+ * Updates the status of an appointment from the Doctor's Workbench.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { appointmentId: string, status: 'In Progress' | 'Completed' | 'Canceled' }
+ */
+/*
+exports.setAppointmentStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an authenticated doctor.
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'doctor') {
+      throw new functions.https.HttpsError('permission-denied', 'Only a doctor can update appointment status.');
+    }
+
+    const { appointmentId, status } = data;
+    if (!appointmentId || !status) {
+      throw new functions.https.HttpsError('invalid-argument', 'appointmentId and status are required.');
+    }
+
+    const appointmentRef = db.collection('appointments').doc(appointmentId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const appointmentDoc = await transaction.get(appointmentRef);
+            if (!appointmentDoc.exists) throw new Error('Appointment not found.');
+            
+            // Security check: Ensure the doctor updating the appointment is the one assigned to it.
+            if (appointmentDoc.data()?.attendingDoctorId !== context.auth.uid) {
+                throw new functions.https.HttpsError('permission-denied', 'You are not assigned to this appointment.');
+            }
+
+            // Update the appointment status
+            transaction.update(appointmentRef, {
+                status: status,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            // If the appointment is completed, update the patient's lastVisitDate.
+            if (status === 'Completed') {
+                const patientId = appointmentDoc.data()?.patientId;
+                if (patientId) {
+                    const patientRef = db.collection('patients').doc(patientId);
+                    transaction.update(patientRef, {
+                        lastVisitDate: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+            }
+        });
+
+        console.log(`Appointment ${appointmentId} status updated to ${status}.`);
+        return { success: true };
+    } catch (error) {
+        console.error(`Failed to update status for appointment ${appointmentId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not update appointment status.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 17. Write Prescription (Callable Function)
+// =======================================================================================
+/**
+ * Creates a new medication record in the patient's EHR and a corresponding order in the pharmacy queue.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, medicationName: string, dosage: string, frequency: string, instructions: string }
+ */
+/*
+exports.writePrescription = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an authenticated doctor.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'doctor') {
+        throw new functions.https.HttpsError('permission-denied', 'Only doctors can write prescriptions.');
+    }
     
+    const { patientId, medicationName, dosage, frequency, instructions } = data;
+    // Server-side validation of input data here...
+
+    const newPrescriptionRef = db.collection('patients').doc(patientId).collection('medication_history').doc();
+    const newPharmacyOrderRef = db.collection('pharmacy_orders').doc(); // Create in central queue
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const now = admin.firestore.FieldValue.serverTimestamp();
+            
+            // Data for the EHR
+            const ehrPrescriptionData = {
+                prescriptionId: newPrescriptionRef.id,
+                medicationName,
+                dosage,
+                frequency,
+                instructions,
+                prescribedByDoctorId: context.auth.uid,
+                prescribedAt: now,
+                status: 'Active'
+            };
+
+            // Data for the Pharmacy Module work queue
+            const pharmacyOrderData = {
+                ...ehrPrescriptionData,
+                orderId: newPharmacyOrderRef.id,
+                patientId,
+                status: 'Pending Fulfillment',
+            };
+            
+            transaction.set(newPrescriptionRef, ehrPrescriptionData);
+            transaction.set(newPharmacyOrderRef, pharmacyOrderData);
+        });
+
+        console.log(`Prescription ${newPrescriptionRef.id} created for patient ${patientId}.`);
+        return { success: true, prescriptionId: newPrescriptionRef.id };
+
+    } catch (error) {
+        console.error('Failed to write prescription:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not save prescription.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 18. Order Lab Test (Callable Function)
+// =======================================================================================
+/**
+ * Creates a new lab test record in the patient's EHR and a corresponding request in the lab queue.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, testName: string, notes: string }
+ */
+/*
+exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an authenticated doctor.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'doctor') {
+        throw new functions.https.HttpsError('permission-denied', 'Only doctors can order lab tests.');
+    }
+
+    const { patientId, testName, notes } = data;
+    // Server-side validation of input data here...
+
+    const newLabResultRef = db.collection('patients').doc(patientId).collection('lab_results').doc();
+    const newLabRequestRef = db.collection('lab_requests').doc();
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const now = admin.firestore.FieldValue.serverTimestamp();
+            const patientDoc = await transaction.get(db.collection('patients').doc(patientId));
+            if (!patientDoc.exists) throw new Error("Patient not found");
+
+            // Data for the EHR
+            const ehrLabResultData = {
+                testId: newLabResultRef.id,
+                patientId,
+                testName,
+                notes,
+                status: 'Ordered',
+                orderedByDoctorId: context.auth.uid,
+                orderedAt: now,
+            };
+
+            // Data for the Lab Module work queue
+            const labRequestData = {
+                requestId: newLabRequestRef.id,
+                ehrTestId: newLabResultRef.id,
+                patientId,
+                patientName: patientDoc.data()?.full_name, // Denormalize for display in lab UI
+                testName,
+                notes,
+                status: 'New Request',
+                orderedByDoctorId: context.auth.uid,
+                orderedAt: now,
+            };
+
+            transaction.set(newLabResultRef, ehrLabResultData);
+            transaction.set(newLabRequestRef, labRequestData);
+        });
+
+        console.log(`Lab test ${newLabResultRef.id} ordered for patient ${patientId}.`);
+        return { success: true, testId: newLabResultRef.id };
+
+    } catch (error) {
+        console.error('Failed to order lab test:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not save lab order.', { message: error.message });
+    }
+});
+*/
+```
