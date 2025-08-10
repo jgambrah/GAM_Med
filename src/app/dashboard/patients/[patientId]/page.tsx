@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/tabs';
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
-import { ClinicalNotesTab } from './components/clinical-notes-tab';
+import { ClinicalNotesTab, ClinicalNote } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
@@ -28,6 +28,7 @@ import { VitalsTab } from './components/vitals-tab';
 import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
+import { Patient, Admission } from '@/lib/types';
 
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
@@ -50,6 +51,45 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
 
+  /**
+   * == DATA FETCHING: Real-time Listeners (Conceptual) ==
+   *
+   * In a production application, each tab's data would be fetched using a real-time
+   * listener from its corresponding Firestore sub-collection. This ensures the EHR is
+   * always up-to-date.
+   *
+   * This would be implemented using React's `useEffect` hook for each data type.
+   *
+   * Example for Clinical Notes:
+   *
+   *   const [clinicalNotes, setClinicalNotes] = React.useState<ClinicalNote[]>([]);
+   *   const [loadingNotes, setLoadingNotes] = React.useState(true);
+   *
+   *   React.useEffect(() => {
+   *     if (!patientId) return;
+   *
+   *     // Path to the sub-collection in Firestore
+   *     const notesQuery = query(
+   *       collection(db, `patients/${patientId}/clinical_notes`),
+   *       orderBy('recordedAt', 'desc')
+   *     );
+   *
+   *     // onSnapshot establishes a real-time connection.
+   *     const unsubscribe = onSnapshot(notesQuery, (querySnapshot) => {
+   *       const notesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClinicalNote));
+   *       setClinicalNotes(notesData);
+   *       setLoadingNotes(false);
+   *     });
+   *
+   *     // Clean up the listener when the component unmounts
+   *     return () => unsubscribe();
+   *
+   *   }, [patientId]);
+   *
+   * This pattern would be repeated for Vitals, Diagnoses, Medications, and Lab Results,
+   * passing the live data down to each respective tab component.
+   */
+
   if (!patient) {
     notFound();
   }
@@ -57,6 +97,7 @@ export default function PatientDetailPage() {
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
   // Determine if the user has clinical privileges for certain actions
+  // This is a stand-in for a more robust role-checking utility like the conceptual `getUserRole()`.
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
 
   return (
@@ -77,9 +118,10 @@ export default function PatientDetailPage() {
             </Badge>
             {/*
               == ROLE-BASED UI: CLINICAL ACTIONS ==
-              This block conditionally renders the main patient management actions (Admit, Transfer, Discharge)
-              only for users with appropriate clinical roles. This prevents unauthorized actions and declutters
-              the UI for other staff like billing clerks or pharmacists.
+              This block demonstrates conditional rendering. The main patient management actions
+              (Admit, Transfer, Discharge) are only rendered if the `hasClinicalPrivileges` check
+              passes. This prevents unauthorized actions and declutters the UI for other staff like
+              billing clerks or pharmacists, directly reflecting the logic in `firestore.rules`.
             */}
             {hasClinicalPrivileges && (
                 <div className="hidden items-center gap-2 md:ml-auto md:flex">

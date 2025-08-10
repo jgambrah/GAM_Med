@@ -70,6 +70,13 @@ const getStatusVariant = (status: MedicationRecord['status']): "default" | "seco
     }
 }
 
+/**
+ * == Conceptual Component: Medication Prescription Form ==
+ *
+ * This component is the UI for a doctor's core workflow: prescribing medication.
+ * It demonstrates how the front-end securely interacts with the back-end to
+ * create a new clinical record and trigger automated cross-module communication.
+ */
 function NewPrescriptionDialog() {
     const params = useParams();
     const patientId = params.patientId as string;
@@ -85,6 +92,29 @@ function NewPrescriptionDialog() {
         }
     });
 
+    /**
+     * == Integration with Backend Logic ==
+     *
+     * This `onSubmit` function is the critical link between the doctor's action
+     * and the hospital's automated backend system.
+     *
+     * Workflow:
+     * 1. The doctor fills out the form.
+     * 2. The form data is validated client-side by Zod (`NewPrescriptionSchema`).
+     * 3. Upon successful validation, the data is passed to the `addPrescription`
+     *    Server Action. This is a secure API call to the Next.js backend.
+     * 4. **(Conceptual)** The `addPrescription` Server Action would then call a
+     *    Cloud Function (e.g., `writeMedicationRecord`) which performs the write
+     *    to the `/patients/{patientId}/medication_history` sub-collection.
+     * 5. This `onCreate` event in Firestore then triggers the
+     *    `onNewMedicationPrescribed` Cloud Function.
+     * 6. The `onNewMedicationPrescribed` function creates a new record in the
+     *    pharmacy's work queue, effectively decoupling the EHR from the Pharmacy
+     *    module while ensuring seamless communication.
+     *
+     * This entire process is initiated by a single button click from the doctor,
+     * demonstrating an efficient and secure workflow.
+     */
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
         const result = await addPrescription(patientId, values);
         if(result.success) {
