@@ -3,65 +3,104 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get the user's role from the 'users' collection.
+
+    // Helper function to get the user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Users can read their own data. Admins can read anyone's data.
-      allow read: if request.auth.uid == userId || getUserRole() == 'admin';
-      // Only admins can create or update user roles/data.
-      allow write: if getUserRole() == 'admin';
-    }
-
-    // Rules for the 'patients' collection
-    match /patients/{patientId} {
-      // Allow read access for the patient themselves, or authorized clinical/admin staff.
-      allow read: if request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.auth_uid || 
-                   getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist'];
-      // Allow creation only by admins or nurses (reception).
-      allow create: if getUserRole() in ['admin', 'nurse'];
-      // Allow updates by admins, doctors, or nurses.
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      // Rules for EHR sub-collections
-      match /admissions/{admissionId} {
-        allow read: if request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.auth_uid || 
-                   getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'];
-        allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-      match /clinical_notes/{noteId} {
-          allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-
-       match /billing/{billingId} {
-          allow read: if getUserRole() in ['admin', 'billing_clerk'];
-          allow write: if getUserRole() in ['admin', 'billing_clerk'];
-      }
-    }
-
-    // Rules for the 'beds' collection
-    match /beds/{bedId} {
-      // All clinical and admin staff can view bed status.
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      // Only admins and nurses can update bed status (admit, transfer, clean).
-      allow write: if getUserRole() in ['admin', 'nurse'];
-    }
     
-     // Rules for the 'referrals' collection
+    // Helper function to check if the requesting user is the patient themselves
+    function isPatientOwner(patientId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId;
+    }
+
+    // Allow read access to own user document.
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId;
+    }
+
+    match /beds/{bedId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow write: if false; // Writes should be handled by Cloud Functions
+    }
+
     match /referrals/{referralId} {
-        // Admin and triage staff can create new referrals.
-      allow create: if getUserRole() in ['admin', 'triage_officer', 'nurse'];
+        allow create: if getUserRole() in ['admin', 'triage_officer'];
+        allow read: if getUserRole() in ['admin', 'triage_officer'] || request.auth.uid == resource.data.assignedDoctorId;
+        allow update: if getUserRole() in ['admin', 'triage_officer'] || 
+                       (request.auth.uid == resource.data.assignedDoctorId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+    }
+
+    // =========================================================================
+    // == Patient & EHR Security Rules
+    // =========================================================================
+    match /patients/{patientId} {
+      // READ: Most clinical staff can view the main patient record. Patients can view their own record.
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk'] || isPatientOwner(patientId);
       
-      // Admin, triage, and the assigned doctor can read the referral.
-      allow read: if getUserRole() in ['admin', 'triage_officer', 'nurse'] || request.auth.uid == resource.data.assignedDoctorId;
+      // WRITE: All writes to the patient document should be handled by secure Cloud Functions.
+      // This prevents direct client-side manipulation of sensitive flags like 'is_admitted'.
+      allow write: if false;
+
+      // --- Clinical Notes Sub-collection ---
+      // Path: /patients/{patientId}/clinical_notes/{noteId}
+      match /clinical_notes/{noteId} {
+        // READ: Only doctors and nurses can read clinical notes.
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        // WRITE: Only doctors and nurses can create/update notes.
+        allow write: if getUserRole() in ['doctor', 'nurse'];
+      }
+      
+      // --- Vitals Sub-collection ---
+      // Path: /patients/{patientId}/vitals/{vitalId}
+      match /vitals/{vitalId} {
+        // READ: Doctors and nurses can read vitals.
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        // WRITE: Typically, only nurses log vitals.
+        allow write: if getUserRole() == 'nurse';
+      }
+
+      // --- Diagnoses Sub-collection ---
+      // Path: /patients/{patientId}/diagnoses/{diagnosisId}
+      match /diagnoses/{diagnosisId} {
+        // READ: Doctors can read diagnoses.
+        allow read: if getUserRole() in ['admin', 'doctor'];
+        // WRITE: Only doctors can add or modify diagnoses.
+        allow write: if getUserRole() == 'doctor';
+      }
+
+      // --- Medication History Sub-collection (Prescriptions) ---
+      // Path: /patients/{patientId}/medication_history/{prescriptionId}
+      match /medication_history/{prescriptionId} {
+        // READ: Clinical staff and pharmacists can view prescriptions. Patients can view their own.
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'] || isPatientOwner(patientId);
+        // WRITE: Only doctors can prescribe medication.
+        allow write: if getUserRole() == 'doctor';
+      }
+      
+      // --- Lab Results Sub-collection ---
+      // Path: /patients/{patientId}/lab_results/{testId}
+      match /lab_results/{testId} {
+        // READ: Clinical staff and lab technicians can view results. Patients can view their own.
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'lab_technician'] || isPatientOwner(patientId);
         
-      // Admin and triage can manage the referral; the assigned doctor can update its status.
-      allow update: if getUserRole() in ['admin', 'triage_officer', 'nurse'];
+        // CREATE: Only doctors can order a new lab test.
+        allow create: if getUserRole() == 'doctor';
+
+        // UPDATE: Lab technicians can only update specific fields related to the result.
+        // This prevents them from changing the test order itself.
+        allow update: if getUserRole() == 'lab_technician' && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['result', 'status', 'completedAt', 'labTechnicianId']);
+      }
+
+      // --- Admissions Sub-collection ---
+      // Path: /patients/{patientId}/admissions/{admissionId}
+       match /admissions/{admissionId} {
+        // READ: Most staff can view admission history.
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || isPatientOwner(patientId);
+        // WRITE: Handled by Cloud Functions.
+        allow write: if false;
+      }
     }
   }
 }
