@@ -39,7 +39,7 @@ const getStatusVariant = (status: Referral['status']): "default" | "secondary" |
         case 'Assigned': return 'default';
         case 'Scheduled': return 'outline';
         case 'Completed': return 'secondary';
-        default: return 'secondary';
+        default: 'secondary';
     }
 };
 
@@ -48,14 +48,15 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
         case 'Emergency': return 'destructive';
         case 'Urgent': return 'default';
         case 'Routine': return 'secondary';
-        default: return 'secondary';
+        default: 'secondary';
     }
 }
 
 /**
  * == Conceptual UI: Role-Based Referrals Dashboard ==
  * This component serves as a central hub for referral management, adapting its functionality
- * based on the user's role.
+ * based on the user's role. It acts as both the administrative work queue and the doctor's
+ * personalized list.
  *
  * For Admins/Triage: It's a dynamic work queue with filtering and assignment capabilities.
  * For Doctors: It's a streamlined list of their assigned referrals, with actions tailored to their workflow.
@@ -66,22 +67,35 @@ export function ReferralsDashboard() {
   const isDoctor = user?.role === 'doctor';
 
   /**
-   * == DATA QUERY (CONCEPTUAL) ==
-   * This logic adapts the query based on both user role and the selected filter.
+   * == DATA QUERY (PSEUDOCODE) ==
+   * This logic adapts the query based on both user role and the selected filter, ensuring
+   * users only see relevant information.
    *
    *   let q;
    *   let baseQuery = collection(db, 'referrals');
    *
    *   if (isDoctor) {
-   *     // Doctor's View: Fetch only referrals assigned to the current doctor.
-   *     q = query(baseQuery, where('assignedToDoctorId', '==', user.uid), orderBy('referralDate', 'desc'));
+   *     // == Doctor's Referral List Query ==
+   *     // This query is simple and secure. It fetches only referrals where the
+   *     // `assignedToDoctorId` field matches the currently logged-in doctor's UID.
+   *     // This is the core of the Doctor's Portal view.
+   *     q = query(
+   *       baseQuery,
+   *       where('assignedToDoctorId', '==', user.uid),
+   *       orderBy('referralDate', 'desc')
+   *     );
    *   } else {
-   *     // Admin/Triage View: Apply status filter.
+   *     // == Admin/Triage Dashboard Query ==
+   *     // This is the work queue for administrative staff. It can be filtered by status.
+   *     // By default, it shows 'Pending Review' to guide staff to the most urgent tasks.
    *     if (filter !== 'All') {
    *        baseQuery = query(baseQuery, where('status', '==', filter));
    *     }
    *     q = query(baseQuery, orderBy('referralDate', 'desc'));
    *   }
+   *
+   *   // In a real application, this would use a hook like `useCollection` from
+   *   // 'react-firebase-hooks/firestore' to get real-time data.
    *   const [referrals, loading, error] = useCollection(q);
    */
   const referrals = React.useMemo(() => {
@@ -97,7 +111,12 @@ export function ReferralsDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Admin/Triage View: Show filter buttons */}
+      {/*
+        == ROLE-BASED UI ==
+        This block demonstrates conditional rendering. The filter buttons, which are part of
+        the administrative workflow, are only rendered if the user is *not* a doctor. This
+        declutters the UI for doctors and focuses them on their assigned tasks.
+      */}
       {!isDoctor && (
         <div className="flex items-center gap-2">
             <Button variant={filter === 'All' ? 'default' : 'outline'} onClick={() => setFilter('All')}>All</Button>
@@ -164,25 +183,31 @@ export function ReferralsDashboard() {
                                 {/* This opens a read-only view of the full referral */}
                                 View Full Details
                              </DropdownMenuItem>
+                            {/* == Admin/Triage Workflow Action == */}
                             {!isDoctor && (
                             <DropdownMenuItem>
-                                {/* ASSIGNMENT WORKFLOW:
-                                    This action would open a dialog with a dropdown of doctors
-                                    in the 'assignedDepartment'. On confirmation, it would update
-                                    the referral document with the 'assignedToDoctorId', which
-                                    then triggers the `onReferralAssignment` Cloud Function.
+                                {/* This action is the entry point for the assignment workflow.
+                                    In a full implementation, this would open a dialog with a
+                                    dropdown of doctors in the 'assignedDepartment'. On confirmation,
+                                    it would update the referral document with the doctor's ID, which
+                                    then triggers the `onReferralAssignment` Cloud Function to
+                                    send a notification to the doctor. This guides the admin
+                                    to the next logical step.
                                 */}
                                 Assign to Doctor
                             </DropdownMenuItem>
                             )}
+                            {/* == Doctor Workflow Actions == */}
                             {isDoctor && (
                                 <>
                                 <DropdownMenuItem>Update Status</DropdownMenuItem>
                                 <DropdownMenuItem>
-                                    {/* SCHEDULING WORKFLOW:
-                                        This would open the scheduling modal/page, pre-filled
-                                        with the patient and referral info. On save, it would
-                                        trigger the `linkReferralToAppointment` function.
+                                    {/* This is the primary action for a doctor. It would open
+                                        the scheduling modal/page, pre-filled with the patient
+                                        and referral info. On save, it would call the
+                                        `linkReferralToAppointment` Cloud Function to create the
+                                        bidirectional link between the referral and the new appointment.
+                                        This provides a clear path from receiving a referral to taking action.
                                     */}
                                     Schedule Appointment
                                 </DropdownMenuItem>
