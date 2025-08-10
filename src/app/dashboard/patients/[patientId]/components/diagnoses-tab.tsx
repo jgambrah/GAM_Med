@@ -32,6 +32,17 @@ const mockDiagnoses: Diagnosis[] = [
     }
 ];
 
+// NOTE: This is a conceptual component to demonstrate the workflow.
+// In a real app, you would have a more robust dialog with form validation.
+function AddDiagnosisDialog() {
+    return (
+        <Button size="sm" onClick={() => alert('Opening diagnosis form...')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Diagnosis
+        </Button>
+    )
+}
+
 export function DiagnosesTab() {
     const { user } = useAuth();
     const canAddDiagnosis = user?.role === 'doctor';
@@ -43,12 +54,7 @@ export function DiagnosesTab() {
                     <CardTitle>Diagnoses</CardTitle>
                     <CardDescription>A record of all medical diagnoses for the patient.</CardDescription>
                 </div>
-                {canAddDiagnosis && (
-                    <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Diagnosis
-                    </Button>
-                )}
+                {canAddDiagnosis && <AddDiagnosisDialog />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">

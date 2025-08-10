@@ -45,6 +45,17 @@ const getStatusVariant = (status: MedicationRecord['status']): "default" | "seco
     }
 }
 
+// NOTE: This is a conceptual component to demonstrate the workflow.
+// In a real app, you would have a more robust dialog with form validation.
+function NewPrescriptionDialog() {
+    return (
+        <Button size="sm" onClick={() => alert('Opening new prescription form...')}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Prescription
+        </Button>
+    )
+}
+
 export function MedicationsTab() {
     const { user } = useAuth();
     const canPrescribe = user?.role === 'doctor';
@@ -56,12 +67,7 @@ export function MedicationsTab() {
                     <CardTitle>Medications</CardTitle>
                     <CardDescription>A history of all prescribed medications.</CardDescription>
                 </div>
-                {canPrescribe && (
-                    <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Prescription
-                    </Button>
-                )}
+                {canPrescribe && <NewPrescriptionDialog />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">

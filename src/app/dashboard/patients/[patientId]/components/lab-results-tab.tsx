@@ -43,6 +43,19 @@ const getStatusVariant = (status: LabResult['status']): "default" | "secondary" 
     }
 }
 
+
+// NOTE: This is a conceptual component to demonstrate the workflow.
+// In a real app, you would have a more robust dialog with form validation.
+function OrderTestDialog() {
+    return (
+        <Button size="sm" onClick={() => alert('Opening lab test order form...')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Order New Test
+        </Button>
+    )
+}
+
+
 export function LabResultsTab() {
     const { user } = useAuth();
     const canOrderTest = user?.role === 'doctor';
@@ -54,12 +67,7 @@ export function LabResultsTab() {
                     <CardTitle>Lab Results</CardTitle>
                     <CardDescription>A record of all laboratory tests and their results.</CardDescription>
                 </div>
-                {canOrderTest && (
-                    <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Order New Test
-                    </Button>
-                )}
+                {canOrderTest && <OrderTestDialog />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
