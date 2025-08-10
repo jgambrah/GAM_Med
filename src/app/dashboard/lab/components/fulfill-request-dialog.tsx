@@ -44,6 +44,8 @@ export function FulfillRequestDialog({ labRequest }: FulfillRequestDialogProps) 
     });
     
     const onSubmit = async (values: z.infer<typeof FulfillLabRequestSchema>) => {
+        // In a real app, you'd handle file upload here before calling the action.
+        // For example, upload to Firebase Storage and get a URL.
         const result = await fulfillLabRequest(labRequest.patientId, labRequest.testId, values);
         if (result.success) {
             alert('Lab request fulfilled successfully (simulated).');
@@ -79,12 +81,29 @@ export function FulfillRequestDialog({ labRequest }: FulfillRequestDialogProps) 
                             name="result"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Test Results</FormLabel>
+                                    <FormLabel>Test Results Summary</FormLabel>
                                     <FormControl>
                                         <Textarea 
                                             placeholder="Enter the lab results here. Use structured data if possible (e.g., 'Hemoglobin: 14.5 g/dL')."
-                                            rows={8}
+                                            rows={6}
                                             {...field} 
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="attachment"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Attach Result PDF (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Input 
+                                            type="file" 
+                                            accept="application/pdf"
+                                            onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
                                         />
                                     </FormControl>
                                     <FormMessage />

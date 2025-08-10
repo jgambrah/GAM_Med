@@ -105,4 +105,5 @@ export const NewVitalsSchema = z.object({
  */
 export const FulfillLabRequestSchema = z.object({
     result: z.string().min(5, { message: 'Result must be at least 5 characters.' }),
+    attachment: z.any().optional(),
 });

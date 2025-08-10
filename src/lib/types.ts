@@ -296,6 +296,7 @@ export interface LabResult {
   testName: string; // e.g., 'Full Blood Count'
   status: 'Ordered' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Cancelled';
   result: Record<string, any> | string; // Can be a complex object or simple text
+  resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
   units?: string; // e.g., 'mmol/L'
   referenceRange?: string; // e.g., '3.5 - 5.5'
   orderedByDoctorId: string; // Reference to users.uid
