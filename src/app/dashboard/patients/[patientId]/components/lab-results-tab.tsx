@@ -2,14 +2,40 @@
 'use client';
 
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { LabResult } from '@/lib/types';
+import { NewLabOrderSchema } from '@/lib/schemas';
+import { orderLabTest } from '@/lib/actions';
+import { useParams } from 'next/navigation';
+import { Textarea } from '@/components/ui/textarea';
+
 
 // In a real application, this data would come from a real-time listener
 // on the /patients/{patientId}/lab_results sub-collection.
@@ -43,15 +69,83 @@ const getStatusVariant = (status: LabResult['status']): "default" | "secondary" 
     }
 }
 
-
-// NOTE: This is a conceptual component to demonstrate the workflow.
-// In a real app, you would have a more robust dialog with form validation.
 function OrderTestDialog() {
+    const params = useParams();
+    const patientId = params.patientId as string;
+    const [open, setOpen] = React.useState(false);
+
+    const form = useForm<z.infer<typeof NewLabOrderSchema>>({
+        resolver: zodResolver(NewLabOrderSchema),
+        defaultValues: {
+            testName: '',
+            notes: '',
+        }
+    });
+
+    const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
+        const result = await orderLabTest(patientId, values);
+        if(result.success) {
+            alert('Lab test ordered successfully (simulated).');
+            setOpen(false);
+            form.reset();
+        } else {
+            alert(`Error: ${result.message}`);
+        }
+    }
+
     return (
-        <Button size="sm" onClick={() => alert('Opening lab test order form...')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Order New Test
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Order New Test
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Order New Lab Test</DialogTitle>
+                    <DialogDescription>
+                        Submit a new request to the laboratory.
+                    </DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="testName"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Test Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., Full Blood Count" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Notes for Lab (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., STAT, fasting required" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? 'Submitting...' : 'Submit Order'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                 </Form>
+            </DialogContent>
+        </Dialog>
     )
 }
 

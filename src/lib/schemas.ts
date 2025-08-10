@@ -71,3 +71,20 @@ export const NewPrescriptionSchema = z.object({
   frequency: z.string().min(2, { message: "Frequency is required." }),
   instructions: z.string().optional(),
 });
+
+/**
+ * Zod schema for validating a new diagnosis form.
+ */
+export const NewDiagnosisSchema = z.object({
+  diagnosisText: z.string().min(3, { message: "Diagnosis is required." }),
+  icd10Code: z.string().min(1, { message: "ICD-10 code is required." }),
+  isPrimary: z.boolean().default(false),
+});
+
+/**
+ * Zod schema for validating a new lab order form.
+ */
+export const NewLabOrderSchema = z.object({
+  testName: z.string().min(3, { message: "Test name is required." }),
+  notes: z.string().optional(),
+});

@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -197,4 +197,18 @@ export async function addPrescription(patientId: string, values: z.infer<typeof 
     revalidatePath(`/dashboard/patients/${patientId}`);
     
     return { success: true, message: 'Prescription added successfully.' };
+}
+
+export async function addDiagnosis(patientId: string, values: z.infer<typeof NewDiagnosisSchema>) {
+    console.log(`Adding diagnosis for patient ${patientId}:`, values);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    return { success: true, message: 'Diagnosis added successfully.' };
+}
+
+export async function orderLabTest(patientId: string, values: z.infer<typeof NewLabOrderSchema>) {
+    console.log(`Ordering lab test for patient ${patientId}:`, values);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    return { success: true, message: 'Lab test ordered successfully.' };
 }
