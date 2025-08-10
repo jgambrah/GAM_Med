@@ -188,8 +188,15 @@ export interface Appointment {
   appointment_id: string; // Unique ID, e.g., AP-001
   patient_id: string;
   patient_name: string; // Denormalized for quick display
-  doctor_id: string;
+  
+  /**
+   * attendingDoctorId (renamed as doctor_id here) is the critical field for the Doctor's Workbench.
+   * The system will query the 'appointments' collection where 'doctor_id' matches the
+   * logged-in doctor's UID to build their personalized daily schedule.
+   */
+  doctor_id: string; 
   doctor_name: string; // Denormalized for quick display
+  
   appointment_date: string; // ISO 8601 format, start time
   end_time: string; // ISO 8601 format
   duration: number; // in minutes
@@ -198,6 +205,7 @@ export interface Appointment {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
   notes: string;
   created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
 }
 
 /**
@@ -304,3 +312,5 @@ export interface LabResult {
   orderedAt: string; // ISO 8601 Timestamp
   completedAt?: string; // ISO 8601 Timestamp
 }
+
+    
