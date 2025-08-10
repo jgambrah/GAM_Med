@@ -8,10 +8,10 @@ interface DemographicsTabProps {
   patient: Patient;
 }
 
-const DetailItem = ({ label, value }: { label: string; value?: string | null | boolean }) => (
+const DetailItem = ({ label, value }: { label: string; value?: string | null | boolean | string[] }) => (
     <div>
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="text-base font-semibold">{value === true ? 'Yes' : value === false ? 'No' : value || 'N/A'}</p>
+        <p className="text-base font-semibold">{value === true ? 'Yes' : value === false ? 'No' : Array.isArray(value) ? value.join(', ') || 'N/A' : value || 'N/A'}</p>
     </div>
 );
 
@@ -78,9 +78,23 @@ export function DemographicsTab({ patient }: DemographicsTabProps) {
             <CardHeader>
                 <CardTitle>Medical History</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailItem label="Allergies" value={patient.medicalHistory?.allergies?.join(', ')} />
-                <DetailItem label="Pre-existing Conditions" value={patient.medicalHistory?.preExistingConditions?.join(', ')} />
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 className="font-medium text-muted-foreground">Allergies</h4>
+                    {patient.medicalHistory?.allergies?.length ? (
+                        <ul className="list-disc pl-5 mt-2 space-y-1">
+                            {patient.medicalHistory.allergies.map(allergy => <li key={allergy}>{allergy}</li>)}
+                        </ul>
+                    ) : <p>None reported.</p>}
+                </div>
+                <div>
+                    <h4 className="font-medium text-muted-foreground">Pre-existing Conditions</h4>
+                     {patient.medicalHistory?.preExistingConditions?.length ? (
+                        <ul className="list-disc pl-5 mt-2 space-y-1">
+                            {patient.medicalHistory.preExistingConditions.map(condition => <li key={condition}>{condition}</li>)}
+                        </ul>
+                    ) : <p>None reported.</p>}
+                </div>
             </CardContent>
         </Card>
     </div>

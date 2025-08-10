@@ -47,11 +47,17 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
     const [newNote, setNewNote] = React.useState('');
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+    // This check ensures that only authorized roles can add clinical notes,
+    // aligning with the Firestore security rules.
+    const canAddNote = user && (user.role === 'doctor' || user.role === 'nurse');
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newNote.trim()) return;
+        if (!newNote.trim() || !canAddNote) return;
 
         setIsSubmitting(true);
+        // In a real app, the server action would use the authenticated user's ID
+        // to securely record who wrote the note.
         await addClinicalNote(patientId, newNote);
         alert('New clinical note has been added (simulated).');
         setNewNote('');
@@ -62,7 +68,7 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
         <Card>
             <CardHeader>
                 <CardTitle>Clinical Notes</CardTitle>
-                <CardDescription>Records of all clinical interactions and observations.</CardDescription>
+                <CardDescription>A chronological record of all clinical interactions and observations.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
@@ -71,14 +77,20 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
                            <p className="text-sm text-muted-foreground">
                              {format(new Date(note.date), 'PPP p')} by <span className="font-semibold">{note.author}</span>
                            </p>
-                           <p className="mt-1">{note.content}</p>
+                           <p className="mt-1 whitespace-pre-wrap">{note.content}</p>
                         </div>
                     ))}
                 </div>
-                 {user && (user.role === 'doctor' || user.role === 'nurse') && (
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                 {/*
+                   == ROLE-BASED UI: NURSE/DOCTOR WORKFLOW ==
+                   This form is the primary tool for doctors and nurses to document patient care.
+                   It is conditionally rendered based on the user's role, providing a clear
+                   workflow for authorized clinical staff while being hidden from others.
+                 */}
+                 {canAddNote && (
+                    <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t">
                         <div>
-                             <h4 className="font-medium mb-2">Add New Note</h4>
+                             <h4 className="font-medium mb-2">Add New Note as {user.name}</h4>
                              <Textarea 
                                 placeholder="Type new clinical note here..."
                                 value={newNote}
@@ -98,3 +110,4 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
         </Card>
     );
 }
+

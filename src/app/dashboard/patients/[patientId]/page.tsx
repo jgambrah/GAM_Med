@@ -26,19 +26,23 @@ import { DischargePatientDialog } from './components/discharge-patient-dialog';
 import { mockNotes } from './components/clinical-notes-tab';
 
 /**
- * == Conceptual UI: Conditional Rendering ==
+ * == Conceptual UI: Patient-Centric EHR Dashboard ==
  *
- * This component serves as the central dashboard for viewing and managing a single
- * patient's complete record. It heavily uses conditional logic to tailor the
- * displayed information and available actions based on the patient's current status.
+ * This component acts as the central hub for a patient's Electronic Health Record (EHR).
+ * It's designed as a patient-centric dashboard with multiple tabs, each dedicated to a
+ * specific domain of the patient's record (e.g., Demographics, Clinical Notes, Billing).
+ *
+ * It heavily uses conditional rendering based on the logged-in user's role and the
+ * patient's current status (admitted vs. outpatient) to create a tailored and intuitive
+ * experience for different clinical and administrative staff.
  */
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
-  const { user } = useAuth(); // Get the current user
+  const { user } = useAuth(); // Get the current user to tailor the UI
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // In a real app, this data would be fetched from Firestore.
+  // In a real app, this data would be fetched from Firestore, including all EHR sub-collections.
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
 
@@ -64,25 +68,20 @@ export default function PatientDetailPage() {
             <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
             {patient.full_name}
             </h1>
-            {/*
-              == CONDITIONAL UI: BADGE ==
-              This badge's appearance and text change based on the `is_admitted` flag,
-              providing an immediate visual cue about the patient's status.
-            */}
             <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
             {patient.is_admitted ? 'Admitted' : 'Outpatient'}
             </Badge>
+            {/*
+              == ROLE-BASED UI: CLINICAL ACTIONS ==
+              This block conditionally renders the main patient management actions (Admit, Transfer, Discharge)
+              only for users with appropriate clinical roles. This prevents unauthorized actions and declutters
+              the UI for other staff like billing clerks or pharmacists.
+            */}
             {hasClinicalPrivileges && (
                 <div className="hidden items-center gap-2 md:ml-auto md:flex">
-                    {/*
-                      == CONDITIONAL UI: ACTIONS ==
-                      The "Admit", "Transfer", and "Discharge" buttons are conditionally disabled
-                      based on the `patient.is_admitted` boolean. This prevents staff from
-                      performing invalid actions, like trying to discharge an outpatient.
-                    */}
                     <AllocateBedDialog 
-                    patientId={patient.patient_id}
-                    disabled={patient.is_admitted || isSubmitting} 
+                        patientId={patient.patient_id}
+                        disabled={patient.is_admitted || isSubmitting} 
                     />
                     <TransferPatientDialog 
                         patient={patient} 
@@ -97,13 +96,6 @@ export default function PatientDetailPage() {
                 </div>
             )}
         </div>
-        {/*
-          == CONDITIONAL UI: CONTEXTUAL MESSAGE ==
-          This block provides a clear, human-readable summary of the patient's status.
-          If they are an inpatient, it shows their ward and bed.
-          If they are an outpatient, it shows their last visit date.
-          This logic is driven entirely by the `is_admitted` flag.
-        */}
         <div className="mt-2 text-sm text-muted-foreground">
             {patient.is_admitted && currentAdmission ? (
                 <span>
@@ -142,8 +134,14 @@ export default function PatientDetailPage() {
         <TabsList>
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
+          {/* == EHR TABS ==
+              These tabs are the core of the EHR view, separating clinical data into logical sections.
+              In a full implementation, you could add role-based logic here to hide certain tabs
+              from non-clinical staff, further enhancing security and usability.
+           */}
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          {/* Additional tabs like 'Vitals', 'Diagnoses', 'Medications', 'Lab Results' would be added here */}
         </TabsList>
         <TabsContent value="demographics" className="mt-4">
           <DemographicsTab patient={patient} />
