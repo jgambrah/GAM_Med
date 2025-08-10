@@ -39,7 +39,7 @@ const getStatusVariant = (status: Referral['status']): "default" | "secondary" |
         case 'Assigned': return 'default';
         case 'Scheduled': return 'outline';
         case 'Completed': return 'secondary';
-        default: 'secondary';
+        default: return 'secondary';
     }
 };
 
@@ -118,11 +118,12 @@ export function ReferralsDashboard() {
         declutters the UI for doctors and focuses them on their assigned tasks.
       */}
       {!isDoctor && (
-        <div className="flex items-center gap-2">
-            <Button variant={filter === 'All' ? 'default' : 'outline'} onClick={() => setFilter('All')}>All</Button>
-            <Button variant={filter === 'Pending Review' ? 'default' : 'outline'} onClick={() => setFilter('Pending Review')}>Pending Review</Button>
-            <Button variant={filter === 'Assigned' ? 'default' : 'outline'} onClick={() => setFilter('Assigned')}>Assigned</Button>
-            <Button variant={filter === 'Scheduled' ? 'default' : 'outline'} onClick={() => setFilter('Scheduled')}>Scheduled</Button>
+        <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" variant={filter === 'All' ? 'default' : 'outline'} onClick={() => setFilter('All')}>All</Button>
+            <Button size="sm" variant={filter === 'Pending Review' ? 'default' : 'outline'} onClick={() => setFilter('Pending Review')}>Pending Review</Button>
+            <Button size="sm" variant={filter === 'Assigned' ? 'default' : 'outline'} onClick={() => setFilter('Assigned')}>Assigned</Button>
+            <Button size="sm" variant={filter === 'Scheduled' ? 'default' : 'outline'} onClick={() => setFilter('Scheduled')}>Scheduled</Button>
+            <Button size="sm" variant={filter === 'Completed' ? 'default' : 'outline'} onClick={() => setFilter('Completed')}>Completed</Button>
         </div>
       )}
       <div className="rounded-md border">
