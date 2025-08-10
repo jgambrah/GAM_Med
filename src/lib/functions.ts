@@ -536,7 +536,7 @@ exports.processIncomingReferral = functions.region('europe-west1').https.onCall(
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
-    // Add role check (admin, nurse)
+    // Add role check (admin, nurse, triage_officer)
     
     const { referralData } = data;
     // 2. Server-side validation of referralData against a Zod schema.
@@ -678,4 +678,114 @@ exports.linkReferralToAppointment = functions.region('europe-west1').https.onCal
 });
 */
 
+// =======================================================================================
+// 13. On New Medication Prescribed (Firestore Trigger - EHR/Pharmacy Integration)
+// =======================================================================================
+/**
+ * Triggers when a new medication is added to a patient's EHR, creating a corresponding
+ * order in the pharmacy module's work queue.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /patients/{patientId}/medication_history/{prescriptionId}
+ */
+/*
+exports.onNewMedicationPrescribed = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/medication_history/{prescriptionId}')
+    .onCreate(async (snapshot, context) => {
+        const { patientId, prescriptionId } = context.params;
+        const prescriptionData = snapshot.data();
+
+        // 1. Prepare data for the pharmacy work queue
+        const pharmacyOrder = {
+            ...prescriptionData, // Copy all relevant prescription details
+            patientId: patientId,
+            ehrPrescriptionId: prescriptionId, // Link back to the original EHR record
+            status: 'Pending Fulfillment',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        // 2. Create a new document in the central pharmacy work queue collection.
+        // This decouples the EHR from the pharmacy's internal workflow.
+        await db.collection('pharmacy_orders').add(pharmacyOrder);
+
+        console.log(`Pharmacy order created for patient ${patientId}, prescription ${prescriptionId}.`);
+        return null;
+    });
+*/
+
+
+// =======================================================================================
+// 14. On New Lab Test Ordered (Firestore Trigger - EHR/Lab Integration)
+// =======================================================================================
+/**
+ * Triggers when a new lab test is ordered in a patient's EHR, creating a request
+ * in the laboratory module's work queue.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /patients/{patientId}/lab_results/{testId}
+ */
+/*
+exports.onNewLabTestOrdered = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/lab_results/{testId}')
+    .onCreate(async (snapshot, context) => {
+        const { patientId, testId } = context.params;
+        const testOrderData = snapshot.data();
+
+        // 1. Prepare data for the lab's work queue.
+        const labRequest = {
+            patientId: patientId,
+            ehrTestId: testId,
+            testName: testOrderData.testName,
+            orderedByDoctorId: testOrderData.orderedByDoctorId,
+            status: 'New Request', // Initial status for the lab's workflow
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // 2. Create the document in the lab's request queue.
+        await db.collection('lab_requests').add(labRequest);
+        
+        console.log(`Lab request created for patient ${patientId}, test ${testId}.`);
+        return null;
+    });
+*/
+
+// =======================================================================================
+// 15. On Lab Result Completed (Firestore Trigger - Notification)
+// =======================================================================================
+/**
+ * Triggers a notification to the ordering doctor when a lab result is finalized.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /patients/{patientId}/lab_results/{testId}
+ */
+/*
+exports.onLabResultCompleted = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/lab_results/{testId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        
+        // 1. Condition: Only run if status changed to 'Completed'.
+        if (newData.status === 'Completed' && oldData.status !== 'Completed') {
+            const { patientId } = context.params;
+            const doctorId = newData.orderedByDoctorId;
+            
+            // 2. Get patient and doctor details for the notification.
+            // const patientDoc = await db.collection('patients').doc(patientId).get();
+            // const patientName = patientDoc.data()?.full_name || 'A patient';
+
+            const notificationMessage = {
+                title: 'Lab Result Ready',
+                body: `The result for the ${newData.testName} test for ${patientName} is now available for review.`
+            };
+            
+            // 3. Send notification (e.g., FCM to a specific device token, email, etc.)
+            // await sendNotificationToUser(doctorId, notificationMessage);
+            
+            console.log(`Notification sent to doctor ${doctorId} for completed lab test.`);
+        }
+        
+        return null;
+    });
+*/
     
