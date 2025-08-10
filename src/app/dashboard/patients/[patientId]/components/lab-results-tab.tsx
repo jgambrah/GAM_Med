@@ -35,30 +35,8 @@ import { NewLabOrderSchema } from '@/lib/schemas';
 import { orderLabTest } from '@/lib/actions';
 import { useParams } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
+import { mockLabResults as allMockLabResults } from '@/lib/data';
 
-
-// In a real application, this data would come from a real-time listener
-// on the /patients/{patientId}/lab_results sub-collection.
-const mockLabResults: LabResult[] = [
-    {
-        testId: 'lab-1',
-        testName: 'Full Blood Count',
-        status: 'Completed',
-        result: { 'Hemoglobin': '14.5 g/dL', 'WBC': '7.2 x 10^9/L' },
-        orderedByDoctorId: 'doc1',
-        labTechnicianId: 'labtech1',
-        orderedAt: new Date('2024-07-28T12:00:00Z').toISOString(),
-        completedAt: new Date('2024-07-28T16:00:00Z').toISOString(),
-    },
-    {
-        testId: 'lab-2',
-        testName: 'Lipid Panel',
-        status: 'Ordered',
-        result: 'Pending',
-        orderedByDoctorId: 'doc1',
-        orderedAt: new Date('2024-07-29T10:00:00Z').toISOString(),
-    }
-];
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -152,7 +130,13 @@ function OrderTestDialog() {
 
 export function LabResultsTab() {
     const { user } = useAuth();
+    const params = useParams();
+    const patientId = params.patientId as string;
     const canOrderTest = user?.role === 'doctor';
+
+    // In a real application, this data would come from a real-time listener
+    // on the /patients/{patientId}/lab_results sub-collection.
+    const mockLabResults = allMockLabResults.filter(lr => lr.patientId === patientId);
     
     return (
          <Card>

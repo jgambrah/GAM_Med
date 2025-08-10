@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult } from './types';
 
 const now = new Date();
 
@@ -40,6 +40,15 @@ export const allUsers: User[] = [
     email: 'j.boateng@gammed.com',
     name: 'James Boateng',
     role: 'pharmacist',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
+    uid: 'labtech1',
+    email: 'l.technician@gammed.com',
+    name: 'Lab Technician',
+    role: 'lab_technician',
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
@@ -303,4 +312,40 @@ export const mockReferrals: Referral[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
+];
+
+export const mockLabResults: LabResult[] = [
+    {
+        testId: 'lab-1',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        testName: 'Full Blood Count',
+        status: 'Completed',
+        result: { 'Hemoglobin': '14.5 g/dL', 'WBC': '7.2 x 10^9/L' },
+        orderedByDoctorId: 'doc1',
+        labTechnicianId: 'labtech1',
+        orderedAt: new Date('2024-07-28T12:00:00Z').toISOString(),
+        completedAt: new Date('2024-07-28T16:00:00Z').toISOString(),
+    },
+    {
+        testId: 'lab-2',
+        patientId: 'P-654321',
+        patientName: 'Aba Appiah',
+        testName: 'Lipid Panel',
+        status: 'Ordered',
+        result: 'Pending',
+        orderedByDoctorId: 'doc1',
+        orderedAt: new Date('2024-07-29T10:00:00Z').toISOString(),
+    },
+     {
+        testId: 'lab-3',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        testName: 'Thyroid Panel',
+        status: 'In Progress',
+        result: 'Pending',
+        orderedByDoctorId: 'doc1',
+        labTechnicianId: 'labtech1',
+        orderedAt: new Date('2024-07-30T10:00:00Z').toISOString(),
+    }
 ];

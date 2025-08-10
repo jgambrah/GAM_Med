@@ -9,10 +9,10 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble, Send } from 'lucide-react';
+import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble, Send, Beaker } from 'lucide-react';
 import { User } from '@/lib/types';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -36,6 +36,12 @@ export function MainNav() {
       label: 'Referrals',
       icon: Send,
       roles: ['admin', 'doctor', 'nurse'],
+    },
+    {
+      href: '/dashboard/lab',
+      label: 'Laboratory',
+      icon: Beaker,
+      roles: ['lab_technician'],
     },
     {
       href: '/dashboard/beds',

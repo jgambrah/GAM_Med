@@ -13,7 +13,7 @@ export interface User {
   uid: string; // Corresponds to Firebase Auth UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer';
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician';
   is_active: boolean;
   patient_id?: string; // Link to the patient document, for users with the 'patient' role
   created_at: string; // ISO 8601 format
@@ -291,6 +291,8 @@ export interface MedicationRecord {
  */
 export interface LabResult {
   testId: string; // Document ID
+  patientId: string; // Denormalized for querying lab work queue
+  patientName: string; // Denormalized for display in work queue
   testName: string; // e.g., 'Full Blood Count'
   status: 'Ordered' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Cancelled';
   result: Record<string, any> | string; // Can be a complex object or simple text
