@@ -21,11 +21,47 @@ interface AppointmentsListProps {
   onAppointmentSelect: (appointment: Appointment) => void;
 }
 
+/**
+ * == Conceptual Component: TodayAppointments ==
+ *
+ * This component acts as the doctor's daily work queue. It's the "Today's Appointments" list
+ * that drives the entire Doctor's Workbench workflow.
+ *
+ * It uses a real-time Firestore listener to fetch only the appointments assigned to the
+ * currently logged-in doctor for the current day. This ensures the list is always up-to-date
+ * as new appointments are scheduled or existing ones are cancelled.
+ *
+ * By serving as the primary navigation for the workbench, it minimizes clicks. The doctor
+ * does not need to navigate to a separate "patients" page and then search for their next
+* patient. Instead, their entire day's schedule is presented as a simple, clickable list.
+* Selecting an item immediately loads the relevant context in the main pane.
+ */
 export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps) {
     const { user } = useAuth();
     const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<string | null>(null);
 
-    // In a real app, this would be a real-time query for appointments for the logged-in doctor.
+    /**
+     * == DATA QUERY (PSEUDOCODE) ==
+     * In a production application, this would be a real-time Firestore query.
+     * The query is highly efficient and secure, filtered by the logged-in doctor's UID.
+     *
+     *   const today = new Date();
+     *   const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+     *   const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+     *
+     *   const q = query(
+     *     collection(db, 'appointments'),
+     *     where('doctor_id', '==', user.uid), // *** Filters by logged-in doctor ***
+     *     where('appointment_date', '>=', startOfToday),
+     *     where('appointment_date', '<=', endOfToday),
+     *     orderBy('appointment_date', 'asc')
+     *   );
+     *
+     *   const [todaysAppointments, loading, error] = useCollection(q);
+     *
+     * This ensures a doctor can only ever see their own appointments, enforcing privacy
+     * and security at the database level.
+     */
     const todaysAppointments = allAppointments.filter(
       (appt) =>
         appt.doctor_id === user?.uid &&

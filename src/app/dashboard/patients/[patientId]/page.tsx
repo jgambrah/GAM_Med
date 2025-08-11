@@ -38,7 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
-import { ClinicalNotesTab, ClinicalNote, mockNotes } from './components/clinical-notes-tab';
+import { ClinicalNotesTab, mockNotes } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
@@ -50,7 +50,7 @@ import { VitalsTab } from './components/vitals-tab';
 import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
-import { Patient, Admission } from '@/lib/types';
+import { Patient } from '@/lib/types';
 import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
 import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
 
@@ -66,6 +66,8 @@ function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: 
         if (!newNote.trim()) return;
 
         setIsSubmitting(true);
+        // This server action encapsulates the logic to write to the
+        // /patients/{patientId}/clinical_notes sub-collection.
         await addClinicalNote(patientId, newNote);
         alert('New clinical note has been added (simulated).');
         setNewNote('');
@@ -107,6 +109,24 @@ function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: 
     )
 }
 
+/**
+ * == Conceptual Component: PrescriptionForm ==
+ *
+ * This component demonstrates how a doctor would prescribe medication. It's a modal dialog
+ * that provides a structured form for entering prescription details.
+ *
+ * WORKFLOW:
+ * 1. The doctor clicks the "New Prescription" button in the Action Pane.
+ * 2. This dialog opens, providing a focused interface for the task.
+ * 3. Upon submission, the form data is validated using a Zod schema.
+ * 4. The validated data is sent to the `addPrescription` server action, which acts as a
+ *    secure proxy for the conceptual `writePrescription` Cloud Function.
+ * 5. The Cloud Function would then perform a transaction to write to both the patient's
+ *    EHR (`/medication_history`) and the Pharmacy's work queue, ensuring data consistency.
+ *
+ * This design is efficient because the form is presented in a modal, preventing the doctor
+ * from losing the context of the main EHR view.
+ */
 function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
 
@@ -121,6 +141,8 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
     });
 
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
+        // This server action encapsulates the call to the backend.
+        // In a real app, this would invoke the `writePrescription` Cloud Function.
         const result = await addPrescription(patientId, values);
         if(result.success) {
             alert('Prescription added successfully (simulated).');
@@ -226,6 +248,8 @@ function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?
     });
 
     const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
+        // This server action encapsulates the call to the backend.
+        // In a real app, this would invoke the `orderLabTest` Cloud Function.
         const result = await orderLabTest(patientId, values);
         if(result.success) {
             alert('Lab test ordered successfully (simulated).');
