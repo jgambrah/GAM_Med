@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { Home, Users, Stethoscope, LayoutDashboard, BedDouble, ClipboardHeart, Pill, Calendar, Beaker, Send } from 'lucide-react';
+import { Home, Users, Stethoscope, LayoutDashboard, BedDouble, ClipboardHeart, Beaker } from 'lucide-react';
 import { User } from '@/lib/types';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
