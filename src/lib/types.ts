@@ -261,6 +261,7 @@ export interface VitalSign {
   heartRate: number; // beats per minute
   respiratoryRate: number; // breaths per minute
   oxygenSaturation: number; // SpO2 percentage
+  notes?: string; // Optional notes from the nurse
   recordedByUserId: string; // Reference to users.uid
   recordedAt: string; // ISO 8601 Timestamp
 }
@@ -295,7 +296,7 @@ export interface MedicationRecord {
 
 /**
  * Represents a lab result in the `lab_results` sub-collection.
- * Path: /patients/{patientId}/lab_results/{testId}
+ * Path: /patients/{patientId}/lab_results/{resultId}
  */
 export interface LabResult {
   testId: string; // Document ID
@@ -313,4 +314,36 @@ export interface LabResult {
   completedAt?: string; // ISO 8601 Timestamp
 }
 
-    
+/**
+ * Represents a care plan for a patient, stored in the `care_plans` sub-collection.
+ * Path: /patients/{patientId}/care_plans/{carePlanId}
+ */
+export interface CarePlan {
+  carePlanId: string; // Document ID
+  title: string; // e.g., 'Post-Operative Wound Care'
+  description: string; // Detailed description of the care plan
+  tasks: {
+    taskId: string;
+    description: string;
+    frequency: string; // e.g., 'Twice daily', 'Every 4 hours'
+    lastCompletedAt?: string; // ISO 8601 Timestamp
+  }[];
+  createdByUserId: string; // User who created the plan (doctor or senior nurse)
+  createdAt: string; // ISO 8601 Timestamp
+  updatedAt: string; // ISO 8601 Timestamp
+  isActive: boolean;
+}
+
+/**
+ * Represents a log entry for medication administration, stored in the `medication_administration_logs` sub-collection.
+ * Path: /patients/{patientId}/medication_administration_logs/{logId}
+ */
+export interface MedicationAdministrationLog {
+  logId: string; // Document ID
+  prescriptionId: string; // Reference to the medication record in `medication_history`
+  medicationName: string; // Denormalized for easy display
+  dosageAdministered: string; // e.g., '5mg'
+  administeredByUserId: string; // The nurse who gave the medication
+  administeredAt: string; // ISO 8601 Timestamp
+  notes?: string; // e.g., 'Patient refused', 'Administered with food'
+}
