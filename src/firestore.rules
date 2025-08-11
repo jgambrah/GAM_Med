@@ -1,0 +1,106 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to get the user's role from the 'users' collection.
+    // This is used repeatedly in the security rules to check for permissions.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // =====================================================================
+    // Users Collection
+    // =====================================================================
+    // Allow users to read their own data.
+    // Only admins can create, update, or delete user records.
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId;
+      allow write: if getUserRole() == 'admin';
+    }
+
+    // =====================================================================
+    // Patients Collection & EHR Sub-collections
+    // =====================================================================
+    // Rules for the main patient document and its nested sub-collections.
+    match /patients/{patientId} {
+      // Allow read access to clinical staff and the patient themselves.
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.auth_uid;
+      
+      // Allow creation/updates only by authorized staff.
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+
+      // --- Clinical Notes Sub-collection ---
+      // Only doctors can write notes. Nurses and admins can read them.
+      match /clinical_notes/{noteId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow write: if getUserRole() == 'doctor';
+      }
+
+      // --- Diagnoses Sub-collection ---
+      // Only doctors can create, update, or delete diagnoses.
+      match /diagnoses/{diagnosisId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow write: if getUserRole() == 'doctor';
+      }
+
+      // --- Vitals Sub-collection ---
+      // Nurses are the primary users who record vitals. Doctors can also read them.
+      match /vitals/{vitalId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow create, update: if getUserRole() == 'nurse' || getUserRole() == 'doctor';
+      }
+
+      // --- Care Plans Sub-collection ---
+      // Nurses create and manage care plans.
+      match /care_plans/{planId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow create, update: if getUserRole() == 'nurse';
+      }
+
+      // --- Medication Administration Logs ---
+      // Nurses create logs when they administer medication. This is a write-once operation.
+      match /medication_administration_logs/{logId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'];
+        allow create: if getUserRole() == 'nurse';
+        allow update, delete: if false; // Logs should be immutable
+      }
+
+       // --- Medication History (Prescriptions) ---
+      match /medication_history/{medId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'];
+        allow write: if getUserRole() == 'doctor';
+      }
+
+       // --- Lab Results ---
+      match /lab_results/{labId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'lab_technician'];
+        allow create: if getUserRole() == 'doctor'; // Doctors order tests
+        allow update: if getUserRole() == 'lab_technician'; // Lab techs fulfill them
+      }
+
+      // Add other sub-collection rules (e.g., admissions, billing) here...
+    }
+
+    // =====================================================================
+    // Beds Collection
+    // =====================================================================
+    // Beds can be read by all clinical staff, but only updated by admins/nurses.
+    match /beds/{bedId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow write: if getUserRole() in ['admin', 'nurse'];
+    }
+
+    // =====================================================================
+    // Appointments Collection
+    // =====================================================================
+    // Appointments contain sensitive patient info, so access is restricted.
+    match /appointments/{appointmentId} {
+      // Allow read if you are the assigned doctor or an admin.
+      allow read: if getUserRole() == 'admin' || request.auth.uid == resource.data.doctor_id;
+      // Allow write for admins (scheduling) or the assigned doctor (updating status).
+      allow write: if getUserRole() == 'admin' || request.auth.uid == resource.data.doctor_id;
+    }
+  }
+}

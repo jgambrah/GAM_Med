@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText } from 'lucide-react';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse } from 'lucide-react';
 import { allPatients, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,11 +24,6 @@ import {
 } from '@/components/ui/dialog';
 import {
   Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,7 +47,8 @@ import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
 import { Patient } from '@/lib/types';
 import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
-import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
+import { NewPrescriptionSchema, NewLabOrderSchema, NewVitalsSchema } from '@/lib/schemas';
+import { RecordVitalsForm } from '../../nursing/components/record-vitals-form';
 
 
 export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
@@ -315,6 +311,34 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
     )
 }
 
+function RecordVitalsDialog({ patient, disabled }: { patient: Patient, disabled?: boolean }) {
+    const [open, setOpen] = React.useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={disabled}>
+                    <HeartPulse className="h-4 w-4 mr-2" /> Record Vitals
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Record Vitals for {patient.full_name}</DialogTitle>
+                    <DialogDescription>
+                        Enter the patient's latest vital signs. The form will reset upon successful submission.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="pt-4">
+                     <RecordVitalsForm 
+                        patient={patient} 
+                        onSuccess={() => setOpen(false)} 
+                     />
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
  *
@@ -383,6 +407,7 @@ export default function PatientDetailPage() {
   
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
   const isDoctor = user && user.role === 'doctor';
+  const isNurse = user && user.role === 'nurse';
 
   return (
     <div className="space-y-4">
@@ -441,14 +466,19 @@ export default function PatientDetailPage() {
           </div>
        )}
 
-        {isDoctor && (
-             <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
-                <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-                <AddNoteDialog patientId={patient.patient_id} />
-                <NewPrescriptionDialog patientId={patient.patient_id} />
-                <OrderTestDialog patientId={patient.patient_id} />
-            </div>
-        )}
+        <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
+            <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
+            {isDoctor && (
+                <>
+                    <AddNoteDialog patientId={patient.patient_id} />
+                    <NewPrescriptionDialog patientId={patient.patient_id} />
+                    <OrderTestDialog patientId={patient.patient_id} />
+                </>
+            )}
+            {isNurse && (
+                <RecordVitalsDialog patient={patient} />
+            )}
+        </div>
 
       <Tabs defaultValue="demographics">
         <TabsList className="flex-wrap h-auto">
