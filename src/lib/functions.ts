@@ -949,4 +949,158 @@ exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data
     }
 });
 */
-```
+
+
+// =======================================================================================
+// == NURSING MODULE FUNCTIONS
+// =======================================================================================
+
+// =======================================================================================
+// 19. Log Vitals (Callable Function)
+// =======================================================================================
+/**
+ * Records a new set of vital signs for a patient.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, vitalsData: object }
+ */
+/*
+exports.logVitals = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an authenticated nurse or doctor.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'doctor' && userRole !== 'nurse') {
+        throw new functions.https.HttpsError('permission-denied', 'Only clinical staff can log vitals.');
+    }
+
+    const { patientId, vitalsData } = data;
+    // 2. Server-side validation of vitalsData...
+
+    const newVitalsRef = db.collection('patients').doc(patientId).collection('vitals').doc();
+
+    const finalVitalsData = {
+        ...vitalsData,
+        vitalId: newVitalsRef.id,
+        recordedByUserId: context.auth.uid,
+        recordedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await newVitalsRef.set(finalVitalsData);
+
+    // 3. (Optional) Alerting Logic
+    // const patientDoc = await db.collection('patients').doc(patientId).get();
+    // const attendingDoctorId = patientDoc.data()?.current_admission_id
+    //   ? (await db.collection('patients').doc(patientId).collection('admissions').doc(patientDoc.data().current_admission_id).get()).data()?.attending_doctor_id
+    //   : null;
+    //
+    // if (vitalsData.oxygenSaturation < 92 && attendingDoctorId) {
+    //   await sendNotificationToUser(attendingDoctorId, {
+    //     title: 'Urgent Vitals Alert',
+    //     body: `Low SpO2 (${vitalsData.oxygenSaturation}%) recorded for patient ${patientDoc.data().full_name}.`
+    //   });
+    // }
+
+    console.log(`Vitals logged for patient ${patientId}.`);
+    return { success: true };
+});
+*/
+
+// =======================================================================================
+// 20. Log Medication Administration (Callable Function)
+// =======================================================================================
+/**
+ * Creates a log entry confirming that a medication was administered to a patient.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, prescriptionId: string, notes?: string }
+ */
+/*
+exports.logMedicationAdministration = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an authenticated nurse.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'nurse') {
+        throw new functions.https.HttpsError('permission-denied', 'Only nurses can log medication administration.');
+    }
+
+    const { patientId, prescriptionId, notes } = data;
+
+    const prescriptionRef = db.collection('patients').doc(patientId).collection('medication_history').doc(prescriptionId);
+    const newLogRef = db.collection('patients').doc(patientId).collection('medication_administration_logs').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const prescriptionDoc = await transaction.get(prescriptionRef);
+            if (!prescriptionDoc.exists) {
+                throw new Error("Original prescription not found.");
+            }
+            
+            const prescriptionData = prescriptionDoc.data();
+            const logData = {
+                logId: newLogRef.id,
+                prescriptionId: prescriptionId,
+                medicationName: prescriptionData.medicationName, // Denormalize for display
+                dosage: prescriptionData.dosage, // Denormalize for display
+                administeredByUserId: context.auth.uid,
+                administeredAt: admin.firestore.FieldValue.serverTimestamp(),
+                notes: notes || null
+            };
+
+            transaction.set(newLogRef, logData);
+            
+            // Optional: Update pharmacy status if needed, though this might be handled by the pharmacy module.
+        });
+        
+        console.log(`Medication administration logged for prescription ${prescriptionId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to log medication administration:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not save administration log.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 21. Update Care Plan (Callable Function)
+// =======================================================================================
+/**
+ * Updates a patient's care plan.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, planId: string, updatedFields: object }
+ */
+/*
+exports.updateCarePlan = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an authenticated nurse or doctor.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'doctor' && userRole !== 'nurse') {
+        throw new functions.https.HttpsError('permission-denied', 'Only clinical staff can update care plans.');
+    }
+
+    const { patientId, planId, updatedFields } = data;
+    // Server-side validation of updatedFields...
+
+    const carePlanRef = db.collection('patients').doc(patientId).collection('care_plans').doc(planId);
+
+    const finalUpdateData = {
+        ...updatedFields,
+        updatedByUserId: context.auth.uid,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await carePlanRef.update(finalUpdateData);
+
+    console.log(`Care plan ${planId} for patient ${patientId} updated.`);
+    return { success: true };
+});
+*/
