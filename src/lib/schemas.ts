@@ -95,9 +95,9 @@ export const NewLabOrderSchema = z.object({
 export const NewVitalsSchema = z.object({
     temperature: z.number({ required_error: 'Temperature is required.' }),
     bloodPressure: z.string().min(3, { message: "BP is required." }),
-    heartRate: z.number({ required_error: 'Heart rate is required.' }),
-    respiratoryRate: z.number({ required_error: 'Respiratory rate is required.' }),
-    oxygenSaturation: z.number({ required_error: 'SpO2 is required.' }),
+    heartRate: z.number({ required_error: 'Heart rate is required.' }).int().positive(),
+    respiratoryRate: z.number({ required_error: 'Respiratory rate is required.' }).int().positive(),
+    oxygenSaturation: z.number({ required_error: 'SpO2 is required.' }).int().positive(),
 });
 
 /**
