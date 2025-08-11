@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/tabs';
 import { DemographicsTab } from '../../patients/[patientId]/components/demographics-tab';
 import { AdmissionsHistoryTab } from '../../patients/[patientId]/components/admissions-history-tab';
-import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
+import { ClinicalNotesTab, mockNotes } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { BillingTab } from '../../patients/[patientId]/components/billing-tab';
 import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { DiagnosesTab } from '../../patients/[patientId]/components/diagnoses-tab';
@@ -20,6 +20,7 @@ import { MedicationsTab } from '../../patients/[patientId]/components/medication
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
+import { AddNoteDialog, NewPrescriptionDialog, OrderTestDialog } from '../../patients/[patientId]/page';
 
 interface PatientEHRProps {
     patientId: string;
@@ -49,6 +50,13 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                     <h2 className="text-2xl font-semibold">{patient.full_name}</h2>
                     <p className="text-muted-foreground">Patient ID: {patient.patient_id}</p>
                 </div>
+                 <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
+                    <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
+                    <AddNoteDialog patientId={patient.patient_id} />
+                    <NewPrescriptionDialog patientId={patient.patient_id} />
+                    <OrderTestDialog patientId={patient.patient_id} />
+                </div>
+
 
                 <Tabs defaultValue="notes" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 md:grid-cols-4 lg:grid-cols-8 h-auto">
@@ -62,7 +70,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                         <TabsTrigger value="billing">Billing</TabsTrigger>
                     </TabsList>
                     <TabsContent value="notes" className="mt-4">
-                        <ClinicalNotesTab patientId={patient.patient_id} />
+                        <ClinicalNotesTab notes={mockNotes} />
                     </TabsContent>
                     <TabsContent value="vitals" className="mt-4">
                         <VitalsTab />
