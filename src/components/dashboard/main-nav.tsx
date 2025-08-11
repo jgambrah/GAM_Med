@@ -9,10 +9,10 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
-import { Home, Users, Stethoscope, LayoutDashboard, BedDouble, ClipboardHeart, Beaker } from 'lucide-react';
+import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble, Send } from 'lucide-react';
 import { User } from '@/lib/types';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -29,25 +29,31 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'billing_clerk'],
     },
     {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor', 'nurse'],
+      roles: ['admin', 'doctor'],
     },
     {
-      href: '/dashboard/nursing',
-      label: 'Nursing Station',
-      icon: ClipboardHeart,
-      roles: ['nurse'],
+      href: '/dashboard/appointments',
+      label: 'Appointments',
+      icon: Calendar,
+      roles: ['admin', 'doctor', 'billing_clerk'],
+    },
+    {
+      href: '/dashboard/prescriptions',
+      label: 'Prescriptions',
+      icon: Pill,
+      roles: ['doctor', 'pharmacist', 'patient'],
     },
      {
-      href: '/dashboard/lab',
-      label: 'Laboratory',
-      icon: Beaker,
-      roles: ['lab_technician'],
+      href: '/dashboard/referrals',
+      label: 'Referrals',
+      icon: Send,
+      roles: ['admin', 'doctor'],
     },
     {
       href: '/dashboard/my-practice',

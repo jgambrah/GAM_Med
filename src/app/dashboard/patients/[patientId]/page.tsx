@@ -24,6 +24,11 @@ import {
 } from '@/components/ui/dialog';
 import {
   Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,7 +53,6 @@ import { LabResultsTab } from './components/lab-results-tab';
 import { Patient } from '@/lib/types';
 import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
 import { NewPrescriptionSchema, NewLabOrderSchema, NewVitalsSchema } from '@/lib/schemas';
-import { RecordVitalsForm } from '../../nursing/components/record-vitals-form';
 
 
 export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
@@ -311,34 +315,6 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
     )
 }
 
-function RecordVitalsDialog({ patient, disabled }: { patient: Patient, disabled?: boolean }) {
-    const [open, setOpen] = React.useState(false);
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={disabled}>
-                    <HeartPulse className="h-4 w-4 mr-2" /> Record Vitals
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Record Vitals for {patient.full_name}</DialogTitle>
-                    <DialogDescription>
-                        Enter the patient's latest vital signs. The form will reset upon successful submission.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="pt-4">
-                     <RecordVitalsForm 
-                        patient={patient} 
-                        onSuccess={() => setOpen(false)} 
-                     />
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
  *
@@ -405,9 +381,8 @@ export default function PatientDetailPage() {
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
-  const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
+  const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor');
   const isDoctor = user && user.role === 'doctor';
-  const isNurse = user && user.role === 'nurse';
 
   return (
     <div className="space-y-4">
@@ -474,9 +449,6 @@ export default function PatientDetailPage() {
                     <NewPrescriptionDialog patientId={patient.patient_id} />
                     <OrderTestDialog patientId={patient.patient_id} />
                 </>
-            )}
-            {isNurse && (
-                <RecordVitalsDialog patient={patient} />
             )}
         </div>
 
