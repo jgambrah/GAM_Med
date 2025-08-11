@@ -261,6 +261,7 @@ export interface VitalSign {
   heartRate: number; // beats per minute
   respiratoryRate: number; // breaths per minute
   oxygenSaturation: number; // SpO2 percentage
+  painLevel?: number; // Optional pain level from 1-10
   notes?: string; // Optional notes from the nurse
   recordedByUserId: string; // Reference to users.uid
   recordedAt: string; // ISO 8601 Timestamp
@@ -320,18 +321,12 @@ export interface LabResult {
  */
 export interface CarePlan {
   carePlanId: string; // Document ID
-  title: string; // e.g., 'Post-Operative Wound Care'
-  description: string; // Detailed description of the care plan
-  tasks: {
-    taskId: string;
-    description: string;
-    frequency: string; // e.g., 'Twice daily', 'Every 4 hours'
-    lastCompletedAt?: string; // ISO 8601 Timestamp
-  }[];
-  createdByUserId: string; // User who created the plan (doctor or senior nurse)
-  createdAt: string; // ISO 8601 Timestamp
+  description: string;
+  goal: string;
+  interventions: string[];
+  status: 'Active' | 'Completed' | 'Cancelled';
+  updatedByUserId: string; // Nurse or Doctor who last updated the plan
   updatedAt: string; // ISO 8601 Timestamp
-  isActive: boolean;
 }
 
 /**
@@ -342,7 +337,7 @@ export interface MedicationAdministrationLog {
   logId: string; // Document ID
   prescriptionId: string; // Reference to the medication record in `medication_history`
   medicationName: string; // Denormalized for easy display
-  dosageAdministered: string; // e.g., '5mg'
+  dosage: string; // Denormalized dose for confirmation
   administeredByUserId: string; // The nurse who gave the medication
   administeredAt: string; // ISO 8601 Timestamp
   notes?: string; // e.g., 'Patient refused', 'Administered with food'
