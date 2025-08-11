@@ -103,7 +103,7 @@ function DoctorDashboard() {
 export default function DashboardPage() {
   const { user } = useAuth();
   
-  const isClinicalStaff = user && (user.role === 'doctor' || user.role === 'nurse');
+  const isDoctor = user && user.role === 'doctor';
   const isPatient = user && user.role === 'patient';
 
   return (
@@ -116,11 +116,11 @@ export default function DashboardPage() {
         </p>
       </div>
       
-      {isClinicalStaff && <DoctorDashboard />}
+      {isDoctor && <DoctorDashboard />}
 
       {isPatient && <PatientDashboard />}
 
-      {!isClinicalStaff && !isPatient && (
+      {!isDoctor && !isPatient && (
         <div className="p-8 border-2 border-dashed rounded-lg text-center">
           <p className="text-muted-foreground">Your role-specific dashboard will appear here.</p>
         </div>
