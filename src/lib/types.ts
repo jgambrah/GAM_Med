@@ -256,6 +256,7 @@ export interface ClinicalNote {
  */
 export interface VitalSign {
   vitalId: string; // Document ID
+  patientId?: string; // Denormalized for nurse worklist
   temperature: number; // in Celsius
   bloodPressure: string; // e.g., '120/80'
   heartRate: number; // beats per minute

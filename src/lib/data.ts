@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, VitalSign } from './types';
 
 const now = new Date();
 
@@ -31,7 +31,7 @@ export const allUsers: User[] = [
     name: 'Florence Agyepong',
     role: 'nurse',
     is_active: true,
-    department: 'General Ward',
+    department: 'Cardiology',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
   },
@@ -347,5 +347,41 @@ export const mockLabResults: LabResult[] = [
         orderedByDoctorId: 'doc1',
         labTechnicianId: 'labtech1',
         orderedAt: new Date('2024-07-30T10:00:00Z').toISOString(),
+    }
+];
+
+export const mockVitals: VitalSign[] = [
+    {
+        vitalId: 'vital-1',
+        patientId: 'P-123456',
+        temperature: 36.8,
+        bloodPressure: '160/100',
+        heartRate: 88,
+        respiratoryRate: 18,
+        oxygenSaturation: 98,
+        recordedByUserId: 'nurse1',
+        recordedAt: new Date('2024-07-28T11:00:00Z').toISOString(),
+    },
+    {
+        vitalId: 'vital-2',
+        patientId: 'P-123456',
+        temperature: 37.0,
+        bloodPressure: '155/98',
+        heartRate: 92,
+        respiratoryRate: 18,
+        oxygenSaturation: 97,
+        recordedByUserId: 'nurse1',
+        recordedAt: new Date('2024-07-28T15:30:00Z').toISOString(),
+    },
+    {
+        vitalId: 'vital-3',
+        patientId: 'P-123456',
+        temperature: 36.9,
+        bloodPressure: '140/90',
+        heartRate: 80,
+        respiratoryRate: 16,
+        oxygenSaturation: 99,
+        recordedByUserId: 'nurse1',
+        recordedAt: new Date('2024-07-29T09:15:00Z').toISOString(),
     }
 ];
