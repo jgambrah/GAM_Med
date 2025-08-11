@@ -55,7 +55,7 @@ import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
 import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
 
 
-function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     const [newNote, setNewNote] = React.useState('');
@@ -127,7 +127,7 @@ function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: 
  * This design is efficient because the form is presented in a modal, preventing the doctor
  * from losing the context of the main EHR view.
  */
-function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+export function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
 
     const form = useForm<z.infer<typeof NewPrescriptionSchema>>({
@@ -236,7 +236,7 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
     )
 }
 
-function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
 
     const form = useForm<z.infer<typeof NewLabOrderSchema>>({
