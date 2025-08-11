@@ -3,10 +3,6 @@
 
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/hooks/use-auth';
-import { addClinicalNote } from '@/lib/actions';
 import { format } from 'date-fns';
 
 export interface ClinicalNote {
@@ -17,7 +13,7 @@ export interface ClinicalNote {
 }
 
 interface ClinicalNotesTabProps {
-    patientId: string;
+    notes: ClinicalNote[];
 }
 
 // Mock data for clinical notes
@@ -42,28 +38,7 @@ export const mockNotes: ClinicalNote[] = [
     }
 ]
 
-export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
-    const { user } = useAuth();
-    const [newNote, setNewNote] = React.useState('');
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-    // This check ensures that only authorized roles can add clinical notes,
-    // aligning with the Firestore security rules.
-    const canAddNote = user && (user.role === 'doctor' || user.role === 'nurse');
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newNote.trim() || !canAddNote) return;
-
-        setIsSubmitting(true);
-        // In a real app, the server action would use the authenticated user's ID
-        // to securely record who wrote the note.
-        await addClinicalNote(patientId, newNote);
-        alert('New clinical note has been added (simulated).');
-        setNewNote('');
-        setIsSubmitting(false);
-    }
-    
+export function ClinicalNotesTab({ notes }: ClinicalNotesTabProps) {
     return (
         <Card>
             <CardHeader>
@@ -72,42 +47,22 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
-                    {mockNotes.map((note) => (
+                    {notes.length > 0 ? (
+                        notes.map((note) => (
                         <div key={note.id} className="border-l-4 border-primary pl-4 py-2">
                            <p className="text-sm text-muted-foreground">
                              {format(new Date(note.date), 'PPP p')} by <span className="font-semibold">{note.author}</span>
                            </p>
                            <p className="mt-1 whitespace-pre-wrap">{note.content}</p>
                         </div>
-                    ))}
+                    ))
+                    ) : (
+                        <div className="flex items-center justify-center h-40 text-center">
+                            <p className="text-muted-foreground">No clinical notes recorded for this patient.</p>
+                        </div>
+                    )}
                 </div>
-                 {/*
-                   == ROLE-BASED UI: NURSE/DOCTOR WORKFLOW ==
-                   This form is the primary tool for doctors and nurses to document patient care.
-                   It is conditionally rendered based on the user's role, providing a clear
-                   workflow for authorized clinical staff while being hidden from others.
-                 */}
-                 {canAddNote && (
-                    <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t">
-                        <div>
-                             <h4 className="font-medium mb-2">Add New Note as {user.name}</h4>
-                             <Textarea 
-                                placeholder="Type new clinical note here..."
-                                value={newNote}
-                                onChange={(e) => setNewNote(e.target.value)}
-                                rows={4}
-                                disabled={isSubmitting}
-                             />
-                        </div>
-                        <div className="flex justify-end">
-                            <Button type="submit" disabled={isSubmitting || !newNote.trim()}>
-                                {isSubmitting ? 'Saving...' : 'Save Note'}
-                            </Button>
-                        </div>
-                    </form>
-                 )}
             </CardContent>
         </Card>
     );
 }
-

@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Plus, Pill, TestTube, FileText } from 'lucide-react';
 import { allPatients, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,9 +13,32 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
-import { ClinicalNotesTab, ClinicalNote } from './components/clinical-notes-tab';
+import { ClinicalNotesTab, ClinicalNote, mockNotes } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
@@ -23,12 +46,250 @@ import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { DischargePatientDialog } from './components/discharge-patient-dialog';
-import { mockNotes } from './components/clinical-notes-tab';
 import { VitalsTab } from './components/vitals-tab';
 import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
 import { Patient, Admission } from '@/lib/types';
+import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
+import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
+
+
+function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+    const { user } = useAuth();
+    const [open, setOpen] = React.useState(false);
+    const [newNote, setNewNote] = React.useState('');
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newNote.trim()) return;
+
+        setIsSubmitting(true);
+        await addClinicalNote(patientId, newNote);
+        alert('New clinical note has been added (simulated).');
+        setNewNote('');
+        setIsSubmitting(false);
+        setOpen(false);
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={disabled}>
+                    <FileText className="h-4 w-4 mr-2" /> Add Note
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Clinical Note</DialogTitle>
+                     <DialogDescription>
+                        Recording a new note for the patient as {user?.name}.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                     <Textarea 
+                        placeholder="Type new clinical note here..."
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        rows={6}
+                        disabled={isSubmitting}
+                     />
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={isSubmitting || !newNote.trim()}>
+                            {isSubmitting ? 'Saving...' : 'Save Note'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+    const [open, setOpen] = React.useState(false);
+
+    const form = useForm<z.infer<typeof NewPrescriptionSchema>>({
+        resolver: zodResolver(NewPrescriptionSchema),
+        defaultValues: {
+            medicationName: '',
+            dosage: '',
+            frequency: '',
+            instructions: '',
+        }
+    });
+
+    const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
+        const result = await addPrescription(patientId, values);
+        if(result.success) {
+            alert('Prescription added successfully (simulated).');
+            setOpen(false);
+            form.reset();
+        } else {
+            alert(`Error: ${result.message}`);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={disabled}>
+                    <Pill className="h-4 w-4 mr-2" /> New Prescription
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create New Prescription</DialogTitle>
+                    <DialogDescription>
+                        Fill out the form to add a new medication for this patient.
+                    </DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="medicationName"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Medication Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., Amlodipine" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="dosage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Dosage</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., 5mg" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="frequency"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Frequency</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Once daily" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="instructions"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Instructions (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., Take with food" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? 'Saving...' : 'Save Prescription'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                 </Form>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+    const [open, setOpen] = React.useState(false);
+
+    const form = useForm<z.infer<typeof NewLabOrderSchema>>({
+        resolver: zodResolver(NewLabOrderSchema),
+        defaultValues: {
+            testName: '',
+            notes: '',
+        }
+    });
+
+    const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
+        const result = await orderLabTest(patientId, values);
+        if(result.success) {
+            alert('Lab test ordered successfully (simulated).');
+            setOpen(false);
+            form.reset();
+        } else {
+            alert(`Error: ${result.message}`);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                 <Button variant="outline" size="sm" disabled={disabled}>
+                    <TestTube className="h-4 w-4 mr-2" /> Order Lab Test
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Order New Lab Test</DialogTitle>
+                    <DialogDescription>
+                        Submit a new request to the laboratory.
+                    </DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="testName"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Test Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., Full Blood Count" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Notes for Lab (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., STAT, fasting required" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? 'Submitting...' : 'Submit Order'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                 </Form>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
@@ -96,13 +357,12 @@ export default function PatientDetailPage() {
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
-  // Determine if the user has clinical privileges for certain actions
-  // This is a stand-in for a more robust role-checking utility like the conceptual `getUserRole()`.
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
+  const isDoctor = user && user.role === 'doctor';
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" className="h-7 w-7" asChild>
                 <Link href="/dashboard/patients">
@@ -110,81 +370,66 @@ export default function PatientDetailPage() {
                     <span className="sr-only">Back</span>
                 </Link>
             </Button>
-            <h1 className="flex-1 shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
-            {patient.full_name}
-            </h1>
-            <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
-            {patient.is_admitted ? 'Admitted' : 'Outpatient'}
-            </Badge>
-            {/*
-              == ROLE-BASED UI: CLINICAL ACTIONS ==
-              This block demonstrates conditional rendering. The main patient management actions
-              (Admit, Transfer, Discharge) are only rendered if the `hasClinicalPrivileges` check
-              passes. This prevents unauthorized actions and declutters the UI for other staff like
-              billing clerks or pharmacists, directly reflecting the logic in `firestore.rules`.
-            */}
-            {hasClinicalPrivileges && (
-                <div className="hidden items-center gap-2 md:ml-auto md:flex">
-                    <AllocateBedDialog 
-                        patientId={patient.patient_id}
-                        disabled={patient.is_admitted || isSubmitting} 
-                    />
-                    <TransferPatientDialog 
-                        patient={patient} 
-                        currentBedId={currentAdmission?.bed_id}
-                        disabled={isSubmitting || !patient.is_admitted} 
-                    />
-                    <DischargePatientDialog 
-                        patient={patient}
-                        clinicalNotes={mockNotes}
-                        disabled={isSubmitting || !patient.is_admitted}
-                    />
+            <div className="flex-1">
+                <h1 className="shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight sm:grow-0">
+                {patient.full_name}
+                </h1>
+                <div className="mt-1 text-sm text-muted-foreground">
+                    {patient.is_admitted && currentAdmission ? (
+                        <span>
+                            Admitted in <strong>{currentAdmission.ward}</strong>, Bed <strong>{currentAdmission.bed_id}</strong>
+                        </span>
+                    ) : (
+                        <span>
+                            {patient.lastVisitDate 
+                                ? `Last Visit: ${format(new Date(patient.lastVisitDate), 'PPP')} (Outpatient)`
+                                : 'No recent visit history.'}
+                        </span>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
-        <div className="mt-2 text-sm text-muted-foreground">
-            {patient.is_admitted && currentAdmission ? (
-                <span>
-                    Currently admitted as <strong>Inpatient</strong> in <strong>{currentAdmission.ward}</strong>, Bed <strong>{currentAdmission.bed_id}</strong>.
-                </span>
-            ) : (
-                <span>
-                    {patient.lastVisitDate 
-                        ? `Last Visit: ${format(new Date(patient.lastVisitDate), 'PPP')} (Outpatient)`
-                        : 'No recent outpatient visit history.'}
-                </span>
-            )}
+
+        <div className="sm:ml-auto flex items-center gap-2 w-full sm:w-auto">
+            <Badge variant={patient.is_admitted ? 'destructive' : 'secondary'} className="ml-auto sm:ml-0">
+                {patient.is_admitted ? 'Admitted' : 'Outpatient'}
+            </Badge>
         </div>
       </div>
       
        {hasClinicalPrivileges && (
-          <div className="flex items-center gap-2 md:hidden">
-              <AllocateBedDialog 
-                patientId={patient.patient_id}
-                disabled={patient.is_admitted || isSubmitting} 
-              />
-              <TransferPatientDialog 
-                  patient={patient} 
-                  currentBedId={currentAdmission?.bed_id}
-                  disabled={isSubmitting || !patient.is_admitted} 
-              />
-              <DischargePatientDialog 
-                  patient={patient}
-                  clinicalNotes={mockNotes}
-                  disabled={isSubmitting || !patient.is_admitted}
-              />
+          <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
+                <h3 className="text-sm font-semibold mr-4">Management</h3>
+                <AllocateBedDialog 
+                    patientId={patient.patient_id}
+                    disabled={patient.is_admitted || isSubmitting} 
+                />
+                <TransferPatientDialog 
+                    patient={patient} 
+                    currentBedId={currentAdmission?.bed_id}
+                    disabled={isSubmitting || !patient.is_admitted} 
+                />
+                <DischargePatientDialog 
+                    patient={patient}
+                    clinicalNotes={mockNotes}
+                    disabled={isSubmitting || !patient.is_admitted}
+                />
           </div>
        )}
+
+        {isDoctor && (
+             <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
+                <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
+                <AddNoteDialog patientId={patient.patient_id} />
+                <NewPrescriptionDialog patientId={patient.patient_id} />
+                <OrderTestDialog patientId={patient.patient_id} />
+            </div>
+        )}
 
       <Tabs defaultValue="demographics">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
-          {/* == EHR TABS ==
-              These tabs are the core of the EHR view, separating clinical data into logical sections.
-              In a full implementation, you could add role-based logic here to hide certain tabs
-              from non-clinical staff, further enhancing security and usability.
-           */}
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
           <TabsTrigger value="vitals">Vitals</TabsTrigger>
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
@@ -199,7 +444,7 @@ export default function PatientDetailPage() {
            <AdmissionsHistoryTab admissions={admissions} />
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
-          <ClinicalNotesTab patientId={patient.patient_id} />
+          <ClinicalNotesTab notes={mockNotes} />
         </TabsContent>
          <TabsContent value="vitals" className="mt-4">
           <VitalsTab />
