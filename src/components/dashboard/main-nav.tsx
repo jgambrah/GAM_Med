@@ -19,10 +19,11 @@ import {
     BedDouble,
     Beaker,
     Send,
+    ClipboardHeart,
 } from 'lucide-react';
 import { User } from '@/lib/types';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'nurse'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -64,6 +65,12 @@ export function MainNav() {
         label: 'Laboratory',
         icon: Beaker,
         roles: ['lab_technician', 'doctor'],
+    },
+    {
+      href: '/dashboard/nursing',
+      label: 'Nursing Station',
+      icon: ClipboardHeart,
+      roles: ['nurse'],
     },
     {
       href: '/dashboard/prescriptions',
