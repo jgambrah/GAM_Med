@@ -43,10 +43,9 @@ export interface User {
  *
  * Example EHR Sub-collection structure:
  * /patients/{patientId}/
+ *   - allergies/{allergyId}
  *   - clinical_notes/{noteId}
- *   - prescriptions/{prescriptionId}
  *   - lab_results/{resultId}
- *   - imaging_reports/{reportId}
  *   - vitals/{vitalId}
  *   - admissions/{admissionId}
  *
@@ -66,7 +65,7 @@ export interface Patient {
   gender: 'Male' | 'Female' | 'Other';
   maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
   occupation?: string;
-  allergies?: string[]; // List of known allergens, e.g., ['Penicillin', 'Sulfa']
+  allergies?: string[]; // Simple list of allergens for quick checks
   contact: {
     primaryPhone: string;
     alternatePhone?: string;
@@ -116,6 +115,20 @@ export interface Patient {
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
+
+/**
+ * Represents a structured allergy record in a patient's sub-collection.
+ * Path: /patients/{patientId}/allergies/{allergyId}
+ */
+export interface PatientAllergy {
+  allergyId: string; // Document ID
+  allergen: string; // e.g., 'Penicillin', 'Peanuts', 'Latex'
+  reaction: string; // e.g., 'Hives', 'Anaphylaxis'
+  severity: 'Mild' | 'Moderate' | 'Severe';
+  recordedAt: string; // ISO Timestamp
+  recordedBy: string; // User ID of the clinician
+}
+
 
 /**
  * Represents an admission record, stored in a sub-collection 'admissions' under a patient document.
@@ -235,63 +248,49 @@ export interface Referral {
   updated_at: string; // ISO 8601 format
 }
 
+// =========================================================================
+// == E-Prescribing & Pharmacy Data Models
+// =========================================================================
+
 /**
- * Represents a medication in the central 'medications' collection (our formulary).
- * This would be pre-populated and managed by administrators.
+ * Represents a drug in the central 'medications' formulary collection.
+ * This is the master catalog of all drugs available in the hospital.
  */
 export interface Medication {
-  medicationId: string; // e.g., 'amlodipine-5mg'
-  name: string; // 'Amlodipine'
-  strength: string; // '5mg'
-  form: 'Tablet' | 'Capsule' | 'Liquid';
-  // Standard dosage information for automated checks
-  standardDosage: {
-    adult: string; // e.g., '5-10mg once daily'
-    pediatric?: string;
-  };
-  // List of known active ingredients for interaction checks
-  activeIngredients: string[]; // e.g., ['amlodipine']
+  medicationId: string; // Document ID (e.g., NDC code or internal ID)
+  brandName: string;
+  genericName: string;
+  drugClass: string;
+  activeIngredients: string[];
+  availableForms: ('Tablet' | 'Capsule' | 'Syrup' | 'Injection' | 'Cream')[];
+  standardDosages: Record<string, string>; // e.g., { "adult": "10-20mg BID", "pediatric": "5mg/kg TID" }
+  commonSideEffects: string[];
+  knownInteractions: { medicationId: string, severity: 'Minor' | 'Moderate' | 'Major', description: string }[];
+  allergens: string[]; // e.g., 'Penicillin', 'Sulfa'
 }
 
 /**
- * Represents a specific prescription record.
- * This is what a doctor creates.
- * Path: /patients/{patientId}/prescriptions/{prescriptionId}
+ * Represents a digital prescription in the top-level 'prescriptions' collection.
+ * This serves as the single source of truth for pharmacy orders.
  */
 export interface Prescription {
   prescriptionId: string; // Document ID
-  patientId: string;
-  medicationId: string; // Link to the 'medications' collection
-  medicationName: string; // Denormalized for display
-  dosage: string; // e.g., '5mg'
-  frequency: string; // e.g., 'Once daily'
-  instructions: string; // e.g., 'Take with food'
-  prescribedByDoctorId: string;
-  prescribedAt: string; // ISO 8601 Timestamp
-  status: 'Active' | 'Discontinued' | 'Filled';
-  // This field would be populated by the backend safety check function
-  safetyCheck?: {
-    status: 'Passed' | 'Warning' | 'Failed';
-    warnings: string[]; // e.g., ['Minor interaction with Atorvastatin', 'Allergy warning: Penicillin']
-  };
+  patientId: string; // Reference to 'patients' collection
+  prescribedByDoctorId: string; // Reference to 'users' collection
+  medicationId: string; // Reference to 'medications' collection
+  medicationName: string; // Denormalized for quick display
+  dosage: string; // e.g., '10mg'
+  form: 'Tablet' | 'Syrup' | 'Injection';
+  frequency: string; // e.g., 'Twice daily', 'QID'
+  duration: string; // e.g., '7 days', 'Until finished'
+  quantity: number; // e.g., 14, 200
+  route: 'Oral' | 'IV' | 'IM' | 'Topical';
+  instructions: string; // Patient-friendly notes
+  warnings: string[]; // e.g., ['Drug-drug interaction detected', 'Allergy warning']
+  status: 'Pending Pharmacy' | 'Dispensed' | 'Canceled';
+  prescribedAt: string; // ISO Timestamp
+  filledAt?: string; // ISO Timestamp, updated by Pharmacy
 }
-
-/**
- * Represents a pharmacy order. Created when a prescription is written.
- * Path: /pharmacy_orders/{orderId}
- */
-export interface PharmacyOrder {
-    orderId: string;
-    prescriptionId: string; // Link back to the original prescription
-    patientId: string;
-    patientName: string; // Denormalized
-    medicationName: string;
-    dosage: string;
-    frequency: string;
-    status: 'Pending Fulfillment' | 'Fulfilled' | 'On Hold';
-    createdAt: string;
-}
-
 
 // =========================================================================
 // == EHR Sub-Collection Data Models
@@ -325,17 +324,18 @@ export interface Diagnosis {
 
 /**
  * Represents a medication record in the `medication_history` sub-collection.
+ * This is a historical log within the patient's chart.
  * Path: /patients/{patientId}/medication_history/{prescriptionId}
  */
 export interface MedicationRecord {
-  prescriptionId: string; // Document ID
+  prescriptionId: string; // Document ID, should match the ID in the top-level 'prescriptions' collection
   medicationName: string; // e.g., 'Amlodipine'
   dosage: string; // e.g., '5mg'
   frequency: string; // e.g., 'Once daily'
   instructions: string; // e.g., 'Take with food'
   prescribedByDoctorId: string; // Reference to users.uid
   prescribedAt: string; // ISO 8601 Timestamp
-  status: 'Active' | 'Discontinued' | 'Filled'; // Link to Pharmacy module
+  status: 'Active' | 'Discontinued' | 'Filled';
 }
 
 /**
@@ -391,3 +391,5 @@ export interface CarePlan {
     updatedBy: string; // user ID
     updatedAt: string; // ISO Timestamp
 }
+
+    
