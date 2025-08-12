@@ -40,19 +40,19 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
     },
     {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor'],
+      roles: ['admin', 'doctor', 'nurse'],
     },
     {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
     },
     {
         href: '/dashboard/referrals',
