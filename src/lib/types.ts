@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -65,6 +66,7 @@ export interface Patient {
   gender: 'Male' | 'Female' | 'Other';
   maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
   occupation?: string;
+  allergies?: string[]; // List of known allergens, e.g., ['Penicillin', 'Sulfa']
   contact: {
     primaryPhone: string;
     alternatePhone?: string;
@@ -231,6 +233,63 @@ export interface Referral {
   appointmentId?: string; // Optional: Link to 'appointments' collection
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
+}
+
+/**
+ * Represents a medication in the central 'medications' collection (our formulary).
+ * This would be pre-populated and managed by administrators.
+ */
+export interface Medication {
+  medicationId: string; // e.g., 'amlodipine-5mg'
+  name: string; // 'Amlodipine'
+  strength: string; // '5mg'
+  form: 'Tablet' | 'Capsule' | 'Liquid';
+  // Standard dosage information for automated checks
+  standardDosage: {
+    adult: string; // e.g., '5-10mg once daily'
+    pediatric?: string;
+  };
+  // List of known active ingredients for interaction checks
+  activeIngredients: string[]; // e.g., ['amlodipine']
+}
+
+/**
+ * Represents a specific prescription record.
+ * This is what a doctor creates.
+ * Path: /patients/{patientId}/prescriptions/{prescriptionId}
+ */
+export interface Prescription {
+  prescriptionId: string; // Document ID
+  patientId: string;
+  medicationId: string; // Link to the 'medications' collection
+  medicationName: string; // Denormalized for display
+  dosage: string; // e.g., '5mg'
+  frequency: string; // e.g., 'Once daily'
+  instructions: string; // e.g., 'Take with food'
+  prescribedByDoctorId: string;
+  prescribedAt: string; // ISO 8601 Timestamp
+  status: 'Active' | 'Discontinued' | 'Filled';
+  // This field would be populated by the backend safety check function
+  safetyCheck?: {
+    status: 'Passed' | 'Warning' | 'Failed';
+    warnings: string[]; // e.g., ['Minor interaction with Atorvastatin', 'Allergy warning: Penicillin']
+  };
+}
+
+/**
+ * Represents a pharmacy order. Created when a prescription is written.
+ * Path: /pharmacy_orders/{orderId}
+ */
+export interface PharmacyOrder {
+    orderId: string;
+    prescriptionId: string; // Link back to the original prescription
+    patientId: string;
+    patientName: string; // Denormalized
+    medicationName: string;
+    dosage: string;
+    frequency: string;
+    status: 'Pending Fulfillment' | 'Fulfilled' | 'On Hold';
+    createdAt: string;
 }
 
 

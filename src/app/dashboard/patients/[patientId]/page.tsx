@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse } from 'lucide-react';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle } from 'lucide-react';
 import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,25 +110,16 @@ export function AddNoteDialog({ patientId, disabled }: { patientId: string, disa
 }
 
 /**
- * == Conceptual Component: PrescriptionForm ==
+ * == Conceptual Component: e-Prescribing Form with Safety Checks ==
  *
- * This component demonstrates how a doctor would prescribe medication. It's a modal dialog
- * that provides a structured form for entering prescription details.
- *
- * WORKFLOW:
- * 1. The doctor clicks the "New Prescription" button in the Action Pane.
- * 2. This dialog opens, providing a focused interface for the task.
- * 3. Upon submission, the form data is validated using a Zod schema.
- * 4. The validated data is sent to the `addPrescription` server action, which acts as a
- *    secure proxy for the conceptual `writePrescription` Cloud Function.
- * 5. The Cloud Function would then perform a transaction to write to both the patient's
- *    EHR (`/medication_history`) and the Pharmacy's work queue, ensuring data consistency.
- *
- * This design is efficient because the form is presented in a modal, preventing the doctor
- * from losing the context of the main EHR view.
+ * This component demonstrates an enhanced prescription workflow. It's a modal dialog
+ * that provides a structured form for entering prescription details and incorporates
+ * real-time safety feedback.
  */
 export function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
+    const [warnings, setWarnings] = React.useState<string[]>([]);
+    const [isChecking, setIsChecking] = React.useState(false);
 
     const form = useForm<z.infer<typeof NewPrescriptionSchema>>({
         resolver: zodResolver(NewPrescriptionSchema),
@@ -138,18 +130,49 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
             instructions: '',
         }
     });
-
+    
+    /**
+     * == FUNCTION TO HANDLE e-PRESCRIPTION with SAFETY CHECKS ==
+     * This `onSubmit` function orchestrates the modern e-Prescribing workflow.
+     *
+     * 1.  It gathers the form data.
+     * 2.  It calls the conceptual `handleEPrescription` Cloud Function via a server action.
+     * 3.  The backend function performs all the complex safety checks (DDI, DAI, Dosage).
+     * 4.  The function returns a result indicating success and a list of any warnings found.
+     * 5.  The UI then reacts to this feedback:
+     *     - If there are warnings, they are displayed to the doctor, requiring acknowledgment.
+     *     - If there are no warnings, the prescription is saved, and the dialog closes.
+     */
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
-        // This server action encapsulates the call to the backend.
-        // In a real app, this would invoke the `writePrescription` Cloud Function.
+        setIsChecking(true);
+        setWarnings([]);
+        // In a real app, this server action would call the `handleEPrescription` Cloud Function.
+        // For this demo, we'll simulate a check that returns a warning.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const simulatedWarnings = [
+            "Minor drug-drug interaction with Atorvastatin: monitor patient for muscle pain.",
+            "Dosage is higher than standard recommendation for this medication."
+        ];
+        setWarnings(simulatedWarnings);
+        setIsChecking(false);
+    }
+    
+    const handleFinalSubmit = async () => {
+        // This function would be called after the doctor acknowledges the warnings.
+        const values = form.getValues();
         const result = await addPrescription(patientId, values);
         if(result.success) {
             alert('Prescription added successfully (simulated).');
-            setOpen(false);
-            form.reset();
+            handleClose();
         } else {
             alert(`Error: ${result.message}`);
         }
+    }
+
+    const handleClose = () => {
+        setOpen(false);
+        form.reset();
+        setWarnings([]);
     }
 
     return (
@@ -161,9 +184,9 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Create New Prescription</DialogTitle>
+                    <DialogTitle>Create New e-Prescription</DialogTitle>
                     <DialogDescription>
-                        Fill out the form to add a new medication for this patient.
+                        Fill out the form to add a new medication. The system will automatically check for safety issues.
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...form}>
@@ -173,7 +196,7 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
                             name="medicationName"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Medication Name</FormLabel>
+                                    <FormLabel>Medication Name (Search Formulary)</FormLabel>
                                     <FormControl>
                                         <Input placeholder="e.g., Amlodipine" {...field} />
                                     </FormControl>
@@ -222,11 +245,36 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
                                 </FormItem>
                             )}
                         />
+                        
+                        {warnings.length > 0 && (
+                            <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                                    </div>
+                                    <div className="ml-3">
+                                        <h3 className="text-sm font-medium text-yellow-800">Safety Warnings</h3>
+                                        <div className="mt-2 text-sm text-yellow-700">
+                                            <ul className="list-disc pl-5 space-y-1">
+                                                {warnings.map((warning, i) => <li key={i}>{warning}</li>)}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? 'Saving...' : 'Save Prescription'}
-                            </Button>
+                            <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
+                            {warnings.length > 0 ? (
+                                <Button type="button" variant="destructive" onClick={handleFinalSubmit}>
+                                    Acknowledge and Prescribe Anyway
+                                </Button>
+                            ) : (
+                                <Button type="submit" disabled={form.formState.isSubmitting || isChecking}>
+                                    {isChecking ? 'Checking Safety...' : 'Check and Proceed'}
+                                </Button>
+                            )}
                         </DialogFooter>
                     </form>
                  </Form>
@@ -441,7 +489,7 @@ export default function PatientDetailPage() {
           <DiagnosesTab />
         </TabsContent>
          <TabsContent value="medications" className="mt-4">
-          <MedicationsTab />
+          <MedicationsTab patientId={patient.patient_id}/>
         </TabsContent>
         <TabsContent value="labs" className="mt-4">
           <LabResultsTab />

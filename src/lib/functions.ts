@@ -1,5 +1,6 @@
 
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -1102,5 +1103,122 @@ exports.updateCarePlan = functions.region('europe-west1').https.onCall(async (da
 
     console.log(`Care plan ${planId} for patient ${patientId} updated.`);
     return { success: true };
+});
+*/
+
+// =======================================================================================
+// 22. Handle e-Prescription (Callable Function)
+// =======================================================================================
+/**
+ * The core of the e-Prescribing module. This function orchestrates the entire process:
+ * it receives a prescription request, performs all safety checks, and then creates
+ * the necessary records in Firestore in a single atomic transaction.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, medicationId: string, dosage: string, frequency: string, instructions: string }
+ */
+/*
+exports.handleEPrescription = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Authentication & Authorization Check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'doctor') {
+        throw new functions.https.HttpsError('permission-denied', 'Only doctors can create prescriptions.');
+    }
+    
+    const { patientId, medicationId, dosage, frequency, instructions } = data;
+
+    // 2. Fetch all necessary data for checks
+    const patientRef = db.collection('patients').doc(patientId);
+    const medicationRef = db.collection('medications').doc(medicationId);
+    const [patientDoc, medicationDoc] = await Promise.all([patientRef.get(), medicationRef.get()]);
+
+    if (!patientDoc.exists || !medicationDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Patient or medication not found.');
+    }
+
+    const patientData = patientDoc.data();
+    const newMedicationData = medicationDoc.data();
+    const safetyWarnings = [];
+
+    // 3. --- AUTOMATED SAFETY CHECKS ---
+    
+    // a) Drug-Allergy Interaction (DAI) Check
+    const patientAllergies = patientData.allergies || [];
+    // This is a simplified check. A real system would check against ingredient classes.
+    if (patientAllergies.some(allergy => newMedicationData.name.toLowerCase().includes(allergy.toLowerCase()))) {
+        safetyWarnings.push(`Potential allergy to ${newMedicationData.name}. Patient has a known allergy to ${patientAllergies.join(', ')}.`);
+    }
+
+    // b) Drug-Drug Interaction (DDI) Check
+    // This requires querying the patient's active prescriptions and comparing against an interaction database.
+    const activePrescriptionsSnapshot = await patientRef.collection('prescriptions').where('status', '==', 'Active').get();
+    const activeMedicationIds = activePrescriptionsSnapshot.docs.map(doc => doc.data().medicationId);
+    
+    // PSEUDOCODE for interaction check
+    // for (const activeMedId of activeMedicationIds) {
+    //    const interaction = await queryInteractionDB(medicationId, activeMedId);
+    //    if (interaction) {
+    //        safetyWarnings.push(`Interaction detected between ${newMedicationData.name} and ${interaction.otherDrug}: ${interaction.details}`);
+    //    }
+    // }
+
+    // c) Dosage Check
+    // Compare prescribed dosage to the formulary's standard dosage. This is a simplified check.
+    // A more advanced system would use a structured dosage object and consider patient weight/age.
+    // if (dosage !== newMedicationData.standardDosage.adult) {
+    //     safetyWarnings.push(`Dosage warning: Prescribed dosage "${dosage}" differs from standard "${newMedicationData.standardDosage.adult}".`);
+    // }
+    
+    // 4. Create Records in a Transaction
+    const newPrescriptionRef = patientRef.collection('prescriptions').doc();
+    const newPharmacyOrderRef = db.collection('pharmacy_orders').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const now = admin.firestore.FieldValue.serverTimestamp();
+            
+            const prescriptionData = {
+                prescriptionId: newPrescriptionRef.id,
+                patientId,
+                medicationId,
+                medicationName: newMedicationData.name,
+                dosage,
+                frequency,
+                instructions,
+                prescribedByDoctorId: context.auth.uid,
+                prescribedAt: now,
+                status: 'Active',
+                safetyCheck: {
+                    status: safetyWarnings.length > 0 ? 'Warning' : 'Passed',
+                    warnings: safetyWarnings
+                }
+            };
+            
+            // Create the pharmacy order
+            const pharmacyOrderData = {
+                orderId: newPharmacyOrderRef.id,
+                prescriptionId: newPrescriptionRef.id,
+                patientId,
+                patientName: patientData.full_name,
+                medicationName: newMedicationData.name,
+                dosage,
+                frequency,
+                status: 'Pending Fulfillment',
+                createdAt: now,
+            };
+
+            transaction.set(newPrescriptionRef, prescriptionData);
+            transaction.set(newPharmacyOrderRef, pharmacyOrderData);
+        });
+
+        return { success: true, prescriptionId: newPrescriptionRef.id, warnings: safetyWarnings };
+
+    } catch (error) {
+        console.error('e-Prescription transaction failed:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not save the prescription.');
+    }
 });
 */
