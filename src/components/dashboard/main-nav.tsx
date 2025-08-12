@@ -29,19 +29,38 @@ export function MainNav() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  // Simplified menu specifically for the nurse role to isolate the error
-  const nurseMenuItems = [
-    {
-      href: '/dashboard',
-      label: 'Dashboard',
-      icon: Home,
-    },
-    {
-      href: '/dashboard/nursing',
-      label: 'Nursing Station',
-      icon: ClipboardHeart,
-    },
-  ];
+  if (user?.role === 'nurse') {
+    const nurseMenuItems = [
+      {
+        href: '/dashboard',
+        label: 'Dashboard',
+        icon: Home,
+      },
+      {
+        href: '/dashboard/nursing',
+        label: 'Nursing Station',
+        icon: ClipboardHeart,
+      },
+    ];
+    return (
+      <SidebarMenu>
+        {nurseMenuItems.map((item) => (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
+              tooltip={item.label}
+            >
+              <Link href={item.href}>
+                <item.icon />
+                <span>{item.label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    );
+  }
 
   const generalMenuItems = [
     {
@@ -54,19 +73,19 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'billing_clerk'], // Temporarily remove nurse to isolate
+      roles: ['admin', 'doctor', 'billing_clerk'],
     },
     {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor'], // Temporarily remove nurse to isolate
+      roles: ['admin', 'doctor'],
     },
     {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'billing_clerk'], // Temporarily remove nurse to isolate
+      roles: ['admin', 'doctor', 'billing_clerk'],
     },
     {
         href: '/dashboard/referrals',
@@ -100,14 +119,11 @@ export function MainNav() {
     },
   ];
 
-  // Determine which menu to use based on the user's role
-  const menuItems = user?.role === 'nurse' 
-    ? nurseMenuItems 
-    : generalMenuItems.filter(item => user && item.roles.includes(user.role));
+  const accessibleItems = generalMenuItems.filter(item => user && item.roles.includes(user.role));
 
   return (
     <SidebarMenu>
-      {menuItems.map((item) => (
+      {accessibleItems.map((item) => (
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
