@@ -1,97 +1,202 @@
+
+'use client';
+
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
+import { VitalsSchema } from '@/lib/schemas';
+import { logVitals } from '@/lib/actions';
+import { mockVitalsLog as allMockVitals } from '@/lib/data';
+
+interface VitalsTabProps {
+    patientId: string;
+}
 
 /**
- * Zod schema for validating the patient registration form.
- * Ensures data integrity on the client-side before sending to the server.
+ * == Conceptual UI: Vitals Management Tab ==
+ * This component is central to the nursing workflow, combining data display and data entry
+ * for patient vital signs.
+ *
+ * It consists of two main parts:
+ * 1.  **Vitals Entry Form:** A structured form for nurses to log new vital signs.
+ *     - It uses `react-hook-form` and a Zod schema (`VitalsSchema`) for robust client-side
+ *       validation, ensuring data quality before it's sent to the server.
+ *     - On submission, it calls the `logVitals` server action, which would trigger the
+ *       `logVitals` Cloud Function to securely write the data to the
+ *       `/patients/{patientId}/vitals` sub-collection.
+ *
+ * 2.  **Vitals History Table:** A chronological log of all previously recorded vitals for
+ *     the patient. This provides essential context and allows for trend analysis.
+ *     - In a real app, this would be populated by a real-time Firestore listener on the
+ *       vitals sub-collection.
  */
-export const PatientSchema = z.object({
-  title: z.string().optional(),
-  firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
-  lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
-  otherNames: z.string().optional(),
-  ghanaCardId: z.string().optional(),
-  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
-  gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Gender must be selected." }),
-  maritalStatus: z.enum(['Single', 'Married', 'Divorced', 'Widowed']).optional(),
-  occupation: z.string().optional(),
-  contact: z.object({
-    primaryPhone: z.string().min(10, { message: "A valid phone number is required." }),
-    alternatePhone: z.string().optional(),
-    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')),
-    address: z.object({
-      street: z.string().min(1, { message: "Street is required." }),
-      city: z.string().min(1, { message: "City is required." }),
-      region: z.string().min(1, { message: "Region is required." }),
-    }),
-  }),
-  emergencyContact: z.object({
-    name: z.string().min(2, { message: "Emergency contact name is required." }),
-    relationship: z.string().min(2, { message: "Relationship is required." }),
-    phone: z.string().min(10, { message: "Emergency contact phone is required." }),
-  }),
-  insurance: z.object({
-    providerName: z.string().optional(),
-    policyNumber: z.string().optional(),
-    expiryDate: z.string().optional(),
-  }).optional(),
-});
+export function VitalsTab({ patientId }: VitalsTabProps) {
+    const { user } = useAuth();
+    const mockVitalsLog = allMockVitals.filter(v => v.patientId === patientId);
 
-/**
- * Zod schema for validating the bed allocation form.
- * Used when admitting a patient from the bed management dashboard.
- */
-export const BedAllocationSchema = z.object({
-    patientId: z.string().min(1, { message: "A patient must be selected."}),
-    bedId: z.string().min(1, { message: "A bed must be selected."}),
-    attendingDoctorId: z.string().min(1, { message: "A doctor must be selected."}),
-    reasonForAdmission: z.string().min(5, { message: "Reason must be at least 5 characters."}),
-});
+    const form = useForm<z.infer<typeof VitalsSchema>>({
+        resolver: zodResolver(VitalsSchema),
+        defaultValues: {
+            bloodPressure: '',
+            heartRate: '',
+            temperature: '',
+            respiratoryRate: '',
+            oxygenSaturation: '',
+            notes: '',
+        }
+    });
 
-/**
- * Zod schema for validating the new referral form.
- */
-export const ReferralSchema = z.object({
-  referringProvider: z.string().min(2, { message: "Referring provider is required." }),
-  patientName: z.string().min(2, { message: "Patient name is required." }),
-  patientPhone: z.string().min(10, { message: "A valid phone number is required." }),
-  patientDob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
-  reasonForReferral: z.string().min(10, { message: "Reason for referral is required." }),
-  priority: z.enum(['Routine', 'Urgent', 'Emergency']),
-  assignedDepartment: z.string().min(2, { message: "A department must be assigned." }),
-  notes: z.string().optional(),
-});
+    const onSubmit = async (values: z.infer<typeof VitalsSchema>) => {
+        const result = await logVitals(patientId, values);
+        if (result.success) {
+            alert('Vitals logged successfully (simulated).');
+            form.reset();
+        } else {
+            alert(`Error: ${result.message}`);
+        }
+    }
 
-/**
- * Zod schema for validating a new prescription form.
- */
-export const NewPrescriptionSchema = z.object({
-  medicationName: z.string().min(2, { message: "Medication name is required." }),
-  dosage: z.string().min(1, { message: "Dosage is required." }),
-  frequency: z.string().min(2, { message: "Frequency is required." }),
-  instructions: z.string().optional(),
-});
+    return (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Log New Vitals</CardTitle>
+                    <CardDescription>Enter the latest vital signs for the patient.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="bloodPressure"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>BP (Systolic/Diastolic)</FormLabel>
+                                            <FormControl><Input placeholder="e.g., 120/80" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="heartRate"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Heart Rate (bpm)</FormLabel>
+                                            <FormControl><Input type="number" placeholder="e.g., 75" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="temperature"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Temperature (°C)</FormLabel>
+                                            <FormControl><Input type="number" step="0.1" placeholder="e.g., 37.5" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="respiratoryRate"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Resp. Rate (b/min)</FormLabel>
+                                            <FormControl><Input type="number" placeholder="e.g., 18" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="oxygenSaturation"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>SpO2 (%)</FormLabel>
+                                            <FormControl><Input type="number" placeholder="e.g., 98" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="notes"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Notes (Optional)</FormLabel>
+                                        <FormControl><Textarea placeholder="Any observations..." {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="flex justify-end">
+                                <Button type="submit" disabled={form.formState.isSubmitting}>
+                                    {form.formState.isSubmitting ? 'Saving...' : 'Save Vitals'}
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
+                </CardContent>
+            </Card>
 
-/**
- * Zod schema for validating a new diagnosis form.
- */
-export const NewDiagnosisSchema = z.object({
-  diagnosisText: z.string().min(3, { message: "Diagnosis is required." }),
-  icd10Code: z.string().min(1, { message: "ICD-10 code is required." }),
-  isPrimary: z.boolean().default(false),
-});
-
-/**
- * Zod schema for validating a new lab order form.
- */
-export const NewLabOrderSchema = z.object({
-  testName: z.string().min(3, { message: "Test name is required." }),
-  notes: z.string().optional(),
-});
-
-/**
- * Zod schema for fulfilling a lab request.
- */
-export const FulfillLabRequestSchema = z.object({
-    result: z.string().min(5, { message: 'Result must be at least 5 characters.' }),
-    attachment: z.any().optional(),
-});
+             <Card>
+                <CardHeader>
+                    <CardTitle>Vitals History</CardTitle>
+                    <CardDescription>A log of previously recorded vital signs.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Timestamp</TableHead>
+                                    <TableHead>BP</TableHead>
+                                    <TableHead>HR</TableHead>
+                                    <TableHead>Temp</TableHead>
+                                    <TableHead>Resp</TableHead>
+                                    <TableHead>SpO2</TableHead>
+                                    <TableHead>Recorded By</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {mockVitalsLog.length > 0 ? (
+                                    mockVitalsLog.map((log) => (
+                                        <TableRow key={log.vitalId}>
+                                            <TableCell>{format(new Date(log.recordedAt), 'PPP p')}</TableCell>
+                                            <TableCell>{log.bloodPressure}</TableCell>
+                                            <TableCell>{log.heartRate}</TableCell>
+                                            <TableCell>{log.temperature}°C</TableCell>
+                                            <TableCell>{log.respiratoryRate}</TableCell>
+                                            <TableCell>{log.oxygenSaturation}%</TableCell>
+                                            <TableCell>{log.recordedByUserId === 'nurse1' ? 'F. Agyepong' : 'Staff'}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center">
+                                            No vitals recorded for this patient yet.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}

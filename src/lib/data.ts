@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog } from './types';
 
 const now = new Date();
 
@@ -142,7 +142,8 @@ export const allPatients: Patient[] = [
       relationship: 'Brother',
       phone: '+233276543210',
     },
-    is_admitted: false,
+    is_admitted: true,
+    current_admission_id: 'A-003',
     status: 'active',
     created_at: new Date('2024-01-20T14:00:00Z').toISOString(),
     updated_at: now.toISOString(),
@@ -180,6 +181,20 @@ export const allAdmissions: Admission[] = [
     summary_pdf_url: '/mock-summary.pdf', // Dummy URL for the button to appear
     created_at: new Date('2024-05-10T10:30:00Z').toISOString(),
     updated_at: new Date('2024-05-15T14:00:00Z').toISOString(),
+  },
+  {
+    admission_id: 'A-003',
+    patient_id: 'P-654321',
+    type: 'Inpatient',
+    admission_date: new Date('2024-08-01T10:30:00Z').toISOString(),
+    reasonForVisit: 'Pre-operative assessment',
+    ward: 'General Ward',
+    bed_id: 'GW-208',
+    attending_doctor_id: 'doc1',
+    attending_doctor_name: 'Dr. Evelyn Mensah',
+    status: 'Admitted',
+    created_at: new Date('2024-08-01T10:30:00Z').toISOString(),
+    updated_at: new Date('2024-08-01T10:30:00Z').toISOString(),
   }
 ];
 
@@ -192,6 +207,17 @@ export const allBeds: Bed[] = [
         status: 'occupied',
         current_patient_id: 'P-123456',
         occupied_since: new Date('2024-07-28T10:30:00Z').toISOString(),
+        cleaningNeeded: false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+    },
+    {
+        bed_id: 'GW-208',
+        wardName: 'General Ward',
+        room_number: '21',
+        status: 'occupied',
+        current_patient_id: 'P-654321',
+        occupied_since: new Date('2024-08-01T10:30:00Z').toISOString(),
         cleaningNeeded: false,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
@@ -352,6 +378,7 @@ export const mockLabResults: LabResult[] = [
 export const mockNotes: ClinicalNote[] = [
     {
         noteId: 'note-1',
+        patientId: 'P-123456',
         noteType: 'Consultation',
         recordedByUserId: 'doc1',
         noteText: 'Patient admitted for observation due to hypertension. BP at 160/100. Started on Amlodipine 5mg daily.',
@@ -359,6 +386,7 @@ export const mockNotes: ClinicalNote[] = [
     },
     {
         noteId: 'note-2',
+        patientId: 'P-123456',
         noteType: 'Nursing Note',
         recordedByUserId: 'nurse1',
         noteText: 'Patient reports feeling dizzy. BP checked: 155/98. Administered evening dose of medication as prescribed. Patient resting comfortably.',
@@ -366,9 +394,35 @@ export const mockNotes: ClinicalNote[] = [
     },
     {
         noteId: 'note-3',
+        patientId: 'P-123456',
         noteType: 'Consultation',
         recordedByUserId: 'doc1',
         noteText: 'Morning rounds. Patient feels better, no dizziness reported. BP is stable at 140/90. Continue current treatment plan.',
         recordedAt: new Date('2024-07-29T09:15:00Z').toISOString()
     }
-]
+];
+
+export const mockVitalsLog: VitalsLog[] = [
+    {
+        vitalId: 'vitals-1',
+        patientId: 'P-123456',
+        bloodPressure: '155/98',
+        heartRate: '88',
+        temperature: '37.1',
+        respiratoryRate: '18',
+        oxygenSaturation: '97',
+        recordedByUserId: 'nurse1',
+        recordedAt: new Date('2024-07-28T15:30:00Z').toISOString(),
+    },
+    {
+        vitalId: 'vitals-2',
+        patientId: 'P-123456',
+        bloodPressure: '142/90',
+        heartRate: '82',
+        temperature: '36.8',
+        respiratoryRate: '16',
+        oxygenSaturation: '98',
+        recordedByUserId: 'nurse1',
+        recordedAt: new Date('2024-07-29T08:00:00Z').toISOString(),
+    },
+];

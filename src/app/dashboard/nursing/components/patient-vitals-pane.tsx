@@ -1,97 +1,70 @@
-import { z } from 'zod';
+
+'use client';
+
+import * as React from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Patient } from '@/lib/types';
+import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
+import { MedicationsTab } from '../../patients/[patientId]/components/medications-tab';
+import { mockNotes } from '@/lib/data';
+import { AddNoteDialog } from '../../patients/[patientId]/page';
+
+interface PatientVitalsPaneProps {
+  patient: Patient;
+}
 
 /**
- * Zod schema for validating the patient registration form.
- * Ensures data integrity on the client-side before sending to the server.
+ * == Conceptual UI: Nurse's Patient View ==
+ * This component is a specialized version of the full EHR, tailored for the nursing workflow.
+ * It's the main content pane in the Nursing Station workbench.
+ *
+ * Key Features:
+ * - **Context-Driven:** It displays data for the patient selected in the `NurseWorklist`.
+ * - **Task-Oriented Tabs:** The tabs are ordered based on a nurse's typical priorities:
+ *   1. `Vitals`: The most frequent task. This tab is the default and contains the form for
+ *      logging new vital signs.
+ *   2. `Medications`: Shows the patient's medication schedule and allows for logging administration.
+ *   3. `Notes`: Provides access to clinical notes for context.
+ * - **Focused Actions:** Includes an "Add Note" button for quick documentation.
+ *
+ * This focused design reduces cognitive load and allows nurses to perform their core
+ * duties more efficiently without navigating through less relevant parts of the full EHR.
  */
-export const PatientSchema = z.object({
-  title: z.string().optional(),
-  firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
-  lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
-  otherNames: z.string().optional(),
-  ghanaCardId: z.string().optional(),
-  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
-  gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Gender must be selected." }),
-  maritalStatus: z.enum(['Single', 'Married', 'Divorced', 'Widowed']).optional(),
-  occupation: z.string().optional(),
-  contact: z.object({
-    primaryPhone: z.string().min(10, { message: "A valid phone number is required." }),
-    alternatePhone: z.string().optional(),
-    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')),
-    address: z.object({
-      street: z.string().min(1, { message: "Street is required." }),
-      city: z.string().min(1, { message: "City is required." }),
-      region: z.string().min(1, { message: "Region is required." }),
-    }),
-  }),
-  emergencyContact: z.object({
-    name: z.string().min(2, { message: "Emergency contact name is required." }),
-    relationship: z.string().min(2, { message: "Relationship is required." }),
-    phone: z.string().min(10, { message: "Emergency contact phone is required." }),
-  }),
-  insurance: z.object({
-    providerName: z.string().optional(),
-    policyNumber: z.string().optional(),
-    expiryDate: z.string().optional(),
-  }).optional(),
-});
-
-/**
- * Zod schema for validating the bed allocation form.
- * Used when admitting a patient from the bed management dashboard.
- */
-export const BedAllocationSchema = z.object({
-    patientId: z.string().min(1, { message: "A patient must be selected."}),
-    bedId: z.string().min(1, { message: "A bed must be selected."}),
-    attendingDoctorId: z.string().min(1, { message: "A doctor must be selected."}),
-    reasonForAdmission: z.string().min(5, { message: "Reason must be at least 5 characters."}),
-});
-
-/**
- * Zod schema for validating the new referral form.
- */
-export const ReferralSchema = z.object({
-  referringProvider: z.string().min(2, { message: "Referring provider is required." }),
-  patientName: z.string().min(2, { message: "Patient name is required." }),
-  patientPhone: z.string().min(10, { message: "A valid phone number is required." }),
-  patientDob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
-  reasonForReferral: z.string().min(10, { message: "Reason for referral is required." }),
-  priority: z.enum(['Routine', 'Urgent', 'Emergency']),
-  assignedDepartment: z.string().min(2, { message: "A department must be assigned." }),
-  notes: z.string().optional(),
-});
-
-/**
- * Zod schema for validating a new prescription form.
- */
-export const NewPrescriptionSchema = z.object({
-  medicationName: z.string().min(2, { message: "Medication name is required." }),
-  dosage: z.string().min(1, { message: "Dosage is required." }),
-  frequency: z.string().min(2, { message: "Frequency is required." }),
-  instructions: z.string().optional(),
-});
-
-/**
- * Zod schema for validating a new diagnosis form.
- */
-export const NewDiagnosisSchema = z.object({
-  diagnosisText: z.string().min(3, { message: "Diagnosis is required." }),
-  icd10Code: z.string().min(1, { message: "ICD-10 code is required." }),
-  isPrimary: z.boolean().default(false),
-});
-
-/**
- * Zod schema for validating a new lab order form.
- */
-export const NewLabOrderSchema = z.object({
-  testName: z.string().min(3, { message: "Test name is required." }),
-  notes: z.string().optional(),
-});
-
-/**
- * Zod schema for fulfilling a lab request.
- */
-export const FulfillLabRequestSchema = z.object({
-    result: z.string().min(5, { message: 'Result must be at least 5 characters.' }),
-    attachment: z.any().optional(),
-});
+export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+            <div>
+                <CardTitle>{patient.full_name}</CardTitle>
+                <CardDescription>Patient ID: {patient.patient_id}</CardDescription>
+            </div>
+            <AddNoteDialog patientId={patient.patient_id} />
+        </div>
+      </CardHeader>
+      <CardContent className="flex-grow overflow-hidden">
+        <Tabs defaultValue="vitals" className="h-full flex flex-col">
+          <TabsList>
+            <TabsTrigger value="vitals">Vitals</TabsTrigger>
+            <TabsTrigger value="medications">Medications</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+          </TabsList>
+          <ScrollArea className="flex-grow mt-4">
+            <TabsContent value="vitals">
+              <VitalsTab patientId={patient.patient_id} />
+            </TabsContent>
+            <TabsContent value="medications">
+              <MedicationsTab />
+            </TabsContent>
+            <TabsContent value="notes">
+              <ClinicalNotesTab notes={mockNotes.filter(n => n.patientId === patient.patient_id)} />
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}

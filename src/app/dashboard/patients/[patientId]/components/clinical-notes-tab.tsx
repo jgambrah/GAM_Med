@@ -25,7 +25,7 @@ export function ClinicalNotesTab({ notes }: ClinicalNotesTabProps) {
                         notes.map((note) => (
                         <div key={note.noteId} className="border-l-4 border-primary pl-4 py-2">
                            <p className="text-sm text-muted-foreground">
-                             {format(new Date(note.recordedAt), 'PPP p')} by <span className="font-semibold">{note.recordedByUserId === 'doc1' ? 'Dr. Evelyn Mensah' : 'Staff'}</span>
+                             {format(new Date(note.recordedAt), 'PPP p')} by <span className="font-semibold">{note.recordedByUserId === 'doc1' ? 'Dr. Evelyn Mensah' : 'F. Agyepong'}</span>
                            </p>
                            <p className="mt-1 whitespace-pre-wrap">{note.noteText}</p>
                         </div>

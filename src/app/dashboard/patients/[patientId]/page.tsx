@@ -49,6 +49,7 @@ import { DischargePatientDialog } from './components/discharge-patient-dialog';
 import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
+import { VitalsTab } from './components/vitals-tab';
 import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
 import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
 
@@ -340,7 +341,7 @@ export default function PatientDetailPage() {
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
-  const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor');
+  const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
   const isDoctor = user && user.role === 'doctor';
 
   return (
@@ -402,17 +403,20 @@ export default function PatientDetailPage() {
 
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
+            {(isDoctor || user?.role === 'nurse') && (
+                 <AddNoteDialog patientId={patient.patient_id} />
+            )}
             {isDoctor && (
                 <>
-                    <AddNoteDialog patientId={patient.patient_id} />
                     <NewPrescriptionDialog patientId={patient.patient_id} />
                     <OrderTestDialog patientId={patient.patient_id} />
                 </>
             )}
         </div>
 
-      <Tabs defaultValue="demographics">
+      <Tabs defaultValue="vitals">
         <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="vitals">Vitals</TabsTrigger>
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
@@ -421,6 +425,9 @@ export default function PatientDetailPage() {
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
+        <TabsContent value="vitals" className="mt-4">
+            <VitalsTab patientId={patient.patient_id} />
+        </TabsContent>
         <TabsContent value="demographics" className="mt-4">
           <DemographicsTab patient={patient} />
         </TabsContent>
@@ -428,7 +435,7 @@ export default function PatientDetailPage() {
            <AdmissionsHistoryTab admissions={admissions} />
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
-          <ClinicalNotesTab notes={mockNotes} />
+          <ClinicalNotesTab notes={mockNotes.filter(note => note.patientId === patientId)} />
         </TabsContent>
          <TabsContent value="diagnoses" className="mt-4">
           <DiagnosesTab />

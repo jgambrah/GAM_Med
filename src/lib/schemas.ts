@@ -96,3 +96,15 @@ export const FulfillLabRequestSchema = z.object({
     result: z.string().min(5, { message: 'Result must be at least 5 characters.' }),
     attachment: z.any().optional(),
 });
+
+/**
+ * Zod schema for validating the vitals logging form.
+ */
+export const VitalsSchema = z.object({
+    bloodPressure: z.string().regex(/^\d{2,3}\/\d{2,3}$/, { message: "Must be in format like 120/80" }),
+    heartRate: z.string().min(1, "Required"),
+    temperature: z.string().min(1, "Required"),
+    respiratoryRate: z.string().min(1, "Required"),
+    oxygenSaturation: z.string().min(1, "Required"),
+    notes: z.string().optional(),
+});

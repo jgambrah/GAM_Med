@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -90,6 +90,7 @@ export async function addClinicalNote(patientId: string, note: string) {
     // Here you would save the note to the patient's EHR sub-collection in Firestore.
     await new Promise((resolve) => setTimeout(resolve, 500));
     revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath(`/dashboard/nursing`);
     return { success: true, message: 'Note added successfully.' };
 }
 
@@ -230,4 +231,15 @@ export async function fulfillLabRequest(
     revalidatePath(`/dashboard/patients/${patientId}`);
     
     return { success: true, message: 'Lab request fulfilled successfully.' };
+}
+
+export async function logVitals(patientId: string, values: z.infer<typeof VitalsSchema>) {
+    console.log(`Logging vitals for patient ${patientId}:`, values);
+    // In a real app, this would call the `logVitals` Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath(`/dashboard/nursing`);
+    revalidatePath(`/dashboard/patients/${patientId}`);
+
+    return { success: true, message: 'Vitals logged successfully.' };
 }

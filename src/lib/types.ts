@@ -244,6 +244,7 @@ export interface Referral {
  */
 export interface ClinicalNote {
   noteId: string; // Document ID
+  patientId: string;
   noteText: string; // Can be Markdown or plain text
   noteType: 'Progress Note' | 'Consultation' | 'Nursing Note';
   recordedByUserId: string; // Reference to users.uid
@@ -296,4 +297,21 @@ export interface LabResult {
   labTechnicianId?: string; // Reference to users.uid
   orderedAt: string; // ISO 8601 Timestamp
   completedAt?: string; // ISO 8601 Timestamp
+}
+
+/**
+ * Represents a single vitals log entry in the `vitals` sub-collection.
+ * Path: /patients/{patientId}/vitals/{vitalId}
+ */
+export interface VitalsLog {
+    vitalId: string; // Document ID
+    patientId: string;
+    bloodPressure: string; // e.g., '120/80'
+    heartRate: string; // beats per minute
+    temperature: string; // in Celsius
+    respiratoryRate: string; // breaths per minute
+    oxygenSaturation: string; // percentage
+    notes?: string;
+    recordedByUserId: string; // Reference to users.uid
+    recordedAt: string; // ISO 8601 Timestamp
 }
