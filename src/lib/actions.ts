@@ -107,6 +107,7 @@ export async function allocateBed(values: z.infer<typeof BedAllocationSchema>) {
     revalidatePath('/dashboard/beds');
     revalidatePath('/dashboard/patients');
     revalidatePath(`/dashboard/patients/${values.patientId}`);
+    revalidatePath('/dashboard/nursing');
     
     return { success: true, message: 'Bed allocated and patient admitted successfully.' };
 }
@@ -124,6 +125,7 @@ export async function transferPatient(patientId: string, currentBedId: string, n
 
     revalidatePath('/dashboard/beds');
     revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath('/dashboard/nursing');
 
     return { success: true, message: 'Patient transferred successfully' };
 }
@@ -242,4 +244,16 @@ export async function logVitals(patientId: string, values: z.infer<typeof Vitals
     revalidatePath(`/dashboard/patients/${patientId}`);
 
     return { success: true, message: 'Vitals logged successfully.' };
+}
+
+export async function logMedicationAdministration(patientId: string, prescriptionId: string, notes: string) {
+    console.log(`Logging medication administration for patient ${patientId}, prescription ${prescriptionId}: ${notes}`);
+    // In a real app, this would call the `logMedicationAdministration` Cloud Function,
+    // which would create a new document in a sub-collection like `medication_administration_logs`.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath(`/dashboard/nursing`);
+    revalidatePath(`/dashboard/patients/${patientId}`);
+
+    return { success: true, message: 'Medication administration logged successfully.' };
 }

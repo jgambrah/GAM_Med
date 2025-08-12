@@ -3,10 +3,11 @@
 
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { allPatients } from '@/lib/data';
+import { allPatients, allAdmissions } from '@/lib/data';
 import { Patient } from '@/lib/types';
 import { NurseWorklist } from './components/nurse-worklist';
 import { PatientVitalsPane } from './components/patient-vitals-pane';
+import { useAuth } from '@/hooks/use-auth';
 
 /**
  * == Conceptual UI: Nursing Station Workbench ==
@@ -15,8 +16,8 @@ import { PatientVitalsPane } from './components/patient-vitals-pane';
  *
  * Structure & Workflow:
  * 1.  `NurseWorklist`: On the left, this component displays a list of all patients currently
- *     admitted to the nurse's assigned ward. In this prototype, it shows all admitted patients.
- *     In a real app, this would be filtered by the logged-in nurse's ward assignment.
+ *     admitted to the nurse's assigned ward. In this prototype, we simulate this by filtering
+ *     for a specific ward ('Cardiology').
  *     This list-based navigation is efficient, allowing the nurse to quickly switch between patients.
  *
  * 2.  `PatientVitalsPane`: On the right, this component displays the detailed EHR for the
@@ -30,16 +31,22 @@ import { PatientVitalsPane } from './components/patient-vitals-pane';
  * critical in a fast-paced clinical environment.
  */
 export default function NursingPage() {
+  const { user } = useAuth(); // Assume the nurse user object has their assigned ward.
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
 
-  // In a real app, this would be a real-time Firestore query filtered by the nurse's ward.
-  // e.g., query(collection(db, 'patients'), where('is_admitted', '==', true), where('ward', '==', user.ward))
-  const wardPatients = allPatients.filter(p => p.is_admitted);
+  // In a real app, this would be a real-time Firestore query.
+  // We simulate the nurse being assigned to the 'Cardiology' ward.
+  const nurseWard = 'Cardiology'; 
+  const wardAdmissions = allAdmissions.filter(a => a.ward === nurseWard && a.status === 'Admitted');
+  const wardPatientIds = new Set(wardAdmissions.map(a => a.patient_id));
+  const wardPatients = allPatients.filter(p => wardPatientIds.has(p.patient_id));
 
   React.useEffect(() => {
-    // Select the first patient by default
+    // Select the first patient by default if the list is not empty
     if (wardPatients.length > 0 && !selectedPatient) {
       setSelectedPatient(wardPatients[0]);
+    } else if (wardPatients.length === 0) {
+      setSelectedPatient(null);
     }
   }, [wardPatients, selectedPatient]);
 
@@ -58,6 +65,7 @@ export default function NursingPage() {
                 patients={wardPatients}
                 onPatientSelect={setSelectedPatient}
                 selectedPatientId={selectedPatient?.patient_id}
+                wardName={nurseWard}
             />
         </div>
         <div className="lg:col-span-2 h-full">
@@ -66,7 +74,8 @@ export default function NursingPage() {
             ) : (
                 <Card className="h-full flex items-center justify-center">
                     <div className="text-center text-muted-foreground">
-                        <p>No patients in this ward.</p>
+                        <p>No patients in your ward.</p>
+                        <p className="text-sm">Select a patient from the list to view details.</p>
                     </div>
                 </Card>
             )}

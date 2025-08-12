@@ -13,9 +13,10 @@ interface NurseWorklistProps {
   patients: Patient[];
   onPatientSelect: (patient: Patient) => void;
   selectedPatientId?: string | null;
+  wardName: string;
 }
 
-export function NurseWorklist({ patients, onPatientSelect, selectedPatientId }: NurseWorklistProps) {
+export function NurseWorklist({ patients, onPatientSelect, selectedPatientId, wardName }: NurseWorklistProps) {
   
   const getAdmissionDetails = (patientId: string) => {
     const patient = patients.find(p => p.patient_id === patientId);
@@ -26,7 +27,7 @@ export function NurseWorklist({ patients, onPatientSelect, selectedPatientId }: 
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
-        <CardTitle>My Ward Patients</CardTitle>
+        <CardTitle>My Ward: {wardName}</CardTitle>
         <CardDescription>Select a patient to manage their record.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow p-0">
@@ -49,14 +50,14 @@ export function NurseWorklist({ patients, onPatientSelect, selectedPatientId }: 
                     <p className="font-semibold">{patient.full_name}</p>
                     <div className="flex items-center text-sm mt-1">
                       <BedDouble className="h-4 w-4 mr-2" />
-                      <span>{admission?.bed_id} ({admission?.ward})</span>
+                      <span>{admission?.bed_id}</span>
                     </div>
                   </button>
                 )
               })
             ) : (
               <div className="text-center text-muted-foreground p-8">
-                There are no patients currently admitted to your ward.
+                There are no patients currently admitted to your assigned ward.
               </div>
             )}
           </div>

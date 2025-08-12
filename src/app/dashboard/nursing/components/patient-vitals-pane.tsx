@@ -52,12 +52,12 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
             <TabsTrigger value="medications">Medications</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
           </TabsList>
-          <ScrollArea className="flex-grow mt-4">
+          <ScrollArea className="flex-grow mt-4 p-1">
             <TabsContent value="vitals">
               <VitalsTab patientId={patient.patient_id} />
             </TabsContent>
             <TabsContent value="medications">
-              <MedicationsTab />
+              <MedicationsTab patientId={patient.patient_id} />
             </TabsContent>
             <TabsContent value="notes">
               <ClinicalNotesTab notes={mockNotes.filter(n => n.patientId === patient.patient_id)} />
