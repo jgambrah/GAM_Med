@@ -19,7 +19,7 @@ import {
     BedDouble,
     Beaker,
     Send,
-    ClipboardHeart
+    ClipboardCheck
 } from 'lucide-react';
 import { User } from '@/lib/types';
 
@@ -39,7 +39,7 @@ export function MainNav() {
       {
         href: '/dashboard/nursing',
         label: 'Nursing Station',
-        icon: ClipboardHeart,
+        icon: ClipboardCheck,
       },
     ];
     return (
