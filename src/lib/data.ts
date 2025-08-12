@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote } from './types';
 
 const now = new Date();
 
@@ -21,6 +21,16 @@ export const allUsers: User[] = [
     role: 'doctor',
     is_active: true,
     specialty: 'Cardiology',
+    department: 'Cardiology',
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
+    uid: 'nurse1',
+    email: 'f.agyepong@gammed.com',
+    name: 'Florence Agyepong',
+    role: 'nurse',
+    is_active: true,
     department: 'Cardiology',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
