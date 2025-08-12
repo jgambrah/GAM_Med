@@ -19,7 +19,7 @@ import {
     BedDouble,
     Beaker,
     Send,
-    ClipboardHeart,
+    ClipboardHeart
 } from 'lucide-react';
 import { User } from '@/lib/types';
 
@@ -29,7 +29,21 @@ export function MainNav() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  const menuItems = [
+  // Simplified menu specifically for the nurse role to isolate the error
+  const nurseMenuItems = [
+    {
+      href: '/dashboard',
+      label: 'Dashboard',
+      icon: Home,
+    },
+    {
+      href: '/dashboard/nursing',
+      label: 'Nursing Station',
+      icon: ClipboardHeart,
+    },
+  ];
+
+  const generalMenuItems = [
     {
       href: '/dashboard',
       label: 'Dashboard',
@@ -40,25 +54,19 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'billing_clerk'], // Temporarily remove nurse to isolate
     },
     {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor', 'nurse'],
-    },
-    {
-        href: '/dashboard/nursing',
-        label: 'Nursing Station',
-        icon: ClipboardHeart,
-        roles: ['nurse'],
+      roles: ['admin', 'doctor'], // Temporarily remove nurse to isolate
     },
     {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'billing_clerk'], // Temporarily remove nurse to isolate
     },
     {
         href: '/dashboard/referrals',
@@ -92,11 +100,14 @@ export function MainNav() {
     },
   ];
 
-  const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role));
+  // Determine which menu to use based on the user's role
+  const menuItems = user?.role === 'nurse' 
+    ? nurseMenuItems 
+    : generalMenuItems.filter(item => user && item.roles.includes(user.role));
 
   return (
     <SidebarMenu>
-      {accessibleItems.map((item) => (
+      {menuItems.map((item) => (
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
