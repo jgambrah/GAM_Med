@@ -52,7 +52,7 @@ export function MainNav() {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor'],
+      roles: ['admin', 'doctor', 'nurse'],
     },
     {
       href: '/dashboard/appointments',
