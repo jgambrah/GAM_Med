@@ -19,13 +19,13 @@ export default function NursingPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>My Ward Patients</CardTitle>
-            <CardDescription>Select a patient to manage their care plan and log vitals.</CardDescription>
+            <CardTitle>Ward Dashboard</CardTitle>
+            <CardDescription>Patient worklist and vitals dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
              <div className="p-8 border-2 border-dashed rounded-lg text-center h-96 flex items-center justify-center">
                 <p className="text-muted-foreground">
-                    The patient worklist and vitals dashboard will be implemented here.
+                    Dashboard coming soon.
                 </p>
             </div>
         </CardContent>
