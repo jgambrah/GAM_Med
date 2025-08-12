@@ -29,40 +29,7 @@ export function MainNav() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  if (user?.role === 'nurse') {
-    const nurseMenuItems = [
-      {
-        href: '/dashboard',
-        label: 'Dashboard',
-        icon: Home,
-      },
-      {
-        href: '/dashboard/nursing',
-        label: 'Nursing Station',
-        icon: ClipboardCheck,
-      },
-    ];
-    return (
-      <SidebarMenu>
-        {nurseMenuItems.map((item) => (
-          <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
-              tooltip={item.label}
-            >
-              <Link href={item.href}>
-                <item.icon />
-                <span>{item.label}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    );
-  }
-
-  const generalMenuItems = [
+  const menuItems = [
     {
       href: '/dashboard',
       label: 'Dashboard',
@@ -70,10 +37,16 @@ export function MainNav() {
       roles: allRoles,
     },
     {
+      href: '/dashboard/nursing',
+      label: 'Nursing Station',
+      icon: ClipboardCheck,
+      roles: ['nurse'],
+    },
+    {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
     },
     {
       href: '/dashboard/beds',
@@ -119,7 +92,7 @@ export function MainNav() {
     },
   ];
 
-  const accessibleItems = generalMenuItems.filter(item => user && item.roles.includes(user.role));
+  const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role));
 
   return (
     <SidebarMenu>
