@@ -1,7 +1,7 @@
 
 'use client';
 
-import * as React from 'react';
+import *s React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Patient, VitalSign } from '@/lib/types';
+import { Patient } from '@/lib/types';
 import { NewVitalsSchema } from '@/lib/schemas';
 import { addVitals } from '@/lib/actions';
 import { mockVitals } from '@/lib/data';
@@ -29,7 +29,6 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
       oxygenSaturation: undefined,
       respiratoryRate: undefined,
       temperature: undefined,
-      painLevel: 0,
     },
   });
   
@@ -91,13 +90,6 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
                                 <FormItem>
                                     <FormLabel>Resp. Rate</FormLabel>
                                     <FormControl><Input type="number" placeholder="e.g., 16" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="painLevel" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Pain Level (0-10)</FormLabel>
-                                    <FormControl><Input type="number" min="0" max="10" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />

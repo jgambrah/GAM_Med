@@ -216,7 +216,7 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
 export async function addVitals(patientId: string, values: z.infer<typeof NewVitalsSchema>) {
     console.log(`Adding vitals for patient ${patientId}:`, values);
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath(`/dashboard/nursing`);
     return { success: true, message: 'Vitals recorded successfully.' };
 }
 

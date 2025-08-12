@@ -6,7 +6,7 @@ import { NurseWorklist } from './components/nurse-worklist';
 import { PatientVitalsPane } from './components/patient-vitals-pane';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Patient } from '@/lib/types';
-import { allPatients } from '@/lib/data';
+import { allPatients, allAdmissions } from '@/lib/data';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function NursingPage() {
@@ -14,13 +14,19 @@ export default function NursingPage() {
   const { user } = useAuth();
 
   // In a real app, this would be a real-time query for the nurse's assigned ward.
-  // For this prototype, we'll assume the nurse is assigned to a ward where patients are admitted.
-  // We will filter for patients in the 'Cardiology' ward as an example.
-  const wardPatients = allPatients.filter(p => p.is_admitted && p.current_admission_id && p.current_admission_id.startsWith('A-001'));
+  // We'll simulate this by finding patients admitted to the 'Cardiology' ward,
+  // as that's where our mock admission is.
+  const wardAdmissions = allAdmissions.filter(a => a.ward === 'Cardiology' && a.status === 'Admitted');
+  const wardPatientIds = new Set(wardAdmissions.map(a => a.patient_id));
+  const wardPatients = allPatients.filter(p => wardPatientIds.has(p.patient_id));
 
   React.useEffect(() => {
     if (wardPatients.length > 0 && !selectedPatient) {
         setSelectedPatient(wardPatients[0]);
+    }
+    // If the selected patient is no longer in the ward, clear the selection
+    if (selectedPatient && !wardPatientIds.has(selectedPatient.patient_id)) {
+        setSelectedPatient(wardPatients[0] || null);
     }
   }, [wardPatients, selectedPatient]);
   

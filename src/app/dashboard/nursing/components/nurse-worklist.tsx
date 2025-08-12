@@ -1,7 +1,7 @@
 
 'use client';
 
-import * as React from 'react';
+import *s React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Patient } from '@/lib/types';
