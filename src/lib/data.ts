@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, VitalSign } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult } from './types';
 
 const now = new Date();
 
@@ -21,16 +21,6 @@ export const allUsers: User[] = [
     role: 'doctor',
     is_active: true,
     specialty: 'Cardiology',
-    department: 'Cardiology',
-    created_at: now.toISOString(),
-    last_login: now.toISOString(),
-  },
-  {
-    uid: 'nurse1',
-    email: 'f.agyepong@gammed.com',
-    name: 'Florence Agyepong',
-    role: 'nurse',
-    is_active: true,
     department: 'Cardiology',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
@@ -350,38 +340,26 @@ export const mockLabResults: LabResult[] = [
     }
 ];
 
-export const mockVitals: VitalSign[] = [
+export const mockNotes: ClinicalNote[] = [
     {
-        vitalId: 'vital-1',
-        patientId: 'P-123456',
-        temperature: 36.8,
-        bloodPressure: '160/100',
-        heartRate: 88,
-        respiratoryRate: 18,
-        oxygenSaturation: 98,
-        recordedByUserId: 'nurse1',
-        recordedAt: new Date('2024-07-28T11:00:00Z').toISOString(),
+        noteId: 'note-1',
+        noteType: 'Consultation',
+        recordedByUserId: 'doc1',
+        noteText: 'Patient admitted for observation due to hypertension. BP at 160/100. Started on Amlodipine 5mg daily.',
+        recordedAt: new Date('2024-07-28T11:00:00Z').toISOString()
     },
     {
-        vitalId: 'vital-2',
-        patientId: 'P-123456',
-        temperature: 37.0,
-        bloodPressure: '155/98',
-        heartRate: 92,
-        respiratoryRate: 18,
-        oxygenSaturation: 97,
+        noteId: 'note-2',
+        noteType: 'Nursing Note',
         recordedByUserId: 'nurse1',
-        recordedAt: new Date('2024-07-28T15:30:00Z').toISOString(),
+        noteText: 'Patient reports feeling dizzy. BP checked: 155/98. Administered evening dose of medication as prescribed. Patient resting comfortably.',
+        recordedAt: new Date('2024-07-28T15:30:00Z').toISOString()
     },
     {
-        vitalId: 'vital-3',
-        patientId: 'P-123456',
-        temperature: 36.9,
-        bloodPressure: '140/90',
-        heartRate: 80,
-        respiratoryRate: 16,
-        oxygenSaturation: 99,
-        recordedByUserId: 'nurse1',
-        recordedAt: new Date('2024-07-29T09:15:00Z').toISOString(),
+        noteId: 'note-3',
+        noteType: 'Consultation',
+        recordedByUserId: 'doc1',
+        noteText: 'Morning rounds. Patient feels better, no dizziness reported. BP is stable at 140/90. Continue current treatment plan.',
+        recordedAt: new Date('2024-07-29T09:15:00Z').toISOString()
     }
-];
+]

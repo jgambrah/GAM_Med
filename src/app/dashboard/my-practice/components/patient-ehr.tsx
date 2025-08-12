@@ -2,8 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { notFound } from 'next/navigation';
-import { allPatients, allAdmissions } from '@/lib/data';
+import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
 import {
   Tabs,
   TabsContent,
@@ -12,9 +11,8 @@ import {
 } from '@/components/ui/tabs';
 import { DemographicsTab } from '../../patients/[patientId]/components/demographics-tab';
 import { AdmissionsHistoryTab } from '../../patients/[patientId]/components/admissions-history-tab';
-import { ClinicalNotesTab, mockNotes } from '../../patients/[patientId]/components/clinical-notes-tab';
+import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { BillingTab } from '../../patients/[patientId]/components/billing-tab';
-import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { DiagnosesTab } from '../../patients/[patientId]/components/diagnoses-tab';
 import { MedicationsTab } from '../../patients/[patientId]/components/medications-tab';
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
@@ -61,7 +59,6 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                 <Tabs defaultValue="notes" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 md:grid-cols-4 lg:grid-cols-8 h-auto">
                         <TabsTrigger value="notes">Notes</TabsTrigger>
-                        <TabsTrigger value="vitals">Vitals</TabsTrigger>
                         <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
                         <TabsTrigger value="medications">Medications</TabsTrigger>
                         <TabsTrigger value="labs">Lab Results</TabsTrigger>
@@ -71,9 +68,6 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                     </TabsList>
                     <TabsContent value="notes" className="mt-4">
                         <ClinicalNotesTab notes={mockNotes} />
-                    </TabsContent>
-                    <TabsContent value="vitals" className="mt-4">
-                        <VitalsTab />
                     </TabsContent>
                     <TabsContent value="diagnoses" className="mt-4">
                         <DiagnosesTab />

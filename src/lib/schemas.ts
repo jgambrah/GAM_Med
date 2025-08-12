@@ -90,17 +90,6 @@ export const NewLabOrderSchema = z.object({
 });
 
 /**
- * Zod schema for validating a new vitals form.
- */
-export const NewVitalsSchema = z.object({
-    temperature: z.coerce.number({ required_error: 'Temperature is required.' }),
-    bloodPressure: z.string().min(3, { message: "BP is required." }),
-    heartRate: z.coerce.number({ required_error: 'Heart rate is required.' }).int().positive(),
-    respiratoryRate: z.coerce.number({ required_error: 'Respiratory rate is required.' }).int().positive(),
-    oxygenSaturation: z.coerce.number({ required_error: 'SpO2 is required.' }).int().positive(),
-});
-
-/**
  * Zod schema for fulfilling a lab request.
  */
 export const FulfillLabRequestSchema = z.object({

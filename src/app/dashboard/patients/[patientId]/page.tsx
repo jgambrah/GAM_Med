@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse } from 'lucide-react';
-import { allPatients, allAdmissions } from '@/lib/data';
+import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -38,7 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
-import { ClinicalNotesTab, mockNotes } from './components/clinical-notes-tab';
+import { ClinicalNotesTab } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
@@ -46,13 +46,11 @@ import { AllocateBedDialog } from '../../beds/components/allocate-bed-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { DischargePatientDialog } from './components/discharge-patient-dialog';
-import { VitalsTab } from './components/vitals-tab';
 import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
-import { Patient } from '@/lib/types';
 import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
-import { NewPrescriptionSchema, NewLabOrderSchema, NewVitalsSchema } from '@/lib/schemas';
+import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
 
 
 export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
@@ -336,45 +334,6 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
 
-  /**
-   * == DATA FETCHING: Real-time Listeners (Conceptual) ==
-   *
-   * In a production application, each tab's data would be fetched using a real-time
-   * listener from its corresponding Firestore sub-collection. This ensures the EHR is
-   * always up-to-date.
-   *
-   * This would be implemented using React's `useEffect` hook for each data type.
-   *
-   * Example for Clinical Notes:
-   *
-   *   const [clinicalNotes, setClinicalNotes] = React.useState<ClinicalNote[]>([]);
-   *   const [loadingNotes, setLoadingNotes] = React.useState(true);
-   *
-   *   React.useEffect(() => {
-   *     if (!patientId) return;
-   *
-   *     // Path to the sub-collection in Firestore
-   *     const notesQuery = query(
-   *       collection(db, `patients/${patientId}/clinical_notes`),
-   *       orderBy('recordedAt', 'desc')
-   *     );
-   *
-   *     // onSnapshot establishes a real-time connection.
-   *     const unsubscribe = onSnapshot(notesQuery, (querySnapshot) => {
-   *       const notesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClinicalNote));
-   *       setClinicalNotes(notesData);
-   *       setLoadingNotes(false);
-   *     });
-   *
-   *     // Clean up the listener when the component unmounts
-   *     return () => unsubscribe();
-   *
-   *   }, [patientId]);
-   *
-   * This pattern would be repeated for Vitals, Diagnoses, Medications, and Lab Results,
-   * passing the live data down to each respective tab component.
-   */
-
   if (!patient) {
     notFound();
   }
@@ -457,7 +416,6 @@ export default function PatientDetailPage() {
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
           <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
-          <TabsTrigger value="vitals">Vitals</TabsTrigger>
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
@@ -471,9 +429,6 @@ export default function PatientDetailPage() {
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
           <ClinicalNotesTab notes={mockNotes} />
-        </TabsContent>
-         <TabsContent value="vitals" className="mt-4">
-          <VitalsTab />
         </TabsContent>
          <TabsContent value="diagnoses" className="mt-4">
           <DiagnosesTab />

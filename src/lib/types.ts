@@ -13,7 +13,7 @@ export interface User {
   uid: string; // Corresponds to Firebase Auth UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician';
+  role: 'admin' | 'doctor' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician';
   is_active: boolean;
   patient_id?: string; // Link to the patient document, for users with the 'patient' role
   created_at: string; // ISO 8601 format
@@ -246,24 +246,6 @@ export interface ClinicalNote {
   noteId: string; // Document ID
   noteText: string; // Can be Markdown or plain text
   noteType: 'Progress Note' | 'Consultation' | 'Nursing Note';
-  recordedByUserId: string; // Reference to users.uid
-  recordedAt: string; // ISO 8601 Timestamp
-}
-
-/**
- * Represents a set of vital signs in the `vitals` sub-collection.
- * Path: /patients/{patientId}/vitals/{vitalId}
- */
-export interface VitalSign {
-  vitalId: string; // Document ID
-  patientId?: string; // Denormalized for nurse worklist
-  temperature: number; // in Celsius
-  bloodPressure: string; // e.g., '120/80'
-  heartRate: number; // beats per minute
-  respiratoryRate: number; // breaths per minute
-  oxygenSaturation: number; // SpO2 percentage
-  painLevel?: number; // Optional pain level from 1-10
-  notes?: string; // Optional notes from the nurse
   recordedByUserId: string; // Reference to users.uid
   recordedAt: string; // ISO 8601 Timestamp
 }

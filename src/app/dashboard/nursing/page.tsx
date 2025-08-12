@@ -1,67 +1,97 @@
+import { z } from 'zod';
 
-'use client';
+/**
+ * Zod schema for validating the patient registration form.
+ * Ensures data integrity on the client-side before sending to the server.
+ */
+export const PatientSchema = z.object({
+  title: z.string().optional(),
+  firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
+  lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
+  otherNames: z.string().optional(),
+  ghanaCardId: z.string().optional(),
+  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
+  gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Gender must be selected." }),
+  maritalStatus: z.enum(['Single', 'Married', 'Divorced', 'Widowed']).optional(),
+  occupation: z.string().optional(),
+  contact: z.object({
+    primaryPhone: z.string().min(10, { message: "A valid phone number is required." }),
+    alternatePhone: z.string().optional(),
+    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')),
+    address: z.object({
+      street: z.string().min(1, { message: "Street is required." }),
+      city: z.string().min(1, { message: "City is required." }),
+      region: z.string().min(1, { message: "Region is required." }),
+    }),
+  }),
+  emergencyContact: z.object({
+    name: z.string().min(2, { message: "Emergency contact name is required." }),
+    relationship: z.string().min(2, { message: "Relationship is required." }),
+    phone: z.string().min(10, { message: "Emergency contact phone is required." }),
+  }),
+  insurance: z.object({
+    providerName: z.string().optional(),
+    policyNumber: z.string().optional(),
+    expiryDate: z.string().optional(),
+  }).optional(),
+});
 
-import *s React from 'react';
-import { NurseWorklist } from './components/nurse-worklist';
-import { PatientVitalsPane } from './components/patient-vitals-pane';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Patient } from '@/lib/types';
-import { allPatients, allAdmissions } from '@/lib/data';
-import { useAuth } from '@/hooks/use-auth';
+/**
+ * Zod schema for validating the bed allocation form.
+ * Used when admitting a patient from the bed management dashboard.
+ */
+export const BedAllocationSchema = z.object({
+    patientId: z.string().min(1, { message: "A patient must be selected."}),
+    bedId: z.string().min(1, { message: "A bed must be selected."}),
+    attendingDoctorId: z.string().min(1, { message: "A doctor must be selected."}),
+    reasonForAdmission: z.string().min(5, { message: "Reason must be at least 5 characters."}),
+});
 
-export default function NursingPage() {
-  const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
-  const { user } = useAuth();
+/**
+ * Zod schema for validating the new referral form.
+ */
+export const ReferralSchema = z.object({
+  referringProvider: z.string().min(2, { message: "Referring provider is required." }),
+  patientName: z.string().min(2, { message: "Patient name is required." }),
+  patientPhone: z.string().min(10, { message: "A valid phone number is required." }),
+  patientDob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
+  reasonForReferral: z.string().min(10, { message: "Reason for referral is required." }),
+  priority: z.enum(['Routine', 'Urgent', 'Emergency']),
+  assignedDepartment: z.string().min(2, { message: "A department must be assigned." }),
+  notes: z.string().optional(),
+});
 
-  // In a real app, this would be a real-time query for the nurse's assigned ward.
-  // We'll simulate this by finding patients admitted to the 'Cardiology' ward,
-  // as that's where our mock admission is.
-  const wardAdmissions = allAdmissions.filter(a => a.ward === 'Cardiology' && a.status === 'Admitted');
-  const wardPatientIds = new Set(wardAdmissions.map(a => a.patient_id));
-  const wardPatients = allPatients.filter(p => wardPatientIds.has(p.patient_id));
+/**
+ * Zod schema for validating a new prescription form.
+ */
+export const NewPrescriptionSchema = z.object({
+  medicationName: z.string().min(2, { message: "Medication name is required." }),
+  dosage: z.string().min(1, { message: "Dosage is required." }),
+  frequency: z.string().min(2, { message: "Frequency is required." }),
+  instructions: z.string().optional(),
+});
 
-  React.useEffect(() => {
-    if (wardPatients.length > 0 && !selectedPatient) {
-        setSelectedPatient(wardPatients[0]);
-    }
-    // If the selected patient is no longer in the ward, clear the selection
-    if (selectedPatient && !wardPatientIds.has(selectedPatient.patient_id)) {
-        setSelectedPatient(wardPatients[0] || null);
-    }
-  }, [wardPatients, selectedPatient]);
-  
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Nursing Station</h1>
-        <p className="text-muted-foreground">
-          Welcome, {user?.name}. Manage your assigned patients and record clinical data.
-        </p>
-      </div>
+/**
+ * Zod schema for validating a new diagnosis form.
+ */
+export const NewDiagnosisSchema = z.object({
+  diagnosisText: z.string().min(3, { message: "Diagnosis is required." }),
+  icd10Code: z.string().min(1, { message: "ICD-10 code is required." }),
+  isPrimary: z.boolean().default(false),
+});
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
-        <div className="lg:col-span-1 h-full">
-            <NurseWorklist 
-                patients={wardPatients} 
-                onPatientSelect={setSelectedPatient}
-                selectedPatientId={selectedPatient?.patient_id}
-            />
-        </div>
-        <div className="lg:col-span-2 h-full">
-            {selectedPatient ? (
-                <PatientVitalsPane patient={selectedPatient} />
-            ) : (
-                <Card className="h-full flex items-center justify-center">
-                    <div className="text-center">
-                        <CardHeader>
-                            <CardTitle>No Patient Selected</CardTitle>
-                            <CardDescription>Please select a patient from the worklist to view their details.</CardDescription>
-                        </CardHeader>
-                    </div>
-                </Card>
-            )}
-        </div>
-      </div>
-    </div>
-  );
-}
+/**
+ * Zod schema for validating a new lab order form.
+ */
+export const NewLabOrderSchema = z.object({
+  testName: z.string().min(3, { message: "Test name is required." }),
+  notes: z.string().optional(),
+});
+
+/**
+ * Zod schema for fulfilling a lab request.
+ */
+export const FulfillLabRequestSchema = z.object({
+    result: z.string().min(5, { message: 'Result must be at least 5 characters.' }),
+    attachment: z.any().optional(),
+});

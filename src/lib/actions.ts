@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, NewVitalsSchema, FulfillLabRequestSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -211,13 +211,6 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
     return { success: true, message: 'Lab test ordered successfully.' };
-}
-
-export async function addVitals(patientId: string, values: z.infer<typeof NewVitalsSchema>) {
-    console.log(`Adding vitals for patient ${patientId}:`, values);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    revalidatePath(`/dashboard/nursing`);
-    return { success: true, message: 'Vitals recorded successfully.' };
 }
 
 export async function fulfillLabRequest(
