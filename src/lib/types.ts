@@ -13,7 +13,7 @@ export interface User {
   uid: string; // Corresponds to Firebase Auth UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'nurse';
+  role: 'admin' | 'doctor' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician';
   is_active: boolean;
   patient_id?: string; // Link to the patient document, for users with the 'patient' role
   created_at: string; // ISO 8601 format
@@ -296,32 +296,4 @@ export interface LabResult {
   labTechnicianId?: string; // Reference to users.uid
   orderedAt: string; // ISO 8601 Timestamp
   completedAt?: string; // ISO 8601 Timestamp
-}
-
-/**
- * Represents a care plan for a patient, stored in the `care_plans` sub-collection.
- * Path: /patients/{patientId}/care_plans/{carePlanId}
- */
-export interface CarePlan {
-  carePlanId: string; // Document ID
-  description: string;
-  goal: string;
-  interventions: string[];
-  status: 'Active' | 'Completed' | 'Cancelled';
-  updatedByUserId: string; // Nurse or Doctor who last updated the plan
-  updatedAt: string; // ISO 8601 Timestamp
-}
-
-/**
- * Represents a log entry for medication administration, stored in the `medication_administration_logs` sub-collection.
- * Path: /patients/{patientId}/medication_administration_logs/{logId}
- */
-export interface MedicationAdministrationLog {
-  logId: string; // Document ID
-  prescriptionId: string; // Reference to the medication record in `medication_history`
-  medicationName: string; // Denormalized for easy display
-  dosage: string; // Denormalized dose for confirmation
-  administeredByUserId: string; // The nurse who gave the medication
-  administeredAt: string; // ISO 8601 Timestamp
-  notes?: string; // e.g., 'Patient refused', 'Administered with food'
 }
