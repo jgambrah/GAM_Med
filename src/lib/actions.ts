@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -256,4 +256,15 @@ export async function logMedicationAdministration(patientId: string, prescriptio
     revalidatePath(`/dashboard/patients/${patientId}`);
 
     return { success: true, message: 'Medication administration logged successfully.' };
+}
+
+export async function updateCarePlan(patientId: string, planId: string, values: z.infer<typeof CarePlanSchema>) {
+    console.log(`Updating care plan ${planId} for patient ${patientId}:`, values);
+    // In a real app, this would call the `updateCarePlan` Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath(`/dashboard/nursing`);
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    
+    return { success: true, message: 'Care plan updated successfully.' };
 }

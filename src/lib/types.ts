@@ -315,3 +315,20 @@ export interface VitalsLog {
     recordedByUserId: string; // Reference to users.uid
     recordedAt: string; // ISO 8601 Timestamp
 }
+
+/**
+ * Represents a patient's care plan in the `care_plans` sub-collection.
+ * Path: /patients/{patientId}/care_plans/{planId}
+ */
+export interface CarePlan {
+    planId: string;
+    patientId: string;
+    title: string;
+    goals: string;
+    interventions: string;
+    status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
+    createdBy: string; // user ID
+    createdAt: string; // ISO Timestamp
+    updatedBy: string; // user ID
+    updatedAt: string; // ISO Timestamp
+}

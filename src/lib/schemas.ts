@@ -108,3 +108,12 @@ export const VitalsSchema = z.object({
     oxygenSaturation: z.string().min(1, "Required"),
     notes: z.string().optional(),
 });
+
+/**
+ * Zod schema for validating the care plan update form.
+ */
+export const CarePlanSchema = z.object({
+    goals: z.string().min(10, { message: "Goals must be at least 10 characters." }),
+    interventions: z.string().min(10, { message: "Interventions must be at least 10 characters." }),
+    status: z.enum(['Active', 'On Hold', 'Completed', 'Cancelled']),
+});

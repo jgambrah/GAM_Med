@@ -9,8 +9,9 @@ import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { MedicationsTab } from '../../patients/[patientId]/components/medications-tab';
-import { mockNotes } from '@/lib/data';
+import { mockNotes, mockCarePlans } from '@/lib/data';
 import { AddNoteDialog } from '../../patients/[patientId]/page';
+import { CarePlanTab } from '../../patients/[patientId]/components/care-plan-tab';
 
 interface PatientVitalsPaneProps {
   patient: Patient;
@@ -34,6 +35,8 @@ interface PatientVitalsPaneProps {
  * duties more efficiently without navigating through less relevant parts of the full EHR.
  */
 export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
+  const carePlan = mockCarePlans.find(cp => cp.patientId === patient.patient_id);
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -50,6 +53,7 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
           <TabsList>
             <TabsTrigger value="vitals">Vitals</TabsTrigger>
             <TabsTrigger value="medications">Medications</TabsTrigger>
+            <TabsTrigger value="care-plan">Care Plan</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
           </TabsList>
           <ScrollArea className="flex-grow mt-4 p-1">
@@ -58,6 +62,9 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
             </TabsContent>
             <TabsContent value="medications">
               <MedicationsTab patientId={patient.patient_id} />
+            </TabsContent>
+            <TabsContent value="care-plan">
+              <CarePlanTab carePlan={carePlan} />
             </TabsContent>
             <TabsContent value="notes">
               <ClinicalNotesTab notes={mockNotes.filter(n => n.patientId === patient.patient_id)} />
