@@ -18,12 +18,11 @@ import {
     LayoutDashboard, 
     BedDouble,
     Beaker,
-    Send,
-    ClipboardHeart
+    Send
 } from 'lucide-react';
 import { User } from '@/lib/types';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -40,25 +39,19 @@ export function MainNav() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'billing_clerk'],
     },
     {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor', 'nurse'],
+      roles: ['admin', 'doctor'],
     },
     {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
-    },
-    {
-        href: '/dashboard/nursing',
-        label: 'Nursing Station',
-        icon: ClipboardHeart,
-        roles: ['nurse'],
+      roles: ['admin', 'doctor', 'billing_clerk'],
     },
     {
         href: '/dashboard/referrals',
