@@ -21,7 +21,7 @@ import {
     Send,
     ClipboardCheck
 } from 'lucide-react';
-import { User } from '@/lib/types';
+import type { User } from '@/lib/types';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
 
