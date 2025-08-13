@@ -70,7 +70,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                         <TabsTrigger value="billing">Billing</TabsTrigger>
                     </TabsList>
                     <TabsContent value="notes" className="mt-4">
-                        <ClinicalNotesTab notes={mockNotes} />
+                        <ClinicalNotesTab patientId={patient.patient_id} />
                     </TabsContent>
                     <TabsContent value="diagnoses" className="mt-4">
                         <DiagnosesTab />
@@ -96,3 +96,5 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
     </Card>
   );
 }
+
+    

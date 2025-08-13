@@ -71,6 +71,218 @@ const getStatusVariant = (status: MedicationRecord['status']): "default" | "seco
     }
 }
 
+function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+    const { user } = useAuth();
+    const [open, setOpen] = React.useState(false);
+    const [isChecking, setIsChecking] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [warnings, setWarnings] = React.useState<string[]>([]);
+    
+    const form = useForm<z.infer<typeof NewPrescriptionSchema>>({
+        resolver: zodResolver(NewPrescriptionSchema),
+        defaultValues: {
+            medicationName: '',
+            dosage: '',
+            frequency: '',
+            route: '',
+            quantity: 0,
+            instructions: '',
+        }
+    });
+
+    // Reset state when dialog closes
+    React.useEffect(() => {
+        if (!open) {
+            form.reset();
+            setWarnings([]);
+            setIsChecking(false);
+            setIsSubmitting(false);
+        }
+    }, [open, form]);
+
+    const handleFinalSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
+        setIsSubmitting(true);
+        const result = await addPrescription(patientId, values);
+        if (result.success) {
+            alert('Prescription submitted successfully (simulated).');
+            setOpen(false);
+        } else {
+            alert(`Error: ${result.message}`);
+        }
+        setIsSubmitting(false);
+    };
+
+    const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
+        // If there are already warnings, it means the user has clicked "Acknowledge and Prescribe".
+        if (warnings.length > 0) {
+            await handleFinalSubmit(values);
+            return;
+        }
+
+        setIsChecking(true);
+        setWarnings([]);
+        
+        // Simulate a call to the performPrescriptionChecks Cloud Function
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Mocked response from the safety check
+        const newWarnings: string[] = [];
+        if (values.medicationName.toLowerCase().includes('penicillin')) {
+            newWarnings.push('Potential Allergy: Patient has a known allergy to Penicillin.');
+        }
+        if (values.medicationName.toLowerCase().includes('aspirin')) {
+            newWarnings.push('Drug-Drug Interaction: May interact with existing medication (e.g., Warfarin).');
+        }
+
+        setIsChecking(false);
+
+        if (newWarnings.length > 0) {
+            setWarnings(newWarnings);
+        } else {
+            // No warnings, proceed directly to final submission
+            await handleFinalSubmit(values);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" disabled={disabled}>
+                    <Pill className="h-4 w-4 mr-2" />
+                    Prescribe Medication
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>New e-Prescription</DialogTitle>
+                    <DialogDescription>
+                        Fill out the form to create and send a new prescription to the pharmacy.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                         <FormField
+                            control={form.control}
+                            name="medicationName"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Drug Name</FormLabel>
+                                    <FormControl>
+                                       <Combobox
+                                            options={mockFormulary}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Search for a medication..."
+                                            searchPlaceholder='Search formulary...'
+                                            notFoundText='No medication found.'
+                                       />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="dosage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Dosage</FormLabel>
+                                        <FormControl><Input placeholder="e.g., 5mg" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="quantity"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Quantity</FormLabel>
+                                        <FormControl><Input type="number" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                             <FormField
+                                control={form.control}
+                                name="frequency"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Frequency</FormLabel>
+                                        <FormControl><Input placeholder="e.g., Once daily" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="route"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Route</FormLabel>
+                                        <FormControl><Input placeholder="e.g., Oral" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                         <FormField
+                            control={form.control}
+                            name="instructions"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Patient Instructions (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., Take with food" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {warnings.length > 0 && (
+                            <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm font-medium text-yellow-800">Safety Check Warnings</p>
+                                        <div className="mt-2 text-sm text-yellow-700">
+                                            <ul role="list" className="list-disc pl-5 space-y-1">
+                                                {warnings.map((warning, index) => (
+                                                    <li key={index}>{warning}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                            
+                            {warnings.length > 0 ? (
+                                <Button type="submit" variant="destructive" disabled={isSubmitting}>
+                                    {isSubmitting ? 'Submitting...' : 'Acknowledge and Prescribe Anyway'}
+                                </Button>
+                            ) : (
+                                <Button type="submit" disabled={isChecking || isSubmitting}>
+                                    {isChecking ? 'Checking...' : isSubmitting ? 'Submitting...' : 'Check & Proceed'}
+                                </Button>
+                            )}
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 function AdministerMedicationDialog({ patientId, medication }: { patientId: string, medication: MedicationRecord }) {
     const [open, setOpen] = React.useState(false);
     const [notes, setNotes] = React.useState('');
@@ -146,8 +358,9 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle>Medications</CardTitle>
-                    <CardDescription>A history of all prescribed medications.</CardDescription>
+                    <CardDescription>A history of all prescribed medications for the patient.</CardDescription>
                 </div>
+                {isDoctor && <NewPrescriptionDialog patientId={resolvedPatientId} />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
@@ -190,3 +403,5 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
         </Card>
     );
 }
+
+    

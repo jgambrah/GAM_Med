@@ -50,63 +50,9 @@ import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
 import { VitalsTab } from './components/vitals-tab';
-import { addClinicalNote, orderLabTest } from '@/lib/actions';
+import { orderLabTest } from '@/lib/actions';
 import { NewLabOrderSchema } from '@/lib/schemas';
 
-
-export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
-    const { user } = useAuth();
-    const [open, setOpen] = React.useState(false);
-    const [newNote, setNewNote] = React.useState('');
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newNote.trim()) return;
-
-        setIsSubmitting(true);
-        // This server action encapsulates the logic to write to the
-        // /patients/{patientId}/clinical_notes sub-collection.
-        await addClinicalNote(patientId, newNote);
-        alert('New clinical note has been added (simulated).');
-        setNewNote('');
-        setIsSubmitting(false);
-        setOpen(false);
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={disabled}>
-                    <FileText className="h-4 w-4 mr-2" /> Add Note
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add New Clinical Note</DialogTitle>
-                     <DialogDescription>
-                        Recording a new note for the patient as {user?.name}.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-                     <Textarea 
-                        placeholder="Type new clinical note here..."
-                        value={newNote}
-                        onChange={(e) => setNewNote(e.target.value)}
-                        rows={6}
-                        disabled={isSubmitting}
-                     />
-                    <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={isSubmitting || !newNote.trim()}>
-                            {isSubmitting ? 'Saving...' : 'Save Note'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
@@ -278,7 +224,6 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <AddNoteDialog patientId={patient.patient_id} />
             <OrderTestDialog patientId={patient.patient_id} />
         </div>
        )}
@@ -304,7 +249,7 @@ export default function PatientDetailPage() {
            <AdmissionsHistoryTab admissions={admissions} />
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
-          <ClinicalNotesTab notes={mockNotes.filter(note => note.patientId === patientId)} />
+          <ClinicalNotesTab patientId={patient.patient_id} />
         </TabsContent>
          <TabsContent value="diagnoses" className="mt-4">
           <DiagnosesTab />
