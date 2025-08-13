@@ -13,6 +13,8 @@ import { logMedicationAdministration } from '@/lib/actions';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { NewPrescriptionDialog } from '../page';
+import { useParams } from 'next/navigation';
 
 // In a real application, this data would come from a real-time listener
 // on the /patients/{patientId}/medication_history sub-collection.
@@ -108,12 +110,16 @@ function AdministerMedicationDialog({ patientId, medication }: { patientId: stri
 export function MedicationsTab({ patientId }: { patientId: string }) {
     const { user } = useAuth();
     const canAdminister = user?.role === 'nurse';
+    const isDoctor = user?.role === 'doctor';
 
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Medications</CardTitle>
-                <CardDescription>A history of all prescribed medications.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Medications</CardTitle>
+                    <CardDescription>A history of all prescribed medications.</CardDescription>
+                </div>
+                {isDoctor && <NewPrescriptionDialog patientId={patientId} />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
