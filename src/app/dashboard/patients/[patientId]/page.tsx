@@ -51,8 +51,8 @@ import { DiagnosesTab } from './components/diagnoses-tab';
 import { MedicationsTab } from './components/medications-tab';
 import { LabResultsTab } from './components/lab-results-tab';
 import { VitalsTab } from './components/vitals-tab';
-import { addClinicalNote, addPrescription, orderLabTest } from '@/lib/actions';
-import { NewPrescriptionSchema, NewLabOrderSchema } from '@/lib/schemas';
+import { addClinicalNote, orderLabTest } from '@/lib/actions';
+import { NewLabOrderSchema } from '@/lib/schemas';
 
 
 export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
@@ -104,192 +104,6 @@ export function AddNoteDialog({ patientId, disabled }: { patientId: string, disa
                         </Button>
                     </DialogFooter>
                 </form>
-            </DialogContent>
-        </Dialog>
-    )
-}
-
-/**
- * == Conceptual Component: e-Prescribing Form with Safety Checks ==
- *
- * This component demonstrates an enhanced prescription workflow. It's a modal dialog
- * that provides a structured form for entering prescription details and incorporates
- * real-time safety feedback.
- */
-export function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
-    const [open, setOpen] = React.useState(false);
-    const [warnings, setWarnings] = React.useState<string[]>([]);
-    const [isChecking, setIsChecking] = React.useState(false);
-
-    const form = useForm<z.infer<typeof NewPrescriptionSchema>>({
-        resolver: zodResolver(NewPrescriptionSchema),
-        defaultValues: {
-            medicationName: '',
-            dosage: '',
-            frequency: '',
-            instructions: '',
-        }
-    });
-    
-    /**
-     * == FUNCTION TO HANDLE e-PRESCRIPTION with SAFETY CHECKS ==
-     * This `onSubmit` function orchestrates the modern e-Prescribing workflow.
-     *
-     * 1.  It gathers the form data.
-     * 2.  It calls the conceptual `handleEPrescription` Cloud Function via a server action.
-     * 3.  The backend function performs all the complex safety checks (DDI, DAI, Dosage).
-     * 4.  The function returns a result indicating success and a list of any warnings found.
-     * 5.  The UI then reacts to this feedback:
-     *     - If there are warnings, they are displayed to the doctor, requiring acknowledgment.
-     *     - If there are no warnings, the prescription is saved, and the dialog closes.
-     */
-    const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
-        setIsChecking(true);
-        setWarnings([]);
-        // In a real app, this server action would call the `performPrescriptionChecks` Cloud Function.
-        // For this demo, we'll simulate a check that returns a warning.
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const simulatedWarnings = [];
-        if (values.medicationName.toLowerCase().includes('aspirin')) {
-            simulatedWarnings.push("Minor drug-drug interaction with Atorvastatin: monitor patient for muscle pain.");
-        }
-        if (values.medicationName.toLowerCase().includes('penicillin')) {
-            simulatedWarnings.push("CRITICAL ALLERGY WARNING: Patient has a known allergy to Penicillin.");
-        }
-        
-        if (simulatedWarnings.length > 0) {
-            setWarnings(simulatedWarnings);
-        } else {
-            // If no warnings, proceed directly to final submission.
-            await handleFinalSubmit();
-        }
-        setIsChecking(false);
-    }
-    
-    const handleFinalSubmit = async () => {
-        // This function would be called after the doctor acknowledges the warnings,
-        // or directly if there are no warnings.
-        const values = form.getValues();
-        const result = await addPrescription(patientId, values);
-        if(result.success) {
-            alert('Prescription added successfully (simulated).');
-            handleClose();
-        } else {
-            alert(`Error: ${result.message}`);
-        }
-    }
-
-    const handleClose = () => {
-        setOpen(false);
-        form.reset();
-        setWarnings([]);
-        setIsChecking(false);
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={handleClose}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={disabled}>
-                    <Pill className="h-4 w-4 mr-2" /> New Prescription
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Create New e-Prescription</DialogTitle>
-                    <DialogDescription>
-                        Fill out the form to add a new medication. The system will automatically check for safety issues.
-                    </DialogDescription>
-                </DialogHeader>
-                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                            control={form.control}
-                            name="medicationName"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Medication Name (Search Formulary)</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="e.g., Amlodipine, Penicillin" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="dosage"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Dosage</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="e.g., 5mg" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="frequency"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Frequency</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="e.g., Once daily" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                        <FormField
-                            control={form.control}
-                            name="instructions"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Instructions (Optional)</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="e.g., Take with food" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        
-                        {warnings.length > 0 && (
-                            <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400">
-                                <div className="flex">
-                                    <div className="flex-shrink-0">
-                                        <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <h3 className="text-sm font-medium text-yellow-800">Safety Warnings</h3>
-                                        <div className="mt-2 text-sm text-yellow-700">
-                                            <ul className="list-disc pl-5 space-y-1">
-                                                {warnings.map((warning, i) => <li key={i}>{warning}</li>)}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
-                            {warnings.length > 0 ? (
-                                <Button type="button" variant="destructive" onClick={handleFinalSubmit}>
-                                    Acknowledge and Prescribe Anyway
-                                </Button>
-                            ) : (
-                                <Button type="submit" disabled={form.formState.isSubmitting || isChecking}>
-                                    {isChecking ? 'Checking Safety...' : 'Check and Proceed'}
-                                </Button>
-                            )}
-                        </DialogFooter>
-                    </form>
-                 </Form>
             </DialogContent>
         </Dialog>
     )
@@ -465,7 +279,6 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
             <AddNoteDialog patientId={patient.patient_id} />
-            <NewPrescriptionDialog patientId={patient.patient_id} />
             <OrderTestDialog patientId={patient.patient_id} />
         </div>
        )}
