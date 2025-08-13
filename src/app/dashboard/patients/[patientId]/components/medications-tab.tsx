@@ -85,34 +85,43 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
     /**
      * == FUNCTION TO HANDLE e-PRESCRIPTION with SAFETY CHECKS ==
      * This `onSubmit` function orchestrates the modern e-Prescribing workflow.
+     * It simulates calling the `performPrescriptionChecks` cloud function.
      */
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
         setIsChecking(true);
         setWarnings([]);
         // In a real app, this server action would call the `performPrescriptionChecks` Cloud Function.
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Performing safety checks for:", values);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
         
+        // --- SIMULATED SAFETY CHECK LOGIC ---
         const simulatedWarnings = [];
-        if (values.medicationName.toLowerCase().includes('aspirin')) {
+        // Check for drug-drug interaction with existing meds
+        if (values.medicationName.toLowerCase().includes('aspirin') && mockMedications.some(m => m.medicationName.toLowerCase().includes('atorvastatin'))) {
             simulatedWarnings.push("Minor drug-drug interaction with Atorvastatin: monitor patient for muscle pain.");
         }
+        // Check for allergy
         if (values.medicationName.toLowerCase().includes('penicillin')) {
             simulatedWarnings.push("CRITICAL ALLERGY WARNING: Patient has a known allergy to Penicillin.");
         }
+        // --- END SIMULATION ---
         
         if (simulatedWarnings.length > 0) {
             setWarnings(simulatedWarnings);
         } else {
+            // If no warnings, proceed directly to final submission.
             await handleFinalSubmit();
         }
         setIsChecking(false);
     }
     
+    // This function is called either after checks pass, or when a doctor overrides warnings.
     const handleFinalSubmit = async () => {
         const values = form.getValues();
+        // In a real app, this would call the `submitPrescriptionToPharmacy` Cloud Function.
         const result = await addPrescription(patientId, values);
         if(result.success) {
-            alert('Prescription added successfully (simulated).');
+            alert('Prescription submitted successfully (simulated).');
             handleClose();
         } else {
             alert(`Error: ${result.message}`);
