@@ -69,6 +69,8 @@ export const NewPrescriptionSchema = z.object({
   medicationName: z.string().min(2, { message: "Medication name is required." }),
   dosage: z.string().min(1, { message: "Dosage is required." }),
   frequency: z.string().min(2, { message: "Frequency is required." }),
+  route: z.string().min(2, { message: "Route is required." }),
+  quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
   instructions: z.string().optional(),
 });
 

@@ -89,6 +89,8 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
             medicationName: '',
             dosage: '',
             frequency: '',
+            route: '',
+            quantity: 0,
             instructions: '',
         }
     });
@@ -153,7 +155,7 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
                     <Pill className="h-4 w-4 mr-2" /> New Prescription
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Create New e-Prescription</DialogTitle>
                     <DialogDescription>
@@ -202,6 +204,34 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
                                         <FormLabel>Frequency</FormLabel>
                                         <FormControl>
                                             <Input placeholder="e.g., Once daily" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="route"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Route</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Oral" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="quantity"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Quantity</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" placeholder="e.g., 30" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
