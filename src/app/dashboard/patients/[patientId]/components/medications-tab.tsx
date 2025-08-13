@@ -22,6 +22,7 @@ import { AlertTriangle, Pill } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
+import { useDebouncedCallback } from 'use-debounce';
 
 // In a real application, this data would come from a real-time listener
 // on the /patients/{patientId}/medication_history sub-collection.
@@ -90,6 +91,37 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
         }
     });
 
+    const selectedMedication = form.watch('medicationName');
+
+    const performChecks = useDebouncedCallback(async (medicationName: string) => {
+        if (!medicationName) {
+            setWarnings([]);
+            return;
+        };
+
+        setIsChecking(true);
+        setWarnings([]);
+        
+        // Simulate a call to the performPrescriptionChecks Cloud Function
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Mocked response from the safety check
+        const newWarnings: string[] = [];
+        if (medicationName.toLowerCase().includes('penicillin')) {
+            newWarnings.push('Potential Allergy: Patient has a known allergy to Penicillin.');
+        }
+        if (medicationName.toLowerCase().includes('aspirin')) {
+            newWarnings.push('Drug-Drug Interaction: May interact with existing medication (e.g., Warfarin).');
+        }
+
+        setIsChecking(false);
+        setWarnings(newWarnings);
+    }, 750); // 750ms debounce delay
+
+    React.useEffect(() => {
+        performChecks(selectedMedication);
+    }, [selectedMedication, performChecks]);
+
     // Reset state when dialog closes
     React.useEffect(() => {
         if (!open) {
@@ -100,7 +132,7 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
         }
     }, [open, form]);
 
-    const handleFinalSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
+    const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
         setIsSubmitting(true);
         const result = await addPrescription(patientId, values);
         if (result.success) {
@@ -111,38 +143,6 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
         }
         setIsSubmitting(false);
     };
-
-    const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
-        // If there are already warnings, it means the user has clicked "Acknowledge and Prescribe".
-        if (warnings.length > 0) {
-            await handleFinalSubmit(values);
-            return;
-        }
-
-        setIsChecking(true);
-        setWarnings([]);
-        
-        // Simulate a call to the performPrescriptionChecks Cloud Function
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mocked response from the safety check
-        const newWarnings: string[] = [];
-        if (values.medicationName.toLowerCase().includes('penicillin')) {
-            newWarnings.push('Potential Allergy: Patient has a known allergy to Penicillin.');
-        }
-        if (values.medicationName.toLowerCase().includes('aspirin')) {
-            newWarnings.push('Drug-Drug Interaction: May interact with existing medication (e.g., Warfarin).');
-        }
-
-        setIsChecking(false);
-
-        if (newWarnings.length > 0) {
-            setWarnings(newWarnings);
-        } else {
-            // No warnings, proceed directly to final submission
-            await handleFinalSubmit(values);
-        }
-    }
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -243,6 +243,12 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
                             )}
                         />
 
+                        {isChecking && (
+                            <div className="text-sm text-muted-foreground flex items-center justify-center p-4">
+                                Checking for interactions...
+                            </div>
+                        )}
+
                         {warnings.length > 0 && (
                             <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
                                 <div className="flex">
@@ -267,12 +273,12 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
                             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                             
                             {warnings.length > 0 ? (
-                                <Button type="submit" variant="destructive" disabled={isSubmitting}>
+                                <Button type="submit" variant="destructive" disabled={isSubmitting || isChecking}>
                                     {isSubmitting ? 'Submitting...' : 'Acknowledge and Prescribe Anyway'}
                                 </Button>
                             ) : (
-                                <Button type="submit" disabled={isChecking || isSubmitting}>
-                                    {isChecking ? 'Checking...' : isSubmitting ? 'Submitting...' : 'Check & Proceed'}
+                                <Button type="submit" disabled={isChecking || isSubmitting || !selectedMedication}>
+                                    {isSubmitting ? 'Submitting...' : 'Submit Prescription'}
                                 </Button>
                             )}
                         </DialogFooter>
