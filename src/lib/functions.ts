@@ -1,6 +1,7 @@
 
 
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -1219,6 +1220,130 @@ exports.handleEPrescription = functions.region('europe-west1').https.onCall(asyn
     } catch (error) {
         console.error('e-Prescription transaction failed:', error);
         throw new functions.https.HttpsError('aborted', 'Could not save the prescription.');
+    }
+});
+*/
+
+// =======================================================================================
+// 23. Perform Prescription Checks (Callable Function)
+// =======================================================================================
+/**
+ * Performs all safety checks for a proposed prescription without writing it to the database.
+ * This function is called by the UI to get real-time feedback before the doctor finalizes the prescription.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, medicationId: string, dosage: string }
+ * @returns {Promise<{warnings: string[]}>} An object containing an array of warning strings.
+ */
+/*
+exports.performPrescriptionChecks = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check to ensure only doctors can perform this.
+    
+    const { patientId, medicationId, dosage } = data;
+    const warnings = [];
+
+    // 2. Fetch necessary data in parallel for efficiency
+    const patientRef = db.collection('patients').doc(patientId);
+    const medicationRef = db.collection('medications').doc(medicationId);
+    const activeMedsQuery = patientRef.collection('medication_history').where('status', '==', 'Active');
+    
+    const [patientDoc, medicationDoc, activeMedsSnapshot] = await Promise.all([
+        patientRef.get(),
+        medicationRef.get(),
+        activeMedsQuery.get()
+    ]);
+    
+    if (!patientDoc.exists || !medicationDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Patient or medication data not found.');
+    }
+    
+    const patientData = patientDoc.data();
+    const newMedData = medicationDoc.data();
+
+    // 3. --- SAFETY CHECKS ---
+    
+    // a) Drug-Allergy Interaction (DAI) Check
+    const patientAllergies = patientData.allergies || [];
+    if (newMedData.allergens.some(allergen => patientAllergies.includes(allergen))) {
+        warnings.push(`High-risk allergy: Patient is allergic to a component in ${newMedData.brandName}.`);
+    }
+
+    // b) Drug-Drug Interaction (DDI) Check
+    // This is a simplified example. A real implementation requires a comprehensive interaction database.
+    const activeMedications = activeMedsSnapshot.docs.map(doc => doc.data());
+    for (const activeMed of activeMedications) {
+        if (newMedData.knownInteractions.includes(activeMed.medicationId)) {
+            warnings.push(`Interaction warning: ${newMedData.brandName} may interact with ${activeMed.medicationName}.`);
+        }
+    }
+    
+    // c) Dosage Check
+    // A simplified check against the 'adult' standard dosage.
+    if (dosage !== newMedData.standardDosages.adult) {
+        warnings.push(`Dosage check: The prescribed dosage of "${dosage}" differs from the standard adult dosage of "${newMedData.standardDosages.adult}".`);
+    }
+    
+    // 4. Return the aggregated warnings to the front-end
+    return { warnings };
+});
+*/
+
+// =======================================================================================
+// 24. Submit Prescription To Pharmacy (Callable Function)
+// =======================================================================================
+/**
+ * Finalizes and saves a prescription after safety checks have been performed and acknowledged.
+ * This function performs an atomic write to multiple locations in Firestore.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { prescriptionData: object } The complete data for the new prescription.
+ */
+/*
+exports.submitPrescriptionToPharmacy = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check to ensure only doctors can submit.
+
+    const { prescriptionData } = data;
+    if (!prescriptionData) throw new functions.https.HttpsError('invalid-argument', 'Prescription data is required.');
+    
+    // 2. Prepare references for the atomic transaction
+    const patientId = prescriptionData.patientId;
+    const patientRef = db.collection('patients').doc(patientId);
+    const newPrescriptionRef = db.collection('prescriptions').doc(); // Top-level collection
+    const patientHistoryRef = patientRef.collection('medication_history').doc(newPrescriptionRef.id);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const now = admin.firestore.FieldValue.serverTimestamp();
+            
+            // 3. Prepare the final data objects
+            const finalPrescriptionData = {
+                ...prescriptionData,
+                prescriptionId: newPrescriptionRef.id,
+                prescribedByDoctorId: context.auth.uid,
+                status: 'Pending Pharmacy',
+                prescribedAt: now
+            };
+
+            const historyData = { ...finalPrescriptionData, status: 'Active' }; // EHR status is 'Active'
+            
+            // 4. Set both documents within the transaction
+            transaction.set(newPrescriptionRef, finalPrescriptionData);
+            transaction.set(patientHistoryRef, historyData);
+            
+            // NOTE: A separate Firestore Trigger on the 'prescriptions' collection
+            // would then create the order in the 'pharmacy_queue' for total decoupling.
+        });
+
+        console.log(`Prescription ${newPrescriptionRef.id} submitted for patient ${patientId}.`);
+        return { success: true, prescriptionId: newPrescriptionRef.id };
+
+    } catch (error) {
+        console.error('Prescription submission transaction failed:', error);
+        throw new functions.https.HttpsError('aborted', 'Failed to save prescription.', { message: error.message });
     }
 });
 */
