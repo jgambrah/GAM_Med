@@ -21,6 +21,7 @@ import { NewPrescriptionSchema } from '@/lib/schemas';
 import { AlertTriangle, Pill } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
 
 // In a real application, this data would come from a real-time listener
 // on the /patients/{patientId}/medication_history sub-collection.
@@ -50,6 +51,16 @@ const mockMedications: MedicationRecord[] = [
         status: 'Active'
     }
 ];
+
+// This would come from our central 'medications' formulary collection.
+const mockFormulary = [
+    { value: 'amlodipine', label: 'Amlodipine' },
+    { value: 'atorvastatin', label: 'Atorvastatin' },
+    { value: 'lisinopril', label: 'Lisinopril' },
+    { value: 'metformin', label: 'Metformin' },
+    { value: 'penicillin', label: 'Penicillin (Allergy Risk)' },
+    { value: 'aspirin', label: 'Aspirin (Interaction Risk)' },
+]
 
 const getStatusVariant = (status: MedicationRecord['status']): "default" | "secondary" | "destructive" => {
     switch (status) {
@@ -155,11 +166,16 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
                             control={form.control}
                             name="medicationName"
                             render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="flex flex-col">
                                     <FormLabel>Medication Name (Search Formulary)</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="e.g., Amlodipine, Penicillin" {...field} />
-                                    </FormControl>
+                                    <Combobox
+                                        options={mockFormulary}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        placeholder="Search formulary..."
+                                        searchPlaceholder="Search medications..."
+                                        notFoundText="No medication found."
+                                    />
                                     <FormMessage />
                                 </FormItem>
                             )}
