@@ -1,5 +1,5 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord } from './types';
 
 const now = new Date();
 
@@ -107,6 +107,7 @@ export const allPatients: Patient[] = [
       isActive: true,
       expiry_date: '2025-12-31',
     },
+    allergies: ['Penicillin'],
     medicalHistory: {
       allergies: ['Penicillin'],
       preExistingConditions: ['Hypertension'],
@@ -451,5 +452,47 @@ export const mockCarePlans: CarePlan[] = [
         createdAt: new Date('2024-08-01T11:00:00Z').toISOString(),
         updatedBy: 'doc1',
         updatedAt: new Date('2024-08-01T11:00:00Z').toISOString(),
+    }
+];
+
+export const mockPrescriptions: MedicationRecord[] = [
+    {
+        prescriptionId: 'med-1',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        medicationName: 'Amlodipine',
+        dosage: '5mg',
+        frequency: 'Once daily',
+        instructions: 'Take in the morning with food.',
+        prescribedByDoctorId: 'doc1',
+        prescribedByDoctorName: 'Dr. Evelyn Mensah',
+        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
+        status: 'Active'
+    },
+    {
+        prescriptionId: 'med-2',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        medicationName: 'Atorvastatin',
+        dosage: '20mg',
+        frequency: 'Once daily at bedtime',
+        instructions: '',
+        prescribedByDoctorId: 'doc1',
+        prescribedByDoctorName: 'Dr. Evelyn Mensah',
+        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
+        status: 'Active'
+    },
+    {
+        prescriptionId: 'med-3',
+        patientId: 'P-654321',
+        patientName: 'Aba Appiah',
+        medicationName: 'Paracetamol',
+        dosage: '1g',
+        frequency: 'PRN for pain',
+        instructions: 'Do not exceed 4g in 24 hours.',
+        prescribedByDoctorId: 'doc1',
+        prescribedByDoctorName: 'Dr. Evelyn Mensah',
+        prescribedAt: new Date('2024-08-01T11:05:00Z').toISOString(),
+        status: 'Active'
     }
 ];

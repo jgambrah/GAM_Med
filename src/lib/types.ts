@@ -278,7 +278,7 @@ export interface Prescription {
   patientId: string; // Reference to 'patients' collection
   prescribedByDoctorId: string; // Reference to 'users' collection
   medicationId: string; // Reference to 'medications' collection
-  medicationName: string; // Denormalized for quick display
+  medicationName: string; // Denormalized for quick lookups
   dosage: string; // e.g., '10mg'
   form: 'Tablet' | 'Syrup' | 'Injection';
   frequency: string; // e.g., 'Twice daily', 'QID'
@@ -329,11 +329,14 @@ export interface Diagnosis {
  */
 export interface MedicationRecord {
   prescriptionId: string; // Document ID, should match the ID in the top-level 'prescriptions' collection
+  patientId: string;
+  patientName: string; // Denormalized
   medicationName: string; // e.g., 'Amlodipine'
   dosage: string; // e.g., '5mg'
   frequency: string; // e.g., 'Once daily'
   instructions: string; // e.g., 'Take with food'
   prescribedByDoctorId: string; // Reference to users.uid
+  prescribedByDoctorName?: string; // Denormalized
   prescribedAt: string; // ISO 8601 Timestamp
   status: 'Active' | 'Discontinued' | 'Filled';
 }
@@ -391,5 +394,3 @@ export interface CarePlan {
     updatedBy: string; // user ID
     updatedAt: string; // ISO Timestamp
 }
-
-    
