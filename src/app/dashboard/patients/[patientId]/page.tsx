@@ -146,20 +146,30 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
         setIsChecking(true);
         setWarnings([]);
-        // In a real app, this server action would call the `handleEPrescription` or `performPrescriptionChecks` Cloud Function.
+        // In a real app, this server action would call the `performPrescriptionChecks` Cloud Function.
         // For this demo, we'll simulate a check that returns a warning.
         await new Promise(resolve => setTimeout(resolve, 1000));
-        const simulatedWarnings = [
-            "Minor drug-drug interaction with Atorvastatin: monitor patient for muscle pain.",
-            "Dosage is higher than standard recommendation for this medication."
-        ];
-        setWarnings(simulatedWarnings);
+        
+        const simulatedWarnings = [];
+        if (values.medicationName.toLowerCase().includes('aspirin')) {
+            simulatedWarnings.push("Minor drug-drug interaction with Atorvastatin: monitor patient for muscle pain.");
+        }
+        if (values.medicationName.toLowerCase().includes('penicillin')) {
+            simulatedWarnings.push("CRITICAL ALLERGY WARNING: Patient has a known allergy to Penicillin.");
+        }
+        
+        if (simulatedWarnings.length > 0) {
+            setWarnings(simulatedWarnings);
+        } else {
+            // If no warnings, proceed directly to final submission.
+            await handleFinalSubmit();
+        }
         setIsChecking(false);
     }
     
     const handleFinalSubmit = async () => {
-        // This function would be called after the doctor acknowledges the warnings.
-        // It would call the 'submitPrescriptionToPharmacy' Cloud Function.
+        // This function would be called after the doctor acknowledges the warnings,
+        // or directly if there are no warnings.
         const values = form.getValues();
         const result = await addPrescription(patientId, values);
         if(result.success) {
@@ -200,7 +210,7 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
                                 <FormItem>
                                     <FormLabel>Medication Name (Search Formulary)</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g., Amlodipine" {...field} />
+                                        <Input placeholder="e.g., Amlodipine, Penicillin" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
