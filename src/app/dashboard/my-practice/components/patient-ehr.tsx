@@ -19,9 +19,8 @@ import { MedicationsTab } from '../../patients/[patientId]/components/medication
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { AddNoteDialog, OrderTestDialog } from '../../patients/[patientId]/page';
-import { Button } from '@/components/ui/button';
-import { Pill } from 'lucide-react';
+import { OrderTestDialog } from '../../patients/[patientId]/page';
+import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 
 
 interface PatientEHRProps {
@@ -96,5 +95,3 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
     </Card>
   );
 }
-
-    
