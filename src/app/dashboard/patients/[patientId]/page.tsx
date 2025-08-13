@@ -146,7 +146,7 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
         setIsChecking(true);
         setWarnings([]);
-        // In a real app, this server action would call the `handleEPrescription` Cloud Function.
+        // In a real app, this server action would call the `handleEPrescription` or `performPrescriptionChecks` Cloud Function.
         // For this demo, we'll simulate a check that returns a warning.
         await new Promise(resolve => setTimeout(resolve, 1000));
         const simulatedWarnings = [
@@ -159,6 +159,7 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
     
     const handleFinalSubmit = async () => {
         // This function would be called after the doctor acknowledges the warnings.
+        // It would call the 'submitPrescriptionToPharmacy' Cloud Function.
         const values = form.getValues();
         const result = await addPrescription(patientId, values);
         if(result.success) {
@@ -173,10 +174,11 @@ export function NewPrescriptionDialog({ patientId, disabled }: { patientId: stri
         setOpen(false);
         form.reset();
         setWarnings([]);
+        setIsChecking(false);
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleClose}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" disabled={disabled}>
                     <Pill className="h-4 w-4 mr-2" /> New Prescription
