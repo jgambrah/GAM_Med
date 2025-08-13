@@ -21,6 +21,8 @@ import { useParams } from 'next/navigation';
 const mockMedications: MedicationRecord[] = [
     {
         prescriptionId: 'med-1',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
         medicationName: 'Amlodipine',
         dosage: '5mg',
         frequency: 'Once daily',
@@ -31,6 +33,8 @@ const mockMedications: MedicationRecord[] = [
     },
     {
         prescriptionId: 'med-2',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
         medicationName: 'Atorvastatin',
         dosage: '20mg',
         frequency: 'Once daily at bedtime',
@@ -112,6 +116,10 @@ export function MedicationsTab({ patientId }: { patientId: string }) {
     const canAdminister = user?.role === 'nurse';
     const isDoctor = user?.role === 'doctor';
 
+    // In a real application, this data would come from a real-time listener
+    // on the /patients/{patientId}/medication_history sub-collection.
+    const patientMedications = mockMedications.filter(med => med.patientId === patientId);
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -134,8 +142,8 @@ export function MedicationsTab({ patientId }: { patientId: string }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {mockMedications.length > 0 ? (
-                                mockMedications.map((med) => (
+                            {patientMedications.length > 0 ? (
+                                patientMedications.map((med) => (
                                     <TableRow key={med.prescriptionId}>
                                         <TableCell className="font-medium">{med.medicationName}</TableCell>
                                         <TableCell>{med.dosage}</TableCell>

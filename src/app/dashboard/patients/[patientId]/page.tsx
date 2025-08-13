@@ -461,6 +461,15 @@ export default function PatientDetailPage() {
           </div>
        )}
 
+       {isDoctor && (
+        <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
+            <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
+            <AddNoteDialog patientId={patient.patient_id} />
+            <NewPrescriptionDialog patientId={patient.patient_id} />
+            <OrderTestDialog patientId={patient.patient_id} />
+        </div>
+       )}
+
       <Tabs defaultValue="vitals">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="vitals">Vitals</TabsTrigger>
