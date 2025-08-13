@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -188,6 +187,7 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
     )
 }
 
+
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
  *
@@ -269,7 +269,7 @@ export default function PatientDetailPage() {
                 />
                 <DischargePatientDialog 
                     patient={patient}
-                    clinicalNotes={mockNotes}
+                    clinicalNotes={mockNotes.filter(note => note.patientId === patientId)}
                     disabled={isSubmitting || !patient.is_admitted}
                 />
           </div>
@@ -322,3 +322,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    

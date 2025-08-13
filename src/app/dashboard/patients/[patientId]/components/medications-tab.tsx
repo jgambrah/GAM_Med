@@ -409,3 +409,5 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
         </Card>
     );
 }
+
+    
