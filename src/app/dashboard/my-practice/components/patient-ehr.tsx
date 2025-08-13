@@ -55,7 +55,6 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                  <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
                     <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
                     <AddNoteDialog patientId={patient.patient_id} />
-                    {/* The NewPrescriptionDialog is now inside the MedicationsTab */}
                     <OrderTestDialog patientId={patient.patient_id} />
                 </div>
 
