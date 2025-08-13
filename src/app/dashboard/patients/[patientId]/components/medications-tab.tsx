@@ -199,7 +199,7 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Quantity</FormLabel>
-                                        <FormControl><Input type="number" {...field} /></FormControl>
+                                        <FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -367,6 +367,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead>Prescribed At</TableHead>
                                 <TableHead>Medication</TableHead>
                                 <TableHead>Dosage</TableHead>
                                 <TableHead>Frequency</TableHead>
@@ -378,6 +379,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
                             {patientMedications.length > 0 ? (
                                 patientMedications.map((med) => (
                                     <TableRow key={med.prescriptionId}>
+                                        <TableCell>{format(new Date(med.prescribedAt), 'PPP')}</TableCell>
                                         <TableCell className="font-medium">{med.medicationName}</TableCell>
                                         <TableCell>{med.dosage}</TableCell>
                                         <TableCell>{med.frequency}</TableCell>
@@ -391,7 +393,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={canAdminister ? 5 : 4} className="h-24 text-center">
+                                    <TableCell colSpan={canAdminister ? 6 : 5} className="h-24 text-center">
                                         No medications prescribed.
                                     </TableCell>
                                 </TableRow>
@@ -403,5 +405,3 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
         </Card>
     );
 }
-
-    
