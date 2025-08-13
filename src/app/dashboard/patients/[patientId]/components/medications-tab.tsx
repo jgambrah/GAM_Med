@@ -291,14 +291,18 @@ function AdministerMedicationDialog({ patientId, medication }: { patientId: stri
     )
 }
 
-export function MedicationsTab({ patientId }: { patientId: string }) {
+export function MedicationsTab({ patientId }: { patientId?: string }) {
     const { user } = useAuth();
     const canAdminister = user?.role === 'nurse';
     const isDoctor = user?.role === 'doctor';
 
+    const params = useParams();
+    const resolvedPatientId = patientId || params.patientId as string;
+
+
     // In a real application, this data would come from a real-time listener
     // on the /patients/{patientId}/medication_history sub-collection.
-    const patientMedications = mockMedications.filter(med => med.patientId === patientId);
+    const patientMedications = mockMedications.filter(med => med.patientId === resolvedPatientId);
 
     return (
         <Card>
@@ -307,7 +311,7 @@ export function MedicationsTab({ patientId }: { patientId: string }) {
                     <CardTitle>Medications</CardTitle>
                     <CardDescription>A history of all prescribed medications.</CardDescription>
                 </div>
-                {isDoctor && <NewPrescriptionDialog patientId={patientId} />}
+                {isDoctor && <NewPrescriptionDialog patientId={resolvedPatientId} />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
@@ -331,7 +335,7 @@ export function MedicationsTab({ patientId }: { patientId: string }) {
                                         <TableCell><Badge variant={getStatusVariant(med.status)}>{med.status}</Badge></TableCell>
                                         {canAdminister && (
                                             <TableCell>
-                                                <AdministerMedicationDialog patientId={patientId} medication={med} />
+                                                <AdministerMedicationDialog patientId={resolvedPatientId} medication={med} />
                                             </TableCell>
                                         )}
                                     </TableRow>

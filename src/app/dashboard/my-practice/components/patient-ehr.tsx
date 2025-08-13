@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -18,7 +19,10 @@ import { MedicationsTab } from '../../patients/[patientId]/components/medication
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { AddNoteDialog, NewPrescriptionDialog, OrderTestDialog } from '../../patients/[patientId]/page';
+import { AddNoteDialog, OrderTestDialog } from '../../patients/[patientId]/page';
+import { Button } from '@/components/ui/button';
+import { Pill } from 'lucide-react';
+
 
 interface PatientEHRProps {
     patientId: string;
@@ -51,7 +55,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                  <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
                     <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
                     <AddNoteDialog patientId={patient.patient_id} />
-                    <NewPrescriptionDialog patientId={patient.patient_id} />
+                    {/* The NewPrescriptionDialog is now inside the MedicationsTab */}
                     <OrderTestDialog patientId={patient.patient_id} />
                 </div>
 
@@ -73,7 +77,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                         <DiagnosesTab />
                     </TabsContent>
                     <TabsContent value="medications" className="mt-4">
-                        <MedicationsTab />
+                        <MedicationsTab patientId={patient.patient_id} />
                     </TabsContent>
                     <TabsContent value="labs" className="mt-4">
                         <LabResultsTab />
