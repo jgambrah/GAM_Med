@@ -1,87 +1,101 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check a user's role from the 'users' collection.
-    // The user's document ID in the 'users' collection must match their auth UID.
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+
+    // Helper function to get the role of the currently authenticated user.
+    // It reads the 'role' field from the user's document in the 'users' collection.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Helper function to get the patient_id associated with a user's auth UID.
-    function getPatientIdForUser(userId) {
-        return get(/databases/$(database)/documents/users/$(userId)).data.patient_id;
+    // Helper function to check if the user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // =====================================================================
-    // E-Prescribing Module Rules
-    // =====================================================================
-
-    // Rules for the central 'medications' formulary.
-    match /medications/{medicationId} {
-      // Allow any authenticated user to read the drug catalog for searching/display.
-      allow read: if request.auth != null;
-
-      // Only allow admins and pharmacists to write to the central drug formulary.
-      allow write: if getUserRole(request.auth.uid) in ['admin', 'pharmacist'];
-    }
-
-    // Rules for the top-level 'prescriptions' collection, used by the pharmacy.
-    match /prescriptions/{prescriptionId} {
-      // Only doctors can create new prescriptions.
-      allow create: if getUserRole(request.auth.uid) == 'doctor';
-
-      // Allow reading by admin, doctor, pharmacist, or the patient themselves.
-      allow read: if getUserRole(request.auth.uid) in ['admin', 'doctor', 'pharmacist']
-                  || getPatientIdForUser(request.auth.uid) == resource.data.patientId;
-
-      // Allow updates only by doctors (to cancel) or pharmacists (to dispense).
-      // This uses a more secure check on the request data to ensure only specific fields can be changed.
-      allow update: if (getUserRole(request.auth.uid) == 'doctor' && request.resource.data.status == 'Canceled')
-                    || (getUserRole(request.auth.uid) == 'pharmacist' && request.resource.data.status == 'Dispensed' && request.resource.data.filledAt != null);
+    // Rules for the 'users' collection.
+    match /users/{userId} {
+      // Any signed-in user can read their own user document.
+      // Admins can read any user document.
+      allow read: if isSignedIn() && (request.auth.uid == userId || getUserRole() == 'admin');
       
-      // Prescriptions should never be deleted to maintain a clear audit trail.
-      allow delete: if false;
+      // Only admins can create or update user documents.
+      allow write: if getUserRole() == 'admin';
     }
 
-    // Rules for patient-specific data.
+    // Rules for the 'patients' collection and its sub-collections.
     match /patients/{patientId} {
-        // Only allow read access by the patient, or clinical/admin staff.
-        // Assumes the patient's document in the `users` collection contains their `patient_id`.
-        allow read: if getPatientIdForUser(request.auth.uid) == patientId
-                    || getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse', 'pharmacist'];
-        
-        // Rules for the 'allergies' sub-collection within a patient's record.
-        match /allergies/{allergyId} {
-            // Allow reading by clinical staff or the patient themselves.
-            allow read: if getPatientIdForUser(request.auth.uid) == patientId
-                        || getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse', 'pharmacist'];
-            
-            // Only doctors and nurses can record or update allergy information.
-            allow create, update: if getUserRole(request.auth.uid) in ['doctor', 'nurse'];
+      // Allow read access to patient records for authenticated clinical and administrative staff.
+      allow read: if isSignedIn() && getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist', 'lab_technician'];
+      
+      // Allow write access (e.g., updating admission status) to clinical and administrative staff.
+      allow write: if isSignedIn() && getUserRole() in ['admin', 'doctor', 'nurse'];
 
-            // Allergy records should not be deleted to maintain history.
-            allow delete: if false;
-        }
+      // == NURSING MODULE RULES ==
+      // These rules grant specific permissions to nurses for their workflow.
 
-        // Rules for the 'medication_history' sub-collection within a patient's record.
-        match /medication_history/{prescriptionId} {
-            // This is a mirror of the top-level prescription for the patient's EHR.
-            // It should only be created by the system (via a Cloud Function).
-            // Direct client creation is denied.
-            allow create: if false;
+      // Rules for the 'vitals' sub-collection.
+      match /vitals/{vitalId} {
+        // Doctors and nurses can read vitals.
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin'];
+        // Only nurses can create or update vitals records.
+        allow create, update: if getUserRole() == 'nurse';
+      }
 
-            // Reading is allowed by clinical staff or the patient.
-            allow read: if getPatientIdForUser(request.auth.uid) == patientId
-                        || getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse', 'pharmacist'];
-            
-            // Only the prescribing doctor can update (e.g., change status to 'Discontinued').
-            allow update: if getUserRole(request.auth.uid) == 'doctor' && resource.data.prescribedByDoctorId == request.auth.uid;
+      // Rules for the 'care_plans' sub-collection.
+      match /care_plans/{planId} {
+        // Doctors and nurses can read care plans.
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin'];
+        // Only nurses can create or update care plans.
+        allow create, update: if getUserRole() == 'nurse';
+      }
 
-            // History should never be deleted.
-            allow delete: if false;
-        }
+      // Rules for the 'medication_administration_logs' sub-collection.
+      match /medication_administration_logs/{logId} {
+        // Doctors and nurses can read the administration log.
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin'];
+        // Only nurses can create new log entries.
+        allow create: if getUserRole() == 'nurse';
+      }
+
+      // == DOCTOR-SPECIFIC & OTHER RULES ==
+      // These rules restrict write access on certain sub-collections to doctors.
+      // This also serves as the rule for `progress_notes` when nurses add notes,
+      // as they share the same data model.
+      match /clinical_notes/{noteId} {
+        // Doctors and nurses can read all notes.
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin'];
+        // Both Doctors (for clinical notes) and Nurses (for progress notes) can create notes.
+        allow create: if getUserRole() in ['doctor', 'nurse'];
+      }
+      
+      // Only doctors can write diagnoses.
+      match /diagnoses/{diagnosisId} {
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin'];
+        allow write: if getUserRole() == 'doctor';
+      }
+      
+      // Only doctors can write new prescriptions to the patient's history.
+      match /medication_history/{prescriptionId} {
+        allow read: if getUserRole() in ['doctor', 'nurse', 'pharmacist', 'admin'];
+        allow write: if getUserRole() == 'doctor';
+      }
+      
+      // Lab results can be read by clinical staff, but only written by lab technicians (or triggered functions).
+      match /lab_results/{resultId} {
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin', 'lab_technician'];
+        // Writes would typically be handled by a Cloud Function with admin privileges.
+        // Direct client writes might be limited to lab technicians updating the status.
+        allow write: if getUserRole() == 'lab_technician';
+      }
+      
+      // Admissions can be read by most staff, but only written by doctors or nurses.
+      match /admissions/{admissionId} {
+        allow read: if getUserRole() in ['doctor', 'nurse', 'admin', 'billing_clerk'];
+        allow write: if getUserRole() in ['doctor', 'nurse', 'admin'];
+      }
     }
   }
 }
