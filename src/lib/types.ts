@@ -7,33 +7,33 @@
  */
 
 // =========================================================================
-// == Core Clinical Decision Support (CDS) Data Models
+// == Clinical Decision Support (CDS) Data Models
 // =========================================================================
 
 /**
- * Represents a rule in the 'clinical_rules' collection.
- * This top-level collection holds the logic for the CDS engine. Each document is a rule
+ * Represents a single condition within a ClinicalRule.
+ * This allows for flexible and complex rule definitions.
+ */
+export interface RuleCondition {
+  key: string; // The data field to check (e.g., 'temperature', 'hemoglobin')
+  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
+  value: any; // The value to compare against.
+  unit?: string; // Optional unit for the value (e.g., 'C', 'g/dL')
+}
+
+/**
+ * Represents a rule in the top-level 'clinical_rules' collection.
+ * This collection holds the logic for the CDS engine. Each document is a rule
  * that can be evaluated by a Cloud Function against patient data.
  */
 export interface ClinicalRule {
   ruleId: string; // Document ID
-  name: string; // e.g., "Critical Low SpO2 Alert"
-  description: string; // e.g., "Triggers when a patient's oxygen saturation drops below a critical threshold."
-  // A structured representation of the condition to be evaluated.
-  // Example: { field: 'vitals.oxygenSaturation', operator: '<', value: 92 }
-  condition: {
-    field: string; // The data field to check (e.g., 'vitals.oxygenSaturation', 'lab_results.hemoglobin')
-    operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
-    value: any; // The value to compare against.
-  };
-  // The action to take when the condition is met.
-  action: {
-    type: 'CREATE_ALERT';
-    payload: {
-      message: string; // e.g., "Critical Low SpO2: {value}%. Immediate attention required."
-      priority: 'Low' | 'Medium' | 'High' | 'Critical';
-    };
-  };
+  description: string; // A human-readable explanation of the rule.
+  trigger_type: 'vitals_update' | 'lab_result' | 'medication_prescribe'; // Links the rule to a specific Cloud Function trigger.
+  severity: 'Warning' | 'Critical' | 'Information';
+  conditions: RuleCondition[]; // An array of conditions that must ALL be met for the rule to trigger.
+  alert_message: string; // The message to display to the clinician.
+  recommended_action?: string; // Optional recommended action.
   isActive: boolean; // Allows for rules to be enabled or disabled without deleting them.
 }
 
@@ -46,15 +46,12 @@ export interface ClinicalRule {
 export interface PatientAlert {
   alertId: string; // Document ID
   ruleId: string; // The ID of the ClinicalRule that was triggered.
-  patientId: string;
-  message: string; // The specific alert message generated.
-  priority: 'Low' | 'Medium' | 'High' | 'Critical';
-  status: 'New' | 'Acknowledged' | 'Resolved';
+  severity: 'Warning' | 'Critical' | 'Information';
+  alert_message: string; // The specific alert message generated.
+  triggeredByUserId: string; // The user whose action triggered the alert (e.g., nurse logging vitals).
   triggeredAt: string; // ISO Timestamp when the alert was created.
-  acknowledgedBy?: string; // UID of the user who acknowledged the alert.
-  acknowledgedAt?: string; // ISO Timestamp of acknowledgment.
-  resolvedBy?: string; // UID of the user who resolved the alert.
-  resolvedAt?: string; // ISO Timestamp of resolution.
+  isAcknowledged: boolean;
+  acknowledgedByUserId?: string; // UID of the user who acknowledged the alert.
 }
 
 
@@ -444,7 +441,6 @@ export interface CarePlan {
     planId: string; // Document ID
     patientId: string;
     title: string;
-    description?: string; // Added description field
     goal: string;
     interventions: string[];
     status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
@@ -468,3 +464,5 @@ export interface MedicationAdministrationLog {
   administeredAt: string; // ISO Timestamp when the medication was given
   notes?: string; // Optional notes, e.g., "Patient refused", "Took with water"
 }
+
+```
