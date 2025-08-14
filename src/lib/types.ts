@@ -363,6 +363,7 @@ export interface LabResult {
 
 /**
  * Represents a single vitals log entry in the `vitals` sub-collection.
+ * This is a core data model for the nursing workflow.
  * Path: /patients/{patientId}/vitals/{vitalId}
  */
 export interface VitalsLog {
@@ -380,17 +381,33 @@ export interface VitalsLog {
 
 /**
  * Represents a patient's care plan in the `care_plans` sub-collection.
+ * This is a central document for coordinating nursing care.
  * Path: /patients/{patientId}/care_plans/{planId}
  */
 export interface CarePlan {
-    planId: string;
+    planId: string; // Document ID
     patientId: string;
     title: string;
-    goals: string;
-    interventions: string;
+    goals: string; // Text field describing desired outcomes
+    interventions: string; // Text field describing nursing actions
     status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
-    createdBy: string; // user ID
+    createdBy: string; // user ID of the doctor or nurse who created the plan
     createdAt: string; // ISO Timestamp
-    updatedBy: string; // user ID
+    updatedBy: string; // user ID of the last person to update
     updatedAt: string; // ISO Timestamp
+}
+
+/**
+ * Represents a log of a medication being administered by a nurse.
+ * This forms the Medication Administration Record (MAR).
+ * Path: /patients/{patientId}/medication_administration_logs/{logId}
+ */
+export interface MedicationAdministrationLog {
+  logId: string; // Document ID
+  prescriptionId: string; // Reference to the original prescription
+  medicationName: string; // Denormalized for easy display
+  dosage: string; // Denormalized for easy display
+  administeredByUserId: string; // Nurse's user ID
+  administeredAt: string; // ISO Timestamp when the medication was given
+  notes?: string; // Optional notes, e.g., "Patient refused", "Took with water"
 }
