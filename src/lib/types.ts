@@ -44,14 +44,15 @@ export interface User {
  * Example EHR Sub-collection structure:
  * /patients/{patientId}/
  *   - allergies/{allergyId}
- *   - clinical_notes/{noteId}
+ *   - clinical_notes/{noteId} (also serves as progress_notes)
  *   - lab_results/{resultId}
  *   - vitals/{vitalId}
  *   - admissions/{admissionId}
+ *   - care_plans/{planId}
+ *   - medication_administration_logs/{logId}
  *
  * This structure enables granular security rules, allowing different clinical roles to access
- * only the specific parts of the EHR they are authorized to see (e.g., a pharmacist can access
- * prescriptions, but not necessarily clinical notes).
+ * only the specific parts of the EHR they are authorized to see.
  */
 export interface Patient {
   patient_id: string; // Unique, system-generated ID. THIS IS ALSO THE FIRESTORE DOCUMENT ID.
@@ -297,14 +298,15 @@ export interface Prescription {
 // =========================================================================
 
 /**
- * Represents a clinical note in the `clinical_notes` sub-collection.
+ * Represents a clinical note (or progress note) in the `clinical_notes` sub-collection.
+ * This is used by both doctors and nurses for general documentation.
  * Path: /patients/{patientId}/clinical_notes/{noteId}
  */
 export interface ClinicalNote {
   noteId: string; // Document ID
   patientId: string;
   noteText: string; // Can be Markdown or plain text
-  noteType: 'Progress Note' | 'Consultation' | 'Nursing Note';
+  noteType: 'Progress Note' | 'Consultation' | 'Nursing Note' | 'Shift Report' | 'Daily Progress Note';
   recordedByUserId: string; // Reference to users.uid
   recordedAt: string; // ISO 8601 Timestamp
 }
@@ -374,6 +376,7 @@ export interface VitalsLog {
     temperature: string; // in Celsius
     respiratoryRate: string; // breaths per minute
     oxygenSaturation: string; // percentage
+    painLevel?: string; // 1-10 scale
     notes?: string;
     recordedByUserId: string; // Reference to users.uid
     recordedAt: string; // ISO 8601 Timestamp
@@ -388,12 +391,13 @@ export interface CarePlan {
     planId: string; // Document ID
     patientId: string;
     title: string;
-    goals: string; // Text field describing desired outcomes
-    interventions: string; // Text field describing nursing actions
+    description: string;
+    goal: string;
+    interventions: string[];
     status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
     createdBy: string; // user ID of the doctor or nurse who created the plan
     createdAt: string; // ISO Timestamp
-    updatedBy: string; // user ID of the last person to update
+    updatedByUserId: string; // user ID of the last person to update
     updatedAt: string; // ISO Timestamp
 }
 

@@ -1,4 +1,5 @@
 
+
 import { z } from 'zod';
 
 /**
@@ -108,6 +109,7 @@ export const VitalsSchema = z.object({
     temperature: z.string().min(1, "Required"),
     respiratoryRate: z.string().min(1, "Required"),
     oxygenSaturation: z.string().min(1, "Required"),
+    painLevel: z.string().optional(),
     notes: z.string().optional(),
 });
 
@@ -115,7 +117,8 @@ export const VitalsSchema = z.object({
  * Zod schema for validating the care plan update form.
  */
 export const CarePlanSchema = z.object({
-    goals: z.string().min(10, { message: "Goals must be at least 10 characters." }),
+    description: z.string().min(10, { message: "Description must be at least 10 characters." }),
+    goal: z.string().min(10, { message: "Goal must be at least 10 characters." }),
     interventions: z.string().min(10, { message: "Interventions must be at least 10 characters." }),
     status: z.enum(['Active', 'On Hold', 'Completed', 'Cancelled']),
 });
