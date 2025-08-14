@@ -6,6 +6,58 @@
  * This ensures consistency between the frontend components and the backend database.
  */
 
+// =========================================================================
+// == Core Clinical Decision Support (CDS) Data Models
+// =========================================================================
+
+/**
+ * Represents a rule in the 'clinical_rules' collection.
+ * This top-level collection holds the logic for the CDS engine. Each document is a rule
+ * that can be evaluated by a Cloud Function against patient data.
+ */
+export interface ClinicalRule {
+  ruleId: string; // Document ID
+  name: string; // e.g., "Critical Low SpO2 Alert"
+  description: string; // e.g., "Triggers when a patient's oxygen saturation drops below a critical threshold."
+  // A structured representation of the condition to be evaluated.
+  // Example: { field: 'vitals.oxygenSaturation', operator: '<', value: 92 }
+  condition: {
+    field: string; // The data field to check (e.g., 'vitals.oxygenSaturation', 'lab_results.hemoglobin')
+    operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
+    value: any; // The value to compare against.
+  };
+  // The action to take when the condition is met.
+  action: {
+    type: 'CREATE_ALERT';
+    payload: {
+      message: string; // e.g., "Critical Low SpO2: {value}%. Immediate attention required."
+      priority: 'Low' | 'Medium' | 'High' | 'Critical';
+    };
+  };
+  isActive: boolean; // Allows for rules to be enabled or disabled without deleting them.
+}
+
+/**
+ * Represents a generated alert in a patient's 'alerts' sub-collection.
+ * When the CDS engine evaluates a rule and finds it to be true, it will create a document
+ * with this structure.
+ * Path: /patients/{patientId}/alerts/{alertId}
+ */
+export interface PatientAlert {
+  alertId: string; // Document ID
+  ruleId: string; // The ID of the ClinicalRule that was triggered.
+  patientId: string;
+  message: string; // The specific alert message generated.
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  status: 'New' | 'Acknowledged' | 'Resolved';
+  triggeredAt: string; // ISO Timestamp when the alert was created.
+  acknowledgedBy?: string; // UID of the user who acknowledged the alert.
+  acknowledgedAt?: string; // ISO Timestamp of acknowledgment.
+  resolvedBy?: string; // UID of the user who resolved the alert.
+  resolvedAt?: string; // ISO Timestamp of resolution.
+}
+
+
 /**
  * Represents a user in the 'users' collection.
  * The document ID should correspond to the Firebase Auth UID.
@@ -43,6 +95,7 @@ export interface User {
  *
  * Example EHR Sub-collection structure:
  * /patients/{patientId}/
+ *   - alerts/{alertId}
  *   - allergies/{allergyId}
  *   - clinical_notes/{noteId} (also serves as progress_notes)
  *   - lab_results/{resultId}
@@ -391,13 +444,13 @@ export interface CarePlan {
     planId: string; // Document ID
     patientId: string;
     title: string;
-    description: string;
+    description?: string; // Added description field
     goal: string;
     interventions: string[];
     status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
     createdBy: string; // user ID of the doctor or nurse who created the plan
     createdAt: string; // ISO Timestamp
-    updatedByUserId: string; // user ID of the last person to update
+    updatedBy: string; // user ID of the last person to update
     updatedAt: string; // ISO Timestamp
 }
 
