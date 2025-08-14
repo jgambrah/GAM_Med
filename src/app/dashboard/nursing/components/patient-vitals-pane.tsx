@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { MedicationsTab } from '../../patients/[patientId]/components/medications-tab';
 import { mockNotes, mockCarePlans } from '@/lib/data';
-import { AddNoteDialog } from '../../patients/[patientId]/page';
+import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { CarePlanTab } from '../../patients/[patientId]/components/care-plan-tab';
 
 interface PatientVitalsPaneProps {
@@ -67,7 +67,7 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
               <CarePlanTab carePlan={carePlan} />
             </TabsContent>
             <TabsContent value="notes">
-              <ClinicalNotesTab notes={mockNotes.filter(n => n.patientId === patient.patient_id)} />
+              <ClinicalNotesTab patientId={patient.patient_id} />
             </TabsContent>
           </ScrollArea>
         </Tabs>

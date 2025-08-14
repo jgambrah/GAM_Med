@@ -74,7 +74,7 @@ interface ClinicalNotesTabProps {
 
 export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
     const { user } = useAuth();
-    const isDoctor = user?.role === 'doctor';
+    const canAddNote = user?.role === 'doctor' || user?.role === 'nurse';
     const notes = allMockNotes.filter(note => note.patientId === patientId)
 
     return (
@@ -84,7 +84,7 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
                     <CardTitle>Clinical Notes</CardTitle>
                     <CardDescription>A chronological record of all clinical interactions and observations.</CardDescription>
                 </div>
-                {isDoctor && <AddNoteDialog patientId={patientId} />}
+                {canAddNote && <AddNoteDialog patientId={patientId} />}
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
@@ -107,5 +107,3 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
         </Card>
     );
 }
-
-    

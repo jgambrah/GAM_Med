@@ -24,8 +24,8 @@ function UpdateCarePlanDialog({ carePlan }: { carePlan: CarePlan }) {
     const form = useForm<z.infer<typeof CarePlanSchema>>({
         resolver: zodResolver(CarePlanSchema),
         defaultValues: {
-            goals: carePlan.goals,
-            interventions: carePlan.interventions,
+            goals: carePlan.goal,
+            interventions: carePlan.interventions.join('\n'),
             status: carePlan.status,
         }
     });
@@ -147,11 +147,11 @@ export function CarePlanTab({ carePlan }: { carePlan?: CarePlan | null }) {
             <CardContent className="space-y-6">
                 <div className="space-y-2">
                     <h4 className="font-semibold text-md">Goals</h4>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{carePlan.goals}</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{carePlan.goal}</p>
                 </div>
                 <div className="space-y-2">
                     <h4 className="font-semibold text-md">Interventions</h4>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{carePlan.interventions}</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{carePlan.interventions.join('\n')}</p>
                 </div>
                  <div className="space-y-2">
                     <h4 className="font-semibold text-md">Status</h4>
