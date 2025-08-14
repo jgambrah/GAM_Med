@@ -993,17 +993,8 @@ exports.logVitals = functions.region('europe-west1').https.onCall(async (data, c
     await newVitalsRef.set(finalVitalsData);
 
     // 3. (Optional) Alerting Logic
-    // const patientDoc = await db.collection('patients').doc(patientId).get();
-    // const attendingDoctorId = patientDoc.data()?.current_admission_id
-    //   ? (await db.collection('patients').doc(patientId).collection('admissions').doc(patientDoc.data().current_admission_id).get()).data()?.attending_doctor_id
-    //   : null;
-    //
-    // if (vitalsData.oxygenSaturation < 92 && attendingDoctorId) {
-    //   await sendNotificationToUser(attendingDoctorId, {
-    //     title: 'Urgent Vitals Alert',
-    //     body: `Low SpO2 (${vitalsData.oxygenSaturation}%) recorded for patient ${patientDoc.data().full_name}.`
-    //   });
-    // }
+    // This action is now handled by the `checkVitalSigns` Firestore trigger,
+    // which creates a clean separation of concerns.
 
     console.log(`Vitals logged for patient ${patientId}.`);
     return { success: true };
@@ -1046,8 +1037,8 @@ exports.logMedicationAdministration = functions.region('europe-west1').https.onC
             const logData = {
                 logId: newLogRef.id,
                 prescriptionId: prescriptionId,
-                medicationName: prescriptionData.medicationName, // Denormalize for display
-                dosage: prescriptionData.dosage, // Denormalize for display
+                medicationName: prescriptionData.medicationName, // Denormalize for easy display
+                dosage: prescriptionData.dosage, // Denormalize for easy display
                 administeredByUserId: context.auth.uid,
                 administeredAt: admin.firestore.FieldValue.serverTimestamp(),
                 notes: notes || null
@@ -1108,128 +1099,27 @@ exports.updateCarePlan = functions.region('europe-west1').https.onCall(async (da
 */
 
 // =======================================================================================
-// 22. Handle e-Prescription (Callable Function)
+// == e-PRESCRIBING & CLINICAL DECISION SUPPORT (CDS)
+// =======================================================================================
+
+
+// =======================================================================================
+// 22. Handle e-Prescription (Callable Function) - DEPRECATED in favor of modular approach
 // =======================================================================================
 /**
- * The core of the e-Prescribing module. This function orchestrates the entire process:
- * it receives a prescription request, performs all safety checks, and then creates
- * the necessary records in Firestore in a single atomic transaction.
- *
- * @trigger_type Callable Function (https)
- * @input { patientId: string, medicationId: string, dosage: string, frequency: string, instructions: string }
+ * This monolithic function is now deprecated in favor of a more flexible, two-step process:
+ * 1. `performPrescriptionChecks` (CDS): A callable function that provides real-time safety feedback to the UI.
+ * 2. `submitPrescriptionToPharmacy`: A callable function that finalizes and saves the prescription after checks are acknowledged.
  */
-/*
-exports.handleEPrescription = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Authentication & Authorization Check
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    }
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (userDoc.data()?.role !== 'doctor') {
-        throw new functions.https.HttpsError('permission-denied', 'Only doctors can create prescriptions.');
-    }
-    
-    const { patientId, medicationId, dosage, frequency, instructions } = data;
 
-    // 2. Fetch all necessary data for checks
-    const patientRef = db.collection('patients').doc(patientId);
-    const medicationRef = db.collection('medications').doc(medicationId);
-    const [patientDoc, medicationDoc] = await Promise.all([patientRef.get(), medicationRef.get()]);
-
-    if (!patientDoc.exists || !medicationDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Patient or medication not found.');
-    }
-
-    const patientData = patientDoc.data();
-    const newMedicationData = medicationDoc.data();
-    const safetyWarnings = [];
-
-    // 3. --- AUTOMATED SAFETY CHECKS ---
-    
-    // a) Drug-Allergy Interaction (DAI) Check
-    const patientAllergies = patientData.allergies || [];
-    // This is a simplified check. A real system would check against ingredient classes.
-    if (patientAllergies.some(allergy => newMedicationData.name.toLowerCase().includes(allergy.toLowerCase()))) {
-        safetyWarnings.push(`Potential allergy to ${newMedicationData.name}. Patient has a known allergy to ${patientAllergies.join(', ')}.`);
-    }
-
-    // b) Drug-Drug Interaction (DDI) Check
-    // This requires querying the patient's active prescriptions and comparing against an interaction database.
-    const activePrescriptionsSnapshot = await patientRef.collection('prescriptions').where('status', '==', 'Active').get();
-    const activeMedicationIds = activePrescriptionsSnapshot.docs.map(doc => doc.data().medicationId);
-    
-    // PSEUDOCODE for interaction check
-    // for (const activeMedId of activeMedicationIds) {
-    //    const interaction = await queryInteractionDB(medicationId, activeMedId);
-    //    if (interaction) {
-    //        safetyWarnings.push(`Interaction detected between ${newMedicationData.name} and ${interaction.otherDrug}: ${interaction.details}`);
-    //    }
-    // }
-
-    // c) Dosage Check
-    // Compare prescribed dosage to the formulary's standard dosage. This is a simplified check.
-    // A more advanced system would use a structured dosage object and consider patient weight/age.
-    // if (dosage !== newMedicationData.standardDosage.adult) {
-    //     safetyWarnings.push(`Dosage warning: Prescribed dosage "${dosage}" differs from standard "${newMedicationData.standardDosage.adult}".`);
-    // }
-    
-    // 4. Create Records in a Transaction
-    const newPrescriptionRef = patientRef.collection('prescriptions').doc();
-    const newPharmacyOrderRef = db.collection('pharmacy_orders').doc();
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            const now = admin.firestore.FieldValue.serverTimestamp();
-            
-            const prescriptionData = {
-                prescriptionId: newPrescriptionRef.id,
-                patientId,
-                medicationId,
-                medicationName: newMedicationData.name,
-                dosage,
-                frequency,
-                instructions,
-                prescribedByDoctorId: context.auth.uid,
-                prescribedAt: now,
-                status: 'Active',
-                safetyCheck: {
-                    status: safetyWarnings.length > 0 ? 'Warning' : 'Passed',
-                    warnings: safetyWarnings
-                }
-            };
-            
-            // Create the pharmacy order
-            const pharmacyOrderData = {
-                orderId: newPharmacyOrderRef.id,
-                prescriptionId: newPrescriptionRef.id,
-                patientId,
-                patientName: patientData.full_name,
-                medicationName: newMedicationData.name,
-                dosage,
-                frequency,
-                status: 'Pending Fulfillment',
-                createdAt: now,
-            };
-
-            transaction.set(newPrescriptionRef, prescriptionData);
-            transaction.set(newPharmacyOrderRef, pharmacyOrderData);
-        });
-
-        return { success: true, prescriptionId: newPrescriptionRef.id, warnings: safetyWarnings };
-
-    } catch (error) {
-        console.error('e-Prescription transaction failed:', error);
-        throw new functions.https.HttpsError('aborted', 'Could not save the prescription.');
-    }
-});
-*/
 
 // =======================================================================================
-// 23. Perform Prescription Checks (Callable Function)
+// 23. Perform Prescription Checks / checkMedicationOrder (Callable CDS Function)
 // =======================================================================================
 /**
  * Performs all safety checks for a proposed prescription without writing it to the database.
  * This function is called by the UI to get real-time feedback before the doctor finalizes the prescription.
+ * It is a core component of the Clinical Decision Support (CDS) system.
  *
  * @trigger_type Callable Function (https)
  * @input { patientId: string, medicationId: string, dosage: string }
@@ -1347,3 +1237,132 @@ exports.submitPrescriptionToPharmacy = functions.region('europe-west1').https.on
     }
 });
 */
+
+// =======================================================================================
+// 25. checkVitalSigns (CDS Firestore Trigger)
+// =======================================================================================
+/**
+ * A CDS engine component that automatically evaluates vital signs against predefined rules.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /patients/{patientId}/vitals/{vitalId}
+ */
+/*
+exports.checkVitalSigns = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/vitals/{vitalId}')
+    .onCreate(async (snapshot, context) => {
+        const { patientId } = context.params;
+        const newVitalsData = snapshot.data();
+
+        // 1. Fetch all active clinical rules for vitals
+        const rulesSnapshot = await db.collection('clinical_rules')
+            .where('trigger_type', '==', 'vitals_update')
+            .where('isActive', '==', true)
+            .get();
+
+        if (rulesSnapshot.empty) {
+            console.log('No active vitals rules to evaluate.');
+            return null;
+        }
+
+        const alertsToCreate = [];
+
+        // 2. Evaluate each rule against the new vitals data
+        rulesSnapshot.forEach(ruleDoc => {
+            const rule = ruleDoc.data();
+            let allConditionsMet = true;
+
+            for (const condition of rule.conditions) {
+                const vitalValue = parseFloat(newVitalsData[condition.key]);
+                if (isNaN(vitalValue)) {
+                    allConditionsMet = false;
+                    break;
+                }
+
+                switch (condition.operator) {
+                    case '>': if (!(vitalValue > condition.value)) allConditionsMet = false; break;
+                    case '<': if (!(vitalValue < condition.value)) allConditionsMet = false; break;
+                    // ... other operators
+                    default: allConditionsMet = false; break;
+                }
+                if (!allConditionsMet) break;
+            }
+
+            // 3. If all conditions for a rule are met, prepare an alert
+            if (allConditionsMet) {
+                alertsToCreate.push({
+                    ruleId: rule.ruleId,
+                    severity: rule.severity,
+                    alert_message: rule.alert_message,
+                    triggeredByUserId: newVitalsData.recordedByUserId,
+                    triggeredAt: admin.firestore.FieldValue.serverTimestamp(),
+                    isAcknowledged: false,
+                });
+            }
+        });
+
+        // 4. Create all triggered alerts in a single batch write
+        if (alertsToCreate.length > 0) {
+            const batch = db.batch();
+            const alertsRef = db.collection('patients').doc(patientId).collection('alerts');
+            
+            alertsToCreate.forEach(alertData => {
+                const newAlertRef = alertsRef.doc();
+                batch.set(newAlertRef, alertData);
+            });
+            
+            await batch.commit();
+            console.log(`Created ${alertsToCreate.length} alerts for patient ${patientId}.`);
+            
+            // 5. Send notifications (e.g., to the attending doctor)
+            // await sendNotificationForAlerts(patientId, alertsToCreate);
+        }
+
+        return null;
+    });
+*/
+
+
+// =======================================================================================
+// 26. checkLabResults (CDS Firestore Trigger)
+// =======================================================================================
+/**
+ * A CDS engine component that automatically evaluates lab results against predefined rules.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /patients/{patientId}/lab_results/{testId}
+ */
+/*
+exports.checkLabResults = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/lab_results/{testId}')
+    .onUpdate(async (change, context) => {
+        const { patientId } = context.params;
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Trigger condition: Only run if status changed to 'Completed'.
+        if (newData.status !== 'Completed' || oldData.status === 'Completed') {
+            return null;
+        }
+
+        // 2. Fetch all active clinical rules for lab results
+        const rulesSnapshot = await db.collection('clinical_rules')
+            .where('trigger_type', '==', 'lab_result')
+            .where('isActive', '==', true)
+            .get();
+
+        if (rulesSnapshot.empty) {
+            console.log('No active lab result rules to evaluate.');
+            return null;
+        }
+
+        // ... Logic similar to checkVitalSigns:
+        // 3. Loop through rules, evaluate conditions against lab result data (newData.result).
+        // 4. If conditions are met, create alert documents in /patients/{patientId}/alerts.
+        // 5. Send notifications to the ordering doctor (newData.orderedByDoctorId).
+
+        console.log(`Evaluated lab results for patient ${patientId}.`);
+        return null;
+    });
+*/
+```
