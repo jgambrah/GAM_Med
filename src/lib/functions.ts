@@ -1365,4 +1365,147 @@ exports.checkLabResults = functions.region('europe-west1').firestore
         return null;
     });
 */
-```
+
+
+// =======================================================================================
+// == IMMUNIZATION MODULE FUNCTIONS
+// =======================================================================================
+
+// =======================================================================================
+// 27. Log Immunization (Callable Function)
+// =======================================================================================
+/**
+ * Logs a new immunization record and calculates the next due date based on the vaccine's schedule.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, vaccineId: string, doseNumber: number, administeredAt: Timestamp }
+ */
+/*
+exports.logImmunization = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check for 'doctor' or 'nurse'
+
+    const { patientId, vaccineId, doseNumber, administeredAt } = data;
+    if (!patientId || !vaccineId || !doseNumber || !administeredAt) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required immunization data.');
+    }
+
+    const vaccineRef = db.collection('vaccine_catalog').doc(vaccineId);
+    const newImmunizationRef = db.collection('patients').doc(patientId).collection('immunizations').doc();
+
+    try {
+        const vaccineDoc = await vaccineRef.get();
+        if (!vaccineDoc.exists) {
+            throw new Error('Vaccine not found in catalog.');
+        }
+        const vaccineData = vaccineDoc.data();
+        const schedule = vaccineData.schedule;
+
+        // 2. Calculate next due date
+        let nextDueDate = null;
+        const nextDoseInfo = schedule.find(dose => dose.dose === doseNumber + 1);
+        if (nextDoseInfo) {
+            const administeredDate = new Date(administeredAt._seconds * 1000);
+            const dueDate = new Date(administeredDate);
+            if(nextDoseInfo.intervalMonths) {
+                dueDate.setMonth(dueDate.getMonth() + nextDoseInfo.intervalMonths);
+            }
+            if(nextDoseInfo.intervalYears) {
+                dueDate.setFullYear(dueDate.getFullYear() + nextDoseInfo.intervalYears);
+            }
+            nextDueDate = admin.firestore.Timestamp.fromDate(dueDate);
+        }
+
+        // 3. Create the immunization record
+        const immunizationData = {
+            immunizationId: newImmunizationRef.id,
+            vaccineName: vaccineData.name,
+            doseNumber,
+            administeredAt: admin.firestore.Timestamp.fromMillis(administeredAt._seconds * 1000),
+            nextDueDate,
+            administeredByUserId: context.auth.uid,
+            notes: ''
+        };
+
+        await newImmunizationRef.set(immunizationData);
+        
+        console.log(`Immunization logged for patient ${patientId}. Next dose due: ${nextDueDate?.toDate()}`);
+        return { success: true, immunizationId: newImmunizationRef.id };
+
+    } catch (error) {
+        console.error('Failed to log immunization:', error);
+        throw new functions.https.HttpsError('internal', 'Could not save immunization record.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 28. Send Immunization Reminders (Scheduled Function)
+// =======================================================================================
+/**
+ * A scheduled function that runs daily to send reminders for upcoming immunizations.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 08:00'
+ */
+/*
+exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
+    .schedule('every day 08:00')
+    .onRun(async (context) => {
+        const today = new Date();
+        const reminderStartDate = admin.firestore.Timestamp.fromDate(today);
+        
+        const reminderEndDate = new Date();
+        reminderEndDate.setDate(today.getDate() + 7); // Remind for vaccines due in the next 7 days
+        const reminderEndDateTimestamp = admin.firestore.Timestamp.fromDate(reminderEndDate);
+
+        // 1. Query for all upcoming immunizations across all patients
+        // This requires a composite index on `nextDueDate`.
+        const snapshot = await db.collectionGroup('immunizations')
+            .where('nextDueDate', '>=', reminderStartDate)
+            .where('nextDueDate', '<=', reminderEndDateTimestamp)
+            .get();
+        
+        if (snapshot.empty) {
+            console.log('No upcoming immunization reminders to send.');
+            return null;
+        }
+
+        const remindersToSend = [];
+        snapshot.forEach(doc => {
+            const immunization = doc.data();
+            remindersToSend.push({
+                patientId: doc.ref.parent.parent.id,
+                vaccineName: immunization.vaccineName,
+                nextDueDate: immunization.nextDueDate.toDate().toLocaleDateString('en-GB')
+            });
+        });
+
+        // 2. Process each reminder
+        for (const reminder of remindersToSend) {
+            try {
+                // Fetch patient's contact details
+                const patientDoc = await db.collection('patients').doc(reminder.patientId).get();
+                if (!patientDoc.exists) continue;
+
+                const patientData = patientDoc.data();
+                const contactInfo = patientData.contact.primaryPhone || patientData.contact.email;
+                if (!contactInfo) continue;
+
+                const message = `Reminder: The next dose of ${reminder.vaccineName} for ${patientData.full_name} is due on ${reminder.nextDueDate}. Please schedule an appointment.`;
+
+                // 3. Send notification (e.g., via SMS, Email, or FCM)
+                // await sendSms(contactInfo, message);
+                console.log(`Sending reminder to ${contactInfo}: ${message}`);
+
+            } catch (error) {
+                console.error(`Failed to send reminder for patient ${reminder.patientId}:`, error);
+            }
+        }
+        
+        return null;
+    });
+*/
