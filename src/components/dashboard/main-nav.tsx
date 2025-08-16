@@ -7,6 +7,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { 
@@ -22,12 +23,35 @@ import {
     ClipboardCheck
 } from 'lucide-react';
 import type { User } from '@/lib/types';
+import { mockAlerts, allAdmissions } from '@/lib/data';
+import * as React from 'react';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
 
 export function MainNav() {
   const pathname = usePathname();
   const { user } = useAuth();
+
+  // In a real application, this would be a highly optimized, real-time query.
+  // It would fetch unacknowledged 'Critical' alerts for patients assigned to this doctor.
+  const criticalAlertCount = React.useMemo(() => {
+    if (!user || user.role !== 'doctor') return 0;
+    
+    // Get a list of patients this doctor is attending
+    const myPatientIds = new Set(
+        allAdmissions
+            .filter(a => a.attending_doctor_id === user.uid)
+            .map(a => a.patient_id)
+    );
+
+    // Count unacknowledged critical alerts for those patients
+    return mockAlerts.filter(alert => 
+        myPatientIds.has(alert.patientId) && 
+        alert.severity === 'Critical' && 
+        !alert.isAcknowledged
+    ).length;
+
+  }, [user]);
 
   const menuItems = [
     {
@@ -83,6 +107,7 @@ export function MainNav() {
       label: 'My Practice',
       icon: Stethoscope,
       roles: ['doctor'],
+      badge: criticalAlertCount > 0 ? criticalAlertCount.toString() : undefined,
     },
     {
       href: '/dashboard/admin',
@@ -108,6 +133,7 @@ export function MainNav() {
               <span>{item.label}</span>
             </Link>
           </SidebarMenuButton>
+          {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
         </SidebarMenuItem>
       ))}
     </SidebarMenu>
