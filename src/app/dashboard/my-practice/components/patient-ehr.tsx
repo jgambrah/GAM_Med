@@ -21,6 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { OrderTestDialog } from '../../patients/[patientId]/page';
 import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
+import { PatientAlerts } from '../../patients/[patientId]/components/patient-alerts';
 
 
 interface PatientEHRProps {
@@ -51,6 +52,9 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                     <h2 className="text-2xl font-semibold">{patient.full_name}</h2>
                     <p className="text-muted-foreground">Patient ID: {patient.patient_id}</p>
                 </div>
+                
+                <PatientAlerts patientId={patient.patient_id} />
+
                  <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
                     <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
                     <AddNoteDialog patientId={patient.patient_id} />
