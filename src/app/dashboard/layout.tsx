@@ -10,6 +10,7 @@ import {
 import { UserNav } from '@/components/dashboard/user-nav';
 import { MainNav } from '@/components/dashboard/main-nav';
 import { AuthProvider } from '@/context/auth-provider';
+import { Toaster } from '@/components/ui/toaster';
 
 export default function DashboardLayout({
   children,
@@ -38,6 +39,7 @@ export default function DashboardLayout({
           <main className="flex-1 p-4 sm:p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>
+      <Toaster />
     </AuthProvider>
   );
 }

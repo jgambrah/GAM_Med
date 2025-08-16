@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -239,12 +238,36 @@ export async function fulfillLabRequest(
 export async function logVitals(patientId: string, values: z.infer<typeof VitalsSchema>) {
     console.log(`Logging vitals for patient ${patientId}:`, values);
     // In a real app, this would call the `logVitals` Cloud Function.
+    // The Cloud Function would then run the `checkVitalSigns` trigger.
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     revalidatePath(`/dashboard/nursing`);
     revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath(`/dashboard/admin`);
 
-    return { success: true, message: 'Vitals logged successfully.' };
+    // ** SIMULATED CDS ENGINE **
+    // In a real application, this logic would live in a Firestore Trigger (`checkVitalSigns`).
+    // For this prototype, we simulate it here to provide immediate feedback to the UI.
+    const generatedAlerts: { severity: 'Critical' | 'Warning' | 'Information', message: string }[] = [];
+    
+    const [systolic, diastolic] = values.bloodPressure.split('/').map(Number);
+    if (systolic > 180 || diastolic > 110) {
+        generatedAlerts.push({
+            severity: 'Critical',
+            message: `Patient's blood pressure is critically high (${values.bloodPressure}). Immediate intervention required.`,
+        });
+    }
+
+    const temperature = parseFloat(values.temperature);
+    if (temperature > 38.5) {
+        generatedAlerts.push({
+            severity: 'Warning',
+            message: `Patient has a high fever (${values.temperature}°C). Monitor and consider antipyretics.`,
+        });
+    }
+
+    // This return value now includes potential alerts for the UI to display.
+    return { success: true, alerts: generatedAlerts };
 }
 
 export async function logMedicationAdministration(patientId: string, prescriptionId: string, notes: string) {
@@ -276,5 +299,6 @@ export async function acknowledgeAlert(patientId: string, alertId: string) {
     // This would call a Cloud Function to update the alert document's `isAcknowledged` field to true.
     await new Promise((resolve) => setTimeout(resolve, 500));
     revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath(`/dashboard/admin`);
     return { success: true };
 }

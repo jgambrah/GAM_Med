@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { VitalsSchema } from '@/lib/schemas';
 import { logVitals } from '@/lib/actions';
 import { mockVitalsLog as allMockVitals } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
+import { AlertTriangle, Info } from 'lucide-react';
 
 interface VitalsTabProps {
     patientId: string;
@@ -41,6 +43,7 @@ interface VitalsTabProps {
  */
 export function VitalsTab({ patientId }: VitalsTabProps) {
     const { user } = useAuth();
+    const { toast } = useToast();
     const mockVitalsLog = allMockVitals.filter(v => v.patientId === patientId);
 
     const form = useForm<z.infer<typeof VitalsSchema>>({
@@ -58,10 +61,45 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
     const onSubmit = async (values: z.infer<typeof VitalsSchema>) => {
         const result = await logVitals(patientId, values);
         if (result.success) {
-            alert('Vitals logged successfully (simulated).');
             form.reset();
+            
+            // Check for any alerts returned from the server action
+            if (result.alerts && result.alerts.length > 0) {
+                result.alerts.forEach(alert => {
+                    toast({
+                        title: (
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                <span className="font-semibold">{alert.severity} Alert Triggered</span>
+                            </div>
+                        ),
+                        description: (
+                            <div>
+                                <p>{alert.message}</p>
+                                <p className="text-xs text-muted-foreground mt-2">The attending doctor has been notified.</p>
+                            </div>
+                        ),
+                        variant: 'destructive'
+                    });
+                });
+            } else {
+                 toast({
+                    title: (
+                        <div className="flex items-center gap-2">
+                            <Info className="h-5 w-5 text-primary" />
+                            <span className="font-semibold">Vitals Logged Successfully</span>
+                        </div>
+                    ),
+                    description: "The patient's vital signs have been saved.",
+                });
+            }
+
         } else {
-            alert(`Error: ${result.message}`);
+            toast({
+                title: 'Error Logging Vitals',
+                description: result.message || 'An unexpected error occurred.',
+                variant: 'destructive',
+            });
         }
     }
 
