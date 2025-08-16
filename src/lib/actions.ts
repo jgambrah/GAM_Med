@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -301,4 +302,12 @@ export async function acknowledgeAlert(patientId: string, alertId: string) {
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath(`/dashboard/admin`);
     return { success: true };
+}
+
+export async function logImmunization(patientId: string, values: z.infer<typeof LogImmunizationSchema>) {
+    console.log(`Logging immunization for patient ${patientId}:`, values);
+    // In a real app, this would call the `logImmunization` Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    return { success: true, message: 'Immunization logged successfully.' };
 }

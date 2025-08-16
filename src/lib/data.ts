@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -530,5 +530,53 @@ export const mockAlerts: PatientAlert[] = [
         triggeredAt: new Date('2024-08-16T08:15:00.000Z').toISOString(),
         isAcknowledged: true,
         acknowledgedByUserId: 'doc1'
+    }
+];
+
+export const mockVaccineCatalog: Vaccine[] = [
+    {
+        vaccineId: 'BCG',
+        name: 'Bacillus Calmette-Guérin (BCG)',
+        schedule: [{ dose: 1, intervalMonths: 0 }],
+        brandNames: ['BCG Vaccine'],
+    },
+    {
+        vaccineId: 'MMR',
+        name: 'Measles, Mumps, Rubella (MMR)',
+        schedule: [{ dose: 1, intervalMonths: 12 }, { dose: 2, intervalYears: 6 }],
+        brandNames: ['M-M-R II', 'Priorix'],
+    },
+    {
+        vaccineId: 'TETANUS',
+        name: 'Tetanus Toxoid',
+        schedule: [
+            { dose: 1, intervalMonths: 0 },
+            { dose: 2, intervalMonths: 1 },
+            { dose: 3, intervalMonths: 6 },
+            { dose: 4, intervalYears: 10 },
+        ],
+        brandNames: ['Tetanus Diphtheria (Td)'],
+    }
+];
+
+export const mockImmunizationRecords: ImmunizationRecord[] = [
+    {
+        immunizationId: 'imm-1',
+        patientId: 'P-123456',
+        vaccineName: 'Tetanus',
+        doseNumber: 1,
+        administeredAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        nextDueDate: new Date('2023-02-10T10:00:00Z').toISOString(),
+        administeredByUserId: 'nurse1',
+    },
+    {
+        immunizationId: 'imm-2',
+        patientId: 'P-123456',
+        vaccineName: 'Tetanus',
+        doseNumber: 2,
+        administeredAt: new Date('2023-02-15T10:00:00Z').toISOString(),
+        nextDueDate: new Date('2023-08-15T10:00:00Z').toISOString(),
+        administeredByUserId: 'nurse1',
+        notes: 'Administered in left deltoid.'
     }
 ];

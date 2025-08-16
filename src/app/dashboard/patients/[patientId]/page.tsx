@@ -5,7 +5,7 @@
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield } from 'lucide-react';
 import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,6 +54,7 @@ import { VitalsTab } from './components/vitals-tab';
 import { orderLabTest } from '@/lib/actions';
 import { NewLabOrderSchema } from '@/lib/schemas';
 import { PatientAlerts } from './components/patient-alerts';
+import { ImmunizationsTab } from './components/immunizations-tab';
 
 
 export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
@@ -242,6 +243,7 @@ export default function PatientDetailPage() {
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
+          <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
         <TabsContent value="vitals" className="mt-4">
@@ -264,6 +266,9 @@ export default function PatientDetailPage() {
         </TabsContent>
         <TabsContent value="labs" className="mt-4">
           <LabResultsTab />
+        </TabsContent>
+        <TabsContent value="immunizations" className="mt-4">
+          <ImmunizationsTab patientId={patient.patient_id} />
         </TabsContent>
          <TabsContent value="billing" className="mt-4">
            <BillingTab patientId={patient.patient_id} />

@@ -120,3 +120,13 @@ export const CarePlanSchema = z.object({
     interventions: z.string().min(10, { message: "Interventions must be at least 10 characters." }),
     status: z.enum(['Active', 'On Hold', 'Completed', 'Cancelled']),
 });
+
+/**
+ * Zod schema for logging a new immunization.
+ */
+export const LogImmunizationSchema = z.object({
+  vaccineId: z.string().min(1, { message: 'You must select a vaccine.' }),
+  doseNumber: z.coerce.number().min(1, { message: 'Dose number must be at least 1.' }),
+  administeredAt: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid administration date is required.' }),
+  notes: z.string().optional(),
+});
