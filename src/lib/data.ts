@@ -2,7 +2,7 @@
 
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert } from './types';
 
-const now = new Date();
+const now = new Date('2024-08-16T10:15:00.000Z');
 
 // Mock Users for development, allowing easy role switching
 export const allUsers: User[] = [
@@ -261,8 +261,8 @@ export const allAppointments: Appointment[] = [
     patient_name: 'Kwame Owusu',
     doctor_id: 'doc1',
     doctor_name: 'Dr. Evelyn Mensah',
-    appointment_date: new Date(new Date().setHours(10, 30, 0, 0)).toISOString(),
-    end_time: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
+    appointment_date: new Date('2024-08-16T10:30:00.000Z').toISOString(),
+    end_time: new Date('2024-08-16T11:00:00.000Z').toISOString(),
     duration: 30,
     type: 'follow-up',
     department: 'Cardiology',
@@ -276,8 +276,8 @@ export const allAppointments: Appointment[] = [
     patient_name: 'Aba Appiah',
     doctor_id: 'doc1',
     doctor_name: 'Dr. Evelyn Mensah',
-    appointment_date: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
-    end_time: new Date(new Date().setHours(14, 30, 0, 0)).toISOString(),
+    appointment_date: new Date('2024-08-16T14:00:00.000Z').toISOString(),
+    end_time: new Date('2024-08-16T14:30:00.000Z').toISOString(),
     duration: 30,
     type: 'consultation',
     department: 'Cardiology',
@@ -303,8 +303,8 @@ export const mockReferrals: Referral[] = [
     priority: 'Urgent',
     assignedDepartment: 'Neurology',
     status: 'Pending Review',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
   },
   {
     referral_id: 'REF-002',
@@ -320,8 +320,8 @@ export const mockReferrals: Referral[] = [
     assignedDepartment: 'Cardiology',
     assignedDoctorId: 'doc1', // Assigned to Dr. Evelyn Mensah
     status: 'Assigned',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
   },
    {
     referral_id: 'REF-003',
@@ -336,8 +336,8 @@ export const mockReferrals: Referral[] = [
     priority: 'Routine',
     assignedDepartment: 'Dermatology',
     status: 'Completed',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
   }
 ];
 
@@ -436,7 +436,7 @@ export const mockVitalsLog: VitalsLog[] = [
         respiratoryRate: '22',
         oxygenSaturation: '94',
         recordedByUserId: 'nurse1',
-        recordedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+        recordedAt: new Date('2024-08-16T08:15:00.000Z').toISOString(), // 2 hours before `now`
     }
 ];
 
@@ -517,7 +517,7 @@ export const mockAlerts: PatientAlert[] = [
         severity: 'Critical',
         alert_message: 'Patient\'s systolic blood pressure is critically high (180). Immediate intervention required.',
         triggeredByUserId: 'nurse1',
-        triggeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        triggeredAt: new Date('2024-08-16T08:15:00.000Z').toISOString(),
         isAcknowledged: false,
     },
     {
@@ -527,7 +527,7 @@ export const mockAlerts: PatientAlert[] = [
         severity: 'Warning',
         alert_message: 'Patient has a fever (38.6°C). Monitor and consider antipyretics.',
         triggeredByUserId: 'nurse1',
-        triggeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        triggeredAt: new Date('2024-08-16T08:15:00.000Z').toISOString(),
         isAcknowledged: true,
         acknowledgedByUserId: 'doc1'
     }
