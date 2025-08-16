@@ -477,14 +477,14 @@ export interface MedicationAdministrationLog {
  * This serves as the master list of all available vaccines and their schedules.
  */
 export interface Vaccine {
-  vaccineCode: string; // Document ID (e.g., 'MMR', 'BCG', 'HepB')
-  name: string; // e.g., 'Measles, Mumps, and Rubella'
-  description: string;
+  vaccineId: string; // Document ID (e.g., 'MMR', 'TETANUS')
+  name: string; // e.g., 'Measles, Mumps, and Rubella (MMR)'
   schedule: {
-    doseNumber: number;
-    recommendedAge: string; // e.g., '9 months', '15 months'
-    intervalFromPreviousDose?: string; // e.g., '6 months'
+    dose: number;
+    intervalMonths?: number;
+    intervalYears?: number;
   }[];
+  brandNames: string[];
 }
 
 /**
@@ -493,13 +493,10 @@ export interface Vaccine {
  */
 export interface ImmunizationRecord {
   immunizationId: string; // Document ID
-  vaccineCode: string; // Reference to 'vaccine_catalog'
-  vaccineName: string; // Denormalized for display
-  dateAdministered: string; // ISO Timestamp
+  vaccineName: string; // e.g., 'MMR', 'Tetanus'
   doseNumber: number;
-  administeringClinicianId: string; // Reference to users.uid
-  site: string; // e.g., 'Left Deltoid', 'Right Vastus Lateralis'
-  lotNumber: string;
+  administeredAt: string; // ISO Timestamp
   nextDueDate?: string; // ISO Timestamp, calculated by a Cloud Function
-  status: 'Administered' | 'Scheduled' | 'Missed';
+  administeredByUserId: string; // Reference to users.uid
+  notes?: string;
 }
