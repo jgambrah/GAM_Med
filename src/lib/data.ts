@@ -1,5 +1,6 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord } from './types';
+
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert } from './types';
 
 const now = new Date();
 
@@ -426,6 +427,17 @@ export const mockVitalsLog: VitalsLog[] = [
         recordedByUserId: 'nurse1',
         recordedAt: new Date('2024-07-29T08:00:00Z').toISOString(),
     },
+     {
+        vitalId: 'vitals-3',
+        patientId: 'P-123456',
+        bloodPressure: '180/105', // Critically high BP
+        heartRate: '110',
+        temperature: '38.6', // Fever
+        respiratoryRate: '22',
+        oxygenSaturation: '94',
+        recordedByUserId: 'nurse1',
+        recordedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    }
 ];
 
 export const mockCarePlans: CarePlan[] = [
@@ -433,7 +445,7 @@ export const mockCarePlans: CarePlan[] = [
         planId: 'plan-1',
         patientId: 'P-123456',
         title: 'Hypertension Management',
-        goals: 'Maintain BP below 140/90. Educate patient on diet and exercise. Ensure medication adherence.',
+        goal: 'Maintain BP below 140/90. Educate patient on diet and exercise. Ensure medication adherence.',
         interventions: 'Daily BP monitoring. Low sodium diet consultation. Administer Amlodipine 5mg daily. Encourage 30 mins of walking daily.',
         status: 'Active',
         createdBy: 'doc1',
@@ -445,7 +457,7 @@ export const mockCarePlans: CarePlan[] = [
         planId: 'plan-2',
         patientId: 'P-654321',
         title: 'Pre-Operative Care',
-        goals: 'Ensure patient is medically stable for surgery. Manage anxiety. Provide pre-op education.',
+        goal: 'Ensure patient is medically stable for surgery. Manage anxiety. Provide pre-op education.',
         interventions: 'Monitor vital signs every 4 hours. Provide information booklet on the procedure. Administer pre-medication as ordered.',
         status: 'Active',
         createdBy: 'doc1',
@@ -494,5 +506,29 @@ export const mockPrescriptions: MedicationRecord[] = [
         prescribedByDoctorName: 'Dr. Evelyn Mensah',
         prescribedAt: new Date('2024-08-01T11:05:00Z').toISOString(),
         status: 'Active'
+    }
+];
+
+export const mockAlerts: PatientAlert[] = [
+    {
+        alertId: 'alert-1',
+        patientId: 'P-123456',
+        ruleId: 'vital-bp-high',
+        severity: 'Critical',
+        alert_message: 'Patient\'s systolic blood pressure is critically high (180). Immediate intervention required.',
+        triggeredByUserId: 'nurse1',
+        triggeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        isAcknowledged: false,
+    },
+    {
+        alertId: 'alert-2',
+        patientId: 'P-123456',
+        ruleId: 'vital-temp-high',
+        severity: 'Warning',
+        alert_message: 'Patient has a fever (38.6°C). Monitor and consider antipyretics.',
+        triggeredByUserId: 'nurse1',
+        triggeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        isAcknowledged: true,
+        acknowledgedByUserId: 'doc1'
     }
 ];

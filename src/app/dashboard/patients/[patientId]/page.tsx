@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -52,6 +53,7 @@ import { LabResultsTab } from './components/lab-results-tab';
 import { VitalsTab } from './components/vitals-tab';
 import { orderLabTest } from '@/lib/actions';
 import { NewLabOrderSchema } from '@/lib/schemas';
+import { PatientAlerts } from './components/patient-alerts';
 
 
 export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
@@ -202,23 +204,26 @@ export default function PatientDetailPage() {
       </div>
       
        {hasClinicalPrivileges && (
-          <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
-                <h3 className="text-sm font-semibold mr-4">Management</h3>
-                <AllocateBedDialog 
-                    patientId={patient.patient_id}
-                    disabled={patient.is_admitted || isSubmitting} 
-                />
-                <TransferPatientDialog 
-                    patient={patient} 
-                    currentBedId={currentAdmission?.bed_id}
-                    disabled={isSubmitting || !patient.is_admitted} 
-                />
-                <DischargePatientDialog 
-                    patient={patient}
-                    clinicalNotes={mockNotes.filter(note => note.patientId === patientId)}
-                    disabled={isSubmitting || !patient.is_admitted}
-                />
-          </div>
+        <>
+            <PatientAlerts patientId={patient.patient_id} />
+            <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
+                    <h3 className="text-sm font-semibold mr-4">Management</h3>
+                    <AllocateBedDialog 
+                        patientId={patient.patient_id}
+                        disabled={patient.is_admitted || isSubmitting} 
+                    />
+                    <TransferPatientDialog 
+                        patient={patient} 
+                        currentBedId={currentAdmission?.bed_id}
+                        disabled={isSubmitting || !patient.is_admitted} 
+                    />
+                    <DischargePatientDialog 
+                        patient={patient}
+                        clinicalNotes={mockNotes.filter(note => note.patientId === patientId)}
+                        disabled={isSubmitting || !patient.is_admitted}
+                    />
+            </div>
+        </>
        )}
 
        {isDoctor && (

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -267,4 +268,13 @@ export async function updateCarePlan(patientId: string, planId: string, values: 
     revalidatePath(`/dashboard/patients/${patientId}`);
     
     return { success: true, message: 'Care plan updated successfully.' };
+}
+
+
+export async function acknowledgeAlert(patientId: string, alertId: string) {
+    console.log(`Acknowledging alert ${alertId} for patient ${patientId}.`);
+    // This would call a Cloud Function to update the alert document's `isAcknowledged` field to true.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    return { success: true };
 }

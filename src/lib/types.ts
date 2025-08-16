@@ -45,6 +45,7 @@ export interface ClinicalRule {
  */
 export interface PatientAlert {
   alertId: string; // Document ID
+  patientId: string;
   ruleId: string; // The ID of the ClinicalRule that was triggered.
   severity: 'Warning' | 'Critical' | 'Information';
   alert_message: string; // The specific alert message generated.
@@ -464,5 +465,3 @@ export interface MedicationAdministrationLog {
   administeredAt: string; // ISO Timestamp when the medication was given
   notes?: string; // Optional notes, e.g., "Patient refused", "Took with water"
 }
-
-```
