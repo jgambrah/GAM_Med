@@ -101,6 +101,7 @@ export interface User {
  *   - admissions/{admissionId}
  *   - care_plans/{planId}
  *   - medication_administration_logs/{logId}
+ *   - immunizations/{immunizationId}
  *
  * This structure enables granular security rules, allowing different clinical roles to access
  * only the specific parts of the EHR they are authorized to see.
@@ -464,4 +465,41 @@ export interface MedicationAdministrationLog {
   administeredByUserId: string; // Nurse's user ID
   administeredAt: string; // ISO Timestamp when the medication was given
   notes?: string; // Optional notes, e.g., "Patient refused", "Took with water"
+}
+
+
+// =========================================================================
+// == Immunization Management Data Models
+// =========================================================================
+
+/**
+ * Represents a vaccine in the central 'vaccine_catalog' collection.
+ * This serves as the master list of all available vaccines and their schedules.
+ */
+export interface Vaccine {
+  vaccineCode: string; // Document ID (e.g., 'MMR', 'BCG', 'HepB')
+  name: string; // e.g., 'Measles, Mumps, and Rubella'
+  description: string;
+  schedule: {
+    doseNumber: number;
+    recommendedAge: string; // e.g., '9 months', '15 months'
+    intervalFromPreviousDose?: string; // e.g., '6 months'
+  }[];
+}
+
+/**
+ * Represents a single immunization record for a patient.
+ * Path: /patients/{patientId}/immunizations/{immunizationId}
+ */
+export interface ImmunizationRecord {
+  immunizationId: string; // Document ID
+  vaccineCode: string; // Reference to 'vaccine_catalog'
+  vaccineName: string; // Denormalized for display
+  dateAdministered: string; // ISO Timestamp
+  doseNumber: number;
+  administeringClinicianId: string; // Reference to users.uid
+  site: string; // e.g., 'Left Deltoid', 'Right Vastus Lateralis'
+  lotNumber: string;
+  nextDueDate?: string; // ISO Timestamp, calculated by a Cloud Function
+  status: 'Administered' | 'Scheduled' | 'Missed';
 }
