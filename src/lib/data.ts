@@ -1,5 +1,4 @@
 
-
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
