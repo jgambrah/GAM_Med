@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OutpatientCheckinDashboard } from './components/outpatient-checkin-dashboard';
 import { InpatientAdmissionDashboard } from './components/inpatient-admission-dashboard';
 import { DischargeDashboard } from './components/discharge-dashboard';
+import { GlobalAlertsDashboard } from './components/global-alerts-dashboard';
 
 export default function AdminPage() {
   return (
@@ -22,10 +23,11 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="outpatient-checkin">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
+          <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
         </TabsList>
         <TabsContent value="outpatient-checkin" className="mt-4">
             <OutpatientCheckinDashboard />
@@ -35,6 +37,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="discharge-processing" className="mt-4">
             <DischargeDashboard />
+        </TabsContent>
+         <TabsContent value="global-alerts" className="mt-4">
+            <GlobalAlertsDashboard />
         </TabsContent>
       </Tabs>
     </div>
