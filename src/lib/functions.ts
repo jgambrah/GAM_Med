@@ -1,5 +1,4 @@
 
-
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -753,10 +752,66 @@ exports.onLabResultCompleted = functions.region('europe-west1').firestore
 // =======================================================================================
 
 /**
+ * Retrieves a list of available time slots for a specific doctor on a given date.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { doctorId: string, date: string (YYYY-MM-DD) }
+ */
+/*
+exports.getAvailableSlots = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { doctorId, date } = data;
+    const requestedDate = new Date(date);
+    const startOfDay = new Date(requestedDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(requestedDate.setHours(23, 59, 59, 999));
+
+    // 2. Fetch doctor's schedule and existing appointments for the day in parallel
+    const doctorScheduleQuery = db.collection('doctor_schedules')
+        .where('doctorId', '==', doctorId)
+        .where('date', '==', date.replace(/-/g, ''));
+        
+    const appointmentsQuery = db.collection('appointments')
+        .where('doctorId', '==', doctorId)
+        .where('startTime', '>=', startOfDay)
+        .where('startTime', '<=', endOfDay)
+        .where('status', '!=', 'Canceled');
+
+    const [scheduleSnapshot, appointmentsSnapshot] = await Promise.all([
+        doctorScheduleQuery.get(),
+        appointmentsQuery.get()
+    ]);
+
+    if (scheduleSnapshot.empty) {
+        return { availableSlots: [] }; // No schedule defined for this day
+    }
+
+    // 3. Process the schedule to find all possible slots
+    const doctorSchedule = scheduleSnapshot.docs[0].data();
+    let allPossibleSlots = [];
+    doctorSchedule.availableSlots.forEach(block => {
+        // Logic to break down the block (e.g., '0900' to '1200') into 30-minute slots
+        // ... allPossibleSlots.push({ start: ..., end: ... });
+    });
+
+    // 4. Filter out booked slots
+    const bookedSlots = appointmentsSnapshot.docs.map(doc => doc.data().startTime.toMillis());
+    const availableSlots = allPossibleSlots.filter(slot => {
+        return !bookedSlots.includes(slot.start.toMillis());
+    });
+    
+    return { availableSlots };
+});
+*/
+
+/**
  * Books a new appointment after performing complex availability and conflict checks.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, doctorId: string, startTime: Timestamp, endTime: Timestamp, ... }
+ * @input { patientId: string, doctorId: string, startTime: Timestamp, endTime: Timestamp, bookingSource: string, bookedByUserId: string, ... }
  */
 /*
 exports.bookAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -766,7 +821,7 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
     }
     // Add role check (admin, nurse, patient)
 
-    const { patientId, doctorId, startTime, endTime, requiredEquipmentIds } = data;
+    const { patientId, doctorId, startTime, endTime, bookingSource, bookedByUserId, requiredEquipmentIds } = data;
     // Server-side validation of input data here...
 
     const newAppointmentRef = db.collection('appointments').doc();
@@ -774,31 +829,21 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
     try {
         await db.runTransaction(async (transaction) => {
             const startTimestamp = admin.firestore.Timestamp.fromDate(new Date(startTime));
-            const endTimestamp = admin.firestore.Timestamp.fromDate(new Date(endTime));
-            const day = new Date(startTime).toISOString().split('T')[0].replace(/-/g, ''); // yyyymmdd
-
-            // 2. Fetch necessary documents for checks
-            const doctorScheduleRef = db.collection('doctor_schedules').where('doctorId', '==', doctorId).where('date', '==', day);
-            const doctorAppointmentsQuery = db.collection('appointments').where('doctorId', '==', doctorId).where('startTime', '>=', startTimestamp).where('startTime', '<', endTimestamp);
-
-            const [doctorScheduleSnap, doctorAppointmentsSnap] = await Promise.all([
-                transaction.get(doctorScheduleRef),
-                transaction.get(doctorAppointmentsQuery)
-            ]);
-
-            // 3. Perform Availability & Conflict Checks
             
-            // a) Check Doctor's Schedule
-            if (doctorScheduleSnap.empty) throw new Error('Doctor schedule not found for this day.');
-            // ... logic to check if requested time falls within availableSlots and not in unavailablePeriods ...
+            // 2. Perform a real-time check to ensure the slot hasn't been taken since it was displayed.
+            const conflictQuery = db.collection('appointments')
+                .where('doctorId', '==', doctorId)
+                .where('startTime', '==', startTimestamp)
+                .where('status', '!=', 'Canceled');
             
-            // b) Check Doctor's existing appointments
-            if (!doctorAppointmentsSnap.empty) throw new Error('Doctor has a conflicting appointment.');
-            
-            // c) Check Resource availability (if requiredEquipmentIds are provided)
-            // ... similar query and check logic for each resource ...
+            const conflictSnapshot = await transaction.get(conflictQuery);
+            if (!conflictSnapshot.empty) {
+                throw new Error('This appointment slot is no longer available. Please select another time.');
+            }
 
-            // 4. If all checks pass, create the new documents
+            // Additional checks for doctor schedule, resources, etc., can be repeated here if necessary for extra safety.
+            
+            // 3. If all checks pass, create the new documents
             const appointmentData = {
                 ...data,
                 appointmentId: newAppointmentRef.id,
@@ -814,7 +859,7 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
             transaction.set(patientHistoryRef, appointmentData);
         });
 
-        // 5. Send notifications
+        // 4. Send notifications
         // await sendConfirmationEmail(patientId, doctorId, startTime);
 
         console.log(`Appointment ${newAppointmentRef.id} booked successfully.`);
@@ -905,9 +950,11 @@ exports.sendAppointmentReminders = functions.region('europe-west1').pubsub
 
             const patientData = patientDoc.data();
             const contactInfo = patientData.contact.primaryPhone; // or email
-            const message = `Reminder: You have an appointment with ${appointment.doctorName} tomorrow at ${new Date(appointment.startTime.seconds * 1000).toLocaleTimeString()}.`;
             
-            // 3. Send SMS/email
+            // Example message construction
+            const message = `Hello ${patientData.full_name}, this is a reminder of your appointment with Dr. ${appointment.doctorName} tomorrow at ${new Date(appointment.startTime.seconds * 1000).toLocaleTimeString()}. Please be on time. Call 123-456-7890 to reschedule.`;
+            
+            // 3. Send SMS/email via a third-party service
             // await sendSms(contactInfo, message);
             console.log(`Sending reminder to ${contactInfo}: ${message}`);
         }
@@ -1676,3 +1723,5 @@ exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
+    
