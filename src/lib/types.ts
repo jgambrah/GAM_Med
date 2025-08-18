@@ -308,17 +308,18 @@ export interface Referral {
 
 /**
  * Represents a doctor's schedule for a specific day in the 'doctor_schedules' collection.
- * Document ID could be `${doctorId}_${YYYY-MM-DD}`.
+ * Document ID could be `${doctorId}_${YYYY-MM-DD}` for easy lookup.
  */
 export interface DoctorSchedule {
   schedule_id: string; // Document ID
   doctor_id: string;
-  date: string; // YYYY-MM-DD
-  working_hours: { start: string; end: string }[]; // e.g., [{ start: '09:00', end: '12:00' }, { start: '14:00', end: '17:00' }]
-  booked_slots: { start: string; end: string }[]; // Time slots already taken by appointments
+  date: string; // YYYY-MM-DD format
+  availableSlots: { start: string; end: string }[]; // e.g., [{ start: '09:00', end: '12:00' }]
+  unavailablePeriods: { start: string; end: string; reason: string }[]; // e.g., [{ start: '12:00', end: '13:00', reason: 'Lunch' }]
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
+
 
 /**
  * Represents a bookable clinical resource in the 'resources' collection.
@@ -548,5 +549,7 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
+
+    
 
     
