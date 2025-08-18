@@ -36,6 +36,7 @@ import { NewAppointmentSchema } from '@/lib/schemas';
 import { allPatients, allUsers } from '@/lib/data';
 import { Plus } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
+import { Combobox } from '@/components/ui/combobox';
 
 export function NewAppointmentDialog() {
   const [open, setOpen] = React.useState(false);
@@ -52,6 +53,10 @@ export function NewAppointmentDialog() {
   });
 
   const doctors = allUsers.filter((user) => user.role === 'doctor');
+  const patientOptions = allPatients.map(p => ({
+      value: p.patient_id,
+      label: `${p.full_name} (${p.patient_id})`
+  }));
 
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
     const result = await bookAppointment(values);
@@ -87,20 +92,14 @@ export function NewAppointmentDialog() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Patient</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a patient" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {allPatients.map((p) => (
-                        <SelectItem key={p.patient_id} value={p.patient_id}>
-                          {p.full_name} ({p.patient_id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                   <Combobox
+                        options={patientOptions}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Search for a patient..."
+                        searchPlaceholder='Search patients...'
+                        notFoundText='No patient found.'
+                    />
                   <FormMessage />
                 </FormItem>
               )}
