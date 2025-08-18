@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 interface AppointmentsListProps {
-  onAppointmentSelect: (appointment: Appointment) => void;
+  onAppointmentSelect: (appointment: Appointment | null) => void;
 }
 
 /**
@@ -76,19 +76,23 @@ export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps)
     React.useEffect(() => {
         if(todaysAppointments.length > 0 && !selectedAppointmentId) {
             handleSelect(todaysAppointments[0]);
+        } else if (todaysAppointments.length === 0 && selectedAppointmentId) {
+            // If the list becomes empty, deselect any active appointment
+            setSelectedAppointmentId(null);
+            onAppointmentSelect(null);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [todaysAppointments, selectedAppointmentId]);
 
 
     return (
-        <Card>
+        <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle>Today's Appointments</CardTitle>
                 <CardDescription>Select an appointment to view patient details.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-[60vh]">
+            <CardContent className="flex-grow overflow-hidden p-0">
+                <ScrollArea className="h-full p-6 pt-0">
                     <div className="space-y-2">
                         {todaysAppointments.length > 0 ? (
                             todaysAppointments.map((appt) => (

@@ -20,7 +20,7 @@ export default function MyPracticePage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
         <div className="lg:col-span-1">
           <AppointmentsList onAppointmentSelect={setSelectedAppointment} />
         </div>
@@ -32,7 +32,7 @@ export default function MyPracticePage() {
                     <CardHeader>
                         <CardTitle>My Assigned Referrals</CardTitle>
                         <CardDescription>
-                            A list of all patient referrals assigned to you for review. Select an appointment to view the patient's EHR.
+                            A list of all patient referrals assigned to you for review. Select an appointment to view that patient's EHR.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

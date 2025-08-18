@@ -18,10 +18,11 @@ import { DiagnosesTab } from '../../patients/[patientId]/components/diagnoses-ta
 import { MedicationsTab } from '../../patients/[patientId]/components/medications-tab';
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { OrderTestDialog } from '../../patients/[patientId]/page';
 import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { PatientAlerts } from '../../patients/[patientId]/components/patient-alerts';
+import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 
 
 interface PatientEHRProps {
@@ -45,13 +46,17 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
 
   return (
-    <Card className="h-full">
-        <ScrollArea className="h-full p-6">
+    <Card className="h-full flex flex-col">
+       <div className="p-6 pb-0">
+             <div className="space-y-1">
+                <h2 className="text-2xl font-semibold">{patient.full_name}</h2>
+                <p className="text-muted-foreground">Patient ID: {patient.patient_id}</p>
+            </div>
+        </div>
+        
+        <CardContent className="flex-grow overflow-hidden pt-4">
+          <ScrollArea className="h-full pr-4 -mr-4">
              <div className="space-y-4">
-                <div>
-                    <h2 className="text-2xl font-semibold">{patient.full_name}</h2>
-                    <p className="text-muted-foreground">Patient ID: {patient.patient_id}</p>
-                </div>
                 
                 <PatientAlerts patientId={patient.patient_id} />
 
@@ -61,13 +66,13 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                     <OrderTestDialog patientId={patient.patient_id} />
                 </div>
 
-
                 <Tabs defaultValue="notes" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 md:grid-cols-4 lg:grid-cols-8 h-auto">
                         <TabsTrigger value="notes">Notes</TabsTrigger>
                         <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
                         <TabsTrigger value="medications">Medications</TabsTrigger>
                         <TabsTrigger value="labs">Lab Results</TabsTrigger>
+                        <TabsTrigger value="vitals">Vitals</TabsTrigger>
                         <TabsTrigger value="admissions">Admissions</TabsTrigger>
                         <TabsTrigger value="demographics">Demographics</TabsTrigger>
                         <TabsTrigger value="billing">Billing</TabsTrigger>
@@ -84,6 +89,9 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                     <TabsContent value="labs" className="mt-4">
                         <LabResultsTab />
                     </TabsContent>
+                    <TabsContent value="vitals" className="mt-4">
+                        <VitalsTab patientId={patient.patient_id} />
+                    </TabsContent>
                      <TabsContent value="admissions" className="mt-4">
                         <AdmissionsHistoryTab admissions={admissions} />
                     </TabsContent>
@@ -96,6 +104,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                 </Tabs>
              </div>
         </ScrollArea>
+       </CardContent>
     </Card>
   );
 }
