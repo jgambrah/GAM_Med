@@ -102,6 +102,7 @@ export interface User {
  *   - care_plans/{planId}
  *   - medication_administration_logs/{logId}
  *   - immunizations/{immunizationId}
+ *   - appointment_history/{appointmentId}
  *
  * This structure enables granular security rules, allowing different clinical roles to access
  * only the specific parts of the EHR they are authorized to see.
@@ -270,6 +271,7 @@ export interface Appointment {
   duration: number; // in minutes
   type: 'consultation' | 'follow-up' | 'procedure';
   department: string;
+  resourceId?: string; // Optional reference to a 'resources' document
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
   notes: string;
   created_at: string; // ISO 8601 format
@@ -300,6 +302,48 @@ export interface Referral {
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
+
+/**
+ * Represents a doctor's schedule for a specific day in the 'doctor_schedules' collection.
+ * Document ID could be `${doctorId}_${YYYY-MM-DD}`.
+ */
+export interface DoctorSchedule {
+  schedule_id: string; // Document ID
+  doctor_id: string;
+  date: string; // YYYY-MM-DD
+  working_hours: { start: string; end: string }[]; // e.g., [{ start: '09:00', end: '12:00' }, { start: '14:00', end: '17:00' }]
+  booked_slots: { start: string; end: string }[]; // Time slots already taken by appointments
+  created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
+}
+
+/**
+ * Represents a bookable clinical resource in the 'resources' collection.
+ */
+export interface Resource {
+  resource_id: string; // Document ID
+  name: string; // e.g., 'Examination Room 1', 'ECG Machine'
+  type: 'Room' | 'Equipment';
+  department: string; // e.g., 'Cardiology'
+  is_available: boolean;
+  booked_slots?: { start: string; end: string, appointmentId: string }[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Represents a lightweight appointment record in the patient's sub-collection.
+ * Path: /patients/{patientId}/appointment_history/{appointmentId}
+ */
+export interface AppointmentHistory {
+  appointmentId: string; // Document ID, matches the one in the top-level collection
+  appointmentDate: string; // ISO Timestamp
+  doctorName: string;
+  department: string;
+  type: 'consultation' | 'follow-up' | 'procedure';
+  status: 'completed' | 'cancelled' | 'no-show';
+}
+
 
 // =========================================================================
 // == E-Prescribing & Pharmacy Data Models
@@ -493,6 +537,7 @@ export interface Vaccine {
  */
 export interface ImmunizationRecord {
   immunizationId: string; // Document ID
+  patientId: string;
   vaccineName: string; // e.g., 'MMR', 'Tetanus'
   doseNumber: number;
   administeredAt: string; // ISO Timestamp
