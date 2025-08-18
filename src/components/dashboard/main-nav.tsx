@@ -82,7 +82,7 @@ export function MainNav() {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'billing_clerk', 'patient'],
     },
     {
         href: '/dashboard/referrals',

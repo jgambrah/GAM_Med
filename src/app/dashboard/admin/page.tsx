@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { OutpatientCheckinDashboard } from './components/outpatient-checkin-dashboard';
 import { InpatientAdmissionDashboard } from './components/inpatient-admission-dashboard';
 import { DischargeDashboard } from './components/discharge-dashboard';
 import { GlobalAlertsDashboard } from './components/global-alerts-dashboard';
@@ -22,16 +21,12 @@ export default function AdminPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="outpatient-checkin">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
+      <Tabs defaultValue="inpatient-admissions">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
         </TabsList>
-        <TabsContent value="outpatient-checkin" className="mt-4">
-            <OutpatientCheckinDashboard />
-        </TabsContent>
          <TabsContent value="inpatient-admissions" className="mt-4">
             <InpatientAdmissionDashboard />
         </TabsContent>
