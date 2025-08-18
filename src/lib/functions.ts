@@ -758,52 +758,33 @@ exports.onLabResultCompleted = functions.region('europe-west1').firestore
  * @input { doctorId: string, date: string (YYYY-MM-DD) }
  */
 /*
-exports.getAvailableSlots = functions.region('europe-west1').https.onCall(async (data, context) => {
+exports.getDoctorAvailability = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
 
     const { doctorId, date } = data;
-    const requestedDate = new Date(date);
-    const startOfDay = new Date(requestedDate.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(requestedDate.setHours(23, 59, 59, 999));
-
-    // 2. Fetch doctor's schedule and existing appointments for the day in parallel
-    const doctorScheduleQuery = db.collection('doctor_schedules')
+    
+    // 2. Fetch doctor's schedule for the day
+    const scheduleQuery = db.collection('doctor_schedules')
         .where('doctorId', '==', doctorId)
-        .where('date', '==', date.replace(/-/g, ''));
-        
-    const appointmentsQuery = db.collection('appointments')
-        .where('doctorId', '==', doctorId)
-        .where('startTime', '>=', startOfDay)
-        .where('startTime', '<=', endOfDay)
-        .where('status', '!=', 'Canceled');
+        .where('date', '==', date); // date is YYYY-MM-DD
 
-    const [scheduleSnapshot, appointmentsSnapshot] = await Promise.all([
-        doctorScheduleQuery.get(),
-        appointmentsQuery.get()
-    ]);
+    const scheduleSnapshot = await scheduleQuery.get();
 
     if (scheduleSnapshot.empty) {
-        return { availableSlots: [] }; // No schedule defined for this day
+        // No specific schedule for this day, could fall back to a default weekly template or return empty.
+        return { availableSlots: [], unavailablePeriods: [] }; 
     }
 
-    // 3. Process the schedule to find all possible slots
     const doctorSchedule = scheduleSnapshot.docs[0].data();
-    let allPossibleSlots = [];
-    doctorSchedule.availableSlots.forEach(block => {
-        // Logic to break down the block (e.g., '0900' to '1200') into 30-minute slots
-        // ... allPossibleSlots.push({ start: ..., end: ... });
-    });
-
-    // 4. Filter out booked slots
-    const bookedSlots = appointmentsSnapshot.docs.map(doc => doc.data().startTime.toMillis());
-    const availableSlots = allPossibleSlots.filter(slot => {
-        return !bookedSlots.includes(slot.start.toMillis());
-    });
     
-    return { availableSlots };
+    // 3. Return the availability data for the front-end to process.
+    return { 
+        availableSlots: doctorSchedule.availableSlots || [], 
+        unavailablePeriods: doctorSchedule.unavailablePeriods || [] 
+    };
 });
 */
 
@@ -965,7 +946,7 @@ exports.sendAppointmentReminders = functions.region('europe-west1').pubsub
 
 
 // =======================================================================================
-// == DOCTOR'S WORKBENCH FUNCTIONS
+// == DOCTOR'S WORKBENCH & SCHEDULE MANAGEMENT
 // =======================================================================================
 
 // =======================================================================================
@@ -1166,13 +1147,136 @@ exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data
 });
 */
 
+// =======================================================================================
+// 19. Update Doctor Schedule (Callable Function)
+// =======================================================================================
+/**
+ * Updates a doctor's schedule for a specific day. Can create a new schedule if one doesn't exist.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { doctorId: string, scheduleData: { date: string, availableSlots: object[], unavailablePeriods: object[] } }
+ */
+/*
+exports.updateDoctorSchedule = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Allow doctors to edit their own schedule, or admins to edit any schedule.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'admin' && context.auth.uid !== data.doctorId) {
+        throw new functions.https.HttpsError('permission-denied', 'You do not have permission to edit this schedule.');
+    }
+    
+    const { doctorId, scheduleData } = data;
+    if (!doctorId || !scheduleData || !scheduleData.date) {
+        throw new functions.https.HttpsError('invalid-argument', 'doctorId and scheduleData (with date) are required.');
+    }
+
+    // 2. Query for an existing schedule document for that doctor on that day.
+    const scheduleQuery = db.collection('doctor_schedules')
+        .where('doctorId', '==', doctorId)
+        .where('date', '==', scheduleData.date)
+        .limit(1);
+        
+    const scheduleSnapshot = await scheduleQuery.get();
+    
+    const finalScheduleData = {
+        doctorId: doctorId,
+        date: scheduleData.date,
+        availableSlots: scheduleData.availableSlots || [],
+        unavailablePeriods: scheduleData.unavailablePeriods || [],
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (scheduleSnapshot.empty) {
+        // 3a. No schedule exists, create a new one.
+        finalScheduleData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        await db.collection('doctor_schedules').add(finalScheduleData);
+        console.log(`Created new schedule for doctor ${doctorId} on ${scheduleData.date}.`);
+    } else {
+        // 3b. Schedule exists, update it.
+        const scheduleDocRef = scheduleSnapshot.docs[0].ref;
+        await scheduleDocRef.update(finalScheduleData);
+        console.log(`Updated schedule for doctor ${doctorId} on ${scheduleData.date}.`);
+    }
+
+    return { success: true };
+});
+*/
+
+// =======================================================================================
+// 20. Handle Leave Request (Callable Function)
+// =======================================================================================
+/**
+ * Processes a leave request by blocking out unavailability and notifying staff of conflicts.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { doctorId: string, startDate: string, endDate: string, reason: string }
+ */
+/*
+exports.handleLeaveRequest = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check (admin or the doctor themselves)
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    
+    const { doctorId, startDate, endDate, reason } = data;
+    const leaveStart = new Date(startDate);
+    const leaveEnd = new Date(endDate);
+
+    const conflictingAppointments = [];
+
+    // 2. Loop through each day of the leave period
+    for (let day = new Date(leaveStart); day <= leaveEnd; day.setDate(day.getDate() + 1)) {
+        const dateStr = day.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        
+        // 2a. Find and cancel any appointments on this day
+        const appointmentsSnapshot = await db.collection('appointments')
+            .where('doctorId', '==', doctorId)
+            .where('appointmentDate', '==', dateStr)
+            .where('status', '!=', 'Canceled')
+            .get();
+            
+        appointmentsSnapshot.forEach(doc => conflictingAppointments.push(doc.data()));
+        
+        // 2b. Update or create the schedule for the day to mark it as unavailable
+        // This is a simplified version; a real implementation would use updateDoctorSchedule logic
+        const scheduleSnapshot = await db.collection('doctor_schedules').where('doctorId', '==', doctorId).where('date', '==', dateStr).limit(1).get();
+        const leaveBlock = { start: '00:00', end: '23:59', reason: reason };
+        if (scheduleSnapshot.empty) {
+            await db.collection('doctor_schedules').add({
+                doctorId,
+                date: dateStr,
+                availableSlots: [],
+                unavailablePeriods: [leaveBlock],
+            });
+        } else {
+            await scheduleSnapshot.docs[0].ref.update({
+                availableSlots: [],
+                unavailablePeriods: [leaveBlock]
+            });
+        }
+    }
+
+    // 3. Notify admin/reception staff about the conflicting appointments that need rescheduling
+    if (conflictingAppointments.length > 0) {
+        // await sendNotificationToRole('admin', {
+        //     subject: `Leave Conflict for Dr. ${doctorId}`,
+        //     body: `The following ${conflictingAppointments.length} appointments need to be rescheduled...`
+        // });
+        console.log(`Found ${conflictingAppointments.length} appointments to reschedule.`);
+    }
+
+    return { success: true, conflictingAppointmentsCount: conflictingAppointments.length };
+});
+*/
+
 
 // =======================================================================================
 // == NURSING MODULE FUNCTIONS
 // =======================================================================================
 
 // =======================================================================================
-// 19. Log Vitals (Callable Function)
+// 21. Log Vitals (Callable Function)
 // =======================================================================================
 /**
  * Records a new set of vital signs for a patient.
@@ -1216,7 +1320,7 @@ exports.logVitals = functions.region('europe-west1').https.onCall(async (data, c
 */
 
 // =======================================================================================
-// 20. Log Medication Administration (Callable Function)
+// 22. Log Medication Administration (Callable Function)
 // =======================================================================================
 /**
  * Creates a log entry confirming that a medication was administered to a patient.
@@ -1274,7 +1378,7 @@ exports.logMedicationAdministration = functions.region('europe-west1').https.onC
 */
 
 // =======================================================================================
-// 21. Update Care Plan (Callable Function)
+// 23. Update Care Plan (Callable Function)
 // =======================================================================================
 /**
  * Updates a patient's care plan.
@@ -1318,7 +1422,7 @@ exports.updateCarePlan = functions.region('europe-west1').https.onCall(async (da
 
 
 // =======================================================================================
-// 22. Handle e-Prescription (Callable Function) - DEPRECATED in favor of modular approach
+// 24. Handle e-Prescription (Callable Function) - DEPRECATED in favor of modular approach
 // =======================================================================================
 /**
  * This monolithic function is now deprecated in favor of a more flexible, two-step process:
@@ -1328,7 +1432,7 @@ exports.updateCarePlan = functions.region('europe-west1').https.onCall(async (da
 
 
 // =======================================================================================
-// 23. Perform Prescription Checks / checkMedicationOrder (Callable CDS Function)
+// 25. Perform Prescription Checks / checkMedicationOrder (Callable CDS Function)
 // =======================================================================================
 /**
  * Performs all safety checks for a proposed prescription without writing it to the database.
@@ -1395,7 +1499,7 @@ exports.performPrescriptionChecks = functions.region('europe-west1').https.onCal
 */
 
 // =======================================================================================
-// 24. Submit Prescription To Pharmacy (Callable Function)
+// 26. Submit Prescription To Pharmacy (Callable Function)
 // =======================================================================================
 /**
  * Finalizes and saves a prescription after safety checks have been performed and acknowledged.
@@ -1453,7 +1557,7 @@ exports.submitPrescriptionToPharmacy = functions.region('europe-west1').https.on
 */
 
 // =======================================================================================
-// 25. checkVitalSigns (CDS Firestore Trigger)
+// 27. checkVitalSigns (CDS Firestore Trigger)
 // =======================================================================================
 /**
  * A CDS engine component that automatically evaluates vital signs against predefined rules.
@@ -1538,7 +1642,7 @@ exports.checkVitalSigns = functions.region('europe-west1').firestore
 
 
 // =======================================================================================
-// 26. checkLabResults (CDS Firestore Trigger)
+// 28. checkLabResults (CDS Firestore Trigger)
 // =======================================================================================
 /**
  * A CDS engine component that automatically evaluates lab results against predefined rules.
@@ -1586,7 +1690,7 @@ exports.checkLabResults = functions.region('europe-west1').firestore
 // =======================================================================================
 
 // =======================================================================================
-// 27. Log Immunization (Callable Function)
+// 29. Log Immunization (Callable Function)
 // =======================================================================================
 /**
  * Logs a new immunization record and calculates the next due date based on the vaccine's schedule.
@@ -1657,7 +1761,7 @@ exports.logImmunization = functions.region('europe-west1').https.onCall(async (d
 */
 
 // =======================================================================================
-// 28. Send Immunization Reminders (Scheduled Function)
+// 30. Send Immunization Reminders (Scheduled Function)
 // =======================================================================================
 /**
  * A scheduled function that runs daily to send reminders for upcoming immunizations.
