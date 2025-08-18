@@ -276,6 +276,9 @@ export interface Appointment {
   notes: string;
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
+  bookingSource?: 'Online' | 'Call Center' | 'In-Person';
+  bookedByUserId?: string; // UID of user who booked
+  bookedAt?: string; // ISO Timestamp
 }
 
 /**
