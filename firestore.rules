@@ -3,144 +3,112 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the role of the currently authenticated user.
-    // It reads from the /users/{userId} document.
+    
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-    // Helper function to check if the authenticated user is the owner of the patient record.
-    function isPatient(patientId) {
-      // This is a more secure way to check. It fetches the user document
-      // and compares its patient_id field with the patientId from the path.
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return 'patient_id' in userDoc && userDoc.patient_id == patientId;
+    function isDoctor() {
+      return getUserRole() == 'doctor';
+    }
+    
+    function isPatient() {
+      return getUserRole() == 'patient';
+    }
+    
+    function isNurse() {
+      return getUserRole() == 'nurse';
+    }
+    
+    function isAdmin() {
+      return getUserRole() == 'admin';
+    }
+    
+    function isBillingClerk() {
+      return getUserRole() == 'billing_clerk';
+    }
+    
+    function isTriageOfficer() {
+        return getUserRole() == 'triage_officer';
+    }
+    
+    function isReceptionist() {
+        return getUserRole() == 'receptionist';
     }
 
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Admins can read and write any user document.
-      // Users can read and update their own document.
-      allow read, update: if getUserRole() == 'admin' || request.auth.uid == userId;
-      allow create: if getUserRole() == 'admin';
-    }
-
-    // Rules for the 'patients' collection and its sub-collections
     match /patients/{patientId} {
-      // Allow create access to admins and nurses.
-      allow create: if getUserRole() in ['admin', 'nurse'];
+      allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+      allow write: if isAdmin();
       
-      // Allow read/update access to admins, doctors, nurses, or the patient themselves.
-      allow read, update: if getUserRole() in ['admin', 'doctor', 'nurse'] || isPatient(patientId);
-      
-      // Deny delete access by default to prevent accidental data loss.
-      allow delete: if false;
-
-      // == Sub-collection: Clinical Notes ==
-      match /clinical_notes/{noteId} {
-        // Clinical staff can read all notes. Patients can only read notes for their own record.
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || isPatient(patientId);
-        // Only doctors and nurses can create or update notes.
-        allow create, update: if getUserRole() in ['doctor', 'nurse'];
-      }
-      
-      // == Sub-collection: Admissions ==
       match /admissions/{admissionId} {
-        // Clinical/admin staff can read. Patients can read their own.
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || isPatient(patientId);
-        // Only clinical/admin staff can create or update admissions.
-        allow create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+        allow write: if isDoctor() || isAdmin();
+      }
+      
+      match /clinical_notes/{noteId} {
+          allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+          allow create: if isDoctor() || isNurse();
+          allow update, delete: if isAdmin();
       }
 
-      // == Sub-collection: Alerts (Clinical Decision Support) ==
-      match /alerts/{alertId} {
-        // Clinical/admin staff can read alerts.
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        // Alerts are created by Cloud Functions and can be updated (acknowledged) by doctors/admins.
-        allow create: if false; // Only backend functions can create alerts.
-        allow update: if getUserRole() in ['admin', 'doctor'];
+      match /diagnoses/{diagnosisId} {
+          allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+          allow create: if isDoctor();
+          allow update, delete: if isAdmin();
+      }
+
+      match /lab_results/{testId} {
+          allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+          allow create: if isDoctor(); // Only a doctor can order a test
+          allow update: if isDoctor() || isAdmin(); // Lab tech would update via a function
       }
       
-      // == Sub-collection: Immunizations ==
-      match /immunizations/{immunizationId} {
-        // Allow read access to clinical staff or the patient themselves.
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || isPatient(patientId);
-        // Only clinical staff can create or update immunization records.
-        allow create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      match /medication_history/{prescriptionId} {
+          allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+          allow create: if isDoctor();
+          allow update, delete: if isDoctor() || isAdmin();
       }
       
-      // == Sub-collection: Appointment History ==
+      match /vitals/{vitalId} {
+          allow read: if request.auth.uid == patientId || isDoctor() || isNurse() || isAdmin();
+          allow create: if isNurse() || isDoctor();
+          allow update, delete: if isAdmin();
+      }
+
       match /appointment_history/{appointmentId} {
-        // Allow read to staff or the patient themselves.
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'] || isPatient(patientId);
-        // Write access should be locked down, as this is a denormalized collection managed by Cloud Functions.
-        allow write: if false; // Deny direct client writes.
+        allow read: if request.auth.uid == patientId || isReceptionist() || isAdmin();
+        allow write: if false; // Denormalized data, only written by backend functions
       }
     }
-    
-    // Rules for the 'beds' collection (Bed Management)
-    match /beds/{bedId} {
-        // All clinical and admin staff can view bed status.
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        // Only admins and nurses can update bed status (e.g., for cleaning, maintenance).
-        allow write: if getUserRole() in ['admin', 'nurse'];
-    }
-    
-    // Rules for the 'referrals' collection
-    match /referrals/{referralId} {
-      // Admins and doctors can manage referrals.
-      allow read, write: if getUserRole() in ['admin', 'doctor'];
-    }
 
-    // Rules for the 'clinical_rules' collection (CDS Engine)
-    match /clinical_rules/{ruleId} {
-      // All authenticated users (including CDS functions) can read the rules.
-      allow read: if request.auth != null;
-      // Only admins can modify the rules for the CDS engine.
-      allow write: if getUserRole() == 'admin';
-    }
-    
-    // Rules for the 'vaccine_catalog' collection (Immunization Module)
-    match /vaccine_catalog/{vaccineId} {
-      // Any authenticated user (including patients) can read the vaccine catalog.
-      allow read: if request.auth != null;
-      // Only admins can create, update, or delete vaccines from the catalog.
-      allow write: if getUserRole() == 'admin';
-    }
-    
-    // == Rules for Appointment & Scheduling Management ==
-    
-    // Rules for the top-level 'appointments' collection
     match /appointments/{appointmentId} {
-      // Patients can book their own appointments. Admins and roles like 'billing_clerk' (receptionist) can book for others.
-      allow create: if getUserRole() in ['admin', 'billing_clerk'] || request.auth.uid == request.resource.data.patientId;
-
-      // A user can read an appointment if they are an admin, staff, the patient, or the assigned doctor.
-      allow read: if getUserRole() in ['admin', 'doctor', 'billing_clerk'] || request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId;
-
-      // Admins and receptionists can update any appointment.
-      // Doctors can update appointments they are assigned to.
-      // Patients can only update their own appointments if they are cancelling it.
-      allow update: if getUserRole() in ['admin', 'billing_clerk']
-                    || (getUserRole() == 'doctor' && request.auth.uid == resource.data.doctorId)
-                    || (isPatient(resource.data.patientId) && request.resource.data.status == 'Canceled');
+      allow create: if isReceptionist() || isAdmin() || request.auth.uid == request.resource.data.patientId;
+      allow read: if request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId || isReceptionist() || isAdmin();
+      // Patient can only update to cancel their own appointment.
+      allow update: if isReceptionist() || isAdmin() || (isDoctor() && request.auth.uid == resource.data.doctorId) || (request.auth.uid == resource.data.patientId && request.resource.data.status == 'cancelled');
+      allow delete: if isAdmin();
     }
     
-    // Rules for the 'doctor_schedules' collection
     match /doctor_schedules/{scheduleId} {
-      // Any authenticated user can read doctor schedules to check for availability.
-      allow read: if request.auth != null;
-      // Only an admin or the doctor themselves can write to their schedule.
-      allow write: if getUserRole() == 'admin' || request.auth.uid == resource.data.doctorId;
+        allow read: if request.auth != null;
+        allow create, update: if isAdmin() || (isDoctor() && request.auth.uid == resource.data.doctorId);
+        allow delete: if isAdmin();
+    }
+
+    match /resources/{resourceId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
     }
     
-    // Rules for the 'resources' collection (e.g., rooms, equipment)
-    match /resources/{resourceId} {
-      // Any authenticated user can read resource availability.
-      allow read: if request.auth != null;
-      // Only admins can create, update, or delete resources.
-      allow write: if getUserRole() == 'admin';
+    match /referrals/{referralId} {
+        allow read: if request.auth != null;
+        allow create: if isReceptionist() || isTriageOfficer() || isAdmin();
+        allow update: if isDoctor() || isReceptionist() || isTriageOfficer() || isAdmin();
+    }
+    
+    match /users/{userId} {
+        allow read: if request.auth.uid == userId || isAdmin();
+        allow write: if isAdmin();
     }
   }
 }
