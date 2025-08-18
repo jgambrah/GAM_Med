@@ -130,3 +130,14 @@ export const LogImmunizationSchema = z.object({
   administeredAt: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid administration date is required.' }),
   notes: z.string().optional(),
 });
+
+/**
+ * Zod schema for validating a new appointment form.
+ */
+export const NewAppointmentSchema = z.object({
+  patientId: z.string().min(1, { message: "A patient must be selected." }),
+  doctorId: z.string().min(1, { message: "A doctor must be selected." }),
+  appointmentDate: z.string().refine((val) => val, { message: "Date is required." }),
+  appointmentTime: z.string().refine((val) => val, { message: "Time is required." }),
+  type: z.enum(['consultation', 'follow-up', 'procedure']),
+});

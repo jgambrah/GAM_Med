@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -310,4 +310,16 @@ export async function logImmunization(patientId: string, values: z.infer<typeof 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
     return { success: true, message: 'Immunization logged successfully.' };
+}
+
+export async function bookAppointment(values: z.infer<typeof NewAppointmentSchema>) {
+  console.log('Booking new appointment with values:', values);
+  // In a real app, this would call the `bookAppointment` Cloud Function.
+  // That function would handle all the complex availability and conflict checks.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  revalidatePath('/dashboard/appointments');
+  revalidatePath('/dashboard/my-practice');
+
+  return { success: true, message: 'Appointment booked successfully.' };
 }
