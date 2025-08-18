@@ -1,7 +1,5 @@
 
 
-
-
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -749,6 +747,175 @@ exports.onLabResultCompleted = functions.region('europe-west1').firestore
         return null;
     });
 */
+
+// =======================================================================================
+// == APPOINTMENT & SCHEDULING MANAGEMENT
+// =======================================================================================
+
+/**
+ * Books a new appointment after performing complex availability and conflict checks.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, doctorId: string, startTime: Timestamp, endTime: Timestamp, ... }
+ */
+/*
+exports.bookAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check (admin, nurse, patient)
+
+    const { patientId, doctorId, startTime, endTime, requiredEquipmentIds } = data;
+    // Server-side validation of input data here...
+
+    const newAppointmentRef = db.collection('appointments').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const startTimestamp = admin.firestore.Timestamp.fromDate(new Date(startTime));
+            const endTimestamp = admin.firestore.Timestamp.fromDate(new Date(endTime));
+            const day = new Date(startTime).toISOString().split('T')[0].replace(/-/g, ''); // yyyymmdd
+
+            // 2. Fetch necessary documents for checks
+            const doctorScheduleRef = db.collection('doctor_schedules').where('doctorId', '==', doctorId).where('date', '==', day);
+            const doctorAppointmentsQuery = db.collection('appointments').where('doctorId', '==', doctorId).where('startTime', '>=', startTimestamp).where('startTime', '<', endTimestamp);
+
+            const [doctorScheduleSnap, doctorAppointmentsSnap] = await Promise.all([
+                transaction.get(doctorScheduleRef),
+                transaction.get(doctorAppointmentsQuery)
+            ]);
+
+            // 3. Perform Availability & Conflict Checks
+            
+            // a) Check Doctor's Schedule
+            if (doctorScheduleSnap.empty) throw new Error('Doctor schedule not found for this day.');
+            // ... logic to check if requested time falls within availableSlots and not in unavailablePeriods ...
+            
+            // b) Check Doctor's existing appointments
+            if (!doctorAppointmentsSnap.empty) throw new Error('Doctor has a conflicting appointment.');
+            
+            // c) Check Resource availability (if requiredEquipmentIds are provided)
+            // ... similar query and check logic for each resource ...
+
+            // 4. If all checks pass, create the new documents
+            const appointmentData = {
+                ...data,
+                appointmentId: newAppointmentRef.id,
+                status: 'Scheduled',
+                bookedAt: admin.firestore.FieldValue.serverTimestamp(),
+                bookedByUserId: context.auth.uid
+            };
+
+            transaction.set(newAppointmentRef, appointmentData);
+
+            // Also create a record in the patient's history
+            const patientHistoryRef = db.collection('patients').doc(patientId).collection('appointment_history').doc(newAppointmentRef.id);
+            transaction.set(patientHistoryRef, appointmentData);
+        });
+
+        // 5. Send notifications
+        // await sendConfirmationEmail(patientId, doctorId, startTime);
+
+        console.log(`Appointment ${newAppointmentRef.id} booked successfully.`);
+        return { success: true, appointmentId: newAppointmentRef.id };
+
+    } catch (error) {
+        console.error('Failed to book appointment:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not book appointment.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Cancels an existing appointment.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { appointmentId: string, reason: string }
+ */
+/*
+exports.cancelAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add logic to check if user is the patient, the doctor, or an admin
+
+    const { appointmentId, reason } = data;
+    const appointmentRef = db.collection('appointments').doc(appointmentId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const appointmentDoc = await transaction.get(appointmentRef);
+            if (!appointmentDoc.exists) throw new Error('Appointment not found.');
+            
+            const patientId = appointmentDoc.data().patientId;
+            const patientHistoryRef = db.collection('patients').doc(patientId).collection('appointment_history').doc(appointmentId);
+
+            // 2. Update status in both locations
+            transaction.update(appointmentRef, { status: 'Canceled', cancellationReason: reason });
+            transaction.update(patientHistoryRef, { status: 'Canceled', cancellationReason: reason });
+        });
+        
+        // 3. Send cancellation notifications to patient and doctor.
+        // await sendCancellationEmail(...);
+
+        console.log(`Appointment ${appointmentId} canceled.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to cancel appointment:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not cancel appointment.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Sends reminders for appointments scheduled for the next day.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 17:00'
+ */
+/*
+exports.sendAppointmentReminders = functions.region('europe-west1').pubsub
+    .schedule('every day 17:00')
+    .timeZone('Africa/Accra')
+    .onRun(async (context) => {
+        const now = new Date();
+        const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+
+        // 1. Query for appointments happening tomorrow
+        const snapshot = await db.collection('appointments')
+            .where('startTime', '>=', admin.firestore.Timestamp.fromDate(tomorrowStart))
+            .where('startTime', '<', admin.firestore.Timestamp.fromDate(tomorrowEnd))
+            .where('status', '==', 'Scheduled')
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No appointments to send reminders for.');
+            return null;
+        }
+
+        // 2. Iterate and send reminders
+        for (const doc of snapshot.docs) {
+            const appointment = doc.data();
+            const patientDoc = await db.collection('patients').doc(appointment.patientId).get();
+            if (!patientDoc.exists) continue;
+
+            const patientData = patientDoc.data();
+            const contactInfo = patientData.contact.primaryPhone; // or email
+            const message = `Reminder: You have an appointment with ${appointment.doctorName} tomorrow at ${new Date(appointment.startTime.seconds * 1000).toLocaleTimeString()}.`;
+            
+            // 3. Send SMS/email
+            // await sendSms(contactInfo, message);
+            console.log(`Sending reminder to ${contactInfo}: ${message}`);
+        }
+
+        return null;
+    });
+*/
+
 
 // =======================================================================================
 // == DOCTOR'S WORKBENCH FUNCTIONS
