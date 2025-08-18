@@ -38,10 +38,12 @@ import { Plus } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
 export function NewAppointmentDialog() {
   const [open, setOpen] = React.useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof NewAppointmentSchema>>({
     resolver: zodResolver(NewAppointmentSchema),
@@ -70,11 +72,18 @@ export function NewAppointmentDialog() {
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
     const result = await bookAppointment(values);
     if (result.success) {
-      alert('Appointment booked successfully (simulated).');
+      toast({
+        title: 'Appointment Booked',
+        description: 'The appointment has been successfully scheduled.',
+      });
       setOpen(false);
       form.reset();
     } else {
-      alert(`Error: ${result.message || 'Failed to book appointment.'}`);
+      toast({
+        title: 'Booking Failed',
+        description: result.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -83,7 +92,7 @@ export function NewAppointmentDialog() {
       <DialogTrigger asChild>
         <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Book Appointment
+            Book New Appointment
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
