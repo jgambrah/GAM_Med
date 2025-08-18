@@ -37,20 +37,29 @@ import { allPatients, allUsers } from '@/lib/data';
 import { Plus } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
+import { useAuth } from '@/hooks/use-auth';
 
 export function NewAppointmentDialog() {
   const [open, setOpen] = React.useState(false);
-  
+  const { user } = useAuth();
+
   const form = useForm<z.infer<typeof NewAppointmentSchema>>({
     resolver: zodResolver(NewAppointmentSchema),
     defaultValues: {
-      patientId: '',
+      patientId: user?.role === 'patient' ? user.patient_id : '',
       doctorId: '',
       appointmentDate: '',
       appointmentTime: '',
       type: 'consultation',
     },
   });
+
+  React.useEffect(() => {
+    // If the user is a patient, ensure their ID is set in the form.
+    if (user?.role === 'patient' && user.patient_id) {
+      form.setValue('patientId', user.patient_id);
+    }
+  }, [user, form]);
 
   const doctors = allUsers.filter((user) => user.role === 'doctor');
   const patientOptions = allPatients.map(p => ({
@@ -86,13 +95,26 @@ export function NewAppointmentDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="patientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Patient</FormLabel>
-                   <Combobox
+            
+            {user?.role === 'patient' ? (
+                <FormField
+                    control={form.control}
+                    name="patientId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Patient</FormLabel>
+                        <Input value={user.name} disabled />
+                        </FormItem>
+                    )}
+                />
+            ) : (
+                <FormField
+                control={form.control}
+                name="patientId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Patient</FormLabel>
+                    <Combobox
                         options={patientOptions}
                         value={field.value}
                         onChange={field.onChange}
@@ -100,10 +122,12 @@ export function NewAppointmentDialog() {
                         searchPlaceholder='Search patients...'
                         notFoundText='No patient found.'
                     />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
+            
             <FormField
               control={form.control}
               name="doctorId"
