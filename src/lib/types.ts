@@ -272,7 +272,7 @@ export interface Appointment {
   type: 'consultation' | 'follow-up' | 'procedure';
   department: string;
   resourceId?: string; // Optional reference to a 'resources' document
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  status: 'confirmed' | 'completed' | 'cancelled' | 'no-show';
   notes: string;
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
@@ -545,3 +545,5 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
+
+    
