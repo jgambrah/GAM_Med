@@ -22,6 +22,17 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Appointment } from '@/lib/types';
+
+function getStatusVariant(status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" {
+    switch (status) {
+        case 'confirmed': return 'default';
+        case 'completed': return 'secondary';
+        case 'cancelled': return 'destructive';
+        default: return 'outline';
+    }
+}
 
 function DoctorDashboard() {
   const { user } = useAuth();
@@ -41,7 +52,7 @@ function DoctorDashboard() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="col-span-1">
+        <div className="col-span-1 lg:col-span-2">
              <Card>
               <CardHeader>
                 <CardTitle>Today's Appointments</CardTitle>
@@ -70,13 +81,15 @@ function DoctorDashboard() {
                             <TableCell>
                               <Link
                                 href={`/dashboard/patients/${appt.patient_id}`}
-                                className="hover:underline"
+                                className="hover:underline text-primary"
                               >
                                 {appt.patient_name}
                               </Link>
                             </TableCell>
-                            <TableCell>{appt.type}</TableCell>
-                            <TableCell>{appt.status}</TableCell>
+                            <TableCell className="capitalize">{appt.type}</TableCell>
+                            <TableCell>
+                                <Badge variant={getStatusVariant(appt.status)}>{appt.status}</Badge>
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -92,7 +105,7 @@ function DoctorDashboard() {
               </CardContent>
             </Card>
         </div>
-        <div className="col-span-1">
+        <div className="col-span-1 lg:col-span-2">
             <InpatientList />
         </div>
     </div>
@@ -105,6 +118,7 @@ export default function DashboardPage() {
   
   const isDoctor = user && user.role === 'doctor';
   const isPatient = user && user.role === 'patient';
+  const isNurse = user && user.role === 'nurse';
 
   return (
     <div className="space-y-6">
@@ -120,7 +134,19 @@ export default function DashboardPage() {
 
       {isPatient && <PatientDashboard />}
 
-      {!isDoctor && !isPatient && (
+      {isNurse && (
+        <div className="p-8 border-2 border-dashed rounded-lg text-center">
+            <h3 className="text-xl font-semibold">Nursing Station Dashboard</h3>
+            <p className="text-muted-foreground mt-2">
+                A summary of your ward's status, pending tasks, and alerts will appear here.
+            </p>
+            <Button asChild className="mt-4">
+                <Link href="/dashboard/nursing">Go to Nursing Station</Link>
+            </Button>
+        </div>
+      )}
+
+      {!isDoctor && !isPatient && !isNurse && (
         <div className="p-8 border-2 border-dashed rounded-lg text-center">
           <p className="text-muted-foreground">Your role-specific dashboard will appear here.</p>
         </div>

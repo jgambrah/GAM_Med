@@ -13,19 +13,28 @@ import { AppointmentsDataTable } from './components/data-table';
 import { allAppointments } from '@/lib/data';
 import { NewAppointmentDialog } from './components/new-appointment-dialog';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/use-auth';
+import { Appointment } from '@/lib/types';
 
 export default function AppointmentsPage() {
-    // In a real app, this data would be fetched and filtered based on user role and search queries.
-    const [appointments, setAppointments] = React.useState(allAppointments);
+    const { user } = useAuth();
+    const [appointments, setAppointments] = React.useState<Appointment[]>([]);
     const [searchQuery, setSearchQuery] = React.useState('');
 
     React.useEffect(() => {
-        const filtered = allAppointments.filter(appt => 
+        let baseAppointments = allAppointments;
+
+        // If the user is a patient, show only their appointments.
+        if (user?.role === 'patient') {
+            baseAppointments = allAppointments.filter(appt => appt.patient_id === user.patient_id);
+        }
+
+        const filtered = baseAppointments.filter(appt => 
             appt.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             appt.doctor_name.toLowerCase().includes(searchQuery.toLowerCase())
         );
         setAppointments(filtered);
-    }, [searchQuery]);
+    }, [searchQuery, user]);
 
   return (
     <div className="space-y-6">
@@ -33,23 +42,31 @@ export default function AppointmentsPage() {
         <div>
           <h1 className="text-3xl font-bold">Appointment Scheduling</h1>
           <p className="text-muted-foreground">
-            View, book, and manage all patient appointments.
+            {user?.role === 'patient' 
+                ? "View and manage your appointments."
+                : "View, book, and manage all patient appointments."
+            }
           </p>
         </div>
-        <NewAppointmentDialog />
+        {user?.role !== 'patient' && <NewAppointmentDialog />}
       </div>
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
              <div>
-                <CardTitle>All Appointments</CardTitle>
+                <CardTitle>
+                    {user?.role === 'patient' ? "My Appointments" : "All Appointments"}
+                </CardTitle>
                 <CardDescription>
-                    A comprehensive list of all scheduled appointments.
+                    {user?.role === 'patient' 
+                        ? "A list of your upcoming and past appointments."
+                        : "A comprehensive list of all scheduled appointments."
+                    }
                 </CardDescription>
              </div>
              <div className="w-full sm:w-auto">
                 <Input
-                    placeholder="Search by patient or doctor..."
+                    placeholder={user?.role === 'patient' ? "Search by doctor..." : "Search by patient or doctor..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="max-w-sm"
