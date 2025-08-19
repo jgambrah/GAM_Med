@@ -26,6 +26,17 @@ export const allUsers: User[] = [
     last_login: now.toISOString(),
   },
   {
+    uid: 'doc2',
+    email: 'k.asante@gammed.com',
+    name: 'Dr. Kofi Asante',
+    role: 'doctor',
+    is_active: true,
+    specialty: 'Neurology',
+    department: 'Neurology',
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
     uid: 'nurse1',
     email: 'f.agyepong@gammed.com',
     name: 'Florence Agyepong',

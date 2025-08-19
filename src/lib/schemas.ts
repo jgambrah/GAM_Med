@@ -1,5 +1,4 @@
 
-
 import { z } from 'zod';
 
 /**
@@ -136,7 +135,8 @@ export const LogImmunizationSchema = z.object({
  */
 export const NewAppointmentSchema = z.object({
   patientId: z.string().min(1, { message: "A patient must be selected." }),
-  doctorId: z.string().min(1, { message: "A doctor must be selected." }),
+  department: z.string().min(1, { message: "A department must be selected." }),
+  doctorId: z.string().optional(),
   appointmentDate: z.string().refine((val) => val, { message: "Date is required." }),
   appointmentTime: z.string().refine((val) => val, { message: "Time is required." }),
   type: z.enum(['consultation', 'follow-up', 'procedure']),

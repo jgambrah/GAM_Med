@@ -40,6 +40,15 @@ import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 
+const mockDepartments = [
+    { value: 'Cardiology', label: 'Cardiology' },
+    { value: 'Orthopedics', label: 'Orthopedics' },
+    { value: 'Pediatrics', label: 'Pediatrics' },
+    { value: 'Neurology', label: 'Neurology' },
+    { value: 'General Surgery', label: 'General Surgery' },
+    { value: 'Dermatology', label: 'Dermatology' },
+];
+
 export function NewAppointmentDialog() {
   const [open, setOpen] = React.useState(false);
   const { user } = useAuth();
@@ -49,6 +58,7 @@ export function NewAppointmentDialog() {
     resolver: zodResolver(NewAppointmentSchema),
     defaultValues: {
       patientId: user?.role === 'patient' ? user.patient_id : '',
+      department: '',
       doctorId: '',
       appointmentDate: '',
       appointmentTime: '',
@@ -62,8 +72,14 @@ export function NewAppointmentDialog() {
       form.setValue('patientId', user.patient_id);
     }
   }, [user, form]);
+  
+  const selectedDepartment = form.watch('department');
 
   const doctors = allUsers.filter((user) => user.role === 'doctor');
+  const filteredDoctors = selectedDepartment 
+    ? doctors.filter(doc => doc.department === selectedDepartment)
+    : doctors;
+
   const patientOptions = allPatients.map(p => ({
       value: p.patient_id,
       label: `${p.full_name} (${p.patient_id})`
@@ -139,18 +155,47 @@ export function NewAppointmentDialog() {
             
             <FormField
               control={form.control}
-              name="doctorId"
+              name="department"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Doctor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormLabel>Department</FormLabel>
+                  <Select onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue('doctorId', ''); // Reset doctor when department changes
+                  }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a doctor" />
+                        <SelectValue placeholder="Select a department" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {doctors.map((d) => (
+                      {mockDepartments.map((d) => (
+                        <SelectItem key={d.value} value={d.value}>
+                          {d.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="doctorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Doctor (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedDepartment}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedDepartment ? "Any available doctor" : "Select a department first"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">Any available doctor</SelectItem>
+                      {filteredDoctors.map((d) => (
                         <SelectItem key={d.uid} value={d.uid}>
                           {d.name}
                         </SelectItem>
@@ -161,6 +206,7 @@ export function NewAppointmentDialog() {
                 </FormItem>
               )}
             />
+
             <div className="grid grid-cols-2 gap-4">
                  <FormField
                     control={form.control}
