@@ -57,7 +57,7 @@ export function NewAppointmentDialog() {
   const form = useForm<z.infer<typeof NewAppointmentSchema>>({
     resolver: zodResolver(NewAppointmentSchema),
     defaultValues: {
-      patientId: user?.role === 'patient' ? user.patient_id : '',
+      patientId: '',
       department: '',
       doctorId: 'any',
       appointmentDate: '',
@@ -70,6 +70,9 @@ export function NewAppointmentDialog() {
     // If the user is a patient, ensure their ID is set in the form.
     if (user?.role === 'patient' && user.patient_id) {
       form.setValue('patientId', user.patient_id);
+    } else {
+      // If not a patient, reset to default in case of role switch
+      form.setValue('patientId', '');
     }
   }, [user, form]);
   
@@ -93,7 +96,14 @@ export function NewAppointmentDialog() {
         description: 'The appointment has been successfully scheduled.',
       });
       setOpen(false);
-      form.reset();
+      form.reset({
+        patientId: user?.role === 'patient' ? user.patient_id : '',
+        department: '',
+        doctorId: 'any',
+        appointmentDate: '',
+        appointmentTime: '',
+        type: 'consultation',
+      });
     } else {
       toast({
         title: 'Booking Failed',
@@ -122,16 +132,13 @@ export function NewAppointmentDialog() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             
             {user?.role === 'patient' ? (
-                <FormField
-                    control={form.control}
-                    name="patientId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Patient</FormLabel>
-                        <Input value={user.name} disabled />
-                        </FormItem>
-                    )}
-                />
+                <FormItem>
+                  <FormLabel>Patient</FormLabel>
+                  <FormControl>
+                    <Input value={user.name} disabled />
+                  </FormControl>
+                  <input type="hidden" {...form.register('patientId')} />
+                </FormItem>
             ) : (
                 <FormField
                 control={form.control}
