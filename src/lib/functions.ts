@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -789,10 +790,64 @@ exports.getDoctorAvailability = functions.region('europe-west1').https.onCall(as
 */
 
 /**
+ * Retrieves a list of all available time slots for an entire clinic on a given date.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { clinicId: string, date: string (YYYY-MM-DD) }
+ */
+/*
+exports.getClinicAvailability = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { clinicId, date } = data;
+    
+    // 2. Fetch all doctors affiliated with the clinic.
+    const clinicDoc = await db.collection('clinics').doc(clinicId).get();
+    if (!clinicDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Clinic not found.');
+    }
+    const { affiliatedDoctorIds } = clinicDoc.data();
+
+    // 3. Fetch all schedules for those doctors on the specified date.
+    // Firestore 'in' query is limited to 10 items, for more doctors, multiple queries would be needed.
+    const schedulesQuery = db.collection('doctor_schedules')
+        .where('doctorId', 'in', affiliatedDoctorIds)
+        .where('date', '==', date);
+    
+    const schedulesSnapshot = await schedulesQuery.get();
+    
+    // 4. Aggregate all available time slots from all schedules.
+    let allAvailableSlots = [];
+    schedulesSnapshot.forEach(doc => {
+        allAvailableSlots.push(...doc.data().availableSlots);
+    });
+
+    // 5. Query for all existing appointments for those doctors on that day to find booked slots.
+    const appointmentsQuery = db.collection('appointments')
+        .where('doctorId', 'in', affiliatedDoctorIds)
+        .where('appointment_date', '==', date)
+        .where('status', '!=', 'Canceled');
+        
+    const appointmentsSnapshot = await appointmentsQuery.get();
+    const bookedSlots = appointmentsSnapshot.docs.map(doc => doc.data().startTime); // Assuming startTime is a unique identifier for the slot.
+
+    // 6. Filter out the booked slots from the aggregated available slots.
+    const finalAvailableSlots = allAvailableSlots.filter(slot => !bookedSlots.includes(slot.start));
+
+    // 7. Return the comprehensive list of available slots for the entire clinic.
+    return { availableSlots: finalAvailableSlots };
+});
+*/
+
+
+/**
  * Books a new appointment after performing complex availability and conflict checks.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, doctorId: string, startTime: Timestamp, endTime: Timestamp, bookingSource: string, bookedByUserId: string, ... }
+ * @input { patientId: string, doctorId: string, clinicId?: string, startTime: Timestamp, endTime: Timestamp, ... }
  */
 /*
 exports.bookAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -802,7 +857,7 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
     }
     // Add role check (admin, nurse, patient)
 
-    const { patientId, doctorId, startTime, endTime, bookingSource, bookedByUserId, requiredEquipmentIds } = data;
+    const { patientId, doctorId, clinicId, startTime, endTime, requiredEquipmentIds } = data;
     // Server-side validation of input data here...
 
     const newAppointmentRef = db.collection('appointments').doc();
@@ -822,9 +877,15 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
                 throw new Error('This appointment slot is no longer available. Please select another time.');
             }
 
-            // Additional checks for doctor schedule, resources, etc., can be repeated here if necessary for extra safety.
+            // 3. If clinicId is provided, validate the doctor belongs to the clinic.
+            if (clinicId) {
+                const clinicDoc = await transaction.get(db.collection('clinics').doc(clinicId));
+                if (!clinicDoc.exists || !clinicDoc.data().affiliatedDoctorIds.includes(doctorId)) {
+                    throw new Error('The selected doctor is not affiliated with this clinic.');
+                }
+            }
             
-            // 3. If all checks pass, create the new documents
+            // 4. If all checks pass, create the new documents
             const appointmentData = {
                 ...data,
                 appointmentId: newAppointmentRef.id,
@@ -840,7 +901,7 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
             transaction.set(patientHistoryRef, appointmentData);
         });
 
-        // 4. Send notifications
+        // 5. Send notifications
         // await sendConfirmationEmail(patientId, doctorId, startTime);
 
         console.log(`Appointment ${newAppointmentRef.id} booked successfully.`);
@@ -1829,3 +1890,4 @@ exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
 */
 
     
+
