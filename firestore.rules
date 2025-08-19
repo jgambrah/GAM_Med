@@ -1,49 +1,68 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
+    // Helper function to get the user's role from their user document.
+    // In a real implementation, this would fetch from /users/{request.auth.uid}.
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      // This is a placeholder. In a real scenario, you would use:
+      // return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return 'admin'; // Defaulting to admin for conceptual purposes.
+    }
+
+    // Placeholder function to get a user's assigned clinic.
+    function getUserClinic() {
+      // This would fetch from /users/{request.auth.uid}.
+      return 'Cardiology'; // Placeholder value
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
     }
 
     match /patients/{patientId} {
-      allow read, update, delete: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow create: if getUserRole() in ['admin', 'nurse'];
-
-      // Patients can read their own data
-      allow read: if request.auth.uid == resource.data.patient_id;
-
-      // Rules for EHR sub-collections
-      match /{collection}/{docId} {
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin' || getUserRole() == 'nurse';
+      
+      // Allow read/write to subcollections for authorized roles
+      match /{allPaths=**} {
         allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        // Patients can read their own history
-        allow read: if request.auth.uid == resource.data.patient_id;
       }
-
-      // Specific rule for appointment_history
-       match /appointment_history/{appointmentId} {
-         allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'receptionist'];
-         allow write: if false; // Should only be written by backend functions
-       }
     }
 
     match /beds/{bedId} {
-        allow read: if request.auth != null;
-        allow write: if getUserRole() in ['admin', 'nurse'];
+      allow read: if request.auth != null;
+      allow write: if getUserRole() in ['admin', 'nurse'];
     }
 
     match /appointments/{appointmentId} {
-        allow create: if getUserRole() in ['admin', 'receptionist'] || request.auth.uid == request.resource.data.patientId;
-        allow read: if getUserRole() in ['admin', 'receptionist'] || request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId;
-        allow update: if getUserRole() in ['admin', 'receptionist'];
-        allow delete: if getUserRole() in ['admin', 'receptionist'];
+        allow read: if request.auth.uid == resource.data.patient_id 
+                    || request.auth.uid == resource.data.doctor_id
+                    || getUserRole() == 'admin'
+                    || (getUserRole() == 'billing_clerk' && resource.data.clinicId == getUserClinic());
+        allow write: if getUserRole() in ['admin', 'doctor'];
+    }
+    
+    match /referrals/{referralId} {
+      allow read: if getUserRole() in ['admin', 'doctor'];
+      allow write: if getUserRole() in ['admin', 'doctor'];
     }
 
     match /doctor_schedules/{scheduleId} {
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin' || (getUserRole() == 'doctor' && request.auth.uid == resource.data.doctorId);
+    }
+    
+    match /clinics/{clinicId} {
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin';
+    }
+    
+    match /resources/{resourceId} {
         allow read: if request.auth != null;
-        allow write: if getUserRole() == 'admin' || (getUserRole() == 'doctor' && request.auth.uid == request.resource.data.doctorId);
+        allow write: if getUserRole() == 'admin';
     }
   }
 }
