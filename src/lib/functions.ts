@@ -847,7 +847,7 @@ exports.getClinicAvailability = functions.region('europe-west1').https.onCall(as
  * Books a new appointment after performing complex availability and conflict checks.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, doctorId: string, clinicId?: string, startTime: Timestamp, endTime: Timestamp, ... }
+ * @input { patientId: string, doctorId: string | null, clinicId: string, startTime: Timestamp, endTime: Timestamp, ... }
  */
 /*
 exports.bookAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -857,7 +857,7 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
     }
     // Add role check (admin, nurse, patient)
 
-    const { patientId, doctorId, clinicId, startTime, endTime, requiredEquipmentIds } = data;
+    let { patientId, doctorId, clinicId, startTime, endTime, requiredEquipmentIds } = data;
     // Server-side validation of input data here...
 
     const newAppointmentRef = db.collection('appointments').doc();
@@ -866,7 +866,38 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
         await db.runTransaction(async (transaction) => {
             const startTimestamp = admin.firestore.Timestamp.fromDate(new Date(startTime));
             
-            // 2. Perform a real-time check to ensure the slot hasn't been taken since it was displayed.
+            // 2. Automated Doctor Allocation
+            if (!doctorId) {
+                if (!clinicId) {
+                    throw new Error('You must provide either a doctorId or a clinicId.');
+                }
+                // Fetch affiliated doctors for the clinic
+                const clinicDoc = await transaction.get(db.collection('clinics').doc(clinicId));
+                if (!clinicDoc.exists) throw new Error('Clinic not found.');
+                const affiliatedDoctorIds = clinicDoc.data().affiliatedDoctorIds;
+                
+                // Find the first available doctor (simple round-robin or first-available strategy)
+                let assignedDoctorId = null;
+                for (const docId of affiliatedDoctorIds) {
+                    const conflictQuery = db.collection('appointments')
+                        .where('doctorId', '==', docId)
+                        .where('startTime', '==', startTimestamp)
+                        .where('status', '!=', 'Canceled');
+                    const conflictSnapshot = await transaction.get(conflictQuery);
+                    if (conflictSnapshot.empty) {
+                        // This doctor is available, assign them.
+                        assignedDoctorId = docId;
+                        break; 
+                    }
+                }
+                
+                if (!assignedDoctorId) {
+                    throw new Error('No doctors are available in this clinic at the selected time.');
+                }
+                doctorId = assignedDoctorId; // Set the found doctorId for the rest of the transaction.
+            }
+            
+            // 3. Perform a real-time check to ensure the slot hasn't been taken.
             const conflictQuery = db.collection('appointments')
                 .where('doctorId', '==', doctorId)
                 .where('startTime', '==', startTimestamp)
@@ -876,18 +907,11 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
             if (!conflictSnapshot.empty) {
                 throw new Error('This appointment slot is no longer available. Please select another time.');
             }
-
-            // 3. If clinicId is provided, validate the doctor belongs to the clinic.
-            if (clinicId) {
-                const clinicDoc = await transaction.get(db.collection('clinics').doc(clinicId));
-                if (!clinicDoc.exists || !clinicDoc.data().affiliatedDoctorIds.includes(doctorId)) {
-                    throw new Error('The selected doctor is not affiliated with this clinic.');
-                }
-            }
             
             // 4. If all checks pass, create the new documents
             const appointmentData = {
                 ...data,
+                doctorId: doctorId, // Ensure the assigned doctorId is set
                 appointmentId: newAppointmentRef.id,
                 status: 'Scheduled',
                 bookedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1890,4 +1914,5 @@ exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
 */
 
     
+
 
