@@ -39,6 +39,7 @@ import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const mockDepartments = [
     { value: 'Cardiology', label: 'Cardiology' },
@@ -49,8 +50,14 @@ const mockDepartments = [
     { value: 'Dermatology', label: 'Dermatology' },
 ];
 
+const mockAvailableSlots = [
+  '09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30'
+];
+
 export function NewAppointmentDialog() {
   const [open, setOpen] = React.useState(false);
+  const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -67,16 +74,30 @@ export function NewAppointmentDialog() {
   });
 
   React.useEffect(() => {
-    // If the user is a patient, ensure their ID is set in the form.
     if (user?.role === 'patient' && user.patient_id) {
       form.setValue('patientId', user.patient_id);
     } else {
-      // If not a patient, reset to default in case of role switch
-      form.setValue('patientId', '');
+      form.setValue('patientId', user?.patient_id || '');
     }
   }, [user, form]);
   
   const selectedDepartment = form.watch('department');
+  const selectedDate = form.watch('appointmentDate');
+
+  React.useEffect(() => {
+    // This simulates fetching available slots when a date is selected.
+    if (selectedDate) {
+        setIsLoadingSlots(true);
+        // In a real app, you would call `getClinicAvailability` or `getDoctorAvailability` here.
+        setTimeout(() => {
+            setAvailableSlots(mockAvailableSlots);
+            setIsLoadingSlots(false);
+        }, 500); // Simulate network delay
+    } else {
+        setAvailableSlots([]);
+    }
+  }, [selectedDate]);
+
 
   const doctors = allUsers.filter((user) => user.role === 'doctor');
   const filteredDoctors = selectedDepartment 
@@ -168,7 +189,7 @@ export function NewAppointmentDialog() {
                   <FormLabel>Department</FormLabel>
                   <Select onValueChange={(value) => {
                       field.onChange(value);
-                      form.setValue('doctorId', 'any'); // Reset doctor when department changes
+                      form.setValue('doctorId', 'any');
                   }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -214,34 +235,52 @@ export function NewAppointmentDialog() {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                    control={form.control}
-                    name="appointmentDate"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+            <FormField
+                control={form.control}
+                name="appointmentDate"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Date</FormLabel>
+                        <FormControl>
+                            <Input type="date" {...field} min={new Date().toISOString().split('T')[0]} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+            {selectedDate && (
                 <FormField
                     control={form.control}
                     name="appointmentTime"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Time</FormLabel>
-                            <FormControl>
-                                <Input type="time" {...field} />
+                            <FormLabel>Available Time Slots</FormLabel>
+                             <FormControl>
+                                <div className="grid grid-cols-4 gap-2">
+                                     {isLoadingSlots ? (
+                                        <p className="text-sm text-muted-foreground col-span-4">Loading slots...</p>
+                                    ) : availableSlots.length > 0 ? (
+                                        availableSlots.map(slot => (
+                                            <Button
+                                                key={slot}
+                                                type="button"
+                                                variant={field.value === slot ? 'default' : 'outline'}
+                                                onClick={() => field.onChange(slot)}
+                                                className="w-full"
+                                            >
+                                                {slot}
+                                            </Button>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground col-span-4">No available slots on this date.</p>
+                                    )}
+                                </div>
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-            </div>
+            )}
              <FormField
               control={form.control}
               name="type"
