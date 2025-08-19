@@ -59,7 +59,7 @@ export function NewAppointmentDialog() {
     defaultValues: {
       patientId: user?.role === 'patient' ? user.patient_id : '',
       department: '',
-      doctorId: '',
+      doctorId: 'any',
       appointmentDate: '',
       appointmentTime: '',
       type: 'consultation',
@@ -161,7 +161,7 @@ export function NewAppointmentDialog() {
                   <FormLabel>Department</FormLabel>
                   <Select onValueChange={(value) => {
                       field.onChange(value);
-                      form.setValue('doctorId', ''); // Reset doctor when department changes
+                      form.setValue('doctorId', 'any'); // Reset doctor when department changes
                   }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -194,7 +194,7 @@ export function NewAppointmentDialog() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Any available doctor</SelectItem>
+                      <SelectItem value="any">Any available doctor</SelectItem>
                       {filteredDoctors.map((d) => (
                         <SelectItem key={d.uid} value={d.uid}>
                           {d.name}
