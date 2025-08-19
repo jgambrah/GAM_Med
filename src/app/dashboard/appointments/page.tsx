@@ -15,26 +15,50 @@ import { NewAppointmentDialog } from './components/new-appointment-dialog';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
 import { Appointment } from '@/lib/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+
+const mockDepartments = [
+    { value: 'all', label: 'All Departments' },
+    { value: 'Cardiology', label: 'Cardiology' },
+    { value: 'Orthopedics', label: 'Orthopedics' },
+    { value: 'Pediatrics', label: 'Pediatrics' },
+    { value: 'Neurology', label: 'Neurology' },
+    { value: 'General Surgery', label: 'General Surgery' },
+    { value: 'Dermatology', label: 'Dermatology' },
+];
+
 
 export default function AppointmentsPage() {
     const { user } = useAuth();
     const [appointments, setAppointments] = React.useState<Appointment[]>([]);
     const [searchQuery, setSearchQuery] = React.useState('');
+    const [selectedDepartment, setSelectedDepartment] = React.useState('all');
 
     React.useEffect(() => {
         let baseAppointments = allAppointments;
 
-        // If the user is a patient, show only their appointments.
         if (user?.role === 'patient') {
             baseAppointments = allAppointments.filter(appt => appt.patient_id === user.patient_id);
         }
 
-        const filtered = baseAppointments.filter(appt => 
+        const filteredBySearch = baseAppointments.filter(appt => 
             appt.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             appt.doctor_name.toLowerCase().includes(searchQuery.toLowerCase())
         );
-        setAppointments(filtered);
-    }, [searchQuery, user]);
+
+        const filteredByDept = selectedDepartment === 'all'
+            ? filteredBySearch
+            : filteredBySearch.filter(appt => appt.department === selectedDepartment);
+
+        setAppointments(filteredByDept);
+    }, [searchQuery, user, selectedDepartment]);
 
   return (
     <div className="space-y-6">
@@ -64,13 +88,32 @@ export default function AppointmentsPage() {
                     }
                 </CardDescription>
              </div>
-             <div className="w-full sm:w-auto">
-                <Input
-                    placeholder={user?.role === 'patient' ? "Search by doctor..." : "Search by patient or doctor..."}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="max-w-sm"
-                />
+             <div className="flex items-center gap-2">
+                {user?.role !== 'patient' && (
+                    <div className="w-full sm:w-[200px]">
+                        <Label htmlFor="department-filter" className="sr-only">Filter by Department</Label>
+                         <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                            <SelectTrigger id="department-filter">
+                                <SelectValue placeholder="Filter by department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {mockDepartments.map((d) => (
+                                    <SelectItem key={d.value} value={d.value}>
+                                    {d.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                <div className="w-full sm:w-auto">
+                    <Input
+                        placeholder={user?.role === 'patient' ? "Search by doctor..." : "Search by patient or doctor..."}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="max-w-sm"
+                    />
+                </div>
              </div>
           </div>
         </CardHeader>
