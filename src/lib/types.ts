@@ -250,6 +250,22 @@ export interface Bed {
 }
 
 /**
+ * Represents a clinic or department in the 'clinics' collection.
+ */
+export interface Clinic {
+  clinicId: string; // Document ID
+  name: string; // e.g., 'Cardiology', 'Dermatology'
+  location: string;
+  description?: string;
+  affiliatedDoctorIds: string[]; // List of doctor UIDs
+  contact?: {
+    phone?: string;
+    email?: string;
+  };
+}
+
+
+/**
  * Represents an appointment in the 'appointments' collection.
  * This model links patients and doctors for scheduled events.
  */
@@ -271,6 +287,7 @@ export interface Appointment {
   duration: number; // in minutes
   type: 'consultation' | 'follow-up' | 'procedure';
   department: string;
+  clinicId?: string; // Reference to the 'clinics' collection
   resourceId?: string; // Optional reference to a 'resources' document
   status: 'confirmed' | 'completed' | 'cancelled' | 'no-show';
   notes: string;
@@ -313,6 +330,7 @@ export interface Referral {
 export interface DoctorSchedule {
   schedule_id: string; // Document ID
   doctor_id: string;
+  clinicId?: string; // Reference to the 'clinics' collection
   date: string; // YYYY-MM-DD format
   availableSlots: { start: string; end: string }[]; // e.g., [{ start: '09:00', end: '12:00' }]
   unavailablePeriods: { start: string; end: string; reason: string }[]; // e.g., [{ start: '12:00', end: '13:00', reason: 'Lunch' }]
@@ -329,6 +347,7 @@ export interface Resource {
   name: string; // e.g., 'Examination Room 1', 'ECG Machine'
   type: 'Room' | 'Equipment';
   department: string; // e.g., 'Cardiology'
+  clinicId?: string; // Reference to the 'clinics' collection
   is_available: boolean;
   booked_slots?: { start: string; end: string, appointmentId: string }[];
   created_at: string;
