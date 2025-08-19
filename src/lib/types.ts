@@ -413,6 +413,41 @@ export interface Prescription {
 }
 
 // =========================================================================
+// == Operating Theatre (OT) Data Models
+// =========================================================================
+
+/**
+ * Represents a single operating theatre in the 'operating_theaters' collection.
+ * This is the master catalog of all available surgical rooms.
+ */
+export interface OperatingTheater {
+  otRoomId: string; // Document ID
+  name: string; // e.g., 'OT-1', 'OT-2'
+  location: string; // e.g., 'West Wing, 3rd Floor'
+  specialty: 'Orthopedic' | 'Cardiothoracic' | 'General' | 'Neurosurgery';
+  equipment: string[]; // List of built-in equipment, e.g., ['C-Arm', 'Microscope']
+}
+
+/**
+ * Represents a booked surgical procedure in the 'ot_sessions' collection.
+ * This is the core data model for managing the OT schedule.
+ */
+export interface OTSession {
+  sessionId: string; // Document ID
+  patientId: string; // Reference to 'patients' collection
+  otRoomId: string; // Reference to 'operating_theaters' collection
+  leadSurgeonId: string; // Reference to the lead surgeon in the 'users' collection
+  teamIds: string[]; // Array of user IDs for the rest of the surgical team
+  requiredEquipmentIds: string[]; // Array of references to the 'resources' collection for mobile equipment
+  procedureName: string; // e.g., 'Appendectomy', 'Total Knee Replacement'
+  startTime: string; // ISO Timestamp
+  endTime: string; // ISO Timestamp
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Postponed';
+  notes?: string; // Any pre-operative or procedural notes
+}
+
+
+// =========================================================================
 // == EHR Sub-Collection Data Models
 // =========================================================================
 
@@ -572,3 +607,4 @@ export interface ImmunizationRecord {
     
 
     
+
