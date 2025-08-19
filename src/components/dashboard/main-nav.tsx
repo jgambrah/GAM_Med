@@ -20,7 +20,8 @@ import {
     BedDouble,
     Beaker,
     Send,
-    ClipboardCheck
+    ClipboardCheck,
+    CalendarClock
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -108,6 +109,12 @@ export function MainNav() {
       icon: Stethoscope,
       roles: ['doctor'],
       badge: criticalAlertCount > 0 ? criticalAlertCount.toString() : undefined,
+    },
+     {
+      href: '/dashboard/my-schedule',
+      label: 'My Schedule',
+      icon: CalendarClock,
+      roles: ['doctor'],
     },
     {
       href: '/dashboard/admin',
