@@ -2065,8 +2065,112 @@ exports.otSessionReminders = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
+// =======================================================================================
+// == RESOURCE SCHEDULING
+// =======================================================================================
+
+// =======================================================================================
+// 33. Book Resource (Callable Function)
+// =======================================================================================
+/**
+ * A central, generic function for booking any shared resource.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { resourceId: string, startTime: Timestamp, endTime: Timestamp, reason: string, relatedAppointmentId?: string }
+ */
+/*
+exports.bookResource = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { resourceId, startTime, endTime, reason, relatedAppointmentId } = data;
+    const startTimestamp = admin.firestore.Timestamp.fromDate(new Date(startTime));
+    const endTimestamp = admin.firestore.Timestamp.fromDate(new Date(endTime));
+    
+    const resourceRef = db.collection('resources').doc(resourceId);
+    const newBookingRef = db.collection('resource_bookings').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            // --- CONFLICT CHECKS ---
+            
+            // a) Check for existing bookings
+            const conflictQuery = db.collection('resource_bookings')
+                .where('resourceId', '==', resourceId)
+                .where('startTime', '<', endTimestamp)
+                .where('endTime', '>', startTimestamp)
+                .where('status', '==', 'Confirmed');
+            
+            const conflictSnapshot = await transaction.get(conflictQuery);
+            if (!conflictSnapshot.empty) {
+                throw new Error(`Resource ${resourceId} is already booked at this time.`);
+            }
+
+            // b) Check if booking is within operating hours (simplified example)
+            // const resourceDoc = await transaction.get(resourceRef);
+            // if (!resourceDoc.exists || !resourceDoc.data().isBookable) {
+            //     throw new Error(`Resource ${resourceId} is not bookable.`);
+            // }
+            // Add logic here to parse operatingHours and check if the booking falls within them.
+            
+            // --- CREATE BOOKING ---
+            const bookingData = {
+                bookingId: newBookingRef.id,
+                resourceId,
+                bookedByUserId: context.auth.uid,
+                startTime: startTimestamp,
+                endTime: endTimestamp,
+                reason,
+                relatedAppointmentId,
+                status: 'Confirmed'
+            };
+            
+            transaction.set(newBookingRef, bookingData);
+        });
+
+        console.log(`Resource ${resourceId} booked successfully with ID ${newBookingRef.id}.`);
+        return { success: true, bookingId: newBookingRef.id };
+
+    } catch (error) {
+        console.error('Failed to book resource:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not book resource.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 34. Check Resource Availability (Callable Function)
+// =======================================================================================
+/**
+ * Fetches all bookings for a specific resource within a given date range.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { resourceId: string, startDate: string, endDate: string }
+ * @returns {Promise<object[]>} A promise that resolves to an array of booking objects.
+ */
+/*
+exports.checkResourceAvailability = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { resourceId, startDate, endDate } = data;
+    
+    // 2. Query for bookings within the date range
+    const bookingsQuery = db.collection('resource_bookings')
+        .where('resourceId', '==', resourceId)
+        .where('startTime', '>=', admin.firestore.Timestamp.fromDate(new Date(startDate)))
+        .where('startTime', '<=', admin.firestore.Timestamp.fromDate(new Date(endDate)))
+        .where('status', '==', 'Confirmed');
+        
+    const snapshot = await bookingsQuery.get();
+    
+    // 3. Return the array of booking documents
+    const bookings = snapshot.docs.map(doc => doc.data());
+    return { bookings };
+});
+*/
     
 
 
 
-```
