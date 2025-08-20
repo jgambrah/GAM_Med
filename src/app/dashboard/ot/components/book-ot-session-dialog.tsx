@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { allPatients, allUsers } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,8 +35,8 @@ const OtSessionSchema = z.object({
   otRoomId: z.string().min(1, 'An operating theatre is required.'),
   procedureName: z.string().min(5, 'Procedure name must be at least 5 characters.'),
   leadSurgeonId: z.string().min(1, 'A lead surgeon is required.'),
-  startTime: z.string(),
-  endTime: z.string(),
+  startTime: z.string().refine(val => val, { message: "Start time is required" }),
+  endTime: z.string().refine(val => val, { message: "End time is required" }),
   notes: z.string().optional(),
 });
 
@@ -46,8 +46,20 @@ const mockOperatingTheaters = [
     { value: 'OT-3', label: 'Operating Theatre 3 (Orthopedic)' },
 ];
 
+// Mock pre-op checklist for a selected patient. In a real app, this would be fetched.
+const mockPreOpChecklist = {
+    'P-123456': [ // Kwame Owusu
+        { item: 'Consent Form Signed', status: 'Completed' },
+        { item: 'NPO Status Confirmed', status: 'Completed' },
+        { item: 'Pre-op Labs (FBC)', status: 'Completed' },
+        { item: 'Anesthesia Review', status: 'Pending' }
+    ],
+    'P-654321': [] // No checklist for this patient
+};
+
 export function BookOtSessionDialog() {
   const [open, setOpen] = React.useState(false);
+  const [preOpWarnings, setPreOpWarnings] = React.useState<string[]>([]);
   
   const form = useForm<z.infer<typeof OtSessionSchema>>({
     resolver: zodResolver(OtSessionSchema),
@@ -62,8 +74,27 @@ export function BookOtSessionDialog() {
     },
   });
 
+  const selectedPatientId = form.watch('patientId');
+  
+  React.useEffect(() => {
+    if (selectedPatientId) {
+        // ** CONCEPT: Pre-op Checklist Display **
+        // When a patient is selected, the UI fetches their pre-operative checklist status.
+        // In a real app, this would be another async call to Firestore.
+        const checklist = mockPreOpChecklist[selectedPatientId as keyof typeof mockPreOpChecklist] || [];
+        const warnings = checklist
+            .filter(item => item.status === 'Pending')
+            .map(item => `${item.item} is still pending.`);
+        setPreOpWarnings(warnings);
+    } else {
+        setPreOpWarnings([]);
+    }
+  }, [selectedPatientId]);
+
+
   const onSubmit = async (values: z.infer<typeof OtSessionSchema>) => {
     // This would call the `bookOtSession` Cloud Function
+    // The function would perform all the complex conflict checks atomically.
     console.log('Booking OT Session with values:', values);
     alert('OT session booked successfully (simulated).');
     setOpen(false);
@@ -81,7 +112,7 @@ export function BookOtSessionDialog() {
           Book OT Session
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Book Operating Theatre Session</DialogTitle>
           <DialogDescription>
@@ -199,6 +230,35 @@ export function BookOtSessionDialog() {
                   )}
                 />
             </div>
+
+            {/* **CONCEPT: Live Availability Feedback**
+                In a production app, as the above fields (time, room, surgeon) are filled,
+                the UI would call a 'checkOtAvailability' Cloud Function.
+                This function would return real-time feedback like "Surgeon is unavailable"
+                or "OT Room is booked", which would be displayed here to prevent errors
+                before the user even clicks "Book".
+            */}
+
+            {preOpWarnings.length > 0 && (
+                <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
+                    <div className="flex">
+                        <div className="flex-shrink-0">
+                            <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-sm font-medium text-yellow-800">Pre-operative Checklist Warnings</p>
+                            <div className="mt-2 text-sm text-yellow-700">
+                                <ul role="list" className="list-disc pl-5 space-y-1">
+                                    {preOpWarnings.map((warning, index) => (
+                                        <li key={index}>{warning}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             <FormField
               control={form.control}
               name="notes"
