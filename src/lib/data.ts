@@ -1,5 +1,6 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine } from './types';
+
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -78,6 +79,15 @@ export const allUsers: User[] = [
     email: 'b.clerk@gammed.com',
     name: 'Billing Clerk',
     role: 'billing_clerk',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
+    uid: 'reception1',
+    email: 'r.staff@gammed.com',
+    name: 'Receptionist',
+    role: 'receptionist',
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
@@ -588,5 +598,58 @@ export const mockImmunizationRecords: ImmunizationRecord[] = [
         nextDueDate: new Date('2023-08-15T10:00:00Z').toISOString(),
         administeredByUserId: 'nurse1',
         notes: 'Administered in left deltoid.'
+    }
+];
+
+export const mockResources: Resource[] = [
+  {
+    resourceId: 'mri-1',
+    name: 'MRI Scanner 1',
+    type: 'Equipment',
+    department: 'Radiology',
+    location: 'Radiology Wing, Basement',
+    operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
+    isBookable: true,
+  },
+  {
+    resourceId: 'proc-room-1',
+    name: 'Procedure Room 1',
+    type: 'Room',
+    department: 'General Surgery',
+    location: 'Outpatient Clinic, 2nd Floor',
+    operatingHours: { 'Mon-Fri': '09:00-17:00' },
+    isBookable: true,
+  },
+  {
+    resourceId: 'consult-room-5',
+    name: 'Consultation Room 5',
+    type: 'Room',
+    department: 'Cardiology',
+    location: 'Cardiology Clinic',
+    operatingHours: { 'Mon-Fri': '09:00-17:00' },
+    isBookable: true,
+  },
+];
+
+export const mockResourceBookings: ResourceBooking[] = [
+    {
+        bookingId: 'booking-1',
+        resourceId: 'proc-room-1',
+        bookedByUserId: 'doc1',
+        startTime: '2024-08-16T10:00:00Z',
+        endTime: '2024-08-16T11:00:00Z',
+        status: 'Confirmed',
+        reason: 'Minor skin lesion removal',
+        relatedAppointmentId: 'AP-XYZ'
+    },
+    {
+        bookingId: 'booking-2',
+        resourceId: 'proc-room-1',
+        bookedByUserId: 'doc2',
+        startTime: '2024-08-16T14:00:00Z',
+        endTime: '2024-08-16T15:30:00Z',
+        status: 'Confirmed',
+        reason: 'Biopsy sample collection',
+        relatedAppointmentId: 'AP-ABC'
     }
 ];

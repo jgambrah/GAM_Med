@@ -4,6 +4,7 @@
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
  * This ensures consistency between the frontend components and the backend database.
+ * This ensures consistency between the frontend components and the backend database.
  */
 
 // =========================================================================
@@ -64,7 +65,7 @@ export interface User {
   uid: string; // Corresponds to Firebase Auth UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator';
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist';
   is_active: boolean;
   patient_id?: string; // Link to the patient document, for users with the 'patient' role
   created_at: string; // ISO 8601 format
@@ -617,11 +618,3 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
-
-    
-
-    
-
-
-
-
