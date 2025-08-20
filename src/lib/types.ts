@@ -340,18 +340,32 @@ export interface DoctorSchedule {
 
 
 /**
- * Represents a bookable clinical resource in the 'resources' collection.
+ * Represents a bookable clinical asset in the central 'resources' collection.
+ * This can be equipment, a room, or specialized staff.
  */
 export interface Resource {
-  resource_id: string; // Document ID
-  name: string; // e.g., 'Examination Room 1', 'ECG Machine'
-  type: 'Room' | 'Equipment';
-  department: string; // e.g., 'Cardiology'
-  clinicId?: string; // Reference to the 'clinics' collection
-  is_available: boolean;
-  booked_slots?: { start: string; end: string, appointmentId: string }[];
-  created_at: string;
-  updated_at: string;
+  resourceId: string; // Document ID
+  name: string; // e.g., 'MRI-1', 'Exam Room 3', 'Phlebotomist A'
+  type: string; // e.g., 'Equipment', 'Room', 'Specialized Staff'
+  department: string; // e.g., 'Radiology', 'Cardiology'
+  location: string;
+  operatingHours: Record<string, string>; // e.g., { 'Mon': '08:00-18:00', 'Tue': '08:00-18:00' }
+  isBookable: boolean;
+}
+
+/**
+ * Represents a single booking in the central 'resource_bookings' collection.
+ * This links a resource to a specific time slot and purpose.
+ */
+export interface ResourceBooking {
+  bookingId: string; // Document ID
+  resourceId: string; // Reference to the 'resources' collection
+  bookedByUserId: string; // Reference to the 'users' collection who made the booking
+  startTime: string; // ISO Timestamp
+  endTime: string; // ISO Timestamp
+  status: 'Confirmed' | 'Canceled';
+  relatedAppointmentId?: string; // Optional link to an 'appointments' or 'ot_sessions' document
+  reason: string; // e.g., 'Patient MRI Scan for Appointment AP-123'
 }
 
 /**
@@ -607,6 +621,7 @@ export interface ImmunizationRecord {
     
 
     
+
 
 
 
