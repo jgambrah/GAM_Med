@@ -27,6 +27,7 @@ export interface InvoiceLineItem {
 export interface Invoice {
   invoiceId: string; // Document ID, e.g., INV-00123
   patientId: string; // Reference to 'patients' collection
+  patientName: string; // Denormalized for display
   issueDate: string; // ISO Timestamp
   dueDate: string; // ISO Timestamp
   billedItems: InvoiceLineItem[];
@@ -56,9 +57,10 @@ export interface Claim {
   claimId: string; // Document ID
   invoiceId: string; // Reference to the related invoice
   patientId: string; // Reference to 'patients' collection
+  patientName: string; // Denormalized for display
   insuranceProviderId: string; // A reference to a document in an 'insurance_providers' collection
   submissionDate: string; // ISO Timestamp
-  status: 'Submitted' | 'Pending' | 'Paid' | 'Denied';
+  status: 'Ready for Submission' | 'Submitted' | 'Pending' | 'Paid' | 'Denied';
   payoutAmount?: number;
   denialReason?: string;
 }

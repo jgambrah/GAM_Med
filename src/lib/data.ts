@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -289,6 +289,7 @@ export const allAppointments: Appointment[] = [
     status: 'confirmed',
     notes: 'Follow-up consultation for hypertension.',
     created_at: now.toISOString(),
+    updated_at: now.toISOString(),
   },
    {
     appointment_id: 'AP-002',
@@ -304,6 +305,7 @@ export const allAppointments: Appointment[] = [
     status: 'confirmed',
     notes: 'Initial consultation.',
     created_at: now.toISOString(),
+    updated_at: now.toISOString(),
   },
 ];
 
@@ -673,4 +675,71 @@ export const mockWaitingList: WaitingListEntry[] = [
         dateAdded: new Date('2024-08-10T14:00:00Z').toISOString(),
         status: 'Active',
     }
+];
+
+export const mockInvoices: Invoice[] = [
+    {
+        invoiceId: 'INV-001',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        issueDate: new Date('2024-07-29T18:00:00Z').toISOString(),
+        dueDate: new Date('2024-08-28T18:00:00Z').toISOString(),
+        billedItems: [{ service: 'Admission & Consultation', code: 'A001', price: 250.00 }],
+        totalAmount: 250.00,
+        amountDue: 0.00,
+        status: 'Paid',
+    },
+    {
+        invoiceId: 'INV-002',
+        patientId: 'P-654321',
+        patientName: 'Aba Appiah',
+        issueDate: new Date('2024-08-01T18:00:00Z').toISOString(),
+        dueDate: new Date('2024-08-31T18:00:00Z').toISOString(),
+        billedItems: [{ service: 'Pre-op Assessment', code: 'A005', price: 150.00 }],
+        totalAmount: 150.00,
+        amountDue: 150.00,
+        status: 'Pending Payment',
+    },
+];
+
+export const mockClaims: Claim[] = [
+    {
+        claimId: 'CLM-001',
+        invoiceId: 'INV-001',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        insuranceProviderId: 'NHIS',
+        submissionDate: new Date('2024-07-30T10:00:00Z').toISOString(),
+        status: 'Paid',
+        payoutAmount: 200.00,
+    },
+    {
+        claimId: 'CLM-002',
+        invoiceId: 'INV-003', // For an invoice not in the main list for demo
+        patientId: 'P-789012',
+        patientName: 'Ama Serwaa',
+        insuranceProviderId: 'Glico',
+        submissionDate: new Date('2024-08-05T11:00:00Z').toISOString(),
+        status: 'Denied',
+        denialReason: 'Service not covered under policy.',
+    },
+];
+
+export const mockPayments: FinancialTransaction[] = [
+    {
+        paymentId: 'PAY-001',
+        invoiceId: 'INV-001',
+        amount: 200.00,
+        paymentMethod: 'Insurance Payout',
+        paymentDate: new Date('2024-08-10T14:00:00Z').toISOString(),
+        transactionId: 'CLMPAY-555',
+    },
+    {
+        paymentId: 'PAY-002',
+        invoiceId: 'INV-001',
+        amount: 50.00,
+        paymentMethod: 'Mobile Money',
+        paymentDate: new Date('2024-08-11T09:00:00Z').toISOString(),
+        transactionId: 'MOMO-ABC123',
+    },
 ];
