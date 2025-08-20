@@ -297,6 +297,7 @@ export interface Appointment {
   bookingSource?: 'Online' | 'Call Center' | 'In-Person';
   bookedByUserId?: string; // UID of user who booked
   bookedAt?: string; // ISO Timestamp
+  waitinglistId?: string; // Optional link to 'waiting_lists' collection
 }
 
 /**
@@ -459,6 +460,25 @@ export interface OTSession {
   endTime: string; // ISO Timestamp
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Postponed';
   notes?: string; // Any pre-operative or procedural notes
+  waitinglistId?: string; // Optional link to 'waiting_lists' collection
+}
+
+// =========================================================================
+// == Waiting List Management Data Models
+// =========================================================================
+
+/**
+ * Represents a patient on a waiting list in the 'waiting_lists' collection.
+ */
+export interface WaitingListEntry {
+  waitinglistId: string; // Document ID
+  patientId: string; // Reference to 'patients' collection
+  requestedService: string; // e.g., 'Cardiology Consultation', 'Knee Surgery', 'MRI Scan'
+  requestedServiceId?: string; // Optional reference to a 'clinics' or 'resources' document
+  priority: 'Urgent' | 'Routine' | 'Elective';
+  dateAdded: string; // ISO Timestamp
+  status: 'Active' | 'Scheduled' | 'Canceled';
+  notes?: string; // Optional notes
 }
 
 
