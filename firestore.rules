@@ -1,35 +1,84 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // Helper function to get user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
+
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Users can read their own data. Admins can read any user's data.
+      allow read: if request.auth.uid == userId || getUserRole() == 'admin';
+      // Users can only update their own data.
+      allow update: if request.auth.uid == userId;
+    }
+
+    // Rules for the 'patients' collection and its sub-collections
+    match /patients/{patientId} {
+      // Authenticated users with specific roles can read patient data.
+      allow read: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist'];
+      // Only admins, nurses, or receptionists can create new patient records.
+      allow create: if getUserRole() in ['admin', 'nurse', 'receptionist'];
+      // Only admins or nurses can update patient records.
+      allow update: if getUserRole() in ['admin', 'nurse'];
+      // Only admins can delete patient records (generally discouraged).
+      allow delete: if getUserRole() == 'admin';
+
+      // Rules for all sub-collections under a patient
+      match /{subcollection}/{documentId} {
+        // More granular access for sub-collections like clinical_notes, vitals, etc.
+        allow read, write: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
+    }
+
+    // Rules for the 'beds' collection
+    match /beds/{bedId} {
+      // Any authenticated user can see bed status.
+      allow read: if request.auth != null;
+      // Only admins, doctors, or nurses can update bed status (admit/discharge/transfer).
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+
+    // Rules for the 'appointments' collection
+    match /appointments/{appointmentId} {
+      // Allow creation by authorized staff or the patient themselves.
+      allow create: if getUserRole() in ['admin', 'doctor', 'receptionist'] || request.auth.uid == request.resource.data.patientId;
+      // Allow read by authorized staff or the patient/doctor involved in the appointment.
+      allow read: if getUserRole() in ['admin', 'receptionist', 'billing_clerk'] || request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctor_id;
+      // Allow update by authorized staff or the patient/doctor involved.
+      allow update: if getUserRole() in ['admin', 'receptionist'] || request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctor_id;
+    }
     
-    // ===================================
-    // == Operating Theatre (OT) Rules
-    // ===================================
+    // Rules for the 'referrals' collection
+    match /referrals/{referralId} {
+        // Only clinical and admin staff can create referrals.
+        allow create: if getUserRole() in ['admin', 'doctor', 'triage_officer', 'receptionist'];
+        // Read access for staff or the assigned doctor.
+        allow read: if getUserRole() in ['admin', 'doctor', 'triage_officer', 'receptionist'] || request.auth.uid == resource.data.assignedDoctorId;
+        // Update access for staff who manage assignments or the doctor who handles the case.
+        allow update: if getUserRole() in ['admin', 'triage_officer', 'receptionist'] || request.auth.uid == resource.data.assignedDoctorId;
+    }
+    
+    // Rules for the 'ot_sessions' and 'operating_theaters' collections
+    match /ot_sessions/{sessionId} {
+      allow create: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'] && request.resource.data.leadSurgeonId == request.auth.uid;
+      allow read: if getUserRole() in ['admin', 'ot_coordinator'] || request.auth.uid == resource.data.leadSurgeonId || request.auth.uid in resource.data.teamIds;
+      allow update: if getUserRole() in ['admin', 'ot_coordinator'];
+    }
+
     match /operating_theaters/{theaterId} {
       allow read: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'];
       allow write: if getUserRole() == 'admin';
     }
-    
-    match /ot_sessions/{sessionId} {
-      allow create: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'] 
-                    && request.resource.data.leadSurgeonId == request.auth.uid;
-      allow read: if getUserRole() in ['admin', 'ot_coordinator'] 
-                  || request.auth.uid == resource.data.leadSurgeonId 
-                  || request.auth.uid in resource.data.teamIds;
-      allow update: if getUserRole() in ['admin', 'ot_coordinator'];
-      // No delete rule for audit purposes
-    }
 
-    // ===================================
-    // == Resource Scheduling Rules
-    // ===================================
+    // Rules for the 'resources' and 'resource_bookings' collections
     match /resources/{resourceId} {
-      allow read: if request.auth != null; // All authenticated users can see the resource catalog
-      allow write: if getUserRole() == 'admin'; // Only admins can add/edit resources
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin';
     }
 
     match /resource_bookings/{bookingId} {
@@ -38,9 +87,11 @@ service cloud.firestore {
       allow update: if getUserRole() in ['admin', 'receptionist'] || request.auth.uid == resource.data.bookedByUserId;
     }
     
-    // Other rules will go here...
-    match /{document=**} {
-      allow read, write: if false;
+    // Rules for the 'waiting_lists' collection
+    match /waiting_lists/{waitinglistId} {
+        allow create: if getUserRole() in ['admin', 'doctor', 'receptionist'];
+        allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'] || request.auth.uid == resource.data.patientId;
+        allow update: if getUserRole() in ['admin', 'receptionist'];
     }
   }
 }
