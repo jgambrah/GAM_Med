@@ -1913,6 +1913,160 @@ exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
     });
 */
 
+
+// =======================================================================================
+// == OPERATING THEATRE (OT) MANAGEMENT
+// =======================================================================================
+
+// =======================================================================================
+// 31. Book OT Session (Callable Function)
+// =======================================================================================
+/**
+ * Books a new OT session after performing complex multi-resource availability checks.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId, otRoomId, leadSurgeonId, teamIds, requiredEquipmentIds, startTime, endTime }
+ */
+/*
+exports.bookOtSession = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is an OT coordinator or lead surgeon.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { patientId, otRoomId, leadSurgeonId, teamIds, requiredEquipmentIds, startTime, endTime } = data;
+    const startTimestamp = admin.firestore.Timestamp.fromDate(new Date(startTime));
+    const endTimestamp = admin.firestore.Timestamp.fromDate(new Date(endTime));
+    
+    const newOtSessionRef = db.collection('ot_sessions').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            // --- CONFLICT CHECKS ---
+            
+            // a) Check OT Room availability
+            const otRoomConflictQuery = db.collection('ot_sessions')
+                .where('otRoomId', '==', otRoomId)
+                .where('startTime', '<', endTimestamp)
+                .where('endTime', '>', startTimestamp);
+            const otRoomConflictSnapshot = await transaction.get(otRoomConflictQuery);
+            if (!otRoomConflictSnapshot.empty) {
+                throw new Error(`Operating Theatre ${otRoomId} is already booked at this time.`);
+            }
+
+            // b) Check Surgical Team availability (lead surgeon + team)
+            const allTeamIds = [leadSurgeonId, ...teamIds];
+            for (const memberId of allTeamIds) {
+                const teamConflictQuery = db.collection('ot_sessions')
+                    .where('teamIds', 'array-contains', memberId)
+                    .where('startTime', '<', endTimestamp)
+                    .where('endTime', '>', startTimestamp);
+                const teamConflictSnapshot = await transaction.get(teamConflictQuery);
+                if (!teamConflictSnapshot.empty) {
+                    // Fetch user's name for a more helpful error message
+                    const userDoc = await transaction.get(db.collection('users').doc(memberId));
+                    throw new Error(`Team member ${userDoc.data()?.name || memberId} is unavailable.`);
+                }
+            }
+            
+            // c) Check Equipment availability (simplified example)
+            // A real implementation would be more complex.
+            if (requiredEquipmentIds && requiredEquipmentIds.length > 0) {
+                 const equipmentConflictQuery = db.collection('ot_sessions')
+                    .where('requiredEquipmentIds', 'array-contains-any', requiredEquipmentIds)
+                    .where('startTime', '<', endTimestamp)
+                    .where('endTime', '>', startTimestamp);
+                 const equipmentConflictSnapshot = await transaction.get(equipmentConflictQuery);
+                 if(!equipmentConflictSnapshot.empty) {
+                     throw new Error('One or more required pieces of equipment are unavailable.');
+                 }
+            }
+
+            // d) CDS Check: Pre-operative checklist (conceptual)
+            // const preOpChecklistRef = db.collection('patients').doc(patientId).collection('checklists').doc('pre_op');
+            // const checklistDoc = await transaction.get(preOpChecklistRef);
+            // if (!checklistDoc.exists || !checklistDoc.data().isComplete) {
+            //     // This would return a soft error or warning to the UI, not throw an exception,
+            //     // allowing the booking but flagging the issue.
+            //     console.warn(`Patient ${patientId} is missing pre-operative clearance.`);
+            // }
+
+            // --- CREATE SESSION ---
+            const sessionData = {
+                ...data,
+                sessionId: newOtSessionRef.id,
+                status: 'Scheduled',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+            transaction.set(newOtSessionRef, sessionData);
+        });
+
+        console.log(`OT Session ${newOtSessionRef.id} booked successfully.`);
+        return { success: true, sessionId: newOtSessionRef.id };
+
+    } catch (error) {
+        console.error('Failed to book OT session:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not book OT session.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 32. Send OT Session Reminders (Scheduled Function)
+// =======================================================================================
+/**
+ * A scheduled function that runs to send reminders for upcoming surgical procedures.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every 15 minutes' or similar frequent interval
+ */
+/*
+exports.otSessionReminders = functions.region('europe-west1').pubsub
+    .schedule('every 15 minutes')
+    .onRun(async (context) => {
+        const now = admin.firestore.Timestamp.now();
+        const twentyFourHoursFromNow = admin.firestore.Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
+        
+        // 1. Query for sessions starting in the next 24 hours that haven't had a reminder sent.
+        const snapshot = await db.collection('ot_sessions')
+            .where('startTime', '>=', now)
+            .where('startTime', '<=', twentyFourHoursFromNow)
+            .where('status', '==', 'Scheduled')
+            .where('isReminderSent', '==', false) // Use a flag to prevent duplicate reminders
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No OT session reminders to send.');
+            return null;
+        }
+
+        for (const doc of snapshot.docs) {
+            const session = doc.data();
+            const allTeamIds = [session.leadSurgeonId, ...session.teamIds];
+
+            // 2. Send notifications to all team members
+            // await sendNotificationToUsers(allTeamIds, {
+            //     title: 'Surgical Procedure Reminder',
+            //     body: `Procedure "${session.procedureName}" is scheduled for ${session.startTime.toDate().toLocaleString()}.`
+            // });
+
+            // 3. Notify the patient's ward
+            // const patientDoc = await db.collection('patients').doc(session.patientId).get();
+            // if(patientDoc.data()?.is_admitted) {
+            //     const wardId = patientDoc.data().current_ward_id;
+            //     await sendNotificationToWard(wardId, `Prepare patient ${patientDoc.data().full_name} for surgery.`);
+            // }
+
+            // 4. Update the session document to prevent re-sending reminders
+            await doc.ref.update({ isReminderSent: true });
+            
+            console.log(`Sent reminders for OT Session ${doc.id}`);
+        }
+        
+        return null;
+    });
+*/
     
 
 
+
+```
