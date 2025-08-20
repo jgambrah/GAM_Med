@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -651,5 +651,26 @@ export const mockResourceBookings: ResourceBooking[] = [
         status: 'Confirmed',
         reason: 'Biopsy sample collection',
         relatedAppointmentId: 'AP-ABC'
+    }
+];
+
+export const mockWaitingList: WaitingListEntry[] = [
+    {
+        waitinglistId: 'wl-1',
+        patientId: 'P-789012', // A new patient not in the main list
+        requestedService: 'Cardiology Consultation',
+        priority: 'Urgent',
+        dateAdded: new Date('2024-08-15T10:00:00Z').toISOString(),
+        status: 'Active',
+        notes: 'Patient reports increased chest pain.'
+    },
+    {
+        waitinglistId: 'wl-2',
+        patientId: 'P-345678', // A new patient
+        requestedService: 'Knee Surgery',
+        requestedServiceId: 'OT-3',
+        priority: 'Routine',
+        dateAdded: new Date('2024-08-10T14:00:00Z').toISOString(),
+        status: 'Active',
     }
 ];

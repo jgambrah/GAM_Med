@@ -14,6 +14,7 @@ import { OutpatientCheckinDashboard } from './components/outpatient-checkin-dash
 import { StaffScheduleDashboard } from './components/staff-schedule-dashboard';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { WaitingListDashboard } from './components/waiting-list-dashboard';
 
 export default function AdminPage() {
   return (
@@ -26,12 +27,13 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="inpatient-admissions">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
+          <TabsTrigger value="waiting-list">Waiting List</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
         </TabsList>
          <TabsContent value="inpatient-admissions" className="mt-4">
@@ -48,6 +50,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="staff-schedules" className="mt-4">
           <StaffScheduleDashboard />
+        </TabsContent>
+         <TabsContent value="waiting-list" className="mt-4">
+            <WaitingListDashboard />
         </TabsContent>
         <TabsContent value="resources" className="mt-4">
             <Card>
