@@ -72,12 +72,18 @@ export function OtScheduleDashboard() {
     });
 
     const calculateGridPosition = (startTime: Date, endTime: Date) => {
-        const startHour = startTime.getHours() + startTime.getMinutes() / 60;
-        const endHour = endTime.getHours() + endTime.getMinutes() / 60;
-        const startCol = (startHour - startOfWorkDay.getHours()) * 4 + 2; // 4 segments per hour, +2 for label col
-        const endCol = (endHour - startOfWorkDay.getHours()) * 4 + 2;
+        const startHour = startTime.getUTCHours() + startTime.getUTCMinutes() / 60;
+        const endHour = endTime.getUTCHours() + endTime.getUTCMinutes() / 60;
+        const gridStartHour = startOfWorkDay.getUTCHours();
+    
+        // Each hour is divided into 4 segments (15 mins each).
+        // +1 to account for the first column being the label.
+        const startCol = (startHour - gridStartHour) * 4 + 1;
+        const endCol = (endHour - gridStartHour) * 4 + 1;
+    
         return {
-            gridColumn: `${Math.floor(startCol)} / ${Math.ceil(endCol)}`
+            gridColumnStart: `${Math.floor(startCol)}`,
+            gridColumnEnd: `${Math.ceil(endCol)}`,
         };
     }
     
@@ -106,10 +112,10 @@ export function OtScheduleDashboard() {
                                         <TooltipTrigger asChild>
                                             <div 
                                                 className={cn(
-                                                    "border rounded-md p-2 text-xs leading-tight m-1 h-20 flex flex-col justify-center cursor-pointer",
+                                                    "border rounded-md p-2 text-xs leading-tight m-1 h-20 flex flex-col justify-center cursor-pointer col-start-[var(--grid-column-start)] col-end-[var(--grid-column-end)]",
                                                     getStatusColor(session.status)
                                                 )}
-                                                style={calculateGridPosition(session.startTime, session.endTime)}
+                                                style={calculateGridPosition(session.startTime, session.endTime) as React.CSSProperties}
                                             >
                                                 <p className="font-bold truncate">{session.procedureName}</p>
                                                 <p className="truncate">{session.patientName}</p>
