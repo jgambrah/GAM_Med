@@ -2329,7 +2329,162 @@ exports.fillCancellations = functions.region('europe-west1').pubsub
     });
 */
     
+// =======================================================================================
+// == BILLING & FINANCIAL MANAGEMENT
+// =======================================================================================
 
+// =======================================================================================
+// 38. Generate Invoice (Callable Function)
+// =======================================================================================
+/**
+ * Generates a new invoice based on services rendered.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, serviceDetails: { code: string, quantity: number, linkedAppointmentId?: string }[] }
+ */
+/*
+exports.generateInvoice = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an admin or billing clerk.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check here...
 
+    const { patientId, serviceDetails } = data;
+    if (!patientId || !serviceDetails || serviceDetails.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID and service details are required.');
+    }
 
+    const billingCodes = serviceDetails.map(s => s.code);
+    const codesSnapshot = await db.collection('billing_codes').where(admin.firestore.FieldPath.documentId(), 'in', billingCodes).get();
+    const codeDataMap = new Map(codesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+
+    let totalAmount = 0;
+    const billedItems = serviceDetails.map(item => {
+        const codeInfo = codeDataMap.get(item.code);
+        if (!codeInfo) {
+            throw new functions.https.HttpsError('not-found', `Billing code ${item.code} not found.`);
+        }
+        const itemPrice = codeInfo.price * item.quantity;
+        totalAmount += itemPrice;
+        return {
+            service: codeInfo.description,
+            code: item.code,
+            price: itemPrice,
+            linkedAppointmentId: item.linkedAppointmentId || null
+        };
+    });
+    
+    const newInvoiceRef = db.collection('invoices').doc();
+    const invoiceData = {
+        invoiceId: newInvoiceRef.id,
+        patientId,
+        issueDate: admin.firestore.FieldValue.serverTimestamp(),
+        dueDate: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000), // Due in 30 days
+        totalAmount,
+        amountDue: totalAmount,
+        status: 'Pending Payment',
+        billedItems
+    };
+
+    await newInvoiceRef.set(invoiceData);
+    
+    // Optional: Auto-create a claim if the patient has insurance
+    // const patientDoc = await db.collection('patients').doc(patientId).get();
+    // if (patientDoc.data()?.insurance?.isActive) {
+    //     await db.collection('insurance_claims').add({ ... });
+    // }
+
+    console.log(`Invoice ${newInvoiceRef.id} generated for patient ${patientId}.`);
+    return { success: true, invoiceId: newInvoiceRef.id };
+});
+*/
+
+// =======================================================================================
+// 39. Submit Claim (Callable Function)
+// =======================================================================================
+/**
+ * Submits an insurance claim to an external clearinghouse.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { claimId: string }
+ */
+/*
+exports.submitClaim = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check for billing_clerk or admin
+
+    const { claimId } = data;
+    const claimRef = db.collection('insurance_claims').doc(claimId);
+    const claimDoc = await claimRef.get();
+
+    if (!claimDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Claim not found.');
+    }
+    
+    // 2. Logic to format and send data to a third-party claims API
+    // const claimDataForApi = formatClaimForApi(claimDoc.data());
+    // const apiResponse = await claimsApi.submit(claimDataForApi);
+    
+    // 3. Update the claim status
+    await claimRef.update({
+        status: 'Submitted',
+        submissionDate: admin.firestore.FieldValue.serverTimestamp(),
+        // submissionConfirmationId: apiResponse.confirmationId
+    });
+
+    console.log(`Claim ${claimId} submitted successfully.`);
+    return { success: true };
+});
+*/
+
+// =======================================================================================
+// 40. Reconcile Payment (Firestore Trigger)
+// =======================================================================================
+/**
+ * Automatically updates an invoice when a payment is recorded.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /payments/{paymentId}
+ */
+/*
+exports.reconcilePayment = functions.region('europe-west1').firestore
+    .document('/payments/{paymentId}')
+    .onCreate(async (snapshot, context) => {
+        const paymentData = snapshot.data();
+        const { invoiceId, amount } = paymentData;
+
+        if (!invoiceId || !amount) {
+            console.error('Payment document is missing invoiceId or amount.');
+            return null;
+        }
+
+        const invoiceRef = db.collection('invoices').doc(invoiceId);
+
+        try {
+            await db.runTransaction(async (transaction) => {
+                const invoiceDoc = await transaction.get(invoiceRef);
+                if (!invoiceDoc.exists) {
+                    throw new Error('Invoice not found.');
+                }
+                
+                const newAmountDue = invoiceDoc.data().amountDue - amount;
+                let newStatus = 'Partially Paid';
+                if (newAmountDue <= 0) {
+                    newStatus = 'Paid';
+                }
+
+                transaction.update(invoiceRef, {
+                    amountDue: newAmountDue,
+                    status: newStatus
+                });
+            });
+
+            console.log(`Reconciled payment ${context.params.paymentId} for invoice ${invoiceId}.`);
+        } catch (error) {
+            console.error(`Failed to reconcile payment for invoice ${invoiceId}:`, error);
+        }
+
+        return null;
+    });
+*/
 
