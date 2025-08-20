@@ -1,4 +1,5 @@
 
+
 import { z } from 'zod';
 
 /**
@@ -151,4 +152,20 @@ export const NewWaitingListSchema = z.object({
   requestedService: z.string().min(3, { message: "A service must be selected." }),
   priority: z.enum(['Routine', 'Urgent', 'Elective']),
   notes: z.string().optional(),
+});
+
+/**
+ * Zod schema for a single line item in an invoice.
+ */
+const InvoiceItemSchema = z.object({
+  description: z.string().min(3, { message: "Description must be at least 3 characters." }),
+  quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
+  unitPrice: z.coerce.number().min(0, { message: "Price cannot be negative." }),
+});
+
+/**
+ * Zod schema for generating a new invoice.
+ */
+export const NewInvoiceSchema = z.object({
+  items: z.array(InvoiceItemSchema).min(1, { message: "At least one item is required." }),
 });

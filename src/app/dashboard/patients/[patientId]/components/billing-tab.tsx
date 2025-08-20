@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { GenerateInvoiceDialog } from './generate-invoice-dialog';
 
 interface BillingTabProps {
     patientId: string;
@@ -58,7 +59,7 @@ export function BillingTab({ patientId }: BillingTabProps) {
                         <CardTitle>Billing & Invoices</CardTitle>
                         <CardDescription>A history of all financial transactions and invoices.</CardDescription>
                     </div>
-                    <Button>Generate New Invoice</Button>
+                    <GenerateInvoiceDialog patientId={patientId} />
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">

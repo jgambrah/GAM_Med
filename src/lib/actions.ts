@@ -1,10 +1,11 @@
 
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -332,4 +333,14 @@ export async function addToWaitingList(values: z.infer<typeof NewWaitingListSche
     revalidatePath('/dashboard/waiting-lists');
     
     return { success: true, message: 'Patient added to waiting list successfully.' };
+}
+
+export async function generateInvoice(patientId: string, values: z.infer<typeof NewInvoiceSchema>) {
+    console.log(`Generating invoice for patient ${patientId} with items:`, values.items);
+    // In a real app, this would call the `generateInvoice` Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    
+    return { success: true, message: 'Invoice generated successfully.' };
 }
