@@ -44,7 +44,7 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
 
     const handleCancel = (appointmentId: string) => {
         // In a real app, this would call a server action `cancelAppointment(appointmentId)`
-        alert(`Simulating cancellation for appointment ${appointmentId}`);
+        alert(`Simulating cancellation for appointment ${appointmentId}. Remember to check the waiting list to fill this new opening!`);
     }
 
   return (

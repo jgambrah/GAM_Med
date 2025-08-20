@@ -34,7 +34,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { NewAppointmentSchema } from '@/lib/schemas';
 import { allPatients, allUsers } from '@/lib/data';
-import { Plus } from 'lucide-react';
+import { Plus, Clock } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
@@ -97,7 +97,9 @@ export function NewAppointmentDialog() {
         setIsLoadingSlots(true);
         // In a real app, you would call `getClinicAvailability` or `getDoctorAvailability` here.
         setTimeout(() => {
-            setAvailableSlots(mockAvailableSlots);
+            // To demonstrate the "no slots" workflow, we'll sometimes return an empty array.
+            const slots = Math.random() > 0.3 ? mockAvailableSlots : [];
+            setAvailableSlots(slots);
             setIsLoadingSlots(false);
         }, 500); // Simulate network delay
     } else {
@@ -142,6 +144,13 @@ export function NewAppointmentDialog() {
       });
     }
   };
+
+  const handleAddToWaitlist = () => {
+    // In a real app, this would open the AddToWaitlistDialog,
+    // pre-filled with the patient and service details.
+    setOpen(false); // Close the current dialog
+    alert("This would open the 'Add to Waitlist' dialog.");
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -281,7 +290,19 @@ export function NewAppointmentDialog() {
                                             </Button>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-muted-foreground col-span-4">No available slots on this date.</p>
+                                        <div className="col-span-4 text-center p-4 border-2 border-dashed rounded-lg">
+                                            <p className="text-sm text-muted-foreground">No available slots on this date.</p>
+                                            <Button 
+                                                type="button" 
+                                                variant="secondary" 
+                                                className="mt-2"
+                                                onClick={handleAddToWaitlist}
+                                                disabled={!form.getValues('patientId')}
+                                            >
+                                                <Clock className="h-4 w-4 mr-2" />
+                                                Add to Waiting List
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             </FormControl>
