@@ -54,6 +54,11 @@ const mockAvailableSlots = [
   '09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30'
 ];
 
+const mockProcedureRooms = [
+    { value: 'proc-room-1', label: 'Procedure Room 1' },
+    { value: 'proc-room-2', label: 'Procedure Room 2' },
+];
+
 export function NewAppointmentDialog() {
   const [open, setOpen] = React.useState(false);
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
@@ -70,6 +75,7 @@ export function NewAppointmentDialog() {
       appointmentDate: '',
       appointmentTime: '',
       type: 'consultation',
+      resourceId: '',
     },
   });
 
@@ -83,6 +89,7 @@ export function NewAppointmentDialog() {
   
   const selectedDepartment = form.watch('department');
   const selectedDate = form.watch('appointmentDate');
+  const appointmentType = form.watch('type');
 
   React.useEffect(() => {
     // This simulates fetching available slots when a date is selected.
@@ -110,6 +117,7 @@ export function NewAppointmentDialog() {
   }));
 
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
+    console.log("Booking appointment with values:", values);
     const result = await bookAppointment(values);
     if (result.success) {
       toast({
@@ -124,6 +132,7 @@ export function NewAppointmentDialog() {
         appointmentDate: '',
         appointmentTime: '',
         type: 'consultation',
+        resourceId: '',
       });
     } else {
       toast({
@@ -303,6 +312,33 @@ export function NewAppointmentDialog() {
                 </FormItem>
               )}
             />
+
+            {appointmentType === 'procedure' && (
+                <FormField
+                    control={form.control}
+                    name="resourceId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Book Procedure Room</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a procedure room" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {mockProcedureRooms.map((room) => (
+                                <SelectItem key={room.value} value={room.value}>
+                                {room.label}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
