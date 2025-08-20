@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -21,13 +22,14 @@ import {
     Beaker,
     Send,
     ClipboardCheck,
-    CalendarClock
+    CalendarClock,
+    Scissors
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 import * as React from 'react';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator'];
 
 export function MainNav() {
   const pathname = usePathname();
@@ -86,6 +88,12 @@ export function MainNav() {
       roles: ['admin', 'doctor', 'billing_clerk', 'patient'],
     },
     {
+        href: '/dashboard/ot',
+        label: 'OT Schedule',
+        icon: Scissors,
+        roles: ['admin', 'doctor', 'ot_coordinator'],
+    },
+    {
         href: '/dashboard/referrals',
         label: 'Referrals',
         icon: Send,
@@ -124,7 +132,10 @@ export function MainNav() {
     },
   ];
 
-  const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role));
+  const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/prescriptions', '/dashboard/lab', '/dashboard/referrals', '/dashboard/my-schedule', '/dashboard/admin'];
+    return order.indexOf(a.href) - order.indexOf(b.href);
+  });
 
   return (
     <SidebarMenu>
@@ -146,3 +157,4 @@ export function MainNav() {
     </SidebarMenu>
   );
 }
+
