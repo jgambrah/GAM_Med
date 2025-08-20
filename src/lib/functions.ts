@@ -1,5 +1,4 @@
 
-
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -1420,7 +1419,8 @@ exports.logMedicationAdministration = functions.region('europe-west1').https.onC
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (userDoc.data()?.role !== 'nurse') {
+    const userRole = userDoc.data()?.role;
+    if (userRole !== 'nurse') {
         throw new functions.https.HttpsError('permission-denied', 'Only nurses can log medication administration.');
     }
 
@@ -2170,7 +2170,166 @@ exports.checkResourceAvailability = functions.region('europe-west1').https.onCal
     return { bookings };
 });
 */
+
+// =======================================================================================
+// == WAITING LIST MANAGEMENT
+// =======================================================================================
+
+// =======================================================================================
+// 35. Add to Waiting List (Callable Function)
+// =======================================================================================
+/**
+ * Adds a patient to a waiting list for a specific service.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, requestedService: string, priority: string, notes?: string, requestedServiceId?: string }
+ */
+/*
+exports.addToWaitingList = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check for clinical or administrative staff
+
+    const { patientId, requestedService, priority, notes, requestedServiceId } = data;
+    if (!patientId || !requestedService || !priority) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient, service, and priority are required.');
+    }
     
+    const newWaitingListRef = db.collection('waiting_lists').doc();
+
+    const waitingListData = {
+        waitinglistId: newWaitingListRef.id,
+        patientId,
+        requestedService,
+        requestedServiceId: requestedServiceId || null,
+        priority,
+        notes: notes || null,
+        status: 'Active',
+        dateAdded: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await newWaitingListRef.set(waitingListData);
+
+    console.log(`Patient ${patientId} added to waiting list for ${requestedService}.`);
+    return { success: true, waitinglistId: newWaitingListRef.id };
+});
+*/
+
+// =======================================================================================
+// 36. Schedule from Waiting List (Callable Function)
+// =======================================================================================
+/**
+ * Schedules an appointment for a patient from the waiting list.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { waitinglistId: string, proposedSlot: object }
+ */
+/*
+exports.scheduleFromWaitingList = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check for admin/receptionist
+
+    const { waitinglistId, proposedSlot } = data;
+    
+    const waitingListRef = db.collection('waiting_lists').doc(waitinglistId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const waitingListDoc = await transaction.get(waitingListRef);
+            if (!waitingListDoc.exists || waitingListDoc.data().status !== 'Active') {
+                throw new Error('This waiting list entry is not active or does not exist.');
+            }
+
+            // 2. Call the appropriate booking function (conceptual).
+            // This is a simplified call; the actual implementation would be more complex.
+            // const bookingResult = await bookAppointment(proposedSlot);
+            // if (!bookingResult.success) {
+            //    throw new Error('Failed to book the appointment slot.');
+            // }
+            const appointmentId = 'newly-booked-appointment-id'; // Placeholder
+
+            // 3. Update the waiting list entry to link it to the new appointment.
+            transaction.update(waitingListRef, {
+                status: 'Scheduled',
+                appointmentId: appointmentId
+            });
+        });
+
+        console.log(`Scheduled appointment for waiting list entry ${waitinglistId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to schedule from waiting list:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not schedule from waiting list.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 37. Fill Cancellations (Scheduled Function)
+// =======================================================================================
+/**
+ * A scheduled function that runs periodically to find cancelled slots and offer them
+ * to patients on the waiting list.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every 30 minutes'
+ */
+/*
+exports.fillCancellations = functions.region('europe-west1').pubsub
+    .schedule('every 30 minutes')
+    .onRun(async (context) => {
+        const now = new Date();
+        const lookbackTime = new Date(now.getTime() - 30 * 60 * 1000); // 30 mins ago
+
+        // 1. Find appointments cancelled in the last 30 minutes.
+        const cancelledSnapshot = await db.collection('appointments')
+            .where('status', '==', 'cancelled')
+            .where('updated_at', '>=', admin.firestore.Timestamp.fromDate(lookbackTime))
+            .get();
+
+        if (cancelledSnapshot.empty) {
+            console.log('No recently cancelled appointments to fill.');
+            return null;
+        }
+
+        for (const doc of cancelledSnapshot.docs) {
+            const cancelledAppt = doc.data();
+
+            // 2. Find a matching patient on the waiting list.
+            const waitingListQuery = db.collection('waiting_lists')
+                .where('requestedServiceId', '==', cancelledAppt.clinicId) // Match by clinic/service
+                .where('status', '==', 'Active')
+                .orderBy('priority') // 'Urgent' > 'Routine' > 'Elective'
+                .orderBy('dateAdded', 'asc') // First-come, first-served within priority
+                .limit(1);
+
+            const waitingListSnapshot = await waitingListQuery.get();
+            if (waitingListSnapshot.empty) {
+                console.log(`No waiting list patients for service ${cancelledAppt.clinicId}.`);
+                continue;
+            }
+
+            const topPatientEntry = waitingListSnapshot.docs[0].data();
+            const patientId = topPatientEntry.patientId;
+
+            // 3. Send notification to the patient with the offer.
+            // A more complex system might use Twilio with interactive responses.
+            // await sendSms(patient.contact, `A slot has opened up at ${cancelledAppt.startTime}. Reply YES to accept.`);
+            
+            console.log(`Offered cancelled slot to patient ${patientId} from waiting list ${topPatientEntry.waitinglistId}.`);
+        }
+        
+        return null;
+    });
+*/
+    
+
 
 
 
