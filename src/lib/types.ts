@@ -1,11 +1,83 @@
 
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
  * This ensures consistency between the frontend components and the backend database.
  * This ensures consistency between the frontend components and the backend database.
  */
+
+// =========================================================================
+// == Billing & Financial Management Data Models
+// =========================================================================
+
+/**
+ * Represents a single line item on an invoice.
+ * This allows for detailed, itemized billing.
+ */
+export interface InvoiceLineItem {
+  itemId: string; // Unique ID for the line item
+  description: string; // e.g., 'Amlodipine 5mg', 'Full Blood Count', 'Consultation Fee'
+  quantity: number;
+  unitPrice: number; // Price per unit
+  totalPrice: number; // quantity * unitPrice
+  serviceDate: string; // ISO Timestamp when the service was rendered
+}
+
+/**
+ * Represents an invoice in the central 'invoices' collection.
+ * This is the primary document for patient billing.
+ */
+export interface Invoice {
+  invoiceId: string; // Document ID, e.g., INV-00123
+  patientId: string; // Reference to 'patients' collection
+  relatedAdmissionId?: string; // Optional link to an admission
+  relatedAppointmentId?: string; // Optional link to an appointment
+  lineItems: InvoiceLineItem[];
+  subtotal: number;
+  tax: number;
+  totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
+  status: 'Draft' | 'Sent' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Void';
+  invoiceDate: string; // ISO Timestamp when the invoice was generated
+  dueDate: string; // ISO Timestamp when the payment is due
+  createdAt: string; // ISO Timestamp
+  updatedAt: string; // ISO Timestamp
+}
+
+/**
+ * Represents a single financial transaction in the 'transactions' collection.
+ * This logs all payments received.
+ */
+export interface FinancialTransaction {
+  transactionId: string; // Document ID
+  invoiceId: string; // Reference to 'invoices' collection
+  patientId: string; // Reference to 'patients' collection
+  amount: number;
+  paymentMethod: 'Cash' | 'Card' | 'Mobile Money' | 'Bank Transfer' | 'Insurance';
+  transactionDate: string; // ISO Timestamp
+  recordedByUserId: string; // UID of the billing clerk or staff who recorded the payment
+}
+
+/**
+ * Represents an insurance claim in the 'claims' collection.
+ * This tracks the lifecycle of a claim submitted to an insurance provider.
+ */
+export interface Claim {
+  claimId: string; // Document ID
+  invoiceId: string; // Reference to the related invoice
+  patientId: string; // Reference to 'patients' collection
+  insuranceProvider: string; // e.g., 'NHIS'
+  policyNumber: string;
+  status: 'Submitted' | 'Processing' | 'Approved' | 'Denied' | 'Paid';
+  submissionDate: string; // ISO Timestamp
+  responseDate?: string; // ISO Timestamp
+  amountClaimed: number;
+  amountPaid?: number;
+  denialReason?: string;
+  notes?: string;
+}
+
 
 // =========================================================================
 // == Clinical Decision Support (CDS) Data Models
@@ -347,11 +419,11 @@ export interface DoctorSchedule {
  */
 export interface Resource {
   resourceId: string; // Document ID
-  name: string; // e.g., 'MRI-1', 'Exam Room 3', 'Phlebotomist A'
+  name: string; // e.g., 'MRI Scanner 1', 'Exam Room 3'
   type: string; // e.g., 'Equipment', 'Room', 'Specialized Staff'
   department: string; // e.g., 'Radiology', 'Cardiology'
   location: string;
-  operatingHours: Record<string, string>; // e.g., { 'Mon': '08:00-18:00', 'Tue': '08:00-18:00' }
+  operatingHours: Record<string, string>; // e.g., { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' }
   isBookable: boolean;
 }
 
@@ -638,3 +710,6 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
+
+
+    
