@@ -1,62 +1,46 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+    
     function getUserRole() {
-      // In a real app, you would get the user's custom claims or read their user document.
-      // For this prototype, we'll assume a helper function exists.
-      // Example: return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return 'admin'; // Defaulting to admin for simplicity in prototype
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-     function getUserClinic() {
-      // In a real app, you would get the user's assigned clinic.
-      return 'Cardiology'; 
-    }
-
-    match /users/{userId} {
-      allow read: if request.auth.uid == userId;
-      allow write: if request.auth.uid == userId;
-    }
-
-    match /patients/{patientId}/{document=**} {
-      allow read, write: if request.auth.uid != null; // Simplified for prototype
-    }
-    
-    match /beds/{bedId} {
-       allow read, write: if request.auth.uid != null;
-    }
-
-    match /clinics/{clinicId} {
-      allow read: if true;
-      allow write: if getUserRole() == 'admin';
-    }
-    
-    match /appointments/{appointmentId} {
-      allow read: if request.auth.uid == resource.data.patientId 
-                   || request.auth.uid == resource.data.doctorId 
-                   || getUserRole() in ['admin'] 
-                   || (getUserRole() == 'receptionist' && getUserClinic() == resource.data.clinicId);
-      allow create, update, delete: if request.auth.uid != null; // Simplified for prototype
-    }
-
-    match /doctor_schedules/{scheduleId} {
-      allow read: true;
-      allow write: if getUserRole() == 'admin' || (getUserRole() == 'doctor' && request.auth.uid == request.resource.data.doctorId);
-    }
-
-    match /operating_theaters/{otRoomId} {
+    // ===================================
+    // == Operating Theatre (OT) Rules
+    // ===================================
+    match /operating_theaters/{theaterId} {
       allow read: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'];
       allow write: if getUserRole() == 'admin';
     }
-
+    
     match /ot_sessions/{sessionId} {
-      allow create: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'] && request.resource.data.leadSurgeonId == request.auth.uid;
-      allow read: if getUserRole() in ['admin', 'ot_coordinator'] || request.auth.uid == resource.data.leadSurgeonId || request.auth.uid in resource.data.teamIds;
+      allow create: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'] 
+                    && request.resource.data.leadSurgeonId == request.auth.uid;
+      allow read: if getUserRole() in ['admin', 'ot_coordinator'] 
+                  || request.auth.uid == resource.data.leadSurgeonId 
+                  || request.auth.uid in resource.data.teamIds;
       allow update: if getUserRole() in ['admin', 'ot_coordinator'];
-      allow delete: if getUserRole() in ['admin', 'ot_coordinator'];
+      // No delete rule for audit purposes
+    }
+
+    // ===================================
+    // == Resource Scheduling Rules
+    // ===================================
+    match /resources/{resourceId} {
+      allow read: if request.auth != null; // All authenticated users can see the resource catalog
+      allow write: if getUserRole() == 'admin'; // Only admins can add/edit resources
+    }
+
+    match /resource_bookings/{bookingId} {
+      allow create: if getUserRole() in ['admin', 'doctor', 'receptionist', 'ot_coordinator'];
+      allow read: if getUserRole() in ['admin', 'receptionist'] || request.auth.uid == resource.data.bookedByUserId;
+      allow update: if getUserRole() in ['admin', 'receptionist'] || request.auth.uid == resource.data.bookedByUserId;
+    }
+    
+    // Other rules will go here...
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
