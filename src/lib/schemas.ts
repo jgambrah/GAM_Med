@@ -142,3 +142,13 @@ export const NewAppointmentSchema = z.object({
   type: z.enum(['consultation', 'follow-up', 'procedure']),
   resourceId: z.string().optional(),
 });
+
+/**
+ * Zod schema for validating the new waiting list entry form.
+ */
+export const NewWaitingListSchema = z.object({
+  patientId: z.string().min(1, { message: "A patient must be selected." }),
+  requestedService: z.string().min(3, { message: "A service must be selected." }),
+  priority: z.enum(['Routine', 'Urgent', 'Elective']),
+  notes: z.string().optional(),
+});

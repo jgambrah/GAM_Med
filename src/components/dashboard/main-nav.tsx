@@ -23,7 +23,8 @@ import {
     Send,
     ClipboardCheck,
     CalendarClock,
-    Scissors
+    Scissors,
+    Clock
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -92,6 +93,12 @@ export function MainNav() {
         label: 'OT Schedule',
         icon: Scissors,
         roles: ['admin', 'doctor', 'ot_coordinator'],
+    },
+     {
+        href: '/dashboard/waiting-lists',
+        label: 'Waiting Lists',
+        icon: Clock,
+        roles: ['admin', 'receptionist'],
     },
     {
         href: '/dashboard/referrals',

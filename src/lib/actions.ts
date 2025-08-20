@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -322,4 +322,14 @@ export async function bookAppointment(values: z.infer<typeof NewAppointmentSchem
   revalidatePath('/dashboard/my-practice');
 
   return { success: true, message: 'Appointment booked successfully.' };
+}
+
+export async function addToWaitingList(values: z.infer<typeof NewWaitingListSchema>) {
+    console.log('Adding to waiting list with values:', values);
+    // This would call the `addToWaitingList` Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath('/dashboard/waiting-lists');
+    
+    return { success: true, message: 'Patient added to waiting list successfully.' };
 }
