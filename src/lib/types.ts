@@ -3,7 +3,6 @@
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
  * This ensures consistency between the frontend components and the backend database.
- * This ensures consistency between the frontend components and the backend database.
  */
 
 // =========================================================================
@@ -15,12 +14,10 @@
  * This allows for detailed, itemized billing.
  */
 export interface InvoiceLineItem {
-  itemId: string; // Unique ID for the line item
-  description: string; // e.g., 'Amlodipine 5mg', 'Full Blood Count', 'Consultation Fee'
-  quantity: number;
-  unitPrice: number; // Price per unit
-  totalPrice: number; // quantity * unitPrice
-  serviceDate: string; // ISO Timestamp when the service was rendered
+  service: string; // e.g., 'Consultation', 'Full Blood Count'
+  code: string; // The billing code, e.g., '99214'
+  price: number;
+  linkedAppointmentId?: string; // Optional link to a specific service appointment
 }
 
 /**
@@ -30,52 +27,49 @@ export interface InvoiceLineItem {
 export interface Invoice {
   invoiceId: string; // Document ID, e.g., INV-00123
   patientId: string; // Reference to 'patients' collection
-  relatedAdmissionId?: string; // Optional link to an admission
-  relatedAppointmentId?: string; // Optional link to an appointment
-  lineItems: InvoiceLineItem[];
-  subtotal: number;
-  tax: number;
+  issueDate: string; // ISO Timestamp
+  dueDate: string; // ISO Timestamp
+  billedItems: InvoiceLineItem[];
   totalAmount: number;
-  amountPaid: number;
-  balanceDue: number;
-  status: 'Draft' | 'Sent' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Void';
-  invoiceDate: string; // ISO Timestamp when the invoice was generated
-  dueDate: string; // ISO Timestamp when the payment is due
-  createdAt: string; // ISO Timestamp
-  updatedAt: string; // ISO Timestamp
+  amountDue: number;
+  status: 'Draft' | 'Pending Payment' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Void';
 }
 
 /**
- * Represents a single financial transaction in the 'transactions' collection.
+ * Represents a single financial transaction in the 'payments' collection.
  * This logs all payments received.
  */
 export interface FinancialTransaction {
-  transactionId: string; // Document ID
+  paymentId: string; // Document ID
   invoiceId: string; // Reference to 'invoices' collection
-  patientId: string; // Reference to 'patients' collection
   amount: number;
-  paymentMethod: 'Cash' | 'Card' | 'Mobile Money' | 'Bank Transfer' | 'Insurance';
-  transactionDate: string; // ISO Timestamp
-  recordedByUserId: string; // UID of the billing clerk or staff who recorded the payment
+  paymentMethod: 'Credit Card' | 'Insurance Payout' | 'Cash' | 'Mobile Money';
+  paymentDate: string; // ISO Timestamp
+  transactionId?: string; // Optional ID from a payment gateway
 }
 
 /**
- * Represents an insurance claim in the 'claims' collection.
+ * Represents an insurance claim in the 'insurance_claims' collection.
  * This tracks the lifecycle of a claim submitted to an insurance provider.
  */
 export interface Claim {
   claimId: string; // Document ID
   invoiceId: string; // Reference to the related invoice
   patientId: string; // Reference to 'patients' collection
-  insuranceProvider: string; // e.g., 'NHIS'
-  policyNumber: string;
-  status: 'Submitted' | 'Processing' | 'Approved' | 'Denied' | 'Paid';
+  insuranceProviderId: string; // A reference to a document in an 'insurance_providers' collection
   submissionDate: string; // ISO Timestamp
-  responseDate?: string; // ISO Timestamp
-  amountClaimed: number;
-  amountPaid?: number;
+  status: 'Submitted' | 'Pending' | 'Paid' | 'Denied';
+  payoutAmount?: number;
   denialReason?: string;
-  notes?: string;
+}
+
+/**
+ * Represents a single billable service or item in the 'billing_codes' collection.
+ */
+export interface BillingCode {
+    codeId: string; // e.g. '99214'
+    description: string; // e.g. 'Office or other outpatient visit'
+    price: number;
 }
 
 
@@ -711,5 +705,7 @@ export interface ImmunizationRecord {
   notes?: string;
 }
 
+
+    
 
     
