@@ -20,17 +20,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PrescriptionRecord } from '@/lib/types';
+import { Prescription } from '@/lib/types';
 import { format } from 'date-fns';
 import { mockPrescriptions } from '@/lib/data';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 
-const getStatusVariant = (status: PrescriptionRecord['status']): "default" | "secondary" | "destructive" | "outline" => {
+const getStatusVariant = (status: Prescription['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-        case 'Active': return 'default';
-        case 'Filled': return 'secondary';
-        case 'Discontinued': return 'destructive';
+        case 'Pending Pharmacy': return 'default';
+        case 'Dispensed': return 'secondary';
+        case 'Canceled': return 'destructive';
         default: return 'outline';
     }
 };
@@ -39,7 +39,7 @@ export function PharmacyWorkQueue() {
   const { user } = useAuth();
   // In a real app, this would be a real-time Firestore query on the top-level 'prescriptions' collection
   // where status is 'Pending Pharmacy' or similar.
-  const pendingPrescriptions = mockPrescriptions.filter(p => p.status === 'Active');
+  const pendingPrescriptions = mockPrescriptions.filter(p => p.status === 'Pending Pharmacy');
 
   const isPharmacist = user?.role === 'pharmacist';
 
@@ -67,7 +67,7 @@ export function PharmacyWorkQueue() {
                     </TableCell>
                     <TableCell>
                         <Link href={`/dashboard/patients/${prescription.patientId}`} className="hover:underline text-primary">
-                            {prescription.patientName}
+                            {mockPrescriptions.find(p => p.patientId === prescription.patientId)?.patientName || 'Unknown'}
                         </Link>
                     </TableCell>
                     <TableCell>
@@ -112,4 +112,3 @@ export function PharmacyWorkQueue() {
     </div>
   );
 }
-

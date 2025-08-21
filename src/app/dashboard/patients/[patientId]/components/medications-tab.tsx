@@ -23,35 +23,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { useDebouncedCallback } from 'use-debounce';
+import { mockMedicationRecords } from '@/lib/data';
 
-// In a real application, this data would come from a real-time listener
-// on the /patients/{patientId}/medication_history sub-collection.
-const mockMedications: MedicationRecord[] = [
-    {
-        prescriptionId: 'med-1',
-        patientId: 'P-123456',
-        patientName: 'Kwame Owusu',
-        medicationName: 'Amlodipine',
-        dosage: '5mg',
-        frequency: 'Once daily',
-        instructions: 'Take in the morning with food.',
-        prescribedByDoctorId: 'doc1',
-        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
-        status: 'Active'
-    },
-    {
-        prescriptionId: 'med-2',
-        patientId: 'P-123456',
-        patientName: 'Kwame Owusu',
-        medicationName: 'Atorvastatin',
-        dosage: '20mg',
-        frequency: 'Once daily at bedtime',
-        instructions: '',
-        prescribedByDoctorId: 'doc1',
-        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
-        status: 'Active'
-    }
-];
 
 // This would come from our central 'medications' formulary collection.
 const mockFormulary = [
@@ -357,7 +330,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
 
     // In a real application, this data would come from a real-time listener
     // on the /patients/{patientId}/medication_history sub-collection.
-    const patientMedications = mockMedications.filter(med => med.patientId === resolvedPatientId);
+    const patientMedications = mockMedicationRecords.filter(med => med.patientId === resolvedPatientId);
 
     return (
         <Card>

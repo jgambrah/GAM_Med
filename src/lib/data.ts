@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -287,6 +287,7 @@ export const allAppointments: Appointment[] = [
     type: 'follow-up',
     department: 'Cardiology',
     status: 'confirmed',
+    isBilled: false,
     notes: 'Follow-up consultation for hypertension.',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
@@ -303,6 +304,7 @@ export const allAppointments: Appointment[] = [
     type: 'consultation',
     department: 'Cardiology',
     status: 'confirmed',
+    isBilled: false,
     notes: 'Initial consultation.',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
@@ -375,6 +377,7 @@ export const mockLabResults: LabResult[] = [
         labTechnicianId: 'labtech1',
         orderedAt: new Date('2024-07-28T12:00:00Z').toISOString(),
         completedAt: new Date('2024-07-28T16:00:00Z').toISOString(),
+        isBilled: false,
     },
     {
         testId: 'lab-2',
@@ -385,6 +388,7 @@ export const mockLabResults: LabResult[] = [
         result: 'Pending',
         orderedByDoctorId: 'doc1',
         orderedAt: new Date('2024-07-29T10:00:00Z').toISOString(),
+        isBilled: false,
     },
      {
         testId: 'lab-3',
@@ -396,6 +400,7 @@ export const mockLabResults: LabResult[] = [
         orderedByDoctorId: 'doc1',
         labTechnicianId: 'labtech1',
         orderedAt: new Date('2024-07-30T10:00:00Z').toISOString(),
+        isBilled: false,
     }
 ];
 
@@ -489,45 +494,60 @@ export const mockCarePlans: CarePlan[] = [
     }
 ];
 
-export const mockPrescriptions: MedicationRecord[] = [
+export const mockPrescriptions: Prescription[] = [
     {
         prescriptionId: 'med-1',
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
+        medicationId: 'amlodipine',
         medicationName: 'Amlodipine',
         dosage: '5mg',
+        form: 'Tablet',
         frequency: 'Once daily',
+        duration: '30 days',
+        quantity: 30,
+        route: 'Oral',
         instructions: 'Take in the morning with food.',
         prescribedByDoctorId: 'doc1',
         prescribedByDoctorName: 'Dr. Evelyn Mensah',
         prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
-        status: 'Active'
+        status: 'Pending Pharmacy'
     },
     {
         prescriptionId: 'med-2',
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
+        medicationId: 'atorvastatin',
         medicationName: 'Atorvastatin',
         dosage: '20mg',
+        form: 'Tablet',
         frequency: 'Once daily at bedtime',
+        duration: '90 days',
+        quantity: 90,
+        route: 'Oral',
         instructions: '',
         prescribedByDoctorId: 'doc1',
         prescribedByDoctorName: 'Dr. Evelyn Mensah',
         prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
-        status: 'Active'
+        status: 'Pending Pharmacy'
     },
     {
         prescriptionId: 'med-3',
         patientId: 'P-654321',
         patientName: 'Aba Appiah',
+        medicationId: 'paracetamol',
         medicationName: 'Paracetamol',
         dosage: '1g',
+        form: 'Tablet',
         frequency: 'PRN for pain',
+        duration: 'As needed',
+        quantity: 20,
+        route: 'Oral',
         instructions: 'Do not exceed 4g in 24 hours.',
         prescribedByDoctorId: 'doc1',
         prescribedByDoctorName: 'Dr. Evelyn Mensah',
         prescribedAt: new Date('2024-08-01T11:05:00Z').toISOString(),
-        status: 'Active'
+        status: 'Pending Pharmacy'
     }
 ];
 
@@ -684,7 +704,7 @@ export const mockInvoices: Invoice[] = [
         patientName: 'Kwame Owusu',
         issueDate: new Date('2024-07-29T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-28T18:00:00Z').toISOString(),
-        billedItems: [{ service: 'Admission & Consultation', code: 'A001', price: 250.00 }],
+        billedItems: [{ serviceType: 'Consultation', linkedServiceId: 'A-001', billingCode: 'A001', price: 250.00 }],
         totalAmount: 250.00,
         amountDue: 0.00,
         status: 'Paid',
@@ -695,7 +715,7 @@ export const mockInvoices: Invoice[] = [
         patientName: 'Aba Appiah',
         issueDate: new Date('2024-08-01T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-31T18:00:00Z').toISOString(),
-        billedItems: [{ service: 'Pre-op Assessment', code: 'A005', price: 150.00 }],
+        billedItems: [{ serviceType: 'Pre-op Assessment', linkedServiceId: 'A-003', billingCode: 'A005', price: 150.00 }],
         totalAmount: 150.00,
         amountDue: 150.00,
         status: 'Pending Payment',
@@ -743,3 +763,33 @@ export const mockPayments: FinancialTransaction[] = [
         transactionId: 'MOMO-ABC123',
     },
 ];
+
+export const mockMedicationRecords: MedicationRecord[] = [
+    {
+        prescriptionId: 'med-1',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        medicationName: 'Amlodipine',
+        dosage: '5mg',
+        frequency: 'Once daily',
+        instructions: 'Take in the morning with food.',
+        prescribedByDoctorId: 'doc1',
+        prescribedByDoctorName: 'Dr. Evelyn Mensah',
+        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
+        status: 'Active'
+    },
+    {
+        prescriptionId: 'med-2',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        medicationName: 'Atorvastatin',
+        dosage: '20mg',
+        frequency: 'Once daily at bedtime',
+        instructions: '',
+        prescribedByDoctorId: 'doc1',
+        prescribedByDoctorName: 'Dr. Evelyn Mensah',
+        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
+        status: 'Active'
+    }
+];
+

@@ -15,7 +15,7 @@
  * This allows for detailed, itemized billing.
  */
 export interface InvoiceLineItem {
-  serviceType: string; // e.g., 'Consultation', 'Lab Test', 'Medication'
+  serviceType: 'Consultation' | 'Lab Test' | 'Medication' | 'Procedure' | 'Other'; // e.g., 'Consultation', 'Lab Test', 'Medication'
   linkedServiceId: string; // The ID of the original service document (e.g., appointmentId, labResultId)
   billingCode: string; // The billing code, e.g., '99214'
   price: number;
@@ -482,7 +482,9 @@ export interface Medication {
 export interface Prescription {
   prescriptionId: string; // Document ID
   patientId: string; // Reference to 'patients' collection
+  patientName: string; // Denormalized
   prescribedByDoctorId: string; // Reference to 'users' collection
+  prescribedByDoctorName?: string; // Denormalized
   medicationId: string; // Reference to 'medications' collection
   medicationName: string; // Denormalized for quick lookups
   dosage: string; // e.g., '10mg'
@@ -492,7 +494,7 @@ export interface Prescription {
   quantity: number; // e.g., 14, 200
   route: 'Oral' | 'IV' | 'IM' | 'Topical';
   instructions: string; // Patient-friendly notes
-  warnings: string[]; // e.g., ['Drug-drug interaction detected', 'Allergy warning']
+  warnings?: string[]; // e.g., ['Drug-drug interaction detected', 'Allergy warning']
   status: 'Pending Pharmacy' | 'Dispensed' | 'Canceled';
   prescribedAt: string; // ISO Timestamp
   filledAt?: string; // ISO Timestamp, updated by Pharmacy
@@ -715,4 +717,5 @@ export interface ImmunizationRecord {
     
 
     
+
 
