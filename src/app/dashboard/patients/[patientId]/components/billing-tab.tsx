@@ -9,39 +9,17 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { GenerateInvoiceDialog } from './generate-invoice-dialog';
 import { useAuth } from '@/hooks/use-auth';
+import { mockInvoices as allMockInvoices } from '@/lib/data';
 
 interface BillingTabProps {
     patientId: string;
 }
 
-const mockInvoices = [
-    {
-        id: 'INV-001',
-        date: new Date('2024-07-29T18:00:00Z'),
-        description: 'Admission & Initial Consultation',
-        amount: 250.00,
-        status: 'Paid',
-    },
-    {
-        id: 'INV-002',
-        date: new Date('2024-07-30T18:00:00Z'),
-        description: 'Lab Tests (Full Blood Count)',
-        amount: 150.00,
-        status: 'Paid',
-    },
-    {
-        id: 'INV-003',
-        date: new Date('2024-07-31T18:00:00Z'),
-        description: 'Medication (Amlodipine)',
-        amount: 75.50,
-        status: 'Pending',
-    }
-];
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
     switch (status) {
         case 'Paid': return 'secondary';
-        case 'Pending': return 'default';
+        case 'Pending Payment': return 'default';
         case 'Overdue': return 'destructive';
         default: return 'secondary';
     }
@@ -51,8 +29,10 @@ export function BillingTab({ patientId }: BillingTabProps) {
     const { user } = useAuth();
     const canGenerateInvoice = user?.role === 'admin' || user?.role === 'billing_clerk';
 
-    const totalBilled = mockInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-    const totalPaid = mockInvoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.amount, 0);
+    const mockInvoices = allMockInvoices.filter(i => i.patientId === patientId);
+
+    const totalBilled = mockInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const totalPaid = mockInvoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.totalAmount, 0);
     const outstandingBalance = totalBilled - totalPaid;
     
     const handlePayNow = (invoiceId: string) => {
@@ -76,35 +56,41 @@ export function BillingTab({ patientId }: BillingTabProps) {
                                 <TableRow>
                                     <TableHead>Invoice ID</TableHead>
                                     <TableHead>Date</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Amount (GHS)</TableHead>
+                                    <TableHead>Total Amount</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {mockInvoices.map((invoice) => (
-                                    <TableRow key={invoice.id}>
-                                        <TableCell className="font-medium">{invoice.id}</TableCell>
-                                        <TableCell>{format(invoice.date, 'PPP')}</TableCell>
-                                        <TableCell>{invoice.description}</TableCell>
-                                        <TableCell className="text-right">{invoice.amount.toFixed(2)}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            {(invoice.status === 'Pending' || invoice.status === 'Overdue') && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handlePayNow(invoice.id)}
-                                                >
-                                                    Pay Now
-                                                </Button>
-                                            )}
+                                {mockInvoices.length > 0 ? (
+                                    mockInvoices.map((invoice) => (
+                                        <TableRow key={invoice.invoiceId}>
+                                            <TableCell className="font-medium">{invoice.invoiceId}</TableCell>
+                                            <TableCell>{format(new Date(invoice.issueDate), 'PPP')}</TableCell>
+                                            <TableCell>₵{invoice.totalAmount.toFixed(2)}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {(invoice.status === 'Pending Payment' || invoice.status === 'Overdue') && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handlePayNow(invoice.invoiceId)}
+                                                    >
+                                                        Pay Now
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center">
+                                            No invoices found for this patient.
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
                     </div>
