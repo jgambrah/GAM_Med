@@ -13,10 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Patient } from '@/lib/types';
+import { Patient, ClinicalNote } from '@/lib/types';
 import { dischargePatient } from '@/lib/actions';
 import { generateDischargeSummary, GenerateDischargeSummaryOutput } from '@/ai/flows/discharge-summary-flow';
-import { ClinicalNote } from './clinical-notes-tab';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
