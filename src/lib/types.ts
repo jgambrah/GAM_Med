@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -14,10 +15,10 @@
  * This allows for detailed, itemized billing.
  */
 export interface InvoiceLineItem {
-  service: string; // e.g., 'Consultation', 'Full Blood Count'
-  code: string; // The billing code, e.g., '99214'
+  serviceType: string; // e.g., 'Consultation', 'Lab Test', 'Medication'
+  linkedServiceId: string; // The ID of the original service document (e.g., appointmentId, labResultId)
+  billingCode: string; // The billing code, e.g., '99214'
   price: number;
-  linkedAppointmentId?: string; // Optional link to a specific service appointment
 }
 
 /**
@@ -359,6 +360,7 @@ export interface Appointment {
   clinicId?: string; // Reference to the 'clinics' collection
   resourceId?: string; // Optional reference to a 'resources' document
   status: 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+  isBilled: boolean; // Flag to prevent duplicate billing
   notes: string;
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
@@ -618,6 +620,7 @@ export interface LabResult {
   labTechnicianId?: string; // Reference to users.uid
   orderedAt: string; // ISO 8601 Timestamp
   completedAt?: string; // ISO 8601 Timestamp
+  isBilled: boolean; // Flag to prevent duplicate billing
 }
 
 /**
@@ -670,6 +673,7 @@ export interface MedicationAdministrationLog {
   administeredByUserId: string; // Nurse's user ID
   administeredAt: string; // ISO Timestamp when the medication was given
   notes?: string; // Optional notes, e.g., "Patient refused", "Took with water"
+  isBilled: boolean; // Flag to prevent duplicate billing
 }
 
 
@@ -711,3 +715,4 @@ export interface ImmunizationRecord {
     
 
     
+
