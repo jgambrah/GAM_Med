@@ -80,7 +80,6 @@ export function AddToWaitlistDialog() {
       toast({
         title: 'Failed to Add Patient',
         description: result.message || 'An unexpected error occurred.',
-        variant: 'destructive',
       });
     }
   };

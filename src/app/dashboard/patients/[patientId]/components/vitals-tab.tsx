@@ -79,7 +79,6 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                 <p className="text-xs text-muted-foreground mt-2">The attending doctor has been notified.</p>
                             </div>
                         ),
-                        variant: 'destructive'
                     });
                 });
             } else {
@@ -98,7 +97,6 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
             toast({
                 title: 'Error Logging Vitals',
                 description: result.message || 'An unexpected error occurred.',
-                variant: 'destructive',
             });
         }
     }
