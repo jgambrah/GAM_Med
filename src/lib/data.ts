@@ -473,7 +473,12 @@ export const mockCarePlans: CarePlan[] = [
         patientId: 'P-123456',
         title: 'Hypertension Management',
         goal: 'Maintain BP below 140/90. Educate patient on diet and exercise. Ensure medication adherence.',
-        interventions: 'Daily BP monitoring. Low sodium diet consultation. Administer Amlodipine 5mg daily. Encourage 30 mins of walking daily.',
+        interventions: [
+            'Daily BP monitoring.',
+            'Low sodium diet consultation.',
+            'Administer Amlodipine 5mg daily.',
+            'Encourage 30 mins of walking daily.'
+        ],
         status: 'Active',
         createdBy: 'doc1',
         createdAt: new Date('2024-07-28T11:30:00Z').toISOString(),
@@ -485,7 +490,11 @@ export const mockCarePlans: CarePlan[] = [
         patientId: 'P-654321',
         title: 'Pre-Operative Care',
         goal: 'Ensure patient is medically stable for surgery. Manage anxiety. Provide pre-op education.',
-        interventions: 'Monitor vital signs every 4 hours. Provide information booklet on the procedure. Administer pre-medication as ordered.',
+        interventions: [
+            'Monitor vital signs every 4 hours.',
+            'Provide information booklet on the procedure.',
+            'Administer pre-medication as ordered.'
+        ],
         status: 'Active',
         createdBy: 'doc1',
         createdAt: new Date('2024-08-01T11:00:00Z').toISOString(),
@@ -792,4 +801,3 @@ export const mockMedicationRecords: MedicationRecord[] = [
         status: 'Active'
     }
 ];
-
