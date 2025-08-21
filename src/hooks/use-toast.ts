@@ -1,3 +1,4 @@
+
 // This can be used to represent a toast.
 import * as React from "react"
 
@@ -7,7 +8,9 @@ import type {
 } from "sonner"
 
 type ToasterToast = Omit<ToastT, "id"> & {
-  id?: string
+  id?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const actionTypes = {
