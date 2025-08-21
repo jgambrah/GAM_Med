@@ -48,7 +48,7 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
         case 'Emergency': return 'destructive';
         case 'Urgent': return 'default';
         case 'Routine': return 'secondary';
-        default: 'secondary';
+        default: return 'secondary';
     }
 }
 
