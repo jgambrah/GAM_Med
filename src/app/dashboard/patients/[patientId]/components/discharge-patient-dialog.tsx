@@ -13,12 +13,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Patient, ClinicalNote } from '@/lib/types';
+import { Patient, ClinicalNote, User } from '@/lib/types';
 import { dischargePatient } from '@/lib/actions';
 import { generateDischargeSummary, GenerateDischargeSummaryOutput } from '@/ai/flows/discharge-summary-flow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { allUsers } from '@/lib/data';
 
 interface DischargePatientDialogProps {
   patient: Patient;
@@ -42,6 +43,10 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
   const [summary, setSummary] = React.useState<GenerateDischargeSummaryOutput | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   
+  const getUserName = (userId: string) => {
+    return allUsers.find(u => u.uid === userId)?.name || 'Unknown User';
+  }
+
   /**
    * == Workflow Step 1: AI Generation ==
    * This function is triggered when the doctor clicks "Generate Summary".
@@ -53,7 +58,13 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
     setError(null);
     setSummary(null);
     try {
-        const result = await generateDischargeSummary({ clinicalNotes });
+        const formattedNotes = clinicalNotes.map(note => ({
+            author: getUserName(note.recordedByUserId),
+            date: note.recordedAt,
+            content: note.noteText,
+        }));
+
+        const result = await generateDischargeSummary({ clinicalNotes: formattedNotes });
         // The AI-generated data is stored in the component's state.
         setSummary(result);
     } catch (e) {
