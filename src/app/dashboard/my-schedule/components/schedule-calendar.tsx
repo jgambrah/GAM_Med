@@ -40,7 +40,7 @@ export function ScheduleCalendar() {
   };
   
   // In a real app, this would be fetched from Firestore via `getDoctorAvailability`
-  const mockSchedule: { [key: string]: ScheduleInfo } = {
+  const mockSchedule: Record<string, ScheduleInfo> = {
     '09:00': { type: 'available' },
     '10:00': { type: 'available' },
     '11:00': { type: 'available' },
@@ -87,13 +87,13 @@ export function ScheduleCalendar() {
                                 key={timeIndex}
                                 className={cn(
                                     "border-b p-1 text-xs cursor-pointer hover:bg-accent/50 transition-colors",
-                                    slotInfo?.type === 'available' && "bg-green-100",
-                                    slotInfo?.type === 'unavailable' && "bg-slate-200",
-                                    slotInfo?.type === 'booked' && "bg-blue-100",
+                                    slotInfo && slotInfo.type === 'available' && "bg-green-100",
+                                    slotInfo && slotInfo.type === 'unavailable' && "bg-slate-200",
+                                    slotInfo && slotInfo.type === 'booked' && "bg-blue-100",
                                 )}
                             >
-                               {slotInfo?.type === 'unavailable' && <span>{slotInfo.reason}</span>}
-                               {slotInfo?.type === 'booked' && <span className="font-semibold">{slotInfo.patient}</span>}
+                               {slotInfo && slotInfo.type === 'unavailable' && <span>{slotInfo.reason}</span>}
+                               {slotInfo && slotInfo.type === 'booked' && <span className="font-semibold">{slotInfo.patient}</span>}
                             </div>
                         )
                     })}
