@@ -19,10 +19,10 @@ import { MedicationsTab } from '../../patients/[patientId]/components/medication
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { OrderTestDialog } from '../../patients/[patientId]/page';
 import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { PatientAlerts } from '../../patients/[patientId]/components/patient-alerts';
 import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
+import { OrderTestDialog } from '../../patients/[patientId]/components/order-test-dialog';
 
 
 interface PatientEHRProps {
