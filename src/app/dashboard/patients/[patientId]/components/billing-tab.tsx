@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { GenerateInvoiceDialog } from './generate-invoice-dialog';
+import { useAuth } from '@/hooks/use-auth';
 
 interface BillingTabProps {
     patientId: string;
@@ -47,9 +48,16 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 }
 
 export function BillingTab({ patientId }: BillingTabProps) {
+    const { user } = useAuth();
+    const canGenerateInvoice = user?.role === 'admin' || user?.role === 'billing_clerk';
+
     const totalBilled = mockInvoices.reduce((sum, inv) => sum + inv.amount, 0);
     const totalPaid = mockInvoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.amount, 0);
     const outstandingBalance = totalBilled - totalPaid;
+    
+    const handlePayNow = (invoiceId: string) => {
+        alert(`Simulating payment for Invoice ${invoiceId}.\n\nIn a real application, this would redirect to a secure payment gateway. Upon successful payment, a 'payment' document would be created in Firestore, triggering the 'reconcilePayment' Cloud Function to update this invoice's status to 'Paid'.`);
+    }
 
     return (
         <div className="space-y-6">
@@ -59,7 +67,7 @@ export function BillingTab({ patientId }: BillingTabProps) {
                         <CardTitle>Billing & Invoices</CardTitle>
                         <CardDescription>A history of all financial transactions and invoices.</CardDescription>
                     </div>
-                    <GenerateInvoiceDialog patientId={patientId} />
+                    {canGenerateInvoice && <GenerateInvoiceDialog patientId={patientId} />}
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
@@ -71,6 +79,7 @@ export function BillingTab({ patientId }: BillingTabProps) {
                                     <TableHead>Description</TableHead>
                                     <TableHead className="text-right">Amount (GHS)</TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -82,6 +91,17 @@ export function BillingTab({ patientId }: BillingTabProps) {
                                         <TableCell className="text-right">{invoice.amount.toFixed(2)}</TableCell>
                                         <TableCell>
                                             <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {(invoice.status === 'Pending' || invoice.status === 'Overdue') && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handlePayNow(invoice.id)}
+                                                >
+                                                    Pay Now
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
