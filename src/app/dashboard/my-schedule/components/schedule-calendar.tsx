@@ -33,8 +33,14 @@ export function ScheduleCalendar() {
 
   const days = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
 
+  type ScheduleInfo = {
+    type: 'available' | 'unavailable' | 'booked';
+    reason?: string;
+    patient?: string;
+  };
+  
   // In a real app, this would be fetched from Firestore via `getDoctorAvailability`
-  const mockSchedule = {
+  const mockSchedule: { [key: string]: ScheduleInfo } = {
     '09:00': { type: 'available' },
     '10:00': { type: 'available' },
     '11:00': { type: 'available' },
