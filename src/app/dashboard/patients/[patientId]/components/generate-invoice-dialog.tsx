@@ -62,7 +62,6 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
       toast({
         title: 'Failed to Generate Invoice',
         description: result.message || 'An unexpected error occurred.',
-        variant: 'destructive',
       });
     }
   };
