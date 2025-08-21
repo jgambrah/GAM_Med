@@ -1,6 +1,7 @@
 
 
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -237,7 +238,11 @@ export async function fulfillLabRequest(
     return { success: true, message: 'Lab request fulfilled successfully.' };
 }
 
-export async function logVitals(patientId: string, values: z.infer<typeof VitalsSchema>) {
+export async function logVitals(patientId: string, values: z.infer<typeof VitalsSchema>): Promise<{
+    success: boolean;
+    alerts: { severity: 'Critical' | 'Warning' | 'Information', message: string }[];
+    message?: string;
+}> {
     console.log(`Logging vitals for patient ${patientId}:`, values);
     // In a real app, this would call the `logVitals` Cloud Function.
     // The Cloud Function would then run the `checkVitalSigns` trigger.
