@@ -140,7 +140,6 @@ export function NewAppointmentDialog() {
       toast({
         title: 'Booking Failed',
         description: result.message || 'An unexpected error occurred.',
-        variant: 'destructive',
       });
     }
   };
