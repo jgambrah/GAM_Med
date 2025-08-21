@@ -24,6 +24,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Appointment } from '@/lib/types';
+import { Button } from '@/components/ui/button';
 
 function getStatusVariant(status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" {
     switch (status) {
