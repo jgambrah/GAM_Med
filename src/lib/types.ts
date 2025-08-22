@@ -17,7 +17,7 @@
 export interface InvoiceLineItem {
   serviceType: 'Consultation' | 'Lab Test' | 'Medication' | 'Procedure' | 'Other'; // e.g., 'Consultation', 'Lab Test', 'Medication'
   linkedServiceId: string; // The ID of the original service document (e.g., appointmentId, labResultId)
-  billingCode: string; // The billing code, e.g., '99214'
+  billingCode: string; // The billing code, e.g., 'A001'
   price: number;
 }
 
@@ -29,6 +29,7 @@ export interface Invoice {
   invoiceId: string; // Document ID, e.g., INV-00123
   patientId: string; // Reference to 'patients' collection
   patientName: string; // Denormalized for display
+  patientType: string; // e.g., 'private', 'corporate'. Denormalized for audit.
   issueDate: string; // ISO Timestamp
   dueDate: string; // ISO Timestamp
   billedItems: InvoiceLineItem[];
@@ -70,9 +71,19 @@ export interface Claim {
  * Represents a single billable service or item in the 'billing_codes' collection.
  */
 export interface BillingCode {
-    codeId: string; // e.g. '99214'
-    description: string; // e.g. 'Office or other outpatient visit'
-    price: number;
+    codeId: string; // e.g. 'A001'
+    description: string; // e.g., 'Standard Consultation'
+    price: number; // This is now the default/base price
+}
+
+/**
+ * Represents a pricing table in the 'pricing_tables' collection.
+ * This stores different rate cards for different patient types.
+ */
+export interface PricingTable {
+  pricingId: string; // e.g., 'private', 'corporate', 'public'
+  description: string;
+  rate_card: Record<string, number>; // Key is billingCode, value is price
 }
 
 
@@ -189,6 +200,7 @@ export interface Patient {
   gender: 'Male' | 'Female' | 'Other';
   maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
   occupation?: string;
+  patientType: string; // Reference to pricing_tables (e.g., 'private', 'corporate')
   allergies?: string[]; // Simple list of allergens for quick checks
   contact: {
     primaryPhone: string;
@@ -713,5 +725,3 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
-
-```

@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -107,6 +107,7 @@ export const allPatients: Patient[] = [
     gender: 'Male',
     maritalStatus: 'Married',
     occupation: 'Software Engineer',
+    patientType: 'private',
     contact: {
       primaryPhone: '+233241234567',
       email: 'k.owusu@email.com',
@@ -149,6 +150,7 @@ export const allPatients: Patient[] = [
     dob: '1992-11-02',
     gender: 'Female',
     maritalStatus: 'Single',
+    patientType: 'corporate',
     contact: {
       primaryPhone: '+233209876543',
       email: 'a.appiah@email.com',
@@ -711,6 +713,7 @@ export const mockInvoices: Invoice[] = [
         invoiceId: 'INV-001',
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
+        patientType: 'private',
         issueDate: new Date('2024-07-29T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-28T18:00:00Z').toISOString(),
         billedItems: [{ serviceType: 'Consultation', linkedServiceId: 'A-001', billingCode: 'A001', price: 250.00 }],
@@ -722,6 +725,7 @@ export const mockInvoices: Invoice[] = [
         invoiceId: 'INV-002',
         patientId: 'P-654321',
         patientName: 'Aba Appiah',
+        patientType: 'corporate',
         issueDate: new Date('2024-08-01T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-31T18:00:00Z').toISOString(),
         billedItems: [{ serviceType: 'Other', linkedServiceId: 'A-003', billingCode: 'A005', price: 150.00 }],
@@ -802,3 +806,32 @@ export const mockMedicationRecords: MedicationRecord[] = [
     }
 ];
 
+export const mockPricingTables: PricingTable[] = [
+    {
+        pricingId: 'private',
+        description: 'Standard rate for private, self-paying patients.',
+        rate_card: {
+            'A001': 250.00, // Consultation
+            'L001': 120.00, // Full Blood Count
+            'A005': 150.00  // Other
+        }
+    },
+    {
+        pricingId: 'corporate',
+        description: 'Discounted rate for patients covered by corporate insurance plans.',
+        rate_card: {
+            'A001': 200.00,
+            'L001': 100.00,
+            'A005': 125.00
+        }
+    },
+    {
+        pricingId: 'public',
+        description: 'Rates for patients covered by national health insurance (NHIS).',
+        rate_card: {
+            'A001': 50.00,
+            'L001': 30.00,
+            'A005': 40.00
+        }
+    }
+];
