@@ -2,6 +2,7 @@
 
 
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -348,4 +349,17 @@ export async function generateInvoice(patientId: string, values: z.infer<typeof 
     revalidatePath(`/dashboard/patients/${patientId}`);
     
     return { success: true, message: 'Invoice generated successfully.' };
+}
+
+/**
+ * Server Action to trigger the vitals simulation Cloud Function.
+ */
+export async function streamVitals(patientId: string) {
+    console.log(`Server Action: Triggering vitals stream for patient ${patientId}`);
+    // In a real app, this would invoke the `streamMockVitals` Cloud Function.
+    // For this prototype, we'll just simulate a delay.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath('/dashboard/nursing');
+    return { success: true };
 }

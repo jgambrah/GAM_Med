@@ -1,5 +1,6 @@
 
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -2629,4 +2630,55 @@ exports.onMedicationAdministered = functions.firestore.document('medication_admi
         }
         return null;
     });
+*/
+
+// =======================================================================================
+// == VITALS SENSOR DATA SIMULATION
+// =======================================================================================
+/**
+ * Simulates a stream of vitals data for a patient for a short duration.
+ * In a real-world scenario, this logic would live in an IoT device or a dedicated
+ * service, but for a prototype, a callable function is an effective simulation.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string }
+ */
+/*
+exports.streamMockVitals = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is a nurse or doctor.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Role check would go here...
+
+    const { patientId } = data;
+    if (!patientId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID is required.');
+    }
+
+    const vitalsRef = db.collection('patients').doc(patientId).collection('vitals');
+
+    // 2. Simulate a 30-second stream of data, writing every 5 seconds.
+    for (let i = 0; i < 6; i++) {
+        const mockData = {
+            bloodPressure: `${120 + Math.floor(Math.random() * 10)}/${80 + Math.floor(Math.random() * 5)}`,
+            heartRate: `${70 + Math.floor(Math.random() * 15)}`,
+            temperature: `${(36.5 + Math.random()).toFixed(1)}`,
+            respiratoryRate: `${16 + Math.floor(Math.random() * 4)}`,
+            oxygenSaturation: `${97 + Math.floor(Math.random() * 2)}`,
+            recordedByUserId: context.auth.uid,
+            recordedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        await vitalsRef.add(mockData);
+
+        // Wait for 5 seconds before the next iteration.
+        // NOTE: In a real Cloud Function, this is NOT a recommended pattern. For a prototype, it's acceptable.
+        // A better approach for long-running tasks is to use Cloud Tasks.
+        await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
+    console.log(`Finished streaming mock vitals for patient ${patientId}.`);
+    return { success: true };
+});
 */

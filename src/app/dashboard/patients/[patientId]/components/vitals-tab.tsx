@@ -14,10 +14,10 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { VitalsSchema } from '@/lib/schemas';
-import { logVitals } from '@/lib/actions';
+import { logVitals, streamVitals } from '@/lib/actions';
 import { mockVitalsLog as allMockVitals } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, Radio } from 'lucide-react';
 
 interface VitalsTabProps {
     patientId: string;
@@ -45,6 +45,7 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
     const { user } = useAuth();
     const { toast } = useToast();
     const mockVitalsLog = allMockVitals.filter(v => v.patientId === patientId);
+    const [isStreaming, setIsStreaming] = React.useState(false);
 
     const form = useForm<z.infer<typeof VitalsSchema>>({
         resolver: zodResolver(VitalsSchema),
@@ -57,6 +58,20 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
             notes: '',
         }
     });
+
+    const handleStreamVitals = async () => {
+        setIsStreaming(true);
+        toast({
+            title: 'Starting Vitals Stream...',
+            description: 'Simulating live sensor data for 30 seconds.',
+        });
+        await streamVitals(patientId);
+        setIsStreaming(false);
+        toast({
+            title: 'Vitals Stream Ended',
+            description: 'Live sensor simulation has completed.',
+        });
+    };
 
     const onSubmit = async (values: z.infer<typeof VitalsSchema>) => {
         const result = await logVitals(patientId, values);
@@ -105,8 +120,16 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Log New Vitals</CardTitle>
-                    <CardDescription>Enter the latest vital signs for the patient.</CardDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Log New Vitals</CardTitle>
+                            <CardDescription>Enter the latest vital signs for the patient.</CardDescription>
+                        </div>
+                         <Button variant="outline" onClick={handleStreamVitals} disabled={isStreaming}>
+                            <Radio className="mr-2 h-4 w-4" />
+                            {isStreaming ? 'Streaming Vitals...' : 'Start Live Monitoring (Simulated)'}
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
