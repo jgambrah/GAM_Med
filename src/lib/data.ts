@@ -724,7 +724,7 @@ export const mockInvoices: Invoice[] = [
         patientName: 'Aba Appiah',
         issueDate: new Date('2024-08-01T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-31T18:00:00Z').toISOString(),
-        billedItems: [{ serviceType: 'Pre-op Assessment', linkedServiceId: 'A-003', billingCode: 'A005', price: 150.00 }],
+        billedItems: [{ serviceType: 'Other', linkedServiceId: 'A-003', billingCode: 'A005', price: 150.00 }],
         totalAmount: 150.00,
         amountDue: 150.00,
         status: 'Pending Payment',
