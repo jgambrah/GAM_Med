@@ -52,6 +52,15 @@ export interface FinancialTransaction {
 }
 
 /**
+ * Represents a follow-up action taken on a denied or pending claim.
+ */
+export interface FollowUpNote {
+    note: string;
+    userId: string; // UID of the user who made the note
+    date: string; // ISO Timestamp
+}
+
+/**
  * Represents an insurance claim in the 'insurance_claims' collection.
  * This tracks the lifecycle of a claim submitted to an insurance provider.
  */
@@ -60,11 +69,14 @@ export interface Claim {
   invoiceId: string; // Reference to the related invoice
   patientId: string; // Reference to 'patients' collection
   patientName: string; // Denormalized for display
-  insuranceProviderId: string; // A reference to a document in an 'insurance_providers' collection
+  providerId: string; // Reference to 'insurance_providers' collection
   submissionDate: string; // ISO Timestamp
+  submissionMethod?: 'API' | 'Manual';
+  claimNumber?: string; // Number provided by the insurance provider's API upon submission
   status: 'Ready for Submission' | 'Submitted' | 'Pending' | 'Paid' | 'Denied';
   payoutAmount?: number;
-  denialReason?: string;
+  denialReasonCode?: string; // Optional code for why a claim was denied
+  followUpNotes?: FollowUpNote[]; // Array to log actions on rejected claims
 }
 
 /**
@@ -84,6 +96,25 @@ export interface PricingTable {
   pricingId: string; // e.g., 'private', 'corporate', 'public'
   description: string;
   rate_card: Record<string, number>; // Key is billingCode, value is price
+}
+
+/**
+ * Represents an insurance provider in the central 'insurance_providers' collection.
+ * This is a catalog of all supported insurance companies.
+ */
+export interface InsuranceProvider {
+  providerId: string; // Document ID
+  name: string; // e.g., 'Aetna', 'Blue Cross Blue Shield', 'NHIS'
+  contact: {
+    phone?: string;
+    email?: string;
+    address?: string;
+  };
+  api_endpoints?: {
+    claims_submission: string;
+    status_check: string;
+  };
+  supported_services: ('Medical' | 'Dental' | 'Vision')[];
 }
 
 

@@ -741,7 +741,7 @@ export const mockClaims: Claim[] = [
         invoiceId: 'INV-001',
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
-        insuranceProviderId: 'NHIS',
+        providerId: 'NHIS',
         submissionDate: new Date('2024-07-30T10:00:00Z').toISOString(),
         status: 'Paid',
         payoutAmount: 200.00,
@@ -751,10 +751,10 @@ export const mockClaims: Claim[] = [
         invoiceId: 'INV-003', // For an invoice not in the main list for demo
         patientId: 'P-789012',
         patientName: 'Ama Serwaa',
-        insuranceProviderId: 'Glico',
+        providerId: 'Glico',
         submissionDate: new Date('2024-08-05T11:00:00Z').toISOString(),
         status: 'Denied',
-        denialReason: 'Service not covered under policy.',
+        denialReasonCode: 'SERVICE_NOT_COVERED',
     },
 ];
 
