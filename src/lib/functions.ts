@@ -1,6 +1,7 @@
 
 
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -2336,10 +2337,10 @@ exports.fillCancellations = functions.region('europe-west1').pubsub
 // =======================================================================================
 
 // =======================================================================================
-// 38. Generate Invoice (Callable Function)
+// 38. Generate Invoice (Callable Function) - UPDATED FOR FLEXIBLE PRICING
 // =======================================================================================
 /**
- * Generates a new invoice based on services rendered.
+ * Generates a new invoice based on services rendered, applying flexible pricing rules.
  *
  * @trigger_type Callable Function (https)
  * @input { patientId: string, serviceDetails: { code: string, quantity: number, linkedAppointmentId?: string }[] }
@@ -2355,30 +2356,56 @@ exports.generateInvoice = functions.region('europe-west1').https.onCall(async (d
         throw new functions.https.HttpsError('invalid-argument', 'Patient ID and service details are required.');
     }
 
-    const billingCodes = serviceDetails.map(s => s.code);
-    const codesSnapshot = await db.collection('billing_codes').where(admin.firestore.FieldPath.documentId(), 'in', billingCodes).get();
-    const codeDataMap = new Map(codesSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    // 2. Fetch patient and pricing data
+    const patientRef = db.collection('patients').doc(patientId);
+    const patientDoc = await patientRef.get();
+    if (!patientDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Patient not found.');
+    }
+    const patientType = patientDoc.data().patientType || 'private'; // Default to private if not set
+
+    const pricingTableRef = db.collection('pricing_tables').doc(patientType);
+    const pricingTableDoc = await pricingTableRef.get();
+    const rateCard = pricingTableDoc.exists ? pricingTableDoc.data().rate_card : {};
 
     let totalAmount = 0;
-    const billedItems = serviceDetails.map(item => {
-        const codeInfo = codeDataMap.get(item.code);
-        if (!codeInfo) {
-            throw new functions.https.HttpsError('not-found', `Billing code ${item.code} not found.`);
+    const billedItems = [];
+
+    // 3. Process each service item to determine its price
+    for (const item of serviceDetails) {
+        const billingCodeRef = db.collection('billing_codes').doc(item.code);
+        const billingCodeDoc = await billingCodeRef.get();
+        if (!billingCodeDoc.exists) {
+            console.error(`Billing code ${item.code} not found. Skipping item.`);
+            continue;
         }
-        const itemPrice = codeInfo.price * item.quantity;
-        totalAmount += itemPrice;
-        return {
-            service: codeInfo.description,
+        const defaultPrice = billingCodeDoc.data().price;
+        
+        // 4. Apply flexible pricing logic
+        const finalPrice = rateCard[item.code] ?? defaultPrice; // Use rate card price, or fall back to default
+        
+        const itemTotal = finalPrice * item.quantity;
+        totalAmount += itemTotal;
+        
+        billedItems.push({
+            service: billingCodeDoc.data().description,
             code: item.code,
-            price: itemPrice,
+            price: itemTotal,
             linkedAppointmentId: item.linkedAppointmentId || null
-        };
-    });
-    
+        });
+    }
+
+    if (billedItems.length === 0) {
+        console.log('No valid items to bill. Aborting invoice generation.');
+        return { success: false, message: 'No valid items to bill.' };
+    }
+
+    // 5. Create the invoice document
     const newInvoiceRef = db.collection('invoices').doc();
     const invoiceData = {
         invoiceId: newInvoiceRef.id,
         patientId,
+        patientType, // Store the patient type for auditing
         issueDate: admin.firestore.FieldValue.serverTimestamp(),
         dueDate: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000), // Due in 30 days
         totalAmount,
@@ -2388,17 +2415,12 @@ exports.generateInvoice = functions.region('europe-west1').https.onCall(async (d
     };
 
     await newInvoiceRef.set(invoiceData);
-    
-    // Optional: Auto-create a claim if the patient has insurance
-    // const patientDoc = await db.collection('patients').doc(patientId).get();
-    // if (patientDoc.data()?.insurance?.isActive) {
-    //     await db.collection('insurance_claims').add({ ... });
-    // }
 
-    console.log(`Invoice ${newInvoiceRef.id} generated for patient ${patientId}.`);
+    console.log(`Invoice ${newInvoiceRef.id} generated for patient ${patientId} using '${patientType}' pricing.`);
     return { success: true, invoiceId: newInvoiceRef.id };
 });
 */
+
 
 // =======================================================================================
 // 39. Submit Claim (Callable Function)
@@ -2682,3 +2704,4 @@ exports.streamMockVitals = functions.region('europe-west1').https.onCall(async (
     return { success: true };
 });
 */
+
