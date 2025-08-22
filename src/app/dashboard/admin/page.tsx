@@ -27,7 +27,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="inpatient-admissions">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
@@ -35,6 +35,7 @@ export default function AdminPage() {
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="pricing">Pricing</TabsTrigger>
         </TabsList>
          <TabsContent value="inpatient-admissions" className="mt-4">
             <InpatientAdmissionDashboard />
@@ -68,6 +69,26 @@ export default function AdminPage() {
                         <Button asChild className="mt-4">
                             <Link href="/dashboard/admin/resources">
                                 Go to Resource Management
+                            </Link>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="pricing" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Pricing Management</CardTitle>
+                    <CardDescription>
+                        View and manage flexible pricing tiers and rate cards for different patient types.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                        <p className="text-muted-foreground">The pricing management dashboard will be available here.</p>
+                        <Button asChild className="mt-4">
+                            <Link href="/dashboard/admin/pricing">
+                                Go to Pricing Management
                             </Link>
                         </Button>
                     </div>
