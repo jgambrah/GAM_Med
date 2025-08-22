@@ -1,4 +1,5 @@
 
+
 import { z } from 'zod';
 
 /**
@@ -158,7 +159,7 @@ export const NewWaitingListSchema = z.object({
  * Zod schema for a single line item in an invoice.
  */
 const InvoiceItemSchema = z.object({
-  description: z.string().min(3, { message: "Description must be at least 3 characters." }),
+  billingCode: z.string().min(1, { message: "A service must be selected." }),
   quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
   unitPrice: z.coerce.number().min(0, { message: "Price cannot be negative." }),
 });
