@@ -1,7 +1,3 @@
-
-
-
-
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -357,7 +353,7 @@ exports.processPatientDischarge = functions.region('europe-west1').https.onCall(
             transaction.update(patientRef, {
                 is_admitted: false,
                 current_admission_id: null,
-                updatedAt: now,
+                updated_at: now,
             });
 
             // 4. Update the bed document
@@ -368,7 +364,7 @@ exports.processPatientDischarge = functions.region('europe-west1').https.onCall(
                     current_patient_id: null,
                     occupied_since: null,
                     cleaningNeeded: true,
-                    updatedAt: now,
+                    updated_at: now,
                 });
             }
         });
@@ -1812,7 +1808,7 @@ exports.logImmunization = functions.region('europe-west1').https.onCall(async (d
 
         // 2. Calculate next due date
         let nextDueDate = null;
-        const nextDoseInfo = schedule.find(dose => dose.dose === doseNumber + 1);
+        const nextDoseInfo = schedule.find(dose => dose === doseNumber + 1);
         if (nextDoseInfo) {
             const administeredDate = new Date(administeredAt._seconds * 1000);
             const dueDate = new Date(administeredDate);
@@ -2444,16 +2440,25 @@ exports.submitClaim = functions.region('europe-west1').https.onCall(async (data,
     if (!claimDoc.exists) {
         throw new functions.https.HttpsError('not-found', 'Claim not found.');
     }
+    const claimData = claimDoc.data();
     
-    // 2. Logic to format and send data to a third-party claims API
-    // const claimDataForApi = formatClaimForApi(claimDoc.data());
-    // const apiResponse = await claimsApi.submit(claimDataForApi);
+    // 2. Fetch provider details to get the API endpoint
+    const providerRef = db.collection('insurance_providers').doc(claimData.providerId);
+    const providerDoc = await providerRef.get();
+    if (!providerDoc.exists || !providerDoc.data().api_endpoints?.claims_submission) {
+        throw new functions.https.HttpsError('failed-precondition', 'Provider API endpoint not configured.');
+    }
+    const submissionUrl = providerDoc.data().api_endpoints.claims_submission;
+
+    // 3. Logic to format and send data to a third-party claims API
+    // const claimDataForApi = formatClaimForApi(claimData);
+    // const apiResponse = await axios.post(submissionUrl, claimDataForApi);
     
-    // 3. Update the claim status
+    // 4. Update the claim status
     await claimRef.update({
         status: 'Submitted',
         submissionDate: admin.firestore.FieldValue.serverTimestamp(),
-        // submissionConfirmationId: apiResponse.confirmationId
+        // submissionConfirmationId: apiResponse.data.confirmationId
     });
 
     console.log(`Claim ${claimId} submitted successfully.`);
@@ -2705,3 +2710,143 @@ exports.streamMockVitals = functions.region('europe-west1').https.onCall(async (
 });
 */
 
+// =======================================================================================
+// == INSURANCE & CLAIMS MANAGEMENT
+// =======================================================================================
+
+// =======================================================================================
+// 42. Submit Claim Electronically (Callable Function)
+// =======================================================================================
+/**
+ * Submits an insurance claim to an external clearinghouse or provider API.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { claimId: string }
+ */
+/*
+exports.submitClaimElectronically = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check for billing_clerk or admin
+
+    const { claimId } = data;
+    const claimRef = db.collection('insurance_claims').doc(claimId);
+    const claimDoc = await claimRef.get();
+
+    if (!claimDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Claim not found.');
+    }
+    const claimData = claimDoc.data();
+    
+    // 2. Fetch provider details to get the API endpoint
+    const providerRef = db.collection('insurance_providers').doc(claimData.providerId);
+    const providerDoc = await providerRef.get();
+    if (!providerDoc.exists || !providerDoc.data().api_endpoints?.claims_submission) {
+        throw new functions.https.HttpsError('failed-precondition', 'Provider API endpoint not configured.');
+    }
+    const submissionUrl = providerDoc.data().api_endpoints.claims_submission;
+
+    // 3. Logic to format and send data to a third-party claims API
+    // const claimDataForApi = formatClaimForApi(claimData);
+    // const apiResponse = await axios.post(submissionUrl, claimDataForApi);
+    
+    // 4. Update the claim status
+    await claimRef.update({
+        status: 'Submitted',
+        submissionDate: admin.firestore.FieldValue.serverTimestamp(),
+        // claimNumber: apiResponse.data.claimNumber // Get claim number from API response
+    });
+
+    console.log(`Claim ${claimId} submitted successfully.`);
+    return { success: true };
+});
+*/
+
+// =======================================================================================
+// 43. Check Claim Status (Scheduled Function)
+// =======================================================================================
+/**
+ * A scheduled function that runs daily to check the status of pending claims.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 09:00'
+ */
+/*
+exports.checkClaimStatus = functions.region('europe-west1').pubsub
+    .schedule('every day 09:00')
+    .onRun(async (context) => {
+        // 1. Query for all claims that are in a pending state
+        const pendingClaimsSnapshot = await db.collection('insurance_claims')
+            .where('status', 'in', ['Submitted', 'Pending'])
+            .get();
+
+        if (pendingClaimsSnapshot.empty) {
+            console.log('No pending claims to check.');
+            return null;
+        }
+
+        // 2. Iterate through each claim and check its status
+        for (const claimDoc of pendingClaimsSnapshot.docs) {
+            const claimData = claimDoc.data();
+            const providerDoc = await db.collection('insurance_providers').doc(claimData.providerId).get();
+            
+            if (!providerDoc.exists || !providerDoc.data().api_endpoints?.status_check) {
+                console.warn(`No status check API for provider ${claimData.providerId}. Skipping claim ${claimDoc.id}.`);
+                continue;
+            }
+            const statusUrl = providerDoc.data().api_endpoints.status_check;
+
+            try {
+                // 3. Call the external API
+                // const apiResponse = await axios.get(`${statusUrl}?claimNumber=${claimData.claimNumber}`);
+                // const newStatus = apiResponse.data.status; // e.g., 'Paid', 'Denied'
+                const newStatus = Math.random() > 0.5 ? 'Paid' : 'Denied'; // Mock response
+                
+                if (newStatus !== claimData.status) {
+                    // 4. Update the claim document if the status has changed
+                    await claimDoc.ref.update({ status: newStatus });
+                    console.log(`Updated status for claim ${claimDoc.id} to ${newStatus}.`);
+                }
+            } catch (error) {
+                console.error(`Failed to check status for claim ${claimDoc.id}:`, error);
+            }
+        }
+        
+        return null;
+    });
+*/
+
+// =======================================================================================
+// 44. Handle Rejected Claim (Firestore Trigger)
+// =======================================================================================
+/**
+ * Triggers a notification to the billing team when a claim is marked as 'Denied'.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /insurance_claims/{claimId}
+ */
+/*
+exports.handleRejectedClaim = functions.region('europe-west1').firestore
+    .document('/insurance_claims/{claimId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Condition: Only run if status changes to 'Denied'
+        if (newData.status === 'Denied' && oldData.status !== 'Denied') {
+            const { claimId } = context.params;
+            const patientName = newData.patientName;
+            const denialReason = newData.denialReasonCode || 'No reason provided';
+            
+            // 2. Send notification to the billing team
+            const message = `Claim ${claimId} for patient ${patientName} was denied. Reason: ${denialReason}. Please review and take action.`;
+            
+            // This could be an email, a Slack message, or a new document in a "work_queue" collection.
+            // await sendNotificationToRole('billing_clerk', { subject: 'Claim Denied', body: message });
+            
+            console.log(`Notification sent for denied claim ${claimId}.`);
+        }
+        
+        return null;
+    });
+*/
