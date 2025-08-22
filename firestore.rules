@@ -4,100 +4,111 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to simplify rule logic
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function hasRole(role) {
-      return isAuthenticated() && getUserData().role == role;
-    }
-
-    function isOneOfRoles(roles) {
-      return isAuthenticated() && getUserData().role in roles;
+    // Helper function to get the user's role from the 'users' collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-    function isPatientOwner(patientId) {
-        return isAuthenticated() && getUserData().patient_id == patientId;
+    // Helper function to check if the user is an admin or billing clerk
+    function isFinancialStaff() {
+      return getUserRole() in ['admin', 'billing_clerk'];
     }
 
-    // Rules for user data
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Allow users to read their own user document
     match /users/{userId} {
-      // Users can read their own data. Admins can read anyone's data.
-      allow read: if isAuthenticated() && (request.auth.uid == userId || hasRole('admin'));
-      // Only users can update their own data, and only specific fields. Admins can update anything.
-      allow update: if isAuthenticated() && (request.auth.uid == userId || hasRole('admin'));
+      allow read: if request.auth.uid == userId;
     }
 
-    // Rules for patient records and their sub-collections
+    // Rules for the 'patients' collection
     match /patients/{patientId} {
-      allow read: if isOneOfRoles(['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist']) || isPatientOwner(patientId);
-      allow create, update: if isOneOfRoles(['admin', 'doctor', 'nurse']);
-      
-      // Rules for EHR sub-collections
-      match /{subcollection}/{docId} {
-        allow read, write: if isOneOfRoles(['admin', 'doctor', 'nurse']);
-      }
+        // Anyone authenticated can create a patient (via server action)
+        allow create: if getUserRole() in ['admin', 'nurse', 'receptionist'];
 
-      // Specific rule for admissions to allow download by patient
-      match /admissions/{admissionId} {
-        allow read: if isOneOfRoles(['admin', 'doctor', 'nurse']) || isPatientOwner(patientId);
-        allow write: if isOneOfRoles(['admin', 'doctor', 'nurse']);
-      }
-    }
-    
-    // Rules for billing and financial data
-    match /invoices/{invoiceId} {
-        // Read: Admins, billing clerks, or the patient who owns the invoice can read.
-        allow read: if isOneOfRoles(['admin', 'billing_clerk']) || isPatientOwner(resource.data.patientId);
+        // Admins, doctors, and nurses can read any patient record.
+        // Patients can read their own record.
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'] || request.auth.uid == resource.data.uid;
         
-        // Create/Update: Only admins and billing clerks can create or modify invoices.
-        // The Cloud Function will have elevated privileges to write automatically.
-        allow create, update: if isOneOfRoles(['admin', 'billing_clerk']);
-    }
+        // Allow updates only by authorized staff, with specific field protection.
+        allow update: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist']
+                      // Protect patientType field to be only updatable by financial staff
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientType']) || isFinancialStaff());
+                      
+        // Allow deletion only by admins (generally discouraged)
+        allow delete: if getUserRole() == 'admin';
 
-    // Rules for locking down the `isBilled` flag on services.
-    // This ensures only the automated billing function can mark a service as billed.
+        // Allow granular access to subcollections
+        match /{subcollection}/{docId} {
+          allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'];
+        }
+    }
     
-    // Appointments
+    // Rules for top-level collections
     match /appointments/{appointmentId} {
-      allow read: if isAuthenticated();
-      // Allow general updates by clinical/admin staff
-      allow write: if isOneOfRoles(['admin', 'doctor', 'nurse']);
-
-      // But add a specific, stricter rule for the 'isBilled' flag
-      allow update: if request.resource.data.isBilled == true 
-                       && resource.data.isBilled == false; // Allow only changing from false to true
-                       // This update is performed by the trusted Cloud Function.
-    }
-
-    // Lab Results
-    match /patients/{patientId}/lab_results/{resultId} {
-      // General access rules
-      allow read: if isOneOfRoles(['admin', 'doctor', 'nurse', 'lab_technician']) || isPatientOwner(patientId);
-      allow write: if isOneOfRoles(['admin', 'doctor', 'nurse', 'lab_technician']);
-
-      // Stricter rule for the 'isBilled' flag
-      allow update: if request.resource.data.isBilled == true
-                       && resource.data.isBilled == false
-                       && isOneOfRoles(['admin', 'billing_clerk']); // Or allow update if user is billing staff
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'receptionist', 'billing_clerk'];
     }
     
-     // Medication Administration Logs
-    match /patients/{patientId}/medication_administration_logs/{logId} {
-       // General access rules
-      allow read, write: if isOneOfRoles(['admin', 'doctor', 'nurse']);
+    match /beds/{bedId} {
+       allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
 
-      // Stricter rule for the 'isBilled' flag
-      allow update: if request.resource.data.isBilled == true
-                       && resource.data.isBilled == false
-                       && isOneOfRoles(['admin', 'billing_clerk']);
+    match /referrals/{referralId} {
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'triage_officer'];
+    }
+
+    match /pharmacy_orders/{orderId} {
+        allow read, write: if getUserRole() in ['admin', 'pharmacist', 'doctor'];
+    }
+
+    match /prescriptions/{prescriptionId} {
+        allow read, write: if getUserRole() in ['admin', 'pharmacist', 'doctor'];
     }
     
-    // All other collections have default deny access unless specified
+    match /waiting_lists/{listId} {
+        allow read, write: if getUserRole() in ['admin', 'receptionist'];
+    }
+
+    match /ot_sessions/{sessionId} {
+      allow read, write: if getUserRole() in ['admin', 'ot_coordinator', 'doctor'];
+    }
+
+    // == BILLING SECURITY RULES ==
+
+    // Rules for the central 'invoices' collection
+    match /invoices/{invoiceId} {
+      // Only financial staff can create/update invoices.
+      // In a real app, you'd add a condition to allow creation by a trusted Cloud Function.
+      allow create, update: if isFinancialStaff();
+
+      // Financial staff can read any invoice. Patients can read their own.
+      allow read: if isFinancialStaff() || get(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.uid == request.auth.uid;
+    }
+    
+    // Rules for the 'payments' collection
+    match /payments/{paymentId} {
+      allow read, write: if isFinancialStaff();
+    }
+
+    // Rules for 'insurance_claims'
+    match /insurance_claims/{claimId} {
+      allow read, write: if isFinancialStaff();
+    }
+    
+    // Rules for 'billing_codes'
+    match /billing_codes/{codeId} {
+      // Allow read for authenticated users, but only write for financial staff.
+      allow read: if request.auth != null;
+      allow write: if isFinancialStaff();
+    }
+    
+    // Rules for 'pricing_tables'
+    match /pricing_tables/{pricingId} {
+      // ONLY financial staff can read or write pricing information.
+      allow read, write: if isFinancialStaff();
+    }
   }
 }
