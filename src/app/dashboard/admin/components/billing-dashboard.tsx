@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { mockInvoices, mockClaims, mockPayments } from '@/lib/data';
 import { Invoice, Claim, FinancialTransaction } from '@/lib/types';
 import Link from 'next/link';
+import { InvoiceDetailDialog } from './invoice-detail-dialog';
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -37,41 +38,56 @@ const getClaimStatusVariant = (status: Claim['status']): "default" | "secondary"
 }
 
 function InvoiceManagementTab() {
+    const [selectedInvoice, setSelectedInvoice] = React.useState<Invoice | null>(null);
+    
     return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Invoice ID</TableHead>
-                        <TableHead>Patient</TableHead>
-                        <TableHead>Date Issued</TableHead>
-                        <TableHead>Total Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {mockInvoices.map((invoice) => (
-                        <TableRow key={invoice.invoiceId}>
-                            <TableCell className="font-medium">{invoice.invoiceId}</TableCell>
-                            <TableCell>
-                                <Link href={`/dashboard/patients/${invoice.patientId}`} className="hover:underline text-primary">
-                                    {invoice.patientName}
-                                </Link>
-                            </TableCell>
-                            <TableCell>{format(new Date(invoice.issueDate), 'PPP')}</TableCell>
-                            <TableCell>₵{invoice.totalAmount.toFixed(2)}</TableCell>
-                            <TableCell>
-                                <Badge variant={getInvoiceStatusVariant(invoice.status)}>{invoice.status}</Badge>
-                            </TableCell>
-                            <TableCell>
-                                <Button variant="outline" size="sm">View</Button>
-                            </TableCell>
+        <>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Invoice ID</TableHead>
+                            <TableHead>Patient</TableHead>
+                            <TableHead>Date Issued</TableHead>
+                            <TableHead>Total Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Actions</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
+                    </TableHeader>
+                    <TableBody>
+                        {mockInvoices.map((invoice) => (
+                            <TableRow key={invoice.invoiceId}>
+                                <TableCell className="font-medium">{invoice.invoiceId}</TableCell>
+                                <TableCell>
+                                    <Link href={`/dashboard/patients/${invoice.patientId}`} className="hover:underline text-primary">
+                                        {invoice.patientName}
+                                    </Link>
+                                </TableCell>
+                                <TableCell>{format(new Date(invoice.issueDate), 'PPP')}</TableCell>
+                                <TableCell>₵{invoice.totalAmount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                    <Badge variant={getInvoiceStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedInvoice(invoice)}>View</Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+            {selectedInvoice && (
+                <InvoiceDetailDialog 
+                    invoice={selectedInvoice}
+                    isOpen={!!selectedInvoice}
+                    onOpenChange={(isOpen) => {
+                        if (!isOpen) {
+                            setSelectedInvoice(null);
+                        }
+                    }}
+                />
+            )}
+        </>
     );
 }
 
