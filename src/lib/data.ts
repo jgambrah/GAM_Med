@@ -769,6 +769,13 @@ export const mockClaims: Claim[] = [
         submissionDate: new Date('2024-08-05T11:00:00Z').toISOString(),
         status: 'Denied',
         denialReasonCode: 'SERVICE_NOT_COVERED',
+        followUpNotes: [
+            {
+                note: 'Patient called to inform them service is not covered. They will pay out of pocket.',
+                userId: 'billing1',
+                date: new Date('2024-08-06T10:00:00Z').toISOString()
+            }
+        ]
     },
     {
         claimId: 'CLM-003',

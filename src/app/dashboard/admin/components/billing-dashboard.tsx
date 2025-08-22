@@ -18,6 +18,7 @@ import { mockInvoices, mockClaims, mockPayments } from '@/lib/data';
 import { Invoice, Claim, FinancialTransaction } from '@/lib/types';
 import Link from 'next/link';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
+import { ClaimDetailDialog } from './claim-detail-dialog';
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -92,43 +93,58 @@ function InvoiceManagementTab() {
 }
 
 function ClaimsTrackingTab() {
+    const [selectedClaim, setSelectedClaim] = React.useState<Claim | null>(null);
+
     return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Claim ID</TableHead>
-                        <TableHead>Patient</TableHead>
-                        <TableHead>Provider</TableHead>
-                        <TableHead>Submission Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {mockClaims.map((claim) => (
-                        <TableRow key={claim.claimId}>
-                            <TableCell className="font-medium">{claim.claimId}</TableCell>
-                            <TableCell>
-                                <Link href={`/dashboard/patients/${claim.patientId}`} className="hover:underline text-primary">
-                                    {claim.patientName}
-                                </Link>
-                            </TableCell>
-                            <TableCell>{claim.providerId}</TableCell>
-                            <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
-                            <TableCell>
-                                <Badge variant={getClaimStatusVariant(claim.status)}>{claim.status}</Badge>
-                            </TableCell>
-                             <TableCell>₵{claim.payoutAmount?.toFixed(2) || 'N/A'}</TableCell>
-                            <TableCell>
-                                <Button variant="outline" size="sm">Review Claim</Button>
-                            </TableCell>
+        <>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Claim ID</TableHead>
+                            <TableHead>Patient</TableHead>
+                            <TableHead>Provider</TableHead>
+                            <TableHead>Submission Date</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Actions</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
+                    </TableHeader>
+                    <TableBody>
+                        {mockClaims.map((claim) => (
+                            <TableRow key={claim.claimId}>
+                                <TableCell className="font-medium">{claim.claimId}</TableCell>
+                                <TableCell>
+                                    <Link href={`/dashboard/patients/${claim.patientId}`} className="hover:underline text-primary">
+                                        {claim.patientName}
+                                    </Link>
+                                </TableCell>
+                                <TableCell>{claim.providerId}</TableCell>
+                                <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
+                                <TableCell>
+                                    <Badge variant={getClaimStatusVariant(claim.status)}>{claim.status}</Badge>
+                                </TableCell>
+                                <TableCell>₵{claim.payoutAmount?.toFixed(2) || 'N/A'}</TableCell>
+                                <TableCell>
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedClaim(claim)}>Review Claim</Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+             {selectedClaim && (
+                <ClaimDetailDialog 
+                    claim={selectedClaim}
+                    isOpen={!!selectedClaim}
+                    onOpenChange={(isOpen) => {
+                        if (!isOpen) {
+                            setSelectedClaim(null);
+                        }
+                    }}
+                />
+            )}
+        </>
     );
 }
 
