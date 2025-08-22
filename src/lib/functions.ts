@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -2488,3 +2489,144 @@ exports.reconcilePayment = functions.region('europe-west1').firestore
     });
 */
 
+// =======================================================================================
+// 41. Auto-Generate Invoice (Unified Firestore Trigger)
+// =======================================================================================
+/**
+ * A unified function to handle automatic invoice generation for various completed services.
+ * This function would be deployed as multiple separate Firestore triggers, each calling this core logic.
+ *
+ * @param {object} serviceDoc - The document snapshot of the completed service.
+ * @param {string} patientId - The ID of the patient who received the service.
+ * @param {string} serviceType - A string identifier for the service type (e.g., 'APPOINTMENT', 'LAB_TEST').
+ * @param {string} linkedServiceId - The ID of the service document itself.
+ * @param {string} serviceName - A descriptive name for the service (e.g., appointment.type, lab.testName).
+ */
+/*
+async function autoGenerateInvoice(serviceDoc, patientId, serviceType, linkedServiceId, serviceName) {
+    // 1. Prevent duplicate billing
+    if (serviceDoc.data().isBilled) {
+        console.log(`Service ${linkedServiceId} has already been billed.`);
+        return;
+    }
+
+    // 2. Find the correct billing code for the service
+    const billingCodesRef = db.collection('billing_codes');
+    const codeSnapshot = await billingCodesRef.where('serviceType', '==', serviceType).limit(1).get();
+    if (codeSnapshot.empty) {
+        console.error(`No billing code found for service type: ${serviceType}`);
+        return;
+    }
+    const billingCode = codeSnapshot.docs[0].data();
+
+    // 3. Find an open 'Draft' invoice for the patient, or create a new one.
+    const invoicesRef = db.collection('invoices');
+    const draftInvoiceQuery = invoicesRef.where('patientId', '==', patientId).where('status', '==', 'Draft').limit(1);
+    const draftInvoiceSnapshot = await draftInvoiceQuery.get();
+
+    let invoiceRef;
+    if (draftInvoiceSnapshot.empty) {
+        // Create a new invoice if no draft exists
+        invoiceRef = invoicesRef.doc();
+        await invoiceRef.set({
+            invoiceId: invoiceRef.id,
+            patientId: patientId,
+            issueDate: admin.firestore.FieldValue.serverTimestamp(),
+            status: 'Draft',
+            billedItems: [],
+            totalAmount: 0,
+            amountDue: 0
+        });
+        console.log(`Created new draft invoice ${invoiceRef.id} for patient ${patientId}`);
+    } else {
+        invoiceRef = draftInvoiceSnapshot.docs[0].ref;
+    }
+
+    // 4. Atomically update the invoice and the service document
+    try {
+        await db.runTransaction(async (transaction) => {
+            const invoiceDoc = await transaction.get(invoiceRef);
+            if (!invoiceDoc.exists) {
+                throw new Error('Invoice document not found.');
+            }
+
+            const currentItems = invoiceDoc.data().billedItems || [];
+            const newTotal = (invoiceDoc.data().totalAmount || 0) + billingCode.price;
+
+            const newItem = {
+                serviceType: serviceType,
+                linkedServiceId: linkedServiceId,
+                billingCode: codeSnapshot.docs[0].id,
+                price: billingCode.price
+            };
+
+            // Update invoice
+            transaction.update(invoiceRef, {
+                billedItems: admin.firestore.FieldValue.arrayUnion(newItem),
+                totalAmount: newTotal,
+                amountDue: newTotal // Assuming full amount is due
+            });
+
+            // Mark original service as billed to prevent re-billing
+            transaction.update(serviceDoc.ref, { isBilled: true });
+        });
+        console.log(`Successfully billed service ${linkedServiceId} to invoice ${invoiceRef.id}`);
+    } catch (error) {
+        console.error('Failed to update invoice:', error);
+    }
+}
+
+
+// --- DEPLOYMENT EXAMPLES ---
+// Each of these would be exported from the main index.ts file in a Firebase Functions project.
+
+// Trigger for completed appointments
+exports.onAppointmentCompleted = functions.firestore.document('appointments/{appointmentId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        if (newData.status === 'completed' && oldData.status !== 'completed' && !newData.isBilled) {
+            await autoGenerateInvoice(
+                change.after,
+                newData.patient_id,
+                'Consultation', // Simplified for this example
+                context.params.appointmentId,
+                newData.type
+            );
+        }
+        return null;
+    });
+
+// Trigger for completed lab results
+exports.onLabResultFinalized = functions.firestore.document('lab_results/{resultId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        if (newData.status === 'Completed' && oldData.status !== 'Completed' && !newData.isBilled) {
+            await autoGenerateInvoice(
+                change.after,
+                newData.patientId,
+                'Lab Test',
+                context.params.resultId,
+                newData.testName
+            );
+        }
+        return null;
+    });
+
+// Trigger for medication administration
+exports.onMedicationAdministered = functions.firestore.document('medication_administration_logs/{logId}')
+    .onCreate(async (snapshot, context) => {
+        const logData = snapshot.data();
+        if (!logData.isBilled) {
+            await autoGenerateInvoice(
+                snapshot,
+                logData.patientId,
+                'Medication',
+                context.params.logId,
+                logData.medicationName
+            );
+        }
+        return null;
+    });
+*/

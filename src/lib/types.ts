@@ -671,6 +671,7 @@ export interface MedicationAdministrationLog {
   logId: string; // Document ID
   prescriptionId: string; // Reference to the original prescription
   medicationName: string; // Denormalized for easy display
+  patientId: string;
   dosage: string; // Denormalized for easy display
   administeredByUserId: string; // Nurse's user ID
   administeredAt: string; // ISO Timestamp when the medication was given
@@ -713,9 +714,4 @@ export interface ImmunizationRecord {
   notes?: string;
 }
 
-
-    
-
-    
-
-
+```
