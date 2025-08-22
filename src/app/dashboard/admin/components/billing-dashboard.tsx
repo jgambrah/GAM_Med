@@ -147,7 +147,7 @@ function PaymentReconciliationTab() {
                             </TableHeader>
                             <TableBody>
                                 {mockPayments.map((payment) => (
-                                    <TableRow key={payment.paymentId}>
+                                    <TableRow key={payment.transactionId}>
                                         <TableCell className="font-medium">{payment.transactionId}</TableCell>
                                         <TableCell>{payment.invoiceId}</TableCell>
                                         <TableCell>{format(new Date(payment.paymentDate), 'PPP')}</TableCell>
