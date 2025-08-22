@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select';
 import { PatientSchema } from '@/lib/schemas';
 import { addPatient } from '@/lib/actions';
+import { mockPricingTables } from '@/lib/data';
 
 /**
  * PatientRegistrationForm (Conceptual Component)
@@ -64,6 +65,7 @@ export function AddPatientDialog() {
       gender: undefined,
       maritalStatus: undefined,
       occupation: '',
+      patientType: '',
       contact: {
         primaryPhone: '',
         alternatePhone: '',
@@ -258,6 +260,30 @@ export function AddPatientDialog() {
                     <FormItem>
                       <FormLabel>Ghana Card ID (Optional)</FormLabel>
                       <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="patientType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Patient Type</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a pricing tier" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {mockPricingTables.map((tier) => (
+                             <SelectItem key={tier.pricingId} value={tier.pricingId}>
+                               {tier.pricingId.charAt(0).toUpperCase() + tier.pricingId.slice(1)}
+                             </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
