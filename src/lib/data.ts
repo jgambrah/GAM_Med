@@ -733,6 +733,20 @@ export const mockInvoices: Invoice[] = [
         amountDue: 150.00,
         status: 'Pending Payment',
     },
+     {
+        invoiceId: 'INV-003',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        patientType: 'private',
+        issueDate: new Date('2024-08-15T18:00:00Z').toISOString(),
+        dueDate: new Date('2024-09-14T18:00:00Z').toISOString(),
+        billedItems: [
+            { serviceType: 'Lab Test', linkedServiceId: 'lab-1', billingCode: 'L001', price: 120.00 }
+        ],
+        totalAmount: 120.00,
+        amountDue: 120.00,
+        status: 'Overdue',
+    },
 ];
 
 export const mockClaims: Claim[] = [
@@ -755,6 +769,16 @@ export const mockClaims: Claim[] = [
         submissionDate: new Date('2024-08-05T11:00:00Z').toISOString(),
         status: 'Denied',
         denialReasonCode: 'SERVICE_NOT_COVERED',
+    },
+    {
+        claimId: 'CLM-003',
+        invoiceId: 'INV-002',
+        patientId: 'P-654321',
+        patientName: 'Aba Appiah',
+        providerId: 'Acacia Health',
+        submissionDate: new Date('2024-08-02T10:00:00Z').toISOString(),
+        status: 'Submitted',
+        payoutAmount: 150.00,
     },
 ];
 

@@ -99,9 +99,10 @@ function ClaimsTrackingTab() {
                     <TableRow>
                         <TableHead>Claim ID</TableHead>
                         <TableHead>Patient</TableHead>
-                        <TableHead>Invoice ID</TableHead>
+                        <TableHead>Provider</TableHead>
                         <TableHead>Submission Date</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Amount</TableHead>
                         <TableHead>Actions</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -114,13 +115,14 @@ function ClaimsTrackingTab() {
                                     {claim.patientName}
                                 </Link>
                             </TableCell>
-                             <TableCell>{claim.invoiceId}</TableCell>
+                            <TableCell>{claim.providerId}</TableCell>
                             <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
                             <TableCell>
                                 <Badge variant={getClaimStatusVariant(claim.status)}>{claim.status}</Badge>
                             </TableCell>
+                             <TableCell>₵{claim.payoutAmount?.toFixed(2) || 'N/A'}</TableCell>
                             <TableCell>
-                                <Button variant="outline" size="sm">Review</Button>
+                                <Button variant="outline" size="sm">Review Claim</Button>
                             </TableCell>
                         </TableRow>
                     ))}
