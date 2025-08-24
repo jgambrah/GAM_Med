@@ -2467,10 +2467,80 @@ exports.submitClaim = functions.region('europe-west1').https.onCall(async (data,
 */
 
 // =======================================================================================
-// 40. Reconcile Payment (Firestore Trigger)
+// 40. Process Payment (Callable Function)
 // =======================================================================================
 /**
- * Automatically updates an invoice when a payment is recorded.
+ * Acts as a secure middleware to process a payment through the correct external gateway.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { invoiceId: string, amount: number, paymentMethod: string, paymentDetails: object }
+ */
+/*
+exports.processPayment = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is authenticated (can be a patient or staff).
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { invoiceId, amount, paymentMethod, paymentDetails } = data;
+    if (!invoiceId || !amount || !paymentMethod) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required payment information.');
+    }
+
+    try {
+        // 2. Fetch the correct payment gateway configuration.
+        const gatewayRef = db.collection('payment_gateways').doc(paymentDetails.gateway);
+        const gatewayDoc = await gatewayRef.get();
+        if (!gatewayDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'Payment gateway not configured.');
+        }
+        const gatewayConfig = gatewayDoc.data().api_config;
+        
+        // 3. Call the external payment gateway's API.
+        // This is a conceptual implementation; actual SDKs (e.g., Stripe) would be used here.
+        // const paymentResult = await somePaymentSDK.charges.create({
+        //     amount: amount * 100, // Convert to smallest currency unit
+        //     currency: 'ghs',
+        //     source: paymentDetails.token, // e.g., a card token from Stripe.js
+        //     description: `Payment for Invoice ${invoiceId}`
+        // });
+
+        // For this prototype, we simulate a successful payment.
+        const paymentResult = { success: true, transactionId: `TR-${new Date().getTime()}` };
+
+        if (paymentResult.success) {
+            // 4. If payment is successful, create a new document in the 'payments' collection.
+            // This will, in turn, trigger the 'reconcilePayment' function.
+            const newPaymentRef = db.collection('payments').doc();
+            await newPaymentRef.set({
+                paymentId: newPaymentRef.id,
+                invoiceId: invoiceId,
+                amount: amount,
+                paymentMethod: paymentMethod,
+                paymentMethodDetails: paymentDetails,
+                paymentDate: admin.firestore.FieldValue.serverTimestamp(),
+                transactionId: paymentResult.transactionId
+            });
+
+            console.log(`Payment of ${amount} for invoice ${invoiceId} processed successfully.`);
+            return { success: true, transactionId: paymentResult.transactionId };
+        } else {
+            throw new functions.https.HttpsError('aborted', 'Payment processing failed.', { message: paymentResult.error.message });
+        }
+
+    } catch (error) {
+        console.error(`Error processing payment for invoice ${invoiceId}:`, error);
+        throw new functions.https.HttpsError('internal', 'An unexpected error occurred during payment processing.');
+    }
+});
+*/
+
+// =======================================================================================
+// 41. Reconcile Payment (Firestore Trigger)
+// =======================================================================================
+/**
+ * Automatically updates an invoice when a payment is recorded. This function is triggered
+ * whenever a new document is created in the `payments` collection.
  *
  * @trigger_type Firestore Trigger (onCreate)
  * @document /payments/{paymentId}
@@ -2496,14 +2566,15 @@ exports.reconcilePayment = functions.region('europe-west1').firestore
                     throw new Error('Invoice not found.');
                 }
                 
-                const newAmountDue = invoiceDoc.data().amountDue - amount;
+                const currentAmountDue = invoiceDoc.data().amountDue;
+                const newAmountDue = currentAmountDue - amount;
                 let newStatus = 'Partially Paid';
                 if (newAmountDue <= 0) {
                     newStatus = 'Paid';
                 }
 
                 transaction.update(invoiceRef, {
-                    amountDue: newAmountDue,
+                    amountDue: newAmountDue < 0 ? 0 : newAmountDue,
                     status: newStatus
                 });
             });
@@ -2518,7 +2589,7 @@ exports.reconcilePayment = functions.region('europe-west1').firestore
 */
 
 // =======================================================================================
-// 41. Auto-Generate Invoice (Unified Firestore Trigger)
+// 42. Auto-Generate Invoice (Unified Firestore Trigger)
 // =======================================================================================
 /**
  * A unified function to handle automatic invoice generation for various completed services.
@@ -2715,7 +2786,7 @@ exports.streamMockVitals = functions.region('europe-west1').https.onCall(async (
 // =======================================================================================
 
 // =======================================================================================
-// 42. Submit Claim Electronically (Callable Function)
+// 43. Submit Claim Electronically (Callable Function)
 // =======================================================================================
 /**
  * Submits an insurance claim to an external clearinghouse or provider API.
@@ -2763,7 +2834,7 @@ exports.submitClaimElectronically = functions.region('europe-west1').https.onCal
 */
 
 // =======================================================================================
-// 43. Check Claim Status (Scheduled Function)
+// 44. Check Claim Status (Scheduled Function)
 // =======================================================================================
 /**
  * A scheduled function that runs daily to check the status of pending claims.
@@ -2817,7 +2888,7 @@ exports.checkClaimStatus = functions.region('europe-west1').pubsub
 */
 
 // =======================================================================================
-// 44. Handle Rejected Claim (Firestore Trigger)
+// 45. Handle Rejected Claim (Firestore Trigger)
 // =======================================================================================
 /**
  * Triggers a notification to the billing team when a claim is marked as 'Denied'.
