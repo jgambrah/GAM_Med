@@ -170,3 +170,53 @@ const InvoiceItemSchema = z.object({
 export const NewInvoiceSchema = z.object({
   items: z.array(InvoiceItemSchema).min(1, { message: "At least one item is required." }),
 });
+
+/**
+ * Zod schema for validating the payment form.
+ */
+export const PaymentSchema = z.object({
+  amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than 0.' }),
+  paymentMethod: z.enum(['Mobile Money', 'Credit Card']),
+  mobileMoneyDetails: z.object({
+    provider: z.string(),
+    phone: z.string(),
+  }).optional(),
+  cardDetails: z.object({
+    number: z.string(),
+    expiry: z.string(),
+    cvc: z.string(),
+  }).optional(),
+}).superRefine((data, ctx) => {
+  if (data.paymentMethod === 'Mobile Money') {
+    if (!data.mobileMoneyDetails?.phone || data.mobileMoneyDetails.phone.length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A valid phone number is required.",
+        path: ['mobileMoneyDetails', 'phone'],
+      });
+    }
+  }
+  if (data.paymentMethod === 'Credit Card') {
+    if (!data.cardDetails?.number || data.cardDetails.number.length < 16) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A valid card number is required.",
+        path: ['cardDetails', 'number'],
+      });
+    }
+    if (!data.cardDetails?.expiry || !/^(0[1-9]|1[0-2])\/\d{2}$/.test(data.cardDetails.expiry)) {
+       ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Expiry must be in MM/YY format.",
+        path: ['cardDetails', 'expiry'],
+      });
+    }
+     if (!data.cardDetails?.cvc || data.cardDetails.cvc.length < 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A valid CVC is required.",
+        path: ['cardDetails', 'cvc'],
+      });
+    }
+  }
+});

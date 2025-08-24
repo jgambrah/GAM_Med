@@ -10,6 +10,8 @@ import { format } from 'date-fns';
 import { GenerateInvoiceDialog } from './generate-invoice-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { mockInvoices as allMockInvoices } from '@/lib/data';
+import { Invoice } from '@/lib/types';
+import { PaymentDialog } from './payment-dialog';
 
 interface BillingTabProps {
     patientId: string;
@@ -35,10 +37,6 @@ export function BillingTab({ patientId }: BillingTabProps) {
     const totalPaid = mockInvoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.totalAmount, 0);
     const outstandingBalance = totalBilled - totalPaid;
     
-    const handlePayNow = (invoiceId: string) => {
-        alert(`Simulating payment for Invoice ${invoiceId}.\n\nIn a real application, this would redirect to a secure payment gateway. Upon successful payment, a 'payment' document would be created in Firestore, triggering the 'reconcilePayment' Cloud Function to update this invoice's status to 'Paid'.`);
-    }
-
     return (
         <div className="space-y-6">
             <Card>
@@ -73,13 +71,7 @@ export function BillingTab({ patientId }: BillingTabProps) {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 {(invoice.status === 'Pending Payment' || invoice.status === 'Overdue') && (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handlePayNow(invoice.invoiceId)}
-                                                    >
-                                                        Pay Now
-                                                    </Button>
+                                                    <PaymentDialog invoice={invoice} />
                                                 )}
                                             </TableCell>
                                         </TableRow>
