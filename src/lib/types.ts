@@ -53,6 +53,20 @@ export interface FinancialTransaction {
 }
 
 /**
+ * Represents a receipt for a payment in the invoice's sub-collection.
+ * Path: /invoices/{invoiceId}/receipts/{receiptId}
+ */
+export interface Receipt {
+  receiptId: string; // Document ID
+  paymentId: string; // Reference to the 'payments' collection document
+  amountPaid: number;
+  dateIssued: string; // ISO Timestamp
+  issuedByUserId: string; // UID of user/system that generated it
+  documentLink: string; // URL to the stored PDF in Firebase Storage
+}
+
+
+/**
  * Represents a follow-up action taken on a denied or pending claim.
  */
 export interface FollowUpNote {
