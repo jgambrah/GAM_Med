@@ -1,80 +1,50 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the role of the currently authenticated user.
+
+    // Helper function to get user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Rules for the 'patients' collection
+    // Rules for patients collection
     match /patients/{patientId} {
-      allow read, write: if request.auth != null; // Simplified for prototype
-      
-      // Granular update rule for patientType
-      allow update: if request.auth != null && (
-        (getUserRole() in ['admin', 'billing_clerk', 'receptionist'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientType'])) ||
-        // Allow other updates by other roles if patientType is not changed
-        (request.resource.data.patientType == resource.data.patientType)
-      );
-
-      // Sub-collections like clinical_notes, vitals, etc.
-      match /{allPaths=**} {
-        allow read, write: if request.auth != null; // Simplified for prototype
-      }
+      allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow create: if getUserRole() in ['admin', 'nurse'];
     }
 
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
+    // Rules for all subcollections of patients
+    match /patients/{patientId}/{subcollection}/{docId} {
+       allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
     }
 
-    // Rules for the 'invoices' collection
-    match /invoices/{invoiceId} {
-        // Allow create/update for admin/billing staff. Cloud Functions bypass these rules.
-        allow create, update: if getUserRole() in ['admin', 'billing_clerk'];
-        // Allow read for admin/billing staff OR the patient who owns the invoice.
-        allow read: if getUserRole() in ['admin', 'billing_clerk'] || request.auth.uid == resource.data.patientId;
-    }
-    
-    // Rules for service collections to protect the 'isBilled' flag
-    function canUpdateIsBilled() {
-        // This rule is conceptual. In a real scenario, the Cloud Function would have trusted access.
-        // This client-side rule prevents users from manually toggling 'isBilled'.
-        // It allows updates only if 'isBilled' is NOT one of the fields being changed.
-        return !request.resource.data.diff(resource.data).affectedKeys().has('isBilled');
-    }
-
-    match /appointments/{appointmentId} {
-        allow read, write: if request.auth != null;
-        allow update: if canUpdateIsBilled();
-    }
-    
-    match /lab_results/{resultId} {
-        allow read, write: if request.auth != null;
-        allow update: if canUpdateIsBilled();
-    }
-    
-    // Rules for the 'pricing_tables' collection
-    match /pricing_tables/{pricingId} {
-        allow read, write: if getUserRole() in ['admin', 'billing_clerk'];
-    }
-
-    // Rules for the 'insurance_claims' collection
+    // Rules for insurance_claims collection
     match /insurance_claims/{claimId} {
-        allow create, read, update: if getUserRole() in ['admin', 'billing_clerk'];
+        allow read, update, create: if getUserRole() in ['admin', 'billing_clerk'];
     }
     
-    // Rules for the 'insurance_providers' collection
+    // Rules for insurance_providers collection
     match /insurance_providers/{providerId} {
         allow read: if request.auth != null;
         allow write: if getUserRole() == 'admin';
     }
 
-    // Default deny all other collections for security
+    // Rules for payments collection
+    match /payments/{paymentId} {
+      allow create: if getUserRole() in ['admin', 'receptionist', 'billing_clerk'];
+      // Patients should only be able to read their own payments, which requires a more complex rule.
+      // For now, we restrict read access to staff.
+      allow read: if getUserRole() in ['admin', 'billing_clerk'];
+    }
+    
+    // Rules for payment_gateways collection
+    match /payment_gateways/{gatewayId} {
+      allow read: if getUserRole() in ['admin', 'billing_clerk'];
+      allow write: if getUserRole() == 'admin';
+    }
+    
+    // Default deny all other collections
     match /{document=**} {
       allow read, write: if false;
     }
