@@ -220,3 +220,12 @@ export const PaymentSchema = z.object({
     }
   }
 });
+
+/**
+ * Zod schema for validating the receptionist's manual payment logging form.
+ */
+export const LogPaymentSchema = z.object({
+  invoiceId: z.string().min(1, { message: "An invoice must be selected." }),
+  amount: z.coerce.number().min(0.01, { message: "Amount must be greater than zero." }),
+  paymentMethod: z.enum(['Cash', 'Credit Card', 'Mobile Money']),
+});

@@ -2,6 +2,9 @@
 'use client';
 
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   Card,
   CardContent,
@@ -20,6 +23,12 @@ import Link from 'next/link';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ClaimDetailDialog } from './claim-detail-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { LogPaymentSchema } from '@/lib/schemas';
+import { useToast } from '@/hooks/use-toast';
+import { logPayment } from '@/lib/actions';
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -190,18 +199,123 @@ function ClaimsTrackingTab() {
 }
 
 function PaymentReconciliationTab() {
+    const { toast } = useToast();
+    const form = useForm<z.infer<typeof LogPaymentSchema>>({
+        resolver: zodResolver(LogPaymentSchema),
+        defaultValues: {
+            invoiceId: '',
+            amount: 0,
+            paymentMethod: 'Cash',
+        },
+    });
+
+    const unpaidInvoices = mockInvoices
+        .filter(inv => inv.status === 'Pending Payment' || inv.status === 'Overdue')
+        .map(inv => ({
+            value: inv.invoiceId,
+            label: `${inv.invoiceId} - ${inv.patientName} (Due: ₵${inv.amountDue.toFixed(2)})`
+        }));
+    
+    const selectedInvoiceId = form.watch('invoiceId');
+
+    React.useEffect(() => {
+        if (selectedInvoiceId) {
+            const invoice = mockInvoices.find(inv => inv.invoiceId === selectedInvoiceId);
+            if (invoice) {
+                form.setValue('amount', invoice.amountDue);
+            }
+        }
+    }, [selectedInvoiceId, form]);
+
+    const onSubmit = async (values: z.infer<typeof LogPaymentSchema>) => {
+        const result = await logPayment(values);
+        if (result.success) {
+            toast({
+                title: 'Payment Logged',
+                description: `Payment of ₵${values.amount} for invoice ${values.invoiceId} has been logged.`
+            });
+            form.reset();
+        } else {
+            toast({
+                title: 'Error',
+                description: result.message || 'Failed to log payment.',
+                variant: 'destructive',
+            });
+        }
+    }
+
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Log New Payment</CardTitle>
-                    <CardDescription>Manually record a payment against an invoice.</CardDescription>
+                    <CardDescription>Manually record a payment received against an invoice.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">Payment logging form will be available here.</p>
-                         <Button className="mt-4" disabled>Log Payment</Button>
-                    </div>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-lg mx-auto">
+                            <FormField
+                                control={form.control}
+                                name="invoiceId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Unpaid Invoice</FormLabel>
+                                        <Combobox
+                                            options={unpaidInvoices}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Search for an unpaid invoice..."
+                                            searchPlaceholder='Search invoices...'
+                                            notFoundText='No unpaid invoices found.'
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                 <FormField
+                                    control={form.control}
+                                    name="amount"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Amount Paid</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                 <FormField
+                                    control={form.control}
+                                    name="paymentMethod"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Payment Method</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select a method" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Cash">Cash</SelectItem>
+                                                    <SelectItem value="Credit Card">Credit Card (In-Person)</SelectItem>
+                                                    <SelectItem value="Mobile Money">Mobile Money (In-Person)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <div className="flex justify-end">
+                                <Button type="submit" disabled={form.formState.isSubmitting}>
+                                    {form.formState.isSubmitting ? 'Logging...' : 'Log Payment'}
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
                 </CardContent>
             </Card>
              <Card>

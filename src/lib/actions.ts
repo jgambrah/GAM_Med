@@ -3,11 +3,12 @@
 
 
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -362,4 +363,15 @@ export async function streamVitals(patientId: string) {
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath('/dashboard/nursing');
     return { success: true };
+}
+
+export async function logPayment(values: z.infer<typeof LogPaymentSchema>) {
+    console.log('Logging payment with values:', values);
+    // In a real app, this would call the processPayment Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/patients');
+
+    return { success: true, message: 'Payment logged successfully.' };
 }
