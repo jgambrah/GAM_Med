@@ -805,6 +805,10 @@ export const mockPayments: FinancialTransaction[] = [
         paymentMethod: 'Mobile Money',
         paymentDate: new Date('2024-08-11T09:00:00Z').toISOString(),
         transactionId: 'MOMO-ABC123',
+        paymentMethodDetails: {
+            gateway: 'MTN Mobile Money',
+            phone_number: '+23324xxxx567'
+        }
     },
 ];
 

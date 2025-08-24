@@ -49,6 +49,7 @@ export interface FinancialTransaction {
   paymentMethod: 'Credit Card' | 'Insurance Payout' | 'Cash' | 'Mobile Money';
   paymentDate: string; // ISO Timestamp
   transactionId?: string; // Optional ID from a payment gateway
+  paymentMethodDetails?: Record<string, any>; // Flexible map for gateway-specific data
 }
 
 /**
@@ -115,6 +116,17 @@ export interface InsuranceProvider {
     status_check: string;
   };
   supported_services: ('Medical' | 'Dental' | 'Vision')[];
+}
+
+/**
+ * Represents a payment gateway configuration in the 'payment_gateways' collection.
+ */
+export interface PaymentGateway {
+  gatewayId: string; // e.g., 'stripe', 'mtn_momo'
+  name: string; // e.g., 'Stripe', 'MTN Mobile Money'
+  api_config: Record<string, any>; // Stores API keys, endpoints, etc.
+  supported_methods: ('credit_card' | 'mobile_money')[];
+  country_codes: string[]; // e.g., ['GH', 'NG']
 }
 
 
