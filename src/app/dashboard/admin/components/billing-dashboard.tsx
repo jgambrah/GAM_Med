@@ -19,6 +19,7 @@ import { Invoice, Claim, FinancialTransaction } from '@/lib/types';
 import Link from 'next/link';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ClaimDetailDialog } from './claim-detail-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -94,9 +95,49 @@ function InvoiceManagementTab() {
 
 function ClaimsTrackingTab() {
     const [selectedClaim, setSelectedClaim] = React.useState<Claim | null>(null);
+    const [statusFilter, setStatusFilter] = React.useState('All');
+    const [providerFilter, setProviderFilter] = React.useState('All');
+    
+    const uniqueProviders = ['All', ...Array.from(new Set(mockClaims.map(c => c.providerId)))];
+    const claimStatuses: (Claim['status'] | 'All')[] = ['All', 'Paid', 'Submitted', 'Denied'];
+
+    const filteredClaims = React.useMemo(() => {
+        return mockClaims.filter(claim => {
+            const statusMatch = statusFilter === 'All' || claim.status === statusFilter;
+            const providerMatch = providerFilter === 'All' || claim.providerId === providerFilter;
+            return statusMatch && providerMatch;
+        });
+    }, [statusFilter, providerFilter]);
+
 
     return (
         <>
+            <div className="flex items-center gap-4 mb-4">
+                <div className="w-full sm:w-[200px]">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by status..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {claimStatuses.map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="w-full sm:w-[200px]">
+                    <Select value={providerFilter} onValueChange={setProviderFilter}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by provider..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {uniqueProviders.map(provider => (
+                                <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
             <div className="rounded-md border">
                 <Table>
                     <TableHeader>
@@ -111,7 +152,7 @@ function ClaimsTrackingTab() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {mockClaims.map((claim) => (
+                        {filteredClaims.map((claim) => (
                             <TableRow key={claim.claimId}>
                                 <TableCell className="font-medium">{claim.claimId}</TableCell>
                                 <TableCell>
