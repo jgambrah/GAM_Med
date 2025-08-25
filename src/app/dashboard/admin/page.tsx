@@ -31,7 +31,7 @@ export default function AdminPage() {
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="ar">Accounts Receivable</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -46,7 +46,7 @@ export default function AdminPage() {
         <TabsContent value="discharge-processing" className="mt-4">
             <DischargeDashboard />
         </TabsContent>
-        <TabsContent value="billing" className="mt-4">
+        <TabsContent value="ar" className="mt-4">
             <BillingDashboard />
         </TabsContent>
          <TabsContent value="global-alerts" className="mt-4">
