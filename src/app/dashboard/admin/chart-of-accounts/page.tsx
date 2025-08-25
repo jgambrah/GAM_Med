@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -43,7 +44,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LedgerAccountSchema } from '@/lib/schemas';
 import { z } from 'zod';
-import { Plus } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
@@ -250,6 +251,7 @@ export default function ChartOfAccountsPage() {
                   <TableHead>Account Code</TableHead>
                   <TableHead>Account Name</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -262,12 +264,28 @@ export default function ChartOfAccountsPage() {
                                 {account.children.length > 0 && <Badge variant="secondary">Control Account</Badge>}
                             </TableCell>
                             <TableCell>{account.accountType}</TableCell>
+                             <TableCell>
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`}>
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        View Ledger
+                                    </Link>
+                                </Button>
+                            </TableCell>
                         </TableRow>
                         {account.children.map(child => (
                             <TableRow key={child.accountId}>
                                 <TableCell className="pl-8">{child.accountCode}</TableCell>
                                 <TableCell>{child.accountName}</TableCell>
                                 <TableCell>{child.accountType}</TableCell>
+                                 <TableCell>
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`}>
+                                           <Eye className="h-4 w-4 mr-2" />
+                                           View Ledger
+                                        </Link>
+                                    </Button>
+                                </TableCell>
                             </TableRow>
                         ))}
                     </React.Fragment>
@@ -280,4 +298,3 @@ export default function ChartOfAccountsPage() {
     </div>
   );
 }
-

@@ -1,6 +1,5 @@
 
-
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -950,4 +949,11 @@ export const mockLedgerAccounts: LedgerAccount[] = [
     { accountId: '5000', accountName: 'Expenses', accountCode: '5000', accountType: 'Expense', balance: 180000, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '5010', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 100000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
     { accountId: '5020', accountName: 'Medical Supplies', accountCode: '5020', accountType: 'Expense', balance: 80000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
+];
+
+export const mockLedgerEntries: LedgerEntry[] = [
+    { entryId: 'e-001', accountId: '1010', date: new Date('2024-08-01T00:00:00Z').toISOString(), description: 'Cash deposit from patient payment', debit: 5000.00 },
+    { entryId: 'e-002', accountId: '1010', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Payment for medical supplies', credit: 2500.00 },
+    { entryId: 'e-003', accountId: '2010', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Invoice from PharmaSupply Ltd.', credit: 2500.00 },
+    { entryId: 'e-004', accountId: '1020', date: new Date('2024-08-03T00:00:00Z').toISOString(), description: 'Invoice INV-003 issued to patient', debit: 120.00 },
 ];

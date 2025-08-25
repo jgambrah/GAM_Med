@@ -1,5 +1,4 @@
 
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -23,6 +22,18 @@ export interface LedgerAccount {
   isSubLedger: boolean;
   parentAccountId?: string | null; // ID of the parent ledger if this is a sub-ledger
   createdAt: string; // ISO Timestamp
+}
+
+/**
+ * Represents a single transaction entry in a ledger.
+ */
+export interface LedgerEntry {
+  entryId: string;
+  accountId: string;
+  date: string; // ISO Timestamp
+  description: string;
+  debit?: number;
+  credit?: number;
 }
 
 
