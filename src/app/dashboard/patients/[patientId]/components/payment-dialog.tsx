@@ -70,6 +70,10 @@ export function PaymentDialog({ invoice }: PaymentDialogProps) {
     toast({
       title: 'Payment Successful (Simulated)',
       description: `A payment of ₵${values.amount} has been processed for invoice ${invoice.invoiceId}.`,
+      action: {
+        label: "View Receipt",
+        onClick: () => window.open('/mock-receipt.pdf', '_blank'),
+      }
     });
     setOpen(false);
     form.reset();

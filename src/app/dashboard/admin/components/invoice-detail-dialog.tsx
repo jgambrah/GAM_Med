@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -22,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import { Invoice, InvoiceLineItem } from '@/lib/types';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { Send } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface InvoiceDetailDialogProps {
   invoice: Invoice;
@@ -39,6 +42,27 @@ const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | 
 }
 
 export function InvoiceDetailDialog({ invoice, isOpen, onOpenChange }: InvoiceDetailDialogProps) {
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = React.useState(false);
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    // In a real app, this would call a server action `generateInvoiceDocument(invoice.invoiceId)`
+    toast({
+        title: 'Generating Invoice...',
+        description: 'The invoice PDF is being created and sent to the patient.',
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate generation
+    
+    toast({
+        title: 'Invoice Generated & Sent',
+        description: `Invoice ${invoice.invoiceId} has been successfully sent to ${invoice.patientName}.`
+    });
+
+    setIsGenerating(false);
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
@@ -94,6 +118,16 @@ export function InvoiceDetailDialog({ invoice, isOpen, onOpenChange }: InvoiceDe
                 </Table>
             </div>
         </div>
+        <DialogFooter>
+            <Button 
+                variant="outline"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+            >
+                <Send className="h-4 w-4 mr-2" />
+                {isGenerating ? 'Generating...' : 'Generate & Send Invoice'}
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
