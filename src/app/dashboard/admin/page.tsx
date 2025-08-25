@@ -1,4 +1,5 @@
 
+
 import {
   Card,
   CardContent,
@@ -36,6 +37,7 @@ export default function AdminPage() {
           <TabsTrigger value="ar">Accounts Receivable</TabsTrigger>
           <TabsTrigger value="ap">Accounts Payable</TabsTrigger>
           <TabsTrigger value="reports">Financial Reports</TabsTrigger>
+          <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -58,6 +60,26 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="reports" className="mt-4">
             <FinancialReportsDashboard />
+        </TabsContent>
+        <TabsContent value="chart-of-accounts" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Chart of Accounts</CardTitle>
+                    <CardDescription>
+                        This section is under development. Click the button to view the full ledger.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                        <p className="text-muted-foreground">The Chart of Accounts will be available here soon.</p>
+                        <Button asChild className="mt-4">
+                            <Link href="/dashboard/admin/chart-of-accounts">
+                                Go to Chart of Accounts
+                            </Link>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
         </TabsContent>
          <TabsContent value="global-alerts" className="mt-4">
             <GlobalAlertsDashboard />

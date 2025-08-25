@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -932,4 +932,22 @@ export const mockBills: Bill[] = [
             { description: 'Syringes 10ml (Box of 100)', quantity: 20, unitPrice: 170, total: 3400 }
         ]
     }
+];
+
+export const mockLedgerAccounts: LedgerAccount[] = [
+    // Assets
+    { accountId: '1000', accountName: 'Assets', accountCode: '1000', accountType: 'Asset', balance: 150000, isSubLedger: false, createdAt: now.toISOString() },
+    { accountId: '1010', accountName: 'Cash and Bank', accountCode: '1010', accountType: 'Asset', balance: 50000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
+    { accountId: '1020', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 100000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
+    // Liabilities
+    { accountId: '2000', accountName: 'Liabilities', accountCode: '2000', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
+    { accountId: '2010', accountName: 'Accounts Payable', accountCode: '2010', accountType: 'Liability', balance: 80000, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
+    // Equity
+    { accountId: '3000', accountName: 'Equity', accountCode: '3000', accountType: 'Equity', balance: 70000, isSubLedger: false, createdAt: now.toISOString() },
+    // Revenue
+    { accountId: '4000', accountName: 'Revenue', accountCode: '4000', accountType: 'Revenue', balance: 250000, isSubLedger: false, createdAt: now.toISOString() },
+    // Expenses
+    { accountId: '5000', accountName: 'Expenses', accountCode: '5000', accountType: 'Expense', balance: 180000, isSubLedger: false, createdAt: now.toISOString() },
+    { accountId: '5010', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 100000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
+    { accountId: '5020', accountName: 'Medical Supplies', accountCode: '5020', accountType: 'Expense', balance: 80000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
 ];

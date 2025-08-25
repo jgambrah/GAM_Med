@@ -2,6 +2,13 @@
 
 import { z } from 'zod';
 
+export const LedgerAccountSchema = z.object({
+  accountName: z.string().min(3, { message: "Account name must be at least 3 characters." }),
+  accountCode: z.string().min(4, { message: "Account code must be at least 4 characters." }),
+  accountType: z.enum(['Asset', 'Liability', 'Equity', 'Revenue', 'Expense']),
+  parentAccountId: z.string().optional().nullable(),
+});
+
 /**
  * Zod schema for validating the patient registration form.
  * Ensures data integrity on the client-side before sending to the server.

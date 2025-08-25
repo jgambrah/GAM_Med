@@ -7,6 +7,26 @@
  */
 
 // =========================================================================
+// == Accounting & Ledger Data Models
+// =========================================================================
+
+/**
+ * Represents a single account in the Chart of Accounts.
+ * This is a central ledger for financial tracking.
+ */
+export interface LedgerAccount {
+  accountId: string; // Document ID
+  accountName: string; // e.g., 'Cash and Bank', 'Salaries Expense'
+  accountCode: string; // e.g., '1010', '5010'
+  accountType: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+  balance: number;
+  isSubLedger: boolean;
+  parentAccountId?: string | null; // ID of the parent ledger if this is a sub-ledger
+  createdAt: string; // ISO Timestamp
+}
+
+
+// =========================================================================
 // == Billing & Financial Management Data Models
 // =========================================================================
 
@@ -836,4 +856,3 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
-
