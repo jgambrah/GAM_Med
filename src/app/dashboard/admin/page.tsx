@@ -64,20 +64,17 @@ export default function AdminPage() {
         <TabsContent value="chart-of-accounts" className="mt-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Chart of Accounts</CardTitle>
+                    <CardTitle>Chart of Accounts Management</CardTitle>
                     <CardDescription>
-                        This section is under development. Click the button to view the full ledger.
+                        View the complete Chart of Accounts or add new ledgers to the system. This page is accessible to all finance staff, but only senior staff can create new accounts.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">The Chart of Accounts will be available here soon.</p>
-                        <Button asChild className="mt-4">
-                            <Link href="/dashboard/admin/chart-of-accounts">
-                                Go to Chart of Accounts
-                            </Link>
-                        </Button>
-                    </div>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/admin/chart-of-accounts">
+                            View Full Chart of Accounts
+                        </Link>
+                    </Button>
                 </CardContent>
             </Card>
         </TabsContent>
