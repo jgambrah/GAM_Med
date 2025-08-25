@@ -20,7 +20,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { mockLedgerAccounts } from '@/lib/data';
 import { LedgerAccount } from '@/lib/types';
-import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +45,7 @@ import { LedgerAccountSchema } from '@/lib/schemas';
 import { z } from 'zod';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 function CreateLedgerAccountDialog() {
     const [open, setOpen] = React.useState(false);
@@ -90,7 +90,7 @@ function CreateLedgerAccountDialog() {
                 <DialogHeader>
                     <DialogTitle>Create New Ledger Account</DialogTitle>
                     <DialogDescription>
-                        Add a new ledger or sub-ledger to your chart of accounts.
+                        Add a new control ledger or sub-ledger to your chart of accounts.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -148,16 +148,16 @@ function CreateLedgerAccountDialog() {
                             name="parentAccountId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Parent Ledger (for Sub-Ledgers)</FormLabel>
+                                    <FormLabel>Parent Control Account (for Sub-Ledgers)</FormLabel>
                                      <Select 
                                         onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
                                         value={field.value || 'none'}
                                     >
                                         <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="None (This is a main ledger)" /></SelectTrigger>
+                                            <SelectTrigger><SelectValue placeholder="None (This is a main control account)" /></SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="none">None (Main Ledger)</SelectItem>
+                                            <SelectItem value="none">None (This is a main control account)</SelectItem>
                                             {parentAccountOptions.map(opt => (
                                                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                             ))}
@@ -236,7 +236,10 @@ export default function ChartOfAccountsPage() {
                     <React.Fragment key={account.accountId}>
                         <TableRow className="bg-muted/50 font-semibold">
                             <TableCell>{account.accountCode}</TableCell>
-                            <TableCell>{account.accountName}</TableCell>
+                            <TableCell className="flex items-center gap-2">
+                                <span>{account.accountName}</span>
+                                {account.children.length > 0 && <Badge variant="secondary">Control Account</Badge>}
+                            </TableCell>
                             <TableCell>{account.accountType}</TableCell>
                         </TableRow>
                         {account.children.map(child => (
@@ -256,3 +259,4 @@ export default function ChartOfAccountsPage() {
     </div>
   );
 }
+
