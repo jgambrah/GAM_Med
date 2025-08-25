@@ -147,6 +147,58 @@ export interface PaymentGateway {
 
 
 // =========================================================================
+// == Accounts Payable Data Models
+// =========================================================================
+
+/**
+ * Represents a supplier or vendor.
+ */
+export interface Supplier {
+  supplierId: string; // Document ID
+  name: string;
+  contact: {
+    person?: string;
+    phone?: string;
+    email?: string;
+  };
+}
+
+/**
+ * Represents a single line item on an incoming bill.
+ */
+export interface BillLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+/**
+ * Represents an incoming bill from a supplier in the 'bills' collection.
+ */
+export interface Bill {
+  billId: string; // Document ID
+  supplierId: string; // Reference to 'suppliers' collection
+  issueDate: string; // ISO Timestamp
+  dueDate: string; // ISO Timestamp
+  totalAmount: number;
+  status: 'Pending' | 'Paid' | 'Partially Paid' | 'Overdue';
+  billedItems: BillLineItem[];
+}
+
+/**
+ * Represents an operational expense in the 'expenses' collection.
+ */
+export interface Expense {
+  expenseId: string; // Document ID
+  type: 'Rent' | 'Payroll' | 'Utilities' | 'Supplies' | 'Other';
+  description: string;
+  amount: number;
+  date: string; // ISO Timestamp
+}
+
+
+// =========================================================================
 // == Clinical Decision Support (CDS) Data Models
 // =========================================================================
 
@@ -784,3 +836,4 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
+
