@@ -9,9 +9,11 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { GenerateInvoiceDialog } from './generate-invoice-dialog';
 import { useAuth } from '@/hooks/use-auth';
-import { mockInvoices as allMockInvoices } from '@/lib/data';
-import { Invoice } from '@/lib/types';
+import { mockInvoices as allMockInvoices, mockPayments } from '@/lib/data';
+import { Invoice, Receipt } from '@/lib/types';
 import { PaymentDialog } from './payment-dialog';
+import { Download, FileText } from 'lucide-react';
+import Link from 'next/link';
 
 interface BillingTabProps {
     patientId: string;
@@ -32,9 +34,11 @@ export function BillingTab({ patientId }: BillingTabProps) {
     const canGenerateInvoice = user?.role === 'admin' || user?.role === 'billing_clerk';
 
     const mockInvoices = allMockInvoices.filter(i => i.patientId === patientId);
+    const patientPayments = mockPayments.filter(p => mockInvoices.some(i => i.invoiceId === p.invoiceId));
+
 
     const totalBilled = mockInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const totalPaid = mockInvoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const totalPaid = mockPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const outstandingBalance = totalBilled - totalPaid;
     
     return (
@@ -42,8 +46,8 @@ export function BillingTab({ patientId }: BillingTabProps) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Billing & Invoices</CardTitle>
-                        <CardDescription>A history of all financial transactions and invoices.</CardDescription>
+                        <CardTitle>Invoices</CardTitle>
+                        <CardDescription>A history of all invoices issued to this patient.</CardDescription>
                     </div>
                     {canGenerateInvoice && <GenerateInvoiceDialog patientId={patientId} />}
                 </CardHeader>
@@ -69,7 +73,15 @@ export function BillingTab({ patientId }: BillingTabProps) {
                                             <TableCell>
                                                 <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right space-x-2">
+                                                {invoice.invoicePdfUrl && (
+                                                    <Button asChild variant="outline" size="sm">
+                                                        <a href={invoice.invoicePdfUrl} target="_blank" rel="noopener noreferrer">
+                                                            <FileText className="h-3 w-3 mr-2" />
+                                                            View PDF
+                                                        </a>
+                                                    </Button>
+                                                )}
                                                 {(invoice.status === 'Pending Payment' || invoice.status === 'Overdue') && (
                                                     <PaymentDialog invoice={invoice} />
                                                 )}
@@ -107,6 +119,56 @@ export function BillingTab({ patientId }: BillingTabProps) {
                         <p className={`text-2xl font-bold ${outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                             ₵{outstandingBalance.toFixed(2)}
                         </p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Payment History</CardTitle>
+                    <CardDescription>A log of all payments and generated receipts.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Payment Date</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                    <TableHead>Method</TableHead>
+                                    <TableHead>Invoice ID</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {mockInvoices.flatMap(inv => inv.receipts || []).length > 0 ? (
+                                    mockInvoices.flatMap(inv => inv.receipts?.map(receipt => ({...receipt, invoiceId: inv.invoiceId })) || []).map((receipt) => (
+                                        <TableRow key={receipt.receiptId}>
+                                            <TableCell>{format(new Date(receipt.dateIssued), 'PPP')}</TableCell>
+                                            <TableCell>₵{receipt.amountPaid.toFixed(2)}</TableCell>
+                                            <TableCell>
+                                                {mockPayments.find(p => p.paymentId === receipt.paymentId)?.paymentMethod || 'N/A'}
+                                            </TableCell>
+                                            <TableCell>{receipt.invoiceId}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button asChild variant="outline" size="sm">
+                                                    <a href={receipt.documentLink} target="_blank" rel="noopener noreferrer">
+                                                        <Download className="h-3 w-3 mr-2" />
+                                                        Download Receipt
+                                                    </a>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center">
+                                            No payment history found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
                 </CardContent>
             </Card>

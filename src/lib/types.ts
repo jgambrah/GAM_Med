@@ -36,6 +36,8 @@ export interface Invoice {
   totalAmount: number;
   amountDue: number;
   status: 'Draft' | 'Pending Payment' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Void';
+  invoicePdfUrl?: string; // Optional URL to the generated PDF in Firebase Storage
+  receipts?: Receipt[]; // Nested for mock data simplicity
 }
 
 /**

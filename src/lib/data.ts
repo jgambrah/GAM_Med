@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -720,6 +720,11 @@ export const mockInvoices: Invoice[] = [
         totalAmount: 250.00,
         amountDue: 0.00,
         status: 'Paid',
+        invoicePdfUrl: '/mock-invoice.pdf',
+        receipts: [
+            { receiptId: 'REC-001', paymentId: 'PAY-001', amountPaid: 200.00, dateIssued: new Date('2024-08-10T14:00:00Z').toISOString(), issuedByUserId: 'system', documentLink: '/mock-receipt-1.pdf' },
+            { receiptId: 'REC-002', paymentId: 'PAY-002', amountPaid: 50.00, dateIssued: new Date('2024-08-11T09:00:00Z').toISOString(), issuedByUserId: 'system', documentLink: '/mock-receipt-2.pdf' }
+        ]
     },
     {
         invoiceId: 'INV-002',
