@@ -2959,6 +2959,13 @@ exports.generateInvoiceDocument = functions.region('europe-west1').https.onCall(
     // const patientData = patientDoc.data();
 
     // 3. Use a PDF generation library to create the document
+    // The PDF template should include:
+    // - Header: Clinic name, logo
+    // - Patient Info: Name, Address, ID
+    // - Invoice Info: Invoice #, Issue Date, Due Date
+    // - Line Items: Description, Quantity, Price, Subtotal for each item
+    // - Totals: Subtotal, Tax (if any), Grand Total
+    // - Payment Instructions
     // const pdfBuffer = await createInvoicePdf({ invoice: invoiceData, patient: patientData });
     const pdfBuffer = Buffer.from('This is a dummy invoice PDF.'); // Placeholder
     
@@ -3011,7 +3018,13 @@ exports.generateReceiptDocument = functions.region('europe-west1').firestore
         }
         // const patientDoc = await db.collection('patients').doc(invoiceDoc.data().patientId).get();
 
-        // 2. Generate the PDF
+        // 2. Generate the PDF.
+        // The PDF template should include:
+        // - Header: Clinic name, logo
+        // - Receipt Info: Receipt #, Payment Date
+        // - Patient Info: Name, ID
+        // - Payment Details: Amount Paid, Payment Method
+        // - Balance: Remaining Balance Due on the invoice
         // const pdfBuffer = await createReceiptPdf({ payment: paymentData, invoice: invoiceDoc.data(), patient: patientDoc.data() });
         const pdfBuffer = Buffer.from('This is a dummy receipt PDF.'); // Placeholder
 
