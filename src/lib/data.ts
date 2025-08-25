@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -873,5 +873,63 @@ export const mockPricingTables: PricingTable[] = [
             'L001': 30.00,
             'A005': 40.00
         }
+    }
+];
+
+export const mockSuppliers: Supplier[] = [
+    {
+        supplierId: 'SUP-001',
+        name: 'PharmaSupply Ltd.',
+        contact: {
+            person: 'Grace Tetteh',
+            email: 'sales@pharmasupply.com.gh',
+            phone: '+233302123456'
+        }
+    },
+    {
+        supplierId: 'SUP-002',
+        name: 'MedEquip Ghana',
+        contact: {
+            person: 'David Quartey',
+            email: 'info@medequipgh.com',
+            phone: '+233302789123'
+        }
+    }
+];
+
+export const mockBills: Bill[] = [
+    {
+        billId: 'BILL-001',
+        supplierId: 'SUP-001',
+        issueDate: new Date('2024-07-15T00:00:00Z').toISOString(),
+        dueDate: new Date('2024-08-14T00:00:00Z').toISOString(),
+        totalAmount: 15200.50,
+        status: 'Overdue',
+        billedItems: [
+            { description: 'Amlodipine 5mg (x1000)', quantity: 10, unitPrice: 500, total: 5000 },
+            { description: 'Atorvastatin 20mg (x1000)', quantity: 10, unitPrice: 1020.05, total: 10200.50 }
+        ]
+    },
+    {
+        billId: 'BILL-002',
+        supplierId: 'SUP-002',
+        issueDate: new Date('2024-08-01T00:00:00Z').toISOString(),
+        dueDate: new Date('2024-08-31T00:00:00Z').toISOString(),
+        totalAmount: 7500.00,
+        status: 'Pending',
+        billedItems: [
+            { description: 'Sterile Gauze (Case)', quantity: 50, unitPrice: 150, total: 7500 }
+        ]
+    },
+    {
+        billId: 'BILL-003',
+        supplierId: 'SUP-001',
+        issueDate: new Date('2024-06-20T00:00:00Z').toISOString(),
+        dueDate: new Date('2024-07-20T00:00:00Z').toISOString(),
+        totalAmount: 3400.00,
+        status: 'Paid',
+        billedItems: [
+            { description: 'Syringes 10ml (Box of 100)', quantity: 20, unitPrice: 170, total: 3400 }
+        ]
     }
 ];

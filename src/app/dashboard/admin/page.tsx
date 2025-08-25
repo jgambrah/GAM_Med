@@ -15,6 +15,7 @@ import { StaffScheduleDashboard } from './components/staff-schedule-dashboard';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BillingDashboard } from './components/billing-dashboard';
+import { AccountsPayableDashboard } from './components/accounts-payable-dashboard';
 
 export default function AdminPage() {
   return (
@@ -32,6 +33,7 @@ export default function AdminPage() {
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
           <TabsTrigger value="ar">Accounts Receivable</TabsTrigger>
+          <TabsTrigger value="ap">Accounts Payable</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -48,6 +50,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="ar" className="mt-4">
             <BillingDashboard />
+        </TabsContent>
+        <TabsContent value="ap" className="mt-4">
+            <AccountsPayableDashboard />
         </TabsContent>
          <TabsContent value="global-alerts" className="mt-4">
             <GlobalAlertsDashboard />
