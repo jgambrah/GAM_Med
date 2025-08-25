@@ -149,7 +149,7 @@ function CreateLedgerAccountDialog() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Parent Ledger (for Sub-Ledgers)</FormLabel>
-                                    <Select 
+                                     <Select 
                                         onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
                                         value={field.value || 'none'}
                                     >
@@ -229,7 +229,6 @@ export default function ChartOfAccountsPage() {
                   <TableHead>Account Code</TableHead>
                   <TableHead>Account Name</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -239,14 +238,12 @@ export default function ChartOfAccountsPage() {
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell>{account.accountName}</TableCell>
                             <TableCell>{account.accountType}</TableCell>
-                            <TableCell className="text-right">₵{account.balance.toFixed(2)}</TableCell>
                         </TableRow>
                         {account.children.map(child => (
                             <TableRow key={child.accountId}>
                                 <TableCell className="pl-8">{child.accountCode}</TableCell>
                                 <TableCell>{child.accountName}</TableCell>
                                 <TableCell>{child.accountType}</TableCell>
-                                <TableCell className="text-right">₵{child.balance.toFixed(2)}</TableCell>
                             </TableRow>
                         ))}
                     </React.Fragment>
