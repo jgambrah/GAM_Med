@@ -47,7 +47,13 @@ import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
-function CreateLedgerAccountDialog() {
+interface CreateLedgerAccountDialogProps {
+    existingAccounts: LedgerAccount[];
+    onAccountCreate: (newAccount: LedgerAccount) => void;
+}
+
+
+function CreateLedgerAccountDialog({ existingAccounts, onAccountCreate }: CreateLedgerAccountDialogProps) {
     const [open, setOpen] = React.useState(false);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof LedgerAccountSchema>>({
@@ -60,7 +66,7 @@ function CreateLedgerAccountDialog() {
         }
     });
 
-    const parentAccountOptions = mockLedgerAccounts
+    const parentAccountOptions = existingAccounts
         .filter(acc => !acc.isSubLedger)
         .map(acc => ({
             label: `${acc.accountName} (${acc.accountCode})`,
@@ -68,8 +74,18 @@ function CreateLedgerAccountDialog() {
         }));
 
     const onSubmit = async (values: z.infer<typeof LedgerAccountSchema>) => {
-        // In a real app, this would call a server action
         console.log('Creating new ledger account:', values);
+        
+        const newAccount: LedgerAccount = {
+            ...values,
+            accountId: `ACC-${Math.random().toString(36).substr(2, 9)}`, // Generate a dummy ID
+            balance: 0,
+            isSubLedger: !!values.parentAccountId,
+            createdAt: new Date().toISOString(),
+        }
+
+        onAccountCreate(newAccount);
+
         toast({
             title: 'Ledger Account Created',
             description: `Account "${values.accountName}" has been created.`,
@@ -181,16 +197,21 @@ function CreateLedgerAccountDialog() {
 }
 
 export default function ChartOfAccountsPage() {
+    const [accounts, setAccounts] = React.useState<LedgerAccount[]>(mockLedgerAccounts);
+
+    const handleAccountCreate = (newAccount: LedgerAccount) => {
+        setAccounts(prevAccounts => [...prevAccounts, newAccount]);
+    };
 
     const organizedAccounts = React.useMemo(() => {
         const accountsMap = new Map<string, LedgerAccount & { children: LedgerAccount[] }>();
         const rootAccounts: (LedgerAccount & { children: LedgerAccount[] })[] = [];
 
-        mockLedgerAccounts.forEach(acc => {
+        accounts.forEach(acc => {
             accountsMap.set(acc.accountId, { ...acc, children: [] });
         });
 
-        mockLedgerAccounts.forEach(acc => {
+        accounts.forEach(acc => {
             if (acc.isSubLedger && acc.parentAccountId) {
                 const parent = accountsMap.get(acc.parentAccountId);
                 if (parent) {
@@ -203,7 +224,7 @@ export default function ChartOfAccountsPage() {
 
         return rootAccounts;
 
-    }, []);
+    }, [accounts]);
 
   return (
     <div className="space-y-6">
@@ -214,7 +235,7 @@ export default function ChartOfAccountsPage() {
                     Manage all financial ledgers and sub-ledgers.
                 </p>
             </div>
-            <CreateLedgerAccountDialog />
+            <CreateLedgerAccountDialog existingAccounts={accounts} onAccountCreate={handleAccountCreate} />
         </div>
       <Card>
         <CardHeader>
