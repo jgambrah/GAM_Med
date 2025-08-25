@@ -2921,3 +2921,120 @@ exports.handleRejectedClaim = functions.region('europe-west1').firestore
         return null;
     });
 */
+
+// =======================================================================================
+// == INVOICING & RECEIPT GENERATION
+// =======================================================================================
+
+// =======================================================================================
+// 46. Generate Invoice Document (Callable/Scheduled Cloud Function)
+// =======================================================================================
+/**
+ * Generates a PDF of a finalized invoice and notifies the patient.
+ *
+ * @trigger_type Can be both:
+ *               - Callable: Triggered manually by staff.
+ *               - Firestore Trigger (onUpdate): Triggered automatically when an invoice status changes from 'Draft' to 'Pending Payment'.
+ * @input { invoiceId: string }
+ */
+/*
+exports.generateInvoiceDocument = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check for manual invocation
+    // Add role check for 'admin' or 'billing_clerk'
+
+    const { invoiceId } = data;
+    if (!invoiceId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invoice ID is required.');
+    }
+    
+    // 2. Fetch all necessary data for the invoice
+    const invoiceRef = db.collection('invoices').doc(invoiceId);
+    const invoiceDoc = await invoiceRef.get();
+    if (!invoiceDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Invoice not found.');
+    }
+    const invoiceData = invoiceDoc.data();
+    
+    // const patientDoc = await db.collection('patients').doc(invoiceData.patientId).get();
+    // const patientData = patientDoc.data();
+
+    // 3. Use a PDF generation library to create the document
+    // const pdfBuffer = await createInvoicePdf({ invoice: invoiceData, patient: patientData });
+    const pdfBuffer = Buffer.from('This is a dummy invoice PDF.'); // Placeholder
+    
+    // 4. Upload to Firebase Storage
+    const filePath = `invoices/${invoiceData.patientId}/${invoiceId}.pdf`;
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(filePath);
+    await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
+    
+    // 5. Get a long-lived URL and update the invoice document
+    const url = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+    await invoiceRef.update({ invoicePdfUrl: url[0] });
+
+    // 6. Send notification to the patient
+    // if (patientData.contact.email) {
+    //     await sendEmailWithAttachment({
+    //         to: patientData.contact.email,
+    //         subject: `Your Invoice from GamMed: ${invoiceId}`,
+    //         body: 'Please find your invoice attached.',
+    //         attachment: pdfBuffer
+    //     });
+    // }
+    
+    console.log(`Generated and sent invoice PDF for ${invoiceId}.`);
+    return { success: true, pdfUrl: url[0] };
+});
+*/
+
+// =======================================================================================
+// 47. Generate Receipt Document (Firestore Trigger)
+// =======================================================================================
+/**
+ * Automatically generates a receipt PDF whenever a payment is successfully recorded.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /payments/{paymentId}
+ */
+/*
+exports.generateReceiptDocument = functions.region('europe-west1').firestore
+    .document('/payments/{paymentId}')
+    .onCreate(async (snapshot, context) => {
+        const paymentData = snapshot.data();
+        const { invoiceId, amount, paymentId } = paymentData;
+        
+        // 1. Fetch related data
+        const invoiceDoc = await db.collection('invoices').doc(invoiceId).get();
+        if (!invoiceDoc.exists) {
+            console.error(`Invoice ${invoiceId} not found for payment ${paymentId}.`);
+            return null;
+        }
+        // const patientDoc = await db.collection('patients').doc(invoiceDoc.data().patientId).get();
+
+        // 2. Generate the PDF
+        // const pdfBuffer = await createReceiptPdf({ payment: paymentData, invoice: invoiceDoc.data(), patient: patientDoc.data() });
+        const pdfBuffer = Buffer.from('This is a dummy receipt PDF.'); // Placeholder
+
+        // 3. Upload to Storage
+        const filePath = `receipts/${invoiceDoc.data().patientId}/${paymentId}.pdf`;
+        const file = admin.storage().bucket().file(filePath);
+        await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
+        const url = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+
+        // 4. Create the receipt record in the invoice's sub-collection
+        await invoiceDoc.ref.collection('receipts').doc(paymentId).set({
+            receiptId: paymentId,
+            paymentId: paymentId,
+            amountPaid: amount,
+            dateIssued: paymentData.paymentDate,
+            issuedByUserId: 'system', // Or the user who processed the payment if available
+            documentLink: url[0]
+        });
+
+        // 5. Send notification to the patient
+        // await sendEmailWithAttachment(...);
+
+        console.log(`Generated receipt for payment ${paymentId}.`);
+        return null;
+    });
+*/
