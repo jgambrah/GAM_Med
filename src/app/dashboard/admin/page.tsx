@@ -27,7 +27,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="inpatient-admissions">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
