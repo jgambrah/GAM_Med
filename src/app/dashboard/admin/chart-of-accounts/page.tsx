@@ -149,12 +149,15 @@ function CreateLedgerAccountDialog() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Parent Ledger (for Sub-Ledgers)</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                                    <Select 
+                                        onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                                        value={field.value || 'none'}
+                                    >
                                         <FormControl>
                                             <SelectTrigger><SelectValue placeholder="None (This is a main ledger)" /></SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="">None (Main Ledger)</SelectItem>
+                                            <SelectItem value="none">None (Main Ledger)</SelectItem>
                                             {parentAccountOptions.map(opt => (
                                                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                             ))}
