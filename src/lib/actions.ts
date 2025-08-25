@@ -1,14 +1,10 @@
 
 
-
-
-
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -374,4 +370,16 @@ export async function logPayment(values: z.infer<typeof LogPaymentSchema>) {
     revalidatePath('/dashboard/patients');
 
     return { success: true, message: 'Payment logged successfully.' };
+}
+
+export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>) {
+    console.log('Posting to ledger:', values);
+    // In a real app, this would create two new LedgerEntry documents in Firestore,
+    // one for the debit and one for the credit, and update the balances on the
+    // corresponding LedgerAccount documents within a transaction.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath('/dashboard/admin/chart-of-accounts');
+    
+    return { success: true, message: 'Transaction posted to ledger successfully.' };
 }

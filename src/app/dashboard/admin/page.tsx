@@ -66,7 +66,7 @@ export default function AdminPage() {
                 <CardHeader>
                     <CardTitle>Chart of Accounts Management</CardTitle>
                     <CardDescription>
-                        View the complete Chart of Accounts or add new ledgers to the system. This page is accessible to all finance staff, but only senior staff can create new accounts.
+                        View the complete Chart of Accounts. This page is accessible to all finance staff.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">

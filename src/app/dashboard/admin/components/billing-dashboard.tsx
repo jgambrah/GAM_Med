@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockInvoices, mockClaims, mockPayments } from '@/lib/data';
+import { mockInvoices, mockClaims, mockPayments, mockLedgerAccounts } from '@/lib/data';
 import { Invoice, Claim, FinancialTransaction } from '@/lib/types';
 import Link from 'next/link';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
@@ -29,6 +29,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { LogPaymentSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { logPayment } from '@/lib/actions';
+import { LedgerPostingDialog } from './ledger-posting-dialog';
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -200,6 +201,7 @@ function ClaimsTrackingTab() {
 
 function PaymentReconciliationTab() {
     const { toast } = useToast();
+    const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
     const form = useForm<z.infer<typeof LogPaymentSchema>>({
         resolver: zodResolver(LogPaymentSchema),
         defaultValues: {
@@ -235,6 +237,11 @@ function PaymentReconciliationTab() {
                 description: `Payment of ₵${values.amount} for invoice ${values.invoiceId} has been logged.`
             });
             form.reset();
+            // Trigger the ledger posting dialog
+            setPostingInfo({
+                amount: values.amount,
+                description: `Payment for Invoice ${values.invoiceId}`
+            });
         } else {
             toast({
                 title: 'Error',
@@ -245,11 +252,12 @@ function PaymentReconciliationTab() {
     }
 
     return (
+        <>
         <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Log New Payment</CardTitle>
-                    <CardDescription>Manually record a payment received against an invoice.</CardDescription>
+                    <CardDescription>Manually record a payment received against an invoice. This will open the ledger posting tool.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
@@ -311,7 +319,7 @@ function PaymentReconciliationTab() {
                             </div>
                             <div className="flex justify-end">
                                 <Button type="submit" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? 'Logging...' : 'Log Payment'}
+                                    {form.formState.isSubmitting ? 'Logging...' : 'Log Payment & Post to Ledger'}
                                 </Button>
                             </div>
                         </form>
@@ -350,6 +358,19 @@ function PaymentReconciliationTab() {
                 </CardContent>
             </Card>
         </div>
+        {postingInfo && (
+            <LedgerPostingDialog 
+                isOpen={!!postingInfo}
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) {
+                        setPostingInfo(null);
+                    }
+                }}
+                amount={postingInfo.amount}
+                description={postingInfo.description}
+            />
+        )}
+        </>
     );
 }
 
@@ -358,7 +379,7 @@ export function BillingDashboard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Billing & Financials</CardTitle>
+        <CardTitle>Accounts Receivable</CardTitle>
         <CardDescription>
           A high-level overview of the hospital's financial status.
         </CardDescription>
@@ -384,5 +405,3 @@ export function BillingDashboard() {
     </Card>
   );
 }
-
-    

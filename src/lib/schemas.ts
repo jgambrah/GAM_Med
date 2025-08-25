@@ -9,6 +9,17 @@ export const LedgerAccountSchema = z.object({
   parentAccountId: z.string().optional().nullable(),
 });
 
+export const NewLedgerEntrySchema = z.object({
+  debitAccountId: z.string().min(1, 'Debit account is required.'),
+  creditAccountId: z.string().min(1, 'Credit account is required.'),
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
+  description: z.string().min(3, 'Description is required.'),
+}).refine(data => data.debitAccountId !== data.creditAccountId, {
+    message: 'Debit and Credit accounts cannot be the same.',
+    path: ['creditAccountId'],
+});
+
+
 /**
  * Zod schema for validating the patient registration form.
  * Ensures data integrity on the client-side before sending to the server.
