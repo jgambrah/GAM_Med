@@ -237,7 +237,6 @@ function PaymentReconciliationTab() {
                 description: `Payment of ₵${values.amount} for invoice ${values.invoiceId} has been logged.`
             });
             form.reset();
-            // Trigger the ledger posting dialog
             setPostingInfo({
                 amount: values.amount,
                 description: `Payment for Invoice ${values.invoiceId}`
@@ -368,6 +367,8 @@ function PaymentReconciliationTab() {
                 }}
                 amount={postingInfo.amount}
                 description={postingInfo.description}
+                defaultDebit="1010" // Cash and Bank
+                defaultCredit="1020" // Accounts Receivable
             />
         )}
         </>

@@ -27,20 +27,32 @@ interface LedgerPostingDialogProps {
     onOpenChange: (isOpen: boolean) => void;
     amount: number;
     description: string;
+    defaultDebit?: string;
+    defaultCredit?: string;
 }
 
-export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description }: LedgerPostingDialogProps) {
+export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description, defaultDebit = '1010', defaultCredit = '4000' }: LedgerPostingDialogProps) {
     const { toast } = useToast();
 
     const form = useForm<z.infer<typeof NewLedgerEntrySchema>>({
         resolver: zodResolver(NewLedgerEntrySchema),
         defaultValues: {
-            debitAccountId: '1010', // Default to 'Cash and Bank'
-            creditAccountId: '1020', // Default to 'Accounts Receivable'
+            debitAccountId: defaultDebit,
+            creditAccountId: defaultCredit,
             amount,
             description,
         }
     });
+
+    // When the component re-opens with new props, reset the form.
+    React.useEffect(() => {
+        form.reset({
+            debitAccountId: defaultDebit,
+            creditAccountId: defaultCredit,
+            amount,
+            description,
+        })
+    }, [isOpen, amount, description, defaultDebit, defaultCredit, form])
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const result = await postToLedger(values);
@@ -82,7 +94,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description 
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Debit Account (Increase)</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                             </FormControl>
@@ -100,7 +112,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description 
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Credit Account (Decrease)</FormLabel>
-                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                             </FormControl>

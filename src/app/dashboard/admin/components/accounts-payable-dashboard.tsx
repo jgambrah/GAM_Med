@@ -33,6 +33,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { LedgerPostingDialog } from './ledger-posting-dialog';
 
 const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -43,12 +45,17 @@ const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "de
     }
 }
 
-function PayBillDialog({ bill }: { bill: Bill }) {
+function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string) => void }) {
     const [open, setOpen] = React.useState(false);
+    const { toast } = useToast();
 
     const handlePayBill = () => {
         // In a real app, this would call the payBill Cloud Function
-        alert(`Simulating payment for bill ${bill.billId}.`);
+        toast({
+            title: "Payment Logged",
+            description: `Payment for bill ${bill.billId} has been logged.`
+        });
+        onPaymentLogged(bill.totalAmount, `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}`);
         setOpen(false);
     }
 
@@ -80,7 +87,7 @@ function PayBillDialog({ bill }: { bill: Bill }) {
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handlePayBill}>Confirm Payment</Button>
+                    <Button onClick={handlePayBill}>Confirm Payment & Post to Ledger</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -88,6 +95,8 @@ function PayBillDialog({ bill }: { bill: Bill }) {
 }
 
 export function AccountsPayableDashboard() {
+  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
+
   const totalPayables = mockBills
     .filter(b => b.status === 'Pending' || b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
@@ -96,7 +105,12 @@ export function AccountsPayableDashboard() {
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
+  const handlePaymentLogged = (amount: number, description: string) => {
+    setPostingInfo({ amount, description });
+  };
+
   return (
+    <>
     <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-3">
             <Card>
@@ -169,7 +183,7 @@ export function AccountsPayableDashboard() {
                                         <Badge variant={getStatusVariant(bill.status)}>{bill.status}</Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <PayBillDialog bill={bill} />
+                                        <PayBillDialog bill={bill} onPaymentLogged={handlePaymentLogged} />
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -179,5 +193,20 @@ export function AccountsPayableDashboard() {
             </CardContent>
         </Card>
     </div>
+    {postingInfo && (
+        <LedgerPostingDialog 
+            isOpen={!!postingInfo}
+            onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                    setPostingInfo(null);
+                }
+            }}
+            amount={postingInfo.amount}
+            description={postingInfo.description}
+            defaultDebit="2010" // Accounts Payable
+            defaultCredit="1010" // Cash and Bank
+        />
+    )}
+    </>
   );
 }
