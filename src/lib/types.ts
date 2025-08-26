@@ -215,6 +215,7 @@ export interface Bill {
   totalAmount: number;
   status: 'Pending' | 'Paid' | 'Partially Paid' | 'Overdue';
   billedItems: BillLineItem[];
+  withholdingTaxRate?: number; // Optional field for WHT rate
 }
 
 /**

@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -48,6 +49,12 @@ const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "de
 function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string) => void }) {
     const [open, setOpen] = React.useState(false);
     const { toast } = useToast();
+    const [taxRate, setTaxRate] = React.useState('0');
+    const [customTaxRate, setCustomTaxRate] = React.useState('');
+
+    const currentTaxRate = taxRate === 'custom' ? parseFloat(customTaxRate) / 100 : parseFloat(taxRate) / 100;
+    const taxAmount = bill.totalAmount * (isNaN(currentTaxRate) ? 0 : currentTaxRate);
+    const netAmount = bill.totalAmount - taxAmount;
 
     const handlePayBill = () => {
         // In a real app, this would call the payBill Cloud Function
@@ -55,9 +62,19 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
             title: "Payment Logged",
             description: `Payment for bill ${bill.billId} has been logged.`
         });
-        onPaymentLogged(bill.totalAmount, `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}`);
+        const taxDescription = currentTaxRate > 0 ? ` (after ${currentTaxRate * 100}% WHT)` : '';
+        const paymentDescription = `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}${taxDescription}`;
+        onPaymentLogged(netAmount, paymentDescription);
         setOpen(false);
     }
+
+    React.useEffect(() => {
+        if (!open) {
+            setTaxRate('0');
+            setCustomTaxRate('');
+        }
+    }, [open]);
+
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -76,12 +93,48 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
                 <div className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label>Total Amount</Label>
+                            <Label>Total Bill Amount</Label>
                             <Input value={`₵${bill.totalAmount.toFixed(2)}`} readOnly disabled />
                         </div>
                          <div>
-                            <Label>Status</Label>
-                            <Input value={bill.status} readOnly disabled />
+                            <Label>Withholding Tax Rate</Label>
+                             <Select value={taxRate} onValueChange={setTaxRate}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select tax rate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">No Tax (0%)</SelectItem>
+                                    <SelectItem value="3">3%</SelectItem>
+                                    <SelectItem value="5">5%</SelectItem>
+                                    <SelectItem value="7.5">7.5%</SelectItem>
+                                    <SelectItem value="10">10%</SelectItem>
+                                    <SelectItem value="15">15%</SelectItem>
+                                    <SelectItem value="20">20%</SelectItem>
+                                    <SelectItem value="25">25%</SelectItem>
+                                    <SelectItem value="custom">Custom Rate</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                     {taxRate === 'custom' && (
+                        <div>
+                            <Label>Custom Tax Rate (%)</Label>
+                            <Input 
+                                type="number"
+                                placeholder="Enter custom rate, e.g., 8"
+                                value={customTaxRate}
+                                onChange={(e) => setCustomTaxRate(e.target.value)}
+                            />
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4 rounded-md bg-muted p-4">
+                         <div>
+                            <Label>Tax Amount</Label>
+                            <Input value={`₵${taxAmount.toFixed(2)}`} readOnly disabled />
+                        </div>
+                         <div>
+                            <Label className="font-bold">Net Payment Due</Label>
+                            <Input className="font-bold text-lg" value={`₵${netAmount.toFixed(2)}`} readOnly disabled />
                         </div>
                     </div>
                 </div>
