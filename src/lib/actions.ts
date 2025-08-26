@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -381,4 +382,15 @@ export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>)
     revalidatePath('/dashboard/admin/chart-of-accounts');
     
     return { success: true, message: 'Transaction posted to ledger successfully.' };
+}
+
+export async function submitStaffClaim(values: z.infer<typeof NewStaffClaimSchema>) {
+    console.log('Submitting new staff claim:', values);
+    // In a real app, this would create a new StaffExpenseClaim document with 'Pending HOD' status
+    // and trigger a notification to the user's HOD.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    revalidatePath('/dashboard/my-claims');
+    
+    return { success: true, message: 'Claim submitted for approval.' };
 }

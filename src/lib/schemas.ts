@@ -248,3 +248,12 @@ export const LogPaymentSchema = z.object({
   amount: z.coerce.number().min(0.01, { message: "Amount must be greater than zero." }),
   paymentMethod: z.enum(['Cash', 'Credit Card', 'Mobile Money']),
 });
+
+/**
+ * Zod schema for validating a new staff expense claim submission.
+ */
+export const NewStaffClaimSchema = z.object({
+  claimType: z.enum(['Travel', 'Per Diem', 'Medical Refund', 'Other']),
+  amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than zero.' }),
+  description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
+});
