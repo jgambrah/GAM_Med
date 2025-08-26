@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClaimsApprovalDashboard } from './components/claims-approval-dashboard';
+import { LeaveApprovalDashboard } from './components/leave-approval-dashboard';
 
 export default function ApprovalsPage() {
   return (
@@ -22,7 +23,7 @@ export default function ApprovalsPage() {
       <Tabs defaultValue="claims">
         <TabsList>
           <TabsTrigger value="claims">Staff Expense Claims</TabsTrigger>
-          <TabsTrigger value="leave" disabled>Leave Requests</TabsTrigger>
+          <TabsTrigger value="leave">Leave Requests</TabsTrigger>
         </TabsList>
         <TabsContent value="claims" className="mt-4">
           <Card>
@@ -34,6 +35,19 @@ export default function ApprovalsPage() {
             </CardHeader>
             <CardContent>
               <ClaimsApprovalDashboard />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="leave" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Leave Requests Awaiting Approval</CardTitle>
+              <CardDescription>
+                Review the following leave requests submitted by your direct reports.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LeaveApprovalDashboard />
             </CardContent>
           </Card>
         </TabsContent>

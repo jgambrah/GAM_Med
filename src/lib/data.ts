@@ -1,6 +1,5 @@
 
-
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1020,5 +1019,30 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         submissionDate: new Date('2024-08-14T00:00:00Z').toISOString(),
         approvalStatus: 'Pending HOD',
         paymentStatus: 'Unpaid'
+    }
+];
+
+export const mockLeaveRequests: LeaveRequest[] = [
+    {
+        leaveId: 'LR-001',
+        staffId: 'doc2',
+        staffName: 'Dr. Kofi Asante',
+        hodId: 'doc1',
+        startDate: '2024-09-01',
+        endDate: '2024-09-07',
+        reason: 'Annual Leave',
+        status: 'Pending',
+        requestedAt: new Date('2024-08-15T00:00:00Z').toISOString(),
+    },
+     {
+        leaveId: 'LR-002',
+        staffId: 'nurse1',
+        staffName: 'Florence Agyepong',
+        hodId: 'doc1',
+        startDate: '2024-09-10',
+        endDate: '2024-09-12',
+        reason: 'Conference Attendance',
+        status: 'Pending',
+        requestedAt: new Date('2024-08-16T00:00:00Z').toISOString(),
     }
 ];
