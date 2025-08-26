@@ -986,6 +986,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         claimId: 'SEC-001',
         staffId: 'doc2',
         staffName: 'Dr. Kofi Asante',
+        hodId: 'doc1', // Dr. Mensah is the HOD
         claimType: 'Travel',
         amount: 350.00,
         description: 'T&T for conference in Kumasi',
@@ -998,6 +999,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         claimId: 'SEC-002',
         staffId: 'nurse1',
         staffName: 'Florence Agyepong',
+        hodId: 'doc1', // Dr. Mensah is the HOD
         claimType: 'Medical Refund',
         amount: 150.00,
         description: 'Refund for prescribed medication',
@@ -1009,8 +1011,9 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
     },
     {
         claimId: 'SEC-003',
-        staffId: 'admin1',
-        staffName: 'Admin User',
+        staffId: 'doc2',
+        staffName: 'Dr. Kofi Asante',
+        hodId: 'doc1', // Dr. Mensah is the HOD
         claimType: 'Other',
         amount: 200.00,
         description: 'Office supplies purchase',

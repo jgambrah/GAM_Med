@@ -26,7 +26,8 @@ import {
     Scissors,
     Clock,
     CreditCard,
-    Receipt
+    Receipt,
+    CheckSquare
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -102,6 +103,12 @@ export function MainNav() {
         icon: Receipt,
         roles: ['doctor', 'nurse', 'admin', 'billing_clerk', 'pharmacist', 'lab_technician', 'ot_coordinator', 'receptionist'],
     },
+     {
+      href: '/dashboard/approvals',
+      label: 'Approvals',
+      icon: CheckSquare,
+      roles: ['admin', 'doctor'], // HOD roles
+    },
     {
         href: '/dashboard/ot',
         label: 'OT Schedule',
@@ -154,7 +161,7 @@ export function MainNav() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/prescriptions', '/dashboard/lab', '/dashboard/referrals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/prescriptions', '/dashboard/lab', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
@@ -178,6 +185,7 @@ export function MainNav() {
     </SidebarMenu>
   );
 }
+
 
 
 

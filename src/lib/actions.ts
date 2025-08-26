@@ -394,3 +394,23 @@ export async function submitStaffClaim(values: z.infer<typeof NewStaffClaimSchem
     
     return { success: true, message: 'Claim submitted for approval.' };
 }
+
+export async function approveStaffClaim(claimId: string) {
+    console.log(`Approving staff claim: ${claimId}`);
+    // In a real app, this would update the claim document's status to 'Approved'
+    // and trigger a notification to the Accounts Payable team.
+    await new Promise(resolve => setTimeout(resolve, 500));
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/admin');
+    return { success: true };
+}
+
+export async function rejectStaffClaim(claimId: string) {
+    console.log(`Rejecting staff claim: ${claimId}`);
+    // In a real app, this would update the claim document's status to 'Rejected'
+    // and trigger a notification back to the submitting staff member.
+    await new Promise(resolve => setTimeout(resolve, 500));
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/my-claims');
+    return { success: true };
+}
