@@ -22,6 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
 
@@ -75,15 +77,28 @@ function AccountBalanceTable({ accounts }: { accounts: LedgerAccount[] }) {
     );
 }
 
-function TrialBalanceTable() {
+function TrialBalanceTable({ startDate, endDate }: { startDate: string, endDate: string }) {
     const trialBalanceData = React.useMemo(() => {
         const balances = new Map<string, { debit: number; credit: number }>();
-
+        
         mockLedgerAccounts.forEach(acc => {
             balances.set(acc.accountId, { debit: 0, credit: 0 });
         });
 
-        mockLedgerEntries.forEach(entry => {
+        const filteredEntries = mockLedgerEntries.filter(entry => {
+            const entryDate = new Date(entry.date);
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+            if (start && entryDate < start) return false;
+            if (end) {
+                // Set end date to the end of the day for inclusive comparison
+                end.setHours(23, 59, 59, 999);
+                if(entryDate > end) return false;
+            }
+            return true;
+        });
+
+        filteredEntries.forEach(entry => {
             const accBalance = balances.get(entry.accountId);
             if (accBalance) {
                 if (entry.debit) accBalance.debit += entry.debit;
@@ -100,7 +115,7 @@ function TrialBalanceTable() {
             };
         }).sort((a,b) => a.accountCode.localeCompare(b.accountCode));
 
-    }, []);
+    }, [startDate, endDate]);
 
     const totalDebit = trialBalanceData.reduce((sum, item) => sum + item.debit, 0);
     const totalCredit = trialBalanceData.reduce((sum, item) => sum + item.credit, 0);
@@ -117,7 +132,7 @@ function TrialBalanceTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {trialBalanceData.map(item => (
+                        {trialBalanceData.filter(item => item.debit > 0 || item.credit > 0).map(item => (
                             <TableRow key={item.accountId}>
                                 <TableCell>
                                     <div className="font-medium">{item.accountName}</div>
@@ -133,16 +148,20 @@ function TrialBalanceTable() {
              <div className="flex w-full justify-between font-bold text-lg border-t pt-2">
                 <span>Totals</span>
                 <div className="flex gap-4">
-                    <span className="font-mono">{formatCurrency(totalDebit)}</span>
-                    <span className="font-mono">{formatCurrency(totalCredit)}</span>
+                    <span className={`font-mono ${totalDebit !== totalCredit ? 'text-destructive' : ''}`}>{formatCurrency(totalDebit)}</span>
+                    <span className={`font-mono ${totalDebit !== totalCredit ? 'text-destructive' : ''}`}>{formatCurrency(totalCredit)}</span>
                 </div>
             </div>
+             {totalDebit !== totalCredit && <p className="text-destructive text-sm text-right">The debits and credits do not balance for the selected period.</p>}
         </div>
     );
 }
 
 
 export default function FinancialReportsPage() {
+  const [startDate, setStartDate] = React.useState('');
+  const [endDate, setEndDate] = React.useState('');
+  
   const assets = mockLedgerAccounts.filter(a => a.accountType === 'Asset' && !a.isSubLedger);
   const liabilities = mockLedgerAccounts.filter(a => a.accountType === 'Liability' && !a.isSubLedger);
   const equity = mockLedgerAccounts.filter(a => a.accountType === 'Equity' && !a.isSubLedger);
@@ -151,17 +170,29 @@ export default function FinancialReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Financial Reports</h1>
-        <p className="text-muted-foreground">
-          Generate comprehensive financial statements for hospital administration.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+            <h1 className="text-3xl font-bold">Financial Reports</h1>
+            <p className="text-muted-foreground">
+            Generate comprehensive financial statements for hospital administration.
+            </p>
+        </div>
+        <div className="flex items-center gap-4">
+            <div className="grid gap-2">
+                <Label htmlFor="start-date">Start Date</Label>
+                <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="end-date">End Date</Label>
+                <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Core Financial Statements</CardTitle>
-          <CardDescription>An overview of the hospital's financial health and performance.</CardDescription>
+          <CardDescription>An overview of the hospital's financial health and performance. Balances shown are for all time.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <ReportSection title="Balance Sheet (Assets)" description="What the hospital owns.">
@@ -190,12 +221,13 @@ export default function FinancialReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Trial Balance</CardTitle>
-          <CardDescription>A statement of all debits and credits in the double-entry accounting system to verify their equality.</CardDescription>
+          <CardDescription>A statement of all debits and credits in the double-entry accounting system for the selected period to verify their equality.</CardDescription>
         </CardHeader>
         <CardContent>
-           <TrialBalanceTable />
+           <TrialBalanceTable startDate={startDate} endDate={endDate} />
         </CardContent>
       </Card>
     </div>
   );
 }
+
