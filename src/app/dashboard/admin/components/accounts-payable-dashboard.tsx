@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -49,29 +50,42 @@ const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "de
 function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string) => void }) {
     const [open, setOpen] = React.useState(false);
     const { toast } = useToast();
-    const [taxRate, setTaxRate] = React.useState('0');
-    const [customTaxRate, setCustomTaxRate] = React.useState('');
+    const [whtRate, setWhtRate] = React.useState('0');
+    const [customWhtRate, setCustomWhtRate] = React.useState('');
+    const [vatOption, setVatOption] = React.useState('zero');
 
-    const currentTaxRate = taxRate === 'custom' ? parseFloat(customTaxRate) / 100 : parseFloat(taxRate) / 100;
-    const taxAmount = bill.totalAmount * (isNaN(currentTaxRate) ? 0 : currentTaxRate);
-    const netAmount = bill.totalAmount - taxAmount;
+    const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
+        let calculatedSubtotal = bill.totalAmount;
+        if (vatOption === 'flat') {
+            calculatedSubtotal = bill.totalAmount / 1.04;
+        } else if (vatOption === 'standard') {
+            calculatedSubtotal = bill.totalAmount / 1.219;
+        }
+
+        const currentWhtRateValue = whtRate === 'custom' ? parseFloat(customWhtRate) / 100 : parseFloat(whtRate) / 100;
+        const calculatedWhtAmount = calculatedSubtotal * (isNaN(currentWhtRateValue) ? 0 : currentWhtRateValue);
+        const calculatedNetPayment = bill.totalAmount - calculatedWhtAmount;
+        
+        return { subtotal: calculatedSubtotal, netPayment: calculatedNetPayment, whtAmount: calculatedWhtAmount };
+    }, [bill.totalAmount, vatOption, whtRate, customWhtRate]);
+
 
     const handlePayBill = () => {
-        // In a real app, this would call the payBill Cloud Function
         toast({
             title: "Payment Logged",
             description: `Payment for bill ${bill.billId} has been logged.`
         });
-        const taxDescription = currentTaxRate > 0 ? ` (after ${currentTaxRate * 100}% WHT)` : '';
+        const taxDescription = whtAmount > 0 ? ` (after ${parseFloat(whtRate).toFixed(1)}% WHT)` : '';
         const paymentDescription = `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}${taxDescription}`;
-        onPaymentLogged(netAmount, paymentDescription);
+        onPaymentLogged(netPayment, paymentDescription);
         setOpen(false);
     }
 
     React.useEffect(() => {
         if (!open) {
-            setTaxRate('0');
-            setCustomTaxRate('');
+            setWhtRate('0');
+            setCustomWhtRate('');
+            setVatOption('zero');
         }
     }, [open]);
 
@@ -91,19 +105,37 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label>Total Bill Amount</Label>
+                            <Label>Total Bill Amount (VAT Inclusive)</Label>
                             <Input value={`₵${bill.totalAmount.toFixed(2)}`} readOnly disabled />
                         </div>
-                         <div>
-                            <Label>Withholding Tax Rate</Label>
-                             <Select value={taxRate} onValueChange={setTaxRate}>
+                        <div>
+                           <Label>VAT Type on Invoice</Label>
+                             <Select value={vatOption} onValueChange={setVatOption}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select VAT type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="zero">Zero Rated VAT</SelectItem>
+                                    <SelectItem value="flat">Flat Rate (4%)</SelectItem>
+                                    <SelectItem value="standard">Standard Rate</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                           <Label>Withholding Tax Rate</Label>
+                             <Select value={whtRate} onValueChange={setWhtRate}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select tax rate" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="0">No Tax (0%)</SelectItem>
+                                    <SelectItem value="0">No WHT (0%)</SelectItem>
                                     <SelectItem value="3">3%</SelectItem>
                                     <SelectItem value="5">5%</SelectItem>
                                     <SelectItem value="7.5">7.5%</SelectItem>
@@ -115,26 +147,31 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
                                 </SelectContent>
                             </Select>
                         </div>
+                         {whtRate === 'custom' && (
+                            <div>
+                                <Label>Custom WHT Rate (%)</Label>
+                                <Input 
+                                    type="number"
+                                    placeholder="e.g., 8"
+                                    value={customWhtRate}
+                                    onChange={(e) => setCustomWhtRate(e.target.value)}
+                                />
+                            </div>
+                        )}
                     </div>
-                     {taxRate === 'custom' && (
-                        <div>
-                            <Label>Custom Tax Rate (%)</Label>
-                            <Input 
-                                type="number"
-                                placeholder="Enter custom rate, e.g., 8"
-                                value={customTaxRate}
-                                onChange={(e) => setCustomTaxRate(e.target.value)}
-                            />
-                        </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4 rounded-md bg-muted p-4">
+                   
+                    <div className="grid grid-cols-3 gap-4 rounded-md bg-muted p-4">
                          <div>
-                            <Label>Tax Amount</Label>
-                            <Input value={`₵${taxAmount.toFixed(2)}`} readOnly disabled />
+                            <Label>Subtotal (VAT-Ex.)</Label>
+                            <Input value={`₵${subtotal.toFixed(2)}`} readOnly disabled />
+                        </div>
+                         <div>
+                            <Label>WHT Amount</Label>
+                            <Input value={`₵${whtAmount.toFixed(2)}`} readOnly disabled />
                         </div>
                          <div>
                             <Label className="font-bold">Net Payment Due</Label>
-                            <Input className="font-bold text-lg" value={`₵${netAmount.toFixed(2)}`} readOnly disabled />
+                            <Input className="font-bold text-lg" value={`₵${netPayment.toFixed(2)}`} readOnly disabled />
                         </div>
                     </div>
                 </div>
