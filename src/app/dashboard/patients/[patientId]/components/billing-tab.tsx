@@ -37,8 +37,8 @@ export function BillingTab({ patientId }: BillingTabProps) {
     const patientPayments = mockPayments.filter(p => mockInvoices.some(i => i.invoiceId === p.invoiceId));
 
 
-    const totalBilled = mockInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const totalPaid = mockPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalBilled = mockInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+    const totalPaid = patientPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const outstandingBalance = totalBilled - totalPaid;
     
     return (
@@ -69,7 +69,7 @@ export function BillingTab({ patientId }: BillingTabProps) {
                                         <TableRow key={invoice.invoiceId}>
                                             <TableCell className="font-medium">{invoice.invoiceId}</TableCell>
                                             <TableCell>{format(new Date(invoice.issueDate), 'PPP')}</TableCell>
-                                            <TableCell>₵{invoice.totalAmount.toFixed(2)}</TableCell>
+                                            <TableCell>₵{invoice.grandTotal.toFixed(2)}</TableCell>
                                             <TableCell>
                                                 <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
                                             </TableCell>

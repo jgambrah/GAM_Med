@@ -64,7 +64,14 @@ export interface Invoice {
   issueDate: string; // ISO Timestamp
   dueDate: string; // ISO Timestamp
   billedItems: InvoiceLineItem[];
-  totalAmount: number;
+  subtotal: number;
+  vatOption: 'zero' | 'flat' | 'standard';
+  vat: number;
+  nhia: number;
+  getfund: number;
+  covidLevy: number;
+  totalTax: number;
+  grandTotal: number;
   amountDue: number;
   status: 'Draft' | 'Pending Payment' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Void';
   invoicePdfUrl?: string; // Optional URL to the generated PDF in Firebase Storage

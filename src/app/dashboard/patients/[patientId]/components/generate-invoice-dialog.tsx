@@ -37,6 +37,7 @@ import { generateInvoice } from '@/lib/actions';
 import { FilePlus, Plus, Trash2 } from 'lucide-react';
 import { allPatients, mockPricingTables } from '@/lib/data';
 import { Patient } from '@/lib/types';
+import { Separator } from '@/components/ui/separator';
 
 
 // In a real app, this would come from a 'billing_codes' collection
@@ -63,6 +64,30 @@ function getPrice(patient: Patient, billingCode: string): number {
     return defaultTier?.rate_card[billingCode] || 0;
 }
 
+const calculateTaxes = (subtotal: number, vatOption: string) => {
+    let nhia = 0;
+    let getfund = 0;
+    let vat = 0;
+    let covidLevy = 0;
+    let totalTax = 0;
+
+    if (vatOption === "flat") { // Flat rate
+        covidLevy = subtotal * 0.01;
+        vat = subtotal * 0.03;
+        totalTax = vat + covidLevy;
+    } else if (vatOption === "standard") { // Standard rate
+        nhia = subtotal * 0.025;
+        getfund = subtotal * 0.025;
+        covidLevy = subtotal * 0.01;
+        const taxableBaseForVat = subtotal + nhia + getfund + covidLevy;
+        vat = taxableBaseForVat * 0.15;
+        totalTax = nhia + getfund + vat + covidLevy;
+    }
+
+    return { nhia, getfund, vat, covidLevy, totalTax, subtotal };
+};
+
+const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
 
 function InvoiceItemRow({ control, index, patient, remove }: { control: any, index: number, patient: Patient, remove: (index: number) => void }) {
     const { setValue } = useFormContext();
@@ -149,6 +174,7 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
   const form = useForm<z.infer<typeof NewInvoiceSchema>>({
     resolver: zodResolver(NewInvoiceSchema),
     defaultValues: {
+      vatOption: 'zero',
       items: [{ billingCode: '', quantity: 1, unitPrice: 0 }],
     },
   });
@@ -158,6 +184,20 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
     name: 'items',
   });
 
+  const watchedItems = useWatch({ control: form.control, name: 'items' });
+  const watchedVatOption = useWatch({ control: form.control, name: 'vatOption' });
+
+  const { subtotal, nhia, getfund, vat, covidLevy, totalTax } = React.useMemo(() => {
+    const currentSubtotal = watchedItems.reduce((acc, item) => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number(item.unitPrice) || 0;
+        return acc + (qty * price);
+    }, 0);
+    return calculateTaxes(currentSubtotal, watchedVatOption);
+  }, [watchedItems, watchedVatOption]);
+  
+  const grandTotal = subtotal + totalTax;
+
   const onSubmit = async (values: z.infer<typeof NewInvoiceSchema>) => {
     const result = await generateInvoice(patientId, values);
     if (result.success) {
@@ -166,7 +206,10 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
         description: 'The new invoice has been successfully created.',
       });
       setOpen(false);
-      form.reset({ items: [{ billingCode: '', quantity: 1, unitPrice: 0 }]});
+      form.reset({
+         vatOption: 'zero',
+         items: [{ billingCode: '', quantity: 1, unitPrice: 0 }]
+      });
     } else {
       toast({
         title: 'Failed to Generate Invoice',
@@ -185,36 +228,92 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
             Generate New Invoice
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Generate New Invoice</DialogTitle>
           <DialogDescription>
-            Create a new bill for ad-hoc services or items for {patient.full_name}.
+            Create a new bill for ad-hoc services for {patient.full_name}.
             Prices are automatically set based on the patient's '{patient.patientType}' pricing tier.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-              {fields.map((field, index) => (
-                <InvoiceItemRow 
-                    key={field.id}
-                    control={form.control}
-                    index={index}
-                    patient={patient}
-                    remove={() => remove(index)}
-                />
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                     <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        {fields.map((field, index) => (
+                            <InvoiceItemRow 
+                                key={field.id}
+                                control={form.control}
+                                index={index}
+                                patient={patient}
+                                remove={() => remove(index)}
+                            />
+                        ))}
+                    </div>
+                    <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ billingCode: '', quantity: 1, unitPrice: 0 })}
+                    >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Item
+                    </Button>
+                </div>
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                     <FormField
+                        control={form.control}
+                        name="vatOption"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>VAT Option</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select VAT option..." />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="zero">Zero Rated VAT</SelectItem>
+                                        <SelectItem value="flat">Flat Rate (3% VAT + 1% Levy)</SelectItem>
+                                        <SelectItem value="standard">Standard Rate (15% VAT + Levies)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    <Separator />
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>{formatCurrency(subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">NHIA Levy (2.5%)</span>
+                            <span>{formatCurrency(nhia)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">GETFund Levy (2.5%)</span>
+                            <span>{formatCurrency(getfund)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">COVID-19 Levy (1%)</span>
+                            <span>{formatCurrency(covidLevy)}</span>
+                        </div>
+                         <div className="flex justify-between">
+                            <span className="text-muted-foreground">VAT</span>
+                            <span>{formatCurrency(vat)}</span>
+                        </div>
+                    </div>
+                     <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                            <span>Grand Total</span>
+                            <span>{formatCurrency(grandTotal)}</span>
+                        </div>
+                </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => append({ billingCode: '', quantity: 1, unitPrice: 0 })}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>

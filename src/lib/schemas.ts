@@ -186,6 +186,7 @@ const InvoiceItemSchema = z.object({
  * Zod schema for generating a new invoice.
  */
 export const NewInvoiceSchema = z.object({
+  vatOption: z.enum(['zero', 'flat', 'standard']),
   items: z.array(InvoiceItemSchema).min(1, { message: "At least one item is required." }),
 });
 

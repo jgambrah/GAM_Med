@@ -230,7 +230,7 @@ export function PaymentDialog({ invoice }: PaymentDialogProps) {
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Processing...' : `Pay ₵${form.getValues('amount')}`}
+                {form.formState.isSubmitting ? 'Processing...' : `Pay ₵${form.getValues('amount').toFixed(2)}`}
               </Button>
             </DialogFooter>
           </form>

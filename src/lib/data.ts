@@ -716,13 +716,20 @@ export const mockInvoices: Invoice[] = [
         issueDate: new Date('2024-07-29T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-28T18:00:00Z').toISOString(),
         billedItems: [{ serviceType: 'Consultation', linkedServiceId: 'A-001', billingCode: 'A001', price: 250.00 }],
-        totalAmount: 250.00,
+        subtotal: 250.00,
+        vatOption: 'flat',
+        nhia: 0,
+        getfund: 0,
+        covidLevy: 2.5,
+        vat: 7.5,
+        totalTax: 10.00,
+        grandTotal: 260.00,
         amountDue: 0.00,
         status: 'Paid',
         invoicePdfUrl: '/mock-invoice.pdf',
         receipts: [
             { receiptId: 'REC-001', paymentId: 'PAY-001', amountPaid: 200.00, dateIssued: new Date('2024-08-10T14:00:00Z').toISOString(), issuedByUserId: 'system', documentLink: '/mock-receipt-1.pdf' },
-            { receiptId: 'REC-002', paymentId: 'PAY-002', amountPaid: 50.00, dateIssued: new Date('2024-08-11T09:00:00Z').toISOString(), issuedByUserId: 'system', documentLink: '/mock-receipt-2.pdf' }
+            { receiptId: 'REC-002', paymentId: 'PAY-002', amountPaid: 60.00, dateIssued: new Date('2024-08-11T09:00:00Z').toISOString(), issuedByUserId: 'system', documentLink: '/mock-receipt-2.pdf' }
         ]
     },
     {
@@ -733,7 +740,14 @@ export const mockInvoices: Invoice[] = [
         issueDate: new Date('2024-08-01T18:00:00Z').toISOString(),
         dueDate: new Date('2024-08-31T18:00:00Z').toISOString(),
         billedItems: [{ serviceType: 'Other', linkedServiceId: 'A-003', billingCode: 'A005', price: 150.00 }],
-        totalAmount: 150.00,
+        subtotal: 150.00,
+        vatOption: 'zero',
+        nhia: 0,
+        getfund: 0,
+        covidLevy: 0,
+        vat: 0,
+        totalTax: 0,
+        grandTotal: 150.00,
         amountDue: 150.00,
         status: 'Pending Payment',
     },
@@ -747,7 +761,14 @@ export const mockInvoices: Invoice[] = [
         billedItems: [
             { serviceType: 'Lab Test', linkedServiceId: 'lab-1', billingCode: 'L001', price: 120.00 }
         ],
-        totalAmount: 120.00,
+        subtotal: 120.00,
+        vatOption: 'zero',
+        nhia: 0,
+        getfund: 0,
+        covidLevy: 0,
+        vat: 0,
+        totalTax: 0,
+        grandTotal: 120.00,
         amountDue: 120.00,
         status: 'Overdue',
     },
@@ -805,7 +826,7 @@ export const mockPayments: FinancialTransaction[] = [
     {
         paymentId: 'PAY-002',
         invoiceId: 'INV-001',
-        amount: 50.00,
+        amount: 60.00,
         paymentMethod: 'Mobile Money',
         paymentDate: new Date('2024-08-11T09:00:00Z').toISOString(),
         transactionId: 'MOMO-ABC123',
