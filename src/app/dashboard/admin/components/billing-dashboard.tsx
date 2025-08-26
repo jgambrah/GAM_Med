@@ -76,7 +76,7 @@ function InvoiceManagementTab() {
                                     </Link>
                                 </TableCell>
                                 <TableCell>{format(new Date(invoice.issueDate), 'PPP')}</TableCell>
-                                <TableCell>₵{invoice.totalAmount.toFixed(2)}</TableCell>
+                                <TableCell>₵{invoice.grandTotal.toFixed(2)}</TableCell>
                                 <TableCell>
                                     <Badge variant={getInvoiceStatusVariant(invoice.status)}>{invoice.status}</Badge>
                                 </TableCell>
