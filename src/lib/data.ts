@@ -1,5 +1,6 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry } from './types';
+
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -970,6 +971,7 @@ export const mockLedgerAccounts: LedgerAccount[] = [
     { accountId: '5000', accountName: 'Expenses', accountCode: '5000', accountType: 'Expense', balance: 180000, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '5010', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 100000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
     { accountId: '5020', accountName: 'Medical Supplies', accountCode: '5020', accountType: 'Expense', balance: 80000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
+    { accountId: '5030', accountName: 'General & Admin', accountCode: '5030', accountType: 'Expense', balance: 0, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
 ];
 
 export const mockLedgerEntries: LedgerEntry[] = [
@@ -977,4 +979,43 @@ export const mockLedgerEntries: LedgerEntry[] = [
     { entryId: 'e-002', accountId: '1010', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Payment for medical supplies', credit: 2500.00 },
     { entryId: 'e-003', accountId: '2010', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Invoice from PharmaSupply Ltd.', credit: 2500.00 },
     { entryId: 'e-004', accountId: '1020', date: new Date('2024-08-03T00:00:00Z').toISOString(), description: 'Invoice INV-003 issued to patient', debit: 120.00 },
+];
+
+export const mockStaffClaims: StaffExpenseClaim[] = [
+    {
+        claimId: 'SEC-001',
+        staffId: 'doc2',
+        staffName: 'Dr. Kofi Asante',
+        claimType: 'Travel',
+        amount: 350.00,
+        description: 'T&T for conference in Kumasi',
+        submissionDate: new Date('2024-08-10T00:00:00Z').toISOString(),
+        approvalStatus: 'Approved',
+        hodApprovalDate: new Date('2024-08-11T00:00:00Z').toISOString(),
+        paymentStatus: 'Unpaid'
+    },
+    {
+        claimId: 'SEC-002',
+        staffId: 'nurse1',
+        staffName: 'Florence Agyepong',
+        claimType: 'Medical Refund',
+        amount: 150.00,
+        description: 'Refund for prescribed medication',
+        submissionDate: new Date('2024-08-12T00:00:00Z').toISOString(),
+        approvalStatus: 'Approved',
+        hodApprovalDate: new Date('2024-08-13T00:00:00Z').toISOString(),
+        paymentStatus: 'Paid',
+        paidDate: new Date('2024-08-15T00:00:00Z').toISOString()
+    },
+    {
+        claimId: 'SEC-003',
+        staffId: 'admin1',
+        staffName: 'Admin User',
+        claimType: 'Other',
+        amount: 200.00,
+        description: 'Office supplies purchase',
+        submissionDate: new Date('2024-08-14T00:00:00Z').toISOString(),
+        approvalStatus: 'Pending HOD',
+        paymentStatus: 'Unpaid'
+    }
 ];

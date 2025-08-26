@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -20,8 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockBills, mockSuppliers } from '@/lib/data';
-import { Bill } from '@/lib/types';
+import { mockBills, mockStaffClaims, mockSuppliers } from '@/lib/data';
+import { Bill, StaffExpenseClaim } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -37,8 +38,9 @@ import { useToast } from '@/hooks/use-toast';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const getStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
+const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
         case 'Paid': return 'secondary';
         case 'Pending': return 'default';
@@ -184,6 +186,95 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
     )
 }
 
+function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string) => void }) {
+    return (
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Bill ID</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>Issue Date</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {mockBills.map((bill) => (
+                        <TableRow key={bill.billId}>
+                            <TableCell className="font-medium">{bill.billId}</TableCell>
+                            <TableCell>
+                                {mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}
+                            </TableCell>
+                            <TableCell>{format(new Date(bill.issueDate), 'PPP')}</TableCell>
+                            <TableCell>{format(new Date(bill.dueDate), 'PPP')}</TableCell>
+                            <TableCell>₵{bill.totalAmount.toFixed(2)}</TableCell>
+                            <TableCell>
+                                <Badge variant={getBillStatusVariant(bill.status)}>{bill.status}</Badge>
+                            </TableCell>
+                            <TableCell>
+                                <PayBillDialog bill={bill} onPaymentLogged={onPaymentLogged} />
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string) => void }) {
+    const unpaidClaims = mockStaffClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
+
+    const handlePayClaim = (claim: StaffExpenseClaim) => {
+        onPaymentLogged(claim.amount, `Staff Claim Payment: ${claim.description} for ${claim.staffName}`);
+    };
+
+    return (
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Staff Name</TableHead>
+                        <TableHead>Claim Type</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Submission Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {unpaidClaims.length > 0 ? (
+                        unpaidClaims.map((claim) => (
+                            <TableRow key={claim.claimId}>
+                                <TableCell className="font-medium">{claim.staffName}</TableCell>
+                                <TableCell>{claim.claimType}</TableCell>
+                                <TableCell>{claim.description}</TableCell>
+                                <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
+                                <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                    <Button size="sm" onClick={() => handlePayClaim(claim)}>
+                                        Log Payment
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                         <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                                No approved staff claims are pending payment.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+
 export function AccountsPayableDashboard() {
   const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
 
@@ -241,46 +332,22 @@ export function AccountsPayableDashboard() {
             </Card>
         </div>
         <Card>
-            <CardHeader>
-                <CardTitle>Outstanding Bills</CardTitle>
-                <CardDescription>A list of all unpaid bills from suppliers.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Bill ID</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead>Issue Date</TableHead>
-                                <TableHead>Due Date</TableHead>
-                                <TableHead>Amount</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {mockBills.map((bill) => (
-                                <TableRow key={bill.billId}>
-                                    <TableCell className="font-medium">{bill.billId}</TableCell>
-                                    <TableCell>
-                                        {mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}
-                                    </TableCell>
-                                    <TableCell>{format(new Date(bill.issueDate), 'PPP')}</TableCell>
-                                    <TableCell>{format(new Date(bill.dueDate), 'PPP')}</TableCell>
-                                    <TableCell>₵{bill.totalAmount.toFixed(2)}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={getStatusVariant(bill.status)}>{bill.status}</Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <PayBillDialog bill={bill} onPaymentLogged={handlePaymentLogged} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </CardContent>
+            <Tabs defaultValue="vendor-bills">
+                <CardHeader>
+                    <TabsList>
+                        <TabsTrigger value="vendor-bills">Vendor Bills</TabsTrigger>
+                        <TabsTrigger value="staff-claims">Staff Claims</TabsTrigger>
+                    </TabsList>
+                </CardHeader>
+                <CardContent>
+                     <TabsContent value="vendor-bills">
+                        <VendorBillsTab onPaymentLogged={handlePaymentLogged} />
+                    </TabsContent>
+                    <TabsContent value="staff-claims">
+                        <StaffClaimsTab onPaymentLogged={handlePaymentLogged} />
+                    </TabsContent>
+                </CardContent>
+            </Tabs>
         </Card>
     </div>
     {postingInfo && (
@@ -293,7 +360,7 @@ export function AccountsPayableDashboard() {
             }}
             amount={postingInfo.amount}
             description={postingInfo.description}
-            defaultDebit="2010" // Accounts Payable
+            defaultDebit="2010" // Accounts Payable or relevant expense account
             defaultCredit="1010" // Cash and Bank
         />
     )}

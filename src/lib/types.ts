@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -236,6 +237,23 @@ export interface Expense {
   date: string; // ISO Timestamp
 }
 
+/**
+ * Represents a staff expense claim.
+ */
+export interface StaffExpenseClaim {
+  claimId: string;
+  staffId: string;
+  staffName: string;
+  hodId?: string; // Head of Department ID for approval
+  claimType: 'Travel' | 'Per Diem' | 'Medical Refund' | 'Other';
+  amount: number;
+  description: string;
+  submissionDate: string; // ISO Timestamp
+  approvalStatus: 'Pending HOD' | 'Approved' | 'Rejected';
+  hodApprovalDate?: string; // ISO Timestamp
+  paymentStatus: 'Unpaid' | 'Paid';
+  paidDate?: string; // ISO Timestamp
+}
 
 // =========================================================================
 // == Clinical Decision Support (CDS) Data Models
