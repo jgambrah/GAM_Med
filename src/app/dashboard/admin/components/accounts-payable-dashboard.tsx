@@ -491,7 +491,7 @@ export function AccountsPayableDashboard() {
             }}
             amount={postingInfo.amount}
             description={postingInfo.description}
-            defaultDebit="2010" // Accounts Payable or relevant expense account
+            defaultDebit="2010" // Accounts Payable
             defaultCredit="1010" // Cash and Bank
         />
     )}

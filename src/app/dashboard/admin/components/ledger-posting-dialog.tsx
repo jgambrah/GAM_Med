@@ -46,9 +46,11 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
 
     // When the component re-opens with new props, reset the form.
     React.useEffect(() => {
+        const debitAccount = mockLedgerAccounts.find(acc => acc.accountCode === defaultDebit)?.accountId;
+        const creditAccount = mockLedgerAccounts.find(acc => acc.accountCode === defaultCredit)?.accountId;
         form.reset({
-            debitAccountId: defaultDebit,
-            creditAccountId: defaultCredit,
+            debitAccountId: debitAccount,
+            creditAccountId: creditAccount,
             amount,
             description,
         })
@@ -96,7 +98,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
                                         <FormLabel>Debit Account (Increase)</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {accountOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
@@ -114,7 +116,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
                                         <FormLabel>Credit Account (Decrease)</FormLabel>
                                          <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {accountOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
