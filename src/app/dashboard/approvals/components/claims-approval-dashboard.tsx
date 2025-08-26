@@ -33,10 +33,8 @@ export function ClaimsApprovalDashboard() {
         });
         // Here you would re-fetch the data to update the UI
     } else {
-        toast({
-            title: 'Approval Failed',
+        toast.error('Approval Failed', {
             description: result.message || 'An unexpected error occurred.',
-            variant: 'destructive',
         });
     }
   };
@@ -49,10 +47,8 @@ export function ClaimsApprovalDashboard() {
             description: `Claim ${claimId} has been rejected and the staff member notified.`,
         });
     } else {
-        toast({
-            title: 'Rejection Failed',
+        toast.error('Rejection Failed', {
             description: result.message || 'An unexpected error occurred.',
-            variant: 'destructive',
         });
     }
   };

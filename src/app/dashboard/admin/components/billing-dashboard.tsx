@@ -242,10 +242,8 @@ function PaymentReconciliationTab() {
                 description: `Payment for Invoice ${values.invoiceId}`
             });
         } else {
-            toast({
-                title: 'Error',
+            toast.error('Error', {
                 description: result.message || 'Failed to log payment.',
-                variant: 'destructive',
             });
         }
     }

@@ -65,10 +65,8 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
             });
             onOpenChange(false);
         } else {
-             toast({
-                title: 'Posting Failed',
+             toast.error('Posting Failed', {
                 description: result.message || 'An unexpected error occurred.',
-                variant: 'destructive'
             });
         }
     }
