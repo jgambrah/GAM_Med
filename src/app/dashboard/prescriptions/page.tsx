@@ -1,4 +1,7 @@
 
+'use client';
+
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -9,6 +12,13 @@ import {
 import { PharmacyWorkQueue } from './components/pharmacy-work-queue';
 
 export default function PrescriptionsPage() {
+  // Add a key to force re-render when a prescription is dispensed.
+  const [key, setKey] = React.useState(0);
+
+  const handleDispense = () => {
+    setKey(prev => prev + 1);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -26,7 +36,7 @@ export default function PrescriptionsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <PharmacyWorkQueue />
+          <PharmacyWorkQueue key={key} onDispense={handleDispense} />
         </CardContent>
       </Card>
     </div>
