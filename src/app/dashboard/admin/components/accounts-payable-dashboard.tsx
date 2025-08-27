@@ -21,8 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockPayrollRecords } from '@/lib/data';
-import { Bill, StaffExpenseClaim, PayrollRun, PayrollRecord } from '@/lib/types';
+import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns } from '@/lib/data';
+import { Bill, StaffExpenseClaim } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -39,8 +39,8 @@ import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, Paperclip } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Paperclip } from 'lucide-react';
+import Link from 'next/link';
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -417,119 +417,6 @@ function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
     );
 }
 
-function PayrollDetailsDialog({ run }: { run: PayrollRun }) {
-    const [open, setOpen] = React.useState(false);
-    const records = mockPayrollRecords; // In a real app, you'd fetch records for this specific runId
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm">View Details</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>Payroll Details: {run.payPeriod}</DialogTitle>
-                    <DialogDescription>
-                        A detailed breakdown of the payroll run completed on {format(new Date(run.completedAt!), 'PPP')}.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                    <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Gross Pay</p>
-                            <p className="text-xl font-bold">₵{run.totalGrossPay.toFixed(2)}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Deductions</p>
-                            <p className="text-xl font-bold">₵{run.totalDeductions.toFixed(2)}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Net Pay</p>
-                            <p className="text-xl font-bold text-primary">₵{run.totalNetPay.toFixed(2)}</p>
-                        </div>
-                    </div>
-                    <ScrollArea className="h-96">
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Staff Name</TableHead>
-                                        <TableHead>Gross Pay</TableHead>
-                                        <TableHead>Deductions</TableHead>
-                                        <TableHead>Net Pay</TableHead>
-                                        <TableHead>Payslip</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {records.map(record => (
-                                        <TableRow key={record.recordId}>
-                                            <TableCell className="font-medium">{record.staffName}</TableCell>
-                                            <TableCell>₵{record.grossPay.toFixed(2)}</TableCell>
-                                            <TableCell>₵{(Object.values(record.deductions).reduce((a, b) => a + b, 0)).toFixed(2)}</TableCell>
-                                            <TableCell className="font-bold">₵{record.netPay.toFixed(2)}</TableCell>
-                                            <TableCell>
-                                                <Button asChild variant="link" size="sm">
-                                                    <a href={record.payslipUrl} target="_blank" rel="noopener noreferrer">
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        Download
-                                                    </a>
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </ScrollArea>
-                </div>
-                <DialogFooter>
-                    <Button onClick={() => setOpen(false)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function PayrollTab() {
-    const latestPayroll = mockPayrollRuns[0];
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Payroll History</CardTitle>
-                <CardDescription>A log of all completed payroll runs.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Pay Period</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Net Pay</TableHead>
-                                <TableHead>Completed On</TableHead>
-                                <TableHead>Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {mockPayrollRuns.map(run => (
-                                <TableRow key={run.runId}>
-                                    <TableCell className="font-medium">{run.payPeriod}</TableCell>
-                                    <TableCell><Badge variant="secondary">{run.status}</Badge></TableCell>
-                                    <TableCell>₵{run.totalNetPay.toFixed(2)}</TableCell>
-                                    <TableCell>{run.completedAt ? format(new Date(run.completedAt), 'PPP') : 'N/A'}</TableCell>
-                                    <TableCell>
-                                        <PayrollDetailsDialog run={run} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
 
 export function AccountsPayableDashboard() {
   const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
@@ -593,7 +480,9 @@ export function AccountsPayableDashboard() {
                     <TabsList className="h-auto flex-wrap justify-start">
                         <TabsTrigger value="vendor-bills">Vendor Bills</TabsTrigger>
                         <TabsTrigger value="staff-claims">Staff Claims</TabsTrigger>
-                        <TabsTrigger value="payroll">Payroll</TabsTrigger>
+                        <TabsTrigger value="payroll">
+                            <Link href="/dashboard/payroll">Payroll</Link>
+                        </TabsTrigger>
                     </TabsList>
                 </CardHeader>
                 <CardContent>
@@ -604,7 +493,7 @@ export function AccountsPayableDashboard() {
                         <StaffClaimsTab onPaymentLogged={handlePaymentLogged} />
                     </TabsContent>
                     <TabsContent value="payroll">
-                        <PayrollTab />
+                        {/* Content moved to dedicated page */}
                     </TabsContent>
                 </CardContent>
             </Tabs>

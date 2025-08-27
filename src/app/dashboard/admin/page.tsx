@@ -35,6 +35,7 @@ export default function AdminPage() {
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
           <TabsTrigger value="ar">Accounts Receivable</TabsTrigger>
           <TabsTrigger value="ap">Accounts Payable</TabsTrigger>
+          <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="reports">Financial Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
@@ -56,6 +57,23 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="ap" className="mt-4">
             <AccountsPayableDashboard />
+        </TabsContent>
+         <TabsContent value="payroll" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Payroll Management</CardTitle>
+                    <CardDescription>
+                        Run and manage staff payroll. This page is accessible to all finance and HR staff.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/payroll">
+                            Go to Payroll Dashboard
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
         </TabsContent>
         <TabsContent value="reports" className="mt-4">
             <Card>

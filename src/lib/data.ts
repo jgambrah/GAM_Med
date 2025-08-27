@@ -1085,7 +1085,9 @@ export const mockPayrollRuns: PayrollRun[] = [
         totalGrossPay: 85000,
         totalDeductions: 12000,
         totalNetPay: 73000,
+        totalEmployees: 15,
         initiatedByUserId: 'admin1',
+        createdAt: new Date('2024-08-25T10:00:00Z').toISOString(),
         completedAt: new Date('2024-08-28T00:00:00Z').toISOString(),
     },
     {
@@ -1096,7 +1098,9 @@ export const mockPayrollRuns: PayrollRun[] = [
         totalGrossPay: 84500,
         totalDeductions: 11800,
         totalNetPay: 72700,
+        totalEmployees: 15,
         initiatedByUserId: 'admin1',
+        createdAt: new Date('2024-07-25T10:00:00Z').toISOString(),
         completedAt: new Date('2024-07-28T00:00:00Z').toISOString(),
     }
 ];

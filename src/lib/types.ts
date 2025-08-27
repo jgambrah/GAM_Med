@@ -288,8 +288,11 @@ export interface PayrollRun {
   totalGrossPay: number;
   totalDeductions: number;
   totalNetPay: number;
+  totalEmployees: number;
   initiatedByUserId: string;
+  createdAt: string; // ISO Timestamp
   completedAt?: string; // ISO Timestamp
+  postedAt?: string; // ISO Timestamp
 }
 
 /**
