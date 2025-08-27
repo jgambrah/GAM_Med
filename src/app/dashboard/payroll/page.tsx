@@ -39,19 +39,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PayrollConfigurationDashboard } from './components/payroll-configuration';
 import { PayrollAllowancesDashboard } from './components/payroll-allowances';
 import { PayrollDeductionsDashboard } from './components/payroll-deductions';
+import { LedgerPostingDialog } from '../admin/components/ledger-posting-dialog';
 
 
 function getStatusVariant(status: PayrollRun['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case 'Processing': return 'default';
     case 'Review': return 'outline';
-    case 'Completed': return 'secondary';
+    case 'Completed': return 'default';
     case 'Posted': return 'secondary';
     default: return 'outline';
   }
 }
 
-function PayrollDetailsDialog({ run, records }: { run: PayrollRun, records: PayrollRecord[] }) {
+interface PayrollDetailsDialogProps {
+  run: PayrollRun;
+  records: PayrollRecord[];
+  onFinalize: (runId: string) => void;
+  onPostToLedger: (run: PayrollRun) => void;
+}
+
+function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: PayrollDetailsDialogProps) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -121,8 +129,23 @@ function PayrollDetailsDialog({ run, records }: { run: PayrollRun, records: Payr
             </div>
           </ScrollArea>
         </div>
-        <DialogFooter>
-          <Button onClick={() => setOpen(false)}>Close</Button>
+        <DialogFooter className="justify-between">
+            <div>
+                {run.status === 'Completed' && (
+                    <Button onClick={() => { onPostToLedger(run); setOpen(false); }}>
+                        <WalletCards className="h-4 w-4 mr-2" />
+                        Post to Ledger
+                    </Button>
+                )}
+            </div>
+            <div className="flex gap-2">
+                 <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
+                 {run.status === 'Review' && (
+                    <Button onClick={() => { onFinalize(run.runId); setOpen(false); }}>
+                        Finalize
+                    </Button>
+                )}
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -133,6 +156,7 @@ function PayrollRunsDashboard() {
     const { toast } = useToast();
     const [runs, setRuns] = React.useState<PayrollRun[]>(mockPayrollRuns);
     const [runRecords, setRunRecords] = React.useState<Record<string, PayrollRecord[]>>({});
+    const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; runId: string; } | null>(null);
 
     const handlePayrollStarted = (newRun: PayrollRun, newRecords: PayrollRecord[]) => {
       setRuns(prev => {
@@ -162,11 +186,31 @@ function PayrollRunsDashboard() {
             run.runId === runId ? { ...run, status: 'Completed' } : run
         ));
          toast.success('Payroll Finalized', {
-            description: `Payroll run ${runId} has been finalized and posted to the ledger.`
+            description: `Payroll run ${runId} has been finalized. You can now post it to the ledger.`
         });
+    };
+
+    const handlePostToLedger = (run: PayrollRun) => {
+        setPostingInfo({
+            amount: run.totalGrossPay,
+            description: `Payroll for ${run.payPeriod}`,
+            runId: run.runId,
+        });
+    };
+
+    const handleLedgerDialogClose = (isOpen: boolean, posted: boolean) => {
+        if (!isOpen) {
+            if (posted && postingInfo) {
+                setRuns(prev => prev.map(run => 
+                    run.runId === postingInfo.runId ? { ...run, status: 'Posted' } : run
+                ));
+            }
+            setPostingInfo(null);
+        }
     }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row justify-between items-center">
         <div>
@@ -200,13 +244,12 @@ function PayrollRunsDashboard() {
                   <TableCell>{format(new Date(run.createdAt), 'PPP')}</TableCell>
                   <TableCell className="text-right space-x-2">
                       {run.status !== 'Processing' && (
-                          <PayrollDetailsDialog run={run} records={runRecords[run.runId] || []} />
-                      )}
-                      {run.status === 'Review' && (
-                           <Button size="sm" onClick={() => handleFinalize(run.runId)}>
-                              <WalletCards className="h-4 w-4 mr-2" />
-                              Finalize & Post
-                          </Button>
+                          <PayrollDetailsDialog 
+                            run={run} 
+                            records={runRecords[run.runId] || []}
+                            onFinalize={handleFinalize}
+                            onPostToLedger={handlePostToLedger}
+                          />
                       )}
                   </TableCell>
                 </TableRow>
@@ -216,6 +259,17 @@ function PayrollRunsDashboard() {
         </div>
       </CardContent>
     </Card>
+    {postingInfo && (
+        <LedgerPostingDialog 
+            isOpen={!!postingInfo}
+            onOpenChange={(isOpen, posted) => handleLedgerDialogClose(isOpen, posted || false)}
+            amount={postingInfo.amount}
+            description={postingInfo.description}
+            defaultDebit="5010" // Salaries and Wages (Expense)
+            defaultCredit="2010" // Accounts Payable (Liability)
+        />
+    )}
+    </>
   )
 }
 

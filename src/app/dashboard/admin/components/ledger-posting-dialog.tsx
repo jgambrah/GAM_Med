@@ -24,7 +24,7 @@ import { mockLedgerAccounts } from '@/lib/data';
 
 interface LedgerPostingDialogProps {
     isOpen: boolean;
-    onOpenChange: (isOpen: boolean) => void;
+    onOpenChange: (isOpen: boolean, posted?: boolean) => void;
     amount: number;
     description: string;
     defaultDebit?: string;
@@ -63,7 +63,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
                 title: 'Transaction Posted',
                 description: 'The transaction has been successfully posted to the ledger.',
             });
-            onOpenChange(false);
+            onOpenChange(false, true);
         } else {
              toast.error('Posting Failed', {
                 description: result.message || 'An unexpected error occurred.',
@@ -152,7 +152,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
                             />
                         </div>
                          <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false, false)}>Cancel</Button>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting ? 'Posting...' : 'Post Transaction'}
                             </Button>
