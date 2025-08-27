@@ -30,7 +30,6 @@ import {
     CheckSquare,
     Wallet,
     Contact,
-    Warehouse
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -137,16 +136,10 @@ export function MainNav() {
         roles: ['lab_technician', 'doctor'],
     },
     {
-      href: '/dashboard/prescriptions',
-      label: 'Prescriptions',
+      href: '/dashboard/pharmacy',
+      label: 'Pharmacy',
       icon: Pill,
-      roles: ['doctor', 'pharmacist', 'patient'],
-    },
-    {
-        href: '/dashboard/pharmacy/inventory',
-        label: 'Inventory',
-        icon: Warehouse,
-        roles: ['admin', 'pharmacist'],
+      roles: ['admin', 'doctor', 'pharmacist', 'patient'],
     },
     {
         href: '/dashboard/payroll',
@@ -182,7 +175,7 @@ export function MainNav() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/prescriptions', '/dashboard/pharmacy/inventory', '/dashboard/lab', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/lab', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
