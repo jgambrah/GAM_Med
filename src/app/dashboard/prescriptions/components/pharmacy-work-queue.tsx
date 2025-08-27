@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -174,10 +175,10 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
 
   const isPharmacist = user?.role === 'pharmacist';
 
-  if (!isPharmacist) {
+  if (!user || (user.role !== 'pharmacist' && user.role !== 'doctor' && user.role !== 'admin')) {
       return (
           <div className="text-center text-muted-foreground p-8">
-              This work queue is only available to users with the 'Pharmacist' role.
+              This work queue is only available to authorized clinical and administrative staff.
           </div>
       );
   }
@@ -192,9 +193,11 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
                 <TableHead>Medication</TableHead>
                 <TableHead>Prescribing Doctor</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>
-                <span className="sr-only">Actions</span>
-                </TableHead>
+                {isPharmacist && (
+                    <TableHead>
+                        <span className="sr-only">Actions</span>
+                    </TableHead>
+                )}
             </TableRow>
             </TableHeader>
             <TableBody>
@@ -217,14 +220,16 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
                     <TableCell>
                         <Badge variant={getStatusVariant(prescription.status)}>{prescription.status}</Badge>
                     </TableCell>
-                    <TableCell>
-                        <DispenseDialog prescription={prescription} onDispense={onDispense} />
-                    </TableCell>
+                    {isPharmacist && (
+                        <TableCell>
+                            <DispenseDialog prescription={prescription} onDispense={onDispense} />
+                        </TableCell>
+                    )}
                 </TableRow>
                 ))
             ) : (
                 <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={isPharmacist ? 6 : 5} className="h-24 text-center">
                     No pending prescriptions in the queue.
                 </TableCell>
                 </TableRow>
