@@ -1,5 +1,6 @@
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest } from './types';
+
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1047,5 +1048,55 @@ export const mockLeaveRequests: LeaveRequest[] = [
         reason: 'Conference Attendance',
         status: 'Pending',
         requestedAt: new Date('2024-08-16T00:00:00Z').toISOString(),
+    }
+];
+
+export const mockPayrollRecords: PayrollRecord[] = [
+    {
+        recordId: 'pr-doc1',
+        staffId: 'doc1',
+        staffName: 'Dr. Evelyn Mensah',
+        grossPay: 12000,
+        netPay: 9500,
+        taxAmount: 2000,
+        deductions: { 'SSNIT': 500 },
+        allowances: { 'Car Maintenance': 1000 },
+        payslipUrl: '/mock-payslip.pdf'
+    },
+    {
+        recordId: 'pr-nurse1',
+        staffId: 'nurse1',
+        staffName: 'Florence Agyepong',
+        grossPay: 5000,
+        netPay: 4200,
+        taxAmount: 500,
+        deductions: { 'SSNIT': 300 },
+        allowances: {},
+        payslipUrl: '/mock-payslip.pdf'
+    }
+]
+
+export const mockPayrollRuns: PayrollRun[] = [
+    {
+        runId: 'PAY-2024-08',
+        payPeriod: 'August 2024',
+        payDate: new Date('2024-08-31T00:00:00Z').toISOString(),
+        status: 'Completed',
+        totalGrossPay: 85000,
+        totalDeductions: 12000,
+        totalNetPay: 73000,
+        initiatedByUserId: 'admin1',
+        completedAt: new Date('2024-08-28T00:00:00Z').toISOString(),
+    },
+    {
+        runId: 'PAY-2024-07',
+        payPeriod: 'July 2024',
+        payDate: new Date('2024-07-31T00:00:00Z').toISOString(),
+        status: 'Completed',
+        totalGrossPay: 84500,
+        totalDeductions: 11800,
+        totalNetPay: 72700,
+        initiatedByUserId: 'admin1',
+        completedAt: new Date('2024-07-28T00:00:00Z').toISOString(),
     }
 ];

@@ -272,6 +272,42 @@ export interface LeaveRequest {
   requestedAt: string; // ISO Timestamp
 }
 
+// =========================================================================
+// == Payroll Management Data Models
+// =========================================================================
+
+/**
+ * Represents a single, finalized payroll run for a specific period.
+ * Path: /payroll_runs/{runId}
+ */
+export interface PayrollRun {
+  runId: string; // e.g., PAY-2024-08
+  payPeriod: string; // e.g., "August 2024"
+  payDate: string; // ISO Timestamp
+  status: 'Processing' | 'Review' | 'Completed' | 'Posted';
+  totalGrossPay: number;
+  totalDeductions: number;
+  totalNetPay: number;
+  initiatedByUserId: string;
+  completedAt?: string; // ISO Timestamp
+}
+
+/**
+ * Represents the detailed payroll calculation for a single employee within a run.
+ * Path: /payroll_runs/{runId}/payroll_records/{staffId}
+ */
+export interface PayrollRecord {
+  recordId: string;
+  staffId: string;
+  staffName: string; // Denormalized
+  grossPay: number;
+  netPay: number;
+  taxAmount: number;
+  deductions: Record<string, number>; // e.g., { "SSNIT": 200, "Welfare": 50 }
+  allowances: Record<string, number>; // e.g., { "Car Maintenance": 800 }
+  payslipUrl: string; // Link to generated PDF in Storage
+}
+
 
 // =========================================================================
 // == Clinical Decision Support (CDS) Data Models
