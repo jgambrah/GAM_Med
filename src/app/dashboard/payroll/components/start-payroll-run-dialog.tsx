@@ -39,11 +39,22 @@ interface StartPayrollRunDialogProps {
 }
 
 // Helper functions for Ghanaian payroll calculations, adapted for client-side simulation.
-const calculateSSNIT = (monthlyGross: number, config: PayrollConfiguration): number => {
-    const employeeContributionRate = config.ssnitEmployeeContribution;
-    const ssnitCeiling = config.ssnitCeiling / 12; // Use monthly ceiling
-    const pensionableIncome = Math.min(monthlyGross, ssnitCeiling);
-    return pensionableIncome * employeeContributionRate;
+const calculateSSNIT = (monthlyGross: number, config: PayrollConfiguration) => {
+    const employeeContribution = monthlyGross * config.ssnitEmployeeContribution;
+    const employerContribution = monthlyGross * config.ssnitEmployerContribution;
+    const tier2Contribution = monthlyGross * config.tier2EmployerContribution;
+    
+    // In Ghana, the ceiling is on the pensionable income.
+    const pensionableIncome = Math.min(monthlyGross, config.ssnitCeiling / 12);
+    
+    const finalEmployeeSSNIT = pensionableIncome * config.ssnitEmployeeContribution;
+    const finalEmployerSSNIT = pensionableIncome * config.ssnitEmployerContribution;
+
+    return {
+        employee: finalEmployeeSSNIT,
+        employer: finalEmployerSSNIT,
+        tier2: pensionableIncome * config.tier2EmployerContribution,
+    };
 };
 
 const calculateGHRATax = (monthlyGross: number, ssnitContribution: number, config: PayrollConfiguration): number => {
@@ -96,8 +107,9 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         totalGrossPay: 0,
         totalDeductions: 0,
         totalNetPay: 0,
-        totalEmployees: 0,
         totalTaxes: 0,
+        totalEmployees: 0,
+        deductionTotals: {},
         initiatedByUserId: 'admin1',
         createdAt: new Date().toISOString(),
     };
@@ -113,7 +125,8 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         let totalDeductionsAgg = 0;
         let totalNet = 0;
         let totalTaxesAgg = 0;
-        
+        const remittanceTotals: Record<string, number> = {};
+
         const calculatedRecords: PayrollRecord[] = activeStaff.map(staff => {
             const position = mockPositions.find(p => p.positionId === staff.positionId);
             const baseSalary = (position?.baseAnnualSalary || 0) / 12;
@@ -121,7 +134,8 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             const monthlyGrossPay = baseSalary + totalAllowances;
 
             // Accurate statutory deductions for simulation
-            const ssnitDeduction = calculateSSNIT(monthlyGrossPay, mockPayrollConfig);
+            const ssnitContributions = calculateSSNIT(monthlyGrossPay, mockPayrollConfig);
+            const ssnitDeduction = ssnitContributions.employee;
             const taxAmount = calculateGHRATax(monthlyGrossPay, ssnitDeduction, mockPayrollConfig);
             
             const totalRecurringDeductions = (staff.recurringDeductions || []).reduce((sum, ded) => sum + ded.amount, 0);
@@ -132,8 +146,17 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             totalDeductionsAgg += totalDeductions;
             totalNet += netPay;
             totalTaxesAgg += taxAmount;
+
+             // Aggregate for remittance report
+            remittanceTotals['PAYE Tax'] = (remittanceTotals['PAYE Tax'] || 0) + taxAmount;
+            remittanceTotals['SSNIT - Employee'] = (remittanceTotals['SSNIT - Employee'] || 0) + ssnitContributions.employee;
+            remittanceTotals['SSNIT - Employer'] = (remittanceTotals['SSNIT - Employer'] || 0) + ssnitContributions.employer;
+            remittanceTotals['Tier 2 - Employer'] = (remittanceTotals['Tier 2 - Employer'] || 0) + ssnitContributions.tier2;
+            (staff.recurringDeductions || []).forEach(ded => {
+                remittanceTotals[ded.name] = (remittanceTotals[ded.name] || 0) + ded.amount;
+            });
             
-            const allDeductions: Record<string, number> = { 'SSNIT': ssnitDeduction };
+            const allDeductions: Record<string, number> = { 'SSNIT': ssnitDeduction, 'PAYE': taxAmount };
             (staff.recurringDeductions || []).forEach(d => { allDeductions[d.name] = d.amount });
 
 
@@ -158,6 +181,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             totalDeductions: totalDeductionsAgg,
             totalNetPay: totalNet,
             totalTaxes: totalTaxesAgg,
+            deductionTotals: remittanceTotals,
             totalEmployees: activeStaff.length,
         };
 

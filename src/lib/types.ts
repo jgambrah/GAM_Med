@@ -1,5 +1,4 @@
 
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -335,6 +334,7 @@ export interface PayrollRun {
   totalNetPay: number;
   totalTaxes: number;
   totalEmployees: number;
+  deductionTotals: Record<string, number>; // Breakdown of all deduction amounts for remittance
   initiatedByUserId: string;
   createdAt: string; // ISO Timestamp
   completedAt?: string; // ISO Timestamp

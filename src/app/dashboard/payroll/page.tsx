@@ -67,7 +67,7 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">View Details</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Payroll Details: {run.payPeriod}</DialogTitle>
           <DialogDescription>
@@ -75,59 +75,99 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <div className="grid grid-cols-4 gap-4 mb-4 text-center">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Gross Pay</p>
-              <p className="text-xl font-bold">₵{run.totalGrossPay.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Deductions</p>
-              <p className="text-xl font-bold">₵{run.totalDeductions.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Tax (PAYE)</p>
-              <p className="text-xl font-bold">₵{run.totalTaxes.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Net Pay</p>
-              <p className="text-xl font-bold text-primary">₵{run.totalNetPay.toFixed(2)}</p>
-            </div>
-          </div>
-          <ScrollArea className="h-96">
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Staff Name</TableHead>
-                    <TableHead>Gross Pay</TableHead>
-                    <TableHead>Tax</TableHead>
-                    <TableHead>Deductions</TableHead>
-                    <TableHead>Net Pay</TableHead>
-                    <TableHead>Payslip</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {records.map(record => (
-                    <TableRow key={record.recordId}>
-                      <TableCell className="font-medium">{record.staffName}</TableCell>
-                      <TableCell>₵{record.grossPay.toFixed(2)}</TableCell>
-                      <TableCell>₵{record.taxAmount.toFixed(2)}</TableCell>
-                      <TableCell>₵{(Object.values(record.deductions).reduce((a, b) => a + b, 0)).toFixed(2)}</TableCell>
-                      <TableCell className="font-bold">₵{record.netPay.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Button asChild variant="link" size="sm">
-                          <a href={record.payslipUrl} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </a>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </ScrollArea>
+           <Tabs defaultValue="details">
+            <TabsList>
+                <TabsTrigger value="details">Payroll Breakdown</TabsTrigger>
+                <TabsTrigger value="remittance">Remittance Summary</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="mt-4">
+                <div className="grid grid-cols-4 gap-4 mb-4 text-center">
+                    <div>
+                    <p className="text-sm text-muted-foreground">Total Gross Pay</p>
+                    <p className="text-xl font-bold">₵{run.totalGrossPay.toFixed(2)}</p>
+                    </div>
+                    <div>
+                    <p className="text-sm text-muted-foreground">Total Deductions</p>
+                    <p className="text-xl font-bold">₵{run.totalDeductions.toFixed(2)}</p>
+                    </div>
+                    <div>
+                    <p className="text-sm text-muted-foreground">Total Tax (PAYE)</p>
+                    <p className="text-xl font-bold">₵{run.totalTaxes.toFixed(2)}</p>
+                    </div>
+                    <div>
+                    <p className="text-sm text-muted-foreground">Total Net Pay</p>
+                    <p className="text-xl font-bold text-primary">₵{run.totalNetPay.toFixed(2)}</p>
+                    </div>
+                </div>
+                <ScrollArea className="h-96">
+                    <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Staff Name</TableHead>
+                            <TableHead>Gross Pay</TableHead>
+                            <TableHead>Tax</TableHead>
+                            <TableHead>Deductions</TableHead>
+                            <TableHead>Net Pay</TableHead>
+                            <TableHead>Payslip</TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {records.map(record => (
+                            <TableRow key={record.recordId}>
+                            <TableCell className="font-medium">{record.staffName}</TableCell>
+                            <TableCell>₵{record.grossPay.toFixed(2)}</TableCell>
+                            <TableCell>₵{record.taxAmount.toFixed(2)}</TableCell>
+                            <TableCell>₵{(Object.values(record.deductions).reduce((a, b) => a + b, 0)).toFixed(2)}</TableCell>
+                            <TableCell className="font-bold">₵{record.netPay.toFixed(2)}</TableCell>
+                            <TableCell>
+                                <Button asChild variant="link" size="sm">
+                                <a href={record.payslipUrl} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download
+                                </a>
+                                </Button>
+                            </TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                    </div>
+                </ScrollArea>
+            </TabsContent>
+            <TabsContent value="remittance" className="mt-4">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Remittance Report</CardTitle>
+                        <CardDescription>Total amounts to be remitted to statutory bodies and other institutions for this pay period.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Institution / Deduction Type</TableHead>
+                                        <TableHead className="text-right">Amount Due (₵)</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {Object.entries(run.deductionTotals || {}).map(([name, amount]) => (
+                                        <TableRow key={name}>
+                                            <TableCell className="font-medium">{name}</TableCell>
+                                            <TableCell className="text-right font-mono">{amount.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="outline" size="sm">Log Payment</Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                         </div>
+                    </CardContent>
+                 </Card>
+            </TabsContent>
+           </Tabs>
         </div>
         <DialogFooter className="justify-between">
             <div>
@@ -170,11 +210,11 @@ function PayrollRunsDashboard() {
 
       if (newRun.status === 'Review') {
         setRunRecords(prev => ({ ...prev, [newRun.runId]: newRecords }));
-         toast.success('Payroll Run Processed', {
+         toast.success("Payroll Run Processed", {
             description: `Payroll for ${newRun.payPeriod} is ready for your review.`
         });
       } else {
-         toast.info('Payroll Run Started', {
+         toast.info("Payroll Run Started", {
             description: `Payroll for ${newRun.payPeriod} is now processing...`
         });
       }
@@ -184,7 +224,7 @@ function PayrollRunsDashboard() {
         setRuns(prev => prev.map(run => 
             run.runId === runId ? { ...run, status: 'Completed' } : run
         ));
-         toast.success('Payroll Finalized', {
+         toast.success("Payroll Finalized", {
             description: `Payroll run ${runId} has been finalized. You can now post it to the ledger.`
         });
     };
@@ -197,7 +237,7 @@ function PayrollRunsDashboard() {
         });
     };
 
-    const handleLedgerDialogClose = (isOpen: boolean, posted: boolean) => {
+    const handleLedgerDialogClose = (isOpen: boolean, posted?: boolean) => {
         if (!isOpen) {
             if (posted && postingInfo) {
                 setRuns(prev => prev.map(run => 
