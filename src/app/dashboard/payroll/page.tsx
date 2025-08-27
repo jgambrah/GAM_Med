@@ -35,6 +35,8 @@ import { format } from 'date-fns';
 import { Download, WalletCards } from 'lucide-react';
 import { StartPayrollRunDialog } from './components/start-payroll-run-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PayrollConfigurationDashboard } from './components/payroll-configuration';
 
 function getStatusVariant(status: PayrollRun['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -124,7 +126,7 @@ function PayrollDetailsDialog({ run, records }: { run: PayrollRun, records: Payr
   );
 }
 
-export default function PayrollPage() {
+function PayrollRunsDashboard() {
     const { toast } = useToast();
     const [runs, setRuns] = React.useState<PayrollRun[]>(mockPayrollRuns);
     const [runRecords, setRunRecords] = React.useState<Record<string, PayrollRecord[]>>({});
@@ -162,62 +164,80 @@ export default function PayrollPage() {
     }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <Card>
+      <CardHeader className="flex flex-row justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Payroll Management</h1>
-          <p className="text-muted-foreground">
-            Initiate, review, and finalize monthly payroll runs.
-          </p>
-        </div>
-        <StartPayrollRunDialog onPayrollStarted={handlePayrollStarted} />
-      </div>
-      <Card>
-        <CardHeader>
           <CardTitle>Payroll Run History</CardTitle>
           <CardDescription>
             A log of all initiated and completed payroll runs.
           </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pay Period</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Net Pay</TableHead>
-                  <TableHead>Employees</TableHead>
-                  <TableHead>Date Initiated</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+        </div>
+         <StartPayrollRunDialog onPayrollStarted={handlePayrollStarted} />
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pay Period</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Net Pay</TableHead>
+                <TableHead>Employees</TableHead>
+                <TableHead>Date Initiated</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map(run => (
+                <TableRow key={run.runId}>
+                  <TableCell className="font-medium">{run.payPeriod}</TableCell>
+                  <TableCell><Badge variant={getStatusVariant(run.status)}>{run.status}</Badge></TableCell>
+                  <TableCell>₵{run.totalNetPay.toFixed(2)}</TableCell>
+                  <TableCell>{run.totalEmployees}</TableCell>
+                  <TableCell>{format(new Date(run.createdAt), 'PPP')}</TableCell>
+                  <TableCell className="text-right space-x-2">
+                      {run.status !== 'Processing' && (
+                          <PayrollDetailsDialog run={run} records={runRecords[run.runId] || []} />
+                      )}
+                      {run.status === 'Review' && (
+                           <Button size="sm" onClick={() => handleFinalize(run.runId)}>
+                              <WalletCards className="h-4 w-4 mr-2" />
+                              Finalize & Post
+                          </Button>
+                      )}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {runs.map(run => (
-                  <TableRow key={run.runId}>
-                    <TableCell className="font-medium">{run.payPeriod}</TableCell>
-                    <TableCell><Badge variant={getStatusVariant(run.status)}>{run.status}</Badge></TableCell>
-                    <TableCell>₵{run.totalNetPay.toFixed(2)}</TableCell>
-                    <TableCell>{run.totalEmployees}</TableCell>
-                    <TableCell>{format(new Date(run.createdAt), 'PPP')}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                        {run.status !== 'Processing' && (
-                            <PayrollDetailsDialog run={run} records={runRecords[run.runId] || []} />
-                        )}
-                        {run.status === 'Review' && (
-                             <Button size="sm" onClick={() => handleFinalize(run.runId)}>
-                                <WalletCards className="h-4 w-4 mr-2" />
-                                Finalize & Post
-                            </Button>
-                        )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export default function PayrollPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Payroll Management</h1>
+        <p className="text-muted-foreground">
+          Initiate payroll runs and configure payroll settings.
+        </p>
+      </div>
+
+      <Tabs defaultValue="runs">
+        <TabsList>
+            <TabsTrigger value="runs">Payroll Runs</TabsTrigger>
+            <TabsTrigger value="config">Configuration</TabsTrigger>
+        </TabsList>
+        <TabsContent value="runs" className="mt-4">
+            <PayrollRunsDashboard />
+        </TabsContent>
+        <TabsContent value="config" className="mt-4">
+            <PayrollConfigurationDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
