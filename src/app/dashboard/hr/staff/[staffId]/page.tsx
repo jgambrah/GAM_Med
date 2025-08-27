@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances, mockDeductions } from '@/lib/data';
+import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
@@ -80,7 +81,7 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProf
                     </FormControl>
                     <SelectContent>
                       {availableItems.map(a => (
-                        <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
+                        <SelectItem key={itemType === 'Allowance' ? a.allowanceId : a.id} value={a.name}>{a.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -118,10 +119,11 @@ export default function StaffProfilePage() {
   const staffId = params.staffId as string;
   const { toast } = useToast();
 
-  // In a real app, this would be a single state object fetched from the server.
   const [staff, setStaff] = React.useState<StaffProfile | undefined>(
     mockStaffProfiles.find((p) => p.staffId === staffId)
   );
+
+  const staffPosition = mockPositions.find(p => p.positionId === staff?.positionId);
 
   if (!staff) {
     notFound();
@@ -171,7 +173,7 @@ export default function StaffProfilePage() {
         <div>
           <h1 className="text-3xl font-bold">{`${staff.firstName} ${staff.lastName}`}</h1>
           <p className="text-muted-foreground">
-            Staff Profile: {staff.employeeId}
+            {staffPosition?.title || 'No Position Assigned'} - {staff.employeeId}
           </p>
         </div>
       </div>
@@ -197,8 +199,10 @@ export default function StaffProfilePage() {
                 </TableHeader>
                 <TableBody>
                     <TableRow className="font-semibold bg-muted/50">
-                    <TableCell>Base Salary</TableCell>
-                    <TableCell className="text-right">{(staff.annualSalary / 12).toFixed(2)}</TableCell>
+                    <TableCell>Base Salary ({staffPosition?.title || 'N/A'})</TableCell>
+                    <TableCell className="text-right">
+                        {(staffPosition?.baseAnnualSalary || 0 / 12).toFixed(2)}
+                    </TableCell>
                     <TableCell></TableCell>
                     </TableRow>
                     {staff.recurringAllowances.map((allowance) => (

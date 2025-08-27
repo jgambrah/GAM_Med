@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -11,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { mockStaffProfiles } from '@/lib/data';
 import { Eye } from 'lucide-react';
 
-export default function StaffManagementPage() {
+export function StaffManagementDashboard() {
   return (
     <Card>
         <CardHeader>

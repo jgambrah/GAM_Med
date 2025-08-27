@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1051,6 +1051,13 @@ export const mockLeaveRequests: LeaveRequest[] = [
     }
 ];
 
+export const mockPositions: Position[] = [
+  { positionId: 'pos-doc', title: 'Consultant Physician', baseAnnualSalary: 120000 },
+  { positionId: 'pos-snr-nurse', title: 'Senior Nurse', baseAnnualSalary: 72000 },
+  { positionId: 'pos-jnr-nurse', title: 'Junior Staff Nurse', baseAnnualSalary: 48000 },
+  { positionId: 'pos-admin', title: 'Administrator', baseAnnualSalary: 60000 },
+];
+
 export const mockStaffProfiles: StaffProfile[] = [
     {
         staffId: 'doc1',
@@ -1061,7 +1068,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         gender: 'Female',
         dateOfBirth: '1980-01-01',
         employmentStatus: 'Active',
-        annualSalary: 120000,
+        positionId: 'pos-doc',
         recurringAllowances: [{ name: 'Book & Research Allowance', amount: 500 }],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' }
@@ -1075,7 +1082,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         gender: 'Male',
         dateOfBirth: '1982-02-02',
         employmentStatus: 'Active',
-        annualSalary: 110000,
+        positionId: 'pos-doc',
         recurringAllowances: [{ name: 'Car Maintenance', amount: 300 }],
         recurringDeductions: [{ name: 'Staff Loan', amount: 1000 }, { name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'GCB Bank', accountNumber: '987654321', branchName: 'Accra Central' }
@@ -1089,7 +1096,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         gender: 'Female',
         dateOfBirth: '1990-03-03',
         employmentStatus: 'Active',
-        annualSalary: 60000,
+        positionId: 'pos-snr-nurse',
         recurringAllowances: [],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 30 }],
         bankDetails: { bankName: 'Absa Bank', accountNumber: '555444333', branchName: 'Spintex' }

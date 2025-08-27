@@ -294,6 +294,15 @@ export interface Deduction {
 }
 
 /**
+ * Represents a job position or role within the organization.
+ */
+export interface Position {
+  positionId: string; // Document ID
+  title: string; // e.g., "Senior Nurse", "Consultant Physician"
+  baseAnnualSalary: number;
+}
+
+/**
  * Represents a comprehensive HR record for a staff member.
  * This is the central source of truth for all HR and payroll calculations.
  */
@@ -306,7 +315,7 @@ export interface StaffProfile {
   gender: 'Male' | 'Female' | 'Other';
   dateOfBirth: string; // ISO Timestamp
   employmentStatus: 'Active' | 'On Leave' | 'Terminated';
-  annualSalary: number; // Base annual salary
+  positionId?: string; // Link to the 'positions' collection
   recurringAllowances: { name: string; amount: number }[];
   recurringDeductions: { name: string; amount: number }[];
   bankDetails: { bankName: string; accountNumber: string; branchName: string }
