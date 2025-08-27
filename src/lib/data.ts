@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1062,7 +1062,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         dateOfBirth: '1980-01-01',
         employmentStatus: 'Active',
         annualSalary: 120000,
-        recurringAllowances: [{ name: 'Book & Research', amount: 500 }],
+        recurringAllowances: [{ name: 'Book & Research Allowance', amount: 500 }],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' }
     },
@@ -1184,5 +1184,16 @@ export const mockAllowances: Allowance[] = [
         allowanceId: 'BOOK_RESEARCH_ALLOWANCE',
         name: 'Book & Research Allowance',
         isTaxable: false,
+    }
+];
+
+export const mockDeductions: Deduction[] = [
+    {
+        id: 'STAFF_LOAN',
+        name: 'Staff Loan',
+    },
+    {
+        id: 'WELFARE_DUES',
+        name: 'Welfare Dues',
     }
 ];

@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances } from '@/lib/data';
+import { mockStaffProfiles, mockAllowances, mockDeductions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
@@ -26,24 +26,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
-const AllowanceSchema = z.object({
-  name: z.string().min(1, 'You must select an allowance.'),
+const ItemSchema = z.object({
+  name: z.string().min(1, 'You must select an item.'),
   amount: z.coerce.number().min(1, 'Amount must be greater than zero.'),
 });
 
-function AddAllowanceDialog({ staff, onAllowanceAdded }: { staff: StaffProfile, onAllowanceAdded: (name: string, amount: number) => void }) {
+function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProfile, itemType: 'Allowance' | 'Deduction', onAdded: (name: string, amount: number) => void }) {
   const [open, setOpen] = React.useState(false);
   const { toast } = useToast();
   
-  const form = useForm<z.infer<typeof AllowanceSchema>>({
-    resolver: zodResolver(AllowanceSchema),
+  const form = useForm<z.infer<typeof ItemSchema>>({
+    resolver: zodResolver(ItemSchema),
     defaultValues: { name: '', amount: 0 },
   });
 
-  const onSubmit = (values: z.infer<typeof AllowanceSchema>) => {
+  const availableItems = itemType === 'Allowance' ? mockAllowances : mockDeductions;
+
+  const onSubmit = (values: z.infer<typeof ItemSchema>) => {
     // In a real app, this would call a server action
-    onAllowanceAdded(values.name, values.amount);
-    toast.success('Allowance Added', { description: `${values.name} has been added to ${staff.firstName}'s profile.` });
+    onAdded(values.name, values.amount);
+    toast.success(`${itemType} Added`, { description: `${values.name} has been added to ${staff.firstName}'s profile.` });
     setOpen(false);
     form.reset();
   };
@@ -52,14 +54,14 @@ function AddAllowanceDialog({ staff, onAllowanceAdded }: { staff: StaffProfile, 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <Plus className="mr-2 h-4 w-4" /> Add Allowance
+          <Plus className="mr-2 h-4 w-4" /> Add {itemType}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Recurring Allowance</DialogTitle>
+          <DialogTitle>Add Recurring {itemType}</DialogTitle>
           <DialogDescription>
-            Add a new recurring allowance to {staff.firstName} {staff.lastName}'s profile.
+            Add a new recurring {itemType.toLowerCase()} to {staff.firstName} {staff.lastName}'s profile.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -69,16 +71,16 @@ function AddAllowanceDialog({ staff, onAllowanceAdded }: { staff: StaffProfile, 
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Allowance Type</FormLabel>
+                  <FormLabel>{itemType} Type</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select an allowance type" />
+                        <SelectValue placeholder={`Select a ${itemType.toLowerCase()} type`} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockAllowances.map(a => (
-                        <SelectItem key={a.allowanceId} value={a.name}>{a.name}</SelectItem>
+                      {availableItems.map(a => (
+                        <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -101,7 +103,7 @@ function AddAllowanceDialog({ staff, onAllowanceAdded }: { staff: StaffProfile, 
             />
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">Add Allowance</Button>
+              <Button type="submit">Add {itemType}</Button>
             </DialogFooter>
           </form>
         </Form>
@@ -141,6 +143,23 @@ export default function StaffProfilePage() {
     });
     toast.error('Allowance Removed', { description: `${allowanceName} has been removed.` });
   };
+  
+  const handleAddDeduction = (name: string, amount: number) => {
+    setStaff(prev => {
+      if (!prev) return prev;
+      const newDeductions = [...(prev.recurringDeductions || []), { name, amount }];
+      return { ...prev, recurringDeductions: newDeductions };
+    });
+  };
+  
+  const handleRemoveDeduction = (deductionName: string) => {
+    setStaff(prev => {
+       if (!prev) return prev;
+       const newDeductions = prev.recurringDeductions.filter(a => a.name !== deductionName);
+       return { ...prev, recurringDeductions: newDeductions };
+    });
+    toast.error('Deduction Removed', { description: `${deductionName} has been removed.` });
+  };
 
   return (
     <div className="space-y-6">
@@ -157,51 +176,93 @@ export default function StaffProfilePage() {
         </div>
       </div>
       
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Salary & Allowances</CardTitle>
-            <CardDescription>Manage recurring payments and benefits for this staff member.</CardDescription>
-          </div>
-          <AddAllowanceDialog staff={staff} onAllowanceAdded={handleAddAllowance} />
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Monthly Amount (₵)</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow className="font-semibold bg-muted/50">
-                  <TableCell>Base Salary</TableCell>
-                  <TableCell className="text-right">{(staff.annualSalary / 12).toFixed(2)}</TableCell>
-                  <TableCell></TableCell>
-                </TableRow>
-                {staff.recurringAllowances.map((allowance) => (
-                  <TableRow key={allowance.name}>
-                    <TableCell>{allowance.name}</TableCell>
-                    <TableCell className="text-right">{allowance.amount.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleRemoveAllowance(allowance.name)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>Salary & Allowances</CardTitle>
+                <CardDescription>Manage recurring payments and benefits.</CardDescription>
+            </div>
+            <AddRecurringItemDialog staff={staff} itemType="Allowance" onAdded={handleAddAllowance} />
+            </CardHeader>
+            <CardContent>
+            <div className="rounded-md border">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Monthly Amount (₵)</TableHead>
+                    <TableHead>Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow className="font-semibold bg-muted/50">
+                    <TableCell>Base Salary</TableCell>
+                    <TableCell className="text-right">{(staff.annualSalary / 12).toFixed(2)}</TableCell>
+                    <TableCell></TableCell>
+                    </TableRow>
+                    {staff.recurringAllowances.map((allowance) => (
+                    <TableRow key={allowance.name}>
+                        <TableCell>{allowance.name}</TableCell>
+                        <TableCell className="text-right">{allowance.amount.toFixed(2)}</TableCell>
+                        <TableCell>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRemoveAllowance(allowance.name)}
+                        >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            </div>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>Recurring Deductions</CardTitle>
+                <CardDescription>Manage recurring deductions from salary.</CardDescription>
+            </div>
+             <AddRecurringItemDialog staff={staff} itemType="Deduction" onAdded={handleAddDeduction} />
+            </CardHeader>
+            <CardContent>
+            <div className="rounded-md border">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Monthly Amount (₵)</TableHead>
+                    <TableHead>Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {staff.recurringDeductions.map((deduction) => (
+                    <TableRow key={deduction.name}>
+                        <TableCell>{deduction.name}</TableCell>
+                        <TableCell className="text-right">{deduction.amount.toFixed(2)}</TableCell>
+                        <TableCell>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRemoveDeduction(deduction.name)}
+                        >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            </div>
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

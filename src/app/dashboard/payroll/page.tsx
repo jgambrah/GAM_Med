@@ -38,6 +38,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PayrollConfigurationDashboard } from './components/payroll-configuration';
 import { PayrollAllowancesDashboard } from './components/payroll-allowances';
+import { PayrollDeductionsDashboard } from './components/payroll-deductions';
+
 
 function getStatusVariant(status: PayrollRun['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -232,6 +234,7 @@ export default function PayrollPage() {
             <TabsTrigger value="runs">Payroll Runs</TabsTrigger>
             <TabsTrigger value="config">Statutory Configuration</TabsTrigger>
             <TabsTrigger value="allowances">Allowances</TabsTrigger>
+            <TabsTrigger value="deductions">Deductions</TabsTrigger>
         </TabsList>
         <TabsContent value="runs" className="mt-4">
             <PayrollRunsDashboard />
@@ -241,6 +244,9 @@ export default function PayrollPage() {
         </TabsContent>
         <TabsContent value="allowances" className="mt-4">
             <PayrollAllowancesDashboard />
+        </TabsContent>
+         <TabsContent value="deductions" className="mt-4">
+            <PayrollDeductionsDashboard />
         </TabsContent>
       </Tabs>
     </div>

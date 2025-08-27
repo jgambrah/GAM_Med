@@ -286,6 +286,14 @@ export interface Allowance {
 }
 
 /**
+ * Represents a configurable non-statutory deduction type.
+ */
+export interface Deduction {
+    id: string;
+    name: string;
+}
+
+/**
  * Represents a comprehensive HR record for a staff member.
  * This is the central source of truth for all HR and payroll calculations.
  */
