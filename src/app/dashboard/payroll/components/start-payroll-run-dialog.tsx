@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
-import { PayrollRun, PayrollRecord } from '@/lib/types';
-import { mockStaffProfiles } from '@/lib/data';
+import { PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration } from '@/lib/types';
+import { mockStaffProfiles, mockPayrollConfig } from '@/lib/data';
 
 const StartPayrollRunSchema = z.object({
   payPeriod: z.string().min(1, { message: 'Pay period is required.' }),
@@ -37,6 +37,39 @@ const StartPayrollRunSchema = z.object({
 interface StartPayrollRunDialogProps {
     onPayrollStarted: (newRun: PayrollRun, newRecords: PayrollRecord[]) => void;
 }
+
+// Helper functions for Ghanaian payroll calculations, adapted for client-side simulation.
+const calculateSSNIT = (monthlyGross: number, config: PayrollConfiguration): number => {
+    const employeeContributionRate = config.ssnitEmployeeContribution;
+    const ssnitCeiling = config.ssnitCeiling;
+    const pensionableIncome = Math.min(monthlyGross, ssnitCeiling);
+    return pensionableIncome * employeeContributionRate;
+};
+
+const calculateGHRATax = (monthlyGross: number, ssnitContribution: number, config: PayrollConfiguration): number => {
+  const taxableIncome = monthlyGross - ssnitContribution;
+  const annualTaxableIncome = taxableIncome * 12;
+  let annualTax = 0;
+
+  const taxBands = config.taxBands;
+
+  let incomeRemaining = annualTaxableIncome;
+  let previousLimit = 0;
+
+  for (const band of taxBands) {
+    if (incomeRemaining <= 0) break;
+    
+    const bandLimit = band.limit === Infinity ? Infinity : band.limit;
+    const taxableInThisBand = Math.min(incomeRemaining, bandLimit - previousLimit);
+    
+    annualTax += taxableInThisBand * band.rate;
+    incomeRemaining -= taxableInThisBand;
+    previousLimit = bandLimit;
+  }
+
+  return annualTax / 12;
+};
+
 
 export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialogProps) {
   const [open, setOpen] = React.useState(false);
@@ -64,6 +97,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         totalDeductions: 0,
         totalNetPay: 0,
         totalEmployees: 0,
+        totalTaxes: 0,
         initiatedByUserId: 'admin1',
         createdAt: new Date().toISOString(),
     };
@@ -78,25 +112,30 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         let totalGross = 0;
         let totalDeductionsAgg = 0;
         let totalNet = 0;
+        let totalTaxesAgg = 0;
         
         const calculatedRecords: PayrollRecord[] = activeStaff.map(staff => {
             const baseSalary = staff.annualSalary / 12;
             const totalAllowances = (staff.recurringAllowances || []).reduce((sum, alw) => sum + alw.amount, 0);
             const monthlyGrossPay = baseSalary + totalAllowances;
 
-            // Simplified statutory deductions for simulation
-            const ssnitDeduction = monthlyGrossPay * 0.055;
-            const taxAmount = (monthlyGrossPay - ssnitDeduction) * 0.15; // Simplified tax
+            // Accurate statutory deductions for simulation
+            const ssnitDeduction = calculateSSNIT(monthlyGrossPay, mockPayrollConfig);
+            const taxAmount = calculateGHRATax(monthlyGrossPay, ssnitDeduction, mockPayrollConfig);
             
             const totalRecurringDeductions = (staff.recurringDeductions || []).reduce((sum, ded) => sum + ded.amount, 0);
-
             const totalDeductions = ssnitDeduction + taxAmount + totalRecurringDeductions;
             const netPay = monthlyGrossPay - totalDeductions;
             
             totalGross += monthlyGrossPay;
             totalDeductionsAgg += totalDeductions;
             totalNet += netPay;
+            totalTaxesAgg += taxAmount;
             
+            const allDeductions: Record<string, number> = { 'SSNIT': ssnitDeduction };
+            (staff.recurringDeductions || []).forEach(d => { allDeductions[d.name] = d.amount });
+
+
             const record: PayrollRecord = {
                 recordId: `pr-${newRunId}-${staff.staffId}`,
                 staffId: staff.staffId,
@@ -104,8 +143,8 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
                 grossPay: monthlyGrossPay,
                 netPay: netPay,
                 taxAmount: taxAmount,
-                deductions: { 'SSNIT': ssnitDeduction, ...Object.fromEntries((staff.recurringDeductions || []).map(d => [d.name, d.amount])) },
-                allowances: Object.fromEntries((staff.recurringAllowances || []).map(a => [a.name, a.amount])),
+                deductions: allDeductions,
+                allowances: (staff.recurringAllowances || []).reduce((acc, alw) => ({ ...acc, [alw.name]: alw.amount }), {}),
                 payslipUrl: '/mock-payslip.pdf'
             };
             return record;
@@ -117,6 +156,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             totalGrossPay: totalGross,
             totalDeductions: totalDeductionsAgg,
             totalNetPay: totalNet,
+            totalTaxes: totalTaxesAgg,
             totalEmployees: activeStaff.length,
         };
 

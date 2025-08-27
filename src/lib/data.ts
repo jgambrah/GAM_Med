@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1131,6 +1131,7 @@ export const mockPayrollRuns: PayrollRun[] = [
         totalGrossPay: 85000,
         totalDeductions: 12000,
         totalNetPay: 73000,
+        totalTaxes: 10000,
         totalEmployees: 15,
         initiatedByUserId: 'admin1',
         createdAt: new Date('2024-08-25T10:00:00Z').toISOString(),
@@ -1144,9 +1145,24 @@ export const mockPayrollRuns: PayrollRun[] = [
         totalGrossPay: 84500,
         totalDeductions: 11800,
         totalNetPay: 72700,
+        totalTaxes: 9800,
         totalEmployees: 15,
         initiatedByUserId: 'admin1',
         createdAt: new Date('2024-07-25T10:00:00Z').toISOString(),
         completedAt: new Date('2024-07-28T00:00:00Z').toISOString(),
     }
 ];
+
+export const mockPayrollConfig: PayrollConfiguration = {
+    ssnitEmployeeContribution: 0.055,
+    ssnitCeiling: 42000, // GHS per annum
+    taxBands: [
+        { limit: 5880, rate: 0.0 },       // First 5,880
+        { limit: 7200, rate: 0.05 },      // Next 1,320
+        { limit: 8880, rate: 0.10 },      // Next 1,680
+        { limit: 44880, rate: 0.175 },    // Next 36,000
+        { limit: 244880, rate: 0.25 },   // Next 200,000
+        { limit: 644880, rate: 0.30 },   // Next 400,000
+        { limit: Infinity, rate: 0.35 }    // Above 644,880
+    ]
+};

@@ -292,12 +292,7 @@ export interface StaffProfile {
   annualSalary: number; // Base annual salary
   recurringAllowances: { name: string; amount: number }[];
   recurringDeductions: { name: string; amount: number }[];
-  bankDetails: {
-    bankName: string;
-    accountNumber: string;
-    branchName: string;
-  };
-  // Add other HR fields from your README as needed
+  bankDetails: { bankName: string; accountNumber: string; branchName: string }
 }
 
 /**
@@ -312,6 +307,7 @@ export interface PayrollRun {
   totalGrossPay: number;
   totalDeductions: number;
   totalNetPay: number;
+  totalTaxes: number;
   totalEmployees: number;
   initiatedByUserId: string;
   createdAt: string; // ISO Timestamp
@@ -333,6 +329,19 @@ export interface PayrollRecord {
   deductions: Record<string, number>; // e.g., { "SSNIT": 200, "Welfare": 50 }
   allowances: Record<string, number>; // e.g., { "Car Maintenance": 800 }
   payslipUrl: string; // Link to generated PDF in Storage
+}
+
+/**
+ * Represents the configuration for payroll calculations.
+ * In a real app, this would be fetched from a 'payroll_configurations' collection.
+ */
+export interface PayrollConfiguration {
+    ssnitEmployeeContribution: number;
+    ssnitCeiling: number;
+    taxBands: {
+        limit: number; // Annual limit for the band
+        rate: number;
+    }[];
 }
 
 
