@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PharmacyOrder } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1203,5 +1203,52 @@ export const mockDeductions: Deduction[] = [
     {
         id: 'WELFARE_DUES',
         name: 'Welfare Dues',
+    }
+];
+
+export const mockInventory: InventoryItem[] = [
+    {
+        itemId: 'AMX500',
+        name: 'Amoxicillin 500mg',
+        type: 'Medication',
+        unit: 'box',
+        totalQuantity: 50,
+        reorderLevel: 20,
+        expiryDate: new Date('2025-12-31T00:00:00Z').toISOString(),
+        supplierId: 'SUP-001',
+        location: 'Main Pharmacy, Shelf A'
+    },
+    {
+        itemId: 'PARA1G',
+        name: 'Paracetamol 1g',
+        type: 'Medication',
+        unit: 'box',
+        totalQuantity: 15, // Low Stock
+        reorderLevel: 25,
+        expiryDate: new Date('2026-06-30T00:00:00Z').toISOString(),
+        supplierId: 'SUP-001',
+        location: 'Main Pharmacy, Shelf B'
+    },
+    {
+        itemId: 'GAUZE',
+        name: 'Sterile Gauze',
+        type: 'Surgical Supply',
+        unit: 'case',
+        totalQuantity: 40,
+        reorderLevel: 50,
+        expiryDate: new Date('2024-09-10T00:00:00Z').toISOString(), // Expiring Soon
+        supplierId: 'SUP-002',
+        location: 'Storage Room B'
+    },
+    {
+        itemId: 'SYRINGE10',
+        name: 'Syringe 10ml',
+        type: 'Surgical Supply',
+        unit: 'box',
+        totalQuantity: 200,
+        reorderLevel: 100,
+        expiryDate: new Date('2024-07-31T00:00:00Z').toISOString(), // Expired
+        supplierId: 'SUP-002',
+        location: 'Storage Room A'
     }
 ];
