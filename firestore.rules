@@ -3,101 +3,38 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user's role from a 'users' collection
+  
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
+  
+    match /patients/{patientId} {
+      allow read: if request.auth != null;
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
     
-    // Secure the users collection
     match /users/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth.uid == userId || getUserRole() == 'admin';
     }
-
-    // Rules for patient data, including sub-collections
-    match /patients/{patientId} {
-      allow read: if request.auth.uid == resource.data.patient_id || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'];
-      allow write: if getUserRole() in ['admin', 'doctor', 'nurse']; // Or specific Cloud Functions
-
-      // Sub-collection rules inherit the parent's read access but can have stricter write access
-      match /admissions/{admissionId} {
-        allow read: if get(/databases/$(database)/documents/patients/$(patientId)).data.patient_id == request.auth.uid || getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-      // Allow clinical staff to write to these subcollections
-      match /{subcollection}/{docId} {
-         allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-       match /receipts/{receiptId} {
-          allow create: if false; // Only allow creation via Cloud Function
-          allow read: if getUserRole() in ['admin', 'billing_clerk'] || get(/databases/$(database)/documents/patients/$(patientId)).data.patient_id == request.auth.uid;
-       }
-    }
     
-    // Beds are readable by most staff, but only writable by certain roles or functions
-    match /beds/{bedId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow write: if getUserRole() in ['admin', 'nurse']; // Admins and nurses can manually update bed status
-    }
-
-    // Appointments can be read by involved parties or staff
     match /appointments/{appointmentId} {
-        allow read: if resource.data.patient_id == request.auth.uid || resource.data.doctor_id == request.auth.uid || getUserRole() in ['admin', 'receptionist'];
-        allow write: if getUserRole() in ['admin', 'receptionist']; // Or trusted Cloud Functions
+        allow read, create: if request.auth != null;
+        allow update, delete: if getUserRole() in ['admin', 'doctor'];
     }
 
-    // Referrals are managed by admins and doctors
-    match /referrals/{referralId} {
-        allow read: if getUserRole() in ['admin', 'doctor'];
-        allow write: if getUserRole() in ['admin', 'doctor']; // For assignment and status updates
-    }
-    
-    // Lab Results should be readable by patient and clinical staff
-    match /lab_results/{resultId} {
-        allow read: if resource.data.patientId == request.auth.uid || getUserRole() in ['admin', 'doctor', 'nurse', 'lab_technician'];
-        allow write: if getUserRole() in ['lab_technician']; // Only lab techs can fulfill
-    }
-    
-    // Prescriptions can be created by doctors and read by patient/pharmacist
-    match /prescriptions/{prescriptionId} {
-        allow read: if resource.data.patientId == request.auth.uid || getUserRole() in ['admin', 'doctor', 'pharmacist'];
-        allow create: if getUserRole() == 'doctor';
-        allow update: if getUserRole() == 'pharmacist'; // For status changes
-    }
-    
-    // Payment Gateways can only be managed by admins
-    match /payment_gateways/{gatewayId} {
-        allow read: if getUserRole() in ['admin', 'billing_clerk'];
-        allow write: if getUserRole() == 'admin';
+    match /inventory/{itemId} {
+      allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
+      allow update: if getUserRole() in ['admin', 'pharmacist'];
+      allow create, delete: if getUserRole() == 'admin';
     }
 
-    // Invoices and Payments have strict access control
-    match /invoices/{invoiceId} {
-       allow read: if getUserRole() in ['admin', 'billing_clerk'] || resource.data.patientId == request.auth.uid;
-       allow write: if getUserRole() in ['admin', 'billing_clerk']; // Or trusted Cloud Functions
+    match /pharmacy_orders/{orderId} {
+      allow read, create, update: if getUserRole() in ['admin', 'pharmacist'];
     }
-    
-    match /payments/{paymentId} {
-      // Creation is handled by the processPayment Cloud Function
-      allow create: if false; 
-      allow read: if getUserRole() in ['admin', 'billing_clerk'] || get(/databases/$(database)/documents/invoices/$(resource.data.invoiceId)).data.patientId == request.auth.uid;
-    }
-    
-    // Bills & Expenses (Accounts Payable)
-    match /bills/{billId} {
-        allow read, write: if getUserRole() in ['admin', 'billing_clerk'];
-        
-        match /bill_payments/{paymentId} {
-           allow read, write: if getUserRole() in ['admin', 'billing_clerk'];
-        }
-    }
-    
-    match /expenses/{expenseId} {
-       allow read, write: if getUserRole() in ['admin', 'billing_clerk'];
-    }
-
   }
 }
