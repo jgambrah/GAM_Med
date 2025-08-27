@@ -388,6 +388,14 @@ export async function submitStaffClaim(values: z.infer<typeof NewStaffClaimSchem
     console.log('Submitting new staff claim:', values);
     // In a real app, this would create a new StaffExpenseClaim document with 'Pending HOD' status
     // and trigger a notification to the user's HOD.
+    if (values.attachment) {
+        // Concept: Handle file upload to Firebase Storage here.
+        // const storageRef = ref(storage, `claims/${values.attachment.name}`);
+        // await uploadBytes(storageRef, values.attachment);
+        // const downloadURL = await getDownloadURL(storageRef);
+        // Save downloadURL with the claim data.
+        console.log('Attachment received:', values.attachment.name);
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000));
     
     revalidatePath('/dashboard/my-claims');

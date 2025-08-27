@@ -49,10 +49,11 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   });
 
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
+    // In a real app, you would handle file upload here before calling the action.
+    // For example, upload to Firebase Storage and get a URL.
     const result = await submitStaffClaim(values);
     if (result.success) {
-      toast({
-        title: 'Claim Submitted',
+      toast.success('Claim Submitted', {
         description: 'Your expense claim has been submitted for HOD approval.',
       });
       onClaimSubmitted();
@@ -112,7 +113,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 <FormItem>
                   <FormLabel>Amount (₵)</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} />
+                    <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -131,13 +132,22 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 </FormItem>
               )}
             />
-            <FormItem>
-              <FormLabel>Attach Receipt (Optional)</FormLabel>
-              <FormControl>
-                <Input type="file" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <FormField
+              control={form.control}
+              name="attachment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Attach Receipt</FormLabel>
+                   <FormControl>
+                      <Input 
+                          type="file" 
+                          onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                      />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

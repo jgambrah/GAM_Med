@@ -39,6 +39,7 @@ import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Paperclip } from 'lucide-react';
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -331,7 +332,6 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
                     <TableRow>
                         <TableHead>Bill ID</TableHead>
                         <TableHead>Supplier</TableHead>
-                        <TableHead>Issue Date</TableHead>
                         <TableHead>Due Date</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
@@ -345,13 +345,19 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
                             <TableCell>
                                 {mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}
                             </TableCell>
-                            <TableCell>{format(new Date(bill.issueDate), 'PPP')}</TableCell>
                             <TableCell>{format(new Date(bill.dueDate), 'PPP')}</TableCell>
                             <TableCell>₵{bill.totalAmount.toFixed(2)}</TableCell>
                             <TableCell>
                                 <Badge variant={getBillStatusVariant(bill.status)}>{bill.status}</Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="space-x-2">
+                                {bill.attachmentUrl && (
+                                    <Button asChild variant="outline" size="icon">
+                                        <a href={bill.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                            <Paperclip className="h-4 w-4" />
+                                        </a>
+                                    </Button>
+                                )}
                                 <PayBillDialog bill={bill} onPaymentLogged={onPaymentLogged} />
                             </TableCell>
                         </TableRow>
@@ -371,9 +377,8 @@ function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
                 <TableHeader>
                     <TableRow>
                         <TableHead>Staff Name</TableHead>
-                        <TableHead>Claim Type</TableHead>
-                        <TableHead>Description</TableHead>
                         <TableHead>Submission Date</TableHead>
+                        <TableHead>Description</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Actions</TableHead>
                     </TableRow>
@@ -383,11 +388,17 @@ function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
                         unpaidClaims.map((claim) => (
                             <TableRow key={claim.claimId}>
                                 <TableCell className="font-medium">{claim.staffName}</TableCell>
-                                <TableCell>{claim.claimType}</TableCell>
-                                <TableCell>{claim.description}</TableCell>
                                 <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
+                                <TableCell>{claim.description}</TableCell>
                                 <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
-                                <TableCell>
+                                <TableCell className="space-x-2">
+                                    {claim.attachmentUrl && (
+                                        <Button asChild variant="outline" size="icon">
+                                            <a href={claim.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                                <Paperclip className="h-4 w-4" />
+                                            </a>
+                                        </Button>
+                                    )}
                                     <PayClaimDialog claim={claim} onPaymentLogged={onPaymentLogged} />
                                 </TableCell>
                             </TableRow>

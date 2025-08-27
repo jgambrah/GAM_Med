@@ -928,7 +928,8 @@ export const mockBills: Bill[] = [
         billedItems: [
             { description: 'Amlodipine 5mg (x1000)', quantity: 10, unitPrice: 500, total: 5000 },
             { description: 'Atorvastatin 20mg (x1000)', quantity: 10, unitPrice: 1020.05, total: 10200.50 }
-        ]
+        ],
+        attachmentUrl: '/mock-invoice.pdf'
     },
     {
         billId: 'BILL-002',
@@ -992,7 +993,8 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         submissionDate: new Date('2024-08-10T00:00:00Z').toISOString(),
         approvalStatus: 'Approved',
         hodApprovalDate: new Date('2024-08-11T00:00:00Z').toISOString(),
-        paymentStatus: 'Unpaid'
+        paymentStatus: 'Unpaid',
+        attachmentUrl: '/mock-receipt.pdf'
     },
     {
         claimId: 'SEC-002',
@@ -1018,7 +1020,8 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         description: 'Office supplies purchase',
         submissionDate: new Date('2024-08-14T00:00:00Z').toISOString(),
         approvalStatus: 'Pending HOD',
-        paymentStatus: 'Unpaid'
+        paymentStatus: 'Unpaid',
+        attachmentUrl: '/mock-receipt.pdf'
     }
 ];
 

@@ -256,4 +256,5 @@ export const NewStaffClaimSchema = z.object({
   claimType: z.enum(['Travel', 'Per Diem', 'Medical Refund', 'Other']),
   amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than zero.' }),
   description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
+  attachment: z.any().optional(),
 });

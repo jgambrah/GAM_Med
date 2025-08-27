@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -223,6 +224,7 @@ export interface Bill {
   status: 'Pending' | 'Paid' | 'Partially Paid' | 'Overdue';
   billedItems: BillLineItem[];
   withholdingTaxRate?: number; // Optional field for WHT rate
+  attachmentUrl?: string; // URL to the scanned invoice PDF
 }
 
 /**
@@ -252,6 +254,7 @@ export interface StaffExpenseClaim {
   hodApprovalDate?: string; // ISO Timestamp
   paymentStatus: 'Unpaid' | 'Paid';
   paidDate?: string; // ISO Timestamp
+  attachmentUrl?: string; // URL to the receipt/document
 }
 
 /**
