@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
-import { PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration } from '@/lib/types';
-import { mockStaffProfiles, mockPayrollConfig } from '@/lib/data';
+import { PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Position } from '@/lib/types';
+import { mockStaffProfiles, mockPayrollConfig, mockPositions } from '@/lib/data';
 
 const StartPayrollRunSchema = z.object({
   payPeriod: z.string().min(1, { message: 'Pay period is required.' }),
@@ -41,7 +41,7 @@ interface StartPayrollRunDialogProps {
 // Helper functions for Ghanaian payroll calculations, adapted for client-side simulation.
 const calculateSSNIT = (monthlyGross: number, config: PayrollConfiguration): number => {
     const employeeContributionRate = config.ssnitEmployeeContribution;
-    const ssnitCeiling = config.ssnitCeiling;
+    const ssnitCeiling = config.ssnitCeiling / 12; // Use monthly ceiling
     const pensionableIncome = Math.min(monthlyGross, ssnitCeiling);
     return pensionableIncome * employeeContributionRate;
 };
@@ -115,7 +115,8 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         let totalTaxesAgg = 0;
         
         const calculatedRecords: PayrollRecord[] = activeStaff.map(staff => {
-            const baseSalary = staff.annualSalary / 12;
+            const position = mockPositions.find(p => p.positionId === staff.positionId);
+            const baseSalary = (position?.baseAnnualSalary || 0) / 12;
             const totalAllowances = (staff.recurringAllowances || []).reduce((sum, alw) => sum + alw.amount, 0);
             const monthlyGrossPay = baseSalary + totalAllowances;
 

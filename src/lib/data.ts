@@ -941,7 +941,8 @@ export const mockBills: Bill[] = [
         status: 'Pending',
         billedItems: [
             { description: 'Sterile Gauze (Case)', quantity: 50, unitPrice: 150, total: 7500 }
-        ]
+        ],
+        attachmentUrl: '/mock-invoice.pdf'
     },
     {
         billId: 'BILL-003',

@@ -315,7 +315,7 @@ export interface StaffProfile {
   gender: 'Male' | 'Female' | 'Other';
   dateOfBirth: string; // ISO Timestamp
   employmentStatus: 'Active' | 'On Leave' | 'Terminated';
-  positionId?: string; // Link to the 'positions' collection
+  positionId: string; // Link to the 'positions' collection
   recurringAllowances: { name: string; amount: number }[];
   recurringDeductions: { name: string; amount: number }[];
   bankDetails: { bankName: string; accountNumber: string; branchName: string }
