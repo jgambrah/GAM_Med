@@ -32,9 +32,7 @@ export function LeaveApprovalDashboard() {
   };
   
   const handleReject = async (requestId: string) => {
-     toast.error('Leave Rejected', {
-        description: `Leave request ${requestId} has been rejected.`,
-    });
+     toast.error(`Leave request ${requestId} has been rejected.`);
     // Here you would call a server action to update the leave request status.
   };
 

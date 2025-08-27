@@ -60,9 +60,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
       setOpen(false);
       form.reset();
     } else {
-      toast.error('Submission Failed', {
-        description: result.message || 'An unexpected error occurred.',
-      });
+      toast.error(result.message || 'An unexpected error occurred.');
     }
   };
 

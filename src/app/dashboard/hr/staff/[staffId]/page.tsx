@@ -203,7 +203,7 @@ export default function StaffProfilePage() {
        const newAllowances = prev.recurringAllowances.filter(a => a.name !== allowanceName);
        return { ...prev, recurringAllowances: newAllowances };
     });
-    toast.error('Allowance Removed', { description: `${allowanceName} has been removed.` });
+    toast.error(`Allowance "${allowanceName}" has been removed.`);
   };
   
   const handleAddDeduction = (name: string, amount: number) => {
@@ -220,7 +220,7 @@ export default function StaffProfilePage() {
        const newDeductions = prev.recurringDeductions.filter(a => a.name !== deductionName);
        return { ...prev, recurringDeductions: newDeductions };
     });
-    toast.error('Deduction Removed', { description: `${deductionName} has been removed.` });
+    toast.error(`Deduction "${deductionName}" has been removed.`);
   };
 
   return (

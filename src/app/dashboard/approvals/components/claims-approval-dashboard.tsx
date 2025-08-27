@@ -33,9 +33,7 @@ export function ClaimsApprovalDashboard() {
         });
         // Here you would re-fetch the data to update the UI
     } else {
-        toast.error('Approval Failed', {
-            description: result.message || 'An unexpected error occurred.',
-        });
+        toast.error(result.message || 'An unexpected error occurred.');
     }
   };
   
@@ -46,9 +44,7 @@ export function ClaimsApprovalDashboard() {
             description: `Claim ${claimId} has been rejected and the staff member notified.`,
         });
     } else {
-        toast.error('Rejection Failed', {
-            description: result.message || 'An unexpected error occurred.',
-        });
+        toast.error(result.message || 'An unexpected error occurred.');
     }
   };
 
