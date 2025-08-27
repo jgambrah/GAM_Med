@@ -72,7 +72,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
     }));
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <Dialog open={isOpen} onOpenChange={(open) => onOpenChange(open, false)}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Post Transaction to Ledger</DialogTitle>
