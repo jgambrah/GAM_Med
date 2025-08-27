@@ -3212,3 +3212,145 @@ exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
+// =======================================================================================
+// == PHARMACY & INVENTORY MANAGEMENT FUNCTIONS
+// =======================================================================================
+
+// =======================================================================================
+// 51. Check Inventory Level (Scheduled Cloud Function)
+// =======================================================================================
+/**
+ * Runs daily to check for low-stock items and alert the pharmacy manager.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 09:00'
+ */
+/*
+exports.checkInventoryLevel = functions.region('europe-west1').pubsub
+    .schedule('every day 09:00')
+    .onRun(async (context) => {
+        // 1. Query for all items where quantity is below the reorder level.
+        const lowStockQuery = db.collection('inventory').where('totalQuantity', '<=', admin.firestore.FieldPath.document('reorderLevel'));
+        const lowStockSnapshot = await lowStockQuery.get();
+
+        if (lowStockSnapshot.empty) {
+            console.log('No low-stock items found.');
+            return null;
+        }
+
+        // 2. Aggregate low-stock items for a summary notification.
+        const lowStockItems = lowStockSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { name: data.name, quantity: data.totalQuantity, reorderLevel: data.reorderLevel };
+        });
+
+        // 3. Send a single, consolidated notification to the pharmacy manager role.
+        const message = `Low stock alert: ${lowStockItems.length} items need reordering. Items: ${lowStockItems.map(item => item.name).join(', ')}`;
+        // await sendNotificationToRole('pharmacist', { subject: 'Low Stock Alert', body: message });
+        
+        console.log(message);
+        return null;
+    });
+*/
+
+// =======================================================================================
+// 52. Dispense Medication (Callable Cloud Function)
+// =======================================================================================
+/**
+ * Atomically decrements stock for a dispensed medication and creates an audit log.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { itemId: string, quantity: number, patientId: string, dispensedByUserId: string }
+ */
+/*
+exports.dispenseMedication = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth || context.auth.uid !== data.dispensedByUserId) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check for 'pharmacist'
+
+    const { itemId, quantity, patientId, dispensedByUserId } = data;
+    if (!itemId || !quantity || quantity <= 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Item ID and a positive quantity are required.');
+    }
+
+    const itemRef = db.collection('inventory').doc(itemId);
+    const logRef = itemRef.collection('dispensing_logs').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const itemDoc = await transaction.get(itemRef);
+            if (!itemDoc.exists) throw new Error('Inventory item not found.');
+            
+            const itemData = itemDoc.data();
+            // 2. Check for sufficient stock
+            if (itemData.totalQuantity < quantity) {
+                throw new Error(`Insufficient stock for ${itemData.name}. Available: ${itemData.totalQuantity}`);
+            }
+            // 3. Check for expiry date
+            if (itemData.expiryDate && itemData.expiryDate.toDate() < new Date()) {
+                throw new Error(`Item ${itemData.name} has expired.`);
+            }
+
+            // 4. Decrement inventory quantity
+            const newQuantity = itemData.totalQuantity - quantity;
+            transaction.update(itemRef, { totalQuantity: newQuantity });
+            
+            // 5. Create dispensing log for audit purposes
+            transaction.set(logRef, {
+                quantityDispensed: quantity,
+                patientId,
+                dispensedByUserId,
+                dispensedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+        });
+
+        console.log(`Dispensed ${quantity} of item ${itemId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error(`Failed to dispense item ${itemId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not dispense medication.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 53. Generate Purchase Order (Callable Cloud Function)
+// =======================================================================================
+/**
+ * Creates a new purchase order for the pharmacy.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { supplierId: string, items: { itemId: string, quantity: number, unit_cost: number }[] }
+ */
+/*
+exports.generatePurchaseOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check for 'pharmacist' or 'procurement_officer'
+
+    const { supplierId, items } = data;
+    if (!supplierId || !items || items.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Supplier ID and at least one item are required.');
+    }
+
+    const newOrderRef = db.collection('pharmacy_orders').doc();
+
+    const orderData = {
+        orderId: newOrderRef.id,
+        dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'Submitted',
+        orderedByUserId: context.auth.uid,
+        supplierId,
+        orderedItems: items
+    };
+
+    await newOrderRef.set(orderData);
+
+    console.log(`Purchase order ${newOrderRef.id} created for supplier ${supplierId}.`);
+    return { success: true, orderId: newOrderRef.id };
+});
+*/
