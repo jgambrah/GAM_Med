@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1050,6 +1050,52 @@ export const mockLeaveRequests: LeaveRequest[] = [
         requestedAt: new Date('2024-08-16T00:00:00Z').toISOString(),
     }
 ];
+
+export const mockStaffProfiles: StaffProfile[] = [
+    {
+        staffId: 'doc1',
+        userId: 'doc1',
+        employeeId: 'GAMMED/HR/001',
+        firstName: 'Evelyn',
+        lastName: 'Mensah',
+        gender: 'Female',
+        dateOfBirth: '1980-01-01',
+        employmentStatus: 'Active',
+        annualSalary: 120000,
+        recurringAllowances: [{ name: 'Book & Research', amount: 500 }],
+        recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
+        bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' }
+    },
+    {
+        staffId: 'doc2',
+        userId: 'doc2',
+        employeeId: 'GAMMED/HR/002',
+        firstName: 'Kofi',
+        lastName: 'Asante',
+        gender: 'Male',
+        dateOfBirth: '1982-02-02',
+        employmentStatus: 'Active',
+        annualSalary: 110000,
+        recurringAllowances: [{ name: 'Car Maintenance', amount: 300 }],
+        recurringDeductions: [{ name: 'Staff Loan', amount: 1000 }, { name: 'Welfare Dues', amount: 50 }],
+        bankDetails: { bankName: 'GCB Bank', accountNumber: '987654321', branchName: 'Accra Central' }
+    },
+    {
+        staffId: 'nurse1',
+        userId: 'nurse1',
+        employeeId: 'GAMMED/HR/003',
+        firstName: 'Florence',
+        lastName: 'Agyepong',
+        gender: 'Female',
+        dateOfBirth: '1990-03-03',
+        employmentStatus: 'Active',
+        annualSalary: 60000,
+        recurringAllowances: [],
+        recurringDeductions: [{ name: 'Welfare Dues', amount: 30 }],
+        bankDetails: { bankName: 'Absa Bank', accountNumber: '555444333', branchName: 'Spintex' }
+    }
+];
+
 
 export const mockPayrollRecords: PayrollRecord[] = [
     {

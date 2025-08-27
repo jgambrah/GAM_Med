@@ -29,7 +29,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { mockPayrollRuns, mockPayrollRecords } from '@/lib/data';
+import { mockPayrollRuns } from '@/lib/data';
 import { PayrollRun, PayrollRecord } from '@/lib/types';
 import { format } from 'date-fns';
 import { Download, WalletCards } from 'lucide-react';
@@ -46,9 +46,8 @@ function getStatusVariant(status: PayrollRun['status']): "default" | "secondary"
   }
 }
 
-function PayrollDetailsDialog({ run }: { run: PayrollRun }) {
+function PayrollDetailsDialog({ run, records }: { run: PayrollRun, records: PayrollRecord[] }) {
   const [open, setOpen] = React.useState(false);
-  const records = mockPayrollRecords; // In a real app, you'd fetch records for this specific runId
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -121,15 +120,31 @@ function PayrollDetailsDialog({ run }: { run: PayrollRun }) {
 
 export default function PayrollPage() {
     const { toast } = useToast();
-    const [runs, setRuns] = React.useState(mockPayrollRuns);
+    const [runs, setRuns] = React.useState<PayrollRun[]>(mockPayrollRuns);
+    const [runRecords, setRunRecords] = React.useState<Record<string, PayrollRecord[]>>({});
 
-    const handlePayrollStarted = (newRun: PayrollRun) => {
-        setRuns(prev => [newRun, ...prev]);
-        toast({
-            title: "Payroll Run Started",
-            description: `Payroll for ${newRun.payPeriod} is now processing.`
-        })
-    }
+    const handlePayrollStarted = (newRun: PayrollRun, newRecords: PayrollRecord[]) => {
+      setRuns(prev => {
+          const existingRunIndex = prev.findIndex(r => r.runId === newRun.runId);
+          if (existingRunIndex > -1) {
+              const updatedRuns = [...prev];
+              updatedRuns[existingRunIndex] = newRun;
+              return updatedRuns;
+          }
+          return [newRun, ...prev];
+      });
+
+      if (newRun.status === 'Review') {
+        setRunRecords(prev => ({ ...prev, [newRun.runId]: newRecords }));
+         toast.success('Payroll Run Processed', {
+            description: `Payroll for ${newRun.payPeriod} is ready for your review.`
+        });
+      } else {
+         toast.info('Payroll Run Started', {
+            description: `Payroll for ${newRun.payPeriod} is now processing...`
+        });
+      }
+    };
     
     const handleFinalize = (runId: string) => {
         setRuns(prev => prev.map(run => 
@@ -180,7 +195,9 @@ export default function PayrollPage() {
                     <TableCell>{run.totalEmployees}</TableCell>
                     <TableCell>{format(new Date(run.createdAt), 'PPP')}</TableCell>
                     <TableCell className="text-right space-x-2">
-                        <PayrollDetailsDialog run={run} />
+                        {run.status !== 'Processing' && (
+                            <PayrollDetailsDialog run={run} records={runRecords[run.runId] || []} />
+                        )}
                         {run.status === 'Review' && (
                              <Button size="sm" onClick={() => handleFinalize(run.runId)}>
                                 <WalletCards className="h-4 w-4 mr-2" />

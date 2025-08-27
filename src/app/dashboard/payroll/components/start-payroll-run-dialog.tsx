@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
-import { PayrollRun } from '@/lib/types';
-import { allPatients } from '@/lib/data';
+import { PayrollRun, PayrollRecord } from '@/lib/types';
+import { mockStaffProfiles } from '@/lib/data';
 
 const StartPayrollRunSchema = z.object({
   payPeriod: z.string().min(1, { message: 'Pay period is required.' }),
@@ -35,7 +35,7 @@ const StartPayrollRunSchema = z.object({
 });
 
 interface StartPayrollRunDialogProps {
-    onPayrollStarted: (newRun: PayrollRun) => void;
+    onPayrollStarted: (newRun: PayrollRun, newRecords: PayrollRecord[]) => void;
 }
 
 export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialogProps) {
@@ -50,13 +50,16 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
   });
 
   const onSubmit = async (values: z.infer<typeof StartPayrollRunSchema>) => {
-    // In a real app, this would call a Cloud Function `startPayrollRun`.
-    // The function would create the PayrollRun document and start the background processing.
+    // This is where the `startPayrollRun` Cloud Function would be called.
+    // It would then trigger the `processStaffPayroll` background function.
+    // For this prototype, we'll simulate the entire calculation process here.
+
+    const newRunId = `PAY-${Date.now()}`;
     const newRun: PayrollRun = {
-        runId: `PAY-${Date.now()}`,
+        runId: newRunId,
         payPeriod: values.payPeriod,
         payDate: values.payDate,
-        status: 'Processing', // Simulates the background process starting
+        status: 'Processing',
         totalGrossPay: 0,
         totalDeductions: 0,
         totalNetPay: 0,
@@ -64,22 +67,64 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         initiatedByUserId: 'admin1',
         createdAt: new Date().toISOString(),
     };
-    
-    // Simulate background processing delay then move to 'Review'
+
+    // Simulate starting the process
+    onPayrollStarted(newRun, []);
+
+    // Simulate background processing delay
     setTimeout(() => {
-        // Here, a Cloud Function would update the run document with calculated totals
-        // and set the status to 'Review'.
-        // For now, we just update the local state.
-        const finishedRun = {
+        // --- This block simulates the `processStaffPayroll` background function ---
+        const activeStaff = mockStaffProfiles.filter(s => s.employmentStatus === 'Active');
+        let totalGross = 0;
+        let totalDeductionsAgg = 0;
+        let totalNet = 0;
+        
+        const calculatedRecords: PayrollRecord[] = activeStaff.map(staff => {
+            const baseSalary = staff.annualSalary / 12;
+            const totalAllowances = (staff.recurringAllowances || []).reduce((sum, alw) => sum + alw.amount, 0);
+            const monthlyGrossPay = baseSalary + totalAllowances;
+
+            // Simplified statutory deductions for simulation
+            const ssnitDeduction = monthlyGrossPay * 0.055;
+            const taxAmount = (monthlyGrossPay - ssnitDeduction) * 0.15; // Simplified tax
+            
+            const totalRecurringDeductions = (staff.recurringDeductions || []).reduce((sum, ded) => sum + ded.amount, 0);
+
+            const totalDeductions = ssnitDeduction + taxAmount + totalRecurringDeductions;
+            const netPay = monthlyGrossPay - totalDeductions;
+            
+            totalGross += monthlyGrossPay;
+            totalDeductionsAgg += totalDeductions;
+            totalNet += netPay;
+            
+            const record: PayrollRecord = {
+                recordId: `pr-${newRunId}-${staff.staffId}`,
+                staffId: staff.staffId,
+                staffName: `${staff.firstName} ${staff.lastName}`,
+                grossPay: monthlyGrossPay,
+                netPay: netPay,
+                taxAmount: taxAmount,
+                deductions: { 'SSNIT': ssnitDeduction, ...Object.fromEntries((staff.recurringDeductions || []).map(d => [d.name, d.amount])) },
+                allowances: Object.fromEntries((staff.recurringAllowances || []).map(a => [a.name, a.amount])),
+                payslipUrl: '/mock-payslip.pdf'
+            };
+            return record;
+        });
+
+        const finishedRun: PayrollRun = {
             ...newRun,
-            status: 'Review',
-            totalGrossPay: 85000,
-            totalNetPay: 73000,
-            totalDeductions: 12000,
-            totalEmployees: 15, // Example number
-        }
-        onPayrollStarted(finishedRun);
-    }, 5000); // 5-second delay to simulate processing
+            status: 'Review', // Move to 'Review' state after processing
+            totalGrossPay: totalGross,
+            totalDeductions: totalDeductionsAgg,
+            totalNetPay: totalNet,
+            totalEmployees: activeStaff.length,
+        };
+
+        // Pass the calculated run and records back to the parent page
+        onPayrollStarted(finishedRun, calculatedRecords);
+        // --- End of simulation ---
+
+    }, 3000); // 3-second delay
 
     setOpen(false);
     form.reset();

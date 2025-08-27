@@ -277,6 +277,30 @@ export interface LeaveRequest {
 // =========================================================================
 
 /**
+ * Represents a comprehensive HR record for a staff member.
+ * This is the central source of truth for all HR and payroll calculations.
+ */
+export interface StaffProfile {
+  staffId: string; // Document ID, should match user ID
+  userId: string; // Link to the 'users' collection (Firebase Auth UID)
+  employeeId: string; // e.g., "GAMMED/HR/001"
+  firstName: string;
+  lastName: string;
+  gender: 'Male' | 'Female' | 'Other';
+  dateOfBirth: string; // ISO Timestamp
+  employmentStatus: 'Active' | 'On Leave' | 'Terminated';
+  annualSalary: number; // Base annual salary
+  recurringAllowances: { name: string; amount: number }[];
+  recurringDeductions: { name: string; amount: number }[];
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    branchName: string;
+  };
+  // Add other HR fields from your README as needed
+}
+
+/**
  * Represents a single, finalized payroll run for a specific period.
  * Path: /payroll_runs/{runId}
  */
