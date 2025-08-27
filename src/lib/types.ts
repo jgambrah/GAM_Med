@@ -1,9 +1,53 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
  * This ensures consistency between the frontend components and the backend database.
  */
+
+// =========================================================================
+// == Pharmacy & Inventory Management Data Models
+// =========================================================================
+
+/**
+ * Represents a single item in the master inventory catalog.
+ * Path: /inventory/{itemId}
+ */
+export interface InventoryItem {
+  itemId: string; // Document ID
+  name: string; // e.g., 'Amoxicillin 500mg'
+  type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General';
+  unit: string; // e.g., 'tablet', 'vial', 'box'
+  totalQuantity: number;
+  reorderLevel: number; // The threshold that triggers a reorder alert
+  expiryDate: string; // ISO Timestamp
+  supplierId: string; // Reference to suppliers collection
+  location: string; // e.g., 'Main Pharmacy', 'Storage Room B'
+}
+
+/**
+ * Represents a single line item within a pharmacy order.
+ */
+export interface PharmacyOrderItem {
+  itemId: string;
+  quantity: number;
+  unit_cost: number;
+}
+
+/**
+ * Represents a purchase order for medications and supplies.
+ * Path: /pharmacy_orders/{orderId}
+ */
+export interface PharmacyOrder {
+  orderId: string; // Document ID
+  dateOrdered: string; // ISO Timestamp
+  status: 'Draft' | 'Submitted' | 'Received';
+  orderedByUserId: string; // Reference to users
+  supplierId: string; // Reference to suppliers
+  orderedItems: PharmacyOrderItem[];
+}
+
 
 // =========================================================================
 // == Accounting & Ledger Data Models
