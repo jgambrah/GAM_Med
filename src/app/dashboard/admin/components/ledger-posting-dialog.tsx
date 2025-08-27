@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { NewLedgerEntrySchema } from '@/lib/schemas';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { postToLedger } from '@/lib/actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockLedgerAccounts } from '@/lib/data';
@@ -32,8 +32,6 @@ interface LedgerPostingDialogProps {
 }
 
 export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description, defaultDebit = '1010', defaultCredit = '4000' }: LedgerPostingDialogProps) {
-    const { toast } = useToast();
-
     const form = useForm<z.infer<typeof NewLedgerEntrySchema>>({
         resolver: zodResolver(NewLedgerEntrySchema),
         defaultValues: {
@@ -59,8 +57,7 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const result = await postToLedger(values);
         if (result.success) {
-            toast({
-                title: 'Transaction Posted',
+            toast.success('Transaction Posted', {
                 description: 'The transaction has been successfully posted to the ledger.',
             });
             onOpenChange(false, true);
