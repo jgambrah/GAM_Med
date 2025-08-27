@@ -61,8 +61,20 @@ interface PayrollDetailsDialogProps {
 
 function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: PayrollDetailsDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [postingRemittanceInfo, setPostingRemittanceInfo] = React.useState<{ name: string; amount: number } | null>(null);
+
+  const handlePostRemittance = (name: string, amount: number) => {
+    setPostingRemittanceInfo({ name, amount });
+  };
+
+  const handleRemittanceDialogClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setPostingRemittanceInfo(null);
+    }
+  }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">View Details</Button>
@@ -157,7 +169,7 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
                                             <TableCell className="font-medium">{name}</TableCell>
                                             <TableCell className="text-right font-mono">{amount.toFixed(2)}</TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="outline" size="sm">Log Payment</Button>
+                                                <Button variant="outline" size="sm" onClick={() => handlePostRemittance(name, amount)}>Log Payment</Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -189,6 +201,17 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
         </DialogFooter>
       </DialogContent>
     </Dialog>
+     {postingRemittanceInfo && (
+        <LedgerPostingDialog 
+            isOpen={!!postingRemittanceInfo}
+            onOpenChange={handleRemittanceDialogClose}
+            amount={postingRemittanceInfo.amount}
+            description={`Remittance for ${postingRemittanceInfo.name} - ${run.payPeriod}`}
+            defaultDebit="2010" // Accounts Payable
+            defaultCredit="1010" // Cash and Bank
+        />
+    )}
+    </>
   );
 }
 
@@ -210,11 +233,11 @@ function PayrollRunsDashboard() {
 
       if (newRun.status === 'Review') {
         setRunRecords(prev => ({ ...prev, [newRun.runId]: newRecords }));
-         toast.success("Payroll Run Processed", {
+        toast("Payroll Run Processed", {
             description: `Payroll for ${newRun.payPeriod} is ready for your review.`
         });
       } else {
-         toast.info("Payroll Run Started", {
+        toast("Payroll Run Started", {
             description: `Payroll for ${newRun.payPeriod} is now processing...`
         });
       }
@@ -224,7 +247,7 @@ function PayrollRunsDashboard() {
         setRuns(prev => prev.map(run => 
             run.runId === runId ? { ...run, status: 'Completed' } : run
         ));
-         toast.success("Payroll Finalized", {
+        toast("Payroll Finalized", {
             description: `Payroll run ${runId} has been finalized. You can now post it to the ledger.`
         });
     };
