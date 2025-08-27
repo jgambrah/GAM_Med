@@ -36,13 +36,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LedgerAccountSchema } from '@/lib/schemas';
 import { z } from 'zod';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { LedgerAccount } from '@/lib/types';
 import { mockLedgerAccounts } from '@/lib/data';
 
 function CreateLedgerAccountDialog() {
     const [open, setOpen] = React.useState(false);
-    const { toast } = useToast();
     const [accounts, setAccounts] = React.useState<LedgerAccount[]>(mockLedgerAccounts);
 
     const form = useForm<z.infer<typeof LedgerAccountSchema>>({
@@ -75,8 +74,7 @@ function CreateLedgerAccountDialog() {
 
         setAccounts(prev => [...prev, newAccount]);
 
-        toast({
-            title: 'Ledger Account Created',
+        toast.success('Ledger Account Created', {
             description: `Account "${values.accountName}" has been created.`,
         });
         setOpen(false);

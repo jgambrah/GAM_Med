@@ -27,7 +27,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { LogPaymentSchema } from '@/lib/schemas';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { logPayment } from '@/lib/actions';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
 
@@ -200,7 +200,6 @@ function ClaimsTrackingTab() {
 }
 
 function PaymentReconciliationTab() {
-    const { toast } = useToast();
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
     const form = useForm<z.infer<typeof LogPaymentSchema>>({
         resolver: zodResolver(LogPaymentSchema),
@@ -232,8 +231,7 @@ function PaymentReconciliationTab() {
     const onSubmit = async (values: z.infer<typeof LogPaymentSchema>) => {
         const result = await logPayment(values);
         if (result.success) {
-            toast({
-                title: 'Payment Logged',
+            toast.success('Payment Logged', {
                 description: `Payment of ₵${values.amount} for invoice ${values.invoiceId} has been logged.`
             });
             form.reset();

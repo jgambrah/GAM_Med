@@ -15,17 +15,15 @@ import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { mockLeaveRequests } from '@/lib/data';
 import { Check, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 export function LeaveApprovalDashboard() {
   const { user } = useAuth();
-  const { toast } = useToast();
   // In a real app, this would be a Firestore query for leave requests where `hodId === user.uid` and status is 'Pending'
   const pendingRequests = mockLeaveRequests.filter(c => c.hodId === user?.uid && c.status === 'Pending');
 
   const handleApprove = async (requestId: string) => {
-    toast({
-        title: 'Leave Approved',
+    toast.success('Leave Approved', {
         description: `Leave request ${requestId} has been approved.`,
     });
     // Here you would call a server action to update the leave request status.

@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { mockPayrollConfig } from '@/lib/data';
 import { PayrollConfiguration } from '@/lib/types';
 import { Save } from 'lucide-react';
 
 export function PayrollConfigurationDashboard() {
-  const { toast } = useToast();
   const [config, setConfig] = React.useState<PayrollConfiguration>(mockPayrollConfig);
 
   const handleStatutoryChange = (field: keyof PayrollConfiguration, value: string) => {

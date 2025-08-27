@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { NewStaffClaimSchema } from '@/lib/schemas';
 import { submitStaffClaim } from '@/lib/actions';
 
@@ -37,7 +37,6 @@ interface AddClaimDialogProps {
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
     resolver: zodResolver(NewStaffClaimSchema),

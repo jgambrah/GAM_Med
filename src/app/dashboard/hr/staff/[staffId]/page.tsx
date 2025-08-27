@@ -25,7 +25,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 
@@ -36,7 +36,6 @@ const ItemSchema = z.object({
 
 function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProfile, itemType: 'Allowance' | 'Deduction', onAdded: (name: string, amount: number) => void }) {
   const [open, setOpen] = React.useState(false);
-  const { toast } = useToast();
   
   const form = useForm<z.infer<typeof ItemSchema>>({
     resolver: zodResolver(ItemSchema),
@@ -177,7 +176,6 @@ export default function StaffProfilePage() {
   const router = useRouter();
   const params = useParams();
   const staffId = params.staffId as string;
-  const { toast } = useToast();
 
   const [staff, setStaff] = React.useState<StaffProfile | undefined>(
     mockStaffProfiles.find((p) => p.staffId === staffId)

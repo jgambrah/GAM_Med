@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { mockDeductions } from '@/lib/data';
 import { Deduction } from '@/lib/types';
 import { Plus, CheckCircle, XCircle } from 'lucide-react';
@@ -29,7 +29,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 function CreateDeductionDialog({ onDeductionCreated }: { onDeductionCreated: (newDeduction: Deduction) => void }) {
-  const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
 

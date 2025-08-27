@@ -24,7 +24,7 @@ import { Invoice, InvoiceLineItem } from '@/lib/types';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Send } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface InvoiceDetailDialogProps {
   invoice: Invoice;
@@ -42,21 +42,18 @@ const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | 
 }
 
 export function InvoiceDetailDialog({ invoice, isOpen, onOpenChange }: InvoiceDetailDialogProps) {
-  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = React.useState(false);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     // In a real app, this would call a server action `generateInvoiceDocument(invoice.invoiceId)`
-    toast({
-        title: 'Generating Invoice...',
+    toast.info('Generating Invoice...', {
         description: 'The invoice PDF is being created and sent to the patient.',
     });
     
     await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate generation
     
-    toast({
-        title: 'Invoice Generated & Sent',
+    toast.success('Invoice Generated & Sent', {
         description: `Invoice ${invoice.invoiceId} has been successfully sent to ${invoice.patientName}.`
     });
 

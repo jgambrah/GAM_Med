@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { VitalsSchema } from '@/lib/schemas';
 import { logVitals, streamVitals } from '@/lib/actions';
 import { mockVitalsLog as allMockVitals } from '@/lib/data';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { AlertTriangle, Info, Radio } from 'lucide-react';
 
 interface VitalsTabProps {
@@ -43,7 +43,6 @@ interface VitalsTabProps {
  */
 export function VitalsTab({ patientId }: VitalsTabProps) {
     const { user } = useAuth();
-    const { toast } = useToast();
     const mockVitalsLog = allMockVitals.filter(v => v.patientId === patientId);
     const [isStreaming, setIsStreaming] = React.useState(false);
 
@@ -61,14 +60,12 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
 
     const handleStreamVitals = async () => {
         setIsStreaming(true);
-        toast({
-            title: 'Starting Vitals Stream...',
+        toast.info('Starting Vitals Stream...', {
             description: 'Simulating live sensor data for 30 seconds.',
         });
         await streamVitals(patientId);
         setIsStreaming(false);
-        toast({
-            title: 'Vitals Stream Ended',
+        toast.info('Vitals Stream Ended', {
             description: 'Live sensor simulation has completed.',
         });
     };
@@ -81,36 +78,18 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
             // Check for any alerts returned from the server action
             if (result.alerts && result.alerts.length > 0) {
                 result.alerts.forEach(alert => {
-                    toast({
-                        title: (
-                            <div className="flex items-center gap-2">
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
-                                <span className="font-semibold">{alert.severity} Alert Triggered</span>
-                            </div>
-                        ),
-                        description: (
-                            <div>
-                                <p>{alert.message}</p>
-                                <p className="text-xs text-muted-foreground mt-2">The attending doctor has been notified.</p>
-                            </div>
-                        ),
+                    toast.warning(alert.message, {
+                         description: `Severity: ${alert.severity}. The attending doctor has been notified.`,
                     });
                 });
             } else {
-                 toast({
-                    title: (
-                        <div className="flex items-center gap-2">
-                            <Info className="h-5 w-5 text-primary" />
-                            <span className="font-semibold">Vitals Logged Successfully</span>
-                        </div>
-                    ),
+                 toast.success("Vitals Logged Successfully", {
                     description: "The patient's vital signs have been saved.",
                 });
             }
 
         } else {
-            toast({
-                title: 'Error Logging Vitals',
+            toast.error('Error Logging Vitals', {
                 description: result.message || 'An unexpected error occurred.',
             });
         }

@@ -15,20 +15,18 @@ import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { mockStaffClaims } from '@/lib/data';
 import { Check, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { approveStaffClaim, rejectStaffClaim } from '@/lib/actions';
 
 export function ClaimsApprovalDashboard() {
   const { user } = useAuth();
-  const { toast } = useToast();
   // In a real app, this would be a Firestore query for claims where `hodId === user.uid` and status is 'Pending HOD'
   const pendingClaims = mockStaffClaims.filter(c => c.hodId === user?.uid && c.approvalStatus === 'Pending HOD');
 
   const handleApprove = async (claimId: string) => {
     const result = await approveStaffClaim(claimId);
     if(result.success) {
-        toast({
-            title: 'Claim Approved',
+        toast.success('Claim Approved', {
             description: `Claim ${claimId} has been approved and sent to accounts for payment.`,
         });
         // Here you would re-fetch the data to update the UI
@@ -40,9 +38,7 @@ export function ClaimsApprovalDashboard() {
   const handleReject = async (claimId: string) => {
     const result = await rejectStaffClaim(claimId);
      if(result.success) {
-        toast.error('Claim Rejected', {
-            description: `Claim ${claimId} has been rejected and the staff member notified.`,
-        });
+        toast.error(`Claim ${claimId} has been rejected and the staff member notified.`);
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
     }

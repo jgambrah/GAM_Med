@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +50,6 @@ const mockServices = [
 
 export function AddToWaitlistDialog() {
   const [open, setOpen] = React.useState(false);
-  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof NewWaitingListSchema>>({
     resolver: zodResolver(NewWaitingListSchema),
@@ -70,15 +69,13 @@ export function AddToWaitlistDialog() {
   const onSubmit = async (values: z.infer<typeof NewWaitingListSchema>) => {
     const result = await addToWaitingList(values);
     if (result.success) {
-      toast({
-        title: 'Patient Added to Waitlist',
+      toast.success('Patient Added to Waitlist', {
         description: 'The patient has been successfully added to the waiting list.',
       });
       setOpen(false);
       form.reset();
     } else {
-      toast({
-        title: 'Failed to Add Patient',
+      toast.error('Failed to Add Patient', {
         description: result.message || 'An unexpected error occurred.',
       });
     }

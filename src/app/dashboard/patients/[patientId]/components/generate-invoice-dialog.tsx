@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { NewInvoiceSchema } from '@/lib/schemas';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { generateInvoice } from '@/lib/actions';
 import { FilePlus, Plus, Trash2 } from 'lucide-react';
 import { allPatients, mockPricingTables } from '@/lib/data';
@@ -168,7 +168,6 @@ function InvoiceItemRow({ control, index, patient, remove }: { control: any, ind
 
 export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const { toast } = useToast();
   const patient = allPatients.find(p => p.patient_id === patientId);
 
   const form = useForm<z.infer<typeof NewInvoiceSchema>>({
@@ -201,8 +200,7 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
   const onSubmit = async (values: z.infer<typeof NewInvoiceSchema>) => {
     const result = await generateInvoice(patientId, values);
     if (result.success) {
-      toast({
-        title: 'Invoice Generated',
+      toast.success('Invoice Generated', {
         description: 'The new invoice has been successfully created.',
       });
       setOpen(false);
@@ -211,8 +209,7 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
          items: [{ billingCode: '', quantity: 1, unitPrice: 0 }]
       });
     } else {
-      toast({
-        title: 'Failed to Generate Invoice',
+      toast.error('Failed to Generate Invoice', {
         description: result.message || 'An unexpected error occurred.',
       });
     }

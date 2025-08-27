@@ -34,7 +34,7 @@ import { PayrollRun, PayrollRecord } from '@/lib/types';
 import { format } from 'date-fns';
 import { Download, WalletCards } from 'lucide-react';
 import { StartPayrollRunDialog } from './components/start-payroll-run-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PayrollConfigurationDashboard } from './components/payroll-configuration';
 import { PayrollAllowancesDashboard } from './components/payroll-allowances';
@@ -153,7 +153,6 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
 }
 
 function PayrollRunsDashboard() {
-    const { toast } = useToast();
     const [runs, setRuns] = React.useState<PayrollRun[]>(mockPayrollRuns);
     const [runRecords, setRunRecords] = React.useState<Record<string, PayrollRecord[]>>({});
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; runId: string; } | null>(null);

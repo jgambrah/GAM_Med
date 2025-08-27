@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { PaymentSchema } from '@/lib/schemas';
 import { Invoice } from '@/lib/types';
 import { CreditCard, Smartphone } from 'lucide-react';
@@ -43,7 +43,6 @@ interface PaymentDialogProps {
 
 export function PaymentDialog({ invoice }: PaymentDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof PaymentSchema>>({
     resolver: zodResolver(PaymentSchema),
@@ -67,8 +66,7 @@ export function PaymentDialog({ invoice }: PaymentDialogProps) {
   const onSubmit = (values: z.infer<typeof PaymentSchema>) => {
     // In a real app, this would call the `processPayment` Cloud Function
     console.log('Processing payment with values:', values);
-    toast({
-      title: 'Payment Successful (Simulated)',
+    toast.success('Payment Successful (Simulated)', {
       description: `A payment of ₵${values.amount} has been processed for invoice ${invoice.invoiceId}.`,
       action: {
         label: "View Receipt",

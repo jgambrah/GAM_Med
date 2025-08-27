@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { mockAllowances } from '@/lib/data';
 import { Allowance } from '@/lib/types';
 import { Plus, CheckCircle, XCircle } from 'lucide-react';
@@ -30,7 +30,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
 function CreateAllowanceDialog({ onAllowanceCreated }: { onAllowanceCreated: (newAllowance: Allowance) => void }) {
-  const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const [isTaxable, setIsTaxable] = React.useState(false);

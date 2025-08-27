@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -34,7 +33,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -53,7 +52,6 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
 
 function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string) => void }) {
     const [open, setOpen] = React.useState(false);
-    const { toast } = useToast();
     const [whtRate, setWhtRate] = React.useState('0');
     const [customWhtRate, setCustomWhtRate] = React.useState('');
     const [vatOption, setVatOption] = React.useState('zero');
@@ -75,8 +73,7 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
 
 
     const handlePayBill = () => {
-        toast({
-            title: "Payment Logged",
+        toast.success("Payment Logged", {
             description: `Payment for bill ${bill.billId} has been logged.`
         });
         const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
@@ -190,7 +187,6 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
 
 function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (amount: number, description: string) => void }) {
     const [open, setOpen] = React.useState(false);
-    const { toast } = useToast();
     const [whtRate, setWhtRate] = React.useState('0');
     const [customWhtRate, setCustomWhtRate] = React.useState('');
     const [vatOption, setVatOption] = React.useState('zero');
@@ -212,8 +208,7 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
 
 
     const handlePayClaim = () => {
-        toast({
-            title: "Payment Logged",
+        toast.success("Payment Logged", {
             description: `Payment for claim ${claim.claimId} has been logged.`
         });
         const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
