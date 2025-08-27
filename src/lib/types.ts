@@ -337,6 +337,8 @@ export interface PayrollRecord {
  */
 export interface PayrollConfiguration {
     ssnitEmployeeContribution: number;
+    ssnitEmployerContribution: number;
+    tier2EmployerContribution: number;
     ssnitCeiling: number;
     taxBands: {
         limit: number; // Annual limit for the band

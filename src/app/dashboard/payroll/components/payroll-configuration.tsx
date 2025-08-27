@@ -16,7 +16,7 @@ export function PayrollConfigurationDashboard() {
   const { toast } = useToast();
   const [config, setConfig] = React.useState<PayrollConfiguration>(mockPayrollConfig);
 
-  const handleSsnitChange = (field: keyof PayrollConfiguration, value: string) => {
+  const handleStatutoryChange = (field: keyof PayrollConfiguration, value: string) => {
     setConfig(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
   };
 
@@ -42,29 +42,51 @@ export function PayrollConfigurationDashboard() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Statutory Deductions (SSNIT)</CardTitle>
+          <CardTitle>Statutory Rates & Ceilings</CardTitle>
           <CardDescription>
-            Configure the rates and ceilings for SSNIT contributions.
+            Configure the rates and ceilings for SSNIT and other statutory contributions.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="ssnit-contribution">Employee Contribution Rate (%)</Label>
-            <Input
-              id="ssnit-contribution"
-              type="number"
-              step="0.01"
-              value={config.ssnitEmployeeContribution * 100}
-              onChange={e => handleSsnitChange('ssnitEmployeeContribution', (parseFloat(e.target.value) / 100).toString())}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label htmlFor="ssnit-employee-rate">SSNIT Employee Rate (%)</Label>
+                <Input
+                id="ssnit-employee-rate"
+                type="number"
+                step="0.01"
+                value={config.ssnitEmployeeContribution * 100}
+                onChange={e => handleStatutoryChange('ssnitEmployeeContribution', (parseFloat(e.target.value) / 100).toString())}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="ssnit-employer-rate">SSNIT Employer Rate (%)</Label>
+                <Input
+                id="ssnit-employer-rate"
+                type="number"
+                step="0.01"
+                value={config.ssnitEmployerContribution * 100}
+                onChange={e => handleStatutoryChange('ssnitEmployerContribution', (parseFloat(e.target.value) / 100).toString())}
+                />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="tier2-employer-rate">Tier 2 Employer Rate (%)</Label>
+                <Input
+                id="tier2-employer-rate"
+                type="number"
+                step="0.01"
+                value={config.tier2EmployerContribution * 100}
+                onChange={e => handleStatutoryChange('tier2EmployerContribution', (parseFloat(e.target.value) / 100).toString())}
+                />
+            </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 pt-4">
             <Label htmlFor="ssnit-ceiling">Annual Pensionable Income Ceiling (GHS)</Label>
             <Input
               id="ssnit-ceiling"
               type="number"
               value={config.ssnitCeiling}
-              onChange={e => handleSsnitChange('ssnitCeiling', e.target.value)}
+              onChange={e => handleStatutoryChange('ssnitCeiling', e.target.value)}
             />
           </div>
         </CardContent>

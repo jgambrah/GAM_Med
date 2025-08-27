@@ -1155,6 +1155,8 @@ export const mockPayrollRuns: PayrollRun[] = [
 
 export const mockPayrollConfig: PayrollConfiguration = {
     ssnitEmployeeContribution: 0.055,
+    ssnitEmployerContribution: 0.13,
+    tier2EmployerContribution: 0.05,
     ssnitCeiling: 42000, // GHS per annum
     taxBands: [
         { limit: 5880, rate: 0.0 },       // First 5,880
