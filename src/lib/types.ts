@@ -277,6 +277,15 @@ export interface LeaveRequest {
 // =========================================================================
 
 /**
+ * Represents a configurable allowance type.
+ */
+export interface Allowance {
+  allowanceId: string; // Document ID, e.g., 'RENT_ALLOWANCE'
+  name: string; // e.g., "Rent Allowance"
+  isTaxable: boolean; // Determines if the allowance amount contributes to taxable income
+}
+
+/**
  * Represents a comprehensive HR record for a staff member.
  * This is the central source of truth for all HR and payroll calculations.
  */
@@ -339,7 +348,7 @@ export interface PayrollConfiguration {
     ssnitEmployeeContribution: number;
     ssnitEmployerContribution: number;
     tier2EmployerContribution: number;
-    ssnitCeiling: number;
+    ssnitCeiling: number; // GHS per annum
     taxBands: {
         limit: number; // Annual limit for the band
         rate: number;

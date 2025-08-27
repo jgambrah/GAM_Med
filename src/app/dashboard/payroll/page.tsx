@@ -37,6 +37,7 @@ import { StartPayrollRunDialog } from './components/start-payroll-run-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PayrollConfigurationDashboard } from './components/payroll-configuration';
+import { PayrollAllowancesDashboard } from './components/payroll-allowances';
 
 function getStatusVariant(status: PayrollRun['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -229,13 +230,17 @@ export default function PayrollPage() {
       <Tabs defaultValue="runs">
         <TabsList>
             <TabsTrigger value="runs">Payroll Runs</TabsTrigger>
-            <TabsTrigger value="config">Configuration</TabsTrigger>
+            <TabsTrigger value="config">Statutory Configuration</TabsTrigger>
+            <TabsTrigger value="allowances">Allowances</TabsTrigger>
         </TabsList>
         <TabsContent value="runs" className="mt-4">
             <PayrollRunsDashboard />
         </TabsContent>
         <TabsContent value="config" className="mt-4">
             <PayrollConfigurationDashboard />
+        </TabsContent>
+        <TabsContent value="allowances" className="mt-4">
+            <PayrollAllowancesDashboard />
         </TabsContent>
       </Tabs>
     </div>

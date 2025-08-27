@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1168,3 +1168,21 @@ export const mockPayrollConfig: PayrollConfiguration = {
         { limit: Infinity, rate: 0.35 }    // Above 644,880
     ]
 };
+
+export const mockAllowances: Allowance[] = [
+    {
+        allowanceId: 'RENT_ALLOWANCE',
+        name: 'Rent Allowance',
+        isTaxable: true,
+    },
+    {
+        allowanceId: 'TRANSPORT_ALLOWANCE',
+        name: 'Transport Allowance',
+        isTaxable: false,
+    },
+    {
+        allowanceId: 'BOOK_RESEARCH_ALLOWANCE',
+        name: 'Book & Research Allowance',
+        isTaxable: false,
+    }
+];
