@@ -1,60 +1,53 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
   
+    // Helper function to get the user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-
+    
+    // Allow read for authenticated users, but restrict writes to admins
     match /users/{userId} {
-      allow read: if request.auth.uid == userId;
-      allow write: if request.auth.uid == userId;
-    }
-    
-    match /patients/{patientId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'] || request.auth.uid == resource.data.userId;
-      allow create: if getUserRole() in ['admin', 'receptionist'];
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-    }
-    
-    match /patients/{patientId}/{subcollection}/{docId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'] || request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.userId;
-      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin';
     }
 
-    match /appointments/{appointmentId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk'] || request.auth.uid == resource.data.patient_id;
-        allow create: if getUserRole() in ['admin', 'doctor', 'receptionist'];
-        allow update: if getUserRole() in ['admin', 'doctor', 'receptionist'];
-    }
-    
-    match /referrals/{referralId} {
-      allow read, update: if getUserRole() in ['admin', 'doctor'];
-      allow create: if getUserRole() in ['admin', 'doctor', 'receptionist'];
-    }
-    
-    match /beds/{bedId} {
+    match /patients/{patientId} {
       allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      // Allow patients to read their own data
+      allow read: if request.auth.uid == resource.data.uid;
     }
     
+    // Prescriptions can be created by doctors/admins, read by clinical staff/the patient,
+    // and updated (status change) by pharmacists/admins.
     match /prescriptions/{prescriptionId} {
-      allow create: if getUserRole() in ['admin', 'doctor'];
-      allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor'] 
-                  || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == resource.data.patientId;
-      allow update: if getUserRole() in ['admin', 'pharmacist']
-                    && request.resource.data.status in ['Dispensed', 'Canceled'];
+        allow create: if getUserRole() in ['admin', 'doctor'];
+        allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor'] || request.auth.uid == resource.data.patientId;
+        allow update: if getUserRole() in ['admin', 'pharmacist'] 
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                      && request.resource.data.status in ['Dispensed', 'Canceled'];
     }
-    
+
     match /inventory/{itemId} {
       allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-      allow create, delete: if getUserRole() == 'admin';
-      allow update: if getUserRole() in ['admin', 'pharmacist'];
+      // Only allow authorized users to update the quantity. All other fields are protected.
+      allow update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentQuantity']);
+
+      // Rules for the transactions sub-collection
+      match /transactions/{transactionId} {
+        // Only allow authorized users to create new transaction logs.
+        // Reading/updating/deleting logs is disallowed for data integrity.
+        allow read, update, delete: if false;
+        allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+      }
     }
 
-    match /pharmacy_orders/{orderId} {
-      allow read, create, update: if getUserRole() in ['admin', 'pharmacist'];
+    // By default, deny all other reads and writes
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
