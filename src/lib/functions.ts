@@ -12,6 +12,110 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Pharmacy Management Functions
+// =======================================================================================
+
+// =======================================================================================
+// 54. Dispense Prescription (Callable Cloud Function)
+// =======================================================================================
+/**
+ * Processes a prescription, dispensing each medication and creating billing entries.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { prescriptionId: string }
+ */
+/*
+exports.dispensePrescription = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check for pharmacy staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { prescriptionId } = data;
+    const prescriptionRef = db.collection('prescriptions').doc(prescriptionId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const prescriptionDoc = await transaction.get(prescriptionRef);
+            if (!prescriptionDoc.exists) throw new Error('Prescription not found.');
+            if (prescriptionDoc.data().status !== 'Pending') throw new Error('Prescription is not in a pending state.');
+
+            const prescription = prescriptionDoc.data();
+            const { patientId, medications } = prescription;
+
+            // 2. Process each medication line item
+            for (const med of medications) {
+                // a) Call the dispenseMedication logic (from Inventory Module)
+                // This would be a direct call to another function or shared logic, not a new HTTP call.
+                // await dispenseMedicationLogic(transaction, med.itemId, med.quantity_to_dispense, patientId, context.auth.uid);
+
+                // b) Call the autoGenerateInvoice logic (from Billing Module)
+                // await autoGenerateInvoiceLogic(transaction, patientId, 'Medication', med.itemId, med.name, med.quantity_to_dispense);
+            }
+
+            // 3. Update the prescription status to 'Dispensed'
+            transaction.update(prescriptionRef, {
+                status: 'Dispensed',
+                filledAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+        });
+
+        console.log(`Successfully dispensed prescription ${prescriptionId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error(`Failed to dispense prescription ${prescriptionId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not dispense prescription.', { message: error.message });
+    }
+});
+*/
+
+// =======================================================================================
+// 55. Patient Prescription Alert (Firestore Trigger)
+// =======================================================================================
+/**
+ * Notifies a patient via SMS/Email when their prescription is ready for pickup.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /prescriptions/{prescriptionId}
+ */
+/*
+exports.patientPrescriptionAlert = functions.region('europe-west1').firestore
+    .document('/prescriptions/{prescriptionId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Condition: Only trigger if status changes to 'Dispensed'
+        if (newData.status === 'Dispensed' && oldData.status !== 'Dispensed') {
+            const { patientId, prescriptionId } = newData;
+
+            // 2. Fetch patient's contact information
+            const patientDoc = await db.collection('patients').doc(patientId).get();
+            if (!patientDoc.exists) {
+                console.error(`Patient ${patientId} not found for notification.`);
+                return null;
+            }
+            const patientData = patientDoc.data();
+            const contactInfo = patientData.contact.primaryPhone || patientData.contact.email;
+            
+            if (!contactInfo) {
+                console.log(`No contact info for patient ${patientId}.`);
+                return null;
+            }
+            
+            // 3. Send the notification
+            const message = `GamMed Alert: Your prescription (${prescriptionId}) is now ready for pickup at the hospital pharmacy.`;
+            // await sendSms(contactInfo, message);
+
+            console.log(`Sent pickup notification to patient ${patientId} for prescription ${prescriptionId}.`);
+        }
+        
+        return null;
+    });
+*/
+
+
+// =======================================================================================
 // 1. Generate Unique Patient ID (Callable Function)
 // =======================================================================================
 /**
