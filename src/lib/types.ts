@@ -818,27 +818,31 @@ export interface Medication {
 }
 
 /**
+ * Represents a single medication item within a prescription.
+ */
+export interface PrescribedMedication {
+  itemId: string; // Reference to inventory
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration?: number; // Optional, in days
+  quantityToDispense: number;
+}
+
+
+/**
  * Represents a digital prescription in the top-level 'prescriptions' collection.
  * This serves as the single source of truth for pharmacy orders.
  */
 export interface Prescription {
   prescriptionId: string; // Document ID
   patientId: string; // Reference to 'patients' collection
-  patientName: string; // Denormalized
-  prescribedByDoctorId: string; // Reference to 'users' collection
-  prescribedByDoctorName?: string; // Denormalized
-  medicationId: string; // Reference to 'medications' collection
-  medicationName: string; // Denormalized for quick lookups
-  dosage: string; // e.g., '10mg'
-  form: 'Tablet' | 'Syrup' | 'Injection';
-  frequency: string; // e.g., 'Twice daily', 'QID'
-  duration: string; // e.g., '7 days', 'Until finished'
-  quantity: number; // e.g., 14, 200
-  route: 'Oral' | 'IV' | 'IM' | 'Topical';
-  instructions: string; // Patient-friendly notes
-  warnings?: string[]; // e.g., ['Drug-drug interaction detected', 'Allergy warning']
-  status: 'Pending Pharmacy' | 'Dispensed' | 'Canceled';
+  patientName: string; // Denormalized for display
+  prescribedByDoctorId: string; // Reference to users.uid
+  prescribedByDoctorName?: string; // Denormalized for display
   prescribedAt: string; // ISO Timestamp
+  status: 'Pending Pharmacy' | 'Dispensed' | 'Canceled';
+  medications: PrescribedMedication[]; // An array of prescribed medications
   filledAt?: string; // ISO Timestamp, updated by Pharmacy
 }
 
