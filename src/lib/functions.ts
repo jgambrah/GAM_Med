@@ -44,9 +44,15 @@ exports.dispensePrescription = functions.region('europe-west1').https.onCall(asy
 
             // 2. Process each medication line item
             for (const med of medications) {
-                // a) Call the dispenseMedication logic (from Inventory Module)
+                // a) Call the updateInventory logic to safely decrement stock
                 // This would be a direct call to another function or shared logic, not a new HTTP call.
-                // await dispenseMedicationLogic(transaction, med.itemId, med.quantity_to_dispense, patientId, context.auth.uid);
+                await updateInventoryLogic(transaction, {
+                    itemId: med.itemId,
+                    quantityChange: -med.quantity_to_dispense, // Negative for dispense
+                    type: 'Dispense',
+                    userId: context.auth.uid,
+                    reason: `Prescription #${prescriptionId}`
+                });
 
                 // b) Call the autoGenerateInvoice logic (from Billing Module)
                 // await autoGenerateInvoiceLogic(transaction, patientId, 'Medication', med.itemId, med.name, med.quantity_to_dispense);
@@ -3063,13 +3069,6 @@ exports.generateInvoiceDocument = functions.region('europe-west1').https.onCall(
     // const patientData = patientDoc.data();
 
     // 3. Use a PDF generation library to create the document
-    // The PDF template should include:
-    // - Header: Clinic name, logo
-    // - Patient Info: Name, Address, ID
-    // - Invoice Info: Invoice #, Issue Date, Due Date
-    // - Line Items: Description, Quantity, Price, Subtotal for each item
-    // - Totals: Subtotal, Tax (if any), Grand Total
-    // - Payment Instructions
     // const pdfBuffer = await createInvoicePdf({ invoice: invoiceData, patient: patientData });
     const pdfBuffer = Buffer.from('This is a dummy invoice PDF.'); // Placeholder
     
@@ -3123,12 +3122,6 @@ exports.generateReceiptDocument = functions.region('europe-west1').firestore
         // const patientDoc = await db.collection('patients').doc(invoiceDoc.data().patientId).get();
 
         // 2. Generate the PDF.
-        // The PDF template should include:
-        // - Header: Clinic name, logo
-        // - Receipt Info: Receipt #, Payment Date
-        // - Patient Info: Name, ID
-        // - Payment Details: Amount Paid, Payment Method
-        // - Balance: Remaining Balance Due on the invoice
         // const pdfBuffer = await createReceiptPdf({ payment: paymentData, invoice: invoiceDoc.data(), patient: patientDoc.data() });
         const pdfBuffer = Buffer.from('This is a dummy receipt PDF.'); // Placeholder
 
@@ -3335,22 +3328,26 @@ exports.checkInventoryLevel = functions.region('europe-west1').pubsub
     .schedule('every day 09:00')
     .onRun(async (context) => {
         // 1. Query for all items where quantity is below the reorder level.
-        const lowStockQuery = db.collection('inventory').where('totalQuantity', '<=', admin.firestore.FieldPath.document('reorderLevel'));
-        const lowStockSnapshot = await lowStockQuery.get();
+        const inventoryRef = db.collection('inventory');
+        const snapshot = await inventoryRef.get();
 
-        if (lowStockSnapshot.empty) {
+        const lowStockItems = [];
+        snapshot.forEach(doc => {
+            const item = doc.data();
+            if (item.currentQuantity <= item.reorderLevel) {
+                 lowStockItems.push({ name: item.name, quantity: item.currentQuantity, reorderLevel: item.reorderLevel });
+            }
+        });
+
+        if (lowStockItems.length === 0) {
             console.log('No low-stock items found.');
             return null;
         }
 
         // 2. Aggregate low-stock items for a summary notification.
-        const lowStockItems = lowStockSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return { name: data.name, quantity: data.totalQuantity, reorderLevel: data.reorderLevel };
-        });
-
-        // 3. Send a single, consolidated notification to the pharmacy manager role.
         const message = `Low stock alert: ${lowStockItems.length} items need reordering. Items: ${lowStockItems.map(item => item.name).join(', ')}`;
+        
+        // 3. Send a single, consolidated notification to the pharmacy manager role.
         // await sendNotificationToRole('pharmacist', { subject: 'Low Stock Alert', body: message });
         
         console.log(message);
@@ -3359,29 +3356,30 @@ exports.checkInventoryLevel = functions.region('europe-west1').pubsub
 */
 
 // =======================================================================================
-// 52. Dispense Medication (Callable Cloud Function)
+// 52. Update Inventory (Callable Cloud Function)
 // =======================================================================================
 /**
- * Atomically decrements stock for a dispensed medication and creates an audit log.
+ * Atomically updates stock for an item and creates an audit log. This is the central
+ * function for all inventory changes.
  *
  * @trigger_type Callable Function (https)
- * @input { itemId: string, quantity: number, patientId: string, dispensedByUserId: string }
+ * @input { itemId: string, quantityChange: number, type: 'Dispense' | 'Restock' | 'Waste', userId: string, reason: string }
  */
 /*
-exports.dispenseMedication = functions.region('europe-west1').https.onCall(async (data, context) => {
+exports.updateInventory = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check
-    if (!context.auth || context.auth.uid !== data.dispensedByUserId) {
+    if (!context.auth || context.auth.uid !== data.userId) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
-    // Add role check for 'pharmacist'
+    // Add role check...
 
-    const { itemId, quantity, patientId, dispensedByUserId } = data;
-    if (!itemId || !quantity || quantity <= 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'Item ID and a positive quantity are required.');
+    const { itemId, quantityChange, type, userId, reason } = data;
+    if (!itemId || !quantityChange || !type || !userId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required inventory update data.');
     }
 
     const itemRef = db.collection('inventory').doc(itemId);
-    const logRef = itemRef.collection('dispensing_logs').doc();
+    const logRef = itemRef.collection('transactions').doc();
 
     try {
         await db.runTransaction(async (transaction) => {
@@ -3389,37 +3387,43 @@ exports.dispenseMedication = functions.region('europe-west1').https.onCall(async
             if (!itemDoc.exists) throw new Error('Inventory item not found.');
             
             const itemData = itemDoc.data();
-            // 2. Check for sufficient stock
-            if (itemData.totalQuantity < quantity) {
-                throw new Error(`Insufficient stock for ${itemData.name}. Available: ${itemData.totalQuantity}`);
-            }
-            // 3. Check for expiry date
-            if (itemData.expiryDate && itemData.expiryDate.toDate() < new Date()) {
-                throw new Error(`Item ${itemData.name} has expired.`);
+            const newQuantity = itemData.currentQuantity + quantityChange;
+
+            // 2. Check for sufficient stock if dispensing/wasting
+            if (quantityChange < 0 && itemData.currentQuantity < Math.abs(quantityChange)) {
+                throw new Error(`Insufficient stock for ${itemData.name}. Available: ${itemData.currentQuantity}`);
             }
 
-            // 4. Decrement inventory quantity
-            const newQuantity = itemData.totalQuantity - quantity;
-            transaction.update(itemRef, { totalQuantity: newQuantity });
+            // 3. Update the inventory item's quantity
+            transaction.update(itemRef, { currentQuantity: newQuantity });
             
-            // 5. Create dispensing log for audit purposes
+            // 4. Create a transaction log for auditing
             transaction.set(logRef, {
-                quantityDispensed: quantity,
-                patientId,
-                dispensedByUserId,
-                dispensedAt: admin.firestore.FieldValue.serverTimestamp()
+                type,
+                quantityChange,
+                reason,
+                userId,
+                date: admin.firestore.FieldValue.serverTimestamp()
             });
+
+            // 5. Check reorder level and send notification if needed
+            if (newQuantity <= itemData.reorderLevel && itemData.currentQuantity > itemData.reorderLevel) {
+                 const message = `Low stock alert: ${itemData.name} has reached its reorder level. Current quantity: ${newQuantity}.`;
+                // await sendNotificationToRole('pharmacist', { subject: 'Low Stock Alert', body: message });
+                console.log(message); // Log for now
+            }
         });
 
-        console.log(`Dispensed ${quantity} of item ${itemId}.`);
+        console.log(`Updated inventory for item ${itemId}.`);
         return { success: true };
 
     } catch (error) {
-        console.error(`Failed to dispense item ${itemId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not dispense medication.', { message: error.message });
+        console.error(`Failed to update inventory for item ${itemId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not update inventory.', { message: error.message });
     }
 });
 */
+
 
 // =======================================================================================
 // 53. Generate Purchase Order (Callable Cloud Function)
