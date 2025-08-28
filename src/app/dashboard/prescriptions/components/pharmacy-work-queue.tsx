@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Prescription, InventoryItem } from '@/lib/types';
 import { format, parseISO, isBefore } from 'date-fns';
-import { mockPrescriptions, mockInventory } from '@/lib/data';
+import { mockPrescriptions, mockInventory, allPatients, allUsers } from '@/lib/data';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { toast } from '@/hooks/use-toast';
@@ -60,7 +60,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
     }, [open, prescription]);
     
     const isExpired = inventoryItem ? isBefore(parseISO(inventoryItem.expiryDate), new Date()) : false;
-    const hasEnoughStock = inventoryItem ? inventoryItem.totalQuantity >= dispensedQuantity : false;
+    const hasEnoughStock = inventoryItem ? inventoryItem.currentQuantity >= dispensedQuantity : false;
     const canDispense = !isExpired && hasEnoughStock && inventoryItem;
 
 
@@ -130,7 +130,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
                             <>
                                <div className={cn("flex items-center", hasEnoughStock ? 'text-green-600' : 'text-destructive')}>
                                    <AlertCircle className="h-4 w-4 mr-2" />
-                                   <span>In Stock: {inventoryItem.totalQuantity} units</span>
+                                   <span>In Stock: {inventoryItem.currentQuantity} units</span>
                                </div>
                                 <div className={cn("flex items-center", isExpired ? 'text-destructive' : 'text-green-600')}>
                                    <AlertCircle className="h-4 w-4 mr-2" />
@@ -208,14 +208,14 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
                     </TableCell>
                     <TableCell>
                         <Link href={`/dashboard/patients/${prescription.patientId}`} className="hover:underline text-primary">
-                            {mockPatients.find(p => p.patient_id === prescription.patientId)?.full_name || 'Unknown Patient'}
+                            {allPatients.find(p => p.patient_id === prescription.patientId)?.full_name || 'Unknown Patient'}
                         </Link>
                     </TableCell>
                     <TableCell>
                         <div>{prescription.medications[0].name}</div>
                         <div className="text-sm text-muted-foreground">{prescription.medications[0].dosage} / {prescription.medications[0].frequency}</div>
                     </TableCell>
-                    <TableCell>{mockUsers.find(u => u.uid === prescription.doctorId)?.name || 'Unknown Doctor'}</TableCell>
+                    <TableCell>{allUsers.find(u => u.uid === prescription.doctorId)?.name || 'Unknown Doctor'}</TableCell>
                     <TableCell>
                         <Badge variant={getStatusVariant(prescription.status)}>{prescription.status}</Badge>
                     </TableCell>
@@ -238,13 +238,3 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
     </div>
   );
 }
-
-// Dummy data added for context, assuming these would be imported in a real app
-const mockPatients = [
-    { patient_id: 'P-123456', full_name: 'Kwame Owusu' },
-    { patient_id: 'P-654321', full_name: 'Aba Appiah' }
-];
-
-const mockUsers = [
-    { uid: 'doc1', name: 'Dr. Evelyn Mensah' }
-];

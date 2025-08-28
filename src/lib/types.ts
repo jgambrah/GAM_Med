@@ -33,10 +33,13 @@ export interface InventoryItem {
   itemId: string; // Document ID
   name: string; // e.g., 'Amoxicillin 500mg'
   type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General' | 'Surgical Instrument' | 'Disposable';
+  unit: string; // e.g. 'box', 'bottle'
   currentQuantity: number;
+  totalQuantity: number; // DEPRECATED: use currentQuantity
   reorderLevel: number; // The threshold that triggers a reorder alert
-  lotNumber: string;
+  lotNumber?: string;
   expiryDate: string; // ISO Timestamp, for perishable items
+  supplierId?: string; // Optional reference to a supplier
   location: string; // e.g., 'Pharmacy', 'OR Storage', 'Ward A'
   // Note: The 'transactions' sub-collection is defined by InventoryTransaction
 }
@@ -322,7 +325,7 @@ export interface LeaveRequest {
   leaveId: string;
   staffId: string;
   staffName: string;
-  hodId?: string; // Head of Department ID for approval
+  hodId?: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   reason: string;

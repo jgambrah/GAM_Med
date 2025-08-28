@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -44,7 +43,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
 
 
   const getRowClass = (item: InventoryItem) => {
-    const isLowStock = item.totalQuantity <= item.reorderLevel;
+    const isLowStock = item.currentQuantity <= item.reorderLevel;
     const daysToExpiry = differenceInDays(parseISO(item.expiryDate), new Date());
     const isExpiringSoon = daysToExpiry <= 30 && daysToExpiry > 0;
 
@@ -70,7 +69,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
         <TableBody>
           {filteredItems.length > 0 ? (
             filteredItems.map(item => {
-              const isLowStock = item.totalQuantity <= item.reorderLevel;
+              const isLowStock = item.currentQuantity <= item.reorderLevel;
               const isExpired = differenceInDays(parseISO(item.expiryDate), new Date()) < 0;
               const isExpiringSoon = differenceInDays(parseISO(item.expiryDate), new Date()) <= 30 && !isExpired;
 
@@ -78,7 +77,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
                 <TableRow key={item.itemId} className={cn(getRowClass(item))}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>{item.type}</TableCell>
-                  <TableCell className="text-right font-mono">{item.totalQuantity.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono">{item.currentQuantity.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-mono">{item.reorderLevel.toLocaleString()}</TableCell>
                   <TableCell>{format(parseISO(item.expiryDate), 'PPP')}</TableCell>
                   <TableCell>
