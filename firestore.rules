@@ -7,30 +7,50 @@ service cloud.firestore {
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-  
-    match /patients/{patientId} {
-      allow read: if request.auth != null;
-      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      match /{allSubcollections=**} {
-        allow read, write: if request.auth != null;
-      }
-    }
-    
+
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
+      allow read: if request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
     }
     
-    match /appointments/{appointmentId} {
-        allow read, create: if request.auth != null;
-        allow update, delete: if getUserRole() in ['admin', 'doctor'];
+    match /patients/{patientId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'] || request.auth.uid == resource.data.userId;
+      allow create: if getUserRole() in ['admin', 'receptionist'];
+      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+    
+    match /patients/{patientId}/{subcollection}/{docId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'] || request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.userId;
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
     }
 
+    match /appointments/{appointmentId} {
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk'] || request.auth.uid == resource.data.patient_id;
+        allow create: if getUserRole() in ['admin', 'doctor', 'receptionist'];
+        allow update: if getUserRole() in ['admin', 'doctor', 'receptionist'];
+    }
+    
+    match /referrals/{referralId} {
+      allow read, update: if getUserRole() in ['admin', 'doctor'];
+      allow create: if getUserRole() in ['admin', 'doctor', 'receptionist'];
+    }
+    
+    match /beds/{bedId} {
+      allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+    
+    match /prescriptions/{prescriptionId} {
+      allow create: if getUserRole() in ['admin', 'doctor'];
+      allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor'] 
+                  || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == resource.data.patientId;
+      allow update: if getUserRole() in ['admin', 'pharmacist']
+                    && request.resource.data.status in ['Dispensed', 'Canceled'];
+    }
+    
     match /inventory/{itemId} {
       allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-      allow update: if getUserRole() in ['admin', 'pharmacist'];
       allow create, delete: if getUserRole() == 'admin';
+      allow update: if getUserRole() in ['admin', 'pharmacist'];
     }
 
     match /pharmacy_orders/{orderId} {
