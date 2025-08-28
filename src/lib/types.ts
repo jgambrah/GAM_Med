@@ -11,19 +11,34 @@
 // =========================================================================
 
 /**
+ * Represents a single transaction within an inventory item's sub-collection.
+ * This creates an audit trail for every change in stock quantity.
+ * Path: /inventory/{itemId}/transactions/{transactionId}
+ */
+export interface InventoryTransaction {
+  transactionId: string; // Document ID
+  type: 'Dispense' | 'Restock' | 'Waste' | 'Adjustment';
+  quantityChange: number; // Negative for dispense/waste, positive for restock
+  date: string; // ISO Timestamp
+  userId: string; // UID of the user who performed the action
+  reason: string; // e.g., 'Patient Prescription #123', 'New Shipment from Supplier X'
+}
+
+
+/**
  * Represents a single item in the master inventory catalog.
  * Path: /inventory/{itemId}
  */
 export interface InventoryItem {
   itemId: string; // Document ID
   name: string; // e.g., 'Amoxicillin 500mg'
-  type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General';
-  unit: string; // e.g., 'tablet', 'vial', 'box'
-  totalQuantity: number;
+  type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General' | 'Surgical Instrument' | 'Disposable';
+  currentQuantity: number;
   reorderLevel: number; // The threshold that triggers a reorder alert
-  expiryDate: string; // ISO Timestamp
-  supplierId: string; // Reference to suppliers collection
-  location: string; // e.g., 'Main Pharmacy', 'Storage Room B'
+  lotNumber: string;
+  expiryDate: string; // ISO Timestamp, for perishable items
+  location: string; // e.g., 'Pharmacy', 'OR Storage', 'Ward A'
+  // Note: The 'transactions' sub-collection is defined by InventoryTransaction
 }
 
 /**
