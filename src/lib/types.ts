@@ -90,7 +90,7 @@ export interface LedgerEntry {
  * This allows for detailed, itemized billing.
  */
 export interface InvoiceLineItem {
-  serviceType: 'Consultation' | 'Lab Test' | 'Medication' | 'Procedure' | 'Other'; // e.g., 'Consultation', 'Lab Test', 'Medication'
+  serviceType: 'Consultation' | 'Lab Test' | 'Medication' | 'Procedure' | 'Other' | 'Supply'; 
   linkedServiceId: string; // The ID of the original service document (e.g., appointmentId, labResultId)
   billingCode: string; // The billing code, e.g., 'A001'
   price: number;

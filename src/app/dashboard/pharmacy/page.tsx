@@ -12,10 +12,11 @@ import {
 } from '@/components/ui/card';
 import { PharmacyWorkQueue } from '../prescriptions/components/pharmacy-work-queue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InventoryTable } from './inventory/components/inventory-table';
+import { InventoryTable } from './inventory/components-inventory-table';
 import { Input } from '@/components/ui/input';
 import { ProcurementDashboard } from './procurement/components/procurement-dashboard';
 import { useAuth } from '@/hooks/use-auth';
+import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
 
 export default function PharmacyPage() {
   const { user } = useAuth();
@@ -30,6 +31,8 @@ export default function PharmacyPage() {
   const canViewWorkQueue = user?.role === 'admin' || user?.role === 'pharmacist' || user?.role === 'doctor';
   const canViewInventory = user?.role === 'admin' || user?.role === 'pharmacist' || user?.role === 'doctor' || user?.role === 'nurse';
   const canViewProcurement = user?.role === 'admin' || user?.role === 'pharmacist';
+  const canUsePos = user?.role === 'admin' || user?.role === 'pharmacist' || user?.role === 'billing_clerk';
+
 
   return (
     <div className="space-y-6">
@@ -44,6 +47,7 @@ export default function PharmacyPage() {
         <TabsList className="h-auto flex-wrap justify-start">
             {canViewWorkQueue && <TabsTrigger value="work-queue">Prescription Work Queue</TabsTrigger>}
             {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
+            {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
         </TabsList>
         {canViewWorkQueue && (
@@ -86,6 +90,11 @@ export default function PharmacyPage() {
                     <InventoryTable searchQuery={searchQuery} />
                     </CardContent>
                 </Card>
+            </TabsContent>
+        )}
+        {canUsePos && (
+             <TabsContent value="pos" className="mt-4">
+                <PointOfSaleDashboard />
             </TabsContent>
         )}
         {canViewProcurement && (
