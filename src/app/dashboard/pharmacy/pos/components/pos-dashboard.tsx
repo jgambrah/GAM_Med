@@ -28,8 +28,10 @@ const getPrice = (itemId: string): number => {
     const item = mockInventory.find(i => i.itemId === itemId);
     const privateTier = mockPricingTables.find(t => t.pricingId === 'private');
     
-    if (item && privateTier && privateTier.rate_card[item.itemId]) {
-        return privateTier.rate_card[item.itemId];
+    // A more robust check for billing code in the rate card
+    const billingCode = item?.itemId; // Assuming itemId is the billing code
+    if (billingCode && privateTier && privateTier.rate_card[billingCode]) {
+        return privateTier.rate_card[billingCode];
     }
     // Fallback or default price if not found
     return item ? 10 : 0; // A dummy fallback

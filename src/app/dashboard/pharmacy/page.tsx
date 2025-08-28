@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { PharmacyWorkQueue } from '../prescriptions/components/pharmacy-work-queue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InventoryTable } from './inventory/components-inventory-table';
+import { InventoryTable } from './inventory/components/inventory-table';
 import { Input } from '@/components/ui/input';
 import { ProcurementDashboard } from './procurement/components/procurement-dashboard';
 import { useAuth } from '@/hooks/use-auth';
