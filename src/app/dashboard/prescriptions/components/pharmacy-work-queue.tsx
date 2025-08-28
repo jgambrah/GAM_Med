@@ -47,15 +47,15 @@ interface DispenseDialogProps {
 function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
     const [open, setOpen] = React.useState(false);
     const [inventoryItem, setInventoryItem] = React.useState<InventoryItem | null>(null);
-    const [dispensedQuantity, setDispensedQuantity] = React.useState(prescription.quantity);
+    const [dispensedQuantity, setDispensedQuantity] = React.useState(0);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     React.useEffect(() => {
         if (open) {
-            // Find the corresponding item in inventory based on medicationId
-            const item = mockInventory.find(i => i.itemId === prescription.medicationId);
+            // In a real app, you might query where `medicationId` matches `prescription.medicationId`
+            const item = mockInventory.find(i => i.name.toLowerCase().includes(prescription.medications[0].name.toLowerCase()));
             setInventoryItem(item || null);
-            setDispensedQuantity(prescription.quantity);
+            setDispensedQuantity(prescription.medications[0].quantity_to_dispense);
         }
     }, [open, prescription]);
     
@@ -70,7 +70,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         toast.success("Medication Dispensed", {
-            description: `${dispensedQuantity} units of ${prescription.medicationName} dispensed to ${prescription.patientName}.`
+            description: `${dispensedQuantity} units of ${prescription.medications[0].name} dispensed to ${prescription.patientName}.`
         });
 
         // In a real app, the state would update via real-time listeners.
@@ -102,16 +102,16 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
 
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Dispense: {prescription.medicationName}</DialogTitle>
+                    <DialogTitle>Dispense: {prescription.medications[0].name}</DialogTitle>
                     <DialogDescription>
-                        Patient: {prescription.patientName} | Prescribed by: {prescription.prescribedByDoctorName}
+                        Patient: {prescription.patientName} | Prescribed by: Dr. Evelyn Mensah
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Prescribed Quantity</Label>
-                            <Input value={prescription.quantity} readOnly disabled />
+                            <Input value={prescription.medications[0].quantity_to_dispense} readOnly disabled />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="dispensed-qty">Dispensed Quantity</Label>
@@ -159,7 +159,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
 
 const getStatusVariant = (status: Prescription['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-        case 'Pending Pharmacy': return 'default';
+        case 'Pending': return 'default';
         case 'Dispensed': return 'secondary';
         case 'Canceled': return 'destructive';
         default: return 'outline';
@@ -170,7 +170,7 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
   const { user } = useAuth();
   // In a real app, this would be a real-time Firestore query on the top-level 'prescriptions' collection
   // where status is 'Pending Pharmacy' or similar.
-  const pendingPrescriptions = mockPrescriptions.filter(p => p.status === 'Pending Pharmacy');
+  const pendingPrescriptions = mockPrescriptions.filter(p => p.status === 'Pending');
 
   const isPharmacist = user?.role === 'pharmacist';
 
@@ -204,18 +204,18 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
                 pendingPrescriptions.map((prescription) => (
                 <TableRow key={prescription.prescriptionId}>
                     <TableCell className="font-medium">
-                        {format(new Date(prescription.prescribedAt), 'PPP p')}
+                        {format(new Date(prescription.datePrescribed), 'PPP p')}
                     </TableCell>
                     <TableCell>
                         <Link href={`/dashboard/patients/${prescription.patientId}`} className="hover:underline text-primary">
-                            {prescription.patientName}
+                            {mockPatients.find(p => p.patient_id === prescription.patientId)?.full_name || 'Unknown Patient'}
                         </Link>
                     </TableCell>
                     <TableCell>
-                        <div>{prescription.medicationName}</div>
-                        <div className="text-sm text-muted-foreground">{prescription.dosage} / {prescription.frequency}</div>
+                        <div>{prescription.medications[0].name}</div>
+                        <div className="text-sm text-muted-foreground">{prescription.medications[0].dosage} / {prescription.medications[0].frequency}</div>
                     </TableCell>
-                    <TableCell>{prescription.prescribedByDoctorName}</TableCell>
+                    <TableCell>{mockUsers.find(u => u.uid === prescription.doctorId)?.name || 'Unknown Doctor'}</TableCell>
                     <TableCell>
                         <Badge variant={getStatusVariant(prescription.status)}>{prescription.status}</Badge>
                     </TableCell>
@@ -238,3 +238,13 @@ export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
     </div>
   );
 }
+
+// Dummy data added for context, assuming these would be imported in a real app
+const mockPatients = [
+    { patient_id: 'P-123456', full_name: 'Kwame Owusu' },
+    { patient_id: 'P-654321', full_name: 'Aba Appiah' }
+];
+
+const mockUsers = [
+    { uid: 'doc1', name: 'Dr. Evelyn Mensah' }
+];

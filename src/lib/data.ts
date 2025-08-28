@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PharmacyOrder } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PharmacyOrder, PrescribedMedication } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -510,55 +510,49 @@ export const mockPrescriptions: Prescription[] = [
         prescriptionId: 'med-1',
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
-        medicationId: 'amlodipine',
-        medicationName: 'Amlodipine',
-        dosage: '5mg',
-        form: 'Tablet',
-        frequency: 'Once daily',
-        duration: '30 days',
-        quantity: 30,
-        route: 'Oral',
-        instructions: 'Take in the morning with food.',
-        prescribedByDoctorId: 'doc1',
-        prescribedByDoctorName: 'Dr. Evelyn Mensah',
-        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
-        status: 'Pending Pharmacy'
+        doctorId: 'doc1',
+        datePrescribed: new Date('2024-07-28T11:05:00Z').toISOString(),
+        status: 'Pending',
+        medications: [{
+            itemId: 'AMX500',
+            name: 'Amlodipine',
+            dosage: '5mg',
+            frequency: 'Once daily',
+            duration: 30,
+            quantity_to_dispense: 30
+        }]
     },
     {
         prescriptionId: 'med-2',
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
-        medicationId: 'atorvastatin',
-        medicationName: 'Atorvastatin',
-        dosage: '20mg',
-        form: 'Tablet',
-        frequency: 'Once daily at bedtime',
-        duration: '90 days',
-        quantity: 90,
-        route: 'Oral',
-        instructions: '',
-        prescribedByDoctorId: 'doc1',
-        prescribedByDoctorName: 'Dr. Evelyn Mensah',
-        prescribedAt: new Date('2024-07-28T11:05:00Z').toISOString(),
-        status: 'Pending Pharmacy'
+        doctorId: 'doc1',
+        datePrescribed: new Date('2024-07-28T11:05:00Z').toISOString(),
+        status: 'Pending',
+        medications: [{
+            itemId: 'ATORV20',
+            name: 'Atorvastatin',
+            dosage: '20mg',
+            frequency: 'Once daily at bedtime',
+            duration: 90,
+            quantity_to_dispense: 90
+        }]
     },
     {
         prescriptionId: 'med-3',
         patientId: 'P-654321',
         patientName: 'Aba Appiah',
-        medicationId: 'paracetamol',
-        medicationName: 'Paracetamol',
-        dosage: '1g',
-        form: 'Tablet',
-        frequency: 'PRN for pain',
-        duration: 'As needed',
-        quantity: 20,
-        route: 'Oral',
-        instructions: 'Do not exceed 4g in 24 hours.',
-        prescribedByDoctorId: 'doc1',
-        prescribedByDoctorName: 'Dr. Evelyn Mensah',
-        prescribedAt: new Date('2024-08-01T11:05:00Z').toISOString(),
-        status: 'Pending Pharmacy'
+        doctorId: 'doc1',
+        datePrescribed: new Date('2024-08-01T11:05:00Z').toISOString(),
+        status: 'Pending',
+        medications: [{
+            itemId: 'PARA1G',
+            name: 'Paracetamol',
+            dosage: '1g',
+            frequency: 'PRN for pain',
+            duration: 0,
+            quantity_to_dispense: 20
+        }]
     }
 ];
 
@@ -1141,6 +1135,7 @@ export const mockPayrollRuns: PayrollRun[] = [
         totalNetPay: 73000,
         totalTaxes: 10000,
         totalEmployees: 15,
+        deductionTotals: {},
         initiatedByUserId: 'admin1',
         createdAt: new Date('2024-08-25T10:00:00Z').toISOString(),
         completedAt: new Date('2024-08-28T00:00:00Z').toISOString(),
@@ -1155,6 +1150,7 @@ export const mockPayrollRuns: PayrollRun[] = [
         totalNetPay: 72700,
         totalTaxes: 9800,
         totalEmployees: 15,
+        deductionTotals: {},
         initiatedByUserId: 'admin1',
         createdAt: new Date('2024-07-25T10:00:00Z').toISOString(),
         completedAt: new Date('2024-07-28T00:00:00Z').toISOString(),

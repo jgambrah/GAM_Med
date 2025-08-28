@@ -826,7 +826,7 @@ export interface PrescribedMedication {
   dosage: string;
   frequency: string;
   duration?: number; // Optional, in days
-  quantityToDispense: number;
+  quantity_to_dispense: number;
 }
 
 
@@ -838,10 +838,9 @@ export interface Prescription {
   prescriptionId: string; // Document ID
   patientId: string; // Reference to 'patients' collection
   patientName: string; // Denormalized for display
-  prescribedByDoctorId: string; // Reference to users.uid
-  prescribedByDoctorName?: string; // Denormalized for display
-  prescribedAt: string; // ISO Timestamp
-  status: 'Pending Pharmacy' | 'Dispensed' | 'Canceled';
+  doctorId: string; // Reference to users.uid
+  datePrescribed: string; // ISO Timestamp
+  status: 'Pending' | 'Dispensed' | 'Canceled';
   medications: PrescribedMedication[]; // An array of prescribed medications
   filledAt?: string; // ISO Timestamp, updated by Pharmacy
 }
