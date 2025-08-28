@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema } from './schemas';
 import { Appointment, Patient } from './types';
 import { allPatients } from './data';
 
@@ -421,4 +421,17 @@ export async function rejectStaffClaim(claimId: string) {
     revalidatePath('/dashboard/approvals');
     revalidatePath('/dashboard/my-claims');
     return { success: true };
+}
+
+export async function updateInventory(values: z.infer<typeof UpdateInventorySchema>) {
+    console.log('Updating inventory with values:', values);
+    // This server action would call the `updateInventory` Cloud Function,
+    // which would perform an atomic write to the inventory item and create a transaction log.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Revalidate paths to reflect inventory changes
+    revalidatePath('/dashboard/pharmacy/inventory');
+    revalidatePath('/dashboard/pharmacy');
+
+    return { success: true, message: 'Inventory updated successfully.' };
 }

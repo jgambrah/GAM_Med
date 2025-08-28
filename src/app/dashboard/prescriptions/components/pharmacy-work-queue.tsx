@@ -38,6 +38,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { updateInventory } from '@/lib/actions';
 
 interface DispenseDialogProps {
     prescription: Prescription;
@@ -45,6 +46,7 @@ interface DispenseDialogProps {
 }
 
 function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
+    const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     const [inventoryItem, setInventoryItem] = React.useState<InventoryItem | null>(null);
     const [dispensedQuantity, setDispensedQuantity] = React.useState(0);
@@ -65,12 +67,22 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
 
 
     const handleDispense = async () => {
+        if (!user || !inventoryItem) return;
+
         setIsSubmitting(true);
-        // Simulate calling the dispenseMedication Cloud Function
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Simulate calling the dispenseMedication and updateInventory Cloud Functions
+        // This is where the integration happens.
+        await updateInventory({
+            itemId: inventoryItem.itemId,
+            quantityChange: -dispensedQuantity, // Negative number to decrement stock
+            type: 'Dispense',
+            userId: user.uid,
+            reason: `Prescription #${prescription.prescriptionId}`
+        });
         
         toast.success("Medication Dispensed", {
-            description: `${dispensedQuantity} units of ${prescription.medications[0].name} dispensed to ${prescription.patientName}.`
+            description: `${dispensedQuantity} units of ${prescription.medications[0].name} dispensed to ${prescription.patientName}. Inventory updated.`
         });
 
         // In a real app, the state would update via real-time listeners.

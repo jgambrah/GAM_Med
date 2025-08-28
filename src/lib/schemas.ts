@@ -258,3 +258,14 @@ export const NewStaffClaimSchema = z.object({
   description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
   attachment: z.any().optional(),
 });
+
+/**
+ * Zod schema for updating inventory.
+ */
+export const UpdateInventorySchema = z.object({
+  itemId: z.string().min(1),
+  quantityChange: z.number(),
+  type: z.enum(['Dispense', 'Restock', 'Waste', 'Adjustment']),
+  userId: z.string().min(1),
+  reason: z.string().min(1),
+});
