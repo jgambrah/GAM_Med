@@ -1209,7 +1209,6 @@ export const mockInventory: InventoryItem[] = [
         type: 'Medication',
         unit: 'box',
         currentQuantity: 50,
-        totalQuantity: 50,
         reorderLevel: 20,
         expiryDate: new Date('2025-12-31T00:00:00Z').toISOString(),
         supplierId: 'SUP-001',
@@ -1221,7 +1220,6 @@ export const mockInventory: InventoryItem[] = [
         type: 'Medication',
         unit: 'box',
         currentQuantity: 15, // Low Stock
-        totalQuantity: 15,
         reorderLevel: 25,
         expiryDate: new Date('2026-06-30T00:00:00Z').toISOString(),
         supplierId: 'SUP-001',
@@ -1233,7 +1231,6 @@ export const mockInventory: InventoryItem[] = [
         type: 'Surgical Supply',
         unit: 'case',
         currentQuantity: 40,
-        totalQuantity: 40,
         reorderLevel: 50,
         expiryDate: new Date('2024-09-10T00:00:00Z').toISOString(), // Expiring Soon
         supplierId: 'SUP-002',
@@ -1245,7 +1242,6 @@ export const mockInventory: InventoryItem[] = [
         type: 'Surgical Supply',
         unit: 'box',
         currentQuantity: 200,
-        totalQuantity: 200,
         reorderLevel: 100,
         expiryDate: new Date('2024-07-31T00:00:00Z').toISOString(), // Expired
         supplierId: 'SUP-002',

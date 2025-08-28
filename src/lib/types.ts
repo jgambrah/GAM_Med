@@ -35,7 +35,6 @@ export interface InventoryItem {
   type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General' | 'Surgical Instrument' | 'Disposable';
   unit: string; // e.g. 'box', 'bottle'
   currentQuantity: number;
-  totalQuantity: number; // DEPRECATED: use currentQuantity
   reorderLevel: number; // The threshold that triggers a reorder alert
   lotNumber?: string;
   expiryDate: string; // ISO Timestamp, for perishable items
