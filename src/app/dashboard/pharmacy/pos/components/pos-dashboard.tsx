@@ -44,7 +44,7 @@ export function PointOfSaleDashboard() {
 
   const inventoryOptions = mockInventory.map(item => ({
     value: item.itemId,
-    label: `${item.name} (Stock: ${item.totalQuantity})`,
+    label: `${item.name} (Stock: ${item.currentQuantity})`,
   }));
 
   const handleAddItem = () => {
