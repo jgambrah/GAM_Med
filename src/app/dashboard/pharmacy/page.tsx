@@ -50,69 +50,61 @@ export default function PharmacyPage() {
             {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
         </TabsList>
         
-        <TabsContent value="work-queue" className="mt-4">
-            <Card>
-                <CardHeader>
-                <CardTitle>Prescription Fulfillment Queue</CardTitle>
-                <CardDescription>
-                    A real-time list of all prescriptions waiting to be filled.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {canViewWorkQueue ? (
-                        <PharmacyWorkQueue key={key} onDispense={handleDispense} />
-                    ) : (
-                        <p className="text-muted-foreground text-center p-4">You do not have permission to view this content.</p>
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-        
-        <TabsContent value="inventory" className="mt-4">
-             <Card>
-                <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div>
-                    <CardTitle>Inventory Catalog</CardTitle>
+        {canViewWorkQueue && (
+            <TabsContent value="work-queue" className="mt-4">
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Prescription Fulfillment Queue</CardTitle>
                     <CardDescription>
-                        Search and manage all items in the inventory.
+                        A real-time list of all prescriptions waiting to be filled.
                     </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <PharmacyWorkQueue key={key} onDispense={handleDispense} />
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        )}
+        
+        {canViewInventory && (
+            <TabsContent value="inventory" className="mt-4">
+                <Card>
+                    <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                        <div>
+                        <CardTitle>Inventory Catalog</CardTitle>
+                        <CardDescription>
+                            Search and manage all items in the inventory.
+                        </CardDescription>
+                        </div>
+                        <div className="w-full sm:w-auto">
+                        <Input
+                            placeholder="Search by item name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="max-w-sm"
+                        />
+                        </div>
                     </div>
-                    <div className="w-full sm:w-auto">
-                    <Input
-                        placeholder="Search by item name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="max-w-sm"
-                    />
-                    </div>
-                </div>
-                </CardHeader>
-                <CardContent>
-                    {canViewInventory ? (
+                    </CardHeader>
+                    <CardContent>
                         <InventoryTable searchQuery={searchQuery} />
-                    ) : (
-                        <p className="text-muted-foreground text-center p-4">You do not have permission to view this content.</p>
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        )}
         
-         <TabsContent value="pos" className="mt-4">
-            {canUsePos ? (
+        {canUsePos && (
+            <TabsContent value="pos" className="mt-4">
                 <PointOfSaleDashboard />
-            ) : (
-                <Card><CardContent><p className="text-muted-foreground text-center p-4">You do not have permission to view this content.</p></CardContent></Card>
-            )}
-        </TabsContent>
+            </TabsContent>
+        )}
         
-        <TabsContent value="procurement" className="mt-4">
-            {canViewProcurement ? (
+        {canViewProcurement && (
+            <TabsContent value="procurement" className="mt-4">
                 <ProcurementDashboard />
-            ) : (
-                <Card><CardContent><p className="text-muted-foreground text-center p-4">You do not have permission to view this content.</p></CardContent></Card>
-            )}
-        </TabsContent>
+            </TabsContent>
+        )}
 
       </Tabs>
     </div>

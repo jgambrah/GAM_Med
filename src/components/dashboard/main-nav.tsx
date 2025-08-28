@@ -136,10 +136,10 @@ export function MainNav() {
         roles: ['lab_technician', 'doctor'],
     },
     {
-      href: '/dashboard/prescriptions',
+      href: '/dashboard/pharmacy',
       label: 'Pharmacy',
       icon: Pill,
-      roles: ['admin', 'doctor', 'pharmacist'],
+      roles: ['admin', 'doctor', 'pharmacist', 'nurse', 'billing_clerk'],
     },
     {
         href: '/dashboard/payroll',
@@ -175,7 +175,7 @@ export function MainNav() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/prescriptions', '/dashboard/lab', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/lab', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
