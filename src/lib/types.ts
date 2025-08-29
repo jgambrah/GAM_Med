@@ -1,5 +1,4 @@
 
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -17,7 +16,7 @@
  */
 export interface InventoryTransaction {
   transactionId: string; // Document ID
-  batchNumber: string; // The batch number that was affected
+  batchNumber?: string; // The batch number that was affected
   type: 'Dispense' | 'Restock' | 'Waste' | 'Adjustment';
   quantityChange: number; // Negative for dispense/waste, positive for restock
   date: string; // ISO Timestamp
@@ -36,9 +35,12 @@ export interface InventoryItem {
   type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General' | 'Surgical Instrument' | 'Disposable';
   unit: string; // e.g. 'box', 'bottle'
   reorderLevel: number; // The minimum quantity that triggers a reorder alert for the item as a whole.
+  currentQuantity: number; // The total quantity across all batches
   location: string; // e.g., 'Pharmacy', 'OR Storage', 'Ward A'
   supplierId?: string; // Optional reference to a supplier
-  batches: {
+  lotNumber?: string; // Legacy or simple lot number if not using batches
+  expiryDate?: string; // Legacy or simple expiry date if not using batches
+  batches?: {
     batchNumber: string;
     currentQuantity: number;
     expiryDate: string; // ISO Timestamp
@@ -51,6 +53,7 @@ export interface InventoryItem {
  */
 export interface PharmacyOrderItem {
   itemId: string;
+  name: string;
   quantity: number;
   unit_cost: number;
 }

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -26,6 +25,7 @@ import { PharmacyOrder } from '@/lib/types';
 
 const OrderItemSchema = z.object({
   itemId: z.string().min(1, 'Item is required.'),
+  name: z.string(), // We'll add this to the object when an item is selected.
   quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
   unit_cost: z.coerce.number().min(0.01, 'Cost must be greater than 0.'),
 });
@@ -46,7 +46,7 @@ export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
     resolver: zodResolver(NewOrderSchema),
     defaultValues: {
       supplierId: '',
-      items: [{ itemId: '', quantity: 1, unit_cost: 0 }],
+      items: [{ itemId: '', name: '', quantity: 1, unit_cost: 0 }],
     },
   });
 
@@ -126,7 +126,14 @@ export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
                             name={`items.${index}.itemId`}
                             render={({ field }) => (
                                 <FormItem className="flex-grow">
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select 
+                                      onValueChange={(value) => {
+                                        const selectedItem = mockInventory.find(item => item.itemId === value);
+                                        field.onChange(value);
+                                        form.setValue(`items.${index}.name`, selectedItem?.name || '');
+                                      }} 
+                                      defaultValue={field.value}
+                                    >
                                         <FormControl>
                                             <SelectTrigger><SelectValue placeholder="Select item..." /></SelectTrigger>
                                         </FormControl>
@@ -156,7 +163,7 @@ export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
                         </Button>
                     </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: '', quantity: 1, unit_cost: 0 })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: '', name: '', quantity: 1, unit_cost: 0 })}>
                     <Plus className="h-4 w-4 mr-2" /> Add Item
                 </Button>
             </div>

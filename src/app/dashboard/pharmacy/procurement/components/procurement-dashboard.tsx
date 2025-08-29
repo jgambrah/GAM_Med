@@ -17,6 +17,7 @@ import { PharmacyOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { CreateOrderDialog } from './create-order-dialog';
+import { ReceiveOrderDialog } from './receive-order-dialog';
 
 const mockOrders: PharmacyOrder[] = [
     {
@@ -25,7 +26,7 @@ const mockOrders: PharmacyOrder[] = [
         status: 'Received',
         orderedByUserId: 'pharma1',
         supplierId: 'SUP-001',
-        orderedItems: [{ itemId: 'AMX500', quantity: 100, unit_cost: 0.50 }]
+        orderedItems: [{ itemId: 'AMX500', name: 'Amoxicillin 500mg', quantity: 100, unit_cost: 0.50 }]
     },
     {
         orderId: 'PO-002',
@@ -33,7 +34,7 @@ const mockOrders: PharmacyOrder[] = [
         status: 'Submitted',
         orderedByUserId: 'pharma1',
         supplierId: 'SUP-002',
-        orderedItems: [{ itemId: 'GAUZE', quantity: 50, unit_cost: 10.00 }]
+        orderedItems: [{ itemId: 'GAUZE', name: 'Sterile Gauze', quantity: 50, unit_cost: 10.00 }]
     }
 ];
 
@@ -52,6 +53,12 @@ export function ProcurementDashboard() {
   const handleOrderCreated = (newOrder: PharmacyOrder) => {
     setOrders(prev => [newOrder, ...prev]);
   };
+  
+  const handleOrderReceived = (orderId: string) => {
+      setOrders(prev => prev.map(order => 
+          order.orderId === orderId ? { ...order, status: 'Received' } : order
+      ));
+  }
 
   return (
     <Card>
@@ -86,7 +93,7 @@ export function ProcurementDashboard() {
                     <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm">View Details</Button>
+                    <ReceiveOrderDialog order={order} onOrderReceived={handleOrderReceived} />
                   </TableCell>
                 </TableRow>
               ))}
