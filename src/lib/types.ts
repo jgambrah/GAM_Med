@@ -49,9 +49,9 @@ export interface InventoryItem {
 }
 
 /**
- * Represents a single line item within a pharmacy order.
+ * Represents a single line item within a purchase order.
  */
-export interface PharmacyOrderItem {
+export interface PurchaseOrderItem {
   itemId: string;
   name: string;
   quantity: number;
@@ -60,15 +60,17 @@ export interface PharmacyOrderItem {
 
 /**
  * Represents a purchase order for medications and supplies.
- * Path: /pharmacy_orders/{orderId}
+ * Path: /purchase_orders/{poId}
  */
-export interface PharmacyOrder {
-  orderId: string; // Document ID
-  dateOrdered: string; // ISO Timestamp
-  status: 'Draft' | 'Submitted' | 'Received';
-  orderedByUserId: string; // Reference to users
+export interface PurchaseOrder {
+  poId: string; // Document ID
   supplierId: string; // Reference to suppliers
-  orderedItems: PharmacyOrderItem[];
+  dateOrdered: string; // ISO Timestamp
+  deliveryDate?: string; // ISO Timestamp (expected)
+  status: 'Pending' | 'Shipped' | 'Received' | 'Canceled';
+  orderedItems: PurchaseOrderItem[];
+  totalAmount: number;
+  orderedByUserId: string; // Reference to users
 }
 
 /**
@@ -82,6 +84,23 @@ export interface ReorderRequest {
     quantityToOrder: number;
     status: 'Pending' | 'In Progress' | 'Completed';
     dateCreated: string; // ISO Timestamp
+}
+
+/**
+ * Represents a record of items received from a supplier.
+ * Path: /goods_receipts/{receiptId}
+ */
+export interface GoodsReceipt {
+  receiptId: string; // Document ID
+  poId: string; // Reference to purchase_orders
+  dateReceived: string; // ISO Timestamp
+  receivedByUserId: string; // Reference to users
+  receivedItems: {
+    itemId: string;
+    quantityReceived: number;
+    batchNumber: string;
+    expiryDate: string; // ISO Timestamp
+  }[];
 }
 
 
@@ -274,11 +293,17 @@ export interface PaymentGateway {
 export interface Supplier {
   supplierId: string; // Document ID
   name: string;
-  contact: {
-    person?: string;
-    phone?: string;
-    email?: string;
+  contactInfo: {
+    email: string;
+    phone: string;
+    address: string;
   };
+  contractDetails?: {
+    contractNumber: string;
+    expirationDate: string; // ISO Timestamp
+  };
+  paymentTerms?: 'Net 30' | 'Net 60' | 'Cash on Delivery';
+  supportedItems?: ('Medication' | 'Surgical Supply' | 'General')[];
 }
 
 /**
@@ -1094,3 +1119,6 @@ export interface ImmunizationRecord {
   administeredByUserId: string; // Reference to users.uid
   notes?: string;
 }
+
+// Deprecated type, use PurchaseOrder instead
+export type PharmacyOrder = PurchaseOrder;
