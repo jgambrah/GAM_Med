@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -12,7 +13,124 @@
 // const db = admin.firestore();
 
 // =======================================================================================
-// == Pharmacy Management Functions
+// == Automated Reorder Points & Procurement
+// =======================================================================================
+
+/**
+ * A scheduled function that runs daily to find items with low stock and create reorder requests.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 09:30'
+ */
+/*
+exports.checkAndGenerateReorder = functions.region('europe-west1').pubsub
+    .schedule('every day 09:30')
+    .onRun(async (context) => {
+        // 1. Query for items that need reordering
+        const lowStockQuery = db.collection('inventory')
+            .where('isAutoReorder', '==', true);
+            // Firestore cannot do inequality checks on different fields, so we filter in the function.
+
+        const snapshot = await lowStockQuery.get();
+        if (snapshot.empty) {
+            console.log('No items configured for auto-reorder.');
+            return null;
+        }
+        
+        const itemsToReorder = [];
+        snapshot.forEach(doc => {
+            const item = doc.data();
+            const totalQuantity = (item.batches || []).reduce((sum, b) => sum + b.currentQuantity, 0);
+            if (totalQuantity <= item.reorderLevel) {
+                itemsToReorder.push({ id: doc.id, ...item });
+            }
+        });
+        
+        if (itemsToReorder.length === 0) {
+            console.log('No items are below their reorder level.');
+            return null;
+        }
+
+        // 2. For each low-stock item, check for an existing pending request
+        for (const item of itemsToReorder) {
+            const existingRequestQuery = db.collection('reorder_requests')
+                .where('itemId', '==', item.id)
+                .where('status', 'in', ['Pending', 'In Progress']);
+
+            const existingRequestSnapshot = await existingRequestQuery.get();
+            if (existingRequestSnapshot.empty) {
+                // 3. No pending request exists, so create a new one.
+                const quantityToOrder = item.reorderLevel * 2; // Example: order twice the reorder level
+                const newRequestRef = db.collection('reorder_requests').doc();
+                await newRequestRef.set({
+                    requestId: newRequestRef.id,
+                    itemId: item.id,
+                    requestType: 'Automatic',
+                    quantityToOrder: quantityToOrder,
+                    status: 'Pending',
+                    dateCreated: admin.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`Created new reorder request for item ${item.id}.`);
+            } else {
+                console.log(`An active reorder request already exists for item ${item.id}. Skipping.`);
+            }
+        }
+        
+        return null;
+    });
+*/
+
+/**
+ * Processes a reorder request by generating a formal purchase order.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /reorder_requests/{requestId}
+ */
+/*
+exports.processReorderRequest = functions.region('europe-west1').firestore
+    .document('/reorder_requests/{requestId}')
+    .onCreate(async (snapshot, context) => {
+        const request = snapshot.data();
+        const { itemId, quantityToOrder, requestType } = request;
+
+        // 1. Fetch item and supplier details
+        const itemDoc = await db.collection('inventory').doc(itemId).get();
+        if (!itemDoc.exists || !itemDoc.data().supplierId) {
+            console.error(`Item ${itemId} or its supplier not found. Cannot process reorder.`);
+            return null;
+        }
+        const supplierId = itemDoc.data().supplierId;
+        const supplierDoc = await db.collection('suppliers').doc(supplierId).get();
+        if (!supplierDoc.exists) {
+            console.error(`Supplier ${supplierId} not found.`);
+            return null;
+        }
+
+        // 2. Create the Purchase Order document
+        // This could be in a separate 'purchase_orders' collection or sent directly.
+        const purchaseOrder = {
+            supplierName: supplierDoc.data().name,
+            supplierEmail: supplierDoc.data().contact.email,
+            item: itemDoc.data().name,
+            quantity: quantityToOrder,
+            date: new Date().toISOString()
+        };
+
+        // 3. Send the purchase order to the supplier
+        // This could be an email or an API call to the supplier's system.
+        // await sendEmail(purchaseOrder.supplierEmail, 'New Purchase Order', `Please supply: ${purchaseOrder.quantity} of ${purchaseOrder.item}`);
+        console.log(`Generated and sent purchase order for item ${itemId} to supplier ${supplierId}.`);
+        
+        // 4. Update the reorder request status to 'In Progress'
+        await snapshot.ref.update({ status: 'In Progress' });
+        
+        return null;
+    });
+*/
+
+
+// =======================================================================================
+// == Pharmacy & Inventory Management Data Models
 // =======================================================================================
 
 // =======================================================================================
