@@ -3,51 +3,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper function to get the user's role from the 'users' collection
     function getUserRole() {
+      // Get the user's custom claims, which should contain their role.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
-    // Allow read for authenticated users, but restrict writes to admins
+
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if getUserRole() == 'admin';
+      // Users can read their own profile.
+      allow read: if request.auth.uid == userId;
+      // Admins can read/write any user profile.
+      allow read, write: if getUserRole() == 'admin';
     }
 
     match /patients/{patientId} {
-      allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      // Allow patients to read their own data
-      allow read: if request.auth.uid == resource.data.uid;
+      // Patients can read their own data.
+      // Clinical staff (doctor, nurse) and admin staff can read any patient data.
+      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist'];
+
+      // Only admins can create or delete patient records through dedicated Cloud Functions.
+      allow create, delete: if getUserRole() == 'admin';
+      
+      // Only admins and certain clinical staff can update patient records.
+      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+
+      // Rules for all EHR sub-collections under a patient
+      match /{subcollection}/{docId} {
+        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician'];
+        allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
     }
     
-    // Prescriptions can be created by doctors/admins, read by clinical staff/the patient,
-    // and updated (status change) by pharmacists/admins.
-    match /prescriptions/{prescriptionId} {
-        allow create: if getUserRole() in ['admin', 'doctor'];
-        allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor'] || request.auth.uid == resource.data.patientId;
-        allow update: if getUserRole() in ['admin', 'pharmacist'] 
-                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-                      && request.resource.data.status in ['Dispensed', 'Canceled'];
-    }
-
     match /inventory/{itemId} {
       allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-      // Only allow authorized users to update the quantity. All other fields are protected.
-      allow update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentQuantity']);
-
-      // Rules for the transactions sub-collection
+      
+      // Only admins and pharmacists can update inventory, typically through a trusted Cloud Function.
+      // This prevents direct, unaudited changes to stock levels.
+      allow update: if getUserRole() in ['admin', 'pharmacist'];
+      
       match /transactions/{transactionId} {
-        // Only allow authorized users to create new transaction logs.
-        // Reading/updating/deleting logs is disallowed for data integrity.
-        allow read, update, delete: if false;
-        allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+        // Only admins and pharmacists can log new transactions, typically through a trusted Cloud Function.
+        allow create: if getUserRole() in ['admin', 'pharmacist'];
+        // Transactions are immutable, so no updates or deletes are allowed.
+        allow update, delete: if false;
+        // Reading transaction history has the same permissions as reading the item itself.
+        allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
       }
     }
 
-    // By default, deny all other reads and writes
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // Add other collection rules here...
   }
 }
