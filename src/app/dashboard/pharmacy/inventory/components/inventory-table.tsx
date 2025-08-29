@@ -145,8 +145,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
               const nearestExpiry = nearestExpiryBatch?.expiryDate;
 
               const isLowStock = totalQuantity <= item.reorderLevel;
-              const daysToExpiry = nearestExpiry ? differenceInDays(parseISO(nearestExpiry), new Date()) : Infinity;
-              const isExpiringSoon = daysToExpiry <= 30 && daysToExpiry >=0;
+              const isExpiringSoon = nearestExpiry ? differenceInDays(parseISO(nearestExpiry), new Date()) <= 30 : false;
 
               return (
                 <TableRow key={item.itemId} className={cn(getRowClass(totalQuantity, item.reorderLevel, nearestExpiry))}>
@@ -159,7 +158,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
                   </TableCell>
                   <TableCell>
                     {isLowStock && <Badge variant="destructive">Low Stock</Badge>}
-                    {isExpiringSoon && <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">Expiring Soon</Badge>}
+                    {isExpiringSoon && !isLowStock && <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">Expiring Soon</Badge>}
                     {!isLowStock && !isExpiringSoon && <Badge variant="secondary">In Stock</Badge>}
                   </TableCell>
                   <TableCell>
