@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateInventory } from '@/lib/actions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface DispenseDialogProps {
     prescription: Prescription;
@@ -50,43 +51,65 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
     const [open, setOpen] = React.useState(false);
     const [inventoryItem, setInventoryItem] = React.useState<InventoryItem | null>(null);
     const [dispensedQuantity, setDispensedQuantity] = React.useState(0);
+    const [selectedBatchNumber, setSelectedBatchNumber] = React.useState<string | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const usableBatches = React.useMemo(() => {
+        if (!inventoryItem || !inventoryItem.batches) return [];
+        const now = new Date();
+        return inventoryItem.batches
+            .filter(b => b.currentQuantity > 0 && isBefore(now, parseISO(b.expiryDate)))
+            .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+    }, [inventoryItem]);
 
     React.useEffect(() => {
         if (open) {
-            // In a real app, you might query where `medicationId` matches `prescription.medicationId`
             const item = mockInventory.find(i => i.name.toLowerCase().includes(prescription.medications[0].name.toLowerCase()));
             setInventoryItem(item || null);
             setDispensedQuantity(prescription.medications[0].quantity_to_dispense);
+
+            // Auto-select the first usable batch (FEFO)
+            if (item && item.batches) {
+                const now = new Date();
+                const firstUsableBatch = item.batches
+                    .filter(b => b.currentQuantity > 0 && isBefore(now, parseISO(b.expiryDate)))
+                    .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime())[0];
+                
+                if (firstUsableBatch) {
+                    setSelectedBatchNumber(firstUsableBatch.batchNumber);
+                }
+            }
+
+        } else {
+            // Reset state on close
+            setInventoryItem(null);
+            setSelectedBatchNumber(undefined);
         }
     }, [open, prescription]);
     
-    const isExpired = inventoryItem ? isBefore(parseISO(inventoryItem.expiryDate), new Date()) : false;
-    const hasEnoughStock = inventoryItem ? inventoryItem.currentQuantity >= dispensedQuantity : false;
-    const canDispense = !isExpired && hasEnoughStock && inventoryItem;
+    const selectedBatch = usableBatches.find(b => b.batchNumber === selectedBatchNumber);
+    const hasEnoughStock = selectedBatch ? selectedBatch.currentQuantity >= dispensedQuantity : false;
+    const canDispense = !!selectedBatch && hasEnoughStock;
 
 
     const handleDispense = async () => {
-        if (!user || !inventoryItem) return;
+        if (!user || !inventoryItem || !selectedBatch) return;
 
         setIsSubmitting(true);
         
-        // Simulate calling the dispenseMedication and updateInventory Cloud Functions
-        // This is where the integration happens.
         await updateInventory({
             itemId: inventoryItem.itemId,
-            quantityChange: -dispensedQuantity, // Negative number to decrement stock
+            quantityChange: -dispensedQuantity,
             type: 'Dispense',
             userId: user.uid,
-            reason: `Prescription #${prescription.prescriptionId}`
+            reason: `Prescription #${prescription.prescriptionId}`,
+            batchNumber: selectedBatch.batchNumber, // Use the selected batch number
         });
         
         toast.success("Medication Dispensed", {
-            description: `${dispensedQuantity} units of ${prescription.medications[0].name} dispensed to ${prescription.patientName}. Inventory updated.`
+            description: `${dispensedQuantity} units of ${prescription.medications[0].name} from batch ${selectedBatch.batchNumber} dispensed. Inventory updated.`
         });
 
-        // In a real app, the state would update via real-time listeners.
-        // Here, we simulate it by triggering a re-render on the parent page.
         onDispense();
         
         setIsSubmitting(false);
@@ -135,24 +158,44 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
                             />
                         </div>
                     </div>
+                     <div className="space-y-2">
+                        <Label>Select Batch (FEFO default)</Label>
+                        <Select value={selectedBatchNumber} onValueChange={setSelectedBatchNumber}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a batch..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {usableBatches.length > 0 ? (
+                                    usableBatches.map(batch => (
+                                        <SelectItem key={batch.batchNumber} value={batch.batchNumber}>
+                                            Batch: {batch.batchNumber} (Expires: {format(parseISO(batch.expiryDate), 'PPP')}, Stock: {batch.currentQuantity})
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem value="none" disabled>No usable batches available</SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
+                     </div>
+
 
                     <div className="p-4 border rounded-md bg-muted/50 space-y-2">
                         <h4 className="font-semibold">Inventory Check</h4>
-                        {inventoryItem ? (
+                        {selectedBatch ? (
                             <>
                                <div className={cn("flex items-center", hasEnoughStock ? 'text-green-600' : 'text-destructive')}>
                                    <AlertCircle className="h-4 w-4 mr-2" />
-                                   <span>In Stock: {inventoryItem.currentQuantity} units</span>
+                                   <span>In Stock: {selectedBatch.currentQuantity} units</span>
                                </div>
-                                <div className={cn("flex items-center", isExpired ? 'text-destructive' : 'text-green-600')}>
+                                <div className="text-green-600 flex items-center">
                                    <AlertCircle className="h-4 w-4 mr-2" />
-                                   <span>Expiry Date: {format(parseISO(inventoryItem.expiryDate), 'PPP')}</span>
+                                   <span>Expiry Date: {format(parseISO(selectedBatch.expiryDate), 'PPP')}</span>
                                </div>
                             </>
                         ) : (
                             <div className="text-destructive flex items-center">
                                 <AlertCircle className="h-4 w-4 mr-2" />
-                                <span>Item not found in inventory.</span>
+                                <span>Item not found or no usable stock available.</span>
                             </div>
                         )}
                     </div>
