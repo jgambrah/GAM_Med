@@ -16,10 +16,11 @@
 // =======================================================================================
 
 // =======================================================================================
-// 54. Dispense Prescription (Callable Cloud Function)
+// 54. Dispense Prescription (Callable Cloud Function) - UPDATED FOR BATCH TRACKING
 // =======================================================================================
 /**
- * Processes a prescription, dispensing each medication and creating billing entries.
+ * Processes a prescription, dispensing each medication using a FEFO (First-Expiry, First-Out)
+ * strategy and creating billing entries.
  *
  * @trigger_type Callable Function (https)
  * @input { prescriptionId: string }
@@ -44,8 +45,7 @@ exports.dispensePrescription = functions.region('europe-west1').https.onCall(asy
 
             // 2. Process each medication line item
             for (const med of medications) {
-                // a) Call the updateInventory logic to safely decrement stock
-                // This would be a direct call to another function or shared logic, not a new HTTP call.
+                // a) Call the updateInventory logic to safely decrement stock using FEFO
                 await updateInventoryLogic(transaction, {
                     itemId: med.itemId,
                     quantityChange: -med.quantity_to_dispense, // Negative for dispense
@@ -2162,7 +2162,7 @@ exports.otSessionReminders = functions.region('europe-west1').pubsub
             // const patientDoc = await db.collection('patients').doc(session.patientId).get();
             // if(patientDoc.data()?.is_admitted) {
             //     const wardId = patientDoc.data().current_ward_id;
-            //     await sendNotificationToWard(wardId, `Prepare patient ${patientDoc.data().full_name} for surgery.`);
+            //     await sendNotificationToWard(`Prepare patient ${patientDoc.data().full_name} for surgery.`);
             // }
 
             // 4. Update the session document to prevent re-sending reminders
@@ -2841,316 +2841,7 @@ exports.onMedicationAdministered = functions.firestore.document('medication_admi
 */
 
 // =======================================================================================
-// == VITALS SENSOR DATA SIMULATION
-// =======================================================================================
-/**
- * Simulates a stream of vitals data for a patient for a short duration.
- * In a real-world scenario, this logic would live in an IoT device or a dedicated
- * service, but for a prototype, a callable function is an effective simulation.
- *
- * @trigger_type Callable Function (https)
- * @input { patientId: string }
- */
-/*
-exports.streamMockVitals = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check: Ensure user is a nurse or doctor.
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    }
-    // Role check would go here...
-
-    const { patientId } = data;
-    if (!patientId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Patient ID is required.');
-    }
-
-    const vitalsRef = db.collection('patients').doc(patientId).collection('vitals');
-
-    // 2. Simulate a 30-second stream of data, writing every 5 seconds.
-    for (let i = 0; i < 6; i++) {
-        const mockData = {
-            bloodPressure: `${120 + Math.floor(Math.random() * 10)}/${80 + Math.floor(Math.random() * 5)}`,
-            heartRate: `${70 + Math.floor(Math.random() * 15)}`,
-            temperature: `${(36.5 + Math.random()).toFixed(1)}`,
-            respiratoryRate: `${16 + Math.floor(Math.random() * 4)}`,
-            oxygenSaturation: `${97 + Math.floor(Math.random() * 2)}`,
-            recordedByUserId: context.auth.uid,
-            recordedAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-
-        await vitalsRef.add(mockData);
-
-        // Wait for 5 seconds before the next iteration.
-        // NOTE: In a real Cloud Function, this is NOT a recommended pattern. For a prototype, it's acceptable.
-        // A better approach for long-running tasks is to use Cloud Tasks.
-        await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-
-    console.log(`Finished streaming mock vitals for patient ${patientId}.`);
-    return { success: true };
-});
-*/
-
-// =======================================================================================
-// == INSURANCE & CLAIMS MANAGEMENT
-// =======================================================================================
-
-// =======================================================================================
-// 43. Submit Claim Electronically (Callable Function)
-// =======================================================================================
-/**
- * Submits an insurance claim to an external clearinghouse or provider API.
- *
- * @trigger_type Callable Function (https)
- * @input { claimId: string }
- */
-/*
-exports.submitClaimElectronically = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check for billing_clerk or admin
-
-    const { claimId } = data;
-    const claimRef = db.collection('insurance_claims').doc(claimId);
-    const claimDoc = await claimRef.get();
-
-    if (!claimDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Claim not found.');
-    }
-    const claimData = claimDoc.data();
-    
-    // 2. Fetch provider details to get the API endpoint
-    const providerRef = db.collection('insurance_providers').doc(claimData.providerId);
-    const providerDoc = await providerRef.get();
-    if (!providerDoc.exists || !providerDoc.data().api_endpoints?.claims_submission) {
-        throw new functions.https.HttpsError('failed-precondition', 'Provider API endpoint not configured.');
-    }
-    const submissionUrl = providerDoc.data().api_endpoints.claims_submission;
-
-    // 3. Logic to format and send data to a third-party claims API
-    // const claimDataForApi = formatClaimForApi(claimData);
-    // const apiResponse = await axios.post(submissionUrl, claimDataForApi);
-    
-    // 4. Update the claim status
-    await claimRef.update({
-        status: 'Submitted',
-        submissionDate: admin.firestore.FieldValue.serverTimestamp(),
-        // claimNumber: apiResponse.data.claimNumber // Get claim number from API response
-    });
-
-    console.log(`Claim ${claimId} submitted successfully.`);
-    return { success: true };
-});
-*/
-
-// =======================================================================================
-// 44. Check Claim Status (Scheduled Function)
-// =======================================================================================
-/**
- * A scheduled function that runs daily to check the status of pending claims.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 09:00'
- */
-/*
-exports.checkClaimStatus = functions.region('europe-west1').pubsub
-    .schedule('every day 09:00')
-    .onRun(async (context) => {
-        // 1. Query for all claims that are in a pending state
-        const pendingClaimsSnapshot = await db.collection('insurance_claims')
-            .where('status', 'in', ['Submitted', 'Pending'])
-            .get();
-
-        if (pendingClaimsSnapshot.empty) {
-            console.log('No pending claims to check.');
-            return null;
-        }
-
-        // 2. Iterate through each claim and check its status
-        for (const claimDoc of pendingClaimsSnapshot.docs) {
-            const claimData = claimDoc.data();
-            const providerDoc = await db.collection('insurance_providers').doc(claimData.providerId).get();
-            
-            if (!providerDoc.exists || !providerDoc.data().api_endpoints?.status_check) {
-                console.warn(`No status check API for provider ${claimData.providerId}. Skipping claim ${claimDoc.id}.`);
-                continue;
-            }
-            const statusUrl = providerDoc.data().api_endpoints.status_check;
-
-            try {
-                // 3. Call the external API
-                // const apiResponse = await axios.get(`${statusUrl}?claimNumber=${claimData.claimNumber}`);
-                // const newStatus = apiResponse.data.status; // e.g., 'Paid', 'Denied'
-                const newStatus = Math.random() > 0.5 ? 'Paid' : 'Denied'; // Mock response
-                
-                if (newStatus !== claimData.status) {
-                    // 4. Update the claim document if the status has changed
-                    await claimDoc.ref.update({ status: newStatus });
-                    console.log(`Updated status for claim ${claimDoc.id} to ${newStatus}.`);
-                }
-            } catch (error) {
-                console.error(`Failed to check status for claim ${claimDoc.id}:`, error);
-            }
-        }
-        
-        return null;
-    });
-*/
-
-// =======================================================================================
-// 45. Handle Rejected Claim (Firestore Trigger)
-// =======================================================================================
-/**
- * Triggers a notification to the billing team when a claim is marked as 'Denied'.
- *
- * @trigger_type Firestore Trigger (onUpdate)
- * @document /insurance_claims/{claimId}
- */
-/*
-exports.handleRejectedClaim = functions.region('europe-west1').firestore
-    .document('/insurance_claims/{claimId}')
-    .onUpdate(async (change, context) => {
-        const newData = change.after.data();
-        const oldData = change.before.data();
-
-        // 1. Condition: Only run if status changes to 'Denied'
-        if (newData.status === 'Denied' && oldData.status !== 'Denied') {
-            const { claimId } = context.params;
-            const patientName = newData.patientName;
-            const denialReason = newData.denialReasonCode || 'No reason provided';
-            
-            // 2. Send notification to the billing team
-            const message = `Claim ${claimId} for patient ${patientName} was denied. Reason: ${denialReason}. Please review and take action.`;
-            
-            // This could be an email, a Slack message, or a new document in a "work_queue" collection.
-            // await sendNotificationToRole('billing_clerk', { subject: 'Claim Denied', body: message });
-            
-            console.log(`Notification sent for denied claim ${claimId}.`);
-        }
-        
-        return null;
-    });
-*/
-
-// =======================================================================================
-// == INVOICING & RECEIPT GENERATION
-// =======================================================================================
-
-// =======================================================================================
-// 46. Generate Invoice Document (Callable/Scheduled Cloud Function)
-// =======================================================================================
-/**
- * Generates a PDF of a finalized invoice and notifies the patient.
- *
- * @trigger_type Can be both:
- *               - Callable: Triggered manually by staff.
- *               - Firestore Trigger (onUpdate): Triggered automatically when an invoice status changes from 'Draft' to 'Pending Payment'.
- * @input { invoiceId: string }
- */
-/*
-exports.generateInvoiceDocument = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check for manual invocation
-    // Add role check for 'admin' or 'billing_clerk'
-
-    const { invoiceId } = data;
-    if (!invoiceId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Invoice ID is required.');
-    }
-    
-    // 2. Fetch all necessary data for the invoice
-    const invoiceRef = db.collection('invoices').doc(invoiceId);
-    const invoiceDoc = await invoiceRef.get();
-    if (!invoiceDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Invoice not found.');
-    }
-    const invoiceData = invoiceDoc.data();
-    
-    // const patientDoc = await db.collection('patients').doc(invoiceData.patientId).get();
-    // const patientData = patientDoc.data();
-
-    // 3. Use a PDF generation library to create the document
-    // const pdfBuffer = await createInvoicePdf({ invoice: invoiceData, patient: patientData });
-    const pdfBuffer = Buffer.from('This is a dummy invoice PDF.'); // Placeholder
-    
-    // 4. Upload to Firebase Storage
-    const filePath = `invoices/${invoiceData.patientId}/${invoiceId}.pdf`;
-    const bucket = admin.storage().bucket();
-    const file = bucket.file(filePath);
-    await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    
-    // 5. Get a long-lived URL and update the invoice document
-    const url = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });
-    await invoiceRef.update({ invoicePdfUrl: url[0] });
-
-    // 6. Send notification to the patient
-    // if (patientData.contact.email) {
-    //     await sendEmailWithAttachment({
-    //         to: patientData.contact.email,
-    //         subject: `Your Invoice from GamMed: ${invoiceId}`,
-    //         body: 'Please find your invoice attached.',
-    //         attachment: pdfBuffer
-    //     });
-    // }
-    
-    console.log(`Generated and sent invoice PDF for ${invoiceId}.`);
-    return { success: true, pdfUrl: url[0] };
-});
-*/
-
-// =======================================================================================
-// 47. Generate Receipt Document (Firestore Trigger)
-// =======================================================================================
-/**
- * Automatically generates a receipt PDF whenever a payment is successfully recorded.
- *
- * @trigger_type Firestore Trigger (onCreate)
- * @document /payments/{paymentId}
- */
-/*
-exports.generateReceiptDocument = functions.region('europe-west1').firestore
-    .document('/payments/{paymentId}')
-    .onCreate(async (snapshot, context) => {
-        const paymentData = snapshot.data();
-        const { invoiceId, amount, paymentId } = paymentData;
-        
-        // 1. Fetch related data
-        const invoiceDoc = await db.collection('invoices').doc(invoiceId).get();
-        if (!invoiceDoc.exists) {
-            console.error(`Invoice ${invoiceId} not found for payment ${paymentId}.`);
-            return null;
-        }
-        // const patientDoc = await db.collection('patients').doc(invoiceDoc.data().patientId).get();
-
-        // 2. Generate the PDF.
-        // const pdfBuffer = await createReceiptPdf({ payment: paymentData, invoice: invoiceDoc.data(), patient: patientDoc.data() });
-        const pdfBuffer = Buffer.from('This is a dummy receipt PDF.'); // Placeholder
-
-        // 3. Upload to Storage
-        const filePath = `receipts/${invoiceDoc.data().patientId}/${paymentId}.pdf`;
-        const file = admin.storage().bucket().file(filePath);
-        await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-        const url = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });
-
-        // 4. Create the receipt record in the invoice's sub-collection
-        await invoiceDoc.ref.collection('receipts').doc(paymentId).set({
-            receiptId: paymentId,
-            paymentId: paymentId,
-            amountPaid: amount,
-            dateIssued: paymentData.paymentDate,
-            issuedByUserId: 'system', // Or the user who processed the payment if available
-            documentLink: url[0]
-        });
-
-        // 5. Send notification to the patient
-        // await sendEmailWithAttachment(...);
-
-        console.log(`Generated receipt for payment ${paymentId}.`);
-        return null;
-    });
-*/
-
-// =======================================================================================
-// == Accounts Receivable & Payable
+// == ACCOUNTS PAYABLE & PAYROLL
 // =======================================================================================
 
 // =======================================================================================
@@ -3311,59 +3002,71 @@ exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
 */
 
 // =======================================================================================
-// == PHARMACY & INVENTORY MANAGEMENT FUNCTIONS
+// == PHARMACY & INVENTORY MANAGEMENT FUNCTIONS (Batch Tracking Update)
 // =======================================================================================
 
 // =======================================================================================
-// 51. Check Inventory Level (Scheduled Cloud Function)
+// 51. checkExpiryDates (Scheduled Cloud Function) - NEW
 // =======================================================================================
 /**
- * Runs daily to check for low-stock items and alert the pharmacy manager.
+ * Runs daily to check for items with batches that are nearing their expiration date.
  *
  * @trigger_type Scheduled (cron job)
  * @schedule 'every day 09:00'
  */
 /*
-exports.checkInventoryLevel = functions.region('europe-west1').pubsub
+exports.checkExpiryDates = functions.region('europe-west1').pubsub
     .schedule('every day 09:00')
     .onRun(async (context) => {
-        // 1. Query for all items where quantity is below the reorder level.
-        const inventoryRef = db.collection('inventory');
-        const snapshot = await inventoryRef.get();
+        const now = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(now.getDate() + 30);
+        
+        const inventorySnapshot = await db.collection('inventory').get();
+        const expiringItems = [];
 
-        const lowStockItems = [];
-        snapshot.forEach(doc => {
+        inventorySnapshot.forEach(doc => {
             const item = doc.data();
-            if (item.currentQuantity <= item.reorderLevel) {
-                 lowStockItems.push({ name: item.name, quantity: item.currentQuantity, reorderLevel: item.reorderLevel });
+            if (item.batches && Array.isArray(item.batches)) {
+                item.batches.forEach(batch => {
+                    const expiryDate = batch.expiryDate.toDate();
+                    if (expiryDate <= thirtyDaysFromNow) {
+                        expiringItems.push({
+                            itemName: item.name,
+                            batchNumber: batch.batchNumber,
+                            quantity: batch.currentQuantity,
+                            expiryDate: expiryDate.toLocaleDateString()
+                        });
+                    }
+                });
             }
         });
 
-        if (lowStockItems.length === 0) {
-            console.log('No low-stock items found.');
-            return null;
+        if (expiringItems.length > 0) {
+            const message = `Expiry Alert: The following items are expiring soon: \n` +
+                            expiringItems.map(item => `- ${item.itemName} (Batch: ${item.batchNumber}, Qty: ${item.quantity}, Expires: ${item.expiryDate})`).join('\n');
+            
+            // Send a single, consolidated notification
+            // await sendNotificationToRole('pharmacist', { subject: 'Item Expiry Alert', body: message });
+            console.log(message);
+        } else {
+            console.log('No items expiring soon.');
         }
-
-        // 2. Aggregate low-stock items for a summary notification.
-        const message = `Low stock alert: ${lowStockItems.length} items need reordering. Items: ${lowStockItems.map(item => item.name).join(', ')}`;
         
-        // 3. Send a single, consolidated notification to the pharmacy manager role.
-        // await sendNotificationToRole('pharmacist', { subject: 'Low Stock Alert', body: message });
-        
-        console.log(message);
         return null;
     });
 */
 
+
 // =======================================================================================
-// 52. Update Inventory (Callable Cloud Function)
+// 52. Update Inventory (Callable Cloud Function) - UPDATED FOR BATCH TRACKING
 // =======================================================================================
 /**
- * Atomically updates stock for an item and creates an audit log. This is the central
- * function for all inventory changes.
+ * Atomically updates stock for an item's specific batch and creates an audit log.
+ * Implements FEFO (First-Expiry, First-Out) for dispensing.
  *
  * @trigger_type Callable Function (https)
- * @input { itemId: string, quantityChange: number, type: 'Dispense' | 'Restock' | 'Waste', userId: string, reason: string }
+ * @input { itemId: string, quantityChange: number, type: 'Dispense' | 'Restock' | 'Waste' | 'Adjustment', userId: string, reason: string, batchNumber?: string }
  */
 /*
 exports.updateInventory = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -3373,13 +3076,8 @@ exports.updateInventory = functions.region('europe-west1').https.onCall(async (d
     }
     // Add role check...
 
-    const { itemId, quantityChange, type, userId, reason } = data;
-    if (!itemId || !quantityChange || !type || !userId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Missing required inventory update data.');
-    }
-
+    let { itemId, quantityChange, type, userId, reason, batchNumber } = data;
     const itemRef = db.collection('inventory').doc(itemId);
-    const logRef = itemRef.collection('transactions').doc();
 
     try {
         await db.runTransaction(async (transaction) => {
@@ -3387,30 +3085,66 @@ exports.updateInventory = functions.region('europe-west1').https.onCall(async (d
             if (!itemDoc.exists) throw new Error('Inventory item not found.');
             
             const itemData = itemDoc.data();
-            const newQuantity = itemData.currentQuantity + quantityChange;
-
-            // 2. Check for sufficient stock if dispensing/wasting
-            if (quantityChange < 0 && itemData.currentQuantity < Math.abs(quantityChange)) {
-                throw new Error(`Insufficient stock for ${itemData.name}. Available: ${itemData.currentQuantity}`);
-            }
-
-            // 3. Update the inventory item's quantity
-            transaction.update(itemRef, { currentQuantity: newQuantity });
+            let batches = itemData.batches || [];
             
-            // 4. Create a transaction log for auditing
+            if (type === 'Dispense' || type === 'Waste') {
+                if (quantityChange > 0) quantityChange = -quantityChange; // Ensure it's negative
+
+                // --- FEFO LOGIC ---
+                // Sort batches by expiry date, ascending. Filter out empty or expired batches.
+                const now = new Date();
+                let usableBatches = batches
+                    .filter(b => b.currentQuantity > 0 && b.expiryDate.toDate() > now)
+                    .sort((a, b) => a.expiryDate.toMillis() - b.expiryDate.toMillis());
+
+                if (usableBatches.length === 0) {
+                    throw new Error(`No usable stock available for ${itemData.name}.`);
+                }
+                
+                const batchToUse = usableBatches[0];
+                if (batchToUse.currentQuantity < Math.abs(quantityChange)) {
+                    throw new Error(`Insufficient stock in the next-to-expire batch for ${itemData.name}. Available: ${batchToUse.currentQuantity}`);
+                }
+                
+                batchToUse.currentQuantity += quantityChange; // Decrement quantity
+                batchNumber = batchToUse.batchNumber; // Record which batch was used
+
+            } else if (type === 'Restock') {
+                // For restocking, a batch number must be provided.
+                if (!batchNumber) throw new Error("Batch number is required for restocking.");
+                if (quantityChange < 0) quantityChange = -quantityChange; // Ensure it's positive
+
+                const existingBatch = batches.find(b => b.batchNumber === batchNumber);
+                if (existingBatch) {
+                    existingBatch.currentQuantity += quantityChange;
+                } else {
+                    // Requires expiry date for new batches
+                    if (!data.expiryDate) throw new Error("Expiry date is required for new batches.");
+                    batches.push({
+                        batchNumber: batchNumber,
+                        currentQuantity: quantityChange,
+                        expiryDate: admin.firestore.Timestamp.fromDate(new Date(data.expiryDate)),
+                        dateReceived: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }
+            
+            // --- Update and Log ---
+            transaction.update(itemRef, { batches: batches });
+            const logRef = itemRef.collection('transactions').doc();
             transaction.set(logRef, {
                 type,
                 quantityChange,
+                batchNumber, // Log which batch was affected
                 reason,
                 userId,
                 date: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // 5. Check reorder level and send notification if needed
-            if (newQuantity <= itemData.reorderLevel && itemData.currentQuantity > itemData.reorderLevel) {
-                 const message = `Low stock alert: ${itemData.name} has reached its reorder level. Current quantity: ${newQuantity}.`;
-                // await sendNotificationToRole('pharmacist', { subject: 'Low Stock Alert', body: message });
-                console.log(message); // Log for now
+            // Check reorder level after update
+            const totalQuantity = batches.reduce((sum, b) => sum + b.currentQuantity, 0);
+            if (totalQuantity <= itemData.reorderLevel) {
+                // Send low stock alert if it just crossed the threshold.
             }
         });
 
@@ -3423,7 +3157,6 @@ exports.updateInventory = functions.region('europe-west1').https.onCall(async (d
     }
 });
 */
-
 
 // =======================================================================================
 // 53. Generate Purchase Order (Callable Cloud Function)
