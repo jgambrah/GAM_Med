@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -34,12 +35,11 @@ export interface InventoryItem {
   name: string; // e.g., 'Amoxicillin 500mg'
   type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General' | 'Surgical Instrument' | 'Disposable';
   unit: string; // e.g. 'box', 'bottle'
-  reorderLevel: number; // The minimum quantity that triggers a reorder alert for the item as a whole.
-  currentQuantity: number; // The total quantity across all batches
+  currentQuantity: number; // The real-time stock count across all batches
+  reorderLevel: number; // The minimum quantity that triggers a reorder alert.
+  isAutoReorder?: boolean; // Flag to indicate if the item should be automatically reordered.
   location: string; // e.g., 'Pharmacy', 'OR Storage', 'Ward A'
   supplierId?: string; // Optional reference to a supplier
-  lotNumber?: string; // Legacy or simple lot number if not using batches
-  expiryDate?: string; // Legacy or simple expiry date if not using batches
   batches?: {
     batchNumber: string;
     currentQuantity: number;
@@ -69,6 +69,19 @@ export interface PharmacyOrder {
   orderedByUserId: string; // Reference to users
   supplierId: string; // Reference to suppliers
   orderedItems: PharmacyOrderItem[];
+}
+
+/**
+ * Represents a request for new stock, which can be manual or automated.
+ * Path: /reorder_requests/{requestId}
+ */
+export interface ReorderRequest {
+    requestId: string;
+    itemId: string;
+    requestType: 'Automatic' | 'Manual';
+    quantityToOrder: number;
+    status: 'Pending' | 'In Progress' | 'Completed';
+    dateCreated: string; // ISO Timestamp
 }
 
 
