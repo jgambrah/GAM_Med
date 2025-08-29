@@ -17,6 +17,7 @@
  */
 export interface InventoryTransaction {
   transactionId: string; // Document ID
+  batchNumber: string; // The batch number that was affected
   type: 'Dispense' | 'Restock' | 'Waste' | 'Adjustment';
   quantityChange: number; // Negative for dispense/waste, positive for restock
   date: string; // ISO Timestamp
@@ -34,13 +35,15 @@ export interface InventoryItem {
   name: string; // e.g., 'Amoxicillin 500mg'
   type: 'Medication' | 'Surgical Supply' | 'Vaccine' | 'General' | 'Surgical Instrument' | 'Disposable';
   unit: string; // e.g. 'box', 'bottle'
-  currentQuantity: number;
-  reorderLevel: number; // The threshold that triggers a reorder alert
-  lotNumber?: string;
-  expiryDate: string; // ISO Timestamp, for perishable items
-  supplierId?: string; // Optional reference to a supplier
+  reorderLevel: number; // The minimum quantity that triggers a reorder alert for the item as a whole.
   location: string; // e.g., 'Pharmacy', 'OR Storage', 'Ward A'
-  // Note: The 'transactions' sub-collection is defined by InventoryTransaction
+  supplierId?: string; // Optional reference to a supplier
+  batches: {
+    batchNumber: string;
+    currentQuantity: number;
+    expiryDate: string; // ISO Timestamp
+    dateReceived: string; // ISO Timestamp
+  }[];
 }
 
 /**
