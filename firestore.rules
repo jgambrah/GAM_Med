@@ -3,53 +3,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
+    // Helper function to get the user's role from their user document.
     function getUserRole() {
-      // Get the user's custom claims, which should contain their role.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    match /users/{userId} {
-      // Users can read their own profile.
-      allow read: if request.auth.uid == userId;
-      // Admins can read/write any user profile.
-      allow read, write: if getUserRole() == 'admin';
-    }
-
+    // Rules for the main collections
     match /patients/{patientId} {
-      // Patients can read their own data.
-      // Clinical staff (doctor, nurse) and admin staff can read any patient data.
-      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist'];
-
-      // Only admins can create or delete patient records through dedicated Cloud Functions.
-      allow create, delete: if getUserRole() == 'admin';
+      allow read, write: if request.auth != null; // Basic auth for now
       
-      // Only admins and certain clinical staff can update patient records.
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-
-      // Rules for all EHR sub-collections under a patient
-      match /{subcollection}/{docId} {
-        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician'];
-        allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      // Sub-collection rules can be more granular
+      match /{document=**} {
+        allow read, write: if request.auth != null;
       }
     }
     
-    match /inventory/{itemId} {
-      allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-      
-      // Only admins and pharmacists can update inventory, typically through a trusted Cloud Function.
-      // This prevents direct, unaudited changes to stock levels.
-      allow update: if getUserRole() in ['admin', 'pharmacist'];
-      
-      match /transactions/{transactionId} {
-        // Only admins and pharmacists can log new transactions, typically through a trusted Cloud Function.
-        allow create: if getUserRole() in ['admin', 'pharmacist'];
-        // Transactions are immutable, so no updates or deletes are allowed.
-        allow update, delete: if false;
-        // Reading transaction history has the same permissions as reading the item itself.
-        allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-      }
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId; // Users can update their own profile
     }
 
-    // Add other collection rules here...
+    match /inventory/{itemId} {
+      allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
+
+      // Allow updates to inventory levels (batches) only by trusted functions
+      // and specific updates to reorder settings by authorized staff.
+      allow update: if (getUserRole() in ['admin', 'pharmacist', 'inventory_manager'] &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reorderLevel', 'isAutoReorder']))
+                     || (request.auth.uid in get(/databases/$(database)/documents/system/trusted_functions).data.uids); // Placeholder for trusted function UIDs
+    }
+    
+    match /inventory/{itemId}/transactions/{transactionId} {
+      // Allow creation only by authorized roles or trusted functions.
+      allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']
+                     || (request.auth.uid in get(/databases/$(database)/documents/system/trusted_functions).data.uids);
+      allow read: if getUserRole() in ['admin', 'pharmacist'];
+    }
+
+    match /reorder_requests/{requestId} {
+      allow read, update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+      allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']
+                     || (request.auth.uid in get(/databases/$(database)/documents/system/trusted_functions).data.uids);
+    }
+    
+    match /{document=**} {
+      allow read, write: if false; // Default deny all
+    }
   }
 }
