@@ -1,6 +1,5 @@
 
 
-
 'use client';
 
 import * as React from 'react';
@@ -9,7 +8,7 @@ import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockP
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2, Download } from 'lucide-react';
-import { StaffProfile, PayrollRecord } from '@/lib/types';
+import { StaffProfile, PayrollRecord, Allowance, Deduction } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -43,7 +42,7 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProf
     defaultValues: { name: '', amount: 0 },
   });
 
-  const availableItems = itemType === 'Allowance' ? mockAllowances : mockDeductions;
+  const availableItems: (Allowance | Deduction)[] = itemType === 'Allowance' ? mockAllowances : mockDeductions;
 
   const onSubmit = (values: z.infer<typeof ItemSchema>) => {
     // In a real app, this would call a server action
@@ -52,6 +51,13 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProf
     setOpen(false);
     form.reset();
   };
+
+  const getItemKey = (item: Allowance | Deduction) => {
+    if ('allowanceId' in item) {
+        return item.allowanceId;
+    }
+    return item.id;
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -83,7 +89,7 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProf
                     </FormControl>
                     <SelectContent>
                       {availableItems.map(a => (
-                        <SelectItem key={itemType === 'Allowance' ? a.allowanceId : a.id} value={a.name}>{a.name}</SelectItem>
+                        <SelectItem key={getItemKey(a)} value={a.name}>{a.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
