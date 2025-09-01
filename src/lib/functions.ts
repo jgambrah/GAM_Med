@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -40,6 +41,7 @@ exports.checkAndGenerateReorder = functions.region('europe-west1').pubsub
         const itemsToReorder = [];
         snapshot.forEach(doc => {
             const item = doc.data();
+            if(!item.batches) return; // Skip if no batches
             const totalQuantity = (item.batches || []).reduce((sum, b) => sum + b.currentQuantity, 0);
             if (totalQuantity <= item.reorderLevel) {
                 itemsToReorder.push({ id: doc.id, ...item });
@@ -3120,174 +3122,21 @@ exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
 */
 
 // =======================================================================================
-// == PHARMACY & INVENTORY MANAGEMENT FUNCTIONS (Batch Tracking Update)
+// == SUPPLIER & PROCUREMENT MANAGEMENT
 // =======================================================================================
 
 // =======================================================================================
-// 51. checkExpiryDates (Scheduled Cloud Function) - NEW
-// =======================================================================================
-/**
- * Runs daily to check for items with batches that are nearing their expiration date.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 09:00'
- */
-/*
-exports.checkExpiryDates = functions.region('europe-west1').pubsub
-    .schedule('every day 09:00')
-    .onRun(async (context) => {
-        const now = new Date();
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(now.getDate() + 30);
-        
-        const inventorySnapshot = await db.collection('inventory').get();
-        const expiringItems = [];
-
-        inventorySnapshot.forEach(doc => {
-            const item = doc.data();
-            if (item.batches && Array.isArray(item.batches)) {
-                item.batches.forEach(batch => {
-                    const expiryDate = batch.expiryDate.toDate();
-                    if (expiryDate <= thirtyDaysFromNow) {
-                        expiringItems.push({
-                            itemName: item.name,
-                            batchNumber: batch.batchNumber,
-                            quantity: batch.currentQuantity,
-                            expiryDate: expiryDate.toLocaleDateString()
-                        });
-                    }
-                });
-            }
-        });
-
-        if (expiringItems.length > 0) {
-            const message = `Expiry Alert: The following items are expiring soon: \n` +
-                            expiringItems.map(item => `- ${item.itemName} (Batch: ${item.batchNumber}, Qty: ${item.quantity}, Expires: ${item.expiryDate})`).join('\n');
-            
-            // Send a single, consolidated notification
-            // await sendNotificationToRole('pharmacist', { subject: 'Item Expiry Alert', body: message });
-            console.log(message);
-        } else {
-            console.log('No items expiring soon.');
-        }
-        
-        return null;
-    });
-*/
-
-
-// =======================================================================================
-// 52. Update Inventory (Callable Cloud Function) - UPDATED FOR BATCH TRACKING
+// 43. Generate Purchase Order (Callable Cloud Function)
 // =======================================================================================
 /**
- * Atomically updates stock for an item's specific batch and creates an audit log.
- * Implements FEFO (First-Expiry, First-Out) for dispensing.
- *
- * @trigger_type Callable Function (https)
- * @input { itemId: string, quantityChange: number, type: 'Dispense' | 'Restock' | 'Waste' | 'Adjustment', userId: string, reason: string, batchNumber?: string }
- */
-/*
-exports.updateInventory = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check
-    if (!context.auth || context.auth.uid !== data.userId) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    }
-    // Add role check...
-
-    let { itemId, quantityChange, type, userId, reason, batchNumber } = data;
-    const itemRef = db.collection('inventory').doc(itemId);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            const itemDoc = await transaction.get(itemRef);
-            if (!itemDoc.exists) throw new Error('Inventory item not found.');
-            
-            const itemData = itemDoc.data();
-            let batches = itemData.batches || [];
-            
-            if (type === 'Dispense' || type === 'Waste') {
-                if (quantityChange > 0) quantityChange = -quantityChange; // Ensure it's negative
-
-                // --- FEFO LOGIC ---
-                // Sort batches by expiry date, ascending. Filter out empty or expired batches.
-                const now = new Date();
-                let usableBatches = batches
-                    .filter(b => b.currentQuantity > 0 && b.expiryDate.toDate() > now)
-                    .sort((a, b) => a.expiryDate.toMillis() - b.expiryDate.toMillis());
-
-                if (usableBatches.length === 0) {
-                    throw new Error(`No usable stock available for ${itemData.name}.`);
-                }
-                
-                const batchToUse = usableBatches[0];
-                if (batchToUse.currentQuantity < Math.abs(quantityChange)) {
-                    throw new Error(`Insufficient stock in the next-to-expire batch for ${itemData.name}. Available: ${batchToUse.currentQuantity}`);
-                }
-                
-                batchToUse.currentQuantity += quantityChange; // Decrement quantity
-                batchNumber = batchToUse.batchNumber; // Record which batch was used
-
-            } else if (type === 'Restock') {
-                // For restocking, a batch number must be provided.
-                if (!batchNumber) throw new Error("Batch number is required for restocking.");
-                if (quantityChange < 0) quantityChange = -quantityChange; // Ensure it's positive
-
-                const existingBatch = batches.find(b => b.batchNumber === batchNumber);
-                if (existingBatch) {
-                    existingBatch.currentQuantity += quantityChange;
-                } else {
-                    // Requires expiry date for new batches
-                    if (!data.expiryDate) throw new Error("Expiry date is required for new batches.");
-                    batches.push({
-                        batchNumber: batchNumber,
-                        currentQuantity: quantityChange,
-                        expiryDate: admin.firestore.Timestamp.fromDate(new Date(data.expiryDate)),
-                        dateReceived: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-            }
-            
-            // --- Update and Log ---
-            transaction.update(itemRef, { batches: batches });
-            const logRef = itemRef.collection('transactions').doc();
-            transaction.set(logRef, {
-                type,
-                quantityChange,
-                batchNumber, // Log which batch was affected
-                reason,
-                userId,
-                date: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Check reorder level after update
-            const totalQuantity = batches.reduce((sum, b) => sum + b.currentQuantity, 0);
-            if (totalQuantity <= itemData.reorderLevel) {
-                // Send low stock alert if it just crossed the threshold.
-            }
-        });
-
-        console.log(`Updated inventory for item ${itemId}.`);
-        return { success: true };
-
-    } catch (error) {
-        console.error(`Failed to update inventory for item ${itemId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not update inventory.', { message: error.message });
-    }
-});
-*/
-
-// =======================================================================================
-// 53. Generate Purchase Order (Callable Cloud Function)
-// =======================================================================================
-/**
- * Creates a new purchase order for the pharmacy.
+ * Creates a new purchase order for the pharmacy or other departments.
  *
  * @trigger_type Callable Function (https)
  * @input { supplierId: string, items: { itemId: string, quantity: number, unit_cost: number }[] }
  */
 /*
 exports.generatePurchaseOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check
+    // 1. Auth check: Ensure user is authorized for procurement
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check for 'pharmacist' or 'procurement_officer'
 
@@ -3296,20 +3145,105 @@ exports.generatePurchaseOrder = functions.region('europe-west1').https.onCall(as
         throw new functions.https.HttpsError('invalid-argument', 'Supplier ID and at least one item are required.');
     }
 
-    const newOrderRef = db.collection('pharmacy_orders').doc();
+    const newOrderRef = db.collection('purchase_orders').doc();
+    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
 
     const orderData = {
-        orderId: newOrderRef.id,
+        poId: newOrderRef.id,
         dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
         status: 'Submitted',
         orderedByUserId: context.auth.uid,
         supplierId,
-        orderedItems: items
+        orderedItems: items,
+        totalAmount
     };
 
     await newOrderRef.set(orderData);
 
+    // 2. Optional: Send the PO to the supplier via email or API integration
+    // const supplierDoc = await db.collection('suppliers').doc(supplierId).get();
+    // if(supplierDoc.exists && supplierDoc.data().contactInfo.email) {
+    //     await sendEmail(supplierDoc.data().contactInfo.email, `Purchase Order ${newOrderRef.id}`, ...);
+    // }
+
     console.log(`Purchase order ${newOrderRef.id} created for supplier ${supplierId}.`);
     return { success: true, orderId: newOrderRef.id };
+});
+*/
+
+// =======================================================================================
+// 44. Receive Goods (Callable Cloud Function)
+// =======================================================================================
+/**
+ * Processes a goods receipt, creating an audit log and updating inventory levels for each item.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { poId: string, receivedItems: { itemId: string, quantityReceived: number, batchNumber: string, expiryDate: string }[] }
+ */
+/*
+exports.receiveGoods = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check for 'pharmacist' or 'inventory_manager'
+
+    const { poId, receivedItems } = data;
+    if (!poId || !receivedItems || receivedItems.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Purchase Order ID and received items are required.');
+    }
+
+    const poRef = db.collection('purchase_orders').doc(poId);
+    const receiptRef = db.collection('goods_receipts').doc();
+
+    const batch = db.batch();
+
+    // 2. Create the Goods Receipt document for auditing
+    batch.set(receiptRef, {
+        receiptId: receiptRef.id,
+        poId,
+        dateReceived: admin.firestore.FieldValue.serverTimestamp(),
+        receivedByUserId: context.auth.uid,
+        receivedItems
+    });
+
+    // 3. For each received item, call the centralized inventory update logic
+    for (const item of receivedItems) {
+        // This is a conceptual call; the `updateInventory` function would need to be callable
+        // within this transaction or as a separate step.
+        // It's crucial this part is atomic.
+        const itemRef = db.collection('inventory').doc(item.itemId);
+        
+        // This logic should be encapsulated in a reusable function `updateInventoryLogic`
+        const newBatch = {
+            batchNumber: item.batchNumber,
+            currentQuantity: item.quantityReceived,
+            expiryDate: admin.firestore.Timestamp.fromDate(new Date(item.expiryDate)),
+            dateReceived: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        batch.update(itemRef, {
+            batches: admin.firestore.FieldValue.arrayUnion(newBatch)
+        });
+        
+        // Also log the transaction
+        const logRef = itemRef.collection('transactions').doc();
+        batch.set(logRef, {
+            type: 'Restock',
+            quantityChange: item.quantityReceived,
+            batchNumber: item.batchNumber,
+            reason: `Purchase Order ${poId}`,
+            userId: context.auth.uid,
+            date: admin.firestore.FieldValue.serverTimestamp()
+        });
+    }
+
+    // 4. Update the Purchase Order status
+    // A more complex system would check if quantities match the order to determine 'Partially Received' vs 'Received'
+    batch.update(poRef, { status: 'Received' });
+
+    // 5. Commit all changes at once
+    await batch.commit();
+
+    console.log(`Goods received and inventory updated for PO ${poId}.`);
+    return { success: true, receiptId: receiptRef.id };
 });
 */
