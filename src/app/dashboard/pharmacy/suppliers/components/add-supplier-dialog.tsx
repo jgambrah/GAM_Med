@@ -26,6 +26,9 @@ import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import { Supplier } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { NewSupplierSchema } from '@/lib/schemas';
+import { z } from 'zod';
 
 interface AddSupplierDialogProps {
     onSupplierCreated: (newSupplier: Supplier) => void;
@@ -34,33 +37,35 @@ interface AddSupplierDialogProps {
 export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps) {
   const [open, setOpen] = React.useState(false);
 
-  const formRef = React.useRef<HTMLFormElement>(null);
-
-  const handleCreate = () => {
-    // In a real app, you'd use a form library like react-hook-form with Zod for validation
-    const formData = new FormData(formRef.current!);
-    const name = formData.get('name') as string;
-    const person = formData.get('person') as string;
-    const email = formData.get('email') as string;
-    const phone = formData.get('phone') as string;
-    const address = formData.get('address') as string;
-    const paymentTerms = formData.get('paymentTerms') as string;
-
-    if (!name || !person || !email || !phone || !address || !paymentTerms) {
-        toast.error('All fields are required.');
-        return;
+  const form = useForm<z.infer<typeof NewSupplierSchema>>({
+    resolver: zodResolver(NewSupplierSchema),
+    defaultValues: {
+        name: '',
+        contactPerson: '',
+        contactEmail: '',
+        contactPhone: '',
+        address: '',
+        paymentTerms: 'Net 30',
     }
-    
+  });
+
+  const onSubmit = (values: z.infer<typeof NewSupplierSchema>) => {
     const newSupplier: Supplier = {
       supplierId: `SUP-${Date.now()}`,
-      name,
-      contactInfo: { person, email, phone, address },
-      paymentTerms: paymentTerms as any,
+      name: values.name,
+      contactInfo: { 
+          person: values.contactPerson,
+          email: values.contactEmail,
+          phone: values.contactPhone,
+          address: values.address 
+      },
+      paymentTerms: values.paymentTerms,
     };
     
     onSupplierCreated(newSupplier);
-    toast.success(`Supplier "${name}" has been created.`);
+    toast.success(`Supplier "${values.name}" has been created.`);
     setOpen(false);
+    form.reset();
   };
 
   return (
@@ -77,47 +82,105 @@ export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps)
             Enter the details for the new supplier or vendor.
           </DialogDescription>
         </DialogHeader>
-        <form ref={formRef} className="space-y-4 py-4">
-            <div className="space-y-2">
-                <FormLabel htmlFor="name">Supplier Name</FormLabel>
-                <Input id="name" name="name" placeholder="e.g., PharmaSupply Ltd." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <FormLabel htmlFor="person">Contact Person</FormLabel>
-                    <Input id="person" name="person" />
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                 <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Supplier Name</FormLabel>
+                            <FormControl>
+                                <Input placeholder="e.g., PharmaSupply Ltd." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="contactPerson"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Person</FormLabel>
+                                <FormControl>
+                                    <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="contactPhone"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Phone</FormLabel>
+                                <FormControl>
+                                    <Input {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </div>
-                 <div className="space-y-2">
-                    <FormLabel htmlFor="phone">Contact Phone</FormLabel>
-                    <Input id="phone" name="phone" />
-                </div>
-            </div>
-             <div className="space-y-2">
-                <FormLabel htmlFor="email">Contact Email</FormLabel>
-                <Input id="email" name="email" type="email" />
-            </div>
-             <div className="space-y-2">
-                <FormLabel htmlFor="address">Address</FormLabel>
-                <Input id="address" name="address" />
-            </div>
-             <div className="space-y-2">
-                <FormLabel htmlFor="paymentTerms">Payment Terms</FormLabel>
-                <Select name="paymentTerms">
-                    <SelectTrigger id="paymentTerms">
-                        <SelectValue placeholder="Select payment terms" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Net 30">Net 30</SelectItem>
-                        <SelectItem value="Net 60">Net 60</SelectItem>
-                        <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </form>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreate}>Create Supplier</Button>
-        </DialogFooter>
+                <FormField
+                    control={form.control}
+                    name="contactEmail"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Contact Email</FormLabel>
+                            <FormControl>
+                                <Input type="email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Address</FormLabel>
+                            <FormControl>
+                                <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="paymentTerms"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Payment Terms</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select payment terms" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Net 30">Net 30</SelectItem>
+                                    <SelectItem value="Net 60">Net 60</SelectItem>
+                                    <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <DialogFooter>
+                    <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting ? 'Creating...' : 'Create Supplier'}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

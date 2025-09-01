@@ -269,3 +269,15 @@ export const UpdateInventorySchema = z.object({
   userId: z.string().min(1),
   reason: z.string().min(1),
 });
+
+/**
+ * Zod schema for adding a new supplier.
+ */
+export const NewSupplierSchema = z.object({
+    name: z.string().min(3, 'Supplier name is required.'),
+    contactPerson: z.string().min(3, 'Contact person is required.'),
+    contactEmail: z.string().email('Invalid email address.'),
+    contactPhone: z.string().min(10, 'A valid phone number is required.'),
+    address: z.string().min(5, 'Address is required.'),
+    paymentTerms: z.enum(['Net 30', 'Net 60', 'Cash on Delivery']),
+});
