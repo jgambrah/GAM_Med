@@ -80,7 +80,7 @@ export function InvoiceDetailDialog({ invoice, isOpen, onOpenChange }: InvoiceDe
                      <p className="text-sm text-muted-foreground">Due: {format(new Date(invoice.dueDate), 'PPP')}</p>
                 </div>
                  <div className="text-right">
-                    <p className="text-2xl font-bold">₵{invoice.totalAmount.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">₵{invoice.grandTotal.toFixed(2)}</p>
                     <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
                 </div>
             </div>
