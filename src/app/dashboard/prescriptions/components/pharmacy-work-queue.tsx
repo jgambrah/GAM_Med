@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, AlertCircle, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -38,12 +38,20 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { updateInventory } from '@/lib/actions';
+import { updateInventory, checkPrescriptionSafety } from '@/lib/actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DispenseDialogProps {
     prescription: Prescription;
     onDispense: () => void;
+}
+
+interface Alert {
+    type: 'Allergy' | 'Interaction';
+    severity: 'High' | 'Moderate' | 'Low';
+    message: string;
 }
 
 function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
@@ -54,6 +62,13 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
     const [selectedBatchNumber, setSelectedBatchNumber] = React.useState<string | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+    // New state for safety checks
+    const [isChecking, setIsChecking] = React.useState(true);
+    const [alerts, setAlerts] = React.useState<Alert[]>([]);
+    const [isAcknowledged, setIsAcknowledged] = React.useState(false);
+
+    const medication = prescription.medications[0];
+
     const usableBatches = React.useMemo(() => {
         if (!inventoryItem || !inventoryItem.batches) return [];
         const now = new Date();
@@ -63,12 +78,25 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
     }, [inventoryItem]);
 
     React.useEffect(() => {
+        const performSafetyChecks = async () => {
+            if (!open) return;
+
+            setIsChecking(true);
+            setAlerts([]);
+            setIsAcknowledged(false); // Reset acknowledgment on open
+            
+            const result = await checkPrescriptionSafety(prescription.patientId, medication.name);
+            if (result.success && result.alerts) {
+                setAlerts(result.alerts);
+            }
+            setIsChecking(false);
+        };
+        
         if (open) {
             const item = mockInventory.find(i => i.name.toLowerCase().includes(prescription.medications[0].name.toLowerCase()));
             setInventoryItem(item || null);
             setDispensedQuantity(prescription.medications[0].quantity_to_dispense);
 
-            // Auto-select the first usable batch (FEFO)
             if (item && item.batches) {
                 const now = new Date();
                 const firstUsableBatch = item.batches
@@ -79,17 +107,17 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
                     setSelectedBatchNumber(firstUsableBatch.batchNumber);
                 }
             }
-
+            performSafetyChecks();
         } else {
-            // Reset state on close
             setInventoryItem(null);
             setSelectedBatchNumber(undefined);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, prescription]);
     
     const selectedBatch = usableBatches.find(b => b.batchNumber === selectedBatchNumber);
     const hasEnoughStock = selectedBatch ? selectedBatch.currentQuantity >= dispensedQuantity : false;
-    const canDispense = !!selectedBatch && hasEnoughStock;
+    const canDispense = !!selectedBatch && hasEnoughStock && !isChecking && (alerts.length === 0 || isAcknowledged);
 
 
     const handleDispense = async () => {
@@ -103,7 +131,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
             type: 'Dispense',
             userId: user.uid,
             reason: `Prescription #${prescription.prescriptionId}`,
-            batchNumber: selectedBatch.batchNumber, // Use the selected batch number
+            batchNumber: selectedBatch.batchNumber,
         });
         
         toast.success("Medication Dispensed", {
@@ -143,6 +171,36 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                    {isChecking ? (
+                         <div className="space-y-2">
+                            <Skeleton className="h-8 w-1/3" />
+                            <Skeleton className="h-20 w-full" />
+                        </div>
+                    ) : alerts.length > 0 && (
+                        <div className="p-4 bg-destructive/10 border-l-4 border-destructive rounded-md space-y-3">
+                            <div className="flex items-start">
+                                <AlertTriangle className="h-6 w-6 text-destructive mr-3 flex-shrink-0" />
+                                <div>
+                                    <h3 className="font-bold text-destructive">Patient Safety Alert</h3>
+                                    <p className="text-sm text-destructive/80">
+                                        The following issues were found. Please review before proceeding.
+                                    </p>
+                                </div>
+                            </div>
+                            <ul className="list-disc pl-8 space-y-1 text-sm">
+                                {alerts.map((alert, index) => (
+                                    <li key={index}><strong>{alert.type} Alert ({alert.severity}):</strong> {alert.message}</li>
+                                ))}
+                            </ul>
+                            <div className="flex items-center space-x-2 pt-2">
+                                <Checkbox id="acknowledge" checked={isAcknowledged} onCheckedChange={(checked) => setIsAcknowledged(checked === true)} />
+                                <label htmlFor="acknowledge" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    I acknowledge these warnings and wish to proceed.
+                                </label>
+                            </div>
+                        </div>
+                    )}
+
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Prescribed Quantity</Label>

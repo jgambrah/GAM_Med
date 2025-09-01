@@ -1,12 +1,11 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema } from './schemas';
 import { Appointment, Patient } from './types';
-import { allPatients } from './data';
+import { allPatients, mockMedicationRecords } from './data';
 
 /**
  * Server Action to register a new patient.
@@ -434,4 +433,43 @@ export async function updateInventory(values: z.infer<typeof UpdateInventorySche
     revalidatePath('/dashboard/pharmacy');
 
     return { success: true, message: 'Inventory updated successfully.' };
+}
+
+// Simulates the `checkDrugAndAllergyAlerts` Cloud Function
+export async function checkPrescriptionSafety(
+  patientId: string,
+  medicationName: string
+): Promise<{
+  success: boolean;
+  alerts: { type: 'Allergy' | 'Interaction'; severity: 'High' | 'Moderate' | 'Low'; message: string }[];
+}> {
+  console.log(`Checking safety for patient ${patientId} and medication ${medicationName}`);
+  await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate network delay
+
+  const alerts: { type: 'Allergy' | 'Interaction'; severity: 'High'; message: string }[] = [];
+  const patient = allPatients.find(p => p.patient_id === patientId);
+
+  // 1. Allergy Check
+  if (patient?.allergies?.some(allergy => medicationName.toLowerCase().includes(allergy.toLowerCase()))) {
+    alerts.push({
+      type: 'Allergy',
+      severity: 'High',
+      message: `Patient has a known allergy to ${medicationName}.`,
+    });
+  }
+  
+  // 2. Interaction Check (simplified)
+  // Check if patient is already on Aspirin and is now being prescribed Warfarin
+  const activeMedications = mockMedicationRecords.filter(m => m.patientId === patientId && m.status === 'Active');
+  if (medicationName.toLowerCase().includes('aspirin')) {
+     if (activeMedications.some(m => m.medicationName.toLowerCase().includes('atorvastatin'))) {
+         alerts.push({
+            type: 'Interaction',
+            severity: 'High',
+            message: 'Aspirin may interact with the patient\'s existing Atorvastatin prescription.',
+        });
+     }
+  }
+
+  return { success: true, alerts };
 }
