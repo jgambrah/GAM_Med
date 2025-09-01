@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PharmacyOrder, PrescribedMedication } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -868,7 +868,9 @@ export const mockPricingTables: PricingTable[] = [
         rate_card: {
             'A001': 250.00, // Consultation
             'L001': 120.00, // Full Blood Count
-            'A005': 150.00  // Other
+            'A005': 150.00,  // Other
+            'AMX500': 50.00,
+            'PARA1G': 20.00
         }
     },
     {
@@ -895,20 +897,24 @@ export const mockSuppliers: Supplier[] = [
     {
         supplierId: 'SUP-001',
         name: 'PharmaSupply Ltd.',
-        contact: {
+        contactInfo: { 
             person: 'Grace Tetteh',
             email: 'sales@pharmasupply.com.gh',
-            phone: '+233302123456'
-        }
+            phone: '+233302123456',
+            address: '123 Industrial Area, Accra'
+        },
+        paymentTerms: 'Net 30'
     },
     {
         supplierId: 'SUP-002',
         name: 'MedEquip Ghana',
-        contact: {
+        contactInfo: { 
             person: 'David Quartey',
             email: 'info@medequipgh.com',
-            phone: '+233302789123'
-        }
+            phone: '+233302789123',
+            address: '456 Spintex, Tema'
+        },
+        paymentTerms: 'Cash on Delivery'
     }
 ];
 
@@ -1210,7 +1216,11 @@ export const mockInventory: InventoryItem[] = [
         unit: 'box',
         currentQuantity: 50,
         reorderLevel: 20,
-        expiryDate: new Date('2025-12-31T00:00:00Z').toISOString(),
+        isAutoReorder: true,
+        batches: [
+            { batchNumber: 'B1001', currentQuantity: 20, expiryDate: new Date('2025-12-31T00:00:00Z').toISOString(), dateReceived: new Date('2024-01-01T00:00:00Z').toISOString() },
+            { batchNumber: 'B1002', currentQuantity: 30, expiryDate: new Date('2026-06-30T00:00:00Z').toISOString(), dateReceived: new Date('2024-07-01T00:00:00Z').toISOString() }
+        ],
         supplierId: 'SUP-001',
         location: 'Main Pharmacy, Shelf A'
     },
@@ -1221,7 +1231,10 @@ export const mockInventory: InventoryItem[] = [
         unit: 'box',
         currentQuantity: 15, // Low Stock
         reorderLevel: 25,
-        expiryDate: new Date('2026-06-30T00:00:00Z').toISOString(),
+        isAutoReorder: true,
+        batches: [
+            { batchNumber: 'B2001', currentQuantity: 15, expiryDate: new Date('2026-06-30T00:00:00Z').toISOString(), dateReceived: new Date('2024-07-01T00:00:00Z').toISOString() }
+        ],
         supplierId: 'SUP-001',
         location: 'Main Pharmacy, Shelf B'
     },
@@ -1232,7 +1245,10 @@ export const mockInventory: InventoryItem[] = [
         unit: 'case',
         currentQuantity: 40,
         reorderLevel: 50,
-        expiryDate: new Date('2024-09-10T00:00:00Z').toISOString(), // Expiring Soon
+        isAutoReorder: false,
+        batches: [
+             { batchNumber: 'B3001', currentQuantity: 40, expiryDate: new Date('2024-09-10T00:00:00Z').toISOString(), dateReceived: new Date('2024-01-01T00:00:00Z').toISOString() }
+        ],
         supplierId: 'SUP-002',
         location: 'Storage Room B'
     },
@@ -1243,7 +1259,10 @@ export const mockInventory: InventoryItem[] = [
         unit: 'box',
         currentQuantity: 200,
         reorderLevel: 100,
-        expiryDate: new Date('2024-07-31T00:00:00Z').toISOString(), // Expired
+        isAutoReorder: false,
+        batches: [
+            { batchNumber: 'B4001', currentQuantity: 200, expiryDate: new Date('2024-07-31T00:00:00Z').toISOString(), dateReceived: new Date('2023-08-01T00:00:00Z').toISOString() }
+        ],
         supplierId: 'SUP-002',
         location: 'Storage Room A'
     }
