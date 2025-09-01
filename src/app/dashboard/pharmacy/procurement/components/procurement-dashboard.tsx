@@ -13,51 +13,36 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PharmacyOrder } from '@/lib/types';
+import { PurchaseOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { CreateOrderDialog } from './create-order-dialog';
 import { ReceiveOrderDialog } from './receive-order-dialog';
+import { mockPurchaseOrders, mockSuppliers } from '@/lib/data';
 
-const mockOrders: PharmacyOrder[] = [
-    {
-        orderId: 'PO-001',
-        dateOrdered: new Date('2024-08-10T10:00:00Z').toISOString(),
-        status: 'Received',
-        orderedByUserId: 'pharma1',
-        supplierId: 'SUP-001',
-        orderedItems: [{ itemId: 'AMX500', name: 'Amoxicillin 500mg', quantity: 100, unit_cost: 0.50 }]
-    },
-    {
-        orderId: 'PO-002',
-        dateOrdered: new Date('2024-08-15T14:30:00Z').toISOString(),
-        status: 'Submitted',
-        orderedByUserId: 'pharma1',
-        supplierId: 'SUP-002',
-        orderedItems: [{ itemId: 'GAUZE', name: 'Sterile Gauze', quantity: 50, unit_cost: 10.00 }]
-    }
-];
-
-const getStatusVariant = (status: PharmacyOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
+const getStatusVariant = (status: PurchaseOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
         case 'Submitted': return 'default';
         case 'Received': return 'secondary';
-        case 'Draft': return 'outline';
         default: return 'outline';
     }
 };
 
 export function ProcurementDashboard() {
-  const [orders, setOrders] = React.useState<PharmacyOrder[]>(mockOrders);
+  const [orders, setOrders] = React.useState<PurchaseOrder[]>(mockPurchaseOrders);
 
-  const handleOrderCreated = (newOrder: PharmacyOrder) => {
+  const handleOrderCreated = (newOrder: PurchaseOrder) => {
     setOrders(prev => [newOrder, ...prev]);
   };
   
   const handleOrderReceived = (orderId: string) => {
       setOrders(prev => prev.map(order => 
-          order.orderId === orderId ? { ...order, status: 'Received' } : order
+          order.poId === orderId ? { ...order, status: 'Received' } : order
       ));
+  }
+
+  const getSupplierName = (supplierId: string) => {
+    return mockSuppliers.find(s => s.supplierId === supplierId)?.name || 'Unknown';
   }
 
   return (
@@ -78,21 +63,23 @@ export function ProcurementDashboard() {
               <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Date Ordered</TableHead>
-                <TableHead>Supplier ID</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead className="text-right">Total Amount</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {orders.map((order) => (
-                <TableRow key={order.orderId}>
-                  <TableCell className="font-medium">{order.orderId}</TableCell>
+                <TableRow key={order.poId}>
+                  <TableCell className="font-medium">{order.poId}</TableCell>
                   <TableCell>{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
-                  <TableCell>{order.supplierId}</TableCell>
+                  <TableCell>{getSupplierName(order.supplierId)}</TableCell>
+                  <TableCell className="text-right font-mono">₵{order.totalAmount.toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                     <ReceiveOrderDialog order={order} onOrderReceived={handleOrderReceived} />
                   </TableCell>
                 </TableRow>

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { PharmacyOrder } from '@/lib/types';
+import { PurchaseOrder } from '@/lib/types';
 import { updateInventory } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -35,7 +35,7 @@ const ReceiveOrderSchema = z.object({
 });
 
 interface ReceiveOrderDialogProps {
-  order: PharmacyOrder;
+  order: PurchaseOrder;
   onOrderReceived: (orderId: string) => void;
 }
 
@@ -71,14 +71,14 @@ export function ReceiveOrderDialog({ order, onOrderReceived }: ReceiveOrderDialo
         quantityChange: item.quantity,
         type: 'Restock',
         userId: user?.uid || 'pharma1',
-        reason: `Purchase Order ${order.orderId}`,
+        reason: `Purchase Order ${order.poId}`,
         batchNumber: item.batchNumber,
         expiryDate: item.expiryDate,
       });
     }
 
-    toast.success('Stock Received', { description: `Inventory has been updated for order ${order.orderId}.` });
-    onOrderReceived(order.orderId);
+    toast.success('Stock Received', { description: `Inventory has been updated for order ${order.poId}.` });
+    onOrderReceived(order.poId);
     setOpen(false);
   };
 
@@ -91,7 +91,7 @@ export function ReceiveOrderDialog({ order, onOrderReceived }: ReceiveOrderDialo
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Receive Stock for Order: {order.orderId}</DialogTitle>
+          <DialogTitle>Receive Stock for Order: {order.poId}</DialogTitle>
           <DialogDescription>
             Enter the batch number and expiry date for each item received.
           </DialogDescription>
