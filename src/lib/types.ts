@@ -905,6 +905,7 @@ export interface Prescription {
   status: 'Pending' | 'Dispensed' | 'Canceled';
   medications: PrescribedMedication[]; // An array of prescribed medications
   filledAt?: string; // ISO Timestamp, updated by Pharmacy
+  isDispensed?: boolean;
 }
 
 // =========================================================================
