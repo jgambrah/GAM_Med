@@ -12,13 +12,17 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Supplier } from '@/lib/types';
+import { SupplierDetailDialog } from './supplier-detail-dialog';
 
 interface SupplierTableProps {
   data: Supplier[];
 }
 
 export function SupplierTable({ data }: SupplierTableProps) {
+  const [selectedSupplier, setSelectedSupplier] = React.useState<Supplier | null>(null);
+
   return (
+    <>
     <div className="rounded-md border">
       <Table>
         <TableHeader>
@@ -39,7 +43,7 @@ export function SupplierTable({ data }: SupplierTableProps) {
                 <TableCell>{supplier.contactInfo.phone}</TableCell>
                 <TableCell>{supplier.paymentTerms}</TableCell>
                 <TableCell>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedSupplier(supplier)}>
                     View Details
                   </Button>
                 </TableCell>
@@ -55,5 +59,17 @@ export function SupplierTable({ data }: SupplierTableProps) {
         </TableBody>
       </Table>
     </div>
+    {selectedSupplier && (
+        <SupplierDetailDialog 
+            supplier={selectedSupplier}
+            isOpen={!!selectedSupplier}
+            onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                    setSelectedSupplier(null);
+                }
+            }}
+        />
+    )}
+    </>
   );
 }
