@@ -67,7 +67,7 @@ export interface PurchaseOrder {
   supplierId: string; // Reference to suppliers
   dateOrdered: string; // ISO Timestamp
   deliveryDate?: string; // ISO Timestamp (expected)
-  status: 'Pending' | 'Shipped' | 'Received' | 'Canceled';
+  status: 'Pending' | 'Shipped' | 'Received' | 'Canceled' | 'Submitted';
   orderedItems: PurchaseOrderItem[];
   totalAmount: number;
   orderedByUserId: string; // Reference to users
@@ -294,6 +294,7 @@ export interface Supplier {
   supplierId: string; // Document ID
   name: string;
   contactInfo: {
+    person: string;
     email: string;
     phone: string;
     address: string;
