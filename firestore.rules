@@ -1,53 +1,65 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the user's role from their user document.
+
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Rules for the main collections
-    match /patients/{patientId} {
-      allow read, write: if request.auth != null; // Basic auth for now
-      
-      // Sub-collection rules can be more granular
-      match /{document=**} {
-        allow read, write: if request.auth != null;
-      }
-    }
-    
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId; // Users can update their own profile
-    }
-
-    match /inventory/{itemId} {
-      allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-
-      // Allow updates to inventory levels (batches) only by trusted functions
-      // and specific updates to reorder settings by authorized staff.
-      allow update: if (getUserRole() in ['admin', 'pharmacist', 'inventory_manager'] &&
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reorderLevel', 'isAutoReorder']))
-                     || (request.auth.uid in get(/databases/$(database)/documents/system/trusted_functions).data.uids); // Placeholder for trusted function UIDs
-    }
-    
-    match /inventory/{itemId}/transactions/{transactionId} {
-      // Allow creation only by authorized roles or trusted functions.
-      allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']
-                     || (request.auth.uid in get(/databases/$(database)/documents/system/trusted_functions).data.uids);
-      allow read: if getUserRole() in ['admin', 'pharmacist'];
-    }
-
-    match /reorder_requests/{requestId} {
-      allow read, update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
-      allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']
-                     || (request.auth.uid in get(/databases/$(database)/documents/system/trusted_functions).data.uids);
-    }
-    
+    // Global read access for authenticated users, but no global write access
     match /{document=**} {
-      allow read, write: if false; // Default deny all
+      allow read: if isUserAuthenticated();
+      allow write: if false; // Default deny all writes
     }
+
+    // -- Specific Collection Rules --
+
+    // Users can only read their own data, but admins can read any user.
+    match /users/{userId} {
+        allow read: if isUserAuthenticated() && (request.auth.uid == userId || getUserRole() == 'admin');
+        allow write: if false; // User data managed by backend functions or admins only
+    }
+    
+    // Inventory can only be updated by authorized staff or trusted functions.
+    match /inventory/{itemId} {
+        allow write: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+    }
+    
+    // Reorder requests can be created by authorized staff or automated functions.
+    match /reorder_requests/{requestId} {
+      allow create: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager']; // Assumes functions run with admin privileges
+      allow read, update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+    }
+
+    // Supplier data can be read by staff but only written by admins.
+    match /suppliers/{supplierId} {
+      allow read: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+      allow write: if getUserRole() == 'admin';
+    }
+
+    // Procurement documents can be managed by procurement staff.
+    match /purchase_orders/{poId} {
+      allow create, read, update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+    }
+    match /goods_receipts/{receiptId} {
+      allow create, read, update: if getUserRole() in ['admin', 'pharmacist', 'inventory_manager'];
+    }
+
+    // Patients can only read their own sub-collections, but authorized staff can read/write.
+    match /patients/{patientId}/{subcollection}/{docId} {
+      allow read: if isUserAuthenticated() && (request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.userId || getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk']);
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+    
+     match /patients/{patientId} {
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+     }
+
   }
 }
