@@ -553,6 +553,22 @@ export const mockPrescriptions: Prescription[] = [
             duration: 0,
             quantity_to_dispense: 20
         }]
+    },
+    {
+        prescriptionId: 'med-4',
+        patientId: 'P-123456',
+        patientName: 'Kwame Owusu',
+        doctorId: 'doc1',
+        datePrescribed: new Date('2024-08-16T09:00:00Z').toISOString(),
+        status: 'Pending',
+        medications: [{
+            itemId: 'PEN500', // A fictional Item ID for Penicillin
+            name: 'Penicillin',
+            dosage: '500mg',
+            frequency: 'QID',
+            duration: 7,
+            quantity_to_dispense: 28
+        }]
     }
 ];
 
@@ -915,6 +931,17 @@ export const mockSuppliers: Supplier[] = [
             address: '456 Spintex, Tema'
         },
         paymentTerms: 'Cash on Delivery'
+    },
+    {
+        supplierId: 'SUP-003',
+        name: 'General Medical Supplies',
+        contactInfo: {
+            person: 'Esther Baah',
+            email: 'contact@generalmed.com',
+            phone: '+233201112233',
+            address: 'Accra Central'
+        },
+        paymentTerms: 'Net 60'
     }
 ];
 
@@ -1225,6 +1252,20 @@ export const mockInventory: InventoryItem[] = [
         location: 'Main Pharmacy, Shelf A'
     },
     {
+        itemId: 'PEN500',
+        name: 'Penicillin 500mg',
+        type: 'Medication',
+        unit: 'box',
+        currentQuantity: 40,
+        reorderLevel: 20,
+        isAutoReorder: true,
+        batches: [
+            { batchNumber: 'B5001', currentQuantity: 40, expiryDate: new Date('2025-10-31T00:00:00Z').toISOString(), dateReceived: new Date('2024-02-01T00:00:00Z').toISOString() },
+        ],
+        supplierId: 'SUP-001',
+        location: 'Main Pharmacy, Shelf C'
+    },
+    {
         itemId: 'PARA1G',
         name: 'Paracetamol 1g',
         type: 'Medication',
@@ -1291,3 +1332,4 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
