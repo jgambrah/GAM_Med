@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -69,15 +70,11 @@ export function AddToWaitlistDialog() {
   const onSubmit = async (values: z.infer<typeof NewWaitingListSchema>) => {
     const result = await addToWaitingList(values);
     if (result.success) {
-      toast.success('Patient Added to Waitlist', {
-        description: 'The patient has been successfully added to the waiting list.',
-      });
+      toast.success('The patient has been successfully added to the waiting list.');
       setOpen(false);
       form.reset();
     } else {
-      toast.error('Failed to Add Patient', {
-        description: result.message || 'An unexpected error occurred.',
-      });
+      toast.error(result.message || 'An unexpected error occurred.');
     }
   };
 

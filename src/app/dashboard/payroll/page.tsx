@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -233,13 +234,9 @@ function PayrollRunsDashboard() {
 
       if (newRun.status === 'Review') {
         setRunRecords(prev => ({ ...prev, [newRun.runId]: newRecords }));
-        toast("Payroll Run Processed", {
-            description: `Payroll for ${newRun.payPeriod} is ready for your review.`
-        });
+        toast.success(`Payroll for ${newRun.payPeriod} is ready for your review.`);
       } else {
-        toast("Payroll Run Started", {
-            description: `Payroll for ${newRun.payPeriod} is now processing...`
-        });
+        toast.info(`Payroll for ${newRun.payPeriod} is now processing...`);
       }
     };
     
@@ -247,9 +244,7 @@ function PayrollRunsDashboard() {
         setRuns(prev => prev.map(run => 
             run.runId === runId ? { ...run, status: 'Completed' } : run
         ));
-        toast("Payroll Finalized", {
-            description: `Payroll run ${runId} has been finalized. You can now post it to the ledger.`
-        });
+        toast.success(`Payroll run ${runId} has been finalized. You can now post it to the ledger.`);
     };
 
     const handlePostToLedger = (run: PayrollRun) => {

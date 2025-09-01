@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -45,9 +46,7 @@ function CreateDeductionDialog({ onDeductionCreated }: { onDeductionCreated: (ne
 
     // In a real app, this would call a server action.
     onDeductionCreated(newDeduction);
-    toast.success('Deduction Created', {
-      description: `Deduction type "${name}" has been successfully created.`,
-    });
+    toast.success(`Deduction type "${name}" has been successfully created.`);
 
     setOpen(false);
     setName('');

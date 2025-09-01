@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -48,9 +49,7 @@ function CreateAllowanceDialog({ onAllowanceCreated }: { onAllowanceCreated: (ne
 
     // In a real app, this would call a server action.
     onAllowanceCreated(newAllowance);
-    toast.success('Allowance Created', {
-      description: `Allowance "${name}" has been successfully created.`,
-    });
+    toast.success(`Allowance "${name}" has been successfully created.`);
 
     setOpen(false);
     setName('');

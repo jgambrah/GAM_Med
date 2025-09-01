@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -46,9 +47,7 @@ function CreatePositionDialog({ onPositionCreated }: { onPositionCreated: (newPo
     };
 
     onPositionCreated(newPosition);
-    toast.success('Position Created', {
-      description: `Position "${title}" has been successfully created.`,
-    });
+    toast.success(`Position "${title}" has been successfully created.`);
 
     setOpen(false);
     setTitle('');
@@ -117,9 +116,7 @@ function ApplySalaryIncreaseDialog({ positions, onIncreaseApplied }: { positions
   
       onIncreaseApplied(updatedPositions);
       
-      toast.success('Salaries Increased', {
-        description: `All position base salaries have been increased by ${percentage}%.`,
-      });
+      toast.success(`All position base salaries have been increased by ${percentage}%.`);
   
       setOpen(false);
       setPercentage(0);

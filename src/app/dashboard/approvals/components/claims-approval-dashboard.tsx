@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -26,9 +27,7 @@ export function ClaimsApprovalDashboard() {
   const handleApprove = async (claimId: string) => {
     const result = await approveStaffClaim(claimId);
     if(result.success) {
-        toast.success('Claim Approved', {
-            description: `Claim ${claimId} has been approved and sent to accounts for payment.`,
-        });
+        toast.success(`Claim ${claimId} has been approved and sent to accounts for payment.`);
         // Here you would re-fetch the data to update the UI
     } else {
         toast.error(result.message || 'An unexpected error occurred.');

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -38,7 +39,7 @@ import { Plus, Clock } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 const mockDepartments = [
@@ -64,8 +65,7 @@ export function NewAppointmentDialog() {
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
-
+  
   const form = useForm<z.infer<typeof NewAppointmentSchema>>({
     resolver: zodResolver(NewAppointmentSchema),
     defaultValues: {
@@ -122,10 +122,7 @@ export function NewAppointmentDialog() {
     console.log("Booking appointment with values:", values);
     const result = await bookAppointment(values);
     if (result.success) {
-      toast({
-        title: 'Appointment Booked',
-        description: 'The appointment has been successfully scheduled.',
-      });
+      toast.success('The appointment has been successfully scheduled.');
       setOpen(false);
       form.reset({
         patientId: user?.role === 'patient' ? user.patient_id : '',
@@ -137,10 +134,7 @@ export function NewAppointmentDialog() {
         resourceId: '',
       });
     } else {
-      toast({
-        title: 'Booking Failed',
-        description: result.message || 'An unexpected error occurred.',
-      });
+      toast.error(result.message || 'An unexpected error occurred.');
     }
   };
 

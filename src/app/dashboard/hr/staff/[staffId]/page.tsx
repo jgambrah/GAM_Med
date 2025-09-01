@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import * as React from 'react';
@@ -47,7 +48,7 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: StaffProf
   const onSubmit = (values: z.infer<typeof ItemSchema>) => {
     // In a real app, this would call a server action
     onAdded(values.name, values.amount);
-    toast.success(`${itemType} Added`, { description: `${values.name} has been added to ${staff.firstName}'s profile.` });
+    toast.success(`${itemType} Added: ${values.name} has been added to ${staff.firstName}'s profile.`);
     setOpen(false);
     form.reset();
   };

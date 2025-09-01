@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -126,9 +127,7 @@ export function PointOfSaleDashboard() {
     };
     
     setFinalizedInvoice(mockInvoice);
-    toast.success("Invoice Generated", {
-        description: "Proceed to payment for the generated invoice."
-    });
+    toast.success("Invoice Generated: Proceed to payment for the generated invoice.");
   };
 
   return (

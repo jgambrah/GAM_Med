@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -52,9 +53,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
     // For example, upload to Firebase Storage and get a URL.
     const result = await submitStaffClaim(values);
     if (result.success) {
-      toast.success('Claim Submitted', {
-        description: 'Your expense claim has been submitted for HOD approval.',
-      });
+      toast.success('Your expense claim has been submitted for HOD approval.');
       onClaimSubmitted();
       setOpen(false);
       form.reset();

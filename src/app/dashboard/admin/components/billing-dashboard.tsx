@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -231,9 +232,7 @@ function PaymentReconciliationTab() {
     const onSubmit = async (values: z.infer<typeof LogPaymentSchema>) => {
         const result = await logPayment(values);
         if (result.success) {
-            toast.success('Payment Logged', {
-                description: `Payment of ₵${values.amount} for invoice ${values.invoiceId} has been logged.`
-            });
+            toast.success(`Payment of ₵${values.amount} for invoice ${values.invoiceId} has been logged.`);
             form.reset();
             setPostingInfo({
                 amount: values.amount,

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -32,9 +33,7 @@ export function PayrollConfigurationDashboard() {
   const handleSaveChanges = () => {
     // In a real application, this would call a server action to update the configuration in Firestore.
     console.log('Saving new payroll configuration:', config);
-    toast.success('Configuration Saved', {
-      description: 'The payroll settings have been successfully updated.',
-    });
+    toast.success('The payroll settings have been successfully updated.');
   };
 
   return (

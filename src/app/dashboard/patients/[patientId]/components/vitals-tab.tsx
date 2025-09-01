@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -60,14 +61,10 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
 
     const handleStreamVitals = async () => {
         setIsStreaming(true);
-        toast.info('Starting Vitals Stream...', {
-            description: 'Simulating live sensor data for 30 seconds.',
-        });
+        toast.info('Simulating live sensor data for 30 seconds.');
         await streamVitals(patientId);
         setIsStreaming(false);
-        toast.info('Vitals Stream Ended', {
-            description: 'Live sensor simulation has completed.',
-        });
+        toast.info('Vitals Stream Ended: Live sensor simulation has completed.');
     };
 
     const onSubmit = async (values: z.infer<typeof VitalsSchema>) => {
@@ -78,20 +75,14 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
             // Check for any alerts returned from the server action
             if (result.alerts && result.alerts.length > 0) {
                 result.alerts.forEach(alert => {
-                    toast.warning(alert.message, {
-                         description: `Severity: ${alert.severity}. The attending doctor has been notified.`,
-                    });
+                    toast.warning(`${alert.message} (Severity: ${alert.severity}). The attending doctor has been notified.`);
                 });
             } else {
-                 toast.success("Vitals Logged Successfully", {
-                    description: "The patient's vital signs have been saved.",
-                });
+                 toast.success("The patient's vital signs have been saved.");
             }
 
         } else {
-            toast.error('Error Logging Vitals', {
-                description: result.message || 'An unexpected error occurred.',
-            });
+            toast.error(result.message || 'An unexpected error occurred.');
         }
     }
 

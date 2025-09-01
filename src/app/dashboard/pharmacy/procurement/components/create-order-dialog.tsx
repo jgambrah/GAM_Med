@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -21,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { mockSuppliers, mockInventory } from '@/lib/data';
-import { PharmacyOrder } from '@/lib/types';
+import { PurchaseOrder } from '@/lib/types';
 
 const OrderItemSchema = z.object({
   itemId: z.string().min(1, 'Item is required.'),
@@ -36,7 +37,7 @@ const NewOrderSchema = z.object({
 });
 
 interface CreateOrderDialogProps {
-  onOrderCreated: (newOrder: PharmacyOrder) => void;
+  onOrderCreated: (newOrder: PurchaseOrder) => void;
 }
 
 export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
@@ -63,15 +64,22 @@ export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
 
   const onSubmit = (values: z.infer<typeof NewOrderSchema>) => {
     // In a real app, this would call the `generatePurchaseOrder` Cloud Function
-    const newOrder: PharmacyOrder = {
-        orderId: `PO-${Date.now()}`,
+    const newOrder: PurchaseOrder = {
+        poId: `PO-${Date.now()}`,
         dateOrdered: new Date().toISOString(),
         status: 'Submitted',
         orderedByUserId: 'pharma1', // Mocked user
-        ...values
+        supplierId: values.supplierId,
+        orderedItems: values.items.map(item => ({
+            itemId: item.itemId,
+            name: item.name,
+            quantity: item.quantity,
+            unit_cost: item.unit_cost,
+        })),
+        totalAmount: totalCost,
     }
     onOrderCreated(newOrder);
-    toast.success('Purchase Order Created', { description: `Order ${newOrder.orderId} has been submitted.` });
+    toast.success(`Purchase Order ${newOrder.poId} has been submitted.`);
     setOpen(false);
     form.reset();
   };
