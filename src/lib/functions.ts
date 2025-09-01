@@ -3247,3 +3247,110 @@ exports.receiveGoods = functions.region('europe-west1').https.onCall(async (data
     return { success: true, receiptId: receiptRef.id };
 });
 */
+
+// =======================================================================================
+// == DRUG INTERACTION & ALLERGY ALERTS
+// =======================================================================================
+/**
+ * Performs real-time checks for drug-drug interactions and patient allergies.
+ * This is a critical patient safety function called from the pharmacy UI before dispensing.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, prescriptionId: string, medicationList: string[] } - medicationList is an array of inventory item IDs.
+ * @returns {Promise<{alerts: {type: 'Allergy' | 'Interaction', severity: string, message: string}[]}>} A consolidated list of all found alerts.
+ */
+/*
+exports.checkDrugAndAllergyAlerts = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check for pharmacy staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { patientId, prescriptionId, medicationList } = data;
+    const alerts = [];
+
+    // --- Allergy Check ---
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    if (!patientDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Patient not found.');
+    }
+    const patientAllergies = patientDoc.data().allergies || [];
+    
+    // For each medication in the new prescription, check if it's in the patient's allergy list.
+    // This is a simplified check. A real system would check against drug components/classes.
+    for (const itemId of medicationList) {
+        const medicationDoc = await db.collection('inventory').doc(itemId).get(); // Assuming inventory holds drug info
+        const medicationName = medicationDoc.exists ? medicationDoc.data().name : itemId;
+        if (patientAllergies.some(allergy => medicationName.toLowerCase().includes(allergy.toLowerCase()))) {
+            alerts.push({
+                type: 'Allergy',
+                severity: 'High',
+                message: `Patient has a known allergy to ${medicationName}.`
+            });
+        }
+    }
+    
+    // --- Drug-Drug Interaction Check ---
+    // a) Get all currently active medications for the patient
+    const activeMedsSnapshot = await db.collection('prescriptions')
+        .where('patientId', '==', patientId)
+        .where('isDispensed', '==', true) // Check against previously dispensed, active meds
+        .get();
+        
+    const activeMedications = activeMedsSnapshot.docs.flatMap(doc => doc.data().medications.map(med => med.itemId));
+    const allMedsToCheck = [...new Set([...medicationList, ...activeMedications])]; // Combine current and new meds
+
+    // b) Check for interactions
+    if (allMedsToCheck.length > 1) {
+        const interactionsSnapshot = await db.collection('drug_interactions')
+            .where('drug1Id', 'in', allMedsToCheck)
+            .get();
+
+        interactionsSnapshot.forEach(doc => {
+            const interaction = doc.data();
+            // Check if both interacting drugs are in the combined list
+            if (allMedsToCheck.includes(interaction.drug1Id) && allMedsToCheck.includes(interaction.drug2Id)) {
+                alerts.push({
+                    type: 'Interaction',
+                    severity: interaction.severity,
+                    message: interaction.description
+                });
+            }
+        });
+    }
+
+    return { alerts };
+});
+*/
+
+// =======================================================================================
+// 45. Add Drug Interaction (Callable Cloud Function)
+// =======================================================================================
+/**
+ * Adds a new drug-drug interaction rule to the central knowledge base.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { drug1Id: string, drug2Id: string, severity: 'Minor'|'Moderate'|'Major', description: string }
+ */
+/*
+exports.addDrugInteraction = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Super admin or clinical pharmacologist
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { drug1Id, drug2Id, severity, description } = data;
+
+    const newInteractionRef = db.collection('drug_interactions').doc();
+    const interactionData = {
+        interactionId: newInteractionRef.id,
+        drug1Id,
+        drug2Id,
+        severity,
+        description
+    };
+
+    await newInteractionRef.set(interactionData);
+
+    console.log(`New drug interaction between ${drug1Id} and ${drug2Id} has been added.`);
+    return { success: true, interactionId: newInteractionRef.id };
+});
+*/
