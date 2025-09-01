@@ -63,7 +63,10 @@ export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps)
     };
     
     onSupplierCreated(newSupplier);
-    toast.success(`Supplier "${values.name}" has been created.`);
+    toast({
+        title: 'Supplier Created',
+        description: `Supplier "${values.name}" has been created.`,
+    });
     setOpen(false);
     form.reset();
   };

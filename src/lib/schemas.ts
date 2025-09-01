@@ -268,6 +268,8 @@ export const UpdateInventorySchema = z.object({
   type: z.enum(['Dispense', 'Restock', 'Waste', 'Adjustment']),
   userId: z.string().min(1),
   reason: z.string().min(1),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
 });
 
 /**

@@ -1267,3 +1267,27 @@ export const mockInventory: InventoryItem[] = [
         location: 'Storage Room A'
     }
 ];
+
+export const mockPurchaseOrders: PurchaseOrder[] = [
+     {
+        poId: 'PO-001',
+        dateOrdered: new Date('2024-08-10T10:00:00Z').toISOString(),
+        status: 'Received',
+        orderedByUserId: 'pharma1',
+        supplierId: 'SUP-001',
+        orderedItems: [{ itemId: 'AMX500', name: 'Amoxicillin 500mg', quantity: 100, unit_cost: 0.50 }],
+        totalAmount: 50.00
+    },
+    {
+        poId: 'PO-002',
+        dateOrdered: new Date('2024-08-15T14:30:00Z').toISOString(),
+        status: 'Submitted',
+        orderedByUserId: 'pharma1',
+        supplierId: 'SUP-002',
+        orderedItems: [{ itemId: 'GAUZE', name: 'Sterile Gauze', quantity: 50, unit_cost: 10.00 }],
+        totalAmount: 500.00
+    }
+];
+
+// Deprecated type, use PurchaseOrder instead
+export type PharmacyOrder = PurchaseOrder;
