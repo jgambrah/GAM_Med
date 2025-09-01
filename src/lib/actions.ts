@@ -410,7 +410,7 @@ export async function approveStaffClaim(claimId: string) {
     await new Promise(resolve => setTimeout(resolve, 500));
     revalidatePath('/dashboard/approvals');
     revalidatePath('/dashboard/admin');
-    return { success: true };
+    return { success: true, message: 'Claim approved successfully.' };
 }
 
 export async function rejectStaffClaim(claimId: string) {
@@ -420,7 +420,7 @@ export async function rejectStaffClaim(claimId: string) {
     await new Promise(resolve => setTimeout(resolve, 500));
     revalidatePath('/dashboard/approvals');
     revalidatePath('/dashboard/my-claims');
-    return { success: true };
+    return { success: true, message: 'Claim rejected successfully.' };
 }
 
 export async function updateInventory(values: z.infer<typeof UpdateInventorySchema>) {

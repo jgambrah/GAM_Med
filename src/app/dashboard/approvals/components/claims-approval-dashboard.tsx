@@ -37,7 +37,7 @@ export function ClaimsApprovalDashboard() {
   const handleReject = async (claimId: string) => {
     const result = await rejectStaffClaim(claimId);
      if(result.success) {
-        toast.error(`Claim ${claimId} has been rejected and the staff member notified.`);
+        toast.error(result.message || `Claim ${claimId} has been rejected.`);
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
     }
