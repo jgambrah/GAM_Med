@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -18,15 +19,34 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { mockControlledSubstances, allUsers } from '@/lib/data';
+import { mockControlledSubstances } from '@/lib/data';
 import { ControlledSubstance } from '@/lib/types';
 import { TransactionLogDialog } from './components/transaction-log-dialog';
 import { LogTransactionDialog } from './components/log-transaction-dialog';
+import { DownloadCloud } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export default function ControlledSubstancesPage() {
     const [substances, setSubstances] = React.useState<ControlledSubstance[]>(mockControlledSubstances);
     const [selectedSubstance, setSelectedSubstance] = React.useState<ControlledSubstance | null>(null);
     const [transactionSubstance, setTransactionSubstance] = React.useState<ControlledSubstance | null>(null);
+    const [isGenerating, setIsGenerating] = React.useState(false);
+
+    const handleGenerateReport = async () => {
+        setIsGenerating(true);
+        toast.info('Generating compliance report...', {
+            description: 'This may take a few moments.'
+        });
+        
+        // Simulate the backend report generation process
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        toast.success('Report Generated & Submitted', {
+            description: 'The compliance report for the previous month has been submitted.'
+        });
+        setIsGenerating(false);
+    }
 
     return (
         <>
@@ -39,6 +59,27 @@ export default function ControlledSubstancesPage() {
                         </p>
                     </div>
                 </div>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Compliance Reporting</CardTitle>
+                        <CardDescription>
+                            Generate and submit reports for regulatory bodies.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm">
+                            Last Submitted Report: <strong>{format(new Date('2024-08-01T09:00:00Z'), 'PPP')}</strong> (for July 2024 period).
+                        </p>
+                    </CardContent>
+                    <CardFooter>
+                         <Button onClick={handleGenerateReport} disabled={isGenerating}>
+                            <DownloadCloud className="h-4 w-4 mr-2" />
+                            {isGenerating ? 'Generating...' : 'Generate & Submit Monthly Report'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Secure Inventory</CardTitle>
