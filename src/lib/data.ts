@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -513,6 +513,7 @@ export const mockPrescriptions: Prescription[] = [
         doctorId: 'doc1',
         datePrescribed: new Date('2024-07-28T11:05:00Z').toISOString(),
         status: 'Pending',
+        isDispensed: false,
         medications: [{
             itemId: 'AMX500',
             name: 'Amlodipine',
@@ -529,6 +530,7 @@ export const mockPrescriptions: Prescription[] = [
         doctorId: 'doc1',
         datePrescribed: new Date('2024-07-28T11:05:00Z').toISOString(),
         status: 'Pending',
+        isDispensed: false,
         medications: [{
             itemId: 'ATORV20',
             name: 'Atorvastatin',
@@ -545,6 +547,7 @@ export const mockPrescriptions: Prescription[] = [
         doctorId: 'doc1',
         datePrescribed: new Date('2024-08-01T11:05:00Z').toISOString(),
         status: 'Pending',
+        isDispensed: false,
         medications: [{
             itemId: 'PARA1G',
             name: 'Paracetamol',
@@ -561,6 +564,7 @@ export const mockPrescriptions: Prescription[] = [
         doctorId: 'doc1',
         datePrescribed: new Date('2024-08-16T09:00:00Z').toISOString(),
         status: 'Pending',
+        isDispensed: false,
         medications: [{
             itemId: 'PEN500', // A fictional Item ID for Penicillin
             name: 'Penicillin',
@@ -1330,6 +1334,53 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     }
 ];
 
+export const mockControlledSubstances: ControlledSubstance[] = [
+    {
+        substanceId: 'FENT100MCG',
+        name: 'Fentanyl Citrate',
+        strength: '100mcg/2ml',
+        form: 'Injection',
+        unit: 'vial',
+        totalQuantity: 50,
+        reorderLevel: 20
+    },
+    {
+        substanceId: 'OXY10MG',
+        name: 'Oxycodone HCl',
+        strength: '10mg',
+        form: 'Tablet',
+        unit: 'tablet',
+        totalQuantity: 250,
+        reorderLevel: 100
+    }
+];
+
+export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [
+    {
+        logId: 'log-1',
+        substanceId: 'FENT100MCG',
+        transactionType: 'Dispense',
+        quantityChange: -1,
+        currentQuantity: 50,
+        date: new Date('2024-08-15T10:00:00Z').toISOString(),
+        userId: 'pharma1',
+        patientId: 'P-123456',
+        reason: 'Pre-operative sedation for patient Kwame Owusu',
+        witnessId: 'nurse1'
+    },
+    {
+        logId: 'log-2',
+        substanceId: 'FENT100MCG',
+        transactionType: 'Restock',
+        quantityChange: 10,
+        currentQuantity: 51,
+        date: new Date('2024-08-10T09:00:00Z').toISOString(),
+        userId: 'pharma1',
+        reason: 'New shipment received from PharmaSupply Ltd. PO-123.'
+    }
+];
+
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
 

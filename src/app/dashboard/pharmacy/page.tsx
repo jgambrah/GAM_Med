@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -16,6 +17,8 @@ import { Input } from '@/components/ui/input';
 import { ProcurementDashboard } from './procurement/components/procurement-dashboard';
 import { useAuth } from '@/hooks/use-auth';
 import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function PharmacyPage() {
   const { user } = useAuth();
@@ -48,6 +51,8 @@ export default function PharmacyPage() {
             {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
             {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="controlled-substances"><Link href="/dashboard/pharmacy/controlled-substances">Controlled Substances</Link></TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="suppliers"><Link href="/dashboard/pharmacy/suppliers">Suppliers</Link></TabsTrigger>}
         </TabsList>
         
         {canViewWorkQueue && (
