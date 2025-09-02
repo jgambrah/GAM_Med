@@ -7,6 +7,51 @@
  */
 
 // =========================================================================
+// == Laboratory Information System (LIS)
+// =========================================================================
+
+/**
+ * Represents a single available test in the central lab test catalog.
+ * Path: /lab_tests/{testId}
+ */
+export interface LabTest {
+  testId: string; // Document ID (e.g., 'CBC', 'GLU-F')
+  name: string; // e.g., 'Complete Blood Count'
+  description: string;
+  sampleType: 'Blood' | 'Urine' | 'Stool' | 'Saliva' | 'Tissue';
+  turnaroundTime: string; // e.g., '24 hours', '3-5 days'
+  price: number;
+}
+
+/**
+ * Represents a request for one or more lab tests made by a doctor.
+ * Path: /lab_orders/{orderId}
+ */
+export interface LabOrder {
+  orderId: string; // Document ID
+  patientId: string; // Reference to patients
+  doctorId: string; // Reference to users (doctor)
+  dateOrdered: string; // ISO Timestamp
+  testIds: string[]; // Array of references to lab_tests
+  status: 'Pending Sample' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Canceled';
+}
+
+/**
+ * Represents the final results for a completed lab order.
+ * Path: /lab_results/{resultId}
+ */
+export interface LabResult {
+  resultId: string; // Document ID (could be the same as orderId)
+  orderId: string; // Reference to lab_orders
+  patientId: string; // Denormalized for easier querying
+  dateCompleted: string; // ISO Timestamp
+  resultDetails: Record<string, any>; // Flexible map for results, e.g., { "Hemoglobin": "14.5 g/dL", "WBC": "7.2 x 10^9/L" }
+  isBilled: boolean; // Flag to prevent duplicate billing
+  resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
+}
+
+
+// =========================================================================
 // == Narcotics & Controlled Substance Tracking
 // =========================================================================
 
@@ -1028,27 +1073,6 @@ export interface MedicationRecord {
 }
 
 /**
- * Represents a lab result in the `lab_results` sub-collection.
- * Path: /patients/{patientId}/lab_results/{resultId}
- */
-export interface LabResult {
-  testId: string; // Document ID
-  patientId: string; // Denormalized for querying lab work queue
-  patientName: string; // Denormalized for display in work queue
-  testName: string; // e.g., 'Full Blood Count'
-  status: 'Ordered' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Cancelled';
-  result: Record<string, any> | string; // Can be a complex object or simple text
-  resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
-  units?: string; // e.g., 'mmol/L'
-  referenceRange?: string; // e.g., '3.5 - 5.5'
-  orderedByDoctorId: string; // Reference to users.uid
-  labTechnicianId?: string; // Reference to users.uid
-  orderedAt: string; // ISO 8601 Timestamp
-  completedAt?: string; // ISO 8601 Timestamp
-  isBilled: boolean; // Flag to prevent duplicate billing
-}
-
-/**
  * Represents a single vitals log entry in the `vitals` sub-collection.
  * This is a core data model for the nursing workflow.
  * Path: /patients/{patientId}/vitals/{vitalId}
@@ -1142,3 +1166,4 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
