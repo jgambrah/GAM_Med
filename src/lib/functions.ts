@@ -14,6 +14,156 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Laboratory Information System (LIS)
+// =======================================================================================
+
+/**
+ * Creates a new lab order in the system.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, doctorId: string, testIds: string[] }
+ */
+/*
+exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an authorized doctor
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { patientId, doctorId, testIds } = data;
+    if (!patientId || !testIds || testIds.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID and at least one test ID are required.');
+    }
+
+    const newOrderRef = db.collection('lab_orders').doc();
+    const orderData = {
+        orderId: newOrderRef.id,
+        patientId,
+        doctorId: doctorId || context.auth.uid,
+        dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
+        testIds,
+        status: 'Pending Sample'
+    };
+
+    await newOrderRef.set(orderData);
+    console.log(`Lab order ${newOrderRef.id} created for patient ${patientId}.`);
+    return { success: true, orderId: newOrderRef.id };
+});
+*/
+
+/**
+ * Finalizes a lab order, creates the result document, and triggers downstream workflows.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { orderId: string, resultDetails: object }
+ */
+/*
+exports.processLabResult = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an authorized lab technician
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { orderId, resultDetails } = data;
+    if (!orderId || !resultDetails) {
+        throw new functions.https.HttpsError('invalid-argument', 'Order ID and result details are required.');
+    }
+
+    const orderRef = db.collection('lab_orders').doc(orderId);
+    const resultRef = db.collection('lab_results').doc(orderId); // Use same ID for easy linking
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const orderDoc = await transaction.get(orderRef);
+            if (!orderDoc.exists) throw new Error('Lab order not found.');
+            if (orderDoc.data().status === 'Completed') throw new Error('This order has already been completed.');
+
+            // a) Update the original order status
+            transaction.update(orderRef, { status: 'Completed' });
+
+            // b) Create the final result document
+            const resultData = {
+                resultId: orderId,
+                orderId: orderId,
+                patientId: orderDoc.data().patientId,
+                dateCompleted: admin.firestore.FieldValue.serverTimestamp(),
+                resultDetails: resultDetails,
+                isBilled: false,
+            };
+            transaction.set(resultRef, resultData);
+        });
+
+        // 2. Trigger downstream functions (these would be separate Cloud Functions in reality)
+        // a) Trigger billing
+        // await autoGenerateInvoice(..., 'LAB_TEST', ...);
+
+        // b) Send notification to the ordering doctor
+        // const orderData = (await orderRef.get()).data();
+        // await sendNotificationToUser(orderData.doctorId, {
+        //     title: 'Lab Results Ready',
+        //     body: `Results for lab order ${orderId} are available for review.`
+        // });
+
+        console.log(`Results for lab order ${orderId} have been processed.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error(`Failed to process lab result for order ${orderId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not process the lab result.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Scans new lab results for abnormal values and creates alerts.
+ * This is a core component of the Clinical Decision Support (CDS) system.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /lab_results/{resultId}
+ */
+/*
+exports.alertAbnormalResults = functions.region('europe-west1').firestore
+    .document('/lab_results/{resultId}')
+    .onCreate(async (snapshot, context) => {
+        const resultData = snapshot.data();
+        const { resultDetails, patientId } = resultData;
+        
+        // In a real app, you would fetch rules from a 'clinical_rules' collection
+        // For example, a rule might be { testKey: 'WBC', operator: '>', value: 11.0, severity: 'High' }
+        
+        const abnormalAlerts = [];
+
+        // Example check for White Blood Cell Count
+        if (resultDetails['WBC'] && parseFloat(resultDetails['WBC']) > 11.0) {
+            abnormalAlerts.push({
+                patientId: patientId,
+                severity: 'High',
+                message: `Abnormal Lab Result: High White Blood Cell count detected (${resultDetails['WBC']}).`,
+                source: `Lab Result ${context.params.resultId}`
+            });
+        }
+        
+        if (abnormalAlerts.length > 0) {
+            // Create alert documents in the patient's sub-collection
+            const alertsRef = db.collection('patients').doc(patientId).collection('alerts');
+            const batch = db.batch();
+            abnormalAlerts.forEach(alert => {
+                const newAlertRef = alertsRef.doc();
+                batch.set(newAlertRef, alert);
+            });
+            await batch.commit();
+
+            // Send notification to the ordering doctor
+            // const orderDoc = await db.collection('lab_orders').doc(resultData.orderId).get();
+            // await sendNotificationToUser(orderDoc.data().doctorId, ...);
+            
+            console.log(`Created ${abnormalAlerts.length} alerts for lab result ${context.params.resultId}.`);
+        }
+        
+        return null;
+    });
+*/
+
+
+// =======================================================================================
 // == Narcotics & Controlled Substance Tracking
 // =======================================================================================
 
@@ -3504,3 +3654,4 @@ exports.addDrugInteraction = functions.region('europe-west1').https.onCall(async
     return { success: true, interactionId: newInteractionRef.id };
 });
 */
+
