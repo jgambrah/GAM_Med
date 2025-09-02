@@ -7,6 +7,43 @@
  */
 
 // =========================================================================
+// == Narcotics & Controlled Substance Tracking
+// =========================================================================
+
+/**
+ * Represents a single controlled substance in a dedicated, secure inventory.
+ * Path: /controlled_substances/{substanceId}
+ */
+export interface ControlledSubstance {
+  substanceId: string; // Document ID
+  name: string; // e.g., 'Fentanyl', 'Oxycodone'
+  strength: string; // e.g., '100mcg/2ml'
+  form: 'Tablet' | 'Injection' | 'Patch' | 'Liquid';
+  unit: 'mg' | 'mcg' | 'ml' | 'patch' | 'tablet';
+  totalQuantity: number;
+  reorderLevel: number;
+}
+
+/**
+ * Represents a single, immutable transaction in the controlled substance log.
+ * This collection serves as a real-time ledger for auditing.
+ * Path: /controlled_substance_log/{logId}
+ */
+export interface ControlledSubstanceLog {
+  logId: string; // Document ID
+  substanceId: string; // Reference to controlled_substances
+  transactionType: 'Dispense' | 'Restock' | 'Waste' | 'Audit' | 'Adjustment';
+  quantityChange: number; // Negative for dispense/waste, positive for restock
+  currentQuantity: number; // The stock level *after* this transaction
+  date: string; // ISO Timestamp
+  userId: string; // UID of the user performing the transaction
+  patientId?: string; // Optional: Link to patient for dispensing
+  reason: string; // Required for every transaction
+  witnessId?: string; // Optional: UID of a witness, required for waste/audits
+}
+
+
+// =========================================================================
 // == Pharmacy & Inventory Management Data Models
 // =========================================================================
 
@@ -67,7 +104,7 @@ export interface PurchaseOrder {
   supplierId: string; // Reference to suppliers
   dateOrdered: string; // ISO Timestamp
   deliveryDate?: string; // ISO Timestamp (expected)
-  status: 'Pending' | 'Shipped' | 'Received' | 'Canceled' | 'Submitted';
+  status: 'Pending' | 'Submitted' | 'Shipped' | 'Received' | 'Canceled';
   orderedItems: PurchaseOrderItem[];
   totalAmount: number;
   orderedByUserId: string; // Reference to users
@@ -903,9 +940,9 @@ export interface Prescription {
   doctorId: string; // Reference to users.uid
   datePrescribed: string; // ISO Timestamp
   status: 'Pending' | 'Dispensed' | 'Canceled';
+  isDispensed?: boolean;
   medications: PrescribedMedication[]; // An array of prescribed medications
   filledAt?: string; // ISO Timestamp, updated by Pharmacy
-  isDispensed?: boolean;
 }
 
 // =========================================================================
@@ -1124,3 +1161,6 @@ export interface ImmunizationRecord {
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
+
+    
