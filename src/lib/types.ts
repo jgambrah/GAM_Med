@@ -19,7 +19,7 @@ export interface ControlledSubstance {
   name: string; // e.g., 'Fentanyl', 'Oxycodone'
   strength: string; // e.g., '100mcg/2ml'
   form: 'Tablet' | 'Injection' | 'Patch' | 'Liquid';
-  unit: 'mg' | 'mcg' | 'ml' | 'patch' | 'tablet';
+  unit: 'vial' | 'tablet' | 'patch' | 'bottle' | 'ampule'; // Made more specific
   totalQuantity: number;
   reorderLevel: number;
 }
@@ -631,28 +631,6 @@ export interface Patient {
   occupation?: string;
   patientType: string; // Reference to pricing_tables (e.g., 'private', 'corporate')
   allergies?: string[]; // Simple list of allergens for quick checks
-  contact: {
-    primaryPhone: string;
-    alternatePhone?: string;
-    email?: string;
-    address: {
-      street: string;
-      city: string;
-      region: string;
-      country: string;
-    };
-  };
-  emergency_contact: {
-    name:string;
-    relationship: string;
-    phone: string;
-  };
-  insurance?: {
-    provider_name?: string; // e.g., 'NHIS', 'Glico', 'Private'
-    policy_number?: string;
-    isActive?: boolean;
-    expiry_date?: string; // ISO 8601 format (YYYY-MM-DD)
-  };
   medicalHistory?: {
     allergies?: string[]; // e.g., ['Penicillin', 'Latex']
     preExistingConditions?: string[]; // e.g., ['Hypertension', 'Diabetes']

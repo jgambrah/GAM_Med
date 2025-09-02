@@ -283,3 +283,26 @@ export const NewSupplierSchema = z.object({
     address: z.string().min(5, 'Address is required.'),
     paymentTerms: z.enum(['Net 30', 'Net 60', 'Cash on Delivery']),
 });
+
+export const ControlledSubstanceTransactionSchema = z.object({
+    transactionType: z.enum(['Dispense', 'Restock', 'Waste', 'Adjustment']),
+    quantity: z.coerce.number().min(1, 'Quantity must be greater than 0.'),
+    reason: z.string().min(5, 'A reason of at least 5 characters is required.'),
+    patientId: z.string().optional(),
+    witnessId: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.transactionType === 'Dispense' && !data.patientId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "A patient must be selected for dispensing.",
+            path: ['patientId'],
+        });
+    }
+    if (data.transactionType === 'Waste' && !data.witnessId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "A witness must be selected for waste transactions.",
+            path: ['witnessId'],
+        });
+    }
+});

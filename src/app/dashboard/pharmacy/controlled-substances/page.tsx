@@ -21,10 +21,12 @@ import { Button } from '@/components/ui/button';
 import { mockControlledSubstances, allUsers } from '@/lib/data';
 import { ControlledSubstance } from '@/lib/types';
 import { TransactionLogDialog } from './components/transaction-log-dialog';
+import { LogTransactionDialog } from './components/log-transaction-dialog';
 
 export default function ControlledSubstancesPage() {
     const [substances, setSubstances] = React.useState<ControlledSubstance[]>(mockControlledSubstances);
     const [selectedSubstance, setSelectedSubstance] = React.useState<ControlledSubstance | null>(null);
+    const [transactionSubstance, setTransactionSubstance] = React.useState<ControlledSubstance | null>(null);
 
     return (
         <>
@@ -62,10 +64,13 @@ export default function ControlledSubstancesPage() {
                                             <TableCell className="font-medium">{substance.name}</TableCell>
                                             <TableCell>{substance.strength}</TableCell>
                                             <TableCell>{substance.form}</TableCell>
-                                            <TableCell className="text-right font-mono">{substance.totalQuantity} {substance.unit}s</TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-right font-mono">{substance.totalQuantity} {substance.unit}(s)</TableCell>
+                                            <TableCell className="space-x-2">
                                                 <Button variant="outline" size="sm" onClick={() => setSelectedSubstance(substance)}>
                                                     View Log
+                                                </Button>
+                                                 <Button variant="default" size="sm" onClick={() => setTransactionSubstance(substance)}>
+                                                    Log Transaction
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -83,6 +88,17 @@ export default function ControlledSubstancesPage() {
                     onOpenChange={(isOpen) => {
                         if (!isOpen) {
                             setSelectedSubstance(null);
+                        }
+                    }}
+                />
+            )}
+             {transactionSubstance && (
+                <LogTransactionDialog
+                    substance={transactionSubstance}
+                    isOpen={!!transactionSubstance}
+                    onOpenChange={(isOpen) => {
+                        if (!isOpen) {
+                            setTransactionSubstance(null);
                         }
                     }}
                 />
