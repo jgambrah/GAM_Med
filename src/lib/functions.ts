@@ -14,6 +14,156 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Narcotics & Controlled Substance Tracking
+// =======================================================================================
+
+/**
+ * Atomically logs a transaction for a controlled substance and updates the master inventory count.
+ * This is the primary function for ensuring an accurate and secure chain of custody.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { substanceId: string, quantityChange: number, type: string, reason: string, patientId?: string, witnessId?: string }
+ */
+/*
+exports.logControlledSubstanceTransaction = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is authorized (e.g., pharmacist, lead nurse)
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { substanceId, quantityChange, type, reason, patientId, witnessId } = data;
+    if (!substanceId || !quantityChange || !type || !reason) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required transaction details.');
+    }
+
+    const substanceRef = db.collection('controlled_substances').doc(substanceId);
+    const logRef = db.collection('controlled_substance_log').doc();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const substanceDoc = await transaction.get(substanceRef);
+            if (!substanceDoc.exists) {
+                throw new Error('Controlled substance not found.');
+            }
+
+            const currentQuantity = substanceDoc.data().totalQuantity;
+            const newQuantity = currentQuantity + quantityChange;
+
+            if (newQuantity < 0) {
+                throw new Error('Transaction would result in a negative stock quantity.');
+            }
+            
+            // a) Update the master inventory count
+            transaction.update(substanceRef, { totalQuantity: newQuantity });
+
+            // b) Create the immutable log entry
+            transaction.set(logRef, {
+                logId: logRef.id,
+                substanceId: substanceId,
+                transactionType: type,
+                quantityChange: quantityChange,
+                currentQuantity: newQuantity,
+                date: admin.firestore.FieldValue.serverTimestamp(),
+                userId: context.auth.uid,
+                patientId: patientId || null,
+                witnessId: witnessId || null,
+                reason: reason
+            });
+        });
+
+        console.log(`Transaction logged for substance ${substanceId}. New quantity: ${newQuantity}`);
+        return { success: true, logId: logRef.id };
+
+    } catch (error) {
+        console.error(`Failed to log transaction for substance ${substanceId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not complete the transaction.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Generates a compliance report for regulatory bodies.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every 1st day of month 01:00'
+ */
+/*
+exports.generateComplianceReport = functions.region('europe-west1').pubsub
+    .schedule('every 1st day of month 01:00')
+    .onRun(async (context) => {
+        const now = new Date();
+        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+        // 1. Query for all transactions within the last month
+        const logSnapshot = await db.collection('controlled_substance_log')
+            .where('date', '>=', admin.firestore.Timestamp.fromDate(oneMonthAgo))
+            .orderBy('date', 'asc')
+            .get();
+
+        if (logSnapshot.empty) {
+            console.log('No controlled substance transactions in the last month.');
+            return null;
+        }
+
+        const reportData = logSnapshot.docs.map(doc => doc.data());
+        
+        // 2. Format the data into the required format (e.g., CSV)
+        // const csv = convertJsonToCsv(reportData);
+        const reportContent = JSON.stringify(reportData, null, 2); // Simple JSON for example
+
+        // 3. Store the report in a secure Firebase Storage bucket
+        const bucket = admin.storage().bucket('gammed-compliance-reports');
+        const fileName = `report-${oneMonthAgo.getFullYear()}-${oneMonthAgo.getMonth() + 1}.json`;
+        const file = bucket.file(fileName);
+        await file.save(reportContent);
+
+        // 4. (Optional) Send the report to a regulatory body's API endpoint or send a notification to an admin.
+        console.log(`Generated and saved compliance report: ${fileName}`);
+        
+        return null;
+    });
+*/
+
+/**
+ * A conceptual trigger to alert on inventory discrepancies.
+ * In a real-world scenario, this might be triggered by a manual "Start Audit" action
+ * rather than on every update to prevent alert fatigue.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /controlled_substances/{substanceId}
+ */
+/*
+exports.reconciliationAlert = functions.region('europe-west1').firestore
+    .document('/controlled_substances/{substanceId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        
+        // This is a simplified trigger. A real system might compare against a separate 'physical_counts' collection.
+        // We'll simulate a check if a special 'audit_count' field is provided in an update.
+        
+        if (newData.audit_count && newData.audit_count !== oldData.audit_count) {
+            const digitalCount = newData.totalQuantity;
+            const physicalCount = newData.audit_count;
+
+            if (digitalCount !== physicalCount) {
+                const discrepancy = physicalCount - digitalCount;
+                const alertMessage = `Discrepancy found for ${newData.name}. Digital: ${digitalCount}, Physical: ${physicalCount}. Difference: ${discrepancy}.`;
+                
+                // Send a high-priority alert to the pharmacy head and administrator.
+                // await sendNotificationToRole('admin', { subject: 'Urgent: Controlled Substance Discrepancy', body: alertMessage });
+                console.error(alertMessage);
+            }
+
+            // Reset the audit_count field after processing.
+            await change.after.ref.update({ audit_count: null });
+        }
+        
+        return null;
+    });
+*/
+
+
+// =======================================================================================
 // == Automated Reorder Points & Procurement
 // =======================================================================================
 
@@ -2158,7 +2308,7 @@ exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
  */
 /*
 exports.bookOtSession = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check: Ensure the user is an OT coordinator or lead surgeon.
+    // 1. Auth check: Ensure user is an OT coordinator or lead surgeon.
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check...
 
