@@ -38,14 +38,22 @@ export interface LabOrder {
 
 /**
  * Represents the final results for a completed lab order.
+ * This is the new, more structured model for lab results.
  * Path: /lab_results/{resultId}
  */
 export interface LabResult {
-  resultId: string; // Document ID (could be the same as orderId)
-  orderId: string; // Reference to lab_orders
+  resultId?: string; // Document ID (could be the same as orderId)
+  orderId?: string; // Reference to lab_orders
+  testId: string; // Document ID
   patientId: string; // Denormalized for easier querying
-  dateCompleted: string; // ISO Timestamp
-  resultDetails: Record<string, any>; // Flexible map for results, e.g., { "Hemoglobin": "14.5 g/dL", "WBC": "7.2 x 10^9/L" }
+  patientName?: string; // Denormalized
+  testName: string; // Denormalized
+  status: 'Ordered' | 'In Progress' | 'Completed' | 'Cancelled';
+  result?: any;
+  orderedByDoctorId?: string; // Denormalized
+  labTechnicianId?: string; // Denormalized
+  orderedAt: string; // ISO Timestamp
+  completedAt?: string; // ISO Timestamp
   isBilled: boolean; // Flag to prevent duplicate billing
   resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
 }
@@ -1166,4 +1174,3 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
-

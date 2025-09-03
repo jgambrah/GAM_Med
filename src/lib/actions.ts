@@ -213,6 +213,7 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
     console.log(`Ordering lab test for patient ${patientId}:`, values);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath('/dashboard/lab');
     return { success: true, message: 'Lab test ordered successfully.' };
 }
 
