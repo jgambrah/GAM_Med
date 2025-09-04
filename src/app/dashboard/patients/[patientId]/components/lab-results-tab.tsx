@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { LabResult } from '@/lib/types';
 import { useParams } from 'next/navigation';
 import { mockLabResults as allMockLabResults } from '@/lib/data';
+import { Download } from 'lucide-react';
 
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -56,8 +57,16 @@ export function LabResultsTab() {
                                         <TableCell>{result.completedAt ? format(new Date(result.completedAt), 'PPP p') : 'N/A'}</TableCell>
                                         <TableCell><Badge variant={getStatusVariant(result.status)}>{result.status}</Badge></TableCell>
                                         <TableCell>
-                                            <Button variant="outline" size="sm" disabled={result.status !== 'Completed'}>
-                                                View Result
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                disabled={result.status !== 'Completed' || !result.resultPdfUrl}
+                                                asChild
+                                            >
+                                                <a href={result.resultPdfUrl || '#'} target="_blank" rel="noopener noreferrer">
+                                                    <Download className="h-3 w-3 mr-2" />
+                                                    View PDF
+                                                </a>
                                             </Button>
                                         </TableCell>
                                     </TableRow>
