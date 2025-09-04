@@ -3690,4 +3690,105 @@ exports.addDrugInteraction = functions.region('europe-west1').https.onCall(async
 });
 */
 
+// =======================================================================================
+// == Sample Tracking Functions
+// =======================================================================================
 
+/**
+ * Tracks a lab sample's movement by updating its status and creating an audit log entry.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { barcode: string, action: string, location: string, userId: string }
+ */
+/*
+exports.trackSample = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { barcode, action, location, userId } = data;
+    if (!barcode || !action || !location || !userId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required sample tracking details.');
+    }
+
+    // 2. Find the lab order associated with the barcode
+    const orderQuery = db.collection('lab_orders').where('sampleDetails.barcode', '==', barcode).limit(1);
+    const orderSnapshot = await orderQuery.get();
+    if (orderSnapshot.empty) {
+        throw new functions.https.HttpsError('not-found', 'No lab order found with the provided sample barcode.');
+    }
+    const orderRef = orderSnapshot.docs[0].ref;
+    const orderId = orderRef.id;
+
+    // 3. Create a new entry in the sample audit sub-collection
+    const auditRef = orderRef.collection('sample_audit').doc();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            // a) Update the sample's status on the main order document
+            transaction.update(orderRef, {
+                'sampleDetails.sampleStatus': action, // e.g., 'Received in Lab'
+                'sampleDetails.lastLocation': location,
+                'sampleDetails.lastUpdated': now
+            });
+            
+            // b) Add a new document to the immutable audit log
+            transaction.set(auditRef, {
+                auditId: auditRef.id,
+                timestamp: now,
+                action,
+                location,
+                userId
+            });
+        });
+
+        console.log(`Sample ${barcode} for order ${orderId} tracked: ${action} at ${location}.`);
+        return { success: true, auditId: auditRef.id };
+
+    } catch (error) {
+        console.error(`Failed to track sample ${barcode}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not update sample tracking information.');
+    }
+});
+*/
+
+/**
+ * A scheduled function that runs periodically to detect delays in sample transit.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every 1 hours'
+ */
+/*
+exports.alertSampleDelay = functions.region('europe-west1').pubsub
+    .schedule('every 1 hours')
+    .onRun(async (context) => {
+        const now = admin.firestore.Timestamp.now();
+        const twoHoursAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 2 * 60 * 60 * 1000);
+
+        // 1. Query for samples that were collected more than 2 hours ago but are not yet 'Received in Lab'
+        const delayedSamplesQuery = db.collection('lab_orders')
+            .where('sampleDetails.collectionDate', '<=', twoHoursAgo)
+            .where('sampleDetails.sampleStatus', '!=', 'Received in Lab');
+            
+        const snapshot = await delayedSamplesQuery.get();
+        if (snapshot.empty) {
+            console.log('No delayed samples detected.');
+            return null;
+        }
+
+        // 2. For each delayed sample, send an alert
+        for (const doc of snapshot.docs) {
+            const order = doc.data();
+            const alertMessage = `Sample ${order.sampleDetails.barcode} for patient ${order.patientId} is delayed. Last known status: ${order.sampleDetails.sampleStatus}.`;
+            
+            // Send a high-priority alert to the lab manager/supervisor role
+            // await sendNotificationToRole('lab_manager', {
+            //     subject: 'Sample Transit Delay Alert',
+            //     body: alertMessage
+            // });
+            console.warn(alertMessage);
+        }
+
+        return null;
+    });
+*/
