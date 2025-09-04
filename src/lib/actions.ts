@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema } from './schemas';
-import { Appointment, Patient } from './types';
+import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 
 /**
@@ -215,6 +215,14 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath('/dashboard/lab');
     return { success: true, message: 'Lab test ordered successfully.' };
+}
+
+export async function updateLabOrderStatus(testId: string, status: LabResult['status']) {
+  console.log(`Updating lab test ${testId} to status: ${status}`);
+  // In a real app, this would call the `updateLabOrder` Cloud Function.
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  revalidatePath('/dashboard/lab');
+  return { success: true, message: `Status updated to ${status}` };
 }
 
 export async function fulfillLabRequest(

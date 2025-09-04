@@ -10,13 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { LabResult } from '@/lib/types';
 import { format } from 'date-fns';
 import { mockLabResults } from '@/lib/data';
-import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { toast } from '@/hooks/use-toast';
 import { FulfillRequestDialog } from './fulfill-request-dialog';
+import { updateLabOrderStatus } from '@/lib/actions';
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -27,35 +30,21 @@ const getStatusVariant = (status: LabResult['status']): "default" | "secondary" 
     }
 };
 
-/**
- * == Conceptual UI: Lab Technician's Work Queue ==
- * This component is the primary interface for lab staff. It provides a centralized view
- * of all lab test requests, allowing technicians to manage their workflow efficiently.
- */
-export function LabWorkQueue() {
-  const { user } = useAuth();
-  
-  /**
-   * == DATA QUERY (PSEUDOCODE) ==
-   * This is where the component would fetch its data. For a lab work queue, this query
-   * needs to pull all tests that are not yet 'Completed'.
-   *
-   *   // Query for all lab requests that are not yet completed.
-   *   // The `lab_results` collection would need a composite index on `status` and `orderedAt`.
-   *   const q = query(
-   *      collectionGroup(db, 'lab_results'),
-   *      where('status', '!=', 'Completed'),
-   *      orderBy('status'),
-   *      orderBy('orderedAt', 'asc')
-   *   );
-   *
-   *   // This hook would provide real-time updates as new tests are ordered or statuses change.
-   *   const [labRequests, loading, error] = useCollection(q);
-   *
-   * By querying a collection group, we can fetch all `lab_results` across all patients in
-   * a single, efficient query, which is perfect for a centralized work queue dashboard.
-   */
-  const labRequests = mockLabResults.filter(lr => lr.status !== 'Completed');
+interface LabQueueTableProps {
+  requests: LabResult[];
+  onStatusChange: (testId: string, newStatus: LabResult['status']) => void;
+}
+
+function LabQueueTable({ requests, onStatusChange }: LabQueueTableProps) {
+    const handleStatusUpdate = async (testId: string, newStatus: LabResult['status']) => {
+        const result = await updateLabOrderStatus(testId, newStatus);
+        if (result.success) {
+            toast.success(`Test ${testId} status updated to '${newStatus}'.`);
+            onStatusChange(testId, newStatus);
+        } else {
+            toast.error(result.message || 'Failed to update status.');
+        }
+    };
 
   return (
     <div className="rounded-md border">
@@ -70,8 +59,8 @@ export function LabWorkQueue() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {labRequests.length > 0 ? (
-                    labRequests.map((request) => (
+                {requests.length > 0 ? (
+                    requests.map((request) => (
                         <TableRow key={request.testId}>
                             <TableCell className="font-medium">
                                 {format(new Date(request.orderedAt), 'PPP p')}
@@ -86,19 +75,63 @@ export function LabWorkQueue() {
                                 <Badge variant={getStatusVariant(request.status)}>{request.status}</Badge>
                             </TableCell>
                             <TableCell>
-                                <FulfillRequestDialog labRequest={request} />
+                                {request.status === 'Ordered' && (
+                                    <Button size="sm" variant="outline" onClick={() => handleStatusUpdate(request.testId, 'In Progress')}>
+                                        Accept Sample
+                                    </Button>
+                                )}
+                                {request.status === 'In Progress' && (
+                                    <FulfillRequestDialog labRequest={request} />
+                                )}
                             </TableCell>
                         </TableRow>
                     ))
                 ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">
-                            No pending lab requests.
+                            No requests in this queue.
                         </TableCell>
                     </TableRow>
                 )}
             </TableBody>
         </Table>
     </div>
+  );
+}
+
+
+/**
+ * == Conceptual UI: Lab Technician's Work Queue ==
+ * This component is the primary interface for lab staff. It provides a centralized view
+ * of all lab test requests, allowing technicians to manage their workflow efficiently.
+ */
+export function LabWorkQueue() {
+  const [labRequests, setLabRequests] = React.useState<LabResult[]>(mockLabResults);
+
+  const handleStatusChange = (testId: string, newStatus: LabResult['status']) => {
+      setLabRequests(prev => prev.map(req => req.testId === testId ? { ...req, status: newStatus } : req));
+  }
+  
+  const orderedRequests = labRequests.filter(lr => lr.status === 'Ordered');
+  const inProgressRequests = labRequests.filter(lr => lr.status === 'In Progress');
+  const completedRequests = labRequests.filter(lr => lr.status === 'Completed');
+
+  return (
+    <Tabs defaultValue="new-requests">
+        <TabsList>
+            <TabsTrigger value="new-requests">New Requests ({orderedRequests.length})</TabsTrigger>
+            <TabsTrigger value="in-progress">In Progress ({inProgressRequests.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completedRequests.length})</TabsTrigger>
+        </TabsList>
+        <TabsContent value="new-requests" className="mt-4">
+            <LabQueueTable requests={orderedRequests} onStatusChange={handleStatusChange} />
+        </TabsContent>
+         <TabsContent value="in-progress" className="mt-4">
+            <LabQueueTable requests={inProgressRequests} onStatusChange={handleStatusChange} />
+        </TabsContent>
+         <TabsContent value="completed" className="mt-4">
+            <LabQueueTable requests={completedRequests} onStatusChange={handleStatusChange} />
+        </TabsContent>
+    </Tabs>
   );
 }
