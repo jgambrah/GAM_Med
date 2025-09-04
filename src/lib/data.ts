@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -367,6 +367,13 @@ export const mockReferrals: Referral[] = [
   }
 ];
 
+export const mockLabTestCatalog: LabTest[] = [
+    { testId: 'FBC', name: 'Full Blood Count', description: '', sampleType: 'Blood', turnaroundTime: '24 hours', price: 120 },
+    { testId: 'LP', name: 'Lipid Panel', description: '', sampleType: 'Blood', turnaroundTime: '48 hours', price: 200 },
+    { testId: 'LFT', name: 'Liver Function Test', description: '', sampleType: 'Blood', turnaroundTime: '24 hours', price: 150 },
+    { testId: 'TP', name: 'Thyroid Panel', description: '', sampleType: 'Blood', turnaroundTime: '72 hours', price: 250 },
+];
+
 export const mockLabResults: LabResult[] = [
     {
         testId: 'lab-1',
@@ -380,6 +387,7 @@ export const mockLabResults: LabResult[] = [
         orderedAt: new Date('2024-07-28T12:00:00Z').toISOString(),
         completedAt: new Date('2024-07-28T16:00:00Z').toISOString(),
         isBilled: false,
+        resultPdfUrl: '/mock-lab-result.pdf',
     },
     {
         testId: 'lab-2',
@@ -1382,6 +1390,7 @@ export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
 
 
 

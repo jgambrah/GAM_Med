@@ -22,12 +22,13 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { TestTube } from 'lucide-react';
 import { orderLabTest } from '@/lib/actions';
 import { NewLabOrderSchema } from '@/lib/schemas';
+import { Combobox } from '@/components/ui/combobox';
+import { mockLabTestCatalog } from '@/lib/data';
 
 export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
@@ -52,6 +53,11 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
             alert(`Error: ${result.message}`);
         }
     }
+    
+    const labTestOptions = mockLabTestCatalog.map(test => ({
+        label: `${test.name} (${test.testId})`,
+        value: test.name // Submitting the full name
+    }));
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -75,9 +81,14 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Test Name</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="e.g., Full Blood Count" {...field} />
-                                    </FormControl>
+                                    <Combobox
+                                        options={labTestOptions}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        placeholder="Search for a lab test..."
+                                        searchPlaceholder="Search tests..."
+                                        notFoundText="No test found."
+                                    />
                                     <FormMessage />
                                 </FormItem>
                             )}
