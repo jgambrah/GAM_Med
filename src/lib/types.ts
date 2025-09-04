@@ -30,11 +30,29 @@ export interface LabTest {
 export interface LabOrder {
   orderId: string; // Document ID
   patientId: string; // Reference to patients
-  doctorId: string; // Reference to users (doctor)
+  doctorId: string; // Reference to users
   dateOrdered: string; // ISO Timestamp
   testIds: string[]; // Array of references to lab_tests
-  status: 'Pending Sample' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Canceled';
+  status: 'Pending Sample' | 'In Progress' | 'Completed' | 'Canceled';
   notes?: string; // Optional field for specific instructions
+  sampleDetails?: {
+    barcode: string;
+    collectionDate: string; // ISO Timestamp
+    collectedByUserId: string;
+    sampleStatus: 'Collected' | 'In Transit' | 'Received in Lab';
+  };
+}
+
+/**
+ * Represents a single audit entry for a lab sample's journey.
+ * Path: /lab_orders/{orderId}/sample_audit/{auditId}
+ */
+export interface SampleAudit {
+    auditId: string;
+    timestamp: string; // ISO Timestamp
+    action: string; // e.g., 'Scanned in Ward', 'Received at Lab'
+    location: string; // e.g., 'Ward A', 'Lab Reception'
+    userId: string;
 }
 
 /**
@@ -1175,4 +1193,5 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
