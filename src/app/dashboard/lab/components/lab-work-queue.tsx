@@ -81,7 +81,10 @@ function LabQueueTable({ requests, onStatusChange }: LabQueueTableProps) {
                                     </Button>
                                 )}
                                 {request.status === 'In Progress' && (
-                                    <FulfillRequestDialog labRequest={request} />
+                                    <FulfillRequestDialog 
+                                        labRequest={request} 
+                                        onFulfilled={() => onStatusChange(request.testId, 'Completed')} 
+                                    />
                                 )}
                             </TableCell>
                         </TableRow>

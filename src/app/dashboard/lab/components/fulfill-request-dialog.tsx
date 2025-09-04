@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -31,9 +30,10 @@ import { Input } from '@/components/ui/input';
 
 interface FulfillRequestDialogProps {
     labRequest: LabResult;
+    onFulfilled: () => void;
 }
 
-export function FulfillRequestDialog({ labRequest }: FulfillRequestDialogProps) {
+export function FulfillRequestDialog({ labRequest, onFulfilled }: FulfillRequestDialogProps) {
     const [open, setOpen] = React.useState(false);
     
     const form = useForm<z.infer<typeof FulfillLabRequestSchema>>({
@@ -50,6 +50,7 @@ export function FulfillRequestDialog({ labRequest }: FulfillRequestDialogProps) 
         if (result.success) {
             alert('Lab request fulfilled successfully (simulated).');
             setOpen(false);
+            onFulfilled(); // This will trigger a re-render of the parent component
             form.reset();
         } else {
             alert(`Error: ${result.message}`);
