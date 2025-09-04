@@ -75,6 +75,13 @@ export interface LabResult {
   completedAt?: string; // ISO Timestamp
   isBilled: boolean; // Flag to prevent duplicate billing
   resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
+  sampleDetails?: {
+    barcode: string;
+    collectionDate: string; // ISO Timestamp
+    collectedByUserId: string;
+    sampleStatus: 'Collected' | 'In Transit' | 'Received in Lab';
+    auditLog?: SampleAudit[]; // For mock data simplicity
+  };
 }
 
 
@@ -1193,5 +1200,3 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
-
-

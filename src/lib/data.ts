@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -388,6 +388,16 @@ export const mockLabResults: LabResult[] = [
         completedAt: new Date('2024-07-28T16:00:00Z').toISOString(),
         isBilled: false,
         resultPdfUrl: '/mock-lab-result.pdf',
+        sampleDetails: {
+            barcode: 'SAMPLE-001',
+            collectionDate: new Date('2024-07-28T12:05:00Z').toISOString(),
+            collectedByUserId: 'nurse1',
+            sampleStatus: 'Received in Lab',
+            auditLog: [
+                { auditId: 'aud-1-1', timestamp: new Date('2024-07-28T12:05:00Z').toISOString(), action: 'Collected', location: 'Ward C', userId: 'nurse1' },
+                { auditId: 'aud-1-2', timestamp: new Date('2024-07-28T12:15:00Z').toISOString(), action: 'Received in Lab', location: 'Lab Reception', userId: 'labtech1' }
+            ]
+        }
     },
     {
         testId: 'lab-2',
@@ -399,6 +409,15 @@ export const mockLabResults: LabResult[] = [
         orderedByDoctorId: 'doc1',
         orderedAt: new Date('2024-07-29T10:00:00Z').toISOString(),
         isBilled: false,
+        sampleDetails: {
+            barcode: 'SAMPLE-002',
+            collectionDate: new Date('2024-07-29T10:05:00Z').toISOString(),
+            collectedByUserId: 'nurse1',
+            sampleStatus: 'Collected',
+             auditLog: [
+                { auditId: 'aud-2-1', timestamp: new Date('2024-07-29T10:05:00Z').toISOString(), action: 'Collected', location: 'Ward GW', userId: 'nurse1' },
+            ]
+        }
     },
      {
         testId: 'lab-3',
@@ -1390,6 +1409,7 @@ export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
 
 
 

@@ -1,4 +1,5 @@
 
+
 import {
     Card,
     CardContent,
@@ -6,7 +7,9 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LabWorkQueue } from './components/lab-work-queue';
+import { SampleTrackingDashboard } from './components/sample-tracking-dashboard';
 
 export default function LabPage() {
     return (
@@ -18,15 +21,36 @@ export default function LabPage() {
                 </p>
             </div>
             <Card>
-                <CardHeader>
-                    <CardTitle>Lab Work Queue</CardTitle>
-                    <CardDescription>
-                        A real-time list of all ordered tests.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <LabWorkQueue />
-                </CardContent>
+                <Tabs defaultValue="work-queue">
+                    <CardHeader>
+                        <TabsList>
+                            <TabsTrigger value="work-queue">Lab Work Queue</TabsTrigger>
+                            <TabsTrigger value="sample-tracking">Sample Tracking</TabsTrigger>
+                        </TabsList>
+                    </CardHeader>
+                    <TabsContent value="work-queue">
+                         <CardHeader className="pt-0">
+                            <CardTitle>Lab Work Queue</CardTitle>
+                            <CardDescription>
+                                A real-time list of all ordered tests.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <LabWorkQueue />
+                        </CardContent>
+                    </TabsContent>
+                    <TabsContent value="sample-tracking">
+                        <CardHeader className="pt-0">
+                            <CardTitle>Sample Tracking</CardTitle>
+                            <CardDescription>
+                                Track a sample's journey using its barcode.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <SampleTrackingDashboard />
+                        </CardContent>
+                    </TabsContent>
+                </Tabs>
             </Card>
         </div>
     );
