@@ -218,6 +218,65 @@ exports.alertAbnormalResults = functions.region('europe-west1').firestore
     });
 */
 
+/**
+ * Automatically delivers a finalized lab result to the patient's EHR sub-collection.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /lab_results/{resultId}
+ */
+/*
+exports.deliverLabResult = functions.region('europe-west1').firestore
+    .document('/lab_results/{resultId}')
+    .onCreate(async (snapshot, context) => {
+        const resultData = snapshot.data();
+        const { patientId, resultId } = resultData;
+
+        // 1. Get the destination path in the patient's EHR
+        const patientEhrRef = db.collection('patients').doc(patientId).collection('lab_history').doc(resultId);
+
+        // 2. Copy the relevant data to the patient's EHR.
+        // This creates a patient-centric record and decouples it from the lab's operational data.
+        await patientEhrRef.set(resultData);
+
+        console.log(`Delivered lab result ${resultId} to patient ${patientId}'s EHR.`);
+        
+        // This action will subsequently trigger the sendResultNotification function.
+        return null;
+    });
+*/
+
+/**
+ * Notifies the ordering doctor when a new lab result is added to a patient's chart.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /patients/{patientId}/lab_history/{resultId}
+ */
+/*
+exports.sendResultNotification = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/lab_history/{resultId}')
+    .onCreate(async (snapshot, context) => {
+        const resultData = snapshot.data();
+        const { patientId, resultId } = context.params;
+        const doctorId = resultData.orderedByDoctorId;
+
+        // 1. Get patient and doctor details for the notification.
+        const patientDoc = await db.collection('patients').doc(patientId).get();
+        const patientName = patientDoc.exists ? patientDoc.data().full_name : 'your patient';
+
+        const notificationMessage = {
+            title: 'Lab Result Ready',
+            body: `The result for the ${resultData.testName} test for ${patientName} is now available for review.`
+        };
+        
+        // 2. Send notification (e.g., FCM to a specific device token, email, etc.)
+        // await sendNotificationToUser(doctorId, notificationMessage);
+        
+        console.log(`Notification sent to doctor ${doctorId} for completed lab test ${resultId}.`);
+        return null;
+    });
+*/
+
+
 
 // =======================================================================================
 // == Narcotics & Controlled Substance Tracking
@@ -1293,44 +1352,14 @@ exports.onNewLabTestOrdered = functions.region('europe-west1').firestore
 */
 
 // =======================================================================================
-// 15. On Lab Result Completed (Firestore Trigger - Notification)
+// 15. On Lab Result Completed (Firestore Trigger - Notification) - DEPRECATED
 // =======================================================================================
 /**
- * Triggers a notification to the ordering doctor when a lab result is finalized.
- *
- * @trigger_type Firestore Trigger (onUpdate)
- * @document /patients/{patientId}/lab_results/{testId}
+ * This function is now deprecated and replaced by a two-step process:
+ * 1. deliverLabResult: Copies the result to the patient's EHR sub-collection.
+ * 2. sendResultNotification: Triggered by the creation in the EHR sub-collection to notify the doctor.
  */
-/*
-exports.onLabResultCompleted = functions.region('europe-west1').firestore
-    .document('/patients/{patientId}/lab_results/{testId}')
-    .onUpdate(async (change, context) => {
-        const newData = change.after.data();
-        const oldData = change.before.data();
-        
-        // 1. Condition: Only run if status changed to 'Completed'.
-        if (newData.status === 'Completed' && oldData.status !== 'Completed') {
-            const { patientId } = context.params;
-            const doctorId = newData.orderedByDoctorId;
-            
-            // 2. Get patient and doctor details for the notification.
-            // const patientDoc = await db.collection('patients').doc(patientId).get();
-            // const patientName = patientDoc.data()?.full_name || 'A patient';
 
-            const notificationMessage = {
-                title: 'Lab Result Ready',
-                body: `The result for the ${newData.testName} test for ${patientName} is now available for review.`
-            };
-            
-            // 3. Send notification (e.g., FCM to a specific device token, email, etc.)
-            // await sendNotificationToUser(doctorId, notificationMessage);
-            
-            console.log(`Notification sent to doctor ${doctorId} for completed lab test.`);
-        }
-        
-        return null;
-    });
-*/
 
 // =======================================================================================
 // == APPOINTMENT & SCHEDULING MANAGEMENT
@@ -3813,4 +3842,5 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
 
