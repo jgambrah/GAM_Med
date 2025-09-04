@@ -120,6 +120,13 @@ export const FulfillLabRequestSchema = z.object({
 });
 
 /**
+ * Zod schema for validating a lab result.
+ */
+export const ValidateLabResultSchema = z.object({
+  validationNotes: z.string().optional(),
+});
+
+/**
  * Zod schema for validating the vitals logging form.
  */
 export const VitalsSchema = z.object({
