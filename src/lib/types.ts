@@ -34,6 +34,7 @@ export interface LabOrder {
   dateOrdered: string; // ISO Timestamp
   testIds: string[]; // Array of references to lab_tests
   status: 'Pending Sample' | 'Sample Collected' | 'In Progress' | 'Completed' | 'Canceled';
+  notes?: string; // Optional field for specific instructions
 }
 
 /**
@@ -1174,3 +1175,4 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
