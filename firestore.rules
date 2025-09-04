@@ -4,94 +4,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get the role of the current user
+    // Helper function to get user's role
     function getUserRole() {
-      // Access the user's custom claims, which should be set by a Cloud Function upon user creation/update
-      return request.auth.token.role;
-    }
-    
-    function isPatient() {
-      return getUserRole() == 'patient';
-    }
-    
-    // Helper function to get user data from the 'users' collection
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Default deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    
-    // Allow users to read their own data
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
+    // Patients:
+    // - Authenticated users can create their own patient record.
+    // - Only the patient themselves or authorized staff can read/write their data.
     match /patients/{patientId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk'] || request.auth.uid == getUserData(request.auth.uid).patient_id;
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow create: if getUserRole() in ['admin', 'receptionist'];
+      allow read, write: if request.auth != null && (request.auth.uid == resource.data.uid || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk']);
 
-      // Sub-collections
-      match /clinical_notes/{noteId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || isPatient();
-        allow create: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-       match /diagnoses/{diagnosisId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || isPatient();
-        allow create: if getUserRole() == 'doctor';
-      }
-      
-      match /medication_history/{medId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'] || isPatient();
-        allow create: if getUserRole() == 'doctor'; // Prescriptions are created by doctors
+      // Sub-collections can inherit or have more specific rules.
+      match /{document=**} {
+        allow read, write: if request.auth != null && (request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse']);
       }
     }
     
-    match /prescriptions/{prescriptionId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'pharmacist'] || isPatient();
-        allow create: if getUserRole() == 'doctor';
-        allow update: if getUserRole() in ['admin', 'pharmacist']; // Pharmacist updates status to 'Dispensed'
+    // Users:
+    // - Only the user themselves or an admin can read/write their user document.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || getUserRole() == 'admin');
+    }
+    
+    // Appointments:
+    // - Authenticated users can create appointments.
+    // - Only involved parties (patient, doctor) or staff can read/update.
+    match /appointments/{appointmentId} {
+        allow create: if request.auth != null;
+        allow read, update: if request.auth != null && 
+                               (request.auth.uid == resource.data.patient_id || 
+                                request.auth.uid == resource.data.doctor_id ||
+                                getUserRole() in ['admin', 'receptionist', 'nurse']);
     }
 
-    match /drug_interactions/{interactionId} {
+    // lab_tests: Read-only for authenticated users, write for admin
+    match /lab_tests/{testId} {
         allow read: if request.auth != null;
         allow write: if getUserRole() == 'admin';
     }
 
-    // Rules for the Laboratory Information System (LIS)
-    match /lab_tests/{testId} {
-      allow read: if request.auth != null;
-      allow write: if getUserRole() == 'admin';
-    }
-
+    // lab_orders: Role-based access for creating and updating lab orders.
     match /lab_orders/{orderId} {
-      allow create: if getUserRole() in ['admin', 'doctor'];
-      allow update: if getUserRole() in ['admin', 'lab_technician'];
-      allow read: if getUserRole() in ['admin', 'doctor', 'lab_technician'] || request.auth.uid == resource.data.patientId;
+        allow create: if getUserRole() in ['admin', 'doctor'];
+        allow update: if getUserRole() in ['admin', 'lab_tech'];
+        allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
     }
 
+    // lab_results: Role-based access for results.
     match /lab_results/{resultId} {
-      allow create: if getUserRole() in ['admin', 'doctor', 'lab_technician']; // Can be created by lab tech or system
-      allow update: if getUserRole() in ['admin', 'lab_technician'];
-      allow read: if getUserRole() in ['admin', 'doctor', 'lab_technician'] || request.auth.uid == resource.data.patientId;
-    }
-    
-    // Rules for Controlled Substances
-    match /controlled_substances/{substanceId} {
-        allow read: if getUserRole() in ['admin', 'pharmacist', 'auditor'];
-        // Direct writes are disallowed. All updates must go through the logControlledSubstanceTransaction Cloud Function.
-        allow write: if false; 
-    }
-
-    match /controlled_substance_log/{logId} {
-        allow read: if getUserRole() in ['admin', 'pharmacist', 'auditor'];
-        // Logs are immutable. Only the Cloud Function can create them.
-        allow write: if false; 
-        allow create: if false; 
+        allow create: if getUserRole() in ['admin', 'lab_tech'];
+        allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
     }
 
   }
