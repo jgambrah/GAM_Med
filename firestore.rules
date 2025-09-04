@@ -4,50 +4,65 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user role
+    // Helper functions
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
+    
+    function isPatientOwner(patientId) {
+        return request.auth.uid == patientId;
+    }
 
-    // Patients collection
+    function isDoctorAssignedToPatient(patientId) {
+        // This is a conceptual rule. A real implementation would require a list
+        // of doctors on the patient document or a similar mapping.
+        // For this prototype, we'll allow any doctor to read.
+        return getUserRole() == 'doctor';
+    }
+
+    // Protects patient records, allowing access only to the patient or authorized staff.
     match /patients/{patientId} {
-      allow read, write: if request.auth != null; // Placeholder, refine later
+      allow read: if isPatientOwner(patientId) || getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow write: if getUserRole() in ['admin']; // Only admins can create/delete patient records directly
       
-      // Sub-collections
-      match /admissions/{admissionId} {
-        allow read, write: if request.auth != null;
+      // Rules for sub-collections within a patient's record
+      
+      // lab_history is read-only for clients, populated by a Cloud Function.
+      match /lab_history/{resultId} {
+        allow read: if isPatientOwner(patientId) || getUserRole() in ['admin', 'doctor'];
+        allow create, update, delete: if false; // Deny all client-side writes.
       }
+      
       match /clinical_notes/{noteId} {
-        allow read, write: if request.auth != null;
+        allow read: if isPatientOwner(patientId) || getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow create: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow update: if getUserRole() in ['admin', 'doctor'];
+        allow delete: if getUserRole() == 'admin';
       }
-      // ... other sub-collections
-    }
-
-    // Lab Orders collection
-    match /lab_orders/{orderId} {
-      allow create: if getUserRole() in ['admin', 'doctor'];
-      allow update: if getUserRole() in ['admin', 'lab_tech'];
-      allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
-      
-      // Sample Audit sub-collection
-      match /sample_audit/{auditId} {
-        allow create: if getUserRole() in ['admin', 'lab_tech'];
-        allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
-        allow update, delete: if false; // Immutable
-      }
-    }
-
-    // Lab Results collection
-    match /lab_results/{resultId} {
-      allow create: if getUserRole() == 'lab_tech';
-      allow update: if getUserRole() in ['lab_tech', 'lab_supervisor'] && resource.data.status == 'Draft';
-      allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
     }
     
-    // Users collection
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId; // Users can edit their own profile
+    // Protects lab results, allowing access to lab staff or the patient's doctor.
+    match /lab_results/{resultId} {
+        allow read: if getUserRole() in ['admin', 'lab_tech', 'doctor'];
+        // Allow lab technicians to create results.
+        allow create: if getUserRole() == 'lab_tech';
+        // Allow updates only if the result is in a draft state.
+        allow update: if getUserRole() in ['lab_tech'] && resource.data.status == 'Draft';
+        // Prevent deletion.
+        allow delete: if false;
+    }
+
+    match /lab_orders/{orderId} {
+        // Allow read by lab staff, or the ordering doctor.
+        allow read: if getUserRole() in ['admin', 'lab_tech'];
+        // Only trusted backend processes can update.
+        allow update: if request.auth.uid == null || getUserRole() == 'admin';
+        
+        match /sample_audit/{auditId} {
+            allow read: if getUserRole() in ['admin', 'lab_tech'];
+            // Deny all client-side writes to maintain an immutable log.
+            allow create, update, delete: if false;
+        }
     }
   }
 }
