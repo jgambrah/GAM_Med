@@ -21,6 +21,7 @@ export interface LabTest {
   sampleType: 'Blood' | 'Urine' | 'Stool' | 'Saliva' | 'Tissue';
   turnaroundTime: string; // e.g., '24 hours', '3-5 days'
   price: number;
+  referenceRanges?: Record<string, { min: number; max: number }>; // e.g., { "male_adult": { "min": 4.5, "max": 11.0 } }
 }
 
 /**
@@ -67,12 +68,14 @@ export interface LabResult {
   patientId: string; // Denormalized for easier querying
   patientName?: string; // Denormalized
   testName: string; // Denormalized
-  status: 'Ordered' | 'In Progress' | 'Completed' | 'Cancelled';
-  result?: any;
+  status: 'Ordered' | 'In Progress' | 'Completed' | 'Cancelled' | 'Draft' | 'Validated' | 'Final';
+  resultDetails?: Record<string, { value: string | number; unit: string; isAbnormal: boolean }>; // Key-value pairs for test results.
   orderedByDoctorId?: string; // Denormalized
   labTechnicianId?: string; // Denormalized
   orderedAt: string; // ISO Timestamp
   completedAt?: string; // ISO Timestamp
+  validatedBy?: string; // UID of supervisor who validated
+  validationNotes?: string; // Optional comments from supervisor
   isBilled: boolean; // Flag to prevent duplicate billing
   resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
   sampleDetails?: {
@@ -639,7 +642,7 @@ export interface PatientAlert {
   severity: 'Warning' | 'Critical' | 'Information';
   alert_message: string; // The specific alert message generated.
   triggeredByUserId: string; // The user whose action triggered the alert (e.g., nurse logging vitals).
-  triggeredAt: string; // ISO Timestamp when the alert was created.
+  triggeredAt: string; // ISO 8601 Timestamp when the alert was created.
   isAcknowledged: boolean;
   acknowledgedByUserId?: string; // UID of the user who acknowledged the alert.
 }
