@@ -11,9 +11,10 @@ import { mockLabResults, allUsers } from '@/lib/data';
 import { LabResult, SampleAudit } from '@/lib/types';
 import { Search, History, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 export function SampleTrackingDashboard() {
-  const [barcode, setBarcode] = React.useState('');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [searchResult, setSearchResult] = React.useState<LabResult | null | undefined>(undefined);
@@ -40,6 +41,15 @@ export function SampleTrackingDashboard() {
   
   const getUserName = (userId: string) => allUsers.find(u => u.uid === userId)?.name || 'Unknown';
 
+  const getSampleStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+        case 'Received in Lab': return 'secondary';
+        case 'Collected': return 'default';
+        case 'In Transit': return 'outline';
+        default: return 'outline';
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex w-full max-w-sm items-center space-x-2">
@@ -56,10 +66,44 @@ export function SampleTrackingDashboard() {
       </div>
 
       {searchResult === undefined && !isLoading && (
-        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-64">
-            <History className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">Enter a sample barcode to view its tracking history.</p>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>All Samples Overview</CardTitle>
+                <CardDescription>A list of all samples currently in the system.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Barcode</TableHead>
+                            <TableHead>Patient</TableHead>
+                            <TableHead>Test</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Collected</TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {mockLabResults.filter(r => r.sampleDetails).map(result => (
+                            <TableRow key={result.testId}>
+                                <TableCell className="font-mono">{result.sampleDetails?.barcode}</TableCell>
+                                <TableCell>
+                                    <Link href={`/dashboard/patients/${result.patientId}`} className="hover:underline text-primary">
+                                        {result.patientName}
+                                    </Link>
+                                </TableCell>
+                                <TableCell>{result.testName}</TableCell>
+                                <TableCell>
+                                    <Badge variant={getSampleStatusVariant(result.sampleDetails!.sampleStatus)}>{result.sampleDetails!.sampleStatus}</Badge>
+                                </TableCell>
+                                <TableCell>{format(new Date(result.sampleDetails!.collectionDate), 'PPP p')}</TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
       )}
 
       {isLoading && <p className="text-muted-foreground">Loading sample details...</p>}
