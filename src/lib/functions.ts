@@ -86,13 +86,14 @@ exports.updateLabOrder = functions.region('europe-west1').https.onCall(async (da
 
 
 /**
- * Finalizes a lab order, creates the result document, and triggers downstream workflows.
+ * Validates raw lab results against reference ranges and submits them for review.
+ * This function is the core of the automated result validation workflow.
  *
  * @trigger_type Callable Function (https)
  * @input { orderId: string, resultDetails: object }
  */
 /*
-exports.processLabResult = functions.region('europe-west1').https.onCall(async (data, context) => {
+exports.validateAndSubmitResult = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check: Ensure user is an authorized lab technician
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check...
@@ -103,53 +104,75 @@ exports.processLabResult = functions.region('europe-west1').https.onCall(async (
     }
 
     const orderRef = db.collection('lab_orders').doc(orderId);
-    const resultRef = db.collection('lab_results').doc(orderId); // Use same ID for easy linking
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) throw new functions.https.HttpsError('not-found', 'Lab order not found.');
 
-    try {
-        await db.runTransaction(async (transaction) => {
-            const orderDoc = await transaction.get(orderRef);
-            if (!orderDoc.exists) throw new Error('Lab order not found.');
-            if (orderDoc.data().status === 'Completed') throw new Error('This order has already been completed.');
+    const orderData = orderDoc.data();
+    const patientId = orderData.patientId;
+    const testId = orderData.testIds[0]; // Assuming one test per order for simplicity
 
-            // a) Update the original order status
-            transaction.update(orderRef, { status: 'Completed' });
-
-            // b) Create the final result document
-            const resultData = {
-                resultId: orderId,
-                orderId: orderId,
-                patientId: orderDoc.data().patientId,
-                dateCompleted: admin.firestore.FieldValue.serverTimestamp(),
-                resultDetails: resultDetails,
-                isBilled: false,
-            };
-            transaction.set(resultRef, resultData);
-        });
-
-        // 2. Trigger downstream functions (these would be separate Cloud Functions in reality)
-        // a) Trigger billing
-        // await autoGenerateInvoice(..., 'LAB_TEST', ...);
-
-        // b) Send notification to the ordering doctor
-        // const orderData = (await orderRef.get()).data();
-        // await sendNotificationToUser(orderData.doctorId, {
-        //     title: 'Lab Results Ready',
-        //     body: `Results for lab order ${orderId} are available for review.`
-        // });
-
-        console.log(`Results for lab order ${orderId} have been processed.`);
-        return { success: true };
-
-    } catch (error) {
-        console.error(`Failed to process lab result for order ${orderId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not process the lab result.', { message: error.message });
+    // 2. Fetch data needed for validation
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    const testDoc = await db.collection('lab_tests').doc(testId).get();
+    
+    if (!patientDoc.exists || !testDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Patient or test definition not found.');
     }
+
+    const patientData = patientDoc.data();
+    const testData = testDoc.data();
+    const demographicKey = `${patientData.gender.toLowerCase()}_adult`; // e.g., "male_adult"
+    const referenceRanges = testData.referenceRanges?.[demographicKey];
+
+    // 3. Process and validate results
+    const validatedResults = {};
+    let hasAbnormalResult = false;
+    for (const key in resultDetails) {
+        const value = parseFloat(resultDetails[key].value);
+        let isAbnormal = false;
+        
+        if (referenceRanges && referenceRanges[key]) {
+            const { min, max } = referenceRanges[key];
+            if (value < min || value > max) {
+                isAbnormal = true;
+                hasAbnormalResult = true;
+            }
+        }
+
+        validatedResults[key] = {
+            value: resultDetails[key].value,
+            unit: resultDetails[key].unit,
+            isAbnormal: isAbnormal
+        };
+    }
+
+    // 4. Create the final result document in a transaction
+    const resultRef = db.collection('lab_results').doc(orderId);
+    await db.runTransaction(async (transaction) => {
+        transaction.set(resultRef, {
+            resultId: orderId,
+            orderId: orderId,
+            patientId: patientId,
+            testId: testId,
+            dateCompleted: admin.firestore.FieldValue.serverTimestamp(),
+            labTechId: context.auth.uid,
+            resultDetails: validatedResults,
+            status: hasAbnormalResult ? 'Pending Validation' : 'Final', // If abnormal, requires supervisor review
+            isBilled: false,
+        });
+        
+        // Update the original order status
+        transaction.update(orderRef, { status: 'Completed' });
+    });
+
+    // 5. If abnormal, trigger a notification (handled by the Firestore trigger below)
+    console.log(`Results for lab order ${orderId} submitted. Abnormal: ${hasAbnormalResult}`);
+    return { success: true, hasAbnormalResult };
 });
 */
 
 /**
  * Scans new lab results for abnormal values and creates alerts.
- * This is a core component of the Clinical Decision Support (CDS) system.
  *
  * @trigger_type Firestore Trigger (onCreate)
  * @document /lab_results/{resultId}
@@ -161,19 +184,17 @@ exports.alertAbnormalResults = functions.region('europe-west1').firestore
         const resultData = snapshot.data();
         const { resultDetails, patientId } = resultData;
         
-        // In a real app, you would fetch rules from a 'clinical_rules' collection
-        // For example, a rule might be { testKey: 'WBC', operator: '>', value: 11.0, severity: 'High' }
-        
         const abnormalAlerts = [];
 
-        // Example check for White Blood Cell Count
-        if (resultDetails['WBC'] && parseFloat(resultDetails['WBC']) > 11.0) {
-            abnormalAlerts.push({
-                patientId: patientId,
-                severity: 'High',
-                message: `Abnormal Lab Result: High White Blood Cell count detected (${resultDetails['WBC']}).`,
-                source: `Lab Result ${context.params.resultId}`
-            });
+        for (const key in resultDetails) {
+            if (resultDetails[key].isAbnormal) {
+                 abnormalAlerts.push({
+                    patientId: patientId,
+                    severity: 'High', // Or based on rule
+                    message: `Abnormal Lab Result: ${key} is ${resultDetails[key].value} ${resultDetails[key].unit}.`,
+                    source: `Lab Result ${context.params.resultId}`
+                });
+            }
         }
         
         if (abnormalAlerts.length > 0) {
@@ -3090,7 +3111,7 @@ exports.processPayment = functions.region('europe-west1').https.onCall(async (da
             console.log(`Payment of ${amount} for invoice ${invoiceId} processed successfully.`);
             return { success: true, transactionId: paymentResult.transactionId };
         } else {
-            throw new functions.https.HttpsError('aborted', 'Payment processing failed.', { message: paymentResult.error.message });
+            throw new functions.https.HttpsError('aborted', 'Payment processing failed.', { message: error.message });
         }
 
     } catch (error) {
@@ -3792,3 +3813,4 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
