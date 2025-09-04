@@ -29,7 +29,7 @@ exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check...
 
-    const { patientId, doctorId, testIds } = data;
+    const { patientId, doctorId, testIds, notes } = data;
     if (!patientId || !testIds || testIds.length === 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Patient ID and at least one test ID are required.');
     }
@@ -41,7 +41,8 @@ exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data
         doctorId: doctorId || context.auth.uid,
         dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
         testIds,
-        status: 'Pending Sample'
+        status: 'Pending Sample',
+        notes: notes || null
     };
 
     await newOrderRef.set(orderData);
@@ -49,6 +50,40 @@ exports.orderLabTest = functions.region('europe-west1').https.onCall(async (data
     return { success: true, orderId: newOrderRef.id };
 });
 */
+
+/**
+ * Updates the status of an existing lab order.
+ * This is the primary mechanism for moving an order through the lab's workflow.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { orderId: string, newStatus: string }
+ */
+/*
+exports.updateLabOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an authorized lab technician or admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { orderId, newStatus } = data;
+    const validStatuses = ['Pending Sample', 'In Progress', 'Completed', 'Canceled'];
+
+    if (!orderId || !newStatus || !validStatuses.includes(newStatus)) {
+        throw new functions.https.HttpsError('invalid-argument', 'A valid orderId and newStatus are required.');
+    }
+
+    const orderRef = db.collection('lab_orders').doc(orderId);
+
+    // 2. Perform the update
+    await orderRef.update({
+        status: newStatus,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`Lab order ${orderId} status updated to ${newStatus}.`);
+    return { success: true };
+});
+*/
+
 
 /**
  * Finalizes a lab order, creates the result document, and triggers downstream workflows.
@@ -3654,4 +3689,5 @@ exports.addDrugInteraction = functions.region('europe-west1').https.onCall(async
     return { success: true, interactionId: newInteractionRef.id };
 });
 */
+
 
