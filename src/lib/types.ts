@@ -688,7 +688,7 @@ export interface User {
  *   - alerts/{alertId}
  *   - allergies/{allergyId}
  *   - clinical_notes/{noteId} (also serves as progress_notes)
- *   - lab_results/{resultId}
+ *   - lab_history/{resultId}
  *   - vitals/{vitalId}
  *   - admissions/{admissionId}
  *   - care_plans/{planId}
