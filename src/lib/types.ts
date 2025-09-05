@@ -50,6 +50,7 @@ export interface RadiologyReport {
     impression: string;
     findings: string;
   };
+  reportPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
 }
 
 

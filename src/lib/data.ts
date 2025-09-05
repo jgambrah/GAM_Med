@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -404,10 +404,25 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         doctorId: 'doc1',
         studyIds: ['XRay-Leg'],
         dateOrdered: new Date('2024-08-14T09:00:00Z').toISOString(),
-        status: 'Awaiting Report',
+        status: 'Completed',
         scheduledDateTime: new Date('2024-08-14T14:00:00Z').toISOString()
     }
 ];
+
+export const mockRadiologyReports: RadiologyReport[] = [
+    {
+        reportId: 'RAD-003',
+        orderId: 'RAD-003',
+        radiologistId: 'doc1',
+        dateReported: new Date('2024-08-14T16:00:00Z').toISOString(),
+        reportDetails: {
+            impression: 'No acute fracture or dislocation identified.',
+            findings: 'The soft tissues are unremarkable. There is no evidence of fracture or dislocation. The visualized osseous structures are intact.'
+        },
+        reportPdfUrl: '/mock-rad-report.pdf'
+    }
+];
+
 
 export const mockLabResults: LabResult[] = [
     {
