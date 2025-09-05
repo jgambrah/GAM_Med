@@ -35,6 +35,7 @@ export interface LabOrder {
   dateOrdered: string; // ISO Timestamp
   testIds: string[]; // Array of references to lab_tests
   status: 'Pending Sample' | 'In Progress' | 'Completed' | 'Canceled';
+  billingStatus?: 'Billed' | 'Unbilled';
   notes?: string; // Optional field for specific instructions
   sampleDetails?: {
     barcode: string;
@@ -78,6 +79,8 @@ export interface LabResult {
   validationNotes?: string; // Optional comments from supervisor
   isBilled: boolean; // Flag to prevent duplicate billing
   resultPdfUrl?: string; // Optional URL to a PDF in Firebase Storage
+  turnaroundTime?: number; // In hours, for reporting
+  isAbnormal?: boolean; // Top-level flag for quick filtering of abnormal results
   sampleDetails?: {
     barcode: string;
     collectionDate: string; // ISO Timestamp
