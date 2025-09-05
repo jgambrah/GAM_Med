@@ -2,6 +2,7 @@
 
 'use client';
 
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -12,7 +13,6 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Plus } from 'lucide-react';
-import * as React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { LedgerAccount } from '@/lib/types';
 import { mockLedgerAccounts } from '@/lib/data';
+import Link from 'next/link';
 
 function CreateLedgerAccountDialog() {
     const [open, setOpen] = React.useState(false);
@@ -185,76 +186,22 @@ function CreateLedgerAccountDialog() {
 
 
 export function FinancialReportsDashboard() {
-  const handleGenerateReport = (reportType: string) => {
-    alert(`Simulating generation of ${reportType} report...`);
-  };
 
   return (
-    <div className="space-y-6">
-       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle>Financial Reporting</CardTitle>
-                <CardDescription>
-                    Generate reports and perform high-level financial tasks.
-                </CardDescription>
-            </div>
-            <CreateLedgerAccountDialog />
+    <Card>
+        <CardHeader>
+            <CardTitle>Financial Reporting</CardTitle>
+            <CardDescription>
+                Generate key financial statements and reports.
+            </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Cash Flow Statement</CardTitle>
-                    <CardDescription>
-                        Track the movement of cash in and out of the hospital.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-32 border-2 border-dashed rounded-lg">
-                    <p className="text-sm text-muted-foreground">[Chart showing cash flow trends]</p>
-                </CardContent>
-                <CardFooter>
-                    <Button variant="outline" className="w-full" onClick={() => handleGenerateReport('Cash Flow')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate Report
-                    </Button>
-                </CardFooter>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Profit & Loss (P&L)</CardTitle>
-                    <CardDescription>
-                       Analyze revenues, costs, and expenses over a period.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-32 border-2 border-dashed rounded-lg">
-                    <p className="text-sm text-muted-foreground">[P&L chart with revenue vs expenses]</p>
-                </CardContent>
-                 <CardFooter>
-                    <Button variant="outline" className="w-full" onClick={() => handleGenerateReport('Profit & Loss')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate Report
-                    </Button>
-                </CardFooter>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Expense Breakdown</CardTitle>
-                    <CardDescription>
-                        Visualize spending across different categories like payroll and supplies.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-32 border-2 border-dashed rounded-lg">
-                    <p className="text-sm text-muted-foreground">[Pie chart of expense categories]</p>
-                </CardContent>
-                 <CardFooter>
-                    <Button variant="outline" className="w-full" onClick={() => handleGenerateReport('Expense Breakdown')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate Report
-                    </Button>
-                </CardFooter>
-            </Card>
+        <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+            <Button asChild className="mt-4">
+                <Link href="/dashboard/admin/reports">
+                    Go to Financial Reports
+                </Link>
+            </Button>
         </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }
