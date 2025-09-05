@@ -4,65 +4,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper function to get the user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
-    function isPatientOwner(patientId) {
-        return request.auth.uid == patientId;
-    }
 
-    function isDoctorAssignedToPatient(patientId) {
-        // This is a conceptual rule. A real implementation would require a list
-        // of doctors on the patient document or a similar mapping.
-        // For this prototype, we'll allow any doctor to read.
-        return getUserRole() == 'doctor';
-    }
-
-    // Protects patient records, allowing access only to the patient or authorized staff.
+    // Rules for the 'patients' collection and its sub-collections
     match /patients/{patientId} {
-      allow read: if isPatientOwner(patientId) || getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow write: if getUserRole() in ['admin']; // Only admins can create/delete patient records directly
+      allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
       
-      // Rules for sub-collections within a patient's record
-      
-      // lab_history is read-only for clients, populated by a Cloud Function.
+      // EHR Sub-collection for lab results
       match /lab_history/{resultId} {
-        allow read: if isPatientOwner(patientId) || getUserRole() in ['admin', 'doctor'];
-        allow create, update, delete: if false; // Deny all client-side writes.
-      }
-      
-      match /clinical_notes/{noteId} {
-        allow read: if isPatientOwner(patientId) || getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow create: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow update: if getUserRole() in ['admin', 'doctor'];
-        allow delete: if getUserRole() == 'admin';
+      	allow create: if false; // Only backend functions can create
+        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
       }
     }
     
-    // Protects lab results, allowing access to lab staff or the patient's doctor.
+    // Rules for the 'lab_results' collection
     match /lab_results/{resultId} {
-        allow read: if getUserRole() in ['admin', 'lab_tech', 'doctor'];
-        // Allow lab technicians to create results.
-        allow create: if getUserRole() == 'lab_tech';
-        // Allow updates only if the result is in a draft state.
-        allow update: if getUserRole() in ['lab_tech'] && resource.data.status == 'Draft';
-        // Prevent deletion.
-        allow delete: if false;
+    	allow create: if getUserRole() in ['lab_technician'];
+      allow update: if getUserRole() in ['lab_technician', 'lab_supervisor'] && resource.data.status == 'Draft';
+      allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
     }
-
-    match /lab_orders/{orderId} {
-        // Allow read by lab staff, or the ordering doctor.
-        allow read: if getUserRole() in ['admin', 'lab_tech'];
-        // Only trusted backend processes can update.
-        allow update: if request.auth.uid == null || getUserRole() == 'admin';
-        
-        match /sample_audit/{auditId} {
-            allow read: if getUserRole() in ['admin', 'lab_tech'];
-            // Deny all client-side writes to maintain an immutable log.
-            allow create, update, delete: if false;
-        }
+    
+    // Rules for the 'equipment_logs' collection
+    match /equipment_logs/{logId} {
+    	// Only a trusted backend process (Cloud Function) should create these logs.
+      // We deny client-side creation entirely.
+    	allow create: if false;
+      allow read: if getUserRole() in ['admin', 'lab_tech'];
     }
   }
 }
