@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { BillingDashboard } from './components/billing-dashboard';
 import { AccountsPayableDashboard } from './components/accounts-payable-dashboard';
 import { FinancialReportsDashboard } from './components/financial-reports-dashboard';
+import { RadiologyDashboard } from './components/radiology-dashboard';
 
 export default function AdminPage() {
   return (
@@ -33,6 +34,7 @@ export default function AdminPage() {
         <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="inpatient-admissions">Inpatient Admissions</TabsTrigger>
           <TabsTrigger value="outpatient-checkin">Outpatient Check-in</TabsTrigger>
+          <TabsTrigger value="radiology-scheduling">Radiology Scheduling</TabsTrigger>
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
           <TabsTrigger value="ar">Accounts Receivable</TabsTrigger>
           <TabsTrigger value="ap">Accounts Payable</TabsTrigger>
@@ -49,6 +51,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="outpatient-checkin" className="mt-4">
           <OutpatientCheckinDashboard />
+        </TabsContent>
+        <TabsContent value="radiology-scheduling" className="mt-4">
+          <RadiologyDashboard />
         </TabsContent>
         <TabsContent value="discharge-processing" className="mt-4">
             <DischargeDashboard />

@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -381,6 +381,33 @@ export const mockRadiologyStudies: RadiologyStudy[] = [
     { studyId: 'US-Abdomen', name: 'Ultrasound of Abdomen', description: 'Abdominal ultrasound.', price: 300, estimatedTime: 20, isStat: false },
 ];
 
+export const mockRadiologyOrders: RadiologyOrder[] = [
+    {
+        orderId: 'RAD-001',
+        patientId: 'P-123456',
+        doctorId: 'doc1',
+        studyIds: ['CT-Chest'],
+        dateOrdered: new Date('2024-08-16T11:00:00Z').toISOString(),
+        status: 'Pending Scheduling'
+    },
+    {
+        orderId: 'RAD-002',
+        patientId: 'P-654321',
+        doctorId: 'doc2',
+        studyIds: ['MRI-Brain'],
+        dateOrdered: new Date('2024-08-15T15:30:00Z').toISOString(),
+        status: 'Pending Scheduling'
+    },
+    {
+        orderId: 'RAD-003',
+        patientId: 'P-123456',
+        doctorId: 'doc1',
+        studyIds: ['XRay-Leg'],
+        dateOrdered: new Date('2024-08-14T09:00:00Z').toISOString(),
+        status: 'Completed',
+        scheduledDateTime: new Date('2024-08-14T14:00:00Z').toISOString()
+    }
+];
 
 export const mockLabResults: LabResult[] = [
     {
