@@ -1,5 +1,3 @@
-
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -1216,13 +1214,22 @@ export interface ImmunizationRecord {
   notes?: string;
 }
 
+// =========================================================================
+// == Reporting Data Models
+// =========================================================================
+
+/**
+ * Represents aggregated report data, stored in the 'reports' collection.
+ * Each document could represent a daily, weekly, or monthly summary.
+ */
+export interface LabReport {
+  reportId: string; // e.g., 'daily-2024-08-16'
+  date: string; // YYYY-MM-DD
+  testVolumes: { testName: string; volume: number }[];
+  turnaroundTimes: { testName: string; avgTAT: number }[];
+  abnormalResultTrends: { testName: string; abnormalPercentage: number }[];
+}
+
+
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-
-
-
-
-
-
-
-    
