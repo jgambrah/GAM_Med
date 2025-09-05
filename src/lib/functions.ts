@@ -276,6 +276,55 @@ exports.sendResultNotification = functions.region('europe-west1').firestore
     });
 */
 
+/**
+ * Processes raw data from lab equipment, validates it, and submits it for review.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /equipment_logs/{logId}
+ */
+/*
+exports.processEquipmentData = functions.region('europe-west1').firestore
+    .document('/equipment_logs/{logId}')
+    .onCreate(async (snapshot, context) => {
+        const logData = snapshot.data();
+        const { equipmentId, barcodeScanned, rawData, isProcessed } = logData;
+
+        // 1. Prevent reprocessing of the same log entry
+        if (isProcessed) {
+            console.log(`Log ${context.params.logId} has already been processed. Skipping.`);
+            return null;
+        }
+
+        // 2. Parse the raw data into a structured format
+        // This logic is highly specific to the equipment's output format.
+        const parsedResults = {}; // E.g., { "HEMOGLOBIN": { "value": "14.5", "unit": "g/dL" } }
+        // ... parsing logic here ...
+
+        // 3. Find the corresponding lab order using the sample barcode
+        const orderQuery = db.collection('lab_orders').where('sampleDetails.barcode', '==', barcodeScanned).limit(1);
+        const orderSnapshot = await orderQuery.get();
+        if (orderSnapshot.empty) {
+            console.error(`No lab order found for barcode ${barcodeScanned}.`);
+            // Optionally, create an alert for an orphaned result.
+            return null;
+        }
+        const orderId = orderSnapshot.docs[0].id;
+
+        // 4. Call the existing validation function
+        // This reuses our validation logic and keeps the system modular.
+        const validateAndSubmit = functions.https.onCall(validateAndSubmitResult);
+        await validateAndSubmit({
+            orderId: orderId,
+            resultDetails: parsedResults
+        });
+
+        // 5. Mark the log as processed to prevent re-runs
+        await snapshot.ref.update({ isProcessed: true });
+
+        console.log(`Successfully processed equipment log ${context.params.logId} for order ${orderId}.`);
+        return null;
+    });
+*/
 
 
 // =======================================================================================
@@ -3842,5 +3891,6 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
 
 
