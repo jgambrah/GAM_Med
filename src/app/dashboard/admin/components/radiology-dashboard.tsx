@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { mockRadiologyOrders, allPatients, allUsers } from '@/lib/data';
 import Link from 'next/link';
+import { ScheduleStudyDialog } from '../../radiology/components/schedule-study-dialog';
 
 export function RadiologyDashboard() {
   const pendingOrders = mockRadiologyOrders.filter(o => o.status === 'Pending Scheduling');
@@ -26,11 +27,6 @@ export function RadiologyDashboard() {
   const getDoctorName = (doctorId: string) => {
     return allUsers.find(u => u.uid === doctorId)?.name || 'Unknown Doctor';
   }
-
-  const handleSchedule = (orderId: string) => {
-    // In a real app, this would open a scheduling dialog with available slots.
-    alert(`Simulating opening schedule dialog for order ${orderId}`);
-  };
 
   return (
     <div className="rounded-md border">
@@ -57,9 +53,7 @@ export function RadiologyDashboard() {
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
                 <TableCell>{order.studyIds.join(', ')}</TableCell>
                 <TableCell>
-                  <Button variant="outline" size="sm" onClick={() => handleSchedule(order.orderId)}>
-                    Schedule
-                  </Button>
+                    <ScheduleStudyDialog order={order} />
                 </TableCell>
               </TableRow>
             ))
