@@ -3,49 +3,37 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Allow users to read their own user document
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Patient data can only be read by the patient themselves or authorized staff.
-    match /patients/{patientId} {
-      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow write: if getUserRole() in ['admin']; // Only admins can create/update patient records directly
-      
-      // Allow authorized staff to read/write to sub-collections
-      match /{subcollection}/{documentId} {
-        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-      match /lab_history/{resultId} {
-        allow create: if false; // Only allow create from a trusted Cloud Function
-        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
-      }
-    }
-    
-     // Lab results can be read by lab staff, doctors, or the patient themselves.
-    match /lab_results/{resultId} {
-       allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
-    }
-    
-    // Equipment logs can only be created by a trusted source and read by lab staff.
-    match /equipment_logs/{logId} {
-      allow create: if false; // Should only be written by a trusted backend service/function
-      allow read: if getUserRole() in ['admin', 'lab_tech'];
-      allow write: if getUserRole() in ['admin']; // Allow admin to update/correct logs if needed
-    }
-    
-    // Reports can only be read by authorized management roles.
-    match /reports/{reportId} {
-       allow read: if getUserRole() in ['admin', 'lab_manager', 'financial_staff'];
-       allow write: if false; // Reports are write-once from a trusted function
+      allow read: if request.auth.uid == userId;
+      // Add other user-specific rules here
     }
 
+    // Rules for Radiology Information System (RIS)
+    match /radiology_studies/{studyId} {
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin';
+    }
+
+    match /radiology_orders/{orderId} {
+      allow create: if getUserRole() in ['admin', 'doctor'];
+      allow update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == resource.data.patientId;
+    }
+
+    match /radiology_reports/{reportId} {
+      allow create: if getUserRole() in ['admin', 'doctor', 'radiologist'];
+      allow update: if getUserRole() in ['admin', 'radiologist'];
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == resource.data.patientId;
+    }
+    
+    match /reports/{reportId} {
+        allow read: if getUserRole() in ['admin', 'lab_manager', 'financial_staff'];
+        allow write: if getUserRole() == 'admin';
+    }
   }
 }
