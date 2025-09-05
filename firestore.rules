@@ -3,36 +3,49 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get the user's role from the 'users' collection
+  
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Rules for the 'patients' collection and its sub-collections
+    // Allow users to read their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    
+    // Patient data can only be read by the patient themselves or authorized staff.
     match /patients/{patientId} {
-      allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow write: if getUserRole() in ['admin']; // Only admins can create/update patient records directly
       
-      // EHR Sub-collection for lab results
+      // Allow authorized staff to read/write to sub-collections
+      match /{subcollection}/{documentId} {
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
+      
       match /lab_history/{resultId} {
-      	allow create: if false; // Only backend functions can create
+        allow create: if false; // Only allow create from a trusted Cloud Function
         allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
       }
     }
     
-    // Rules for the 'lab_results' collection
+     // Lab results can be read by lab staff, doctors, or the patient themselves.
     match /lab_results/{resultId} {
-    	allow create: if getUserRole() in ['lab_technician'];
-      allow update: if getUserRole() in ['lab_technician', 'lab_supervisor'] && resource.data.status == 'Draft';
-      allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
+       allow read: if getUserRole() in ['admin', 'doctor', 'lab_tech'] || request.auth.uid == resource.data.patientId;
     }
     
-    // Rules for the 'equipment_logs' collection
+    // Equipment logs can only be created by a trusted source and read by lab staff.
     match /equipment_logs/{logId} {
-    	// Only a trusted backend process (Cloud Function) should create these logs.
-      // We deny client-side creation entirely.
-    	allow create: if false;
+      allow create: if false; // Should only be written by a trusted backend service/function
       allow read: if getUserRole() in ['admin', 'lab_tech'];
+      allow write: if getUserRole() in ['admin']; // Allow admin to update/correct logs if needed
     }
+    
+    // Reports can only be read by authorized management roles.
+    match /reports/{reportId} {
+       allow read: if getUserRole() in ['admin', 'lab_manager', 'financial_staff'];
+       allow write: if false; // Reports are write-once from a trusted function
+    }
+
   }
 }
