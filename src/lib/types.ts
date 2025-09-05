@@ -1,8 +1,57 @@
+
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
  * This ensures consistency between the frontend components and the backend database.
  */
+
+// =========================================================================
+// == Radiology Information System (RIS)
+// =========================================================================
+
+/**
+ * Represents a single available imaging study in the central radiology catalog.
+ * Path: /radiology_studies/{studyId}
+ */
+export interface RadiologyStudy {
+  studyId: string; // Document ID (e.g., 'CT-Chest', 'XRay-Leg')
+  name: string; // e.g., 'CT Scan of Chest'
+  description: string;
+  price: number;
+  estimatedTime: number; // in minutes
+  isStat: boolean; // Indicates if it's an emergency study
+}
+
+/**
+ * Represents a request for an imaging study made by a doctor.
+ * Path: /radiology_orders/{orderId}
+ */
+export interface RadiologyOrder {
+  orderId: string; // Document ID
+  patientId: string; // Reference to patients
+  doctorId: string; // Reference to users
+  studyIds: string[]; // Array of references to radiology_studies
+  dateOrdered: string; // ISO Timestamp
+  scheduledDateTime?: string; // ISO Timestamp for patient appointment
+  status: 'Pending Scheduling' | 'Scheduled' | 'In Progress' | 'Completed';
+}
+
+/**
+ * Represents the final report from the radiologist for a given order.
+ * Path: /radiology_reports/{reportId}
+ */
+export interface RadiologyReport {
+  reportId: string; // Document ID (could be same as orderId)
+  orderId: string; // Reference to radiology_orders
+  radiologistId: string; // Reference to users
+  dateReported: string; // ISO Timestamp
+  reportDetails: {
+    impression: string;
+    findings: string;
+  };
+}
+
 
 // =========================================================================
 // == Laboratory Information System (LIS)
