@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -373,6 +373,14 @@ export const mockLabTestCatalog: LabTest[] = [
     { testId: 'LFT', name: 'Liver Function Test', description: '', sampleType: 'Blood', turnaroundTime: '24 hours', price: 150 },
     { testId: 'TP', name: 'Thyroid Panel', description: '', sampleType: 'Blood', turnaroundTime: '72 hours', price: 250 },
 ];
+
+export const mockRadiologyStudies: RadiologyStudy[] = [
+    { studyId: 'CT-Chest', name: 'CT Scan of Chest', description: 'Computed tomography scan of the chest area.', price: 800, estimatedTime: 30, isStat: false },
+    { studyId: 'XRay-Leg', name: 'X-Ray of Leg', description: 'Standard two-view X-ray of the leg.', price: 150, estimatedTime: 15, isStat: false },
+    { studyId: 'MRI-Brain', name: 'MRI of Brain with Contrast', description: 'Magnetic resonance imaging of the brain.', price: 1500, estimatedTime: 60, isStat: true },
+    { studyId: 'US-Abdomen', name: 'Ultrasound of Abdomen', description: 'Abdominal ultrasound.', price: 300, estimatedTime: 20, isStat: false },
+];
+
 
 export const mockLabResults: LabResult[] = [
     {

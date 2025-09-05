@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 
@@ -215,6 +216,15 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath('/dashboard/lab');
     return { success: true, message: 'Lab test ordered successfully.' };
+}
+
+export async function orderImagingStudy(patientId: string, values: z.infer<typeof NewRadOrderSchema>) {
+    console.log(`Ordering imaging study for patient ${patientId}:`, values);
+    // In a real app, this would call the 'createRadOrder' Cloud Function
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    // revalidatePath('/dashboard/radiology'); // Uncomment when radiology dashboard exists
+    return { success: true, message: 'Imaging study ordered successfully.' };
 }
 
 export async function updateLabOrderStatus(testId: string, status: LabResult['status']) {

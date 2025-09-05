@@ -112,6 +112,14 @@ export const NewLabOrderSchema = z.object({
 });
 
 /**
+ * Zod schema for validating a new radiology order form.
+ */
+export const NewRadOrderSchema = z.object({
+  studyIds: z.array(z.string()).min(1, { message: "At least one study must be selected." }),
+  notes: z.string().optional(),
+});
+
+/**
  * Zod schema for fulfilling a lab request.
  */
 export const FulfillLabRequestSchema = z.object({

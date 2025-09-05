@@ -1,9 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield } from 'lucide-react';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan } from 'lucide-react';
 import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +31,7 @@ import { VitalsTab } from './components/vitals-tab';
 import { PatientAlerts } from './components/patient-alerts';
 import { ImmunizationsTab } from './components/immunizations-tab';
 import { OrderTestDialog } from './components/order-test-dialog';
+import { OrderStudyDialog } from './components/order-study-dialog';
 
 
 /**
@@ -126,6 +128,7 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
             <OrderTestDialog patientId={patient.patient_id} />
+            <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}
 
