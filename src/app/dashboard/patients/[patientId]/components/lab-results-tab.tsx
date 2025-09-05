@@ -33,8 +33,8 @@ export function LabResultsTab() {
     return (
          <Card>
             <CardHeader>
-                <CardTitle>Lab Results</CardTitle>
-                <CardDescription>A record of all laboratory tests and their results.</CardDescription>
+                <CardTitle>My Lab History</CardTitle>
+                <CardDescription>A record of all your laboratory tests and their results.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
@@ -85,3 +85,4 @@ export function LabResultsTab() {
         </Card>
     );
 }
+
