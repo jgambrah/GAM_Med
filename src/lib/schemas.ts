@@ -2,6 +2,11 @@
 
 import { z } from 'zod';
 
+export const RadiologyReportSchema = z.object({
+  impression: z.string().min(10, { message: "Impression must be at least 10 characters." }),
+  findings: z.string().min(10, { message: "Findings must be at least 10 characters." }),
+});
+
 export const LedgerAccountSchema = z.object({
   accountName: z.string().min(3, { message: "Account name must be at least 3 characters." }),
   accountCode: z.string().min(4, { message: "Account code must be at least 4 characters." }),

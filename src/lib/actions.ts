@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 
@@ -223,8 +223,16 @@ export async function orderImagingStudy(patientId: string, values: z.infer<typeo
     // In a real app, this would call the 'createRadOrder' Cloud Function
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
-    // revalidatePath('/dashboard/radiology'); // Uncomment when radiology dashboard exists
+    revalidatePath('/dashboard/radiology');
     return { success: true, message: 'Imaging study ordered successfully.' };
+}
+
+export async function submitRadiologyReport(orderId: string, values: z.infer<typeof RadiologyReportSchema>) {
+    console.log(`Submitting radiology report for order ${orderId}:`, values);
+    // In a real app, this would call the 'processRadReport' Cloud Function
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    revalidatePath('/dashboard/radiology');
+    return { success: true, message: 'Radiology report submitted successfully.' };
 }
 
 export async function updateLabOrderStatus(testId: string, status: LabResult['status']) {

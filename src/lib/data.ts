@@ -404,7 +404,7 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         doctorId: 'doc1',
         studyIds: ['XRay-Leg'],
         dateOrdered: new Date('2024-08-14T09:00:00Z').toISOString(),
-        status: 'Completed',
+        status: 'Awaiting Report',
         scheduledDateTime: new Date('2024-08-14T14:00:00Z').toISOString()
     }
 ];
@@ -1509,5 +1509,3 @@ export const mockLabReports: LabReport[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-
-    
