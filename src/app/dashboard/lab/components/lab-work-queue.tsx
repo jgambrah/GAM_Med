@@ -19,13 +19,16 @@ import { mockLabResults } from '@/lib/data';
 import Link from 'next/link';
 import { toast } from '@/hooks/use-toast';
 import { FulfillRequestDialog } from './fulfill-request-dialog';
-import { updateLabOrderStatus } from '@/lib/actions';
+import { updateLabOrderStatus, analyzeSample } from '@/lib/actions';
+import { ValidateResultDialog } from './validate-result-dialog';
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
         case 'Completed': return 'secondary';
         case 'Ordered': return 'default';
         case 'In Progress': return 'outline';
+        case 'Draft': return 'outline';
+        case 'Validated': return 'secondary';
         default: return 'outline';
     }
 };
@@ -33,9 +36,10 @@ const getStatusVariant = (status: LabResult['status']): "default" | "secondary" 
 interface LabQueueTableProps {
   requests: LabResult[];
   onStatusChange: (testId: string, newStatus: LabResult['status']) => void;
+  userRole: 'lab_technician' | 'lab_supervisor' | 'doctor';
 }
 
-function LabQueueTable({ requests, onStatusChange }: LabQueueTableProps) {
+function LabQueueTable({ requests, onStatusChange, userRole }: LabQueueTableProps) {
     const handleStatusUpdate = async (testId: string, newStatus: LabResult['status']) => {
         const result = await updateLabOrderStatus(testId, newStatus);
         if (result.success) {
@@ -45,6 +49,16 @@ function LabQueueTable({ requests, onStatusChange }: LabQueueTableProps) {
             toast.error(result.message || 'Failed to update status.');
         }
     };
+    
+    const handleAnalyze = async (testId: string) => {
+        const result = await analyzeSample(testId);
+        if (result.success) {
+            toast.success(`Analysis for test ${testId} completed.`);
+            onStatusChange(testId, 'Draft');
+        } else {
+             toast.error(result.message || 'Failed to analyze sample.');
+        }
+    }
 
   return (
     <div className="rounded-md border">
@@ -81,10 +95,15 @@ function LabQueueTable({ requests, onStatusChange }: LabQueueTableProps) {
                                     </Button>
                                 )}
                                 {request.status === 'In Progress' && (
-                                    <FulfillRequestDialog 
-                                        labRequest={request} 
-                                        onFulfilled={() => onStatusChange(request.testId, 'Completed')} 
-                                    />
+                                    <Button size="sm" variant="outline" onClick={() => handleAnalyze(request.testId)}>
+                                        Analyze Sample
+                                    </Button>
+                                )}
+                                {request.status === 'Draft' && userRole === 'lab_supervisor' && (
+                                     <ValidateResultDialog
+                                        labRequest={request}
+                                        onValidated={() => onStatusChange(request.testId, 'Validated')}
+                                     />
                                 )}
                             </TableCell>
                         </TableRow>
@@ -110,6 +129,7 @@ function LabQueueTable({ requests, onStatusChange }: LabQueueTableProps) {
  */
 export function LabWorkQueue() {
   const [labRequests, setLabRequests] = React.useState<LabResult[]>(mockLabResults);
+  const userRole = 'lab_supervisor'; // Mock role for demonstration
 
   const handleStatusChange = (testId: string, newStatus: LabResult['status']) => {
       setLabRequests(prev => prev.map(req => req.testId === testId ? { ...req, status: newStatus } : req));
@@ -117,23 +137,28 @@ export function LabWorkQueue() {
   
   const orderedRequests = labRequests.filter(lr => lr.status === 'Ordered');
   const inProgressRequests = labRequests.filter(lr => lr.status === 'In Progress');
-  const completedRequests = labRequests.filter(lr => lr.status === 'Completed');
+  const draftRequests = labRequests.filter(lr => lr.status === 'Draft');
+  const completedRequests = labRequests.filter(lr => lr.status === 'Completed' || lr.status === 'Validated');
 
   return (
     <Tabs defaultValue="new-requests">
         <TabsList>
             <TabsTrigger value="new-requests">New Requests ({orderedRequests.length})</TabsTrigger>
             <TabsTrigger value="in-progress">In Progress ({inProgressRequests.length})</TabsTrigger>
+            <TabsTrigger value="for-validation">For Validation ({draftRequests.length})</TabsTrigger>
             <TabsTrigger value="completed">Completed ({completedRequests.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="new-requests" className="mt-4">
-            <LabQueueTable requests={orderedRequests} onStatusChange={handleStatusChange} />
+            <LabQueueTable requests={orderedRequests} onStatusChange={handleStatusChange} userRole={userRole} />
         </TabsContent>
          <TabsContent value="in-progress" className="mt-4">
-            <LabQueueTable requests={inProgressRequests} onStatusChange={handleStatusChange} />
+            <LabQueueTable requests={inProgressRequests} onStatusChange={handleStatusChange} userRole={userRole} />
+        </TabsContent>
+        <TabsContent value="for-validation" className="mt-4">
+            <LabQueueTable requests={draftRequests} onStatusChange={handleStatusChange} userRole={userRole} />
         </TabsContent>
          <TabsContent value="completed" className="mt-4">
-            <LabQueueTable requests={completedRequests} onStatusChange={handleStatusChange} />
+            <LabQueueTable requests={completedRequests} onStatusChange={handleStatusChange} userRole={userRole} />
         </TabsContent>
     </Tabs>
   );

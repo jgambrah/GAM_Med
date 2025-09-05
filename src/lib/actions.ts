@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 
@@ -244,6 +244,22 @@ export async function fulfillLabRequest(
     return { success: true, message: 'Lab request fulfilled successfully.' };
 }
 
+export async function validateLabResult(
+    testId: string,
+    values: z.infer<typeof ValidateLabResultSchema>
+) {
+    console.log(`Validating lab result ${testId} with notes:`, values.validationNotes);
+
+    // This server action would call a Cloud Function to update the lab result document.
+    // It would set the status to 'Validated' (or 'Final') and add the validation notes.
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath(`/dashboard/lab`);
+
+    return { success: true, message: 'Lab result validated successfully.' };
+}
+
 export async function logVitals(patientId: string, values: z.infer<typeof VitalsSchema>): Promise<{
     success: boolean;
     alerts: { severity: 'Critical' | 'Warning' | 'Information', message: string }[];
@@ -481,4 +497,23 @@ export async function checkPrescriptionSafety(
   }
 
   return { success: true, alerts };
+}
+
+/**
+ * Server Action to simulate a lab machine analyzing a sample.
+ */
+export async function analyzeSample(testId: string) {
+    console.log(`Analyzing sample for lab test ${testId}...`);
+
+    // In a real application, this would not be needed. The equipment would send data to a webhook,
+    // triggering the `processEquipmentData` Cloud Function.
+    // Here, we simulate that process.
+    
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate analysis time
+
+    // This would then trigger the processEquipmentData function.
+    // For the prototype, we'll just update the status to 'Draft' to move it to the next queue.
+    revalidatePath('/dashboard/lab');
+
+    return { success: true };
 }
