@@ -54,8 +54,8 @@ const ChartContainer = React.forwardRef<
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof CHART_TYPES>("bar")
 
-  // Format: Log to console in development
   React.useEffect(() => {
+    // Format: Log to console in development
     const env = process.env.NODE_ENV
     if (env === "development") {
       console.log(
@@ -125,10 +125,11 @@ const ChartTooltipContent = React.forwardRef<
     const { config } = useChart()
     const [_, item] = payload ?? []
     const [itemConfig] =
-      item &&
-      Object.entries(config).find(
-        ([key, f]) => f.label === item.name || key === item.name
-      )
+      (item &&
+        Object.entries(config).find(
+          ([key, f]) => f.label === item.name || key === item.name
+        )) ||
+      []
 
     const value =
       formatter && item?.value
