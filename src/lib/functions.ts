@@ -326,6 +326,122 @@ exports.processEquipmentData = functions.region('europe-west1').firestore
     });
 */
 
+/**
+ * Calculates the turnaround time for a lab test once it's completed.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /lab_results/{resultId}
+ */
+/*
+exports.calculateTurnaroundTime = functions.region('europe-west1').firestore
+    .document('/lab_results/{resultId}')
+    .onCreate(async (snapshot, context) => {
+        const resultData = snapshot.data();
+        const { orderId, dateCompleted } = resultData;
+
+        if (!orderId || !dateCompleted) {
+            console.log(`Result ${context.params.resultId} is missing orderId or completion date.`);
+            return null;
+        }
+
+        // 1. Fetch the original order to get the `dateOrdered`.
+        const orderDoc = await db.collection('lab_orders').doc(orderId).get();
+        if (!orderDoc.exists) {
+            console.error(`Original order ${orderId} not found for result ${context.params.resultId}.`);
+            return null;
+        }
+        const dateOrdered = orderDoc.data().dateOrdered;
+
+        // 2. Calculate the difference in hours.
+        const turnaroundTimeHours = (dateCompleted.toMillis() - dateOrdered.toMillis()) / (1000 * 60 * 60);
+
+        // 3. Update the result document with the calculated time.
+        await snapshot.ref.update({
+            turnaroundTime: parseFloat(turnaroundTimeHours.toFixed(2))
+        });
+
+        console.log(`Calculated turnaround time for result ${context.params.resultId}: ${turnaroundTimeHours.toFixed(2)} hours.`);
+        return null;
+    });
+*/
+
+/**
+ * Generates aggregated report data for the LIS dashboard on a schedule.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 02:00'
+ */
+/*
+exports.generateReportData = functions.region('europe-west1').pubsub
+    .schedule('every day 02:00')
+    .onRun(async (context) => {
+        console.log('Starting LIS daily report generation...');
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const reportId = yesterday.toISOString().split('T')[0]; // e.g., '2024-08-16'
+
+        // --- Test Volumes ---
+        const volumesSnapshot = await db.collection('lab_orders')
+            .where('dateOrdered', '>=', admin.firestore.Timestamp.fromDate(yesterday))
+            .get();
+        
+        const testVolumes = {};
+        volumesSnapshot.forEach(doc => {
+            doc.data().testIds.forEach(testId => {
+                testVolumes[testId] = (testVolumes[testId] || 0) + 1;
+            });
+        });
+
+        // --- Turnaround Times & Abnormal Result Trends ---
+        const resultsSnapshot = await db.collection('lab_results')
+            .where('dateCompleted', '>=', admin.firestore.Timestamp.fromDate(yesterday))
+            .get();
+
+        const reportData = {};
+        resultsSnapshot.forEach(doc => {
+            const result = doc.data();
+            const testId = result.testId;
+
+            if (!reportData[testId]) {
+                reportData[testId] = {
+                    totalTests: 0,
+                    turnaroundTimes: [],
+                    abnormalCount: 0
+                };
+            }
+            reportData[testId].totalTests++;
+            if (result.turnaroundTime) {
+                reportData[testId].turnaroundTimes.push(result.turnaroundTime);
+            }
+            if (result.isAbnormal) {
+                reportData[testId].abnormalCount++;
+            }
+        });
+        
+        // Finalize calculations (avg, min, max)
+        for (const testId in reportData) {
+            const times = reportData[testId].turnaroundTimes;
+            if (times.length > 0) {
+                reportData[testId].avgTurnaround = times.reduce((a, b) => a + b, 0) / times.length;
+                reportData[testId].minTurnaround = Math.min(...times);
+                reportData[testId].maxTurnaround = Math.max(...times);
+            }
+            delete reportData[testId].turnaroundTimes; // Clean up
+        }
+
+        // --- Save Report ---
+        const finalReport = {
+            date: reportId,
+            testVolumes,
+            performanceMetrics: reportData
+        };
+        
+        await db.collection('reports').doc(reportId).set(finalReport);
+        console.log(`Successfully generated and saved LIS report for ${reportId}.`);
+        return null;
+    });
+*/
+
 
 // =======================================================================================
 // == Narcotics & Controlled Substance Tracking
@@ -3891,6 +4007,7 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
 
 
 
