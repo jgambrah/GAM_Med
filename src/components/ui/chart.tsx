@@ -6,16 +6,6 @@ import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
 
-// Format: Log to console in development
-React.useEffect(() => {
-  const env = process.env.NODE_ENV
-  if (env === "development") {
-    console.log(
-      "Recharts is in development mode. A bunch of warnings will be logged to the console. These can be ignored."
-    )
-  }
-}, [])
-
 // #region Chart Types
 const CHART_TYPES = {
   Area: RechartsPrimitive.AreaChart,
@@ -63,6 +53,16 @@ const ChartContainer = React.forwardRef<
   const chartContainerRef = React.useRef<HTMLDivElement>(null)
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof CHART_TYPES>("bar")
+
+  // Format: Log to console in development
+  React.useEffect(() => {
+    const env = process.env.NODE_ENV
+    if (env === "development") {
+      console.log(
+        "Recharts is in development mode. A bunch of warnings will be logged to the console. These can be ignored."
+      )
+    }
+  }, [])
 
   const Chart = React.useCallback(() => {
     const chart = CHART_TYPES[activeChart]
