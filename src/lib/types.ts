@@ -87,6 +87,20 @@ export interface LabResult {
   };
 }
 
+/**
+ * Represents a raw data entry from an integrated piece of lab equipment.
+ * This collection acts as a staging area before data is processed and validated.
+ * Path: /equipment_logs/{logId}
+ */
+export interface EquipmentLog {
+  logId: string; // Document ID
+  equipmentId: string; // Identifier for the physical lab machine
+  barcodeScanned: string; // The patient sample barcode scanned by the machine
+  rawData: Record<string, any>; // The raw JSON or key-value output from the equipment
+  timestamp: string; // ISO Timestamp when the data was received from the equipment
+  isProcessed: boolean; // Flag to indicate if this log has been processed into a formal lab_result
+}
+
 
 // =========================================================================
 // == Narcotics & Controlled Substance Tracking
@@ -1200,6 +1214,12 @@ export interface ImmunizationRecord {
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
+
+
+
+
+
 
 
     
