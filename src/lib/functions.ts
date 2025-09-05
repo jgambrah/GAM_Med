@@ -14,6 +14,102 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Radiology Information System (RIS)
+// =======================================================================================
+
+/**
+ * Creates a new radiology order in the system.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, doctorId: string, studyIds: string[] }
+ */
+/*
+exports.createRadOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an authorized doctor.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { patientId, doctorId, studyIds } = data;
+    if (!patientId || !studyIds || studyIds.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID and at least one study ID are required.');
+    }
+
+    const newOrderRef = db.collection('radiology_orders').doc();
+    const orderData = {
+        orderId: newOrderRef.id,
+        patientId,
+        doctorId: doctorId || context.auth.uid,
+        dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
+        studyIds,
+        status: 'Pending Scheduling', // Initial status
+    };
+
+    await newOrderRef.set(orderData);
+    
+    // 2. Send notification to radiology front desk to schedule the patient
+    // await sendNotificationToRole('radiology_receptionist', `New imaging study ordered for patient ${patientId}. Please schedule.`);
+
+    console.log(`Radiology order ${newOrderRef.id} created for patient ${patientId}.`);
+    return { success: true, orderId: newOrderRef.id };
+});
+*/
+
+/**
+ * Processes a completed radiology report from a radiologist.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { orderId: string, reportDetails: { impression: string, findings: string } }
+ */
+/*
+exports.processRadReport = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is a radiologist
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check for 'radiologist'...
+
+    const { orderId, reportDetails } = data;
+    if (!orderId || !reportDetails) {
+        throw new functions.https.HttpsError('invalid-argument', 'Order ID and report details are required.');
+    }
+
+    const reportRef = db.collection('radiology_reports').doc(orderId);
+    const orderRef = db.collection('radiology_orders').doc(orderId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const orderDoc = await transaction.get(orderRef);
+            if (!orderDoc.exists) throw new Error('Radiology order not found.');
+
+            // 2. Create the report document
+            transaction.set(reportRef, {
+                reportId: reportRef.id,
+                orderId: orderId,
+                radiologistId: context.auth.uid,
+                dateReported: admin.firestore.FieldValue.serverTimestamp(),
+                reportDetails: reportDetails
+            });
+            
+            // 3. Update the original order's status
+            transaction.update(orderRef, { status: 'Completed' });
+            
+            // 4. Trigger auto-billing logic (conceptual)
+            // await autoGenerateInvoice(transaction, orderDoc.data().patientId, 'RADIOLOGY', orderId, 'Radiology Study');
+        });
+
+        // 5. Send notification to the ordering doctor
+        const orderData = (await orderRef.get()).data();
+        // await sendNotificationToUser(orderData.doctorId, `Radiology report for patient ${orderData.patientId} is complete.`);
+
+        console.log(`Report for order ${orderId} processed.`);
+        return { success: true, reportId: reportRef.id };
+    } catch (error) {
+        console.error(`Failed to process report for order ${orderId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not process report.', { message: error.message });
+    }
+});
+*/
+
+
+// =======================================================================================
 // == Laboratory Information System (LIS)
 // =======================================================================================
 
@@ -4007,6 +4103,7 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
 
 
 
