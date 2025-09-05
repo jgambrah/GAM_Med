@@ -10,6 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LabWorkQueue } from './components/lab-work-queue';
 import { SampleTrackingDashboard } from './components/sample-tracking-dashboard';
+import { EquipmentLogDashboard } from './components/equipment-log-dashboard';
 
 export default function LabPage() {
     return (
@@ -23,9 +24,10 @@ export default function LabPage() {
             <Card>
                 <Tabs defaultValue="work-queue">
                     <CardHeader>
-                        <TabsList>
+                        <TabsList className="h-auto flex-wrap justify-start">
                             <TabsTrigger value="work-queue">Lab Work Queue</TabsTrigger>
                             <TabsTrigger value="sample-tracking">Sample Tracking</TabsTrigger>
+                            <TabsTrigger value="equipment-logs">Equipment Logs</TabsTrigger>
                         </TabsList>
                     </CardHeader>
                     <TabsContent value="work-queue">
@@ -48,6 +50,17 @@ export default function LabPage() {
                         </CardHeader>
                         <CardContent>
                            <SampleTrackingDashboard />
+                        </CardContent>
+                    </TabsContent>
+                     <TabsContent value="equipment-logs">
+                        <CardHeader className="pt-0">
+                            <CardTitle>Equipment Logs</CardTitle>
+                            <CardDescription>
+                                A real-time stream of data from integrated lab equipment.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <EquipmentLogDashboard />
                         </CardContent>
                     </TabsContent>
                 </Tabs>

@@ -99,6 +99,7 @@ export interface EquipmentLog {
   rawData: Record<string, any>; // The raw JSON or key-value output from the equipment
   timestamp: string; // ISO Timestamp when the data was received from the equipment
   isProcessed: boolean; // Flag to indicate if this log has been processed into a formal lab_result
+  error?: string; // Optional field to store processing errors
 }
 
 
@@ -1214,7 +1215,6 @@ export interface ImmunizationRecord {
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-
 
 
 

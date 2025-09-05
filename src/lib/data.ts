@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -380,8 +380,8 @@ export const mockLabResults: LabResult[] = [
         patientId: 'P-123456',
         patientName: 'Kwame Owusu',
         testName: 'Full Blood Count',
-        status: 'Completed',
-        result: { 'Hemoglobin': '14.5 g/dL', 'WBC': '7.2 x 10^9/L' },
+        status: 'Validated',
+        resultDetails: { 'Hemoglobin': { value: '14.5 g/dL', unit: 'g/dL', isAbnormal: false }, 'WBC': { value: '7.2 x 10^9/L', unit: 'x 10^9/L', isAbnormal: false } },
         orderedByDoctorId: 'doc1',
         labTechnicianId: 'labtech1',
         orderedAt: new Date('2024-07-28T12:00:00Z').toISOString(),
@@ -405,7 +405,6 @@ export const mockLabResults: LabResult[] = [
         patientName: 'Aba Appiah',
         testName: 'Lipid Panel',
         status: 'Ordered',
-        result: 'Pending',
         orderedByDoctorId: 'doc1',
         orderedAt: new Date('2024-07-29T10:00:00Z').toISOString(),
         isBilled: false,
@@ -425,11 +424,50 @@ export const mockLabResults: LabResult[] = [
         patientName: 'Kwame Owusu',
         testName: 'Thyroid Panel',
         status: 'In Progress',
-        result: 'Pending',
         orderedByDoctorId: 'doc1',
         labTechnicianId: 'labtech1',
         orderedAt: new Date('2024-07-30T10:00:00Z').toISOString(),
         isBilled: false,
+    },
+     {
+        testId: 'lab-4',
+        patientId: 'P-123456',
+        patientName: 'Aba Appiah',
+        testName: 'Liver Function Test',
+        status: 'Draft',
+        orderedByDoctorId: 'doc1',
+        labTechnicianId: 'labtech1',
+        orderedAt: new Date('2024-08-15T10:00:00Z').toISOString(),
+        resultDetails: { 'ALT': { value: 80, unit: 'U/L', isAbnormal: true } },
+        isBilled: false,
+    }
+];
+
+export const mockEquipmentLogs: EquipmentLog[] = [
+    {
+        logId: 'log-xyz-1',
+        equipmentId: 'HematologyAnalyzer-001',
+        barcodeScanned: 'SAMPLE-001',
+        rawData: { hgb: 14.5, wbc: 7.2 },
+        timestamp: new Date('2024-07-28T12:10:00Z').toISOString(),
+        isProcessed: true,
+    },
+    {
+        logId: 'log-abc-2',
+        equipmentId: 'ChemistryAnalyzer-002',
+        barcodeScanned: 'SAMPLE-003',
+        rawData: { glucose: 105, cholesterol: 198 },
+        timestamp: new Date('2024-08-16T09:30:00Z').toISOString(),
+        isProcessed: false,
+        error: 'No matching order found for barcode.'
+    },
+     {
+        logId: 'log-def-3',
+        equipmentId: 'HematologyAnalyzer-001',
+        barcodeScanned: 'SAMPLE-002',
+        rawData: { hgb: 13.1, wbc: 6.5 },
+        timestamp: new Date('2024-08-16T10:00:00Z').toISOString(),
+        isProcessed: false,
     }
 ];
 
@@ -1409,6 +1447,7 @@ export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
 
 
 
