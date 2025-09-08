@@ -143,6 +143,72 @@ exports.processRadReport = functions.region('europe-west1').https.onCall(async (
 });
 */
 
+/**
+ * Automates the scheduling of radiology appointments and manages resource availability.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { orderId: string, patientId: string, technicianId: string, equipmentId: string, scheduledDateTime: Timestamp }
+ */
+/*
+exports.scheduleAppointment = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check for reception staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { orderId, patientId, technicianId, equipmentId, scheduledDateTime } = data;
+    if (!orderId || !patientId || !technicianId || !equipmentId || !scheduledDateTime) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required appointment details.');
+    }
+
+    const appointmentRef = db.collection('appointments').doc();
+    const orderRef = db.collection('radiology_orders').doc(orderId);
+    const techRef = db.collection('users').doc(technicianId);
+    const equipmentRef = db.collection('equipment').doc(equipmentId);
+
+    const slotIdentifier = new Date(scheduledDateTime.seconds * 1000).toISOString();
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const techDoc = await transaction.get(techRef);
+            const equipmentDoc = await transaction.get(equipmentRef);
+
+            // 2. Check for availability conflicts
+            if (techDoc.data()?.availability?.[slotIdentifier]) {
+                throw new Error(`Technician ${technicianId} is not available at this time.`);
+            }
+            if (equipmentDoc.data()?.availability?.[slotIdentifier]) {
+                throw new Error(`Equipment ${equipmentId} is not available at this time.`);
+            }
+
+            // 3. Create the new appointment document
+            transaction.set(appointmentRef, {
+                appointmentId: appointmentRef.id,
+                orderId,
+                patientId,
+                technicianId,
+                equipmentId,
+                scheduledDateTime: scheduledDateTime,
+                status: 'Booked',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // 4. Update the order status
+            transaction.update(orderRef, { status: 'Scheduled' });
+            
+            // 5. Reserve the slots by updating availability maps
+            transaction.update(techRef, { [`availability.${slotIdentifier}`]: 'booked' });
+            transaction.update(equipmentRef, { [`availability.${slotIdentifier}`]: 'booked' });
+        });
+
+        console.log(`Appointment ${appointmentRef.id} scheduled for order ${orderId}.`);
+        return { success: true, appointmentId: appointmentRef.id };
+
+    } catch (error) {
+        console.error(`Failed to schedule appointment for order ${orderId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not schedule appointment due to a conflict.', { message: error.message });
+    }
+});
+*/
 
 // =======================================================================================
 // == Laboratory Information System (LIS)
@@ -4138,10 +4204,3 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
-
-
-
-
-
-
-
