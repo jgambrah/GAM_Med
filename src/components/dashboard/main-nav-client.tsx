@@ -37,7 +37,7 @@ import {
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist'];
 
 export function MainNavClient() {
   const pathname = usePathname();
@@ -135,7 +135,7 @@ export function MainNavClient() {
         href: '/dashboard/radiology',
         label: 'Radiology',
         icon: Scan,
-        roles: ['admin', 'doctor', 'receptionist'],
+        roles: ['admin', 'doctor', 'receptionist', 'radiologist'],
     },
     {
         href: '/dashboard/lab',

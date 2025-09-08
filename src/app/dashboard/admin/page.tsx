@@ -19,6 +19,7 @@ import { BillingDashboard } from './components/billing-dashboard';
 import { AccountsPayableDashboard } from './components/accounts-payable-dashboard';
 import { FinancialReportsDashboard } from './components/financial-reports-dashboard';
 import { RadiologyDashboard } from './components/radiology-dashboard';
+import { UserManagementDashboard } from './components/user-management-dashboard';
 
 export default function AdminPage() {
   return (
@@ -41,6 +42,7 @@ export default function AdminPage() {
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="reports">Financial Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
+          <TabsTrigger value="user-management">User Management</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -114,6 +116,9 @@ export default function AdminPage() {
                     </Button>
                 </CardContent>
             </Card>
+        </TabsContent>
+         <TabsContent value="user-management" className="mt-4">
+            <UserManagementDashboard />
         </TabsContent>
          <TabsContent value="global-alerts" className="mt-4">
             <GlobalAlertsDashboard />

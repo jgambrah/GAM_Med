@@ -39,6 +39,17 @@ export const allUsers: User[] = [
     last_login: now.toISOString(),
     availability: { '2024-08-16': ['09:30', '10:30', '11:30', '13:00', '14:30'] },
   },
+    {
+    uid: 'rad1',
+    email: 'a.elrufai@gammed.com',
+    name: 'Dr. Amina El-Rufai',
+    role: 'radiologist',
+    is_active: true,
+    specialty: 'Diagnostic Radiology',
+    department: 'Radiology',
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
   {
     uid: 'nurse1',
     email: 'f.agyepong@gammed.com',
@@ -404,7 +415,7 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         scheduledDateTime: new Date('2024-08-16T09:00:00Z').toISOString(),
         clinicalNotes: 'Rule out intracranial hemorrhage.',
         priority: 1,
-        assignedRadiologistId: 'doc2',
+        assignedRadiologistId: 'rad1',
         isReported: false,
         dateAssigned: new Date('2024-08-15T16:00:00Z').toISOString(),
     },
@@ -426,7 +437,7 @@ export const mockRadiologyReports: RadiologyReport[] = [
     {
         reportId: 'RAD-003',
         orderId: 'RAD-003',
-        radiologistId: 'doc2',
+        radiologistId: 'rad1',
         dateReported: new Date('2024-08-15T14:00:00Z').toISOString(),
         reportDetails: {
             impression: 'No evidence of cholelithiasis. Mild fatty liver changes noted.',
