@@ -1314,5 +1314,3 @@ export interface LabReport {
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-
-    

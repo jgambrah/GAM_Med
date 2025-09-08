@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -73,6 +73,15 @@ export const allUsers: User[] = [
     email: 'l.technician@gammed.com',
     name: 'Lab Technician',
     role: 'lab_technician',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
+    uid: 'otc1',
+    email: 'ot.coordinator@gammed.com',
+    name: 'OT Coordinator',
+    role: 'ot_coordinator',
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
@@ -1570,7 +1579,38 @@ export const mockLabReports: LabReport[] = [
   },
 ];
 
+export const mockOtSessions: OTSession[] = [
+    {
+        sessionId: 'session-1',
+        otRoomId: 'OT-1',
+        procedureName: 'Appendectomy',
+        patientName: 'John Doe',
+        leadSurgeonName: 'Dr. Evelyn Mensah',
+        startTime: new Date('2024-08-16T09:00:00Z'),
+        endTime: new Date('2024-08-16T11:00:00Z'),
+        status: 'Scheduled'
+    },
+    {
+        sessionId: 'session-2',
+        otRoomId: 'OT-1',
+        procedureName: 'Hernia Repair',
+        patientName: 'Jane Smith',
+        leadSurgeonName: 'Dr. Kofi Asante',
+        startTime: new Date('2024-08-16T12:00:00Z'),
+        endTime: new Date('2024-08-16T14:30:00Z'),
+        status: 'In Progress'
+    },
+    {
+        sessionId: 'session-3',
+        otRoomId: 'OT-3',
+        procedureName: 'Knee Replacement',
+        patientName: 'Kwame Owusu',
+        leadSurgeonName: 'Dr. Amina El-Rufai',
+        startTime: new Date('2024-08-16T10:00:00Z'),
+        endTime: new Date('2024-08-16T13:00:00Z'),
+        status: 'Scheduled'
+    },
+];
+
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-
-    
