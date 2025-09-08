@@ -7,6 +7,51 @@
  */
 
 // =========================================================================
+// == Ward, Bed & OT Management
+// =========================================================================
+
+/**
+ * Represents a single ward in the hospital.
+ * Path: /wards/{wardId}
+ */
+export interface Ward {
+  wardId: string; // Document ID
+  name: string; // e.g., 'Pediatrics Ward', 'Surgical ICU'
+  type: 'General' | 'ICU' | 'Maternity' | 'Pediatric' | 'Surgical';
+  totalBeds: number;
+  occupiedBeds: number;
+}
+
+
+/**
+ * Represents a hospital bed in the 'beds' collection.
+ * These documents are updated frequently as patients are admitted, transferred, and discharged.
+ */
+export interface Bed {
+    bed_id: string; // Unique bed identifier, e.g., 'C-101'
+    wardName: string;
+    room_number: string;
+    status: 'occupied' | 'vacant' | 'cleaning' | 'maintenance' | 'Reserved';
+    current_patient_id?: string | null; // Null if vacant or maintenance
+    occupied_since?: string | null; // ISO 8601 format, set when occupied
+    cleaningNeeded: boolean;
+    created_at: string; // ISO 8601 format
+    updated_at: string; // ISO 8601 format
+}
+
+/**
+ * Represents an operating theatre in the 'operating_theatres' collection.
+ * Path: /operating_theatres/{theatreId}
+ */
+export interface OperatingTheater {
+  theatreId: string; // Document ID
+  name: string; // e.g., 'OT-1', 'OT-2'
+  isAvailable: boolean;
+  lastUsed?: string; // ISO Timestamp
+  specialty?: 'Orthopedic' | 'Cardiothoracic' | 'General' | 'Neurosurgery';
+}
+
+// =========================================================================
 // == Radiology Information System (RIS)
 // =========================================================================
 
@@ -879,23 +924,6 @@ export interface Admission {
   updated_at: string; // ISO 8601 format
 }
 
-
-/**
- * Represents a hospital bed in the 'beds' collection.
- * These documents are updated frequently as patients are admitted, transferred, and discharged.
- */
-export interface Bed {
-    bed_id: string; // Unique bed identifier, e.g., 'C-101'
-    wardName: string;
-    room_number: string;
-    status: 'occupied' | 'vacant' | 'cleaning' | 'maintenance';
-    current_patient_id?: string | null; // Null if vacant or maintenance
-    occupied_since?: string | null; // ISO 8601 format, set when occupied
-    cleaningNeeded: boolean;
-    created_at: string; // ISO 8601 format
-    updated_at: string; // ISO 8601 format
-}
-
 /**
  * Represents a clinic or department in the 'clinics' collection.
  */
@@ -1091,25 +1119,13 @@ export interface Prescription {
 // =========================================================================
 
 /**
- * Represents a single operating theatre in the 'operating_theaters' collection.
- * This is the master catalog of all available surgical rooms.
- */
-export interface OperatingTheater {
-  otRoomId: string; // Document ID
-  name: string; // e.g., 'OT-1', 'OT-2'
-  location: string; // e.g., 'West Wing, 3rd Floor'
-  specialty: 'Orthopedic' | 'Cardiothoracic' | 'General' | 'Neurosurgery';
-  equipment: string[]; // List of built-in equipment, e.g., ['C-Arm', 'Microscope']
-}
-
-/**
  * Represents a booked surgical procedure in the 'ot_sessions' collection.
  * This is the core data model for managing the OT schedule.
  */
 export interface OTSession {
   sessionId: string; // Document ID
   patientId: string; // Reference to 'patients' collection
-  otRoomId: string; // Reference to 'operating_theaters' collection
+  otRoomId: string; // Reference to 'operating_theatres' collection
   leadSurgeonId: string; // Reference to the lead surgeon in the 'users' collection
   teamIds: string[]; // Array of user IDs for the rest of the surgical team
   requiredEquipmentIds: string[]; // Array of references to the 'resources' collection for mobile equipment
@@ -1298,3 +1314,4 @@ export interface LabReport {
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
