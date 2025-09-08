@@ -21,9 +21,10 @@ import { allPatients } from '@/lib/data';
 
 interface ScheduleStudyDialogProps {
   order: RadiologyOrder;
+  onScheduled: () => void;
 }
 
-export function ScheduleStudyDialog({ order }: ScheduleStudyDialogProps) {
+export function ScheduleStudyDialog({ order, onScheduled }: ScheduleStudyDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [dateTime, setDateTime] = React.useState('');
 
@@ -40,6 +41,7 @@ export function ScheduleStudyDialog({ order }: ScheduleStudyDialogProps) {
     toast.success('Study Scheduled', {
       description: `The imaging study for ${patientName} has been scheduled for ${format(new Date(dateTime), 'PPP p')}.`,
     });
+    onScheduled();
     setOpen(false);
   };
 

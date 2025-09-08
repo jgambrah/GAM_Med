@@ -8,8 +8,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadiologyDashboard } from '../admin/components/radiology-dashboard';
+import { SchedulingQueueDashboard } from './components/scheduling-queue-dashboard';
 import { ReportingQueueDashboard } from './components/reporting-queue-dashboard';
+import { RadiologyScheduleDashboard } from './components/radiology-schedule-dashboard';
 
 export default function RadiologyPage() {
   return (
@@ -20,12 +21,13 @@ export default function RadiologyPage() {
           Manage imaging orders, scheduling, and reporting.
         </p>
       </div>
-      <Tabs defaultValue="scheduling">
+      <Tabs defaultValue="scheduling-queue">
         <TabsList>
-            <TabsTrigger value="scheduling">Scheduling Queue</TabsTrigger>
-            <TabsTrigger value="reporting">Reporting Queue</TabsTrigger>
+            <TabsTrigger value="scheduling-queue">Scheduling Queue</TabsTrigger>
+            <TabsTrigger value="full-schedule">Full Schedule</TabsTrigger>
+            <TabsTrigger value="reporting-queue">Reporting Queue</TabsTrigger>
         </TabsList>
-        <TabsContent value="scheduling" className="mt-4">
+        <TabsContent value="scheduling-queue" className="mt-4">
             <Card>
                 <CardHeader>
                     <CardTitle>Radiology Scheduling Queue</CardTitle>
@@ -34,11 +36,24 @@ export default function RadiologyPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <RadiologyDashboard />
+                    <SchedulingQueueDashboard />
                 </CardContent>
             </Card>
         </TabsContent>
-        <TabsContent value="reporting" className="mt-4">
+         <TabsContent value="full-schedule" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Radiology Schedule</CardTitle>
+                    <CardDescription>
+                        A timeline of all scheduled studies for today.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <RadiologyScheduleDashboard />
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="reporting-queue" className="mt-4">
             <Card>
                 <CardHeader>
                     <CardTitle>Radiologist Reporting Queue</CardTitle>

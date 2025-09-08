@@ -9,17 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { mockRadiologyOrders, allPatients, allUsers } from '@/lib/data';
 import Link from 'next/link';
+import { ScheduleStudyDialog } from './schedule-study-dialog';
+import { RadiologyOrder } from '@/lib/types';
 
-// NOTE: This component is now deprecated in favor of the full /dashboard/radiology page.
-// It is kept here for reference but should be removed in a future iteration.
-
-export function RadiologyDashboard() {
-  const pendingOrders = mockRadiologyOrders.filter(o => o.status === 'Pending Scheduling');
+export function SchedulingQueueDashboard() {
+  const [orders, setOrders] = React.useState<RadiologyOrder[]>(mockRadiologyOrders.filter(o => o.status === 'Pending Scheduling'));
 
   const getPatientName = (patientId: string) => {
     return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
@@ -27,6 +25,12 @@ export function RadiologyDashboard() {
 
   const getDoctorName = (doctorId: string) => {
     return allUsers.find(u => u.uid === doctorId)?.name || 'Unknown Doctor';
+  }
+
+  const handleScheduled = (orderId: string) => {
+      // In a real app, this would be handled by a real-time subscription.
+      // For the prototype, we manually remove the scheduled item from this queue.
+      setOrders(prev => prev.filter(o => o.orderId !== orderId));
   }
 
   return (
@@ -42,8 +46,8 @@ export function RadiologyDashboard() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {pendingOrders.length > 0 ? (
-            pendingOrders.map(order => (
+          {orders.length > 0 ? (
+            orders.map(order => (
               <TableRow key={order.orderId}>
                 <TableCell className="font-medium">{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
                 <TableCell>
@@ -54,7 +58,7 @@ export function RadiologyDashboard() {
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
                 <TableCell>{order.studyIds.join(', ')}</TableCell>
                 <TableCell>
-                    <Button variant="outline" size="sm" disabled>Schedule (Moved)</Button>
+                    <ScheduleStudyDialog order={order} onScheduled={() => handleScheduled(order.orderId)} />
                 </TableCell>
               </TableRow>
             ))
@@ -70,3 +74,4 @@ export function RadiologyDashboard() {
     </div>
   );
 }
+
