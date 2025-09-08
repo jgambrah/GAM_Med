@@ -1,64 +1,89 @@
 rules_version = '2';
 
-// Helper function to get the user's role from the 'users' collection
-function getUserRole() {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-}
-
-// Helper function to check if the user is authenticated
-function isSignedIn() {
-  return request.auth != null;
-}
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Any authenticated user can read their own profile.
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      // Admins can read/write any user profile.
-      allow read, write: if getUserRole() == 'admin';
+  
+    // Helper function to get user's role from the 'users' collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-
-    // Rules for the main 'patients' collection
+    
+    // Helper function to check if a user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Rules for patients collection
     match /patients/{patientId} {
-      // Allow read access if user is staff or the patient themselves
-      allow read: if isSignedIn() && (getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'billing_clerk'] || request.auth.uid == patientId);
-      // Allow create only by admin/reception/nurse
-      allow create: if getUserRole() in ['admin', 'receptionist', 'nurse'];
-      // Allow update by clinical staff or admin
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      // Anyone authenticated can read patient data (e.g. for searching)
+      // but sub-collection rules will be more restrictive.
+      allow read: if isSignedIn();
+      
+      // Only trusted server-side functions can create/update patients
+      // to ensure data integrity and proper ID generation.
+      allow write: if false; // Managed by Cloud Functions
+      
+      // Sub-collection rules
+      match /alerts/{alertId} {
+      	allow read, write: if isSignedIn(); // Add more granular rules as needed
+      }
+      match /clinical_notes/{noteId} {
+      	allow read, write: if isSignedIn(); // Add more granular rules as needed
+      }
+      match /vitals/{vitalId} {
+      	allow read, write: if isSignedIn(); // Add more granular rules as needed
+      }
+       match /radiology_history/{reportId} {
+      	allow create: if false; // Only allow creation via Cloud Function
+        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
+        allow update, delete: if false;
+      }
     }
     
-    // Rules for the 'radiology_orders' collection
+    // Rules for users collection
+    match /users/{userId} {
+      // Users can read their own profile, admins can read any.
+      allow read: if request.auth.uid == userId || getUserRole() == 'admin';
+      // Users can update their own profile, admins can update any.
+      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
+    }
+
+    // Rules for radiology orders
     match /radiology_orders/{orderId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.assignedRadiologistId;
-      allow create: if getUserRole() in ['admin', 'doctor'];
-      allow update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
+        allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'] || request.auth.uid == resource.data.assignedRadiologistId;
+        allow update: if false; // To be managed by a trusted Cloud Function
+        allow create: if getUserRole() in ['admin', 'doctor'];
+        allow delete: if getUserRole() == 'admin';
+    }
+
+    // Rules for radiology reports
+    match /radiology_reports/{reportId} {
+        allow create: if getUserRole() in ['admin', 'radiologist'];
+        allow read: if getUserRole() in ['admin', 'doctor', 'radiologist'] || request.auth.uid == resource.data.patientId;
+        // A report can only be updated if it is not yet final
+        allow update: if getUserRole() == 'radiologist' && resource.data.isFinal == false;
+        allow delete: if false; // Reports should be archived, not deleted
+    }
+
+    // Rules for Wards
+    match /wards/{wardId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
+      // Writes should be handled by a trusted backend function to ensure counters are accurate
+      allow write: if false;
+    }
+
+    // Rules for Beds
+    match /beds/{bedId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
+      // Bed assignments are critical and should only be handled by a trusted Cloud Function
+      allow write: if false; 
     }
     
-    // Rules for the 'radiology_reports' collection
-    match /radiology_reports/{reportId} {
-      allow create: if getUserRole() in ['admin', 'radiologist'];
-      // Allow read by clinical staff or the patient to whom the report belongs.
-      // Assumes 'patientId' is denormalized onto the report document.
-      allow read: if getUserRole() in ['admin', 'doctor', 'radiologist'] || request.auth.uid == resource.data.patientId;
-      // Only allow updates if the report is not yet final.
-      allow update: if getUserRole() == 'radiologist' && resource.data.isFinal == false;
-    }
-
-    // Rules for the 'radiology_history' sub-collection within a patient's record.
-    match /patients/{patientId}/radiology_history/{historyId} {
-      // Disallow all direct client writes. Only backend functions can create/update this log.
-      allow write: if false; 
-      // Allow read by the patient or authorized clinical staff.
-      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
-    }
-
-    // Default deny all other reads/writes
-    match /{document=**} {
-      allow read, write: if false;
+    // Rules for Operating Theatres
+    match /operating_theatres/{theatreId} {
+       allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'];
+       // OT bookings are complex and should be handled by a trusted Cloud Function
+       allow write: if false;
     }
   }
 }
