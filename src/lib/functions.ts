@@ -278,12 +278,71 @@ exports.notifyReportAvailable = functions.region('europe-west1').firestore
             //     body: `Images for patient ${patientId} (Order: ${orderId}) are now available for viewing.`
             // });
 
-            console.log(`Sent notification to doctor ${orderingDoctorId} for available images on report ${reportId}.`);
+            console.log(`Notification sent to doctor ${orderingDoctorId} for available images on report ${reportId}.`);
         }
         
         return null;
     });
 */
+
+/**
+ * Automatically assigns a new study to a radiologist's worklist.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /radiology_orders/{orderId}
+ */
+/*
+exports.assignStudyToWorklist = functions.region('europe-west1').firestore
+    .document('/radiology_orders/{orderId}')
+    .onCreate(async (snapshot, context) => {
+        const orderData = snapshot.data();
+
+        // Simple round-robin or load-based assignment logic would go here.
+        // For now, we'll assign to a default radiologist.
+        const defaultRadiologistId = 'rad-doc-1'; // Placeholder ID
+
+        await snapshot.ref.update({
+            assignedRadiologistId: defaultRadiologistId,
+            dateAssigned: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Notify the assigned radiologist
+        // await sendNotificationToUser(defaultRadiologistId, { ... });
+        
+        console.log(`Assigned order ${context.params.orderId} to radiologist ${defaultRadiologistId}.`);
+        return null;
+    });
+*/
+
+/**
+ * Marks a study as reported when the corresponding report is created.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /radiology_reports/{reportId}
+ */
+/*
+exports.removeStudyFromWorklist = functions.region('europe-west1').firestore
+    .document('/radiology_reports/{reportId}')
+    .onCreate(async (snapshot, context) => {
+        const reportData = snapshot.data();
+        const orderId = reportData.orderId;
+
+        if (!orderId) {
+            console.error(`Report ${context.params.reportId} is missing an orderId.`);
+            return null;
+        }
+
+        const orderRef = db.collection('radiology_orders').doc(orderId);
+        await orderRef.update({
+            isReported: true,
+            status: 'Completed' // Can also update status here
+        });
+
+        console.log(`Marked order ${orderId} as reported, removing from active worklist.`);
+        return null;
+    });
+*/
+
 
 // =======================================================================================
 // == Laboratory Information System (LIS)
@@ -4276,6 +4335,167 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
             console.warn(alertMessage);
         }
 
+        return null;
+    });
+*/
+    
+// =======================================================================================
+// == BILLING & FINANCIAL MANAGEMENT
+// =======================================================================================
+
+// =======================================================================================
+// 48. updateClaimPayout (Firestore Trigger - AR)
+// =======================================================================================
+/**
+ * Automatically creates a payment record when an insurance claim is marked as 'Paid'.
+ * This decouples the claims module from the payment reconciliation module.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /insurance_claims/{claimId}
+ */
+/*
+exports.updateClaimPayout = functions.region('europe-west1').firestore
+    .document('/insurance_claims/{claimId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Condition: Only run if status changed to 'Paid'.
+        if (newData.status === 'Paid' && oldData.status !== 'Paid') {
+            const { invoiceId, payoutAmount, claimId } = newData;
+
+            if (!invoiceId || !payoutAmount) {
+                console.error(`Claim ${claimId} is missing invoiceId or payoutAmount.`);
+                return null;
+            }
+
+            // 2. Create a new document in the 'payments' collection.
+            // This will, in turn, trigger the 'reconcilePayment' function to update the invoice.
+            const newPaymentRef = db.collection('payments').doc();
+            await newPaymentRef.set({
+                paymentId: newPaymentRef.id,
+                invoiceId: invoiceId,
+                amount: payoutAmount,
+                paymentMethod: 'Insurance Payout',
+                paymentDate: admin.firestore.FieldValue.serverTimestamp(),
+                transactionId: `CLMPAY-${claimId}` // Link back to the claim
+            });
+
+            console.log(`Created payment document for paid claim ${claimId}.`);
+        }
+        return null;
+    });
+*/
+
+// =======================================================================================
+// 49. payBill (Callable Function - AP)
+// =======================================================================================
+/**
+ * Marks a bill from a supplier as paid.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { billId: string, amount: number }
+ */
+/*
+exports.payBill = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check for financial staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { billId, amount } = data;
+    const billRef = db.collection('bills').doc(billId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const billDoc = await transaction.get(billRef);
+            if (!billDoc.exists) throw new Error('Bill not found.');
+            
+            const currentAmountDue = billDoc.data().totalAmount - (billDoc.data().amountPaid || 0);
+            const newAmountPaid = (billDoc.data().amountPaid || 0) + amount;
+            
+            let newStatus = 'Partially Paid';
+            if (newAmountPaid >= billDoc.data().totalAmount) {
+                newStatus = 'Paid';
+            }
+
+            // 2. Update the bill document
+            transaction.update(billRef, {
+                amountPaid: newAmountPaid,
+                status: newStatus,
+                lastPaymentDate: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            // 3. Create a log in a sub-collection for auditing purposes
+            const paymentLogRef = billRef.collection('bill_payments').doc();
+            transaction.set(paymentLogRef, {
+                amount: amount,
+                paymentDate: admin.firestore.FieldValue.serverTimestamp(),
+                paidByUserId: context.auth.uid
+            });
+        });
+        
+        console.log(`Payment of ${amount} logged for bill ${billId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error(`Failed to pay bill ${billId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not process bill payment.');
+    }
+});
+*/
+
+// =======================================================================================
+// 50. generateMonthlyPayroll (Scheduled Function - AP)
+// =======================================================================================
+/**
+ * A scheduled function that runs monthly to calculate and create payroll bills.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'last day of month 09:00'
+ */
+/*
+exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
+    .schedule('last day of month 09:00')
+    .onRun(async (context) => {
+        // 1. Get all active employees
+        const employeesSnapshot = await db.collection('users').where('is_active', '==', true).get();
+        if (employeesSnapshot.empty) {
+            console.log('No active employees to process for payroll.');
+            return null;
+        }
+
+        const batch = db.batch();
+
+        // 2. For each employee, generate a payroll bill
+        for (const userDoc of employeesSnapshot.docs) {
+            const employee = userDoc.data();
+            
+            // This is where complex logic for salary, overtime, deductions would go.
+            // const payrollDetails = calculatePayrollForEmployee(employee.uid); 
+            const payrollDetails = { netSalary: 5000, deductions: 500, grossSalary: 5500 }; // Placeholder
+            
+            const newBillRef = db.collection('bills').doc();
+            const payrollBill = {
+                billId: newBillRef.id,
+                supplierId: 'INTERNAL_PAYROLL',
+                issueDate: admin.firestore.FieldValue.serverTimestamp(),
+                dueDate: admin.firestore.FieldValue.serverTimestamp(), // Due immediately
+                totalAmount: payrollDetails.netSalary,
+                status: 'Pending',
+                billedItems: [{
+                    description: `Payroll for ${employee.name} - ${new Date().toLocaleString('default', { month: 'long' })}`,
+                    total: payrollDetails.netSalary
+                }],
+                // Add more detailed payroll data if needed
+            };
+            
+            batch.set(newBillRef, payrollBill);
+        }
+
+        // 3. Commit all new payroll bills at once
+        await batch.commit();
+        console.log(`Generated payroll for ${employeesSnapshot.size} employees.`);
+        
         return null;
     });
 */
