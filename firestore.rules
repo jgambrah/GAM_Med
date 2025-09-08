@@ -1,75 +1,64 @@
 rules_version = '2';
 
+// Helper function to get the user's role from the 'users' collection
+function getUserRole() {
+  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+}
+
+// Helper function to check if the user is authenticated
+function isSignedIn() {
+  return request.auth != null;
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user's role from their token
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    // Rules for the users collection
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow users to read their own data
-      allow read: if request.auth.uid == userId;
-      // Allow only admins to create or modify user roles
-      allow write: if getUserRole() == 'admin';
+      // Any authenticated user can read their own profile.
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Admins can read/write any user profile.
+      allow read, write: if getUserRole() == 'admin';
     }
-    
-    // Rules for the patients collection and its subcollections
+
+    // Rules for the main 'patients' collection
     match /patients/{patientId} {
-        // Allow read/write access to clinical staff
-        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        
-        // Allow a patient to read their own main record
-        allow read: if request.auth.uid == resource.data.userId;
-
-        // Rules for patient subcollections (EHR data)
-        match /{subcollection}/{docId} {
-             // Allow read/write access to clinical staff
-            allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-
-             // Allow a patient to read their own subcollection data
-            allow read: if request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.userId;
-        }
+      // Allow read access if user is staff or the patient themselves
+      allow read: if isSignedIn() && (getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'billing_clerk'] || request.auth.uid == patientId);
+      // Allow create only by admin/reception/nurse
+      allow create: if getUserRole() in ['admin', 'receptionist', 'nurse'];
+      // Allow update by clinical staff or admin
+      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
     }
     
-    // Rules for the appointments collection
-    match /appointments/{appointmentId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'radiologist'];
-        allow create, update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
-    }
-    
-    // Rules for equipment (resources)
-    match /equipment/{equipmentId} {
-        allow read: if request.auth.uid != null;
-        // Only allow admins (representing trusted server functions) to update availability
-        allow write: if getUserRole() == 'admin';
-    }
-
-    // Rules for radiology orders (worklist)
+    // Rules for the 'radiology_orders' collection
     match /radiology_orders/{orderId} {
-      // Allow read access to relevant roles and the assigned radiologist
-      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'] 
-                  || request.auth.uid == resource.data.assignedRadiologistId;
-
-      // Allow creation by authorized roles (doctor, admin)
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.assignedRadiologistId;
       allow create: if getUserRole() in ['admin', 'doctor'];
-
-      // Allow updates by admin or receptionist (for scheduling)
-      // Restrict who can change specific fields. `isReported` is only changed by the Cloud Function (admin).
-      allow update: if (getUserRole() in ['admin', 'receptionist'] 
-                      && request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status', 'scheduledDateTime', 'assignedRadiologistId']))
-                    || getUserRole() == 'admin'; // Admin can change anything
+      allow update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
     }
     
-    // Rules for radiology reports
+    // Rules for the 'radiology_reports' collection
     match /radiology_reports/{reportId} {
-       // Allow read to relevant staff or the patient themselves (conceptual)
-       allow read: if getUserRole() in ['admin', 'doctor', 'radiologist'];
-       // Allow writes only from trusted backend processes (represented by admin)
-       allow write: if getUserRole() == 'admin';
+      allow create: if getUserRole() in ['admin', 'radiologist'];
+      // Allow read by clinical staff or the patient to whom the report belongs.
+      // Assumes 'patientId' is denormalized onto the report document.
+      allow read: if getUserRole() in ['admin', 'doctor', 'radiologist'] || request.auth.uid == resource.data.patientId;
+      // Only allow updates if the report is not yet final.
+      allow update: if getUserRole() == 'radiologist' && resource.data.isFinal == false;
+    }
+
+    // Rules for the 'radiology_history' sub-collection within a patient's record.
+    match /patients/{patientId}/radiology_history/{historyId} {
+      // Disallow all direct client writes. Only backend functions can create/update this log.
+      allow write: if false; 
+      // Allow read by the patient or authorized clinical staff.
+      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
+    }
+
+    // Default deny all other reads/writes
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

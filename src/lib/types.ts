@@ -49,6 +49,7 @@ export interface RadiologyOrder {
 export interface RadiologyReport {
   reportId: string; // Document ID (could be same as orderId)
   orderId: string; // Reference to radiology_orders
+  patientId: string; // Denormalized for security rules and easy access
   radiologistId: string; // Reference to users
   dateReported: string; // ISO Timestamp
   reportDetails: {
