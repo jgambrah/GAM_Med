@@ -25,6 +25,7 @@ export const allUsers: User[] = [
     department: 'Cardiology',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
+    availability: { '2024-08-16': ['09:00', '10:00', '11:00', '14:00', '15:00'] },
   },
   {
     uid: 'doc2',
@@ -36,6 +37,7 @@ export const allUsers: User[] = [
     department: 'Neurology',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
+    availability: { '2024-08-16': ['09:30', '10:30', '11:30', '13:00', '14:30'] },
   },
   {
     uid: 'nurse1',
@@ -397,8 +399,9 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         doctorId: 'doc2',
         studyIds: ['MRI-Brain'],
         dateOrdered: new Date('2024-08-15T15:30:00Z').toISOString(),
-        status: 'Pending Scheduling',
-        scheduledDateTime: new Date('2024-08-16T09:00:00Z').toISOString()
+        status: 'Awaiting Report',
+        scheduledDateTime: new Date('2024-08-16T09:00:00Z').toISOString(),
+        clinicalNotes: 'Rule out intracranial hemorrhage.'
     }
 ];
 
@@ -753,6 +756,19 @@ export const mockResources: Resource[] = [
     location: 'Radiology Wing, Basement',
     operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
     isBookable: true,
+    modality: 'MRI',
+    availability: { '2024-08-16': ['09:00', '10:00'] }
+  },
+  {
+    resourceId: 'ct-1',
+    name: 'CT Scanner 1',
+    type: 'Equipment',
+    department: 'Radiology',
+    location: 'Radiology Wing, Basement',
+    operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
+    isBookable: true,
+    modality: 'CT Scan',
+    availability: { '2024-08-16': ['09:30', '10:30'] }
   },
   {
     resourceId: 'proc-room-1',

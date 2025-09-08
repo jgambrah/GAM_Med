@@ -733,6 +733,7 @@ export interface User {
   department?: string; // e.g., 'Cardiology'
 
   photoURL?: string; // Optional: For profile pictures
+  availability?: Record<string, string[]>; // e.g., { '2025-12-01': ['09:00', '10:00'] }
 }
 
 /**
@@ -935,6 +936,9 @@ export interface Appointment {
   bookedByUserId?: string; // UID of user who booked
   bookedAt?: string; // ISO Timestamp
   waitinglistId?: string; // Optional link to 'waiting_lists' collection
+  orderId?: string; // Link to radiology_orders
+  technicianId?: string; // Link to users (for radiology technician)
+  equipmentId?: string; // Link to equipment/resources
 }
 
 /**
@@ -990,6 +994,8 @@ export interface Resource {
   location: string;
   operatingHours: Record<string, string>; // e.g., { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' }
   isBookable: boolean;
+  modality?: 'CT Scan' | 'MRI' | 'X-Ray' | 'Ultrasound'; // For radiology equipment
+  availability?: Record<string, string[]>; // For radiology equipment
 }
 
 /**
