@@ -20,6 +20,7 @@ export interface Ward {
   type: 'General' | 'ICU' | 'Maternity' | 'Pediatric' | 'Surgical';
   totalBeds: number;
   occupiedBeds: number;
+  managers?: string[]; // Array of user IDs for ward managers
 }
 
 
@@ -1226,22 +1227,22 @@ export interface VitalsLog {
 }
 
 /**
- * Represents a patient's care plan in the `care_plans` sub-collection.
- * This is a central document for coordinating nursing care.
+ * Represents a patient's care plan.
  * Path: /patients/{patientId}/care_plans/{planId}
  */
 export interface CarePlan {
     planId: string; // Document ID
-    patientId: string;
-    title: string;
-    goal: string;
-    interventions: string[];
+    patientId: string; // Reference to the parent patient document
+    title: string; // e.g., "Post-Operative Wound Care"
+    goal: string; // The primary objective of the care plan
+    interventions: string[]; // List of nursing actions
     status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
     createdBy: string; // user ID of the doctor or nurse who created the plan
     createdAt: string; // ISO Timestamp
     updatedBy: string; // user ID of the last person to update
     updatedAt: string; // ISO Timestamp
 }
+
 
 /**
  * Represents a log of a medication being administered by a nurse.
