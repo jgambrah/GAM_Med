@@ -402,6 +402,31 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         status: 'Awaiting Report',
         scheduledDateTime: new Date('2024-08-16T09:00:00Z').toISOString(),
         clinicalNotes: 'Rule out intracranial hemorrhage.'
+    },
+    {
+        orderId: 'RAD-003',
+        patientId: 'P-123456',
+        doctorId: 'doc1',
+        studyIds: ['US-Abdomen'],
+        dateOrdered: new Date('2024-08-14T09:00:00Z').toISOString(),
+        status: 'Completed',
+        scheduledDateTime: new Date('2024-08-15T11:00:00Z').toISOString(),
+        clinicalNotes: 'Assess for gallstones.'
+    }
+];
+
+export const mockRadiologyReports: RadiologyReport[] = [
+    {
+        reportId: 'RAD-003',
+        orderId: 'RAD-003',
+        radiologistId: 'doc2',
+        dateReported: new Date('2024-08-15T14:00:00Z').toISOString(),
+        reportDetails: {
+            impression: 'No evidence of cholelithiasis. Mild fatty liver changes noted.',
+            findings: 'The liver is of normal size and echotexture. No focal lesions. The gallbladder is unremarkable with no stones or wall thickening. The common bile duct is not dilated.'
+        },
+        reportPdfUrl: '/mock-report.pdf',
+        pacsLink: '/mock-pacs-viewer.html'
     }
 ];
 

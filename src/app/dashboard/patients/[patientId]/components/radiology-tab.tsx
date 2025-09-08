@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -10,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { RadiologyOrder, RadiologyReport } from '@/lib/types';
 import { mockRadiologyOrders, mockRadiologyReports } from '@/lib/data';
-import { Download, FileText } from 'lucide-react';
+import { Download, ScanEye } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
 const getStatusVariant = (status: RadiologyOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -44,7 +43,7 @@ export function RadiologyTab({ patientId }: { patientId: string }) {
                                 <TableHead>Study</TableHead>
                                 <TableHead>Ordered</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Actions</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -56,7 +55,18 @@ export function RadiologyTab({ patientId }: { patientId: string }) {
                                             <TableCell className="font-medium">{order.studyIds.join(', ')}</TableCell>
                                             <TableCell>{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
                                             <TableCell><Badge variant={getStatusVariant(order.status)}>{order.status}</Badge></TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-right space-x-2">
+                                                 <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    disabled={!report?.pacsLink}
+                                                    asChild
+                                                >
+                                                    <a href={report?.pacsLink || '#'} target="_blank" rel="noopener noreferrer">
+                                                        <ScanEye className="h-3 w-3 mr-2" />
+                                                        View Images
+                                                    </a>
+                                                </Button>
                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
@@ -65,7 +75,7 @@ export function RadiologyTab({ patientId }: { patientId: string }) {
                                                 >
                                                     <a href={report?.reportPdfUrl || '#'} target="_blank" rel="noopener noreferrer">
                                                         <Download className="h-3 w-3 mr-2" />
-                                                        Download Report
+                                                        Report
                                                     </a>
                                                 </Button>
                                             </TableCell>
