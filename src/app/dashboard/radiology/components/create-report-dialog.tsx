@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -107,7 +108,7 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Submitting...' : 'Submit Final Report'}
+                {form.formState.isSubmitting ? 'Submitting...' : 'Finalize & Send Report'}
               </Button>
             </DialogFooter>
           </form>
