@@ -18,21 +18,7 @@ interface PatientVitalsPaneProps {
 }
 
 /**
- * == Conceptual UI: Nurse's Patient View ==
- * This component is a specialized version of the full EHR, tailored for the nursing workflow.
- * It's the main content pane in the Nursing Station workbench.
- *
- * Key Features:
- * - **Context-Driven:** It displays data for the patient selected in the `NurseWorklist`.
- * - **Task-Oriented Tabs:** The tabs are ordered based on a nurse's typical priorities:
- *   1. `Vitals`: The most frequent task. This tab is the default and contains the form for
- *      logging new vital signs.
- *   2. `Medications`: Shows the patient's medication schedule and allows for logging administration.
- *   3. `Notes`: Provides access to clinical notes for context.
- * - **Focused Actions:** Includes an "Add Note" button for quick documentation.
- *
- * This focused design reduces cognitive load and allows nurses to perform their core
- * duties more efficiently without navigating through less relevant parts of the full EHR.
+ * @deprecated This component is deprecated in favor of the new task-oriented dashboard.
  */
 export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
   const carePlan = mockCarePlans.find(cp => cp.patientId === patient.patient_id);

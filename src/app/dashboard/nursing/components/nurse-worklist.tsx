@@ -16,6 +16,9 @@ interface NurseWorklistProps {
   wardName: string;
 }
 
+/**
+ * @deprecated This component is deprecated in favor of the new task-oriented dashboard.
+ */
 export function NurseWorklist({ patients, onPatientSelect, selectedPatientId, wardName }: NurseWorklistProps) {
   
   const getAdmissionDetails = (patientId: string) => {
