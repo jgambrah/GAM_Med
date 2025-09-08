@@ -532,11 +532,11 @@ export interface PaymentGateway {
 export interface Supplier {
   supplierId: string; // Document ID
   name: string;
-  contactInfo: {
-    person: string;
-    email: string;
-    phone: string;
-    address: string;
+  contactInfo: { 
+      person: string;
+      email: string;
+      phone: string;
+      address: string; 
   };
   contractDetails?: {
     contractNumber: string;
@@ -1315,3 +1315,4 @@ export interface LabReport {
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
 
+    

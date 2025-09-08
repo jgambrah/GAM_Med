@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { Bed } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { BedDouble, User, Wrench, SprayCan } from 'lucide-react';
+import { BedDouble, User, Wrench, SprayCan, Clock } from 'lucide-react';
 import Link from 'next/link';
 import {
   Card,
@@ -44,6 +45,11 @@ const statusConfig = {
     color: 'border-yellow-500 bg-yellow-50',
     label: 'Cleaning',
   },
+  Reserved: {
+    icon: <Clock className="h-5 w-5 text-purple-500" />,
+    color: 'border-purple-500 bg-purple-50',
+    label: 'Reserved',
+  }
 };
 
 export function BedCard({ bed }: BedCardProps) {
@@ -109,3 +115,5 @@ export function BedCard({ bed }: BedCardProps) {
     <CardContentWrapper>{cardContent}</CardContentWrapper>
   );
 }
+
+    

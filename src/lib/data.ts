@@ -277,6 +277,15 @@ export const allBeds: Bed[] = [
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
     },
+     {
+        bed_id: 'M-4',
+        wardName: 'Maternity',
+        room_number: '3',
+        status: 'Reserved',
+        cleaningNeeded: false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+    },
     {
         bed_id: 'M-5',
         wardName: 'Maternity',
@@ -437,6 +446,7 @@ export const mockRadiologyReports: RadiologyReport[] = [
     {
         reportId: 'RAD-003',
         orderId: 'RAD-003',
+        patientId: 'P-123456',
         radiologistId: 'rad1',
         dateReported: new Date('2024-08-15T14:00:00Z').toISOString(),
         reportDetails: {
@@ -444,7 +454,8 @@ export const mockRadiologyReports: RadiologyReport[] = [
             findings: 'The liver is of normal size and echotexture. No focal lesions. The gallbladder is unremarkable with no stones or wall thickening. The common bile duct is not dilated.'
         },
         reportPdfUrl: '/mock-report.pdf',
-        pacsLink: '/mock-pacs-viewer.html'
+        pacsLink: '/mock-pacs-viewer.html',
+        isFinal: true,
     }
 ];
 
@@ -1561,3 +1572,5 @@ export const mockLabReports: LabReport[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
+    
