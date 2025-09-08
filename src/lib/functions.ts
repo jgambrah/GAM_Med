@@ -14,6 +14,60 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Ward, Bed & OT Management
+// =======================================================================================
+
+/**
+ * Books a new OT session after performing complex multi-resource availability checks.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { theatreId, startTime, endTime, patientId }
+ */
+/*
+exports.bookOperationTheatre = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an OT coordinator or lead surgeon.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { theatreId, startTime, endTime, patientId } = data;
+    const theatreRef = db.collection('operating_theatres').doc(theatreId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const theatreDoc = await transaction.get(theatreRef);
+            if (!theatreDoc.exists || !theatreDoc.data().isAvailable) {
+                throw new Error(`Operating Theatre ${theatreId} is not available.`);
+            }
+            
+            // This is a simplified check. A real system would check for time-slot overlaps.
+            // ... conflict checking logic here ...
+
+            // Create a new document in an 'ot_schedules' sub-collection or a top-level collection.
+            const newScheduleRef = db.collection('ot_schedules').doc();
+            transaction.set(newScheduleRef, {
+                theatreId,
+                startTime,
+                endTime,
+                patientId,
+                bookedBy: context.auth.uid,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Mark the theatre as unavailable for the general period if needed
+            // transaction.update(theatreRef, { isAvailable: false });
+        });
+
+        console.log(`Successfully booked OT ${theatreId} for patient ${patientId}.`);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to book OT session:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not book OT session.', { message: error.message });
+    }
+});
+*/
+
+
+// =======================================================================================
 // == Radiology Information System (RIS)
 // =======================================================================================
 
@@ -1475,9 +1529,7 @@ exports.processPatientDischarge = functions.region('europe-west1').https.onCall(
     }
 
     const { patientId, admissionId } = data;
-
-    const patientRef = db.collection('patients').doc(patientId);
-    const admissionRef = patientRef.collection('admissions').doc(admissionId);
+    const admissionRef = db.collection('patients').doc(patientId).collection('admissions').doc(admissionId);
     
     try {
         await db.runTransaction(async (transaction) => {
@@ -1519,6 +1571,15 @@ exports.processPatientDischarge = functions.region('europe-west1').https.onCall(
                     occupied_since: null,
                     cleaningNeeded: true,
                     updated_at: now,
+                });
+            }
+
+            // Also decrement the occupiedBeds counter on the ward document
+            const wardId = admissionDoc.data()?.ward;
+            if (wardId) {
+                const wardRef = db.collection('wards').doc(wardId);
+                transaction.update(wardRef, {
+                    occupiedBeds: admin.firestore.FieldValue.increment(-1)
                 });
             }
         });
