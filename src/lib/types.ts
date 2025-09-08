@@ -35,6 +35,7 @@ export interface RadiologyOrder {
   dateOrdered: string; // ISO Timestamp
   scheduledDateTime?: string; // ISO Timestamp for patient appointment
   status: 'Pending Scheduling' | 'Scheduled' | 'Awaiting Report' | 'Completed';
+  clinicalNotes?: string; // Doctor's notes on the reason for the study
 }
 
 /**

@@ -388,7 +388,8 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         doctorId: 'doc1',
         studyIds: ['CT-Chest'],
         dateOrdered: new Date('2024-08-16T11:00:00Z').toISOString(),
-        status: 'Pending Scheduling'
+        status: 'Pending Scheduling',
+        clinicalNotes: 'Patient has a persistent cough and shortness of breath.'
     },
     {
         orderId: 'RAD-002',
