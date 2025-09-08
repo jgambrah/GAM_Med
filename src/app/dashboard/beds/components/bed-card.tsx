@@ -27,7 +27,7 @@ interface BedCardProps {
 const statusConfig = {
   vacant: {
     icon: <BedDouble className="h-5 w-5 text-green-500" />,
-    color: 'border-green-500 bg-green-50',
+    color: 'border-green-500 bg-green-50 hover:bg-green-100 transition-colors',
     label: 'Vacant',
   },
   occupied: {
