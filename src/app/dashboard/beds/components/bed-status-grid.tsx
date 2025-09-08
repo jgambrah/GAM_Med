@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { allBeds } from '@/lib/data';
@@ -58,10 +57,19 @@ export function BedStatusGrid() {
       {Object.entries(bedsByWard).map(([ward, beds]) => {
         const occupiedCount = beds.filter(b => b.status === 'occupied').length;
         const totalBeds = beds.length;
+        const occupancyPercentage = totalBeds > 0 ? (occupiedCount / totalBeds) * 100 : 0;
         
         return (
           <div key={ward}>
-            <h2 className="text-2xl font-bold tracking-tight mb-4">{ward} ({occupiedCount}/{totalBeds} Occupied)</h2>
+            <div className="mb-4">
+                <h2 className="text-2xl font-bold tracking-tight">{ward} ({occupiedCount}/{totalBeds} Occupied)</h2>
+                <div className="mt-2 h-2 w-full rounded-full bg-muted">
+                    <div 
+                        className="h-2 rounded-full bg-primary"
+                        style={{ width: `${occupancyPercentage}%` }}
+                    />
+                </div>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
               {beds.map((bed) => (
                 <BedCard key={bed.bed_id} bed={bed} />
@@ -73,5 +81,3 @@ export function BedStatusGrid() {
     </div>
   );
 }
-
-    
