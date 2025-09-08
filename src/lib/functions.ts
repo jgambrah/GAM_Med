@@ -21,7 +21,7 @@
  * Creates a new radiology order in the system.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, doctorId: string, studyIds: string[] }
+ * @input { patientId: string, doctorId: string, studyIds: string[], clinicalNotes: string }
  */
 /*
 exports.createRadOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -29,7 +29,7 @@ exports.createRadOrder = functions.region('europe-west1').https.onCall(async (da
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check...
 
-    const { patientId, doctorId, studyIds } = data;
+    const { patientId, doctorId, studyIds, clinicalNotes } = data;
     if (!patientId || !studyIds || studyIds.length === 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Patient ID and at least one study ID are required.');
     }
@@ -42,17 +42,52 @@ exports.createRadOrder = functions.region('europe-west1').https.onCall(async (da
         dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
         studyIds,
         status: 'Pending Scheduling', // Initial status
+        clinicalNotes: clinicalNotes || null,
     };
 
     await newOrderRef.set(orderData);
     
-    // 2. Send notification to radiology front desk to schedule the patient
-    // await sendNotificationToRole('radiology_receptionist', `New imaging study ordered for patient ${patientId}. Please schedule.`);
+    // The notification is now handled by the notifyRadReceptionist trigger.
 
     console.log(`Radiology order ${newOrderRef.id} created for patient ${patientId}.`);
     return { success: true, orderId: newOrderRef.id };
 });
 */
+
+/**
+ * Notifies the radiology front desk when a new imaging study is ordered.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /radiology_orders/{orderId}
+ */
+/*
+exports.notifyRadReceptionist = functions.region('europe-west1').firestore
+    .document('/radiology_orders/{orderId}')
+    .onCreate(async (snapshot, context) => {
+        const orderData = snapshot.data();
+        const { patientId, doctorId } = orderData;
+        const orderId = context.params.orderId;
+
+        // Fetch patient and doctor names for a more informative notification
+        const patientDoc = await db.collection('patients').doc(patientId).get();
+        const doctorDoc = await db.collection('users').doc(doctorId).get();
+
+        const patientName = patientDoc.exists ? patientDoc.data().full_name : 'A patient';
+        const doctorName = doctorDoc.exists ? doctorDoc.data().name : 'a doctor';
+
+        const notificationMessage = {
+            title: 'New Radiology Order',
+            body: `${patientName} has a new imaging order from ${doctorName}. Please schedule.`
+        };
+
+        // Send notification to a specific topic or user role.
+        // await sendNotificationToRole('radiology_receptionist', notificationMessage);
+
+        console.log(`Sent scheduling notification for order ${orderId}.`);
+        return null;
+    });
+*/
+
 
 /**
  * Processes a completed radiology report from a radiologist.
@@ -4103,6 +4138,7 @@ exports.alertSampleDelay = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
 
 
 
