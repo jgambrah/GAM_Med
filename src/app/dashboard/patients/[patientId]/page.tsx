@@ -3,10 +3,10 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan } from 'lucide-react';
-import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan, Edit } from 'lucide-react';
+import { allPatients, allAdmissions, mockNotes, mockCarePlans } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -34,6 +34,7 @@ import { ImmunizationsTab } from './components/immunizations-tab';
 import { OrderTestDialog } from './components/order-test-dialog';
 import { OrderStudyDialog } from './components/order-study-dialog';
 import { RadiologyTab } from './components/radiology-tab';
+import { CarePlanTab } from './components/care-plan-tab';
 
 
 /**
@@ -49,6 +50,7 @@ import { RadiologyTab } from './components/radiology-tab';
  */
 export default function PatientDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const patientId = params.patientId as string;
   const { user } = useAuth(); // Get the current user to tailor the UI
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -56,10 +58,13 @@ export default function PatientDetailPage() {
   // In a real app, this data would be fetched from Firestore, including all EHR sub-collections.
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
+  const carePlan = mockCarePlans.find(cp => cp.patientId === patientId);
 
   if (!patient) {
     notFound();
   }
+
+  const defaultTab = searchParams.get('tab') || 'vitals';
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
@@ -134,18 +139,19 @@ export default function PatientDetailPage() {
         </div>
        )}
 
-      <Tabs defaultValue="vitals">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="vitals">Vitals</TabsTrigger>
-          <TabsTrigger value="demographics">Demographics</TabsTrigger>
-          <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
-          <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
+          <TabsTrigger value="care-plan">Care Plan</TabsTrigger>
+          <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
           <TabsTrigger value="radiology">Radiology</TabsTrigger>
           <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
+          <TabsTrigger value="admissions">Admissions</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="demographics">Demographics</TabsTrigger>
         </TabsList>
         <TabsContent value="vitals" className="mt-4">
             <VitalsTab patientId={patient.patient_id} />
@@ -158,6 +164,9 @@ export default function PatientDetailPage() {
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
           <ClinicalNotesTab patientId={patient.patient_id} />
+        </TabsContent>
+        <TabsContent value="care-plan" className="mt-4">
+            <CarePlanTab carePlan={carePlan} />
         </TabsContent>
          <TabsContent value="diagnoses" className="mt-4">
           <DiagnosesTab />
@@ -181,3 +190,4 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
