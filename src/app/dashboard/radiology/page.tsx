@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,8 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SchedulingQueueDashboard } from './components/scheduling-queue-dashboard';
 import { ReportingQueueDashboard } from './components/reporting-queue-dashboard';
 import { RadiologyScheduleDashboard } from './components/radiology-schedule-dashboard';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function RadiologyPage() {
+  const { user } = useAuth();
+  const isRadiologist = user?.role === 'radiologist';
+
   return (
     <div className="space-y-6">
       <div>
@@ -25,7 +30,9 @@ export default function RadiologyPage() {
         <TabsList>
             <TabsTrigger value="scheduling-queue">Scheduling Queue</TabsTrigger>
             <TabsTrigger value="full-schedule">Full Schedule</TabsTrigger>
-            <TabsTrigger value="reporting-queue">Reporting Queue</TabsTrigger>
+            <TabsTrigger value="reporting-queue">
+              {isRadiologist ? 'My Worklist' : 'Reporting Queue'}
+            </TabsTrigger>
         </TabsList>
         <TabsContent value="scheduling-queue" className="mt-4">
             <Card>
@@ -56,9 +63,14 @@ export default function RadiologyPage() {
         <TabsContent value="reporting-queue" className="mt-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Radiologist Reporting Queue</CardTitle>
+                    <CardTitle>
+                      {isRadiologist ? 'My Reporting Worklist' : 'Radiologist Reporting Queue'}
+                    </CardTitle>
                     <CardDescription>
-                        A list of all studies that have been performed and are awaiting a report.
+                      {isRadiologist
+                        ? "A list of all studies assigned to you that are awaiting a report."
+                        : "A list of all studies that have been performed and are awaiting a report."
+                      }
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
