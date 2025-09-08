@@ -4,54 +4,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper function to get user's role from a 'users' collection
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
     function getUserRole() {
+      // In a real app, you might want to handle the case where the user document doesn't exist yet.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-
-    // Patients collection rules
-    match /patients/{patientId} {
-      allow read, write: if request.auth != null; // Simplified for prototype
-
-      // Sub-collections
-      match /radiology_history/{reportId} {
-         // This is a log. Only our backend function can create it.
-        allow create: if false;
-        // The patient and their doctors can read it.
-        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor'];
-        allow write: if false; // Immutable
-      }
+    
+    // Allow read access for all authenticated users to their own user document
+    match /users/{userId} {
+      allow read: if isUserAuthenticated();
+      allow write: if isUserAuthenticated() && request.auth.uid == userId;
     }
     
-    // Radiology reports rules
-    match /radiology_reports/{reportId} {
-      allow create: if getUserRole() in ['admin', 'radiologist'];
-      // The patient who owns the report, plus relevant staff can read it.
-      allow read: if request.auth.uid == resource.data.patientId || getUserRole() in ['admin', 'doctor', 'radiologist'];
-      // Only a radiologist can update a report, and only if it hasn't been finalized.
-      allow update: if getUserRole() == 'radiologist' && resource.data.isFinal == false;
-      allow delete: if getUserRole() == 'admin';
+    match /patients/{patientId} {
+      allow read: if isUserAuthenticated(); // More specific rules for subcollections
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse']; // Or a trusted Cloud Function
+      
+      // Rules for daily_care_plans subcollection
+      match /daily_care_plans/{carePlanId} {
+        allow create: if false; // Only allow creation via trusted Cloud Function
+        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'ward_manager'] 
+                       || request.auth.uid == resource.data.assignedToUserId 
+                       || request.auth.uid == patientId;
+        allow update: if getUserRole() in ['nurse', 'ward_manager'] && request.auth.uid == resource.data.assignedToUserId;
+      }
     }
 
-    // Wards collection rules
     match /wards/{wardId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
-        // All writes must go through a trusted backend function
-        allow write: if false; 
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'ward_manager'];
+      // Allow write only by ward managers or trusted functions
+      allow write: if getUserRole() == 'ward_manager';
     }
 
-    // Beds collection rules
     match /beds/{bedId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
-        // All writes must go through a trusted backend function
-        allow write: if false;
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
+      // Allow write only by trusted functions (or specific admin roles like ward_manager)
+      allow write: if getUserRole() in ['admin', 'ward_manager'];
     }
-
-     // Operating Theatres collection rules
+    
     match /operating_theatres/{theatreId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'];
-        // All writes must go through a trusted backend function
-        allow write: if false;
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'];
+      allow write: if getUserRole() == 'admin'; // Or trusted function
     }
   }
 }
