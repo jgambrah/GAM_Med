@@ -397,34 +397,10 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         doctorId: 'doc2',
         studyIds: ['MRI-Brain'],
         dateOrdered: new Date('2024-08-15T15:30:00Z').toISOString(),
-        status: 'Awaiting Report',
+        status: 'Pending Scheduling',
         scheduledDateTime: new Date('2024-08-16T09:00:00Z').toISOString()
-    },
-    {
-        orderId: 'RAD-003',
-        patientId: 'P-123456',
-        doctorId: 'doc1',
-        studyIds: ['XRay-Leg'],
-        dateOrdered: new Date('2024-08-14T09:00:00Z').toISOString(),
-        status: 'Completed',
-        scheduledDateTime: new Date('2024-08-14T14:00:00Z').toISOString()
     }
 ];
-
-export const mockRadiologyReports: RadiologyReport[] = [
-    {
-        reportId: 'RAD-003',
-        orderId: 'RAD-003',
-        radiologistId: 'doc1',
-        dateReported: new Date('2024-08-14T16:00:00Z').toISOString(),
-        reportDetails: {
-            impression: 'No acute fracture or dislocation identified.',
-            findings: 'The soft tissues are unremarkable. There is no evidence of fracture or dislocation. The visualized osseous structures are intact.'
-        },
-        reportPdfUrl: '/mock-rad-report.pdf'
-    }
-];
-
 
 export const mockLabResults: LabResult[] = [
     {
@@ -1526,4 +1502,3 @@ export const mockLabReports: LabReport[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-

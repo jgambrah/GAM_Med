@@ -75,9 +75,7 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string; d
                 <FormItem>
                   <div className="mb-4">
                     <FormLabel className="text-base">Available Studies</FormLabel>
-                    <FormDescription>
-                      Select one or more imaging studies to order.
-                    </FormDescription>
+                    <FormMessage />
                   </div>
                   <div className="space-y-2">
                     {mockRadiologyStudies.map((study) => (
