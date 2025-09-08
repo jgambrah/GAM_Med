@@ -66,6 +66,120 @@ exports.bookOperationTheatre = functions.region('europe-west1').https.onCall(asy
 });
 */
 
+// =======================================================================================
+// == Ward & Care Plan Management
+// =======================================================================================
+
+/**
+ * Creates daily care plans for all admitted patients in a ward.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 00:00'
+ */
+/*
+exports.createDailyCarePlans = functions.region('europe-west1').pubsub
+    .schedule('every day 00:00')
+    .timeZone('Africa/Accra')
+    .onRun(async (context) => {
+        // 1. Get all currently admitted patients
+        const admittedPatientsQuery = db.collection('patients').where('is_admitted', '==', true);
+        const snapshot = await admittedPatientsQuery.get();
+        if (snapshot.empty) {
+            console.log('No admitted patients to create care plans for.');
+            return null;
+        }
+
+        const standardTasks = [
+            { taskId: 'VITALS', description: 'Vital signs check (BP, Temp, HR, SpO2)', status: 'Pending' },
+            { taskId: 'MEDS', description: 'Administer scheduled medications', status: 'Pending' },
+        ];
+
+        const batch = db.batch();
+
+        // 2. Iterate through each admitted patient
+        for (const patientDoc of snapshot.docs) {
+            const patientId = patientDoc.id;
+            const wardId = patientDoc.data().currentWardId;
+            if (!wardId) continue;
+
+            // 3. Find nurses available for that ward
+            const nursesQuery = db.collection('users')
+                .where('assignedWardId', '==', wardId)
+                .where('role', '==', 'Nurse')
+                .where('isActive', '==', true); // Add on-duty logic here if available
+            const nursesSnapshot = await nursesQuery.get();
+            const availableNurses = nursesSnapshot.docs.map(doc => doc.id);
+            if (availableNurses.length === 0) continue;
+            
+            // 4. Assign tasks using a simple round-robin for this example
+            let taskIndex = 0;
+            const assignedTasks = standardTasks.map(task => {
+                const assignedToUserId = availableNurses[taskIndex % availableNurses.length];
+                taskIndex++;
+                return { ...task, assignedToUserId };
+            });
+
+            // 5. Create the new care plan document
+            const newCarePlanRef = db.collection('daily_care_plans').doc();
+            batch.set(newCarePlanRef, {
+                carePlanId: newCarePlanRef.id,
+                patientId: patientId,
+                wardId: wardId,
+                date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+                careTasks: assignedTasks
+            });
+        }
+        
+        await batch.commit();
+        console.log(`Generated daily care plans for ${snapshot.size} patients.`);
+        return null;
+    });
+*/
+
+/**
+ * Updates the status of a specific task within a care plan.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { carePlanId: string, taskId: string, newStatus: string }
+ */
+/*
+exports.updateCareTaskStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an authorized nurse or doctor
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { carePlanId, taskId, newStatus } = data;
+    if (!carePlanId || !taskId || !newStatus) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required fields.');
+    }
+
+    const carePlanRef = db.collection('daily_care_plans').doc(carePlanId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const carePlanDoc = await transaction.get(carePlanRef);
+            if (!carePlanDoc.exists) throw new Error('Care plan not found.');
+            
+            const careTasks = carePlanDoc.data().careTasks || [];
+            const taskIndex = careTasks.findIndex(task => task.taskId === taskId);
+            
+            if (taskIndex === -1) throw new Error('Task not found in care plan.');
+            
+            // 2. Update the status of the specific task
+            careTasks[taskIndex].status = newStatus;
+            
+            transaction.update(carePlanRef, { careTasks: careTasks });
+        });
+
+        console.log(`Updated task ${taskId} in care plan ${carePlanId} to ${newStatus}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to update care task:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not update task status.', { message: error.message });
+    }
+});
+*/
 
 // =======================================================================================
 // == Radiology Information System (RIS)
