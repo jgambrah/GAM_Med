@@ -210,6 +210,81 @@ exports.scheduleAppointment = functions.region('europe-west1').https.onCall(asyn
 });
 */
 
+/**
+ * Acts as a webhook or bridge from an external PACS system to update Firestore.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { orderId: string, pacsLink: string, imageThumbnailUrl: string }
+ */
+/*
+exports.updatePacsLink = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Security Check: This function should be secured, e.g., with an API key or by checking the caller's IP address.
+    // For simplicity, we assume a trusted environment.
+
+    const { orderId, pacsLink, imageThumbnailUrl } = data;
+    if (!orderId || !pacsLink) {
+        throw new functions.https.HttpsError('invalid-argument', 'orderId and pacsLink are required.');
+    }
+
+    const reportRef = db.collection('radiology_reports').doc(orderId);
+
+    try {
+        await reportRef.update({
+            pacsLink: pacsLink,
+            imageThumbnailUrl: imageThumbnailUrl || null
+        });
+
+        // The update to this document will trigger the notifyReportAvailable function.
+
+        console.log(`Updated PACS links for report ${orderId}.`);
+        return { success: true };
+    } catch (error) {
+        console.error(`Failed to update PACS link for report ${orderId}:`, error);
+        throw new functions.https.HttpsError('internal', 'Could not update report.');
+    }
+});
+*/
+
+/**
+ * Notifies the ordering doctor when a report's images are available for viewing.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /radiology_reports/{reportId}
+ */
+/*
+exports.notifyReportAvailable = functions.region('europe-west1').firestore
+    .document('/radiology_reports/{reportId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Condition: Only trigger if pacsLink was added.
+        if (newData.pacsLink && !oldData.pacsLink) {
+            const reportId = context.params.reportId;
+            const orderId = newData.orderId;
+
+            // 2. Fetch the original order to find the ordering doctor.
+            const orderDoc = await db.collection('radiology_orders').doc(orderId).get();
+            if (!orderDoc.exists) {
+                console.error(`Order ${orderId} not found for report ${reportId}.`);
+                return null;
+            }
+            const orderingDoctorId = orderDoc.data().doctorId;
+            const patientId = orderDoc.data().patientId;
+
+            // 3. Send notification to the doctor.
+            // await sendNotificationToUser(orderingDoctorId, {
+            //     title: 'Radiology Images Ready',
+            //     body: `Images for patient ${patientId} (Order: ${orderId}) are now available for viewing.`
+            // });
+
+            console.log(`Sent notification to doctor ${orderingDoctorId} for available images on report ${reportId}.`);
+        }
+        
+        return null;
+    });
+*/
+
 // =======================================================================================
 // == Laboratory Information System (LIS)
 // =======================================================================================
