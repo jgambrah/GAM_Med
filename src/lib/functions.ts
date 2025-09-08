@@ -90,16 +90,16 @@ exports.notifyRadReceptionist = functions.region('europe-west1').firestore
 
 
 /**
- * Processes a completed radiology report from a radiologist.
+ * A single, powerful Cloud Function that handles the automation of report delivery and storage.
  *
  * @trigger_type Callable Function (https)
- * @input { orderId: string, reportDetails: { impression: string, findings: string } }
+ * @input { orderId: string, reportDetails: object }
  */
 /*
-exports.processRadReport = functions.region('europe-west1').https.onCall(async (data, context) => {
+exports.finalizeAndDeliverReport = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check: Ensure user is a radiologist
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check for 'radiologist'...
+    // Add role check...
 
     const { orderId, reportDetails } = data;
     if (!orderId || !reportDetails) {
@@ -113,32 +113,45 @@ exports.processRadReport = functions.region('europe-west1').https.onCall(async (
         await db.runTransaction(async (transaction) => {
             const orderDoc = await transaction.get(orderRef);
             if (!orderDoc.exists) throw new Error('Radiology order not found.');
+            
+            const orderData = orderDoc.data();
+            const patientId = orderData.patientId;
+            const patientHistoryRef = db.collection('patients').doc(patientId).collection('radiology_history').doc(orderId);
 
-            // 2. Create the report document
-            transaction.set(reportRef, {
+            // 2. Create the final report document
+            const finalReportData = {
                 reportId: reportRef.id,
                 orderId: orderId,
+                patientId: patientId,
                 radiologistId: context.auth.uid,
                 dateReported: admin.firestore.FieldValue.serverTimestamp(),
-                reportDetails: reportDetails
-            });
+                reportDetails: reportDetails,
+                isFinal: true
+            };
+            transaction.set(reportRef, finalReportData);
             
             // 3. Update the original order's status
-            transaction.update(orderRef, { status: 'Completed' });
-            
-            // 4. Trigger auto-billing logic (conceptual)
-            // await autoGenerateInvoice(transaction, orderDoc.data().patientId, 'RADIOLOGY', orderId, 'Radiology Study');
+            transaction.update(orderRef, { status: 'Completed', isReported: true });
+
+            // 4. Update the patient's EHR
+            transaction.set(patientHistoryRef, {
+                reportId: reportRef.id,
+                orderId: orderId,
+                studyIds: orderData.studyIds,
+                dateReported: finalReportData.dateReported,
+                // store a summary or link
+            });
         });
 
         // 5. Send notification to the ordering doctor
         const orderData = (await orderRef.get()).data();
         // await sendNotificationToUser(orderData.doctorId, `Radiology report for patient ${orderData.patientId} is complete.`);
 
-        console.log(`Report for order ${orderId} processed.`);
+        console.log(`Report for order ${orderId} finalized and delivered.`);
         return { success: true, reportId: reportRef.id };
     } catch (error) {
-        console.error(`Failed to process report for order ${orderId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not process report.', { message: error.message });
+        console.error(`Failed to finalize report for order ${orderId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not finalize report.', { message: error.message });
     }
 });
 */
@@ -3581,7 +3594,7 @@ exports.submitClaim = functions.region('europe-west1').https.onCall(async (data,
 // 40. Process Payment (Callable Function)
 // =======================================================================================
 /**
- * Acts as a secure middleware to process a payment through the correct external gateway.
+ * Acts as a secure middleware to process a payment through the correct external payment gateway.
  *
  * @trigger_type Callable Function (https)
  * @input { invoiceId: string, amount: number, paymentMethod: string, paymentDetails: object }
@@ -3843,504 +3856,6 @@ exports.onMedicationAdministered = functions.firestore.document('medication_admi
 
 // =======================================================================================
 // == ACCOUNTS PAYABLE & PAYROLL
-// =======================================================================================
-
-// =======================================================================================
-// 48. updateClaimPayout (Firestore Trigger - AR)
-// =======================================================================================
-/**
- * Automatically creates a payment record when an insurance claim is marked as 'Paid'.
- * This decouples the claims module from the payment reconciliation module.
- *
- * @trigger_type Firestore Trigger (onUpdate)
- * @document /insurance_claims/{claimId}
- */
-/*
-exports.updateClaimPayout = functions.region('europe-west1').firestore
-    .document('/insurance_claims/{claimId}')
-    .onUpdate(async (change, context) => {
-        const newData = change.after.data();
-        const oldData = change.before.data();
-
-        // 1. Condition: Only run if status changed to 'Paid'.
-        if (newData.status === 'Paid' && oldData.status !== 'Paid') {
-            const { invoiceId, payoutAmount, claimId } = newData;
-
-            if (!invoiceId || !payoutAmount) {
-                console.error(`Claim ${claimId} is missing invoiceId or payoutAmount.`);
-                return null;
-            }
-
-            // 2. Create a new document in the 'payments' collection.
-            // This will, in turn, trigger the 'reconcilePayment' function to update the invoice.
-            const newPaymentRef = db.collection('payments').doc();
-            await newPaymentRef.set({
-                paymentId: newPaymentRef.id,
-                invoiceId: invoiceId,
-                amount: payoutAmount,
-                paymentMethod: 'Insurance Payout',
-                paymentDate: admin.firestore.FieldValue.serverTimestamp(),
-                transactionId: `CLMPAY-${claimId}` // Link back to the claim
-            });
-
-            console.log(`Created payment document for paid claim ${claimId}.`);
-        }
-        return null;
-    });
-*/
-
-// =======================================================================================
-// 49. payBill (Callable Function - AP)
-// =======================================================================================
-/**
- * Marks a bill from a supplier as paid.
- *
- * @trigger_type Callable Function (https)
- * @input { billId: string, amount: number }
- */
-/*
-exports.payBill = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check for financial staff
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check...
-
-    const { billId, amount } = data;
-    const billRef = db.collection('bills').doc(billId);
-    
-    try {
-        await db.runTransaction(async (transaction) => {
-            const billDoc = await transaction.get(billRef);
-            if (!billDoc.exists) throw new Error('Bill not found.');
-            
-            const currentAmountDue = billDoc.data().totalAmount - (billDoc.data().amountPaid || 0);
-            const newAmountPaid = (billDoc.data().amountPaid || 0) + amount;
-            
-            let newStatus = 'Partially Paid';
-            if (newAmountPaid >= billDoc.data().totalAmount) {
-                newStatus = 'Paid';
-            }
-
-            // 2. Update the bill document
-            transaction.update(billRef, {
-                amountPaid: newAmountPaid,
-                status: newStatus,
-                lastPaymentDate: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            // 3. Create a log in a sub-collection for auditing purposes
-            const paymentLogRef = billRef.collection('bill_payments').doc();
-            transaction.set(paymentLogRef, {
-                amount: amount,
-                paymentDate: admin.firestore.FieldValue.serverTimestamp(),
-                paidByUserId: context.auth.uid
-            });
-        });
-        
-        console.log(`Payment of ${amount} logged for bill ${billId}.`);
-        return { success: true };
-
-    } catch (error) {
-        console.error(`Failed to pay bill ${billId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not process bill payment.');
-    }
-});
-*/
-
-// =======================================================================================
-// 50. generateMonthlyPayroll (Scheduled Function - AP)
-// =======================================================================================
-/**
- * A scheduled function that runs monthly to calculate and create payroll bills.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'last day of month 09:00'
- */
-/*
-exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
-    .schedule('last day of month 09:00')
-    .onRun(async (context) => {
-        // 1. Get all active employees
-        const employeesSnapshot = await db.collection('users').where('is_active', '==', true).get();
-        if (employeesSnapshot.empty) {
-            console.log('No active employees to process for payroll.');
-            return null;
-        }
-
-        const batch = db.batch();
-
-        // 2. For each employee, generate a payroll bill
-        for (const userDoc of employeesSnapshot.docs) {
-            const employee = userDoc.data();
-            
-            // This is where complex logic for salary, overtime, deductions would go.
-            // const payrollDetails = calculatePayrollForEmployee(employee.uid); 
-            const payrollDetails = { netSalary: 5000, deductions: 500, grossSalary: 5500 }; // Placeholder
-            
-            const newBillRef = db.collection('bills').doc();
-            const payrollBill = {
-                billId: newBillRef.id,
-                supplierId: 'INTERNAL_PAYROLL',
-                issueDate: admin.firestore.FieldValue.serverTimestamp(),
-                dueDate: admin.firestore.FieldValue.serverTimestamp(), // Due immediately
-                totalAmount: payrollDetails.netSalary,
-                status: 'Pending',
-                billedItems: [{
-                    description: `Payroll for ${employee.name} - ${new Date().toLocaleString('default', { month: 'long' })}`,
-                    total: payrollDetails.netSalary
-                }],
-                // Add more detailed payroll data if needed
-            };
-            
-            batch.set(newBillRef, payrollBill);
-        }
-
-        // 3. Commit all new payroll bills at once
-        await batch.commit();
-        console.log(`Generated payroll for ${employeesSnapshot.size} employees.`);
-        
-        return null;
-    });
-*/
-
-// =======================================================================================
-// == SUPPLIER & PROCUREMENT MANAGEMENT
-// =======================================================================================
-
-// =======================================================================================
-// 43. Generate Purchase Order (Callable Cloud Function)
-// =======================================================================================
-/**
- * Creates a new purchase order for the pharmacy or other departments.
- *
- * @trigger_type Callable Function (https)
- * @input { supplierId: string, items: { itemId: string, quantity: number, unit_cost: number }[] }
- */
-/*
-exports.generatePurchaseOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check: Ensure user is authorized for procurement
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check for 'pharmacist' or 'procurement_officer'
-
-    const { supplierId, items } = data;
-    if (!supplierId || !items || items.length === 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'Supplier ID and at least one item are required.');
-    }
-
-    const newOrderRef = db.collection('purchase_orders').doc();
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
-
-    const orderData = {
-        poId: newOrderRef.id,
-        dateOrdered: admin.firestore.FieldValue.serverTimestamp(),
-        status: 'Submitted',
-        orderedByUserId: context.auth.uid,
-        supplierId,
-        orderedItems: items,
-        totalAmount
-    };
-
-    await newOrderRef.set(orderData);
-
-    // 2. Optional: Send the PO to the supplier via email or API integration
-    // const supplierDoc = await db.collection('suppliers').doc(supplierId).get();
-    // if(supplierDoc.exists && supplierDoc.data().contactInfo.email) {
-    //     await sendEmail(supplierDoc.data().contactInfo.email, `Purchase Order ${newOrderRef.id}`, ...);
-    // }
-
-    console.log(`Purchase order ${newOrderRef.id} created for supplier ${supplierId}.`);
-    return { success: true, orderId: newOrderRef.id };
-});
-*/
-
-// =======================================================================================
-// 44. Receive Goods (Callable Cloud Function)
-// =======================================================================================
-/**
- * Processes a goods receipt, creating an audit log and updating inventory levels for each item.
- *
- * @trigger_type Callable Function (https)
- * @input { poId: string, receivedItems: { itemId: string, quantityReceived: number, batchNumber: string, expiryDate: string }[] }
- */
-/*
-exports.receiveGoods = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check for 'pharmacist' or 'inventory_manager'
-
-    const { poId, receivedItems } = data;
-    if (!poId || !receivedItems || receivedItems.length === 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'Purchase Order ID and received items are required.');
-    }
-
-    const poRef = db.collection('purchase_orders').doc(poId);
-    const receiptRef = db.collection('goods_receipts').doc();
-
-    const batch = db.batch();
-
-    // 2. Create the Goods Receipt document for auditing
-    batch.set(receiptRef, {
-        receiptId: receiptRef.id,
-        poId,
-        dateReceived: admin.firestore.FieldValue.serverTimestamp(),
-        receivedByUserId: context.auth.uid,
-        receivedItems
-    });
-
-    // 3. For each received item, call the centralized inventory update logic
-    for (const item of receivedItems) {
-        // This is a conceptual call; the `updateInventory` function would need to be callable
-        // within this transaction or as a separate step.
-        // It's crucial this part is atomic.
-        const itemRef = db.collection('inventory').doc(item.itemId);
-        
-        // This logic should be encapsulated in a reusable function `updateInventoryLogic`
-        const newBatch = {
-            batchNumber: item.batchNumber,
-            currentQuantity: item.quantityReceived,
-            expiryDate: admin.firestore.Timestamp.fromDate(new Date(item.expiryDate)),
-            dateReceived: admin.firestore.FieldValue.serverTimestamp()
-        };
-        
-        batch.update(itemRef, {
-            batches: admin.firestore.FieldValue.arrayUnion(newBatch)
-        });
-        
-        // Also log the transaction
-        const logRef = itemRef.collection('transactions').doc();
-        batch.set(logRef, {
-            type: 'Restock',
-            quantityChange: item.quantityReceived,
-            batchNumber: item.batchNumber,
-            reason: `Purchase Order ${poId}`,
-            userId: context.auth.uid,
-            date: admin.firestore.FieldValue.serverTimestamp()
-        });
-    }
-
-    // 4. Update the Purchase Order status
-    // A more complex system would check if quantities match the order to determine 'Partially Received' vs 'Received'
-    batch.update(poRef, { status: 'Received' });
-
-    // 5. Commit all changes at once
-    await batch.commit();
-
-    console.log(`Goods received and inventory updated for PO ${poId}.`);
-    return { success: true, receiptId: receiptRef.id };
-});
-*/
-
-// =======================================================================================
-// == DRUG INTERACTION & ALLERGY ALERTS
-// =======================================================================================
-/**
- * Performs real-time checks for drug-drug interactions and patient allergies.
- * This is a critical patient safety function called from the pharmacy UI before dispensing.
- *
- * @trigger_type Callable Function (https)
- * @input { patientId: string, prescriptionId: string, medicationList: string[] } - medicationList is an array of inventory item IDs.
- * @returns {Promise<{alerts: {type: 'Allergy' | 'Interaction', severity: string, message: string}[]}>} A consolidated list of all found alerts.
- */
-/*
-exports.checkDrugAndAllergyAlerts = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check for pharmacy staff
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check...
-
-    const { patientId, prescriptionId, medicationList } = data;
-    const alerts = [];
-
-    // --- Allergy Check ---
-    const patientDoc = await db.collection('patients').doc(patientId).get();
-    if (!patientDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Patient not found.');
-    }
-    const patientAllergies = patientDoc.data().allergies || [];
-    
-    // For each medication in the new prescription, check if it's in the patient's allergy list.
-    // This is a simplified check. A real system would check against drug components/classes.
-    for (const itemId of medicationList) {
-        const medicationDoc = await db.collection('inventory').doc(itemId).get(); // Assuming inventory holds drug info
-        const medicationName = medicationDoc.exists ? medicationDoc.data().name : itemId;
-        if (patientAllergies.some(allergy => medicationName.toLowerCase().includes(allergy.toLowerCase()))) {
-            alerts.push({
-                type: 'Allergy',
-                severity: 'High',
-                message: `Patient has a known allergy to ${medicationName}.`
-            });
-        }
-    }
-    
-    // --- Drug-Drug Interaction Check ---
-    // a) Get all currently active medications for the patient
-    const activeMedsSnapshot = await db.collection('prescriptions')
-        .where('patientId', '==', patientId)
-        .where('isDispensed', '==', true) // Check against previously dispensed, active meds
-        .get();
-        
-    const activeMedications = activeMedsSnapshot.docs.flatMap(doc => doc.data().medications.map(med => med.itemId));
-    const allMedsToCheck = [...new Set([...medicationList, ...activeMedications])]; // Combine current and new meds
-
-    // b) Check for interactions
-    if (allMedsToCheck.length > 1) {
-        const interactionsSnapshot = await db.collection('drug_interactions')
-            .where('drug1Id', 'in', allMedsToCheck)
-            .get();
-
-        interactionsSnapshot.forEach(doc => {
-            const interaction = doc.data();
-            // Check if both interacting drugs are in the combined list
-            if (allMedsToCheck.includes(interaction.drug1Id) && allMedsToCheck.includes(interaction.drug2Id)) {
-                alerts.push({
-                    type: 'Interaction',
-                    severity: interaction.severity,
-                    message: interaction.description
-                });
-            }
-        });
-    }
-
-    return { alerts };
-});
-*/
-
-// =======================================================================================
-// 45. Add Drug Interaction (Callable Cloud Function)
-// =======================================================================================
-/**
- * Adds a new drug-drug interaction rule to the central knowledge base.
- *
- * @trigger_type Callable Function (https)
- * @input { drug1Id: string, drug2Id: string, severity: 'Minor'|'Moderate'|'Major', description: string }
- */
-/*
-exports.addDrugInteraction = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check: Super admin or clinical pharmacologist
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check...
-
-    const { drug1Id, drug2Id, severity, description } = data;
-
-    const newInteractionRef = db.collection('drug_interactions').doc();
-    const interactionData = {
-        interactionId: newInteractionRef.id,
-        drug1Id,
-        drug2Id,
-        severity,
-        description
-    };
-
-    await newInteractionRef.set(interactionData);
-
-    console.log(`New drug interaction between ${drug1Id} and ${drug2Id} has been added.`);
-    return { success: true, interactionId: newInteractionRef.id };
-});
-*/
-
-// =======================================================================================
-// == Sample Tracking Functions
-// =======================================================================================
-
-/**
- * Tracks a lab sample's movement by updating its status and creating an audit log entry.
- *
- * @trigger_type Callable Function (https)
- * @input { barcode: string, action: string, location: string, userId: string }
- */
-/*
-exports.trackSample = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-
-    const { barcode, action, location, userId } = data;
-    if (!barcode || !action || !location || !userId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Missing required sample tracking details.');
-    }
-
-    // 2. Find the lab order associated with the barcode
-    const orderQuery = db.collection('lab_orders').where('sampleDetails.barcode', '==', barcode).limit(1);
-    const orderSnapshot = await orderQuery.get();
-    if (orderSnapshot.empty) {
-        throw new functions.https.HttpsError('not-found', 'No lab order found with the provided sample barcode.');
-    }
-    const orderRef = orderSnapshot.docs[0].ref;
-    const orderId = orderRef.id;
-
-    // 3. Create a new entry in the sample audit sub-collection
-    const auditRef = orderRef.collection('sample_audit').doc();
-    const now = admin.firestore.FieldValue.serverTimestamp();
-    
-    try {
-        await db.runTransaction(async (transaction) => {
-            // a) Update the sample's status on the main order document
-            transaction.update(orderRef, {
-                'sampleDetails.sampleStatus': action, // e.g., 'Received in Lab'
-                'sampleDetails.lastLocation': location,
-                'sampleDetails.lastUpdated': now
-            });
-            
-            // b) Add a new document to the immutable audit log
-            transaction.set(auditRef, {
-                auditId: auditRef.id,
-                timestamp: now,
-                action,
-                location,
-                userId
-            });
-        });
-
-        console.log(`Sample ${barcode} for order ${orderId} tracked: ${action} at ${location}.`);
-        return { success: true, auditId: auditRef.id };
-
-    } catch (error) {
-        console.error(`Failed to track sample ${barcode}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not update sample tracking information.');
-    }
-});
-*/
-
-/**
- * A scheduled function that runs periodically to detect delays in sample transit.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every 1 hours'
- */
-/*
-exports.alertSampleDelay = functions.region('europe-west1').pubsub
-    .schedule('every 1 hours')
-    .onRun(async (context) => {
-        const now = admin.firestore.Timestamp.now();
-        const twoHoursAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 2 * 60 * 60 * 1000);
-
-        // 1. Query for samples that were collected more than 2 hours ago but are not yet 'Received in Lab'
-        const delayedSamplesQuery = db.collection('lab_orders')
-            .where('sampleDetails.collectionDate', '<=', twoHoursAgo)
-            .where('sampleDetails.sampleStatus', '!=', 'Received in Lab');
-            
-        const snapshot = await delayedSamplesQuery.get();
-        if (snapshot.empty) {
-            console.log('No delayed samples detected.');
-            return null;
-        }
-
-        // 2. For each delayed sample, send an alert
-        for (const doc of snapshot.docs) {
-            const order = doc.data();
-            const alertMessage = `Sample ${order.sampleDetails.barcode} for patient ${order.patientId} is delayed. Last known status: ${order.sampleDetails.sampleStatus}.`;
-            
-            // Send a high-priority alert to the lab manager/supervisor role
-            // await sendNotificationToRole('lab_manager', {
-            //     subject: 'Sample Transit Delay Alert',
-            //     body: alertMessage
-            // });
-            console.warn(alertMessage);
-        }
-
-        return null;
-    });
-*/
-    
-// =======================================================================================
-// == BILLING & FINANCIAL MANAGEMENT
 // =======================================================================================
 
 // =======================================================================================
