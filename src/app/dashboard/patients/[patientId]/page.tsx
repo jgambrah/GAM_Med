@@ -33,6 +33,7 @@ import { PatientAlerts } from './components/patient-alerts';
 import { ImmunizationsTab } from './components/immunizations-tab';
 import { OrderTestDialog } from './components/order-test-dialog';
 import { OrderStudyDialog } from './components/order-study-dialog';
+import { RadiologyTab } from './components/radiology-tab';
 
 
 /**
@@ -142,6 +143,7 @@ export default function PatientDetailPage() {
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
+          <TabsTrigger value="radiology">Radiology</TabsTrigger>
           <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
@@ -165,6 +167,9 @@ export default function PatientDetailPage() {
         </TabsContent>
         <TabsContent value="labs" className="mt-4">
           <LabResultsTab />
+        </TabsContent>
+        <TabsContent value="radiology" className="mt-4">
+          <RadiologyTab patientId={patient.patient_id} />
         </TabsContent>
         <TabsContent value="immunizations" className="mt-4">
           <ImmunizationsTab patientId={patient.patient_id} />
