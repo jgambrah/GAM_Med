@@ -3,37 +3,64 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    // Helper function to get user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    match /users/{userId} {
-      allow read: if request.auth.uid == userId;
-      // Add other user-specific rules here
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Rules for Radiology Information System (RIS)
+    // Allow authenticated users to read their own user document
+    match /users/{userId} {
+      allow read, update: if request.auth.uid == userId;
+    }
+
+    // Rules for the 'patients' collection
+    match /patients/{patientId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist', 'receptionist'] || request.auth.uid == resource.data.userId; // Assuming a userId field exists on the patient document for portal access
+      allow create: if getUserRole() in ['admin', 'receptionist'];
+      allow update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+
+    // Rules for EHR sub-collections
+    match /patients/{patientId}/{subcollection}/{docId} {
+       allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'] || request.auth.uid == patientId; // Allow patient to read their own records
+       allow create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+
+    // Rules for 'appointments' collection
+    match /appointments/{appointmentId} {
+        allow read: if request.auth.uid == resource.data.patient_id || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'];
+        allow create: if request.auth != null; // Any authenticated user can create
+        allow update: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
+    }
+
+    // Rules for 'beds' collection
+    match /beds/{bedId} {
+        allow read: if request.auth != null;
+        allow update: if getUserRole() in ['admin', 'nurse'];
+    }
+    
+    // Rules for radiology studies catalog
     match /radiology_studies/{studyId} {
       allow read: if request.auth != null;
       allow write: if getUserRole() == 'admin';
     }
 
+    // Rules for radiology orders and reports
     match /radiology_orders/{orderId} {
       allow create: if getUserRole() in ['admin', 'doctor'];
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.patientId;
       allow update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
-      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == resource.data.patientId;
     }
 
     match /radiology_reports/{reportId} {
-      allow create: if getUserRole() in ['admin', 'doctor', 'radiologist'];
+      allow create: if getUserRole() == 'radiologist';
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.patientId;
       allow update: if getUserRole() in ['admin', 'radiologist'];
-      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == resource.data.patientId;
-    }
-    
-    match /reports/{reportId} {
-        allow read: if getUserRole() in ['admin', 'lab_manager', 'financial_staff'];
-        allow write: if getUserRole() == 'admin';
     }
   }
 }
