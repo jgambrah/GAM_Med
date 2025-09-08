@@ -1,64 +1,63 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+  
     function getUserRole() {
-      // Assumes a 'role' custom claim has been set for the user.
-      return request.auth.token.role;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // == USER DATA ==
     match /users/{userId} {
-      // Users can read their own profile. Authenticated staff can read other profiles.
-      allow read: if request.auth.uid == userId || getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
-      // Only admins can modify user roles or other details. This protects the 'availability' map.
-      allow write: if getUserRole() == 'admin';
+      allow read: if request.auth.uid == userId || getUserRole() in ['admin'];
+      allow write: if request.auth.uid == userId || getUserRole() in ['admin'];
     }
 
-    // == RADIOLOGY ==
-    match /radiology_studies/{studyId} {
-        // Anyone authenticated can see what studies are available.
-        allow read: if request.auth != null;
-        // Only admins can add or change studies.
-        allow write: if getUserRole() == 'admin';
+    match /patients/{patientId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'billing_clerk'] || request.auth.uid == resource.data.uid;
+      allow create, update, delete: if getUserRole() in ['admin', 'receptionist'];
     }
 
-    match /radiology_orders/{orderId} {
-        // Doctors can create orders.
-        allow create: if getUserRole() in ['admin', 'doctor'];
-        // Receptionists/Admins can update the status. Radiologists can add report details.
-        allow update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
-        // Only involved staff or the patient themselves can read the order.
-        allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.patientId;
+    // Rules for EHR sub-collections
+    match /patients/{patientId}/{subcollection}/{documentId} {
+      // Allow read for clinical staff and the patient themselves
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'billing_clerk'] || request.auth.uid == patientId;
+      
+      // Allow write for clinical staff only
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    }
+
+    match /beds/{bedId} {
+        allow read: if request.auth.uid != null; // Allow any authenticated user to see bed status
+        allow write: if getUserRole() in ['admin', 'nurse']; // Only admin and nurses can update bed status
     }
     
-    match /radiology_reports/{reportId} {
-        // Radiologists can create reports.
-        allow create: if getUserRole() in ['admin', 'radiologist'];
-        // Only involved staff or the patient themselves can read the report.
-        allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.patientId;
-    }
-    
-    // == SCHEDULING & RESOURCES ==
     match /appointments/{appointmentId} {
-        // Only authorized staff can create or modify appointments.
-        allow create, update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
-        // Involved staff or the patient can view the appointment.
-        allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || request.auth.uid == resource.data.patientId;
+      allow read: if request.auth.uid != null;
+      allow create, update, delete: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
     }
     
     match /equipment/{equipmentId} {
-        // Any authenticated user can see the equipment list.
-        allow read: if request.auth != null;
-        // Only an admin (representing the backend function) can update equipment details like availability.
-        allow write: if getUserRole() == 'admin';
+      allow read: if request.auth.uid != null;
+      // Write access is restricted to admin to simulate a trusted server process
+      allow write: if getUserRole() in ['admin']; 
     }
 
-    // Fallback rule to deny all other access
-    match /{document=**} {
-      allow read, write: if false;
+    match /radiology_orders/{orderId} {
+      allow create: if getUserRole() in ['admin', 'doctor'];
+      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist', 'radiologist'] || get(/databases/$(database)/documents/patients/$(resource.data.patientId)).data.uid == request.auth.uid;
+      allow update: if getUserRole() in ['admin', 'receptionist', 'radiologist'];
     }
+    
+    match /radiology_reports/{reportId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'radiologist'] || get(/databases/$(database)/documents/radiology_orders/$(reportId)).data.patientId == request.auth.uid;
+      // Only radiologists or admins can create/update reports
+      allow write: if getUserRole() in ['admin', 'radiologist'];
+    }
+
+    match /radiology_studies/{studyId} {
+      allow read: if request.auth.uid != null;
+      allow write: if getUserRole() in ['admin'];
+    }
+
   }
 }
