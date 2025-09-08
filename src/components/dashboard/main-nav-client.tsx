@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -82,7 +81,7 @@ export function MainNavClient() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'],
     },
     {
       href: '/dashboard/beds',
@@ -94,7 +93,7 @@ export function MainNavClient() {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'billing_clerk', 'patient'],
+      roles: ['admin', 'doctor', 'billing_clerk', 'patient', 'receptionist'],
     },
     {
         href: '/dashboard/my-billing',

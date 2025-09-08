@@ -53,7 +53,21 @@ export default function AdminPage() {
           <OutpatientCheckinDashboard />
         </TabsContent>
         <TabsContent value="radiology-scheduling" className="mt-4">
-          <RadiologyDashboard />
+          <Card>
+            <CardHeader>
+              <CardTitle>Radiology Order Scheduling</CardTitle>
+              <CardDescription>
+                Manage and schedule incoming radiology orders. This page is accessible to all reception and radiology staff.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+              <Button asChild className="mt-4">
+                <Link href="/dashboard/radiology">
+                  Go to Radiology Dashboard
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="discharge-processing" className="mt-4">
             <DischargeDashboard />
