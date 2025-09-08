@@ -391,7 +391,8 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         studyIds: ['CT-Chest'],
         dateOrdered: new Date('2024-08-16T11:00:00Z').toISOString(),
         status: 'Pending Scheduling',
-        clinicalNotes: 'Patient has a persistent cough and shortness of breath.'
+        clinicalNotes: 'Patient has a persistent cough and shortness of breath.',
+        priority: 2,
     },
     {
         orderId: 'RAD-002',
@@ -401,7 +402,11 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         dateOrdered: new Date('2024-08-15T15:30:00Z').toISOString(),
         status: 'Awaiting Report',
         scheduledDateTime: new Date('2024-08-16T09:00:00Z').toISOString(),
-        clinicalNotes: 'Rule out intracranial hemorrhage.'
+        clinicalNotes: 'Rule out intracranial hemorrhage.',
+        priority: 1,
+        assignedRadiologistId: 'doc2',
+        isReported: false,
+        dateAssigned: new Date('2024-08-15T16:00:00Z').toISOString(),
     },
     {
         orderId: 'RAD-003',
@@ -411,7 +416,9 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
         dateOrdered: new Date('2024-08-14T09:00:00Z').toISOString(),
         status: 'Completed',
         scheduledDateTime: new Date('2024-08-15T11:00:00Z').toISOString(),
-        clinicalNotes: 'Assess for gallstones.'
+        clinicalNotes: 'Assess for gallstones.',
+        priority: 3,
+        isReported: true,
     }
 ];
 
