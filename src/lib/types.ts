@@ -58,6 +58,7 @@ export interface RadiologyReport {
   pacsLink?: string; // A unique URL or identifier that points to the imaging study on the PACS
   imageThumbnailUrl?: string; // A link to a thumbnail image for a quick preview in the EHR
   reportPdfUrl?: string; // URL to the generated PDF in Firebase Storage
+  isFinal?: boolean; // A flag to prevent further editing after finalization
 }
 
 
