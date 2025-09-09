@@ -34,11 +34,12 @@ import {
     ShieldCheck,
     BarChart,
     Scan,
+    Apple,
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
 
 export function MainNavClient() {
   const pathname = usePathname();
@@ -151,6 +152,12 @@ export function MainNavClient() {
         roles: ['admin', 'lab_technician', 'doctor'],
     },
     {
+        href: '/dashboard/dietary',
+        label: 'Dietary',
+        icon: Apple,
+        roles: ['admin', 'dietitian', 'nurse', 'doctor'],
+    },
+    {
       href: '/dashboard/pharmacy',
       label: 'Pharmacy',
       icon: Pill,
@@ -202,7 +209,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
@@ -226,3 +233,4 @@ export function MainNavClient() {
     </SidebarMenu>
   );
 }
+
