@@ -4468,3 +4468,137 @@ exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
+
+// =======================================================================================
+// == Human Resource & Staff Management
+// =======================================================================================
+
+/**
+ * Creates a new employee record and triggers the onboarding process.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { employeeData: object }
+ */
+/*
+exports.onboardNewEmployee = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check for HR admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { employeeData } = data;
+    // Server-side validation of employeeData...
+
+    const newEmployeeRef = db.collection('employees').doc(); // Auto-generate ID
+
+    const finalEmployeeData = {
+        ...employeeData,
+        employeeId: newEmployeeRef.id,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await newEmployeeRef.set(finalEmployeeData);
+
+    // 2. Trigger other onboarding workflows
+    // a) Create a Firebase Auth user
+    // const userRecord = await admin.auth().createUser({ email: employeeData.email, ... });
+    // b) Set initial permissions
+    // await admin.auth().setCustomUserClaims(userRecord.uid, { role: employeeData.role });
+    // c) Send onboarding email
+    // await sendOnboardingEmail(employeeData.email, { ... });
+
+    console.log(`New employee ${newEmployeeRef.id} onboarded.`);
+    return { success: true, employeeId: newEmployeeRef.id };
+});
+*/
+
+/**
+ * Logs an employee's clock-in or clock-out time.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { employeeId: string, action: 'clock-in' | 'clock-out' }
+ */
+/*
+exports.logAttendance = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check: Could be a specific service account for the kiosk or an authenticated user
+    const { employeeId, action } = data;
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    if (action === 'clock-in') {
+        const newLogRef = db.collection('attendance_logs').doc();
+        await newLogRef.set({
+            logId: newLogRef.id,
+            employeeId: employeeId,
+            clockInTime: now,
+            date: dateStr
+        });
+        console.log(`Employee ${employeeId} clocked in.`);
+    } else if (action === 'clock-out') {
+        const lastLogQuery = db.collection('attendance_logs')
+            .where('employeeId', '==', employeeId)
+            .where('date', '==', dateStr)
+            .orderBy('clockInTime', 'desc')
+            .limit(1);
+
+        const snapshot = await lastLogQuery.get();
+        if (snapshot.empty) {
+            throw new functions.https.HttpsError('not-found', 'No clock-in record found for today.');
+        }
+
+        const logRef = snapshot.docs[0].ref;
+        await logRef.update({ clockOutTime: now });
+        console.log(`Employee ${employeeId} clocked out.`);
+    }
+
+    return { success: true };
+});
+*/
+
+/**
+ * Generates performance review documents on a schedule.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every 1st day of month 02:00'
+ */
+/*
+exports.generatePerformanceReview = functions.region('europe-west1').pubsub
+    .schedule('every 1st day of month 02:00')
+    .onRun(async (context) => {
+        const now = new Date();
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        
+        // Find employees hired exactly one year ago today.
+        const employeesToReviewQuery = db.collection('employees')
+            .where('hireDate', '==', admin.firestore.Timestamp.fromDate(oneYearAgo));
+            
+        const snapshot = await employeesToReviewQuery.get();
+        if (snapshot.empty) {
+            console.log('No employees are due for an annual performance review today.');
+            return null;
+        }
+
+        const batch = db.batch();
+        for (const doc of snapshot.docs) {
+            const employee = doc.data();
+            const newReviewRef = db.collection('performance_reviews').doc();
+
+            batch.set(newReviewRef, {
+                reviewId: newReviewRef.id,
+                employeeId: employee.employeeId,
+                managerId: employee.managerId, // Assuming managerId exists on employee doc
+                reviewPeriod: `${now.getFullYear()}`,
+                status: 'Draft',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Notify the manager to start the review
+            // await sendNotificationToUser(employee.managerId, `Performance review for ${employee.firstName} is due.`);
+        }
+
+        await batch.commit();
+        console.log(`Generated performance reviews for ${snapshot.size} employees.`);
+        return null;
+    });
+*/
