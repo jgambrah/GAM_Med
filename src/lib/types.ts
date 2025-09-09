@@ -652,32 +652,6 @@ export interface Position {
  * This is the central source of truth for all HR and payroll calculations.
  * Path: /employees/{employeeId}
  */
-export interface StaffProfile {
-  staffId: string; // Document ID, should match user ID
-  userId: string; // Link to the 'users' collection (Firebase Auth UID)
-  employeeId: string; // e.g., "GAMMED/HR/001"
-  firstName: string;
-  lastName: string;
-  gender: 'Male' | 'Female' | 'Other';
-  dateOfBirth: string; // ISO Timestamp
-  department?: string; // e.g., 'Cardiology', 'Pharmacy', 'IT'.
-  hireDate?: string; // ISO Timestamp
-  employmentStatus: 'Active' | 'On Leave' | 'Terminated';
-  positionId: string; // Link to the 'positions' collection
-  recurringAllowances: { name: string; amount: number }[];
-  recurringDeductions: { name: string; amount: number }[];
-  bankDetails: { bankName: string; accountNumber: string; branchName: string }
-  permissions?: string[]; // Fine-grained permissions
-  salaryDetails?: {
-    base: number;
-    allowances: Record<string, number>;
-  };
-}
-
-/**
- * Represents an employee's document.
- * Path: /employees/{employeeId}/documents/{documentId}
- */
 export interface EmployeeDocument {
     documentId: string;
     type: 'Resume' | 'License' | 'Contract' | 'ID';
@@ -806,21 +780,49 @@ export interface PatientAlert {
  * The document ID should correspond to the Firebase Auth UID.
  */
 export interface User {
-  uid: string; // Corresponds to Firebase Auth UID
+  uid: string; // Document ID, should match Firebase Auth UID
+  userId: string; // Same as uid
+  firstName: string;
+  lastName: string;
+  name: string; // Denormalized: firstName + ' ' + lastName
   email: string;
-  name: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  qualifications?: {
+    degree: string;
+    institution: string;
+    graduationYear: number;
+  }[];
+  certifications?: {
+    name: string;
+    issuingBody: string;
+    issueDate: string;
+    expiryDate?: string;
+  }[];
+  licenses?: {
+    type: string;
+    issuingState: string;
+    licenseNumber: string;
+    expiryDate: string;
+  }[];
   role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
-  is_active: boolean;
-  patient_id?: string; // Link to the patient document, for users with the 'patient' role
-  created_at: string; // ISO 8601 format
-  last_login: string; // ISO 8601 format
+  is_active: boolean; // Replaces employmentStatus for simplicity in this model
+  department?: string; // e.g., 'Cardiology', 'Radiology'
+  hireDate?: string; // ISO Timestamp
   
-  // Doctor-specific fields
-  specialty?: string; // e.g., 'Cardiology', 'Pediatrics'
-  department?: string; // e.g., 'Cardiology'
-
-  photoURL?: string; // Optional: For profile pictures
-  availability?: Record<string, string[]>; // e.g., { '2025-12-01': ['09:00', '10:00'] }
+  // Existing fields to merge
+  patient_id?: string;
+  created_at: string;
+  last_login: string;
+  specialty?: string;
+  photoURL?: string;
+  availability?: Record<string, string[]>;
 }
 
 /**
@@ -1172,6 +1174,7 @@ export interface OTSession {
   recoveryRoomEntryTime?: string; // ISO Timestamp
   dischargeFromRecoveryTime?: string; // ISO Timestamp
   recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
+  postOpNotes?: string;
 }
 
 // =========================================================================
@@ -1388,6 +1391,7 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
 
 
