@@ -1,53 +1,62 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    function isUserAuthenticated() {
-      return request.auth != null;
+
+    // Helper function to get a user's role from the 'users' collection
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
 
-    function getUserRole() {
-      // In a real app, you might want to handle the case where the user document doesn't exist yet.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-    
-    // Allow read access for all authenticated users to their own user document
+    // Rules for User management
     match /users/{userId} {
-      allow read: if isUserAuthenticated();
-      allow write: if isUserAuthenticated() && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId; // Users can update their own profile
     }
-    
+
+    // Rules for Patient records
     match /patients/{patientId} {
-      allow read: if isUserAuthenticated(); // More specific rules for subcollections
-      allow write: if getUserRole() in ['admin', 'doctor', 'nurse']; // Or a trusted Cloud Function
+      // Allow read access to the patient themselves, or clinical/admin staff
+      allow read: if request.auth.token.patient_id == patientId || getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse', 'receptionist', 'billing_clerk'];
+      // Restrict writes to trusted server-side functions or admins
+      allow write: if getUserRole(request.auth.uid) == 'admin';
       
-      // Rules for daily_care_plans subcollection
-      match /daily_care_plans/{carePlanId} {
-        allow create: if false; // Only allow creation via trusted Cloud Function
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'ward_manager'] 
-                       || request.auth.uid == resource.data.assignedToUserId 
-                       || request.auth.uid == patientId;
-        allow update: if getUserRole() in ['nurse', 'ward_manager'] && request.auth.uid == resource.data.assignedToUserId;
+      // Rules for all patient sub-collections
+      match /{subcollection}/{docId} {
+        allow read: if request.auth.token.patient_id == patientId || getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse'];
+        allow write: if getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse'];
       }
     }
-
+    
+    // Rules for Ward and Bed Management
     match /wards/{wardId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist', 'ward_manager'];
-      // Allow write only by ward managers or trusted functions
-      allow write: if getUserRole() == 'ward_manager';
+        allow read: if getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse', 'receptionist'];
+        // In a real app, 'ward_manager' role would be used. For now, only admin can write.
+        allow write: if getUserRole(request.auth.uid) == 'admin';
     }
 
     match /beds/{bedId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
-      // Allow write only by trusted functions (or specific admin roles like ward_manager)
-      allow write: if getUserRole() in ['admin', 'ward_manager'];
+        allow read: if getUserRole(request.auth.uid) in ['admin', 'doctor', 'nurse', 'receptionist'];
+        // Direct writes are disallowed; all updates must go through Cloud Functions.
+        allow write: if false; 
     }
-    
-    match /operating_theatres/{theatreId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'receptionist'];
-      allow write: if getUserRole() == 'admin'; // Or trusted function
+
+    // Rules for Dietary Management
+    match /dietary_profiles/{profileId} {
+      function isOwner() {
+        return get(/databases/$(database)/documents/patients/$(profileId)).data.uid == request.auth.uid;
+      }
+      allow create, update: if getUserRole(request.auth.uid) in ['admin', 'nurse', 'dietitian'] || isOwner();
+      allow read: if getUserRole(request.auth.uid) in ['admin', 'nurse', 'dietitian', 'doctor'] || isOwner();
+    }
+
+    match /meal_orders/{orderId} {
+       function isPatientOfOrder() {
+        return get(/databases/$(database)/documents/meal_orders/$(orderId)).data.patientId == request.auth.token.patient_id;
+      }
+      allow create: if getUserRole(request.auth.uid) in ['admin', 'nurse', 'doctor'];
+      allow read: if getUserRole(request.auth.uid) in ['admin', 'nurse', 'doctor', 'dietitian'] || isPatientOfOrder();
+      allow update: if getUserRole(request.auth.uid) in ['admin', 'nurse', 'dietitian']; // Assuming 'kitchen_staff' role is not yet defined
     }
   }
 }
