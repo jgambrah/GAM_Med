@@ -1134,7 +1134,7 @@ export interface OTSession {
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Post-Op';
   surgicalTeam?: { userId: string, role: string }[]; // Array of team members
   preOpChecklist?: Record<string, 'Completed' | 'Pending' | 'N/A'>; // e.g., { 'Consent Signed': 'Completed' }
-  postOpCarePlan?: string;
+  postOpNotes?: string;
   patientName?: string; // Denormalized for display
   leadSurgeonName?: string; // Denormalized for display
   recoveryRoomEntryTime?: string; // ISO Timestamp
@@ -1356,6 +1356,7 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
 
 

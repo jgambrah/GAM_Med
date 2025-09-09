@@ -1,5 +1,4 @@
 
-
 import { z } from 'zod';
 
 export const RadiologyReportSchema = z.object({
@@ -148,6 +147,7 @@ export const VitalsSchema = z.object({
     temperature: z.string().min(1, "Required"),
     respiratoryRate: z.string().min(1, "Required"),
     oxygenSaturation: z.string().min(1, "Required"),
+    painScore: z.string().optional(),
     notes: z.string().optional(),
 });
 

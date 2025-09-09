@@ -41,7 +41,7 @@ export function PatientAlerts({ patientId }: PatientAlertsProps) {
     // In a real app, this would be a real-time Firestore query.
     const unacknowledgedAlerts = mockAlerts.filter(a => a.patientId === patientId && !a.isAcknowledged);
 
-    const canAcknowledge = user?.role === 'doctor' || user?.role === 'admin';
+    const canAcknowledge = user?.role === 'doctor' || user?.role === 'admin' || user?.role === 'nurse';
 
     const handleAcknowledge = async (alertId: string) => {
         const result = await acknowledgeAlert(patientId, alertId);
@@ -99,4 +99,3 @@ export function PatientAlerts({ patientId }: PatientAlertsProps) {
         </Card>
     );
 }
-

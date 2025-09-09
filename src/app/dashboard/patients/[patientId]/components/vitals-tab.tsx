@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -55,6 +54,7 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
             temperature: '',
             respiratoryRate: '',
             oxygenSaturation: '',
+            painScore: '',
             notes: '',
         }
     });
@@ -104,7 +104,7 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                 <CardContent>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="bloodPressure"
@@ -160,6 +160,17 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                         </FormItem>
                                     )}
                                 />
+                                 <FormField
+                                    control={form.control}
+                                    name="painScore"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Pain Score (0-10)</FormLabel>
+                                            <FormControl><Input type="number" placeholder="e.g., 2" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
                             <FormField
                                 control={form.control}
@@ -198,6 +209,7 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     <TableHead>Temp</TableHead>
                                     <TableHead>Resp</TableHead>
                                     <TableHead>SpO2</TableHead>
+                                    <TableHead>Pain</TableHead>
                                     <TableHead>Recorded By</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -211,12 +223,13 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                             <TableCell>{log.temperature}°C</TableCell>
                                             <TableCell>{log.respiratoryRate}</TableCell>
                                             <TableCell>{log.oxygenSaturation}%</TableCell>
+                                            <TableCell>{log.painScore || 'N/A'}</TableCell>
                                             <TableCell>{log.recordedByUserId === 'nurse1' ? 'F. Agyepong' : 'Staff'}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center">
+                                        <TableCell colSpan={8} className="h-24 text-center">
                                             No vitals recorded for this patient yet.
                                         </TableCell>
                                     </TableRow>
