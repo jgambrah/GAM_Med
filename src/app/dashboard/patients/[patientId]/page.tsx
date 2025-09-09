@@ -147,7 +147,7 @@ export default function PatientDetailPage() {
           <TabsTrigger value="vitals">Vitals</TabsTrigger>
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
-          {upcomingSurgery && <TabsTrigger value="surgery">Pre-Op</TabsTrigger>}
+          {upcomingSurgery && <TabsTrigger value="pre-op">Pre-Op</TabsTrigger>}
           {upcomingSurgery && <TabsTrigger value="post-op">Post-Op</TabsTrigger>}
           <TabsTrigger value="care-plan">Care Plan</TabsTrigger>
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
@@ -161,7 +161,7 @@ export default function PatientDetailPage() {
         <TabsContent value="vitals" className="mt-4">
             <VitalsTab patientId={patient.patient_id} />
         </TabsContent>
-         <TabsContent value="surgery" className="mt-4">
+         <TabsContent value="pre-op" className="mt-4">
             <PreOpChecklistTab surgery={upcomingSurgery} />
         </TabsContent>
         <TabsContent value="post-op" className="mt-4">
