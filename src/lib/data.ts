@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1591,32 +1591,39 @@ export const mockLabReports: LabReport[] = [
 export const mockOtSessions: OTSession[] = [
     {
         sessionId: 'session-1',
+        patientId: 'P-999999',
         otRoomId: 'OT-1',
         procedureName: 'Appendectomy',
         patientName: 'John Doe',
         leadSurgeonName: 'Dr. Evelyn Mensah',
+        leadSurgeonId: 'doc1',
         startTime: new Date('2024-08-16T09:00:00Z'),
         endTime: new Date('2024-08-16T11:00:00Z'),
-        status: 'Scheduled'
+        status: 'Completed',
+        postOpNotes: 'Procedure was successful. Patient tolerated well. Standard post-op care required.'
     },
     {
         sessionId: 'session-2',
+        patientId: 'P-888888',
         otRoomId: 'OT-1',
         procedureName: 'Hernia Repair',
         patientName: 'Jane Smith',
         leadSurgeonName: 'Dr. Kofi Asante',
+        leadSurgeonId: 'doc2',
         startTime: new Date('2024-08-16T12:00:00Z'),
         endTime: new Date('2024-08-16T14:30:00Z'),
         status: 'In Progress'
     },
     {
         sessionId: 'session-3',
+        patientId: 'P-123456',
         otRoomId: 'OT-3',
         procedureName: 'Knee Replacement',
         patientName: 'Kwame Owusu',
         leadSurgeonName: 'Dr. Amina El-Rufai',
-        startTime: new Date('2024-08-16T10:00:00Z'),
-        endTime: new Date('2024-08-16T13:00:00Z'),
+        leadSurgeonId: 'rad1', // Assuming radiologist can be a surgeon for mock data
+        startTime: new Date('2024-08-17T10:00:00Z'),
+        endTime: new Date('2024-08-17T13:00:00Z'),
         status: 'Scheduled'
     },
 ];
@@ -1667,4 +1674,5 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
