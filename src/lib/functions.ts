@@ -21,50 +21,163 @@
  * Books a new OT session after performing complex multi-resource availability checks.
  *
  * @trigger_type Callable Function (https)
- * @input { theatreId, startTime, endTime, patientId }
+ * @input { patientId, otRoomId, leadSurgeonId, teamIds, requiredEquipmentIds, startTime, endTime }
  */
 /*
-exports.bookOperationTheatre = functions.region('europe-west1').https.onCall(async (data, context) => {
+exports.bookOtSession = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check: Ensure user is an OT coordinator or lead surgeon.
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check...
 
-    const { theatreId, startTime, endTime, patientId } = data;
-    const theatreRef = db.collection('operating_theatres').doc(theatreId);
+    const { patientId, otRoomId, leadSurgeonId, teamIds, requiredEquipmentIds, startTime, endTime } = data;
+    const startTimestamp = admin.firestore.Timestamp.fromDate(new Date(startTime));
+    const endTimestamp = admin.firestore.Timestamp.fromDate(new Date(endTime));
+    
+    const newOtSessionRef = db.collection('ot_sessions').doc();
 
     try {
         await db.runTransaction(async (transaction) => {
-            const theatreDoc = await transaction.get(theatreRef);
-            if (!theatreDoc.exists || !theatreDoc.data().isAvailable) {
-                throw new Error(`Operating Theatre ${theatreId} is not available.`);
+            // --- CONFLICT CHECKS ---
+            
+            // a) Check OT Room availability
+            const otRoomConflictQuery = db.collection('ot_sessions')
+                .where('otRoomId', '==', otRoomId)
+                .where('startTime', '<', endTimestamp)
+                .where('endTime', '>', startTimestamp);
+            const otRoomConflictSnapshot = await transaction.get(otRoomConflictQuery);
+            if (!otRoomConflictSnapshot.empty) {
+                throw new Error(`Operating Theatre ${otRoomId} is already booked at this time.`);
+            }
+
+            // b) Check Surgical Team availability (lead surgeon + team)
+            const allTeamIds = [leadSurgeonId, ...teamIds];
+            for (const memberId of allTeamIds) {
+                const teamConflictQuery = db.collection('ot_sessions')
+                    .where('teamIds', 'array-contains', memberId)
+                    .where('startTime', '<', endTimestamp)
+                    .where('endTime', '>', startTimestamp);
+                const teamConflictSnapshot = await transaction.get(teamConflictQuery);
+                if (!teamConflictSnapshot.empty) {
+                    // Fetch user's name for a more helpful error message
+                    const userDoc = await transaction.get(db.collection('users').doc(memberId));
+                    throw new Error(`Team member ${userDoc.data()?.name || memberId} is unavailable.`);
+                }
             }
             
-            // This is a simplified check. A real system would check for time-slot overlaps.
-            // ... conflict checking logic here ...
+            // c) Check Equipment availability (simplified example)
+            // A real implementation would be more complex.
+            if (requiredEquipmentIds && requiredEquipmentIds.length > 0) {
+                 const equipmentConflictQuery = db.collection('ot_sessions')
+                    .where('requiredEquipmentIds', 'array-contains-any', requiredEquipmentIds)
+                    .where('startTime', '<', endTimestamp)
+                    .where('endTime', '>', startTimestamp);
+                 const equipmentConflictSnapshot = await transaction.get(equipmentConflictQuery);
+                 if(!equipmentConflictSnapshot.empty) {
+                     throw new Error('One or more required pieces of equipment are unavailable.');
+                 }
+            }
 
-            // Create a new document in an 'ot_schedules' sub-collection or a top-level collection.
-            const newScheduleRef = db.collection('ot_schedules').doc();
-            transaction.set(newScheduleRef, {
-                theatreId,
-                startTime,
-                endTime,
-                patientId,
-                bookedBy: context.auth.uid,
+            // d) CDS Check: Pre-operative checklist (conceptual)
+            // const preOpChecklistRef = db.collection('patients').doc(patientId).collection('checklists').doc('pre_op');
+            // const checklistDoc = await transaction.get(preOpChecklistRef);
+            // if (!checklistDoc.exists || !checklistDoc.data().isComplete) {
+            //     // This would return a soft error or warning to the UI, not throw an exception,
+            //     // allowing the booking but flagging the issue.
+            //     console.warn(`Patient ${patientId} is missing pre-operative clearance.`);
+            // }
+
+            // --- CREATE SESSION ---
+            const sessionData = {
+                ...data,
+                sessionId: newOtSessionRef.id,
+                status: 'Scheduled',
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Mark the theatre as unavailable for the general period if needed
-            // transaction.update(theatreRef, { isAvailable: false });
+            };
+            transaction.set(newOtSessionRef, sessionData);
         });
 
-        console.log(`Successfully booked OT ${theatreId} for patient ${patientId}.`);
-        return { success: true };
+        // Send confirmation notifications to the patient and surgical team.
+        // await sendNotificationToUsers([patientId, ...teamIds], { ... });
+
+        console.log(`OT Session ${newOtSessionRef.id} booked successfully.`);
+        return { success: true, sessionId: newOtSessionRef.id };
+
     } catch (error) {
         console.error('Failed to book OT session:', error);
         throw new functions.https.HttpsError('aborted', 'Could not book OT session.', { message: error.message });
     }
 });
 */
+
+/**
+ * Updates the status of a surgical case (e.g., from 'Scheduled' to 'In Progress').
+ *
+ * @trigger_type Callable Function (https)
+ * @input { caseId: string, newStatus: string }
+ */
+/*
+exports.updateSurgicalStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check: Ensure user is part of the surgical team or an admin.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { caseId, newStatus } = data;
+    const caseRef = db.collection('surgical_cases').doc(caseId);
+
+    await caseRef.update({
+        status: newStatus,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Send real-time notification to a central dashboard or patient's family portal.
+    // await sendRealTimeUpdate('ot_dashboard', { caseId, newStatus });
+
+    console.log(`Updated surgical case ${caseId} to status ${newStatus}.`);
+    return { success: true };
+});
+*/
+
+/**
+ * Generates the post-operative plan and updates the case status.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { caseId: string, postOpNotes: string }
+ */
+/*
+exports.generatePostOpPlan = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check: Ensure user is the lead surgeon for the case.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { caseId, postOpNotes } = data;
+    const caseRef = db.collection('surgical_cases').doc(caseId);
+
+    // Update the case with post-op notes and change status.
+    await caseRef.update({
+        postOpNotes: postOpNotes,
+        status: 'Post-Op',
+        completedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    const caseData = (await caseRef.get()).data();
+    const patientId = caseData.patientId;
+
+    // Optional: Create a formal care plan document in the patient's EHR.
+    const carePlanRef = db.collection('patients').doc(patientId).collection('care_plans').doc();
+    await carePlanRef.set({
+        title: `Post-Op Care for ${caseData.procedureName}`,
+        goal: 'Ensure smooth recovery, manage pain, and prevent infection.',
+        interventions: [postOpNotes],
+        status: 'Active',
+        // ...other care plan fields
+    });
+
+    // Send notification to the recovery ward staff.
+    // await sendNotificationToWard(caseData.assignedWard, `Patient ${patientId} is now in post-op.`);
+
+    console.log(`Generated post-op plan for case ${caseId}.`);
+    return { success: true };
+});
+*/
+
 
 // =======================================================================================
 // == Ward & Care Plan Management
@@ -3452,6 +3565,7 @@ exports.otSessionReminders = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
 
 // =======================================================================================
 // == RESOURCE SCHEDULING
