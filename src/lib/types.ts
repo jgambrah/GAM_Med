@@ -648,15 +648,15 @@ export interface Position {
 }
 
 /**
- * Represents a comprehensive HR record for a staff member.
- * This is the central source of truth for all HR and payroll calculations.
- * Path: /employees/{employeeId}
+ * Represents an employee's HR document.
+ * Path: /users/{userId}/documents/{documentId}
  */
 export interface EmployeeDocument {
     documentId: string;
     type: 'Resume' | 'License' | 'Contract' | 'ID';
     storageUrl: string; // Link to Firebase Storage
     uploadDate: string; // ISO Timestamp
+    expiryDate?: string; // Optional expiry date for licenses
 }
 
 /**
@@ -781,11 +781,20 @@ export interface PatientAlert {
  */
 export interface User {
   uid: string; // Document ID, should match Firebase Auth UID
-  userId: string; // Same as uid
-  firstName: string;
-  lastName: string;
-  name: string; // Denormalized: firstName + ' ' + lastName
   email: string;
+  name: string;
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
+  is_active: boolean;
+  department?: string;
+  specialty?: string;
+  created_at: string;
+  last_login: string;
+  photoURL?: string;
+  patient_id?: string; // If user is also a patient
+  availability?: Record<string, string[]>;
+  // For HR Module
+  firstName?: string;
+  lastName?: string;
   phoneNumber?: string;
   dateOfBirth?: string;
   address?: {
@@ -811,18 +820,8 @@ export interface User {
     licenseNumber: string;
     expiryDate: string;
   }[];
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
-  is_active: boolean; // Replaces employmentStatus for simplicity in this model
-  department?: string; // e.g., 'Cardiology', 'Radiology'
-  hireDate?: string; // ISO Timestamp
-  
-  // Existing fields to merge
-  patient_id?: string;
-  created_at: string;
-  last_login: string;
-  specialty?: string;
-  photoURL?: string;
-  availability?: Record<string, string[]>;
+  employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
+  hireDate?: string;
 }
 
 /**
@@ -1100,7 +1099,7 @@ export interface AppointmentHistory {
 
 
 // =========================================================================
-// == E-Prescribing & Pharmacy Data Models
+// == e-Prescribing & Pharmacy Data Models
 // =========================================================================
 
 /**
@@ -1389,8 +1388,60 @@ export interface LabReport {
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
 
+/**
+ * Represents a comprehensive HR record for a staff member.
+ * This is the central source of truth for all HR and payroll calculations.
+ * Path: /employees/{employeeId}
+ */
+export interface StaffProfile {
+  staffId: string;
+  userId: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  gender: 'Male' | 'Female' | 'Other';
+  dateOfBirth: string; // ISO format
+  employmentStatus: 'Active' | 'On Leave' | 'Terminated';
+  positionId: string;
+  hireDate: string; // ISO format
+  department: string;
+  qualifications?: {
+    degree: string;
+    institution: string;
+    graduationYear: number;
+  }[];
+  certifications?: {
+    name: string;
+    issuingBody: string;
+    issueDate: string;
+    expiryDate?: string;
+  }[];
+  licenses?: {
+    type: string;
+    licenseNumber: string;
+    expiryDate: string;
+  }[];
+  contactInfo?: {
+    phone: string;
+    email: string;
+  };
+  recurringAllowances: {
+    name: string;
+    amount: number;
+  }[];
+  recurringDeductions: {
+    name: string;
+    amount: number;
+  }[];
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    branchName: string;
+  };
+}
 
     
+
 
 
 

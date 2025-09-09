@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -26,7 +27,6 @@ import {
     Scissors,
     Clock,
     CreditCard,
-    Receipt,
     CheckSquare,
     Wallet,
     Contact,
@@ -35,6 +35,7 @@ import {
     BarChart,
     Scan,
     Apple,
+    Briefcase
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -52,14 +53,12 @@ export function MainNavClient() {
   const criticalAlertCount = React.useMemo(() => {
     if (!user || user.role !== 'doctor') return 0;
     
-    // Get a list of patients this doctor is attending
     const myPatientIds = new Set(
         allAdmissions
             .filter(a => a.attending_doctor_id === user.uid)
             .map(a => a.patient_id)
     );
 
-    // Count unacknowledged critical alerts for those patients
     return mockAlerts.filter(alert => 
         myPatientIds.has(alert.patientId) && 
         alert.severity === 'Critical' && 
@@ -199,7 +198,7 @@ export function MainNavClient() {
     {
       href: '/dashboard/hr',
       label: 'Human Resources',
-      icon: Contact,
+      icon: Briefcase,
       roles: ['admin'],
     },
     {
@@ -235,3 +234,4 @@ export function MainNavClient() {
     </SidebarMenu>
   );
 }
+
