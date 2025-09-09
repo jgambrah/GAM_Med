@@ -1,9 +1,92 @@
 
-import * as React from 'react';
-import { MainNavClient } from './main-nav-client';
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from '@/components/ui/sidebar';
+import { useAuth } from '@/hooks/use-auth';
+import { Home, Users, Calendar, Pill, Stethoscope, LayoutDashboard, BedDouble, Scissors } from 'lucide-react';
+import { User } from '@/lib/types';
+
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'ot_coordinator'];
 
 export function MainNav() {
-  // This component remains a Server Component by default,
-  // and delegates the client-side logic to MainNavClient.
-  return <MainNavClient />;
+  const pathname = usePathname();
+  const { user } = useAuth();
+
+  const menuItems = [
+    {
+      href: '/dashboard',
+      label: 'Dashboard',
+      icon: Home,
+      roles: allRoles,
+    },
+    {
+      href: '/dashboard/patients',
+      label: 'Patients',
+      icon: Users,
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+    },
+    {
+      href: '/dashboard/beds',
+      label: 'Beds',
+      icon: BedDouble,
+      roles: ['admin', 'doctor', 'nurse'],
+    },
+    {
+        href: '/dashboard/ot',
+        label: 'OT Schedule',
+        icon: Scissors,
+        roles: ['admin', 'doctor', 'ot_coordinator'],
+    },
+    {
+      href: '/dashboard/appointments',
+      label: 'Appointments',
+      icon: Calendar,
+      roles: ['admin', 'doctor', 'nurse', 'billing_clerk'],
+    },
+    {
+      href: '/dashboard/prescriptions',
+      label: 'Prescriptions',
+      icon: Pill,
+      roles: ['doctor', 'pharmacist', 'patient'],
+    },
+    {
+      href: '/dashboard/my-practice',
+      label: 'My Practice',
+      icon: Stethoscope,
+      roles: ['doctor'],
+    },
+    {
+      href: '/dashboard/admin',
+      label: 'Admin Panel',
+      icon: LayoutDashboard,
+      roles: ['admin'],
+    },
+  ];
+
+  const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role));
+
+  return (
+    <SidebarMenu>
+      {accessibleItems.map((item) => (
+        <SidebarMenuItem key={item.href}>
+          <SidebarMenuButton
+            asChild
+            isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
+            tooltip={item.label}
+          >
+            <Link href={item.href}>
+              <item.icon />
+              <span>{item.label}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
 }
