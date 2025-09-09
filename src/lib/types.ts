@@ -777,7 +777,7 @@ export interface User {
   uid: string; // Corresponds to Firebase Auth UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist';
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
   is_active: boolean;
   patient_id?: string; // Link to the patient document, for users with the 'patient' role
   created_at: string; // ISO 8601 format
@@ -1297,6 +1297,40 @@ export interface ImmunizationRecord {
 }
 
 // =========================================================================
+// == Dietary Management Data Models
+// =========================================================================
+
+/**
+ * Stores individual patient dietary information.
+ * Path: /dietary_profiles/{profileId} (where profileId === patientId)
+ */
+export interface DietaryProfile {
+  profileId: string;
+  patientId: string;
+  allergies?: string[];
+  restrictions?: string[];
+  preferences?: string[];
+  specialInstructions?: string;
+}
+
+/**
+ * Tracks each meal ordered for a patient.
+ * Path: /meal_orders/{mealOrderId}
+ */
+export interface MealOrder {
+  mealOrderId: string;
+  patientId: string;
+  orderDateTime: string; // ISO Timestamp
+  mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+  dietaryPlan: string; // e.g., 'Diabetic', 'Low Sodium'
+  mealItems: string[];
+  status: 'Ordered' | 'Preparing' | 'Delivered' | 'Canceled';
+  deliveredByUserId?: string;
+  deliveryTimestamp?: string; // ISO Timestamp
+}
+
+
+// =========================================================================
 // == Reporting Data Models
 // =========================================================================
 
@@ -1315,3 +1349,6 @@ export interface LabReport {
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
+
+    
