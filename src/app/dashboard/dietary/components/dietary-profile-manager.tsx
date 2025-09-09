@@ -132,17 +132,17 @@ function ProfileDetail({ label, items }: { label: string, items?: string[] }) {
 
 export function DietaryProfileManager() {
     const [selectedPatientId, setSelectedPatientId] = React.useState<string | undefined>(allPatients[0].patient_id);
-    const [profiles, setProfiles] = React.useState<DietaryProfile[]>(mockDietaryProfiles);
+    const [profiles, setProfiles] = React.useState<DietaryProfile[] | undefined>(mockDietaryProfiles);
 
     const patientOptions = allPatients.map(p => ({
         value: p.patient_id,
         label: `${p.full_name} (${p.patient_id})`
     }));
 
-    const selectedProfile = profiles.find(p => p.patientId === selectedPatientId);
+    const selectedProfile = profiles?.find(p => p.patientId === selectedPatientId);
     
     const handleProfileUpdated = (updatedProfile: DietaryProfile) => {
-        setProfiles(prev => prev.map(p => p.profileId === updatedProfile.profileId ? updatedProfile : p));
+        setProfiles(prev => prev?.map(p => p.profileId === updatedProfile.profileId ? updatedProfile : p));
     }
 
     const handleCreateProfile = () => {
@@ -153,7 +153,7 @@ export function DietaryProfileManager() {
             patientId: selectedPatientId,
         };
 
-        setProfiles(prev => [...prev, newProfile]);
+        setProfiles(prev => [...(prev || []), newProfile]);
         toast.success(`A new dietary profile has been created for the selected patient.`);
     }
 
