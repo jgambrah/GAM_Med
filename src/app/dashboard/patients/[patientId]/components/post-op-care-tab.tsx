@@ -13,10 +13,51 @@ import { OTSession } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { BedDouble, LogOut } from 'lucide-react';
 
 const PostOpSchema = z.object({
   postOpNotes: z.string().min(20, 'Post-operative notes must be at least 20 characters.'),
 });
+
+function DischargeFromRecoveryDialog({ surgery }: { surgery: OTSession }) {
+    const [open, setOpen] = React.useState(false);
+
+    const handleDischarge = () => {
+        // In a real app, this would call a Cloud Function to:
+        // 1. Update the OTSession status to 'Completed'.
+        // 2. Set the `dischargeFromRecoveryTime`.
+        // 3. Potentially trigger a notification to the ward nurse that the patient is being transferred.
+        console.log(`Discharging patient from recovery for case ${surgery.sessionId}`);
+        toast.success("Patient Discharged from Recovery", {
+            description: "The patient has been marked as stable and ready for transfer to the ward."
+        });
+        setOpen(false);
+    }
+
+    return (
+         <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="secondary">
+                    <BedDouble className="mr-2 h-4 w-4" /> Discharge from Recovery
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Confirm Discharge from Recovery</DialogTitle>
+                    <DialogDescription>
+                        Are you sure you want to mark this patient as stable and ready for transfer from the recovery unit? This will complete the post-operative phase.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button onClick={handleDischarge}>Confirm Discharge</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 interface PostOpCareTabProps {
   surgery?: OTSession;
@@ -96,7 +137,8 @@ export function PostOpCareTab({ surgery }: PostOpCareTabProps) {
                         </FormItem>
                     )}
                 />
-                <div className="flex justify-end">
+                <div className="flex justify-between items-center">
+                    <DischargeFromRecoveryDialog surgery={surgery} />
                     <Button type="submit" disabled={form.formState.isSubmitting}>
                         {form.formState.isSubmitting ? 'Submitting...' : 'Finalize & Send Post-Op Plan'}
                     </Button>
