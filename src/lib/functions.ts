@@ -14,6 +14,98 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Employee Database & HR Management
+// =======================================================================================
+
+/**
+ * Checks for expiring employee credentials (licenses, certifications) and sends reminders.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 08:00'
+ */
+/*
+exports.checkCredentialsExpiry = functions.region('europe-west1').pubsub
+    .schedule('every day 08:00')
+    .onRun(async (context) => {
+        const now = new Date();
+        const sixtyDaysFromNow = new Date(now.getTime() + (60 * 24 * 60 * 60 * 1000));
+
+        // 1. Query for active users
+        const activeUsersSnapshot = await db.collection('users').where('employmentStatus', '==', 'Active').get();
+        if (activeUsersSnapshot.empty) {
+            console.log('No active users to check for expiring credentials.');
+            return null;
+        }
+
+        // 2. Iterate through each user and their credentials
+        for (const userDoc of activeUsersSnapshot.docs) {
+            const user = userDoc.data();
+            
+            // Check licenses
+            (user.licenses || []).forEach(license => {
+                const expiryDate = new Date(license.expiryDate._seconds * 1000);
+                if (expiryDate <= sixtyDaysFromNow) {
+                    const message = `REMINDER: Your ${license.type} (${license.licenseNumber}) is expiring on ${expiryDate.toLocaleDateString()}.`;
+                    // await sendNotificationToUser(user.userId, { body: message });
+                    console.log(`Sending license expiry reminder to ${user.email}.`);
+                }
+            });
+
+            // Check certifications
+            (user.certifications || []).forEach(cert => {
+                const expiryDate = new Date(cert.expiryDate._seconds * 1000);
+                if (expiryDate <= sixtyDaysFromNow) {
+                     const message = `REMINDER: Your ${cert.name} certification is expiring on ${expiryDate.toLocaleDateString()}.`;
+                    // await sendNotificationToUser(user.userId, { body: message });
+                    console.log(`Sending certification expiry reminder to ${user.email}.`);
+                }
+            });
+        }
+        
+        return null;
+    });
+*/
+
+/**
+ * Assigns a default role to a newly created user if no role is specified.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { userId: string }
+ */
+/*
+exports.assignDefaultRole = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for HR admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { userId } = data;
+    if (!userId) {
+        throw new functions.https.HttpsError('invalid-argument', 'A userId must be provided.');
+    }
+
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+    
+    // Assign default role only if the roles array is empty or non-existent
+    if (!userDoc.data().roles || userDoc.data().roles.length === 0) {
+        await userRef.update({
+            roles: ['staff'] // Assign a basic, default role
+        });
+        console.log(`Assigned default 'staff' role to user ${userId}.`);
+        return { success: true, message: 'Default role assigned.' };
+    }
+
+    console.log(`User ${userId} already has roles assigned. No action taken.`);
+    return { success: false, message: 'User already has roles.' };
+});
+*/
+
+
+// =======================================================================================
 // == Ward, Bed & OT Management
 // =======================================================================================
 
@@ -4602,3 +4694,4 @@ exports.generatePerformanceReview = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
