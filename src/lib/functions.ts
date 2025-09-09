@@ -178,6 +178,82 @@ exports.generatePostOpPlan = functions.region('europe-west1').https.onCall(async
 });
 */
 
+// =======================================================================================
+// == POST-OPERATIVE RECOVERY TRACKING
+// =======================================================================================
+
+/**
+ * Logs vital signs for a patient in post-operative recovery.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { caseId, heartRate, bloodPressure, respiratoryRate, oxygenSaturation, temperature, painScore, notes }
+ */
+/*
+exports.logVitalSigns = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an authorized nurse or doctor.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+    
+    const { caseId, ...vitalsData } = data;
+    const vitalsLogRef = db.collection('surgical_cases').doc(caseId).collection('vitals_log').doc();
+
+    const newLogEntry = {
+        ...vitalsData,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        recordedByUserId: context.auth.uid
+    };
+
+    await vitalsLogRef.set(newLogEntry);
+    
+    // 2. Critical Value Check (simplified)
+    if (vitalsData.oxygenSaturation < 92 || vitalsData.heartRate > 120) {
+        // Fetch case data to get surgeon and patient info
+        const caseDoc = await db.collection('surgical_cases').doc(caseId).get();
+        const caseData = caseDoc.data();
+        
+        // await sendHighPriorityAlert(caseData.leadSurgeonId, `Critical vitals for patient ${caseData.patientId}.`);
+    }
+
+    console.log(`Logged vitals for surgical case ${caseId}.`);
+    return { success: true };
+});
+*/
+
+/**
+ * Automatically updates the recovery status based on key timestamps.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /surgical_cases/{caseId}
+ */
+/*
+exports.updateRecoveryStatus = functions.region('europe-west1').firestore
+    .document('/surgical_cases/{caseId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        
+        const updates = {};
+
+        // If recoveryRoomEntryTime is newly set, patient is now in monitoring.
+        if (newData.recoveryRoomEntryTime && !oldData.recoveryRoomEntryTime) {
+            updates.recoveryStatus = 'Monitoring';
+        }
+
+        // If dischargeFromRecoveryTime is newly set, patient has been discharged from recovery.
+        if (newData.dischargeFromRecoveryTime && !oldData.dischargeFromRecoveryTime) {
+            updates.recoveryStatus = 'Discharged';
+        }
+        
+        // If there are updates to be made, apply them.
+        if (Object.keys(updates).length > 0) {
+            await change.after.ref.update(updates);
+            console.log(`Updated recovery status for case ${context.params.caseId}.`);
+        }
+
+        return null;
+    });
+*/
+
 
 // =======================================================================================
 // == Ward & Care Plan Management
