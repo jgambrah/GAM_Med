@@ -8,7 +8,7 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import { UserNav } from '@/components/dashboard/user-nav';
-import { MainNav } from '@/components/dashboard/main-nav';
+import { MainNavClient } from '@/components/dashboard/main-nav-client';
 import { AuthProvider } from '@/context/auth-provider';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -27,7 +27,7 @@ export default function DashboardLayout({
             </div>
           </SidebarHeader>
           <SidebarContent>
-            <MainNav />
+            <MainNavClient />
           </SidebarContent>
         </Sidebar>
         <SidebarInset>
