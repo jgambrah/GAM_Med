@@ -1,92 +1,131 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the user's role from the 'users' collection
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    
+    function hasAnyRole(roles) {
+      return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
+    }
+    
+    // =====================================================================
+    // == Global Roles & Permissions
+    // =====================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isDoctor() {
+      return hasAnyRole(['admin', 'doctor']);
+    }
+    
+    function isNurse() {
+        return hasAnyRole(['admin', 'nurse']);
+    }
+    
+    function isClinicalStaff() {
+        return hasAnyRole(['admin', 'doctor', 'nurse']);
+    }
+    
+    function isBilling() {
+        return hasAnyRole(['admin', 'billing_clerk']);
+    }
+    
+    function isPharmacist() {
+        return hasAnyRole(['admin', 'pharmacist']);
     }
 
-    // Rules for User Profiles
+    function isLabStaff() {
+        return hasAnyRole(['admin', 'lab_technician']);
+    }
+
+    function isRadiologyStaff() {
+        return hasAnyRole(['admin', 'radiologist', 'receptionist']);
+    }
+    
+    function isAdmin() {
+        return hasAnyRole(['admin']);
+    }
+    
+    // =====================================================================
+    // == Collection-Specific Rules
+    // =====================================================================
+    
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
+      // Users can read their own data. Admins can read anyone's data.
+      allow read: if request.auth.uid == userId || isAdmin();
+      // Only admins can create or update user roles and details.
+      allow write: if isAdmin();
     }
-    
-    // Rules for Patients collection
+
     match /patients/{patientId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist'] || request.auth.uid == patientId;
-      allow create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      // Sub-collections
-      match /alerts/{alertId} {
-        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
+      // Admins and clinical staff can read all patient records.
+      // Patients can only read their own record.
+      allow read: if isClinicalStaff() || request.auth.uid == resource.data.uid;
+      // Only admins and nurses can create or update patient records.
+      allow write: if hasAnyRole(['admin', 'nurse']);
 
-      match /clinical_notes/{noteId} {
-        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-      match /vitals/{vitalId} {
-        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      
-      match /medication_history/{prescriptionId} {
-      	 allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      // Sub-collection rules inherit the parent `read` rule by default,
+      // but we can make them more restrictive if needed.
+      match /{subcollection}/{docId} {
+        // Clinical staff can read/write to most sub-collections.
+        allow read, write: if isClinicalStaff();
       }
     }
     
-    // Rules for Appointments
-    match /appointments/{appointmentId} {
-      allow read: if request.auth != null;
-      allow create, update: if getUserRole() in ['admin', 'receptionist', 'doctor'];
-      allow delete: if getUserRole() in ['admin', 'receptionist'];
-    }
-
-    // Rules for Beds
     match /beds/{bedId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow update: if getUserRole() in ['admin', 'doctor', 'nurse']; // Only backend functions should create/delete
+      // Any authenticated user can see the bed status.
+      allow read: if isSignedIn();
+      // Only clinical staff can update bed status (e.g., assign a patient, mark for cleaning).
+      allow write: if isClinicalStaff();
     }
 
-    // Rules for OT Sessions
     match /ot_sessions/{caseId} {
-      allow read: if getUserRole() in ['admin', 'surgeon', 'nurse', 'ot_coordinator'] || request.auth.uid == resource.data.patientId;
-      allow create, update: if getUserRole() in ['admin', 'surgeon', 'ot_coordinator'];
+        allow read: if isClinicalStaff() || request.auth.uid == resource.data.patientId;
+        allow write: if hasAnyRole(['admin', 'doctor', 'ot_coordinator']);
 
-      // Sub-collection for vitals during surgery
-      match /vitals_log/{logId} {
-        allow create: if getUserRole() in ['admin', 'nurse'];
-        // Note: parent(collection) is not a valid syntax. We refer to the parent document's data.
-        allow read: if getUserRole() in ['admin', 'surgeon', 'nurse'] || request.auth.uid == get(/databases/$(database)/documents/ot_sessions/$(caseId)).data.patientId;
-      }
-    }
-    
-    // Rules for Employee Data
-    match /employees/{employeeId} {
-        // Employees can read their own record, admins and HR managers can read any.
-        allow read: if getUserRole() in ['admin', 'hr_manager'] || request.auth.uid == employeeId;
-        // Only admins and HR managers can create, update, or delete employee records.
-        allow create, update, delete: if getUserRole() in ['admin', 'hr_manager'];
-
-        // Rules for employee documents sub-collection
-        match /documents/{documentId} {
-            // Employees can upload documents to their own record. HR/Admins can manage any.
-            allow create: if getUserRole() in ['admin', 'hr_manager'] || request.auth.uid == employeeId;
-            // Employees can read their own documents. HR/Admins can read any.
-            allow read: if getUserRole() in ['admin', 'hr_manager'] || request.auth.uid == employeeId;
+        match /vitals_log/{logId} {
+            allow create: if isNurse();
+            allow read: if isClinicalStaff() || request.auth.uid == parent(collection).data.patientId;
         }
     }
-    
-    // Rules for Attendance Logs
+
+    match /employees/{employeeId} {
+        allow read: if hasAnyRole(['admin', 'hr_manager']) || request.auth.uid == resource.id;
+        allow create, update, delete: if hasAnyRole(['admin', 'hr_manager']);
+
+        match /documents/{documentId} {
+            allow create: if hasAnyRole(['admin', 'hr_manager']) || request.auth.uid == parent(collection).id;
+            allow read: if hasAnyRole(['admin', 'hr_manager']) || request.auth.uid == parent(collection).id;
+        }
+    }
+
     match /attendance_logs/{logId} {
-        // Creating logs should ideally be handled by a trusted backend (like a Cloud Function)
-        // or a specific service account for a kiosk. For simplicity, we'll allow HR/Admins.
-        allow create: if getUserRole() in ['admin', 'hr_manager'];
-        // Only HR and admins can read attendance logs.
-        allow read: if getUserRole() in ['admin', 'hr_manager'];
+        allow create: if hasAnyRole(['admin', 'hr_manager']); // In a real app, this might be a specific service account
+        allow read: if hasAnyRole(['admin', 'hr_manager']);
+    }
+
+    // Rules for results and student_academic_records
+    function isExamAdmin() {
+      return hasAnyRole(['admin', 'registrar']);
+    }
+    function isStudent(studentId) {
+        return request.auth.uid == studentId;
     }
     
+    match /results/{docId} {
+        // READ: Only the student themselves can read their result IF it's published. Exam Admins can read all.
+        allow read: if (resource.data.studentId == request.auth.uid && resource.data.isPublished == true) || isExamAdmin();
+        // WRITE: Only a Cloud Function can manage results to ensure data integrity and controlled publication.
+        allow write: if false;
+    }
+    
+    match /student_academic_records/{docId} {
+        // READ: Students can only read their own records IF the final result is published. Exam Admins can read all.
+        allow read: if (resource.data.studentId == request.auth.uid && resource.data.finalResultPublished == true) || isExamAdmin();
+        // WRITE: Only a Cloud Function can write to this collection to ensure data integrity.
+        allow write: if false;
+    }
+
   }
 }
