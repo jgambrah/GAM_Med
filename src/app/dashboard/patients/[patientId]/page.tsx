@@ -1,12 +1,11 @@
 
-
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan, Edit } from 'lucide-react';
-import { allPatients, allAdmissions, mockNotes, mockCarePlans } from '@/lib/data';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan, Edit, Scissors } from 'lucide-react';
+import { allPatients, allAdmissions, mockNotes, mockCarePlans, mockOtSessions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -35,6 +34,7 @@ import { OrderTestDialog } from './components/order-test-dialog';
 import { OrderStudyDialog } from './components/order-study-dialog';
 import { RadiologyTab } from './components/radiology-tab';
 import { CarePlanTab } from './components/care-plan-tab';
+import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 
 
 /**
@@ -59,6 +59,8 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
   const carePlan = mockCarePlans.find(cp => cp.patientId === patientId);
+  const upcomingSurgery = mockOtSessions.find(s => s.patientName === patient.full_name && s.status === 'Scheduled');
+
 
   if (!patient) {
     notFound();
@@ -144,6 +146,7 @@ export default function PatientDetailPage() {
           <TabsTrigger value="vitals">Vitals</TabsTrigger>
           <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
+          {upcomingSurgery && <TabsTrigger value="surgery">Surgery</TabsTrigger>}
           <TabsTrigger value="care-plan">Care Plan</TabsTrigger>
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
@@ -155,6 +158,9 @@ export default function PatientDetailPage() {
         </TabsList>
         <TabsContent value="vitals" className="mt-4">
             <VitalsTab patientId={patient.patient_id} />
+        </TabsContent>
+         <TabsContent value="surgery" className="mt-4">
+            <PreOpChecklistTab surgery={upcomingSurgery} />
         </TabsContent>
         <TabsContent value="demographics" className="mt-4">
           <DemographicsTab patient={patient} />
@@ -190,4 +196,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-
