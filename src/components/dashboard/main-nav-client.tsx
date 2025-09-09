@@ -106,12 +106,6 @@ export function MainNavClient() {
         roles: ['patient']
     },
     {
-        href: '/dashboard/my-claims',
-        label: 'My Claims',
-        icon: Receipt,
-        roles: staffRoles,
-    },
-    {
         href: `/dashboard/hr/staff/${user?.uid}`,
         label: 'My Profile',
         icon: Contact,
@@ -217,7 +211,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
