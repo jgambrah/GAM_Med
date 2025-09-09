@@ -1,5 +1,7 @@
 
+'use client';
 
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -10,8 +12,29 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StaffManagementDashboard } from './components/staff-management-dashboard';
 import { PositionsDashboard } from './components/positions-dashboard';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
 
 export default function HumanResourcesPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // Redirect non-admins who land here to their own profile page.
+  React.useEffect(() => {
+    if (user && user.role !== 'admin') {
+      router.replace(`/dashboard/hr/staff/${user.uid}`);
+    }
+  }, [user, router]);
+
+  // Render content only for admins
+  if (user?.role !== 'admin') {
+    return (
+        <div className="flex items-center justify-center h-full">
+            <p>Loading your profile...</p>
+        </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>

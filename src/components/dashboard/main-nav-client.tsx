@@ -40,6 +40,8 @@ import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 
 const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
+const staffRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
+
 
 export function MainNavClient() {
   const pathname = usePathname();
@@ -107,7 +109,13 @@ export function MainNavClient() {
         href: '/dashboard/my-claims',
         label: 'My Claims',
         icon: Receipt,
-        roles: ['doctor', 'nurse', 'admin', 'billing_clerk', 'pharmacist', 'lab_technician', 'ot_coordinator', 'receptionist'],
+        roles: staffRoles,
+    },
+    {
+        href: `/dashboard/hr/staff/${user?.uid}`,
+        label: 'My Profile',
+        icon: Contact,
+        roles: staffRoles,
     },
      {
       href: '/dashboard/approvals',
@@ -209,7 +217,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-claims', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
