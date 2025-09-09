@@ -152,4 +152,4 @@ export function StaffDirectoryDashboard() {
 }
 
 // Rename the component to avoid confusion
-export { StaffDirectoryDashboard };
+export { StaffDirectoryDashboard as StaffManagementDashboard };
