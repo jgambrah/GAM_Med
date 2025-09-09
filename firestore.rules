@@ -1,66 +1,92 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get user role from a separate 'users' collection
+  
+    // Helper function to get the user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Patients collection
-    match /patients/{patientId} {
-      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist', 'lab_technician', 'receptionist', 'radiologist', 'dietitian'];
-      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-
-      // Sub-collections for a patient's EHR
-      match /{subcollection}/{documentId} {
-        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-    }
-
-    // Users collection
+    // Rules for User Profiles
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || getUserRole() in ['admin'];
-      allow write: if request.auth.uid == userId || getUserRole() in ['admin'];
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
     }
+    
+    // Rules for Patients collection
+    match /patients/{patientId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'pharmacist'] || request.auth.uid == patientId;
+      allow create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      
+      // Sub-collections
+      match /alerts/{alertId} {
+        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
 
-    // Beds collection
-    match /beds/{bedId} {
-        allow read: if request.auth != null;
-        allow write: if getUserRole() in ['admin', 'nurse', 'doctor'];
-    }
-
-    // Appointments collection
-    match /appointments/{appointmentId} {
-        allow read: if request.auth != null;
-        allow create: if getUserRole() in ['admin', 'doctor', 'patient', 'receptionist'];
-        allow update: if getUserRole() in ['admin', 'doctor', 'receptionist'];
-    }
-
-    // Operating Theatre (OT) Sessions & Schedules
-    match /ot_sessions/{sessionId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || request.auth.uid == resource.data.patientId;
-      allow create, update: if getUserRole() in ['admin', 'doctor', 'ot_coordinator'];
-
-      // Vitals Log sub-collection for post-operative recovery tracking
-      match /vitals_log/{logId} {
-        allow create: if getUserRole() in ['admin', 'nurse'];
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || request.auth.uid == get(/databases/$(database)/documents/ot_sessions/$(sessionId)).data.patientId;
+      match /clinical_notes/{noteId} {
+        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
+      
+      match /vitals/{vitalId} {
+        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      }
+      
+      match /medication_history/{prescriptionId} {
+      	 allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
       }
     }
     
-    // Dietary Management
-    match /dietary_profiles/{profileId} {
-      allow create, update: if getUserRole() in ['admin', 'nurse', 'dietitian'] || request.auth.uid == resource.data.patientId;
-      allow read: if getUserRole() in ['admin', 'nurse', 'dietitian', 'doctor'] || request.auth.uid == resource.data.patientId;
+    // Rules for Appointments
+    match /appointments/{appointmentId} {
+      allow read: if request.auth != null;
+      allow create, update: if getUserRole() in ['admin', 'receptionist', 'doctor'];
+      allow delete: if getUserRole() in ['admin', 'receptionist'];
     }
 
-    match /meal_orders/{orderId} {
-       allow create: if getUserRole() in ['admin', 'nurse', 'doctor'];
-       allow read: if getUserRole() in ['admin', 'nurse', 'doctor', 'dietitian'] || request.auth.uid == resource.data.patientId;
-       allow update: if getUserRole() in ['admin', 'nurse', 'dietitian', 'kitchen_staff'];
+    // Rules for Beds
+    match /beds/{bedId} {
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow update: if getUserRole() in ['admin', 'doctor', 'nurse']; // Only backend functions should create/delete
     }
+
+    // Rules for OT Sessions
+    match /ot_sessions/{caseId} {
+      allow read: if getUserRole() in ['admin', 'surgeon', 'nurse', 'ot_coordinator'] || request.auth.uid == resource.data.patientId;
+      allow create, update: if getUserRole() in ['admin', 'surgeon', 'ot_coordinator'];
+
+      // Sub-collection for vitals during surgery
+      match /vitals_log/{logId} {
+        allow create: if getUserRole() in ['admin', 'nurse'];
+        // Note: parent(collection) is not a valid syntax. We refer to the parent document's data.
+        allow read: if getUserRole() in ['admin', 'surgeon', 'nurse'] || request.auth.uid == get(/databases/$(database)/documents/ot_sessions/$(caseId)).data.patientId;
+      }
+    }
+    
+    // Rules for Employee Data
+    match /employees/{employeeId} {
+        // Employees can read their own record, admins and HR managers can read any.
+        allow read: if getUserRole() in ['admin', 'hr_manager'] || request.auth.uid == employeeId;
+        // Only admins and HR managers can create, update, or delete employee records.
+        allow create, update, delete: if getUserRole() in ['admin', 'hr_manager'];
+
+        // Rules for employee documents sub-collection
+        match /documents/{documentId} {
+            // Employees can upload documents to their own record. HR/Admins can manage any.
+            allow create: if getUserRole() in ['admin', 'hr_manager'] || request.auth.uid == employeeId;
+            // Employees can read their own documents. HR/Admins can read any.
+            allow read: if getUserRole() in ['admin', 'hr_manager'] || request.auth.uid == employeeId;
+        }
+    }
+    
+    // Rules for Attendance Logs
+    match /attendance_logs/{logId} {
+        // Creating logs should ideally be handled by a trusted backend (like a Cloud Function)
+        // or a specific service account for a kiosk. For simplicity, we'll allow HR/Admins.
+        allow create: if getUserRole() in ['admin', 'hr_manager'];
+        // Only HR and admins can read attendance logs.
+        allow read: if getUserRole() in ['admin', 'hr_manager'];
+    }
+    
   }
 }
