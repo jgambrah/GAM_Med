@@ -182,6 +182,95 @@ exports.updateCareTaskStatus = functions.region('europe-west1').https.onCall(asy
 */
 
 // =======================================================================================
+// == DIETARY MANAGEMENT
+// =======================================================================================
+
+/**
+ * Creates a new meal order for a patient.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, mealType: string, dietaryPlan?: string, mealItems?: string[] }
+ */
+/*
+exports.createMealOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is authorized (nurse, doctor, dietitian)
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check here...
+
+    const { patientId, mealType, dietaryPlan, mealItems } = data;
+    if (!patientId || !mealType) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID and meal type are required.');
+    }
+
+    const dietaryProfileRef = db.collection('dietary_profiles').doc(patientId);
+    const newMealOrderRef = db.collection('meal_orders').doc();
+    
+    // Fetch patient's dietary profile to autofill details if not provided
+    const dietaryProfileDoc = await dietaryProfileRef.get();
+    let finalDietaryPlan = dietaryPlan;
+    if (!finalDietaryPlan && dietaryProfileDoc.exists) {
+        finalDietaryPlan = dietaryProfileDoc.data().restrictions?.join(', ') || 'Standard';
+    }
+
+    const mealOrderData = {
+        mealOrderId: newMealOrderRef.id,
+        patientId,
+        orderDateTime: admin.firestore.FieldValue.serverTimestamp(),
+        mealType,
+        dietaryPlan: finalDietaryPlan,
+        mealItems: mealItems || [], // Can be populated later by kitchen
+        status: 'Ordered'
+    };
+
+    await newMealOrderRef.set(mealOrderData);
+    
+    // 2. Send notification to the kitchen management system/topic
+    // await sendNotificationToTopic('kitchen_staff', `New meal order for patient ${patientId}`);
+    
+    console.log(`Created meal order ${newMealOrderRef.id} for patient ${patientId}.`);
+    return { success: true, mealOrderId: newMealOrderRef.id };
+});
+*/
+
+/**
+ * Updates the status of a meal order.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { mealOrderId: string, newStatus: string }
+ */
+/*
+exports.updateMealStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is authorized (kitchen staff, dietary aide)
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { mealOrderId, newStatus } = data;
+    const validStatuses = ['Ordered', 'Preparing', 'Delivered', 'Canceled'];
+    if (!mealOrderId || !newStatus || !validStatuses.includes(newStatus)) {
+        throw new functions.https.HttpsError('invalid-argument', 'A valid mealOrderId and newStatus are required.');
+    }
+
+    const mealOrderRef = db.collection('meal_orders').doc(mealOrderId);
+
+    const updateData = {
+        status: newStatus,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (newStatus === 'Delivered') {
+        updateData.deliveredByUserId = context.auth.uid;
+        updateData.deliveryTimestamp = admin.firestore.FieldValue.serverTimestamp();
+    }
+    
+    await mealOrderRef.update(updateData);
+    
+    console.log(`Updated meal order ${mealOrderId} to status ${newStatus}.`);
+    return { success: true };
+});
+*/
+
+
+// =======================================================================================
 // == Radiology Information System (RIS)
 // =======================================================================================
 
