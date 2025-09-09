@@ -1134,9 +1134,12 @@ export interface OTSession {
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Post-Op';
   surgicalTeam?: { userId: string, role: string }[]; // Array of team members
   preOpChecklist?: Record<string, 'Completed' | 'Pending' | 'N/A'>; // e.g., { 'Consent Signed': 'Completed' }
-  postOpNotes?: string;
+  postOpCarePlan?: string;
   patientName?: string; // Denormalized for display
   leadSurgeonName?: string; // Denormalized for display
+  recoveryRoomEntryTime?: string; // ISO Timestamp
+  dischargeFromRecoveryTime?: string; // ISO Timestamp
+  recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
 }
 
 // =========================================================================
@@ -1221,7 +1224,7 @@ export interface VitalsLog {
     temperature: string; // in Celsius
     respiratoryRate: string; // breaths per minute
     oxygenSaturation: string; // percentage
-    painLevel?: string; // 1-10 scale
+    painScore?: string; // 1-10 scale
     notes?: string;
     recordedByUserId: string; // Reference to users.uid
     recordedAt: string; // ISO 8601 Timestamp
@@ -1353,5 +1356,6 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
 
