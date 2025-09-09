@@ -1,5 +1,4 @@
 
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -647,30 +646,6 @@ export interface Position {
   baseAnnualSalary: number;
 }
 
-/**
- * Represents an employee's HR document.
- * Path: /users/{userId}/documents/{documentId}
- */
-export interface EmployeeDocument {
-    documentId: string;
-    type: 'Resume' | 'License' | 'Contract' | 'ID';
-    storageUrl: string; // Link to Firebase Storage
-    uploadDate: string; // ISO Timestamp
-    expiryDate?: string; // Optional expiry date for licenses
-}
-
-/**
- * Represents an employee's attendance log.
- * Path: /attendance_logs/{logId}
- */
-export interface AttendanceLog {
-    logId: string;
-    employeeId: string;
-    clockInTime: string; // ISO Timestamp
-    clockOutTime?: string; // ISO Timestamp
-    date: string; // YYYY-MM-DD
-}
-
 
 /**
  * Represents a single, finalized payroll run for a specific period.
@@ -781,6 +756,7 @@ export interface PatientAlert {
  */
 export interface User {
   uid: string; // Document ID, should match Firebase Auth UID
+  userId?: string;
   email: string;
   name: string;
   role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
@@ -822,6 +798,82 @@ export interface User {
   }[];
   employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
   hireDate?: string;
+}
+
+/**
+ * Represents an employee's HR document.
+ * Path: /users/{userId}/documents/{documentId}
+ */
+export interface EmployeeDocument {
+    documentId: string;
+    type: 'Resume' | 'License' | 'Contract' | 'ID';
+    storageUrl: string; // Link to Firebase Storage
+    uploadDate: string; // ISO Timestamp
+    expiryDate?: string; // Optional expiry date for licenses
+}
+
+/**
+ * Represents an employee's attendance log.
+ * Path: /attendance_logs/{logId}
+ */
+export interface AttendanceLog {
+    logId: string;
+    employeeId: string;
+    clockInTime: string; // ISO Timestamp
+    clockOutTime?: string; // ISO Timestamp
+    date: string; // YYYY-MM-DD
+}
+
+/**
+ * Represents a comprehensive HR record for a staff member.
+ * This is the central source of truth for all HR and payroll calculations.
+ * Path: /employees/{employeeId}
+ */
+export interface StaffProfile {
+  staffId: string;
+  userId: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  gender: 'Male' | 'Female' | 'Other';
+  dateOfBirth: string; // ISO format
+  employmentStatus: 'Active' | 'On Leave' | 'Terminated';
+  positionId: string;
+  hireDate?: string; // ISO format
+  department?: string;
+  qualifications?: {
+    degree: string;
+    institution: string;
+    graduationYear: number;
+  }[];
+  certifications?: {
+    name: string;
+    issuingBody: string;
+    issueDate: string;
+    expiryDate?: string;
+  }[];
+  licenses?: {
+    type: string;
+    licenseNumber: string;
+    expiryDate: string;
+  }[];
+  contactInfo?: {
+    phone: string;
+    email: string;
+  };
+  recurringAllowances: {
+    name: string;
+    amount: number;
+  }[];
+  recurringDeductions: {
+    name: string;
+    amount: number;
+  }[];
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    branchName: string;
+  };
 }
 
 /**
@@ -1388,63 +1440,53 @@ export interface LabReport {
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
 
+// =========================================================================
+// == Shift & Roster Management
+// =========================================================================
+
 /**
- * Represents a comprehensive HR record for a staff member.
- * This is the central source of truth for all HR and payroll calculations.
- * Path: /employees/{employeeId}
+ * Defines a standard shift pattern.
+ * Path: /shifts/{shiftId}
  */
-export interface StaffProfile {
-  staffId: string;
-  userId: string;
-  employeeId: string;
-  firstName: string;
-  lastName: string;
-  gender: 'Male' | 'Female' | 'Other';
-  dateOfBirth: string; // ISO format
-  employmentStatus: 'Active' | 'On Leave' | 'Terminated';
-  positionId: string;
-  hireDate: string; // ISO format
-  department: string;
-  qualifications?: {
-    degree: string;
-    institution: string;
-    graduationYear: number;
-  }[];
-  certifications?: {
-    name: string;
-    issuingBody: string;
-    issueDate: string;
-    expiryDate?: string;
-  }[];
-  licenses?: {
-    type: string;
-    licenseNumber: string;
-    expiryDate: string;
-  }[];
-  contactInfo?: {
-    phone: string;
-    email: string;
-  };
-  recurringAllowances: {
-    name: string;
-    amount: number;
-  }[];
-  recurringDeductions: {
-    name: string;
-    amount: number;
-  }[];
-  bankDetails: {
-    bankName: string;
-    accountNumber: string;
-    branchName: string;
-  };
+export interface Shift {
+  shiftId: string;
+  name: string; // e.g., 'Day Shift', 'Night Shift', 'On-Call'
+  startTime: string; // e.g., '07:00'
+  endTime: string; // e.g., '19:00'
+  durationHours: number;
+  rolesRequired: string[]; // e.g., ['Nurse', 'Doctor']
 }
 
+/**
+ * Represents an individual staff assignment within a roster.
+ */
+export interface StaffAssignment {
+  userId: string;
+  shiftId: string;
+  date: string; // ISO Timestamp
+  assignedWard?: string;
+}
+
+/**
+ * Stores the actual schedule for a specific period.
+ * Path: /rosters/{rosterId}
+ */
+export interface Roster {
+  rosterId: string;
+  startDate: string; // ISO Timestamp
+  endDate: string; // ISO Timestamp
+  department: string;
+  staffAssignments: StaffAssignment[];
+}
+
+/**
+ * Tracks individual staff member's availability preferences.
+ * Path: /staff_availability/{userId}
+ */
+export interface StaffAvailability {
+  userId: string;
+  unavailableDates: string[]; // Array of ISO Timestamps
+  preferredShifts: string[]; // Array of shiftIds
+  maxHoursPerWeek: number;
+}
     
-
-
-
-
-
-
-
