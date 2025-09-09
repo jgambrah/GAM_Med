@@ -1124,18 +1124,19 @@ export interface Prescription {
  * This is the core data model for managing the OT schedule.
  */
 export interface OTSession {
-  sessionId: string; // Document ID
+  sessionId: string; // Document ID (same as caseId)
   patientId: string; // Reference to 'patients' collection
-  otRoomId: string; // Reference to 'operating_theatres' collection
+  otRoomId: string; // Reference to the 'resources' collection (where OT rooms are defined)
   leadSurgeonId: string; // Reference to the lead surgeon in the 'users' collection
-  teamIds: string[]; // Array of user IDs for the rest of the surgical team
-  requiredEquipmentIds: string[]; // Array of references to the 'resources' collection for mobile equipment
   procedureName: string; // e.g., 'Appendectomy', 'Total Knee Replacement'
-  startTime: string; // ISO Timestamp
-  endTime: string; // ISO Timestamp
-  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Postponed';
-  notes?: string; // Any pre-operative or procedural notes
-  waitinglistId?: string; // Optional link to 'waiting_lists' collection
+  startTime: Date;
+  endTime: Date;
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Post-Op';
+  surgicalTeam?: { userId: string, role: string }[]; // Array of team members
+  preOpChecklist?: Record<string, 'Completed' | 'Pending' | 'N/A'>; // e.g., { 'Consent Signed': 'Completed' }
+  postOpNotes?: string;
+  patientName?: string; // Denormalized for display
+  leadSurgeonName?: string; // Denormalized for display
 }
 
 // =========================================================================
@@ -1352,3 +1353,4 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+

@@ -113,6 +113,15 @@ export const allUsers: User[] = [
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
+  },
+  {
+    uid: 'dietitian1',
+    email: 'd.tian@gammed.com',
+    name: 'Dietitian',
+    role: 'dietitian',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
   }
 ];
 
@@ -1612,5 +1621,50 @@ export const mockOtSessions: OTSession[] = [
     },
 ];
 
+export const mockDietaryProfiles: DietaryProfile[] = [
+    {
+        profileId: 'P-123456',
+        patientId: 'P-123456',
+        allergies: ['Peanuts'],
+        restrictions: ['Low Sodium', 'Low Sugar'],
+        preferences: ['Prefers spicy food', 'Likes soups']
+    }
+];
+
+export const mockMealOrders: MealOrder[] = [
+    {
+        mealOrderId: 'meal-1',
+        patientId: 'P-123456',
+        orderDateTime: new Date('2024-08-16T08:00:00Z').toISOString(),
+        mealType: 'Breakfast',
+        dietaryPlan: 'Low Sodium',
+        mealItems: ['Oatmeal', 'Banana', 'Water'],
+        status: 'Delivered'
+    },
+    {
+        mealOrderId: 'meal-2',
+        patientId: 'P-654321',
+        orderDateTime: new Date('2024-08-16T12:00:00Z').toISOString(),
+        mealType: 'Lunch',
+        dietaryPlan: 'Diabetic',
+        mealItems: ['Grilled Chicken Salad', 'Brown Rice'],
+        status: 'Preparing'
+    },
+     {
+        mealOrderId: 'meal-3',
+        patientId: 'P-123456',
+        orderDateTime: new Date('2024-08-16T12:05:00Z').toISOString(),
+        mealType: 'Lunch',
+        dietaryPlan: 'Low Sodium',
+        mealItems: ['Banku and Tilapia', 'Water'],
+        status: 'Ordered'
+    }
+];
+
+
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
+
+
+    
+
