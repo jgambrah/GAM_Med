@@ -4563,135 +4563,98 @@ exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
 
 
 // =======================================================================================
-// == Human Resource & Staff Management
+// == Shift & Roster Management
 // =======================================================================================
 
 /**
- * Creates a new employee record and triggers the onboarding process.
+ * Generates a roster for a department after checking various constraints.
  *
  * @trigger_type Callable Function (https)
- * @input { employeeData: object }
+ * @input { department: string, startDate: string, endDate: string }
  */
 /*
-exports.onboardNewEmployee = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check for HR admin
+exports.generateRoster = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for admin/manager
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Add role check...
+    // Role check...
 
-    const { employeeData } = data;
-    // Server-side validation of employeeData...
+    const { department, startDate, endDate } = data;
 
-    const newEmployeeRef = db.collection('employees').doc(); // Auto-generate ID
+    // 1. Fetch all required data in parallel
+    const [staffSnapshot, shiftsSnapshot] = await Promise.all([
+        db.collection('users').where('department', '==', department).where('is_active', '==', true).get(),
+        db.collection('shifts').where('rolesRequired', 'array-contains-any', ['Nurse', 'Doctor']).get() // Example filter
+    ]);
+    
+    const staffList = staffSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const shiftsList = shiftsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const finalEmployeeData = {
-        ...employeeData,
-        employeeId: newEmployeeRef.id,
+    // 2. Complex logic to generate the roster
+    // - Iterate through each day in the date range.
+    // - For each day, iterate through required shifts.
+    // - Check staff availability (vacation, preferences).
+    // - Check constraints (max hours, required roles).
+    // - Use an algorithm (e.g., constraint satisfaction) to assign staff.
+    // - If a perfect roster isn't possible, create a draft and flag it for manual review.
+
+    const generatedAssignments = []; // Placeholder for the output of the algorithm
+    const isComplete = true; // Flag indicating if the roster is complete or needs review
+
+    const newRosterRef = db.collection('rosters').doc();
+    await newRosterRef.set({
+        rosterId: newRosterRef.id,
+        department,
+        startDate: admin.firestore.Timestamp.fromDate(new Date(startDate)),
+        endDate: admin.firestore.Timestamp.fromDate(new Date(endDate)),
+        staffAssignments: generatedAssignments,
+        status: isComplete ? 'Published' : 'Draft',
         createdAt: admin.firestore.FieldValue.serverTimestamp()
-    };
+    });
 
-    await newEmployeeRef.set(finalEmployeeData);
-
-    // 2. Trigger other onboarding workflows
-    // a) Create a Firebase Auth user
-    // const userRecord = await admin.auth().createUser({ email: employeeData.email, ... });
-    // b) Set initial permissions
-    // await admin.auth().setCustomUserClaims(userRecord.uid, { role: employeeData.role });
-    // c) Send onboarding email
-    // await sendOnboardingEmail(employeeData.email, { ... });
-
-    console.log(`New employee ${newEmployeeRef.id} onboarded.`);
-    return { success: true, employeeId: newEmployeeRef.id };
+    // The 'notifyStaffOfRoster' trigger will handle notifications automatically.
+    
+    console.log(`Generated roster ${newRosterRef.id} for department ${department}.`);
+    return { success: true, rosterId: newRosterRef.id, needsReview: !isComplete };
 });
 */
 
 /**
- * Logs an employee's clock-in or clock-out time.
+ * Notifies staff members when a new roster is published.
  *
- * @trigger_type Callable Function (https)
- * @input { employeeId: string, action: 'clock-in' | 'clock-out' }
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /rosters/{rosterId}
  */
 /*
-exports.logAttendance = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check: Could be a specific service account for the kiosk or an authenticated user
-    const { employeeId, action } = data;
-    const now = admin.firestore.FieldValue.serverTimestamp();
-    const dateStr = new Date().toISOString().split('T')[0];
-
-    if (action === 'clock-in') {
-        const newLogRef = db.collection('attendance_logs').doc();
-        await newLogRef.set({
-            logId: newLogRef.id,
-            employeeId: employeeId,
-            clockInTime: now,
-            date: dateStr
-        });
-        console.log(`Employee ${employeeId} clocked in.`);
-    } else if (action === 'clock-out') {
-        const lastLogQuery = db.collection('attendance_logs')
-            .where('employeeId', '==', employeeId)
-            .where('date', '==', dateStr)
-            .orderBy('clockInTime', 'desc')
-            .limit(1);
-
-        const snapshot = await lastLogQuery.get();
-        if (snapshot.empty) {
-            throw new functions.https.HttpsError('not-found', 'No clock-in record found for today.');
-        }
-
-        const logRef = snapshot.docs[0].ref;
-        await logRef.update({ clockOutTime: now });
-        console.log(`Employee ${employeeId} clocked out.`);
-    }
-
-    return { success: true };
-});
-*/
-
-/**
- * Generates performance review documents on a schedule.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every 1st day of month 02:00'
- */
-/*
-exports.generatePerformanceReview = functions.region('europe-west1').pubsub
-    .schedule('every 1st day of month 02:00')
-    .onRun(async (context) => {
-        const now = new Date();
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(now.getFullYear() - 1);
-        
-        // Find employees hired exactly one year ago today.
-        const employeesToReviewQuery = db.collection('employees')
-            .where('hireDate', '==', admin.firestore.Timestamp.fromDate(oneYearAgo));
-            
-        const snapshot = await employeesToReviewQuery.get();
-        if (snapshot.empty) {
-            console.log('No employees are due for an annual performance review today.');
+exports.notifyStaffOfRoster = functions.region('europe-west1').firestore
+    .document('/rosters/{rosterId}')
+    .onCreate(async (snapshot, context) => {
+        const roster = snapshot.data();
+        if (roster.status !== 'Published') {
+            console.log('Roster is a draft. Not sending notifications.');
             return null;
         }
 
-        const batch = db.batch();
-        for (const doc of snapshot.docs) {
-            const employee = doc.data();
-            const newReviewRef = db.collection('performance_reviews').doc();
+        const assignments = roster.staffAssignments || [];
+        const notifications = {};
 
-            batch.set(newReviewRef, {
-                reviewId: newReviewRef.id,
-                employeeId: employee.employeeId,
-                managerId: employee.managerId, // Assuming managerId exists on employee doc
-                reviewPeriod: `${now.getFullYear()}`,
-                status: 'Draft',
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            
-            // Notify the manager to start the review
-            // await sendNotificationToUser(employee.managerId, `Performance review for ${employee.firstName} is due.`);
+        // 1. Group assignments by userId to send one summary notification per user
+        assignments.forEach(assignment => {
+            if (!notifications[assignment.userId]) {
+                notifications[assignment.userId] = [];
+            }
+            notifications[assignment.userId].push(`- ${assignment.date}: ${assignment.shiftId}`);
+        });
+
+        // 2. Send out the notifications
+        for (const userId in notifications) {
+            const userShifts = notifications[userId].join('\n');
+            const message = `Your new roster for ${roster.department} is available. Your shifts:\n${userShifts}`;
+            // await sendNotificationToUser(userId, { body: message });
+            console.log(`Sending roster notification to user ${userId}.`);
         }
-
-        await batch.commit();
-        console.log(`Generated performance reviews for ${snapshot.size} employees.`);
+        
         return null;
     });
 */
-
+    
+```
