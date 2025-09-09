@@ -618,7 +618,7 @@ export interface LeaveRequest {
 }
 
 // =========================================================================
-// == Payroll Management Data Models
+// == Payroll & HR Management Data Models
 // =========================================================================
 
 /**
@@ -650,6 +650,7 @@ export interface Position {
 /**
  * Represents a comprehensive HR record for a staff member.
  * This is the central source of truth for all HR and payroll calculations.
+ * Path: /employees/{employeeId}
  */
 export interface StaffProfile {
   staffId: string; // Document ID, should match user ID
@@ -659,12 +660,43 @@ export interface StaffProfile {
   lastName: string;
   gender: 'Male' | 'Female' | 'Other';
   dateOfBirth: string; // ISO Timestamp
+  department?: string; // e.g., 'Cardiology', 'Pharmacy', 'IT'.
+  hireDate?: string; // ISO Timestamp
   employmentStatus: 'Active' | 'On Leave' | 'Terminated';
   positionId: string; // Link to the 'positions' collection
   recurringAllowances: { name: string; amount: number }[];
   recurringDeductions: { name: string; amount: number }[];
   bankDetails: { bankName: string; accountNumber: string; branchName: string }
+  permissions?: string[]; // Fine-grained permissions
+  salaryDetails?: {
+    base: number;
+    allowances: Record<string, number>;
+  };
 }
+
+/**
+ * Represents an employee's document.
+ * Path: /employees/{employeeId}/documents/{documentId}
+ */
+export interface EmployeeDocument {
+    documentId: string;
+    type: 'Resume' | 'License' | 'Contract' | 'ID';
+    storageUrl: string; // Link to Firebase Storage
+    uploadDate: string; // ISO Timestamp
+}
+
+/**
+ * Represents an employee's attendance log.
+ * Path: /attendance_logs/{logId}
+ */
+export interface AttendanceLog {
+    logId: string;
+    employeeId: string;
+    clockInTime: string; // ISO Timestamp
+    clockOutTime?: string; // ISO Timestamp
+    date: string; // YYYY-MM-DD
+}
+
 
 /**
  * Represents a single, finalized payroll run for a specific period.
@@ -1134,7 +1166,7 @@ export interface OTSession {
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled' | 'Post-Op';
   surgicalTeam?: { userId: string, role: string }[]; // Array of team members
   preOpChecklist?: Record<string, 'Completed' | 'Pending' | 'N/A'>; // e.g., { 'Consent Signed': 'Completed' }
-  postOpNotes?: string;
+  postOpCarePlan?: string;
   patientName?: string; // Denormalized for display
   leadSurgeonName?: string; // Denormalized for display
   recoveryRoomEntryTime?: string; // ISO Timestamp
@@ -1356,6 +1388,7 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
 
 
