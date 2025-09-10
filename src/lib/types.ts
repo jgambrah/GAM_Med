@@ -884,6 +884,24 @@ export interface StaffProfile {
     branchName: string;
   };
   leaveBalances?: Record<string, number>;
+  performanceReviews?: {
+    reviewId: string;
+    date: string; // ISO Timestamp
+    reviewerId: string;
+    overallRating: string;
+  }[];
+  trainingRecords?: {
+    trainingId: string;
+    courseName: string;
+    completionDate: string; // ISO Timestamp
+    provider: string;
+  }[];
+  developmentGoals?: {
+    goalId: string;
+    description: string;
+    targetDate: string; // ISO Timestamp
+    status: 'Not Started' | 'In Progress' | 'Completed' | 'Deferred';
+  }[];
 }
 
 /**
@@ -1500,5 +1518,44 @@ export interface StaffAvailability {
   maxHoursPerWeek: number;
 }
     
+// =========================================================================
+// == Performance Management Data Models
+// =========================================================================
+
+/**
+ * Represents a detailed performance review record.
+ * Path: /performance_reviews/{reviewId}
+ */
+export interface PerformanceReview {
+  reviewId: string;
+  employeeId: string;
+  reviewerId: string;
+  dateOfReview: string; // ISO Timestamp
+  ratingPeriodStart: string; // ISO Timestamp
+  ratingPeriodEnd: string; // ISO Timestamp
+  overallRating: 'Exceeds Expectations' | 'Meets Expectations' | 'Needs Improvement' | 'Unsatisfactory';
+  strengths: string;
+  areasForDevelopment: string;
+  goalsAchieved: {
+    goalDescription: string;
+    achievedRating: 'Exceeded' | 'Met' | 'Partially Met' | 'Not Met';
+  }[];
+  trainingRecommendations: string;
+  nextReviewDate: string; // ISO Timestamp
+}
+
+/**
+ * Represents an available training course in the catalog.
+ * Path: /training_courses/{courseId}
+ */
+export interface TrainingCourse {
+  courseId: string;
+  courseName: string;
+  description: string;
+  provider: string;
+  duration: string;
+  type: 'Mandatory' | 'Skill Development' | 'Leadership';
+}
 
     
+
