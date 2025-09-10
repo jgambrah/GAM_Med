@@ -4563,7 +4563,7 @@ exports.generateMonthlyPayroll = functions.region('europe-west1').pubsub
 
 
 // =======================================================================================
-// == Shift & Roster Management
+// == Shift, Roster & Leave Management
 // =======================================================================================
 
 /**
@@ -4656,5 +4656,85 @@ exports.notifyStaffOfRoster = functions.region('europe-west1').firestore
         return null;
     });
 */
+
+/**
+ * Notifies a manager when a new leave request is submitted by a team member.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /leave_requests/{leaveId}
+ */
+/*
+exports.notifyManagerOfLeaveRequest = functions.region('europe-west1').firestore
+    .document('/leave_requests/{leaveId}')
+    .onCreate(async (snapshot, context) => {
+        const leaveRequest = snapshot.data();
+        const { employeeId, hodId, leaveType, startDate, endDate } = leaveRequest;
+
+        if (!hodId) {
+            console.log(`Leave request ${context.params.leaveId} has no HOD assigned. No notification sent.`);
+            return null;
+        }
+        
+        // 1. Fetch employee name for a more descriptive notification.
+        const employeeDoc = await db.collection('users').doc(employeeId).get();
+        const employeeName = employeeDoc.exists ? employeeDoc.data().name : 'An employee';
+
+        // 2. Construct the notification message.
+        const message = {
+            title: 'New Leave Request for Approval',
+            body: `${employeeName} has requested ${leaveType} from ${startDate} to ${endDate}. Please review.`
+        };
+
+        // 3. Send notification to the Head of Department.
+        // await sendNotificationToUser(hodId, message);
+
+        console.log(`Sent leave request notification to HOD ${hodId}.`);
+        return null;
+    });
+*/
+
+/**
+ * Notifies an employee when their leave request has been approved or rejected.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /leave_requests/{leaveId}
+ */
+/*
+exports.notifyEmployeeOfLeaveStatus = functions.region('europe-west1').firestore
+    .document('/leave_requests/{leaveId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+
+        // 1. Trigger only if the status has changed from 'Pending'.
+        if (newData.status === oldData.status || oldData.status !== 'Pending') {
+            return null;
+        }
+
+        const { employeeId, status, leaveType } = newData;
+
+        // 2. Construct the message based on the new status.
+        let bodyMessage;
+        if (status === 'Approved') {
+            bodyMessage = `Your request for ${leaveType} has been approved.`;
+        } else if (status === 'Rejected') {
+            bodyMessage = `Your request for ${leaveType} has been rejected. Please see your manager for details.`;
+        } else {
+            return null; // Don't notify for other status changes.
+        }
+        
+        const message = {
+            title: 'Leave Request Update',
+            body: bodyMessage
+        };
+
+        // 3. Send notification to the employee.
+        // await sendNotificationToUser(employeeId, message);
+        
+        console.log(`Sent status update notification to employee ${employeeId} for leave request ${context.params.leaveId}.`);
+        return null;
+    });
+*/
     
-```
+
+    
