@@ -1,98 +1,59 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for role-based access control
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function getUserData() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data
-    }
-    
+    // Helper functions to simplify rule logic
     function getUserRole() {
-        return getUserData().role
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    function hasAnyRole(roles) {
-      return isSignedIn() && getUserRole() in roles;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
     
-    function isExamAdmin() {
-      return hasAnyRole(['admin', 'registrar']);
-    }
-    
-    function isStudent(studentId) {
-        return request.auth.uid == studentId;
+    function isManagerOrAdmin() {
+        let role = getUserRole();
+        return role == 'admin' || role == 'department_manager';
     }
 
-    // Rules for User Management
+    // Rules for 'users' collection
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || hasAnyRole(['admin', 'HR']);
-      allow update: if request.auth.uid == userId || hasAnyRole(['admin', 'HR']);
-      allow create: if hasAnyRole(['HR']);
+      allow read: if isOwner(userId) || getUserRole() in ['admin', 'HR'];
+      // Employees can update their own profile, but cannot change their leave balance.
+      allow update: if (isOwner(userId) && !('leaveBalances' in request.resource.data)) || isManagerOrAdmin();
+      allow create: if getUserRole() == 'HR';
     }
 
-    // Rules for other collections...
-    match /beds/{bedId} {
-      allow read: if isSignedIn();
-      // Write access is typically handled by backend functions
-      allow write: if hasAnyRole(['admin', 'doctor', 'nurse']);
-    }
-
-    match /patients/{patientId} {
-      allow read: if isSignedIn();
-      // More granular rules can be added for sub-collections
-      allow write: if hasAnyRole(['admin', 'doctor', 'nurse']);
-
-      // Sub-collection rules can be nested here
-      // e.g., match /clinical_notes/{noteId} { ... }
-    }
-    
-    match /results/{docId} {
-        // READ: Only the student themselves can read their result IF it's published. Exam Admins can read all.
-        allow read: if (resource.data.studentId == request.auth.uid && resource.data.isPublished == true) || isExamAdmin();
-        // WRITE: Only a Cloud Function can manage results to ensure data integrity and controlled publication.
-        allow write: if false;
-    }
-    
-    match /student_academic_records/{docId} {
-        // READ: Students can only read their own records IF the final result is published. Exam Admins can read all.
-        allow read: if (resource.data.studentId == request.auth.uid && resource.data.finalResultPublished == true) || isExamAdmin();
-        // WRITE: Only a Cloud Function can write to this collection to ensure data integrity.
-        allow write: if false;
-    }
-    
-    // =============================================================
-    // == Shift & Roster Management Rules
-    // =============================================================
-    
+    // Rules for 'shifts' collection
     match /shifts/{shiftId} {
-      // Anyone signed in can read the available shift patterns.
-      allow read: if isSignedIn();
-      // Only admins can create or modify shift definitions.
-      allow write: if hasAnyRole(['admin']);
-    }
-    
-    match /rosters/{rosterId} {
-      // Allow creation by admins or department managers.
-      allow create: if hasAnyRole(['admin', 'department_manager']);
-      // Allow read if user is an admin/manager, or if their UID is in the roster's assignment list.
-      // NOTE: This assumes a field like 'assignedUserIds' exists on the roster document for efficiency.
-      allow read: if hasAnyRole(['admin', 'department_manager']) || request.auth.uid in resource.data.assignedUserIds;
-      // Allow updates only by admins or managers.
-      allow update: if hasAnyRole(['admin', 'department_manager']);
-    }
-    
-    match /staff_availability/{userId} {
-      // Allow read access to admins, managers, and the staff member themselves.
-      allow read: if hasAnyRole(['admin', 'department_manager']) || request.auth.uid == userId;
-      // Allow write access to admins, managers, and the staff member themselves.
-      allow write: if hasAnyRole(['admin', 'department_manager']) || request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if getUserRole() == 'admin';
     }
 
+    // Rules for 'rosters' collection
+    match /rosters/{rosterId} {
+        function isAssigned() {
+            // This is a simplified check. A real implementation might need to handle larger rosters.
+            return request.auth.uid in resource.data.staffAssignments.map(a => a.userId);
+        }
+
+        allow create: if isManagerOrAdmin();
+        allow read: if isManagerOrAdmin() || isAssigned();
+        allow update: if isManagerOrAdmin();
+    }
+    
+     // Rules for 'staff_availability' collection
+    match /staff_availability/{userId} {
+      allow read: if isManagerOrAdmin() || isOwner(userId);
+      allow write: if isManagerOrAdmin() || isOwner(userId);
+    }
+
+    // Rules for 'leave_requests' collection
+    match /leave_requests/{leaveId} {
+      allow read: if isManagerOrAdmin() || isOwner(resource.data.employeeId);
+      allow create: if isOwner(request.resource.data.employeeId);
+      allow update: if isManagerOrAdmin() || (resource.data.status == 'Pending' && isOwner(resource.data.employeeId));
+    }
   }
 }
