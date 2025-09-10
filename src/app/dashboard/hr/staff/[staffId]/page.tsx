@@ -4,11 +4,11 @@
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers } from '@/lib/data';
+import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays } from 'lucide-react';
-import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType } from '@/lib/types';
+import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -31,6 +31,7 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -385,6 +386,123 @@ function SalaryTab({ staff, setStaff }: { staff: User, setStaff: React.Dispatch<
     )
 }
 
+function PerformanceTab({ staff }: { staff: StaffProfile }) {
+  const reviews: PerformanceReview[] = mockPerformanceReviews.filter(r => r.employeeId === staff.staffId);
+  const goals = staff.developmentGoals || [];
+
+  return (
+    <div className="space-y-6">
+       <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Development Goals</CardTitle>
+            <CardDescription>Current development goals for this staff member.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4"/> Add Goal</Button>
+        </CardHeader>
+        <CardContent>
+            {goals.length > 0 ? (
+                 <ul className="list-disc pl-5 space-y-2">
+                    {goals.map(g => (
+                        <li key={g.goalId}>
+                            <span className="font-semibold">{g.description}</span> (Target: {g.targetDate}) - <Badge>{g.status}</Badge>
+                        </li>
+                    ))}
+                </ul>
+            ) : <p className="text-muted-foreground">No development goals set.</p>}
+        </CardContent>
+       </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Performance Review History</CardTitle>
+            <CardDescription>A log of all past performance appraisals.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4"/> Initiate Review</Button>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Review Period</TableHead>
+                  <TableHead>Reviewer</TableHead>
+                  <TableHead>Overall Rating</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reviews.length > 0 ? (
+                  reviews.map(review => (
+                    <TableRow key={review.reviewId}>
+                      <TableCell>{format(new Date(review.ratingPeriodStart), 'PPP')} - {format(new Date(review.ratingPeriodEnd), 'PPP')}</TableCell>
+                      <TableCell>{allUsers.find(u => u.uid === review.reviewerId)?.name}</TableCell>
+                      <TableCell><Badge>{review.overallRating}</Badge></TableCell>
+                      <TableCell><Button variant="link" size="sm">View Report</Button></TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No performance reviews on record.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function TrainingTab({ staff }: { staff: StaffProfile }) {
+    const trainingRecords = staff.trainingRecords || [];
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Training & Certifications</CardTitle>
+          <CardDescription>A log of all completed training courses.</CardDescription>
+        </div>
+        <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4"/> Log Training</Button>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Course Name</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead>Completion Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {trainingRecords.length > 0 ? (
+                trainingRecords.map(record => (
+                  <TableRow key={record.trainingId}>
+                    <TableCell className="font-medium">{record.courseName}</TableCell>
+                    <TableCell>{record.provider}</TableCell>
+                    <TableCell>{format(new Date(record.completionDate), 'PPP')}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No training records found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function StaffProfilePage() {
   const router = useRouter();
   const params = useParams();
@@ -395,7 +513,9 @@ export default function StaffProfilePage() {
     allUsers.find((p) => p.uid === staffId)
   );
 
-  if (!staff) {
+  const staffProfile = mockStaffProfiles.find(p => p.staffId === staffId);
+
+  if (!staff || !staffProfile) {
     notFound();
   }
 
@@ -419,10 +539,18 @@ export default function StaffProfilePage() {
       <Tabs defaultValue="profile">
         <TabsList>
             <TabsTrigger value="profile">Profile Details</TabsTrigger>
+            <TabsTrigger value="performance">Performance & Goals</TabsTrigger>
+            <TabsTrigger value="training">Training</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
         </TabsList>
          <TabsContent value="profile" className="mt-4">
             <ProfileDetailsTab staff={staff} user={user} />
+        </TabsContent>
+         <TabsContent value="performance" className="mt-4">
+            <PerformanceTab staff={staffProfile} />
+        </TabsContent>
+         <TabsContent value="training" className="mt-4">
+            <TrainingTab staff={staffProfile} />
         </TabsContent>
         <TabsContent value="payroll" className="mt-4">
             <SalaryTab staff={staff} setStaff={setStaff} />
@@ -435,3 +563,4 @@ export default function StaffProfilePage() {
   );
 }
 
+    

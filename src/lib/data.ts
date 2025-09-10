@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1313,7 +1313,10 @@ export const mockStaffProfiles: StaffProfile[] = [
         positionId: 'pos-doc',
         recurringAllowances: [{ name: 'Book & Research Allowance', amount: 500 }],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
-        bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' }
+        bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
+        performanceReviews: [{ reviewId: 'rev-doc1-2023', date: '2023-12-15', reviewerId: 'admin1', overallRating: 'Exceeds Expectations' }],
+        trainingRecords: [{ trainingId: 'TRN001', courseName: 'Advanced Cardiac Life Support', completionDate: '2023-10-01', provider: 'American Heart Association' }],
+        developmentGoals: [{ goalId: 'goal1', description: 'Publish research paper on hypertension', targetDate: '2024-12-31', status: 'In Progress' }]
     },
     {
         staffId: 'doc2',
@@ -1694,14 +1697,31 @@ export const mockMealOrders: MealOrder[] = [
     }
 ];
 
+export const mockPerformanceReviews: PerformanceReview[] = [
+    {
+        reviewId: 'rev-doc1-2023',
+        employeeId: 'doc1',
+        reviewerId: 'admin1',
+        dateOfReview: '2023-12-15T00:00:00Z',
+        ratingPeriodStart: '2023-01-01T00:00:00Z',
+        ratingPeriodEnd: '2023-12-31T00:00:00Z',
+        overallRating: 'Exceeds Expectations',
+        strengths: 'Excellent patient care and leadership skills.',
+        areasForDevelopment: 'Continue to mentor junior doctors.',
+        goalsAchieved: [],
+        trainingRecommendations: 'Consider leadership in medicine course.',
+        nextReviewDate: '2024-12-15T00:00:00Z',
+    }
+];
+
+export const mockTrainingCourses: TrainingCourse[] = [
+    { courseId: 'TRN001', courseName: 'Advanced Cardiac Life Support', description: 'ACLS certification.', provider: 'American Heart Association', duration: '2 Days', type: 'Mandatory' },
+    { courseId: 'TRN002', courseName: 'Introduction to Hospital Management', description: 'Course for new managers.', provider: 'GamMed HR', duration: '5 Days', type: 'Leadership' },
+];
+
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
 
 
     
-
-
-
-
-
