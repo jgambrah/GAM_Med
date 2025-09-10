@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -614,6 +615,13 @@ export interface LeaveRequest {
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected';
   requestedAt: string; // ISO Timestamp
+  leaveRequestId?: string;
+  employeeId?: string;
+  leaveType?: 'Vacation' | 'Sick Leave' | 'Specialist Leave' | 'On-Call Duty';
+  duration?: number;
+  submittedDate?: string;
+  approvedByUserId?: string;
+  approvalDate?: string;
 }
 
 // =========================================================================
@@ -798,6 +806,8 @@ export interface User {
   }[];
   employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
   hireDate?: string;
+  leaveBalances?: Record<string, number>;
+  currentOnCallDuty?: boolean;
 }
 
 /**
@@ -1489,4 +1499,6 @@ export interface StaffAvailability {
   preferredShifts: string[]; // Array of shiftIds
   maxHoursPerWeek: number;
 }
+    
+
     
