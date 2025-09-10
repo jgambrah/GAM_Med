@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { mockLeaveRequests } from '@/lib/data';
 import { Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export function LeaveApprovalDashboard() {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ export function LeaveApprovalDashboard() {
         <TableHeader>
           <TableRow>
             <TableHead>Staff Member</TableHead>
+            <TableHead>Leave Type</TableHead>
             <TableHead>Start Date</TableHead>
             <TableHead>End Date</TableHead>
             <TableHead>Reason</TableHead>
@@ -51,6 +53,7 @@ export function LeaveApprovalDashboard() {
             pendingRequests.map((request) => (
               <TableRow key={request.leaveId}>
                 <TableCell className="font-medium">{request.staffName}</TableCell>
+                <TableCell><Badge variant="outline">{request.leaveType}</Badge></TableCell>
                 <TableCell>{format(new Date(request.startDate), 'PPP')}</TableCell>
                 <TableCell>{format(new Date(request.endDate), 'PPP')}</TableCell>
                 <TableCell>{request.reason}</TableCell>
@@ -66,7 +69,7 @@ export function LeaveApprovalDashboard() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
+              <TableCell colSpan={6} className="h-24 text-center">
                 You have no pending leave requests to approve.
               </TableCell>
             </TableRow>

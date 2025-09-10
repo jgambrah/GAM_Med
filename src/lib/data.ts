@@ -1248,6 +1248,7 @@ export const mockLeaveRequests: LeaveRequest[] = [
         staffId: 'doc2',
         staffName: 'Dr. Kofi Asante',
         hodId: 'doc1',
+        leaveType: 'Annual Leave',
         startDate: '2024-09-01',
         endDate: '2024-09-07',
         reason: 'Annual Leave',
@@ -1259,6 +1260,7 @@ export const mockLeaveRequests: LeaveRequest[] = [
         staffId: 'nurse1',
         staffName: 'Florence Agyepong',
         hodId: 'doc1',
+        leaveType: 'Specialist Leave',
         startDate: '2024-09-10',
         endDate: '2024-09-12',
         reason: 'Conference Attendance',
@@ -1674,6 +1676,7 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
 
 

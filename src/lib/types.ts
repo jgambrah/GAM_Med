@@ -604,18 +604,19 @@ export interface StaffExpenseClaim {
 
 /**
  * Represents a staff leave request.
+ * Path: /leave_requests/{leaveId}
  */
 export interface LeaveRequest {
   leaveId: string;
   staffId: string;
   staffName: string;
   hodId?: string;
+  leaveType: 'Annual Leave' | 'Sick Leave' | 'Specialist Leave' | 'On-Call Duty';
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
   requestedAt: string; // ISO Timestamp
-  leaveType?: 'Vacation' | 'Sick Leave' | 'Specialist Leave' | 'On-Call Duty';
   duration?: number;
   submittedDate?: string;
   approvedByUserId?: string;

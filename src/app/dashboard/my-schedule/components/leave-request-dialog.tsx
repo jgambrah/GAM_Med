@@ -27,8 +27,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { CalendarOff } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const LeaveRequestSchema = z.object({
+  leaveType: z.enum(['Annual Leave', 'Sick Leave', 'Specialist Leave', 'On-Call Duty']),
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
   endDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
   reason: z.string().min(10, { message: "Reason must be at least 10 characters." }),
@@ -44,6 +46,7 @@ export function LeaveRequestDialog() {
   const form = useForm<z.infer<typeof LeaveRequestSchema>>({
     resolver: zodResolver(LeaveRequestSchema),
     defaultValues: {
+      leaveType: 'Annual Leave',
       startDate: '',
       endDate: '',
       reason: '',
@@ -82,6 +85,29 @@ export function LeaveRequestDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             <FormField
+              control={form.control}
+              name="leaveType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Leave Type</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a leave type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Annual Leave">Annual Leave</SelectItem>
+                      <SelectItem value="Sick Leave">Sick Leave</SelectItem>
+                      <SelectItem value="Specialist Leave">Specialist Leave</SelectItem>
+                      <SelectItem value="On-Call Duty">On-Call Duty (Blockout)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
