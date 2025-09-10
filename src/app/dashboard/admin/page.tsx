@@ -43,6 +43,7 @@ export default function AdminPage() {
           <TabsTrigger value="reports">Financial Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
+           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -119,6 +120,23 @@ export default function AdminPage() {
         </TabsContent>
          <TabsContent value="user-management" className="mt-4">
             <UserManagementDashboard />
+        </TabsContent>
+         <TabsContent value="credentials" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Staff Credentialing</CardTitle>
+                    <CardDescription>
+                        Monitor and manage staff licenses and certifications to ensure compliance.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/admin/credentials">
+                            Go to Credentials Dashboard
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
         </TabsContent>
          <TabsContent value="global-alerts" className="mt-4">
             <GlobalAlertsDashboard />
