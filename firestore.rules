@@ -4,77 +4,58 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to check user roles
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-    function isExamAdmin() {
-      return getUserRole() in ['admin', 'exam_admin'];
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    function isStudent(studentId) {
-      return request.auth.uid == studentId;
-    }
-    
-    // Rules for user profiles
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || getUserRole() in ['admin', 'manager'];
-      allow create: if getUserRole() == 'admin';
-      // Only admins/managers can update leave balances.
-      // Users can update their own profile, but not these protected fields.
-      allow update: if (getUserRole() in ['admin', 'manager']) || 
-                     (request.auth.uid == userId && !('leaveBalances' in request.resource.data));
+      allow read: if isUserAuthenticated();
+      allow write: if isOwner(userId) || getUserRole() in ['admin', 'hr'];
     }
-    
-    // Rules for patient data
+
     match /patients/{patientId} {
-        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow read, write: if isUserAuthenticated(); // Simplified for prototype
     }
     
-    // Rules for all subcollections of patients
-    match /patients/{patientId}/{collection}/{docId} {
-      allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+    match /patients/{patientId}/{document=**} {
+        allow read, write: if isUserAuthenticated(); // Simplified for prototype
     }
 
-    // Rules for hospital bed management
     match /beds/{bedId} {
-      allow read: if request.auth != null;
-      allow write: if getUserRole() in ['admin', 'nurse', 'doctor'];
+        allow read, write: if isUserAuthenticated();
     }
 
-    // Rules for appointments
     match /appointments/{appointmentId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null;
-        allow update, delete: if getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow read, write: if isUserAuthenticated();
     }
     
-    // Rules for shifts
-    match /shifts/{shiftId} {
-        allow read: if request.auth != null;
-        allow write: if getUserRole() == 'admin';
+    match /referrals/{referralId} {
+        allow read, write: if isUserAuthenticated();
     }
-
-    // Rules for rosters
-    match /rosters/{rosterId} {
-        allow create: if getUserRole() in ['admin', 'department_manager'];
-        allow read: if getUserRole() in ['admin', 'department_manager'] || request.auth.uid in resource.data.staffAssignments.map(a => a.userId);
-        allow update: if getUserRole() in ['admin', 'department_manager'];
-    }
-
-    // Rules for staff availability
-    match /staff_availability/{userId} {
-        allow read: if getUserRole() in ['admin', 'department_manager'] || request.auth.uid == userId;
-        allow write: if getUserRole() in ['admin', 'department_manager'] || request.auth.uid == userId;
-    }
-
-    // Rules for leave requests
+    
     match /leave_requests/{leaveId} {
-      allow create: if request.auth.uid != null && request.auth.uid == request.resource.data.employeeId;
-      allow read: if request.auth.uid == resource.data.employeeId || getUserRole() in ['admin', 'manager'];
-      // An employee can cancel their own request if it's pending. A manager can approve/reject.
-      allow update: if (getUserRole() in ['admin', 'manager']) || (request.auth.uid == resource.data.employeeId && resource.data.status == 'Pending');
+      allow create: if isUserAuthenticated();
+      allow read: if isOwner(get(/databases/$(database)/documents/leave_requests/$(leaveId)).data.staffId) || getUserRole() in ['admin', 'doctor'];
+      allow update: if (resource.data.status == 'Pending' && isOwner(resource.data.staffId)) || getUserRole() in ['admin', 'doctor'];
+    }
+    
+    match /performance_reviews/{reviewId} {
+        allow create: if getUserRole() in ['admin', 'hr', 'doctor'];
+        allow read: if isOwner(resource.data.employeeId) || isOwner(resource.data.reviewerId) || getUserRole() in ['admin', 'hr'];
+        allow update: if isOwner(resource.data.reviewerId) || getUserRole() in ['admin', 'hr'];
+    }
+
+    match /training_courses/{courseId} {
+        allow read: if isUserAuthenticated();
+        allow write: if getUserRole() in ['admin', 'hr'];
     }
   }
 }
