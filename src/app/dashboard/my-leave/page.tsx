@@ -54,7 +54,7 @@ export default function MyLeavePage() {
             Request and track your leave of absence.
           </p>
         </div>
-        <LeaveRequestDialog />
+        <LeaveRequestDialog onLeaveSubmitted={handleRequestSubmitted} />
       </div>
        
        <LeaveBalances />

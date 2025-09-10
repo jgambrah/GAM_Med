@@ -39,7 +39,11 @@ const LeaveRequestSchema = z.object({
     path: ["endDate"],
 });
 
-export function LeaveRequestDialog() {
+interface LeaveRequestDialogProps {
+    onLeaveSubmitted?: () => void;
+}
+
+export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps) {
   const [open, setOpen] = React.useState(false);
   const { user } = useAuth();
 
@@ -64,6 +68,7 @@ export function LeaveRequestDialog() {
      */
     console.log('Submitting leave request:', values);
     alert('Leave request submitted (simulated). Admin will be notified of any conflicting appointments.');
+    onLeaveSubmitted?.();
     setOpen(false);
     form.reset();
   };
