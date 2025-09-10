@@ -3665,6 +3665,7 @@ exports.bookOtSession = functions.region('europe-west1').https.onCall(async (dat
                 status: 'Scheduled',
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };
+            
             transaction.set(newOtSessionRef, sessionData);
         });
 
@@ -4735,6 +4736,155 @@ exports.notifyEmployeeOfLeaveStatus = functions.region('europe-west1').firestore
         return null;
     });
 */
+
+// =======================================================================================
+// == Performance Management
+// =======================================================================================
+
+/**
+ * Creates a new performance review document and notifies the reviewer.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { employeeId: string, reviewerId: string, ratingPeriodStart: string, ratingPeriodEnd: string }
+ */
+/*
+exports.initiatePerformanceReview = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for HR manager or department head
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { employeeId, reviewerId, ratingPeriodStart, ratingPeriodEnd } = data;
+
+    const newReviewRef = db.collection('performance_reviews').doc();
+    const employeeRef = db.collection('employees').doc(employeeId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const employeeDoc = await transaction.get(employeeRef);
+            if (!employeeDoc.exists) throw new Error('Employee not found.');
+
+            const employeeData = employeeDoc.data();
+            const developmentGoals = employeeData.developmentGoals || [];
+
+            // Create the new review document
+            transaction.set(newReviewRef, {
+                reviewId: newReviewRef.id,
+                employeeId,
+                reviewerId,
+                dateOfReview: null,
+                ratingPeriodStart: admin.firestore.Timestamp.fromDate(new Date(ratingPeriodStart)),
+                ratingPeriodEnd: admin.firestore.Timestamp.fromDate(new Date(ratingPeriodEnd)),
+                status: 'Pending',
+                goalsForReview: developmentGoals.filter(g => g.status !== 'Completed') // Pre-populate with active goals
+            });
+
+            // Add the review ID to the employee's history
+            transaction.update(employeeRef, {
+                performanceReviews: admin.firestore.FieldValue.arrayUnion({
+                    reviewId: newReviewRef.id,
+                    date: null,
+                    status: 'Pending'
+                })
+            });
+        });
+
+        // Notify reviewer to begin the appraisal
+        // await sendNotificationToUser(reviewerId, { body: `A new performance review for ${employeeData.firstName} is ready.` });
+        
+        console.log(`Initiated performance review ${newReviewRef.id} for employee ${employeeId}.`);
+        return { success: true, reviewId: newReviewRef.id };
+    } catch (error) {
+        console.error('Failed to initiate performance review:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not initiate review.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Logs a completed training course for an employee.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { employeeId: string, courseId: string, completionDate: string }
+ */
+/*
+exports.recordTrainingCompletion = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for HR or the employee themselves
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { employeeId, courseId, completionDate } = data;
+
+    const employeeRef = db.collection('employees').doc(employeeId);
+    const courseRef = db.collection('training_courses').doc(courseId);
+
+    const courseDoc = await courseRef.get();
+    if (!courseDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Training course not found.');
+    }
+    const courseData = courseDoc.data();
+
+    // Add the new training record to the employee's profile
+    const newTrainingRecord = {
+        trainingId: courseId,
+        courseName: courseData.courseName,
+        completionDate: admin.firestore.Timestamp.fromDate(new Date(completionDate)),
+        provider: courseData.provider
+    };
+
+    await employeeRef.update({
+        trainingRecords: admin.firestore.FieldValue.arrayUnion(newTrainingRecord)
+    });
+    
+    // Optional: Check if this training fulfills a development goal
+    // ...
+
+    console.log(`Recorded training completion for employee ${employeeId}.`);
+    return { success: true };
+});
+*/
+
+/**
+ * Updates the status of an employee's development goal.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { employeeId: string, goalId: string, newStatus: string }
+ */
+/*
+exports.updateDevelopmentGoalStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for the employee or their manager
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { employeeId, goalId, newStatus } = data;
+    const employeeRef = db.collection('employees').doc(employeeId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const employeeDoc = await transaction.get(employeeRef);
+            if (!employeeDoc.exists) throw new Error('Employee not found.');
+
+            const developmentGoals = employeeDoc.data().developmentGoals || [];
+            const goalIndex = developmentGoals.findIndex(g => g.goalId === goalId);
+            
+            if (goalIndex === -1) throw new Error('Development goal not found.');
+
+            // Update the status of the specific goal
+            developmentGoals[goalIndex].status = newStatus;
+            
+            transaction.update(employeeRef, { developmentGoals: developmentGoals });
+        });
+        
+        console.log(`Updated development goal ${goalId} for employee ${employeeId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to update development goal:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not update goal.', { message: error.message });
+    }
+});
+*/
     
 
     
+
+```
+- src/lib/types.ts
+- src/lib/functions.ts
