@@ -39,10 +39,12 @@ function LeaveBalances() {
 
 
 export default function MyLeavePage() {
-  const [key, setKey] = React.useState(0);
+  // This key is used to force a re-render of the MyLeaveHistory component
+  const [key, setKey] = React.useState(Date.now());
 
   const handleRequestSubmitted = () => {
-    setKey(prevKey => prevKey + 1);
+    // Updating the key to a new unique value will trigger the re-render
+    setKey(Date.now());
   };
 
   return (

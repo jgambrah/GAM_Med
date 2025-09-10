@@ -7,6 +7,17 @@ export const RadiologyReportSchema = z.object({
   findings: z.string().min(10, { message: "Findings must be at least 10 characters." }),
 });
 
+export const LeaveRequestSchema = z.object({
+  leaveType: z.enum(['Annual Leave', 'Sick Leave', 'Specialist Leave', 'On-Call Duty']),
+  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
+  endDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
+  reason: z.string().min(10, { message: "Reason must be at least 10 characters." }),
+}).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
+    message: "End date cannot be before start date.",
+    path: ["endDate"],
+});
+
+
 export const LedgerAccountSchema = z.object({
   accountName: z.string().min(3, { message: "Account name must be at least 3 characters." }),
   accountCode: z.string().min(4, { message: "Account code must be at least 4 characters." }),

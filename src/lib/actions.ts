@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 
@@ -368,6 +368,18 @@ export async function bookAppointment(values: z.infer<typeof NewAppointmentSchem
   revalidatePath('/dashboard/my-practice');
 
   return { success: true, message: 'Appointment booked successfully.' };
+}
+
+export async function submitLeaveRequest(values: z.infer<typeof LeaveRequestSchema>) {
+    console.log('Submitting leave request:', values);
+    // In a real app, this would call the `handleLeaveRequest` Cloud Function.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath('/dashboard/my-leave');
+    revalidatePath('/dashboard/approvals');
+    revalidatePath('/dashboard/my-schedule');
+
+    return { success: true, message: 'Leave request submitted successfully.' };
 }
 
 export async function addToWaitingList(values: z.infer<typeof NewWaitingListSchema>) {

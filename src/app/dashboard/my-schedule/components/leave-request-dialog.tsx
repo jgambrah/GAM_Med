@@ -28,16 +28,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { CalendarOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const LeaveRequestSchema = z.object({
-  leaveType: z.enum(['Annual Leave', 'Sick Leave', 'Specialist Leave', 'On-Call Duty']),
-  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
-  endDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
-  reason: z.string().min(10, { message: "Reason must be at least 10 characters." }),
-}).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
-    message: "End date cannot be before start date.",
-    path: ["endDate"],
-});
+import { LeaveRequestSchema } from '@/lib/schemas';
+import { submitLeaveRequest } from '@/lib/actions';
+import { toast } from '@/hooks/use-toast';
 
 interface LeaveRequestDialogProps {
     onLeaveSubmitted?: () => void;
@@ -66,11 +59,15 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
      * 2. Finding any conflicting appointments.
      * 3. Notifying administrative staff to handle the rescheduling.
      */
-    console.log('Submitting leave request:', values);
-    alert('Leave request submitted (simulated). Admin will be notified of any conflicting appointments.');
-    onLeaveSubmitted?.();
-    setOpen(false);
-    form.reset();
+    const result = await submitLeaveRequest(values);
+    if(result.success) {
+      toast.success("Leave request submitted successfully.");
+      onLeaveSubmitted?.();
+      setOpen(false);
+      form.reset();
+    } else {
+      toast.error(result.message || 'Failed to submit leave request.');
+    }
   };
 
   return (
