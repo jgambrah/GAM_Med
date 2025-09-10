@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -229,8 +228,9 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
             </div>
              <div className="lg:col-span-2 space-y-6">
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Qualifications & Credentials</CardTitle>
+                        {canEdit && <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4" /> Add</Button>}
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div>
