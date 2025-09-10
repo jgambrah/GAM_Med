@@ -104,6 +104,91 @@ exports.assignDefaultRole = functions.region('europe-west1').https.onCall(async 
 });
 */
 
+/**
+ * Adds a new credential (license or certification) to an employee's profile.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { userId: string, credentialType: 'license' | 'certification', data: object }
+ */
+/*
+exports.addCredential = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for HR or admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { userId, credentialType, credentialData } = data;
+    if (!userId || !credentialType || !credentialData) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required data.');
+    }
+
+    const userRef = db.collection('users').doc(userId);
+
+    // Prepare the update object based on the credential type
+    const fieldToUpdate = credentialType === 'license' ? 'licenses' : 'certifications';
+    
+    // Add server timestamp for issueDate if not provided
+    const finalCredentialData = {
+        ...credentialData,
+        issueDate: credentialData.issueDate ? admin.firestore.Timestamp.fromDate(new Date(credentialData.issueDate)) : admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await userRef.update({
+        [fieldToUpdate]: admin.firestore.FieldValue.arrayUnion(finalCredentialData)
+    });
+
+    console.log(`Added new ${credentialType} to user ${userId}.`);
+    return { success: true };
+});
+*/
+
+/**
+ * Synchronizes the main user document when a sub-collection document (like credentials) is updated.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /credentials/{credentialId}
+ */
+/*
+exports.updateCredentialStatus = functions.region('europe-west1').firestore
+    .document('/credentials/{credentialId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        const { credentialId } = context.params;
+
+        // Check if the status has actually changed
+        if (newData.status === oldData.status) {
+            return null;
+        }
+
+        const userId = newData.userId;
+        const userRef = db.collection('users').doc(userId);
+        
+        try {
+            await db.runTransaction(async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                if (!userDoc.exists) {
+                    console.error(`User ${userId} not found for credential update.`);
+                    return;
+                }
+
+                const credentials = userDoc.data().credentials || [];
+                const credentialIndex = credentials.findIndex(c => c.credentialId === credentialId);
+
+                if (credentialIndex > -1) {
+                    // Update the status in the user's array
+                    credentials[credentialIndex].status = newData.status;
+                    transaction.update(userRef, { credentials: credentials });
+                    console.log(`Synced credential status for user ${userId}.`);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to sync credential status:', error);
+        }
+
+        return null;
+    });
+*/
+
 
 // =======================================================================================
 // == Ward, Bed & OT Management
@@ -4884,7 +4969,3 @@ exports.updateDevelopmentGoalStatus = functions.region('europe-west1').https.onC
     
 
     
-
-```
-- src/lib/types.ts
-- src/lib/functions.ts
