@@ -3,59 +3,65 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isUserAuthenticated() {
-      return request.auth != null;
-    }
-
+  
+    // Helper function to get user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
 
+    // Rules for the users collection
     match /users/{userId} {
-      allow read: if isUserAuthenticated();
-      allow write: if isOwner(userId) || getUserRole() in ['admin', 'hr'];
+      // Admins and the user themselves can read the user document.
+      allow read: if request.auth != null && (request.auth.uid == userId || getUserRole() == 'admin');
+      
+      // Admins and the user themselves can update the user document.
+      // In a real app, you might restrict which fields a user can update.
+      allow write: if request.auth != null && (request.auth.uid == userId || getUserRole() == 'admin');
     }
 
+    // Rules for the main patient collection
     match /patients/{patientId} {
-        allow read, write: if isUserAuthenticated(); // Simplified for prototype
+      // Allow read access to the patient themselves, or any authenticated staff member.
+      allow read: if request.auth != null && (request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'receptionist']);
+      
+      // Only allow admins and nurses to create or update patient records.
+      allow write: if request.auth != null && getUserRole() in ['admin', 'nurse'];
+
+      // Allow full access to all subcollections for authorized staff.
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null && getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'receptionist'];
+      }
     }
     
-    match /patients/{patientId}/{document=**} {
-        allow read, write: if isUserAuthenticated(); // Simplified for prototype
+    // Rules for the credentials collection
+    match /credentials/{credentialId} {
+      // Only admins can create new credentials.
+      allow create: if getUserRole() == 'admin';
+      // Admins or the user themselves can read the credential.
+      allow read: if getUserRole() == 'admin' || request.auth.uid == resource.data.userId;
+      // Admins can update any field. Users can only update specific fields like status.
+      allow update: if getUserRole() == 'admin' || (request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys.hasOnly(['status']));
     }
 
-    match /beds/{bedId} {
-        allow read, write: if isUserAuthenticated();
-    }
-
-    match /appointments/{appointmentId} {
-        allow read, write: if isUserAuthenticated();
-    }
-    
-    match /referrals/{referralId} {
-        allow read, write: if isUserAuthenticated();
-    }
-    
-    match /leave_requests/{leaveId} {
-      allow create: if isUserAuthenticated();
-      allow read: if isOwner(get(/databases/$(database)/documents/leave_requests/$(leaveId)).data.staffId) || getUserRole() in ['admin', 'doctor'];
-      allow update: if (resource.data.status == 'Pending' && isOwner(resource.data.staffId)) || getUserRole() in ['admin', 'doctor'];
-    }
-    
-    match /performance_reviews/{reviewId} {
-        allow create: if getUserRole() in ['admin', 'hr', 'doctor'];
-        allow read: if isOwner(resource.data.employeeId) || isOwner(resource.data.reviewerId) || getUserRole() in ['admin', 'hr'];
-        allow update: if isOwner(resource.data.reviewerId) || getUserRole() in ['admin', 'hr'];
-    }
-
-    match /training_courses/{courseId} {
-        allow read: if isUserAuthenticated();
-        allow write: if getUserRole() in ['admin', 'hr'];
+    // Rules for other collections
+    match /{document=**} {
+      allow read, write: if request.auth != null; // Default to authenticated access for other collections for now
     }
   }
 }
+
+// == Conceptual Firebase Storage Rules ==
+// These rules would go in a 'storage.rules' file.
+
+// service firebase.storage {
+//   match /b/{bucket}/o {
+//     // Match any file path for credentials. Assumes a path like 'credentials/{userId}/{credentialId}.pdf'
+//     match /credentials/{userId}/{credentialId} {
+//       // Allow read access only to the user who owns the credential or an admin.
+//       allow read: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+//       // Allow write access (create, update, delete) only to admins.
+//       allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+//     }
+//   }
+// }
