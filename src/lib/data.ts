@@ -1266,6 +1266,30 @@ export const mockLeaveRequests: LeaveRequest[] = [
         reason: 'Conference Attendance',
         status: 'Pending',
         requestedAt: new Date('2024-08-16T00:00:00Z').toISOString(),
+    },
+    {
+        leaveId: 'LR-003',
+        staffId: 'doc2',
+        staffName: 'Dr. Kofi Asante',
+        hodId: 'doc1',
+        leaveType: 'Sick Leave',
+        startDate: '2024-08-01',
+        endDate: '2024-08-02',
+        reason: 'Malaria',
+        status: 'Approved',
+        requestedAt: new Date('2024-08-01T08:00:00Z').toISOString(),
+    },
+    {
+        leaveId: 'LR-004',
+        staffId: 'nurse1',
+        staffName: 'Florence Agyepong',
+        hodId: 'doc1',
+        leaveType: 'Annual Leave',
+        startDate: '2024-07-20',
+        endDate: '2024-07-22',
+        reason: 'Personal Reasons',
+        status: 'Rejected',
+        requestedAt: new Date('2024-07-15T00:00:00Z').toISOString(),
     }
 ];
 
@@ -1676,6 +1700,7 @@ export type PharmacyOrder = PurchaseOrder;
 
 
     
+
 
 
 
