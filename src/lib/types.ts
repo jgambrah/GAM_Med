@@ -613,10 +613,8 @@ export interface LeaveRequest {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
   requestedAt: string; // ISO Timestamp
-  leaveRequestId?: string;
-  employeeId?: string;
   leaveType?: 'Vacation' | 'Sick Leave' | 'Specialist Leave' | 'On-Call Duty';
   duration?: number;
   submittedDate?: string;
@@ -884,6 +882,7 @@ export interface StaffProfile {
     accountNumber: string;
     branchName: string;
   };
+  leaveBalances?: Record<string, number>;
 }
 
 /**
@@ -1468,7 +1467,7 @@ export interface Shift {
 }
 
 /**
- * Represents an individual staff assignment within a roster.
+ * Represents a single staff assignment within a roster.
  */
 export interface StaffAssignment {
   userId: string;
