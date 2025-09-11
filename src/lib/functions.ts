@@ -5315,5 +5315,90 @@ exports.equipmentFailureAlert = functions.region('europe-west1').firestore
         return null;
     });
 */
-    
-```
+
+// =======================================================================================
+// == Asset Register Functions
+// =======================================================================================
+/**
+ * Tracks asset warranties and sends alerts for those nearing expiration.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 09:00'
+ */
+/*
+exports.trackAssetWarranty = functions.region('europe-west1').pubsub
+    .schedule('every day 09:00')
+    .onRun(async (context) => {
+        const now = new Date();
+        const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+
+        // 1. Query for active assets with a warrantyEndDate in the next 30 days.
+        const snapshot = await db.collection('assets')
+            .where('status', '==', 'Active')
+            .where('warrantyEndDate', '<=', admin.firestore.Timestamp.fromDate(thirtyDaysFromNow))
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No asset warranties are expiring soon.');
+            return null;
+        }
+
+        for (const doc of snapshot.docs) {
+            const asset = doc.data();
+            const message = `Warranty for asset "${asset.name}" (ID: ${doc.id}) is expiring on ${asset.warrantyEndDate.toDate().toLocaleDateString()}.`;
+            
+            // 2. Send notification to asset managers or relevant department heads.
+            // await sendNotificationToRole('asset_manager', { body: message });
+            console.log(message);
+        }
+        
+        return null;
+    });
+*/
+
+/**
+ * Periodically calculates and updates the depreciated value of assets.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'first day of month 02:00'
+ */
+/*
+exports.calculateDepreciation = functions.region('europe-west1').pubsub
+    .schedule('first day of month 02:00')
+    .onRun(async (context) => {
+        // 1. Query for all assets that are not yet decommissioned.
+        const snapshot = await db.collection('assets')
+            .where('status', '!=', 'Decommissioned')
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No assets to depreciate.');
+            return null;
+        }
+
+        const batch = db.batch();
+
+        for (const doc of snapshot.docs) {
+            const asset = doc.data();
+            const purchaseDate = asset.purchaseDate.toDate();
+            const now = new Date();
+            
+            // 2. Example: Straight-line depreciation over 5 years.
+            const assetLifespanYears = 5;
+            const yearsSincePurchase = (now - purchaseDate) / (1000 * 60 * 60 * 24 * 365.25);
+            
+            if (yearsSincePurchase > assetLifespanYears) {
+                // If past its lifespan, set value to 0 and potentially mark for review.
+                batch.update(doc.ref, { currentValue: 0, status: 'Review for Decommission' });
+            } else {
+                const depreciationPercentage = yearsSincePurchase / assetLifespanYears;
+                const depreciatedValue = asset.purchaseCost * (1 - depreciationPercentage);
+                batch.update(doc.ref, { currentValue: Math.max(0, depreciatedValue) });
+            }
+        }
+
+        await batch.commit();
+        console.log(`Updated depreciation for ${snapshot.size} assets.`);
+        return null;
+    });
+*/
