@@ -1221,20 +1221,29 @@ export interface DoctorSchedule {
 
 
 /**
- * Represents a bookable clinical asset in the central 'resources' collection.
- * This can be equipment, a room, or specialized staff.
+ * Represents a bookable hospital asset. This has been updated to be the comprehensive Asset Register model.
+ * It can be medical equipment, a room, or even specialized staff.
+ * Path: /assets/{assetId}
  */
-export interface Resource {
-  resourceId: string; // Document ID
-  name: string; // e.g., 'MRI Scanner 1', 'Exam Room 3'
-  type: string; // e.g., 'Equipment', 'Room', 'Specialized Staff'
-  department: string; // e.g., 'Radiology', 'Cardiology'
-  location: string;
-  operatingHours: Record<string, string>; // e.g., { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' }
-  isBookable: boolean;
-  status?: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned';
+export interface Asset {
+  assetId: string; // Document ID
+  name: string; // e.g., 'MRI Scanner 1', 'HP EliteBook 840 G5'
+  type: 'Medical Equipment' | 'IT Equipment' | 'Furniture' | 'Building Component' | 'Room';
+  modelNumber?: string;
+  serialNumber?: string;
+  purchaseDate?: string; // ISO Timestamp
+  purchaseCost?: number;
+  currentValue?: number;
+  supplierId?: string; // Optional reference to suppliers collection
+  location: string; // e.g., 'Radiology Wing, Basement', 'IT Server Room'
+  department: string; // e.g., 'Radiology', 'IT', 'Cardiology'
+  status: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned' | 'Active';
+  warrantyEndDate?: string; // ISO Timestamp, optional
+  assignedToUserId?: string; // Optional reference to a user
+  // Fields for bookable resources
+  isBookable?: boolean;
+  operatingHours?: Record<string, string>;
   modality?: 'CT Scan' | 'MRI' | 'X-Ray' | 'Ultrasound'; // For radiology equipment
-  availability?: Record<string, string[]>; // For radiology equipment
 }
 
 /**
@@ -1742,3 +1751,13 @@ export interface StaffProfile {
     status: 'Not Started' | 'In Progress' | 'Completed' | 'Deferred';
   }[];
 }
+
+
+// =======================================================================================
+// == Deprecated Types
+// =======================================================================================
+
+/**
+ * @deprecated Replaced by the more comprehensive `Asset` type.
+ */
+export type Resource = Asset;
