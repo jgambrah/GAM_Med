@@ -30,6 +30,7 @@ import { MaintenanceDashboard } from './components/maintenance-dashboard';
 import { AddMaintenanceRequestDialog } from './components/add-maintenance-request-dialog';
 import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
 import { format, parseISO } from 'date-fns';
+import { AddAssetDialog } from './components/add-asset-dialog';
 
 
 const getStatusVariant = (status: Asset['status']): "secondary" | "default" | "destructive" | "outline" => {
@@ -44,7 +45,7 @@ const getStatusVariant = (status: Asset['status']): "secondary" | "default" | "d
 
 function AssetCatalog() {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [filteredResources, setFilteredResources] = React.useState<Asset[]>(mockResources);
+  const [assets, setAssets] = React.useState<Asset[]>(mockResources);
 
   React.useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
@@ -55,8 +56,12 @@ function AssetCatalog() {
       asset.type.toLowerCase().includes(lowercasedQuery) ||
       asset.department.toLowerCase().includes(lowercasedQuery)
     );
-    setFilteredResources(filtered);
+    setAssets(filtered);
   }, [searchQuery]);
+
+  const handleAssetCreated = (newAsset: Asset) => {
+    setAssets(prev => [newAsset, ...prev]);
+  };
 
 
   return (
@@ -67,13 +72,14 @@ function AssetCatalog() {
                     <CardTitle>Asset Register</CardTitle>
                     <CardDescription>A comprehensive list of all hospital assets and equipment.</CardDescription>
                  </div>
-                  <div className="w-full sm:w-auto">
+                 <div className="flex gap-2">
                     <Input
                         placeholder="Search by name, ID, serial number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="max-w-sm"
                     />
+                    <AddAssetDialog onAssetCreated={handleAssetCreated} />
                 </div>
             </div>
         </CardHeader>
@@ -95,7 +101,7 @@ function AssetCatalog() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredResources.map((asset) => (
+                {assets.map((asset) => (
                   <TableRow key={asset.assetId} className={cn(
                       asset.status === 'Needs Repair' && 'bg-destructive/10',
                       asset.status === 'Under Maintenance' && 'bg-yellow-500/10'
