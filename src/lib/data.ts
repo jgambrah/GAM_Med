@@ -1777,4 +1777,3 @@ export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
-```

@@ -193,5 +193,3 @@ export default function ResourceListPage() {
     </div>
   );
 }
-
-```
