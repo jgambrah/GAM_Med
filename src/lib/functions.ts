@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -5164,7 +5165,6 @@ exports.postPayrollToLedger = functions.region('europe-west1').https.onCall(asyn
  * @trigger_type Scheduled (cron job)
  * @schedule 'every day 01:00'
  */
-/*
 exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
     .schedule('every day 01:00')
     .onRun(async (context) => {
@@ -5172,7 +5172,7 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
         const twoWeeksFromNow = new Date(today.getTime() + (14 * 24 * 60 * 60 * 1000));
         
         // 1. Query for operational equipment with a nextServiceDate in the near future.
-        const snapshot = await db.collection('equipment')
+        const snapshot = await db.collection('assets')
             .where('status', '==', 'Operational')
             .where('nextServiceDate', '<=', admin.firestore.Timestamp.fromDate(twoWeeksFromNow))
             .get();
@@ -5189,7 +5189,7 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
             
             // 2. Check if a maintenance request for this service is already open.
             const existingRequestQuery = db.collection('maintenance_requests')
-                .where('equipmentId', '==', doc.id)
+                .where('assetId', '==', doc.id)
                 .where('requestType', '==', 'Preventive Maintenance')
                 .where('status', '==', 'Open');
                 
@@ -5214,21 +5214,19 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
         console.log(`Created preventive maintenance requests for ${snapshot.size} items.`);
         return null;
     });
-*/
 
 /**
  * Resolves a maintenance request and updates related documents.
  *
  * @trigger_type Callable Function (https)
- * @input { requestId: string, completionNotes: string }
+ * @input { requestId: string, completionNotes: string, cost: number }
  */
-/*
 exports.resolveMaintenanceRequest = functions.region('europe-west1').https.onCall(async (data, context) => {
     // Auth check for maintenance staff
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Role check...
 
-    const { requestId, completionNotes } = data;
+    const { requestId, completionNotes, cost } = data;
     const requestRef = db.collection('maintenance_requests').doc(requestId);
     
     try {
@@ -5243,21 +5241,30 @@ exports.resolveMaintenanceRequest = functions.region('europe-west1').https.onCal
                 status: 'Resolved',
                 completionNotes: completionNotes,
                 completionDate: admin.firestore.FieldValue.serverTimestamp(),
-                assignedToUserId: context.auth.uid, // The user who completed it
+                technicianId: context.auth.uid,
+                cost: cost || 0,
             });
 
             // 2. If it's an equipment request, update the equipment's status.
             if (requestData.equipmentId) {
-                const equipmentRef = db.collection('equipment').doc(requestData.equipmentId);
+                const equipmentRef = db.collection('assets').doc(requestData.equipmentId);
                 const equipmentDoc = await transaction.get(equipmentRef);
                 if (equipmentDoc.exists) {
                     const equipmentData = equipmentDoc.data();
                     const schedule = equipmentData.maintenanceSchedule;
-                    
-                    // Calculate next service date
                     let nextServiceDate = new Date();
-                    // Add logic based on schedule.frequency...
-                    nextServiceDate.setMonth(nextServiceDate.getMonth() + 6); // Example: 6 months later
+                    
+                    // Calculate next service date based on schedule frequency
+                    if (schedule?.frequency === 'Monthly') {
+                        nextServiceDate.setMonth(nextServiceDate.getMonth() + 1);
+                    } else if (schedule?.frequency === 'Quarterly') {
+                        nextServiceDate.setMonth(nextServiceDate.getMonth() + 3);
+                    } else if (schedule?.frequency === 'Annually') {
+                        nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
+                    } else {
+                        // Default or other logic
+                        nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
+                    }
 
                     transaction.update(equipmentRef, {
                         status: 'Operational',
@@ -5284,7 +5291,7 @@ exports.resolveMaintenanceRequest = functions.region('europe-west1').https.onCal
         throw new functions.https.HttpsError('aborted', 'Could not resolve request.', { message: error.message });
     }
 });
-*/
+
 
 /**
  * Sends an alert when a critical piece of equipment fails.
