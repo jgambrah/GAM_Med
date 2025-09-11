@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, MaintenanceRequest, FacilityZone } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, MaintenanceRequest, FacilityZone } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -819,48 +819,55 @@ export const mockImmunizationRecords: ImmunizationRecord[] = [
     }
 ];
 
-export const mockResources: Resource[] = [
+export const mockResources: Asset[] = [
   {
-    resourceId: 'mri-1',
+    assetId: 'mri-1',
     name: 'MRI Scanner 1',
-    type: 'Equipment',
+    modelNumber: 'Magnetom Skyra',
+    serialNumber: 'SN-MRI-001',
+    type: 'Medical Equipment',
     department: 'Radiology',
     location: 'Radiology Wing, Basement',
     operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
     isBookable: true,
     status: 'Operational',
     modality: 'MRI',
-    availability: { '2024-08-16': ['09:00', '10:00'] }
+    purchaseDate: '2020-01-15T00:00:00Z',
+    purchaseCost: 5000000,
+    currentValue: 4200000,
+    warrantyEndDate: '2025-01-14T00:00:00Z',
   },
   {
-    resourceId: 'ct-1',
+    assetId: 'ct-1',
     name: 'CT Scanner 1',
-    type: 'Equipment',
+    modelNumber: 'Somatom go.Up',
+    serialNumber: 'SN-CT-001',
+    type: 'Medical Equipment',
     department: 'Radiology',
     location: 'Radiology Wing, Basement',
     operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
     isBookable: true,
     status: 'Needs Repair',
     modality: 'CT Scan',
-    availability: { '2024-08-16': ['09:30', '10:30'] }
+    purchaseDate: '2019-05-20T00:00:00Z',
+    purchaseCost: 3500000,
+    currentValue: 2500000,
   },
   {
-    resourceId: 'proc-room-1',
+    assetId: 'proc-room-1',
     name: 'Procedure Room 1',
     type: 'Room',
     department: 'General Surgery',
     location: 'Outpatient Clinic, 2nd Floor',
-    operatingHours: { 'Mon-Fri': '09:00-17:00' },
     status: 'Operational',
     isBookable: true,
   },
   {
-    resourceId: 'consult-room-5',
+    assetId: 'consult-room-5',
     name: 'Consultation Room 5',
     type: 'Room',
     department: 'Cardiology',
     location: 'Cardiology Clinic',
-    operatingHours: { 'Mon-Fri': '09:00-17:00' },
     status: 'Under Maintenance',
     isBookable: true,
   },
@@ -1768,3 +1775,6 @@ export const mockFacilityZones: FacilityZone[] = [
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
     
+// Deprecated type, use Asset instead
+export type Resource = Asset;
+```

@@ -22,16 +22,17 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { mockResources } from '@/lib/data';
-import { Resource } from '@/lib/types';
+import { Asset } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MaintenanceDashboard } from './components/maintenance-dashboard';
 import { AddMaintenanceRequestDialog } from './components/add-maintenance-request-dialog';
 import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
+import { format, parseISO } from 'date-fns';
 
 
-const getStatusVariant = (status: Resource['status']): "secondary" | "default" | "destructive" | "outline" => {
+const getStatusVariant = (status: Asset['status']): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
         case 'Operational': return 'secondary';
         case 'Under Maintenance': return 'default';
@@ -43,14 +44,16 @@ const getStatusVariant = (status: Resource['status']): "secondary" | "default" |
 
 function AssetCatalog() {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [filteredResources, setFilteredResources] = React.useState<Resource[]>(mockResources);
+  const [filteredResources, setFilteredResources] = React.useState<Asset[]>(mockResources);
 
   React.useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
-    const filtered = mockResources.filter(resource => 
-      resource.name.toLowerCase().includes(lowercasedQuery) ||
-      resource.type.toLowerCase().includes(lowercasedQuery) ||
-      resource.department.toLowerCase().includes(lowercasedQuery)
+    const filtered = mockResources.filter(asset => 
+      asset.name.toLowerCase().includes(lowercasedQuery) ||
+      asset.assetId.toLowerCase().includes(lowercasedQuery) ||
+      (asset.serialNumber && asset.serialNumber.toLowerCase().includes(lowercasedQuery)) ||
+      asset.type.toLowerCase().includes(lowercasedQuery) ||
+      asset.department.toLowerCase().includes(lowercasedQuery)
     );
     setFilteredResources(filtered);
   }, [searchQuery]);
@@ -61,12 +64,12 @@ function AssetCatalog() {
         <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                  <div>
-                    <CardTitle>Asset Catalog</CardTitle>
-                    <CardDescription>A list of all hospital assets and equipment.</CardDescription>
+                    <CardTitle>Asset Register</CardTitle>
+                    <CardDescription>A comprehensive list of all hospital assets and equipment.</CardDescription>
                  </div>
                   <div className="w-full sm:w-auto">
                     <Input
-                        placeholder="Search by name, type, or dept..."
+                        placeholder="Search by name, ID, serial number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="max-w-sm"
@@ -79,30 +82,40 @@ function AssetCatalog() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Asset ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Serial No.</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Purchase Date</TableHead>
+                  <TableHead>Warranty End</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Cost (₵)</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredResources.map((resource) => (
-                  <TableRow key={resource.resourceId} className={cn(
-                      resource.status === 'Needs Repair' && 'bg-destructive/10',
-                      resource.status === 'Under Maintenance' && 'bg-yellow-500/10'
+                {filteredResources.map((asset) => (
+                  <TableRow key={asset.assetId} className={cn(
+                      asset.status === 'Needs Repair' && 'bg-destructive/10',
+                      asset.status === 'Under Maintenance' && 'bg-yellow-500/10'
                   )}>
-                    <TableCell className="font-medium">{resource.name}</TableCell>
-                    <TableCell>{resource.type}</TableCell>
-                    <TableCell>{resource.department}</TableCell>
+                    <TableCell className="font-mono text-xs">{asset.assetId}</TableCell>
+                    <TableCell className="font-medium">{asset.name}</TableCell>
+                    <TableCell>{asset.type}</TableCell>
+                    <TableCell>{asset.serialNumber || 'N/A'}</TableCell>
+                    <TableCell>{asset.department}</TableCell>
+                    <TableCell>{asset.purchaseDate ? format(parseISO(asset.purchaseDate), 'PPP') : 'N/A'}</TableCell>
+                    <TableCell>{asset.warrantyEndDate ? format(parseISO(asset.warrantyEndDate), 'PPP') : 'N/A'}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(resource.status)}>
-                        {resource.status}
+                      <Badge variant={getStatusVariant(asset.status)}>
+                        {asset.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right font-mono">{asset.purchaseCost?.toFixed(2) || 'N/A'}</TableCell>
                     <TableCell>
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/admin/resources/${resource.resourceId}`}>
+                        <Link href={`/dashboard/admin/resources/${asset.assetId}`}>
                           View Details
                         </Link>
                       </Button>
@@ -163,7 +176,7 @@ export default function ResourceListPage() {
        </div>
         <Tabs defaultValue="catalog">
             <TabsList>
-                <TabsTrigger value="catalog">Asset Catalog</TabsTrigger>
+                <TabsTrigger value="catalog">Asset Register</TabsTrigger>
                 <TabsTrigger value="maintenance">Maintenance Requests</TabsTrigger>
                 <TabsTrigger value="zones">Facility Zones</TabsTrigger>
             </TabsList>
@@ -180,3 +193,5 @@ export default function ResourceListPage() {
     </div>
   );
 }
+
+```
