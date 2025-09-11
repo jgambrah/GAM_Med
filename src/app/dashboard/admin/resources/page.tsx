@@ -21,20 +21,93 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { mockResources } from '@/lib/data';
+import { Resource } from '@/lib/types';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+
+const getStatusVariant = (status: Resource['status']): "secondary" | "default" | "destructive" | "outline" => {
+    switch (status) {
+        case 'Operational': return 'secondary';
+        case 'Under Maintenance': return 'default';
+        case 'Needs Repair': return 'destructive';
+        case 'Decommissioned': return 'outline';
+        default: return 'outline';
+    }
+}
 
 export default function ResourceListPage() {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [filteredResources, setFilteredResources] = React.useState<Resource[]>(mockResources);
+
+  React.useEffect(() => {
+    const lowercasedQuery = searchQuery.toLowerCase();
+    const filtered = mockResources.filter(resource => 
+      resource.name.toLowerCase().includes(lowercasedQuery) ||
+      resource.type.toLowerCase().includes(lowercasedQuery) ||
+      resource.department.toLowerCase().includes(lowercasedQuery)
+    );
+    setFilteredResources(filtered);
+  }, [searchQuery]);
+
+  const totalAssets = mockResources.length;
+  const operationalAssets = mockResources.filter(r => r.status === 'Operational').length;
+  const maintenanceAssets = mockResources.filter(r => r.status === 'Under Maintenance' || r.status === 'Needs Repair').length;
+
   return (
     <div className="space-y-6">
-       <div>
-        <h1 className="text-3xl font-bold">Resource Management</h1>
-        <p className="text-muted-foreground">
-          View and manage all bookable hospital assets.
-        </p>
-      </div>
+       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-bold">Asset & Facilities Management</h1>
+                <p className="text-muted-foreground">
+                View and manage all bookable hospital assets and equipment.
+                </p>
+            </div>
+             <Button>Add New Asset</Button>
+       </div>
+
+       <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{totalAssets}</div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Operational Assets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{operationalAssets}</div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Under Maintenance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-yellow-600">{maintenanceAssets}</div>
+                </CardContent>
+            </Card>
+       </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Resource Catalog</CardTitle>
-          <CardDescription>A list of all bookable resources.</CardDescription>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                 <div>
+                    <CardTitle>Asset Catalog</CardTitle>
+                    <CardDescription>A list of all hospital assets and equipment.</CardDescription>
+                 </div>
+                  <div className="w-full sm:w-auto">
+                    <Input
+                        placeholder="Search by name, type, or dept..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="max-w-sm"
+                    />
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -49,20 +122,23 @@ export default function ResourceListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockResources.map((resource) => (
-                  <TableRow key={resource.resourceId}>
+                {filteredResources.map((resource) => (
+                  <TableRow key={resource.resourceId} className={cn(
+                      resource.status === 'Needs Repair' && 'bg-destructive/10',
+                      resource.status === 'Under Maintenance' && 'bg-yellow-500/10'
+                  )}>
                     <TableCell className="font-medium">{resource.name}</TableCell>
                     <TableCell>{resource.type}</TableCell>
                     <TableCell>{resource.department}</TableCell>
                     <TableCell>
-                      <Badge variant={resource.isBookable ? 'secondary' : 'outline'}>
-                        {resource.isBookable ? 'Bookable' : 'Not Bookable'}
+                      <Badge variant={getStatusVariant(resource.status)}>
+                        {resource.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/dashboard/admin/resources/${resource.resourceId}`}>
-                          View Calendar
+                          View Details
                         </Link>
                       </Button>
                     </TableCell>

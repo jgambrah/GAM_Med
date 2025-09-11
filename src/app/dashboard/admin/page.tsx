@@ -48,7 +48,7 @@ export default function AdminPage() {
            <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
-          <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="assets">Asset Management</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
         </TabsList>
          <TabsContent value="inpatient-admissions" className="mt-4">
@@ -146,20 +146,20 @@ export default function AdminPage() {
         <TabsContent value="staff-schedules" className="mt-4">
           <StaffScheduleDashboard />
         </TabsContent>
-        <TabsContent value="resources" className="mt-4">
+        <TabsContent value="assets" className="mt-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Resource Management</CardTitle>
+                    <CardTitle>Asset & Facilities Management</CardTitle>
                     <CardDescription>
-                        This section is under development. Click the button to view the resource catalog.
+                        View and manage all hospital assets, equipment, and maintenance schedules.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">The resource dashboard will be available here soon.</p>
+                        <p className="text-muted-foreground">The asset dashboard will be available here soon.</p>
                         <Button asChild className="mt-4">
                             <Link href="/dashboard/admin/resources">
-                                Go to Resource Management
+                                Go to Asset Management
                             </Link>
                         </Button>
                     </div>
