@@ -4543,7 +4543,7 @@ exports.updateClaimPayout = functions.region('europe-west1').firestore
  */
 /*
 exports.payBill = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check for financial staff
+    // 1. Auth check for finance staff
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Add role check...
 
@@ -5154,4 +5154,166 @@ exports.postPayrollToLedger = functions.region('europe-west1').https.onCall(asyn
     return { success: true };
 });
 */
+// =======================================================================================
+// == Asset & Facilities Management
+// =======================================================================================
+
+/**
+ * Automatically creates preventive maintenance tasks based on equipment schedules.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 01:00'
+ */
+/*
+exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
+    .schedule('every day 01:00')
+    .onRun(async (context) => {
+        const today = new Date();
+        const twoWeeksFromNow = new Date(today.getTime() + (14 * 24 * 60 * 60 * 1000));
+        
+        // 1. Query for operational equipment with a nextServiceDate in the near future.
+        const snapshot = await db.collection('equipment')
+            .where('status', '==', 'Operational')
+            .where('nextServiceDate', '<=', admin.firestore.Timestamp.fromDate(twoWeeksFromNow))
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No equipment due for preventive maintenance.');
+            return null;
+        }
+
+        const batch = db.batch();
+
+        for (const doc of snapshot.docs) {
+            const equipment = doc.data();
+            
+            // 2. Check if a maintenance request for this service is already open.
+            const existingRequestQuery = db.collection('maintenance_requests')
+                .where('equipmentId', '==', doc.id)
+                .where('requestType', '==', 'Preventive Maintenance')
+                .where('status', '==', 'Open');
+                
+            const existingRequestSnapshot = await existingRequestQuery.get();
+
+            if (existingRequestSnapshot.empty) {
+                // 3. Create a new maintenance request.
+                const newRequestRef = db.collection('maintenance_requests').doc();
+                batch.set(newRequestRef, {
+                    requestId: newRequestRef.id,
+                    equipmentId: doc.id,
+                    requestType: 'Preventive Maintenance',
+                    description: `Scheduled preventive maintenance for ${equipment.name}.`,
+                    priority: 'Medium',
+                    status: 'Open',
+                    dateRequested: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+        }
+
+        await batch.commit();
+        console.log(`Created preventive maintenance requests for ${snapshot.size} items.`);
+        return null;
+    });
+*/
+
+/**
+ * Resolves a maintenance request and updates related documents.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { requestId: string, completionNotes: string }
+ */
+/*
+exports.resolveMaintenanceRequest = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for maintenance staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { requestId, completionNotes } = data;
+    const requestRef = db.collection('maintenance_requests').doc(requestId);
     
+    try {
+        await db.runTransaction(async (transaction) => {
+            const requestDoc = await transaction.get(requestRef);
+            if (!requestDoc.exists) throw new Error('Maintenance request not found.');
+
+            const requestData = requestDoc.data();
+
+            // 1. Update the maintenance request status.
+            transaction.update(requestRef, {
+                status: 'Resolved',
+                completionNotes: completionNotes,
+                completionDate: admin.firestore.FieldValue.serverTimestamp(),
+                assignedToUserId: context.auth.uid, // The user who completed it
+            });
+
+            // 2. If it's an equipment request, update the equipment's status.
+            if (requestData.equipmentId) {
+                const equipmentRef = db.collection('equipment').doc(requestData.equipmentId);
+                const equipmentDoc = await transaction.get(equipmentRef);
+                if (equipmentDoc.exists) {
+                    const equipmentData = equipmentDoc.data();
+                    const schedule = equipmentData.maintenanceSchedule;
+                    
+                    // Calculate next service date
+                    let nextServiceDate = new Date();
+                    // Add logic based on schedule.frequency...
+                    nextServiceDate.setMonth(nextServiceDate.getMonth() + 6); // Example: 6 months later
+
+                    transaction.update(equipmentRef, {
+                        status: 'Operational',
+                        lastServiceDate: admin.firestore.FieldValue.serverTimestamp(),
+                        nextServiceDate: admin.firestore.Timestamp.fromDate(nextServiceDate),
+                    });
+                }
+            }
+            
+            // 3. If it's a facility request, decrement the zone's maintenance count.
+            if (requestData.zoneId) {
+                const zoneRef = db.collection('facility_zones').doc(requestData.zoneId);
+                transaction.update(zoneRef, {
+                    maintenanceRequests: admin.firestore.FieldValue.increment(-1),
+                });
+            }
+        });
+        
+        console.log(`Resolved maintenance request ${requestId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Failed to resolve maintenance request:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not resolve request.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Sends an alert when a critical piece of equipment fails.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /equipment/{equipmentId}
+ */
+/*
+exports.equipmentFailureAlert = functions.region('europe-west1').firestore
+    .document('/equipment/{equipmentId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        
+        // 1. Trigger only if the status changes TO a non-operational state.
+        if (newData.status !== oldData.status && (newData.status === 'Under Maintenance' || newData.status === 'Needs Repair')) {
+            const department = newData.department;
+            
+            // 2. Send notification to the relevant department head or user role.
+            // await sendNotificationToRole(`head_of_${department}`, {
+            //     title: 'Equipment Alert',
+            //     body: `${newData.name} in ${newData.currentLocation} is now ${newData.status}.`
+            // });
+
+            console.log(`Sent equipment failure alert for ${context.params.equipmentId}.`);
+        }
+        
+        return null;
+    });
+*/
+    
+```
