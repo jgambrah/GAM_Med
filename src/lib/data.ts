@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, MaintenanceRequest } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, MaintenanceRequest, FacilityZone } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -902,7 +902,7 @@ export const mockMaintenanceRequests: MaintenanceRequest[] = [
     },
     {
         requestId: 'MR-002',
-        zoneId: 'Main-Building-Lobby',
+        zoneId: 'Main-Lobby',
         requestType: 'Facility Upkeep',
         description: 'Lobby air conditioning unit is not cooling effectively.',
         priority: 'Medium',
@@ -1756,6 +1756,12 @@ export const mockPerformanceReviews: PerformanceReview[] = [
 export const mockTrainingCourses: TrainingCourse[] = [
     { courseId: 'TRN001', courseName: 'Advanced Cardiac Life Support', description: 'ACLS certification.', provider: 'American Heart Association', duration: '2 Days', type: 'Mandatory' },
     { courseId: 'TRN002', courseName: 'Introduction to Hospital Management', description: 'Course for new managers.', provider: 'GamMed HR', duration: '5 Days', type: 'Leadership' },
+];
+
+export const mockFacilityZones: FacilityZone[] = [
+    { zoneId: 'Main-Lobby', name: 'Main Hospital Lobby', managerId: 'admin1', maintenanceRequests: 1 },
+    { zoneId: 'Ward-A', name: 'General Medical Ward A', managerId: 'nurse1', maintenanceRequests: 0 },
+    { zoneId: 'Radiology-Dept', name: 'Radiology Department', managerId: 'rad1', maintenanceRequests: 0 },
 ];
 
 

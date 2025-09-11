@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MaintenanceDashboard } from './components/maintenance-dashboard';
 import { AddMaintenanceRequestDialog } from './components/add-maintenance-request-dialog';
+import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
 
 
 const getStatusVariant = (status: Resource['status']): "secondary" | "default" | "destructive" | "outline" => {
@@ -163,12 +165,16 @@ export default function ResourceListPage() {
             <TabsList>
                 <TabsTrigger value="catalog">Asset Catalog</TabsTrigger>
                 <TabsTrigger value="maintenance">Maintenance Requests</TabsTrigger>
+                <TabsTrigger value="zones">Facility Zones</TabsTrigger>
             </TabsList>
             <TabsContent value="catalog" className="mt-4">
                 <AssetCatalog />
             </TabsContent>
             <TabsContent value="maintenance" className="mt-4">
                 <MaintenanceDashboard />
+            </TabsContent>
+            <TabsContent value="zones" className="mt-4">
+                <FacilityZonesDashboard />
             </TabsContent>
         </Tabs>
     </div>
