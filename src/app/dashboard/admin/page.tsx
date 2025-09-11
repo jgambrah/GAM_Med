@@ -39,7 +39,9 @@ export default function AdminPage() {
           <TabsTrigger value="discharge-processing">Discharge Processing</TabsTrigger>
           <TabsTrigger value="ar">Accounts Receivable</TabsTrigger>
           <TabsTrigger value="ap">Accounts Payable</TabsTrigger>
-          <TabsTrigger value="payroll">Payroll</TabsTrigger>
+          <TabsTrigger value="payroll">
+              <Link href="/dashboard/payroll">Payroll</Link>
+          </TabsTrigger>
           <TabsTrigger value="reports">Financial Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="user-management">User Management</TabsTrigger>

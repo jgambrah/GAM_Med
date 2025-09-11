@@ -487,9 +487,6 @@ export function AccountsPayableDashboard() {
                     <TabsContent value="staff-claims">
                         <StaffClaimsTab onPaymentLogged={handlePaymentLogged} />
                     </TabsContent>
-                    <TabsContent value="payroll">
-                        {/* Content moved to dedicated page */}
-                    </TabsContent>
                 </CardContent>
             </Tabs>
         </Card>
