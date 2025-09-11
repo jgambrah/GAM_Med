@@ -1,5 +1,3 @@
-
-
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -4967,5 +4965,193 @@ exports.updateDevelopmentGoalStatus = functions.region('europe-west1').https.onC
 });
 */
     
+// =======================================================================================
+// == PAYROLL & COMPENSATION FUNCTIONS
+// =======================================================================================
+/**
+ * Starts a new payroll run. This is the entry point for the payroll process.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { payPeriod: string, payDate: string }
+ */
+/*
+exports.startPayrollRun = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for finance/HR admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
 
+    const { payPeriod, payDate } = data;
+    const newRunRef = db.collection('payroll_runs').doc();
+
+    await newRunRef.set({
+        runId: newRunRef.id,
+        payPeriod,
+        payDate,
+        status: 'Processing', // This status will trigger the processStaffPayroll function
+        initiatedByUserId: context.auth.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Initialize aggregate fields
+        totalGrossPay: 0,
+        totalDeductions: 0,
+        totalNetPay: 0,
+        totalTaxes: 0,
+        totalEmployees: 0,
+    });
+    
+    console.log(`Payroll run ${newRunRef.id} initiated for period ${payPeriod}.`);
+    return { success: true, runId: newRunRef.id };
+});
+*/
+
+/**
+ * Processes payroll for each staff member when a new payroll run is created.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /payroll_runs/{runId}
+ */
+/*
+exports.processStaffPayroll = functions.region('europe-west1').firestore
+    .document('/payroll_runs/{runId}')
+    .onCreate(async (snapshot, context) => {
+        const runData = snapshot.data();
+        const { runId } = context.params;
+
+        const activeStaff = await db.collection('staff_profiles').where('employmentStatus', '==', 'Active').get();
+        const payrollConfigDoc = await db.collection('payroll_config').doc('main').get();
+        if (!payrollConfigDoc.exists) throw new Error("Payroll configuration not found.");
+        const config = payrollConfigDoc.data();
+        
+        let totalGross = 0;
+        let totalDeductionsAgg = 0;
+        let totalNet = 0;
+        let totalTaxesAgg = 0;
+        const remittanceTotals = {};
+
+        const batch = db.batch();
+
+        for (const staffDoc of activeStaff.docs) {
+            const staff = staffDoc.data();
+            
+            // --- Payroll Calculation Logic ---
+            // 1. Fetch position for base salary
+            const positionDoc = await db.collection('positions').doc(staff.positionId).get();
+            const baseSalary = (positionDoc.data()?.baseAnnualSalary || 0) / 12;
+            
+            // 2. Calculate Gross Pay
+            const totalAllowances = (staff.recurringAllowances || []).reduce((sum, alw) => sum + alw.amount, 0);
+            const monthlyGrossPay = baseSalary + totalAllowances;
+            
+            // 3. Calculate Deductions (SSNIT, Tax)
+            // This is a simplified calculation for Ghana. A real implementation would be more complex.
+            const ssnitContribution = monthlyGrossPay * config.ssnitEmployeeRate;
+            const taxableIncome = monthlyGrossPay - ssnitContribution;
+            const taxAmount = calculatePaye(taxableIncome, config.taxBands);
+            
+            // 4. Sum up all deductions
+            const totalRecurringDeductions = (staff.recurringDeductions || []).reduce((sum, ded) => sum + ded.amount, 0);
+            const totalDeductions = ssnitContribution + taxAmount + totalRecurringDeductions;
+            
+            // 5. Calculate Net Pay
+            const netPay = monthlyGrossPay - totalDeductions;
+            
+            // 6. Aggregate totals for the main run document
+            totalGross += monthlyGrossPay;
+            totalDeductionsAgg += totalDeductions;
+            totalNet += netPay;
+            totalTaxesAgg += taxAmount;
+            
+            // 7. Create a detailed record for this employee within the run
+            const recordRef = snapshot.ref.collection('payroll_records').doc(staff.staffId);
+            batch.set(recordRef, { ... });
+        }
+
+        // 8. Update the main payroll run document with aggregated data and set status to 'Review'
+        batch.update(snapshot.ref, {
+            status: 'Review',
+            totalGrossPay: totalGross,
+            // ... update other aggregate fields
+        });
+
+        await batch.commit();
+        console.log(`Payroll processing for run ${runId} is complete and ready for review.`);
+        return null;
+    });
+*/
+
+/**
+ * Finalizes a payroll run after administrative review.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { runId: string }
+ */
+/*
+exports.finalizePayrollRun = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for finance/HR admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { runId } = data;
+    const runRef = db.collection('payroll_runs').doc(runId);
+    
+    // Update status to 'Completed', ready for payment posting.
+    await runRef.update({ 
+        status: 'Completed', 
+        finalizedByUserId: context.auth.uid,
+        finalizedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // This could trigger another function to notify accounting to make payments.
+    
+    return { success: true };
+});
+*/
+
+/**
+ * Posts the finalized payroll aggregates to the General Ledger.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { runId: string }
+ */
+/*
+exports.postPayrollToLedger = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for finance admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { runId } = data;
+    const runRef = db.collection('payroll_runs').doc(runId);
+    const runDoc = await runRef.get();
+    if (!runDoc.exists || runDoc.data().status !== 'Completed') {
+        throw new functions.https.HttpsError('failed-precondition', 'Payroll run is not in a completed state.');
+    }
+    const run = runDoc.data();
+
+    const batch = db.batch();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    // 1. Debit Salaries Expense
+    const salariesExpenseRef = db.collection('ledger_accounts').doc('5010'); // Example account code
+    batch.update(salariesExpenseRef, { balance: admin.firestore.FieldValue.increment(run.totalGrossPay) });
+    const salariesEntryRef = db.collection('ledger_entries').doc();
+    batch.set(salariesEntryRef, {
+        accountId: '5010', date: now, description: `Payroll for ${run.payPeriod}`, debit: run.totalGrossPay
+    });
+    
+    // 2. Credit Accounts Payable (or a specific Payroll Liability account)
+    const payableRef = db.collection('ledger_accounts').doc('2010');
+    batch.update(payableRef, { balance: admin.firestore.FieldValue.increment(-run.totalGrossPay) }); // Credit decreases liability balance
+    const payableEntryRef = db.collection('ledger_entries').doc();
+    batch.set(payableEntryRef, {
+        accountId: '2010', date: now, description: `Payroll for ${run.payPeriod}`, credit: run.totalGrossPay
+    });
+
+    // 3. Mark the payroll run as posted
+    batch.update(runRef, { 
+        status: 'Posted', 
+        postedAt: now 
+    });
+
+    await batch.commit();
+
+    return { success: true };
+});
+*/
     
