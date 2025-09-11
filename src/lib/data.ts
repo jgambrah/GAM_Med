@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Resource, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, MaintenanceRequest } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -828,6 +828,7 @@ export const mockResources: Resource[] = [
     location: 'Radiology Wing, Basement',
     operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
     isBookable: true,
+    status: 'Operational',
     modality: 'MRI',
     availability: { '2024-08-16': ['09:00', '10:00'] }
   },
@@ -839,6 +840,7 @@ export const mockResources: Resource[] = [
     location: 'Radiology Wing, Basement',
     operatingHours: { 'Mon-Fri': '08:00-20:00', 'Sat': '09:00-17:00' },
     isBookable: true,
+    status: 'Needs Repair',
     modality: 'CT Scan',
     availability: { '2024-08-16': ['09:30', '10:30'] }
   },
@@ -849,6 +851,7 @@ export const mockResources: Resource[] = [
     department: 'General Surgery',
     location: 'Outpatient Clinic, 2nd Floor',
     operatingHours: { 'Mon-Fri': '09:00-17:00' },
+    status: 'Operational',
     isBookable: true,
   },
   {
@@ -858,6 +861,7 @@ export const mockResources: Resource[] = [
     department: 'Cardiology',
     location: 'Cardiology Clinic',
     operatingHours: { 'Mon-Fri': '09:00-17:00' },
+    status: 'Under Maintenance',
     isBookable: true,
   },
 ];
@@ -884,6 +888,41 @@ export const mockResourceBookings: ResourceBooking[] = [
         relatedAppointmentId: 'AP-ABC'
     }
 ];
+
+export const mockMaintenanceRequests: MaintenanceRequest[] = [
+    {
+        requestId: 'MR-001',
+        equipmentId: 'ct-1',
+        requestType: 'Repair',
+        description: 'CT scanner is producing artifact images. Requires technician assessment.',
+        priority: 'High',
+        status: 'Open',
+        requestedByUserId: 'rad1',
+        dateRequested: new Date('2024-08-15T11:00:00Z').toISOString(),
+    },
+    {
+        requestId: 'MR-002',
+        zoneId: 'Main-Building-Lobby',
+        requestType: 'Facility Upkeep',
+        description: 'Lobby air conditioning unit is not cooling effectively.',
+        priority: 'Medium',
+        status: 'Open',
+        requestedByUserId: 'reception1',
+        dateRequested: new Date('2024-08-16T09:00:00Z').toISOString(),
+    },
+     {
+        requestId: 'MR-003',
+        equipmentId: 'consult-room-5',
+        requestType: 'Repair',
+        description: 'Door handle is broken.',
+        priority: 'Low',
+        status: 'Resolved',
+        requestedByUserId: 'nurse1',
+        dateRequested: new Date('2024-08-14T09:00:00Z').toISOString(),
+        completionDate: new Date('2024-08-15T12:00:00Z').toISOString()
+    }
+];
+
 
 export const mockWaitingList: WaitingListEntry[] = [
     {
@@ -1188,7 +1227,7 @@ export const mockLedgerAccounts: LedgerAccount[] = [
     { accountId: '5000', accountName: 'Expenses', accountCode: '5000', accountType: 'Expense', balance: 180000, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '5010', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 100000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
     { accountId: '5020', accountName: 'Medical Supplies', accountCode: '5020', accountType: 'Expense', balance: 80000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
-    { accountId: '5030', accountName: 'General & Admin', accountCode: '5030', accountType: 'Expense', balance: 0, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
+    { accountId: '5030', accountName: 'General &amp; Admin', accountCode: '5030', accountType: 'Expense', balance: 0, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
 ];
 
 export const mockLedgerEntries: LedgerEntry[] = [
@@ -1206,7 +1245,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         hodId: 'doc1', // Dr. Mensah is the HOD
         claimType: 'Travel',
         amount: 350.00,
-        description: 'T&T for conference in Kumasi',
+        description: 'T&amp;T for conference in Kumasi',
         submissionDate: new Date('2024-08-10T00:00:00Z').toISOString(),
         approvalStatus: 'Approved',
         hodApprovalDate: new Date('2024-08-11T00:00:00Z').toISOString(),
@@ -1311,7 +1350,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         dateOfBirth: '1980-01-01',
         employmentStatus: 'Active',
         positionId: 'pos-doc',
-        recurringAllowances: [{ name: 'Book & Research Allowance', amount: 500 }],
+        recurringAllowances: [{ name: 'Book &amp; Research Allowance', amount: 500 }],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
         performanceReviews: [{ reviewId: 'rev-doc1-2023', date: '2023-12-15', reviewerId: 'admin1', overallRating: 'Exceeds Expectations' }],
@@ -1436,7 +1475,7 @@ export const mockAllowances: Allowance[] = [
     },
     {
         allowanceId: 'BOOK_RESEARCH_ALLOWANCE',
-        name: 'Book & Research Allowance',
+        name: 'Book &amp; Research Allowance',
         isTaxable: false,
     }
 ];
@@ -1722,6 +1761,4 @@ export const mockTrainingCourses: TrainingCourse[] = [
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
-
-
     

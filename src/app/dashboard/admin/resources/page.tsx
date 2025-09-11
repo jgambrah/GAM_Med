@@ -24,6 +24,10 @@ import { mockResources } from '@/lib/data';
 import { Resource } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MaintenanceDashboard } from './components/maintenance-dashboard';
+import { AddMaintenanceRequestDialog } from './components/add-maintenance-request-dialog';
+
 
 const getStatusVariant = (status: Resource['status']): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -35,7 +39,7 @@ const getStatusVariant = (status: Resource['status']): "secondary" | "default" |
     }
 }
 
-export default function ResourceListPage() {
+function AssetCatalog() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filteredResources, setFilteredResources] = React.useState<Resource[]>(mockResources);
 
@@ -49,49 +53,8 @@ export default function ResourceListPage() {
     setFilteredResources(filtered);
   }, [searchQuery]);
 
-  const totalAssets = mockResources.length;
-  const operationalAssets = mockResources.filter(r => r.status === 'Operational').length;
-  const maintenanceAssets = mockResources.filter(r => r.status === 'Under Maintenance' || r.status === 'Needs Repair').length;
 
   return (
-    <div className="space-y-6">
-       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <div>
-                <h1 className="text-3xl font-bold">Asset & Facilities Management</h1>
-                <p className="text-muted-foreground">
-                View and manage all bookable hospital assets and equipment.
-                </p>
-            </div>
-             <Button>Add New Asset</Button>
-       </div>
-
-       <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{totalAssets}</div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Operational Assets</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{operationalAssets}</div>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Under Maintenance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-yellow-600">{maintenanceAssets}</div>
-                </CardContent>
-            </Card>
-       </div>
-
       <Card>
         <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -149,6 +112,65 @@ export default function ResourceListPage() {
           </div>
         </CardContent>
       </Card>
+  )
+}
+
+
+export default function ResourceListPage() {
+  const totalAssets = mockResources.length;
+  const operationalAssets = mockResources.filter(r => r.status === 'Operational').length;
+  const maintenanceAssets = mockResources.filter(r => r.status === 'Under Maintenance' || r.status === 'Needs Repair').length;
+
+  return (
+    <div className="space-y-6">
+       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-bold">Asset &amp; Facilities Management</h1>
+                <p className="text-muted-foreground">
+                View assets, equipment, and manage maintenance requests.
+                </p>
+            </div>
+             <AddMaintenanceRequestDialog />
+       </div>
+
+       <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{totalAssets}</div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Operational Assets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{operationalAssets}</div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Under Maintenance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-yellow-600">{maintenanceAssets}</div>
+                </CardContent>
+            </Card>
+       </div>
+        <Tabs defaultValue="catalog">
+            <TabsList>
+                <TabsTrigger value="catalog">Asset Catalog</TabsTrigger>
+                <TabsTrigger value="maintenance">Maintenance Requests</TabsTrigger>
+            </TabsList>
+            <TabsContent value="catalog" className="mt-4">
+                <AssetCatalog />
+            </TabsContent>
+            <TabsContent value="maintenance" className="mt-4">
+                <MaintenanceDashboard />
+            </TabsContent>
+        </Tabs>
     </div>
   );
 }
