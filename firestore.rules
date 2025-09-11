@@ -1,196 +1,94 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // =====================================================================
-    // Helper Functions
-    // =====================================================================
+    // Helper function to get the user's role
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // =====================================================================
-    // User Management & HR Rules
-    // =====================================================================
+    // Rules for User management
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
-      // Allow users to update their own basic info.
-      // Admins can update any field.
-      allow update: if request.auth.uid == userId || getUserRole() == 'admin';
-      allow create: if getUserRole() == 'admin';
-    }
-    
-    match /employees/{employeeId} {
-      allow read: if getUserRole() in ['admin', 'HR', 'manager'] || request.auth.uid == employeeId;
-      // Allow updates by HR/Admins, or managers for their direct reports (conceptual).
-      // Employees can update their own goals or training records.
-      allow update: if getUserRole() in ['admin', 'HR'] || request.auth.uid == employeeId; 
-    }
-    
-    match /performance_reviews/{reviewId} {
-      allow create: if getUserRole() in ['admin', 'HR', 'manager'];
-      allow read: if getUserRole() in ['admin', 'HR'] || request.auth.uid == resource.data.employeeId || request.auth.uid == resource.data.reviewerId;
-      allow update: if getUserRole() in ['admin', 'HR'] || request.auth.uid == resource.data.reviewerId;
-    }
-    
-    match /training_courses/{courseId} {
-        allow read: if request.auth != null;
-        allow write: if getUserRole() in ['admin', 'HR'];
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+
+      // Allow admins to manage all user profiles
+      allow write: if getUserRole() == 'admin';
     }
 
-    // =====================================================================
-    // Patient & EHR Rules
-    // =====================================================================
+    // Rules for Patient records
     match /patients/{patientId} {
-      // Patients can read their own data. Clinical/admin staff can read all patient data.
-      allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk'];
-      allow create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      
+      allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'] || request.auth.uid == patientId;
+      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
+
       // Sub-collection rules
-      match /admissions/{admissionId} {
-        allow read, create, update: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      match /clinical_notes/{noteId} {
-        allow read, create: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      }
-      match /lab_results/{testId} {
-        allow read, create: if getUserRole() in ['admin', 'doctor', 'nurse', 'lab_technician'];
-      }
-       match /radiology_history/{reportId} {
-        allow read: if request.auth.uid == patientId || getUserRole() in ['admin', 'doctor', 'radiologist'];
-      }
-      match /medication_history/{prescriptionId} {
-         allow read, create: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'];
+      match /{subcollection}/{docId} {
+        allow read, write: if getUserRole() in ['admin', 'doctor', 'nurse'];
       }
     }
-
-    // =====================================================================
-    // Pharmacy & Inventory Rules
-    // =====================================================================
-    match /prescriptions/{prescriptionId} {
-      allow read, create: if getUserRole() in ['admin', 'doctor', 'pharmacist'];
-      allow update: if getUserRole() in ['admin', 'pharmacist']; // Only pharmacy can update status to 'Dispensed'
+    
+    // Rules for Bed management
+    match /beds/{bedId} {
+        allow read: if request.auth != null;
+        allow write: if getUserRole() in ['admin', 'nurse'];
     }
 
+    // Rules for Appointments
+    match /appointments/{appointmentId} {
+        allow read: if request.auth != null;
+        // Allow staff to create, allow assigned doctor/patient to update/cancel
+        allow write: if getUserRole() in ['admin', 'doctor', 'receptionist'] || request.resource.data.doctor_id == request.auth.uid || request.resource.data.patient_id == request.auth.uid;
+    }
+
+    // Rules for Pharmacy Inventory
     match /inventory/{itemId} {
       allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor', 'nurse'];
-      // Only pharmacy staff and admins can update inventory levels.
-      allow create, update: if getUserRole() in ['admin', 'pharmacist'];
-    }
-    
-    match /purchase_orders/{poId} {
-      allow read, create, update: if getUserRole() in ['admin', 'pharmacist'];
-    }
-    
-    match /suppliers/{supplierId} {
-       allow read, create, update: if getUserRole() in ['admin', 'pharmacist'];
-    }
-    
-    match /controlled_substances/{substanceId} {
-        allow read, create, update: if getUserRole() in ['admin', 'pharmacist'];
-    }
-    
-    match /controlled_substance_log/{logId} {
-        allow read: if getUserRole() in ['admin', 'pharmacist'];
-        // All writes must go through the trusted Cloud Function, no direct client writes allowed.
-        allow write: if false;
+      allow write: if getUserRole() in ['admin', 'pharmacist'];
     }
 
-
-    // =====================================================================
-    // Payroll & Compensation Rules
-    // =====================================================================
-    // The main collection for each payroll run's summary.
+    // Rules for Prescriptions
+    match /prescriptions/{prescriptionId} {
+        allow read: if getUserRole() in ['admin', 'pharmacist', 'doctor'] || (request.auth.uid == resource.data.patientId && getUserRole() == 'patient');
+        allow write: if getUserRole() in ['admin', 'pharmacist', 'doctor'];
+    }
+    
+    // Rules for Payroll
     match /payroll_runs/{runId} {
-      // Only admin/finance can read the summary of all payroll runs.
-      allow read: if getUserRole() in ['admin'];
-      
-      // Creating, updating (e.g., finalizing), and deleting runs is restricted to admins.
-      // This is primarily done via trusted Cloud Functions triggered by an admin action.
-      allow create, update, delete: if getUserRole() in ['admin'];
+        allow read: if getUserRole() in ['admin'];
+        allow write: if getUserRole() in ['admin'];
 
-      // Rules for the sub-collection of individual records within a run.
-      match /payroll_records/{recordId} {
-        // An employee can read their own payroll record. Admin/finance can read all records.
-        allow read: if getUserRole() in ['admin'] || request.auth.uid == resource.data.staffId;
-        
-        // No direct client writes are allowed to individual records. 
-        // They are only created and managed by the trusted `processStaffPayroll` Cloud Function.
-        allow write: if false;
-      }
-    }
-
-    // =====================================================================
-    // Scheduling & Appointments
-    // =====================================================================
-    match /appointments/{appointmentId} {
-        allow read: if request.auth.uid == resource.data.patient_id || request.auth.uid == resource.data.doctor_id || getUserRole() in ['admin', 'receptionist'];
-        allow create, update: if request.auth.uid == resource.data.patient_id || getUserRole() in ['admin', 'receptionist', 'doctor'];
-    }
-    
-    match /referrals/{referralId} {
-        // Admin and the assigned doctor can read.
-        allow read: if getUserRole() == 'admin' || request.auth.uid == resource.data.assignedDoctorId;
-        // Only admins can create or update referral assignments.
-        allow create, update: if getUserRole() == 'admin';
-    }
-
-    // =====================================================================
-    // General Ledger & Financials
-    // =====================================================================
-    match /invoices/{invoiceId} {
-        allow read: if getUserRole() in ['admin', 'billing_clerk'] || request.auth.uid == resource.data.patientId;
-        allow create, update: if getUserRole() in ['admin', 'billing_clerk'];
-    }
-    
-    match /payments/{paymentId} {
-       allow read: if getUserRole() in ['admin', 'billing_clerk'];
-       // Payments are created via a trusted Cloud Function that processes gateway transactions.
-       allow create: if request.auth != null; // Allow any authenticated user to attempt payment
-       allow update, delete: if getUserRole() in ['admin', 'billing_clerk'];
-    }
-    
-    match /insurance_claims/{claimId} {
-        allow read: if getUserRole() in ['admin', 'billing_clerk'];
-        allow create, update, delete: if getUserRole() in ['admin', 'billing_clerk'];
-    }
-    
-    match /ledger_accounts/{accountId} {
-        allow read, create, update: if getUserRole() in ['admin'];
-    }
-    match /ledger_entries/{entryId} {
-         allow read: if getUserRole() in ['admin'];
-         // All writes must go through a trusted Cloud Function to ensure double-entry integrity.
-         allow write: if false;
-    }
-    
-    // Conceptual Storage Rules (to be placed in storage.rules)
-    /*
-    service firebase.storage {
-      match /b/{bucket}/o {
-        // Credentials can only be read by the user they belong to, or by HR/Admin.
-        match /credentials/{userId}/{credentialId} {
-          allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr'];
-          allow write: if request.auth.uid == userId; // Allow user to upload their own new documents
+        match /payroll_records/{staffId} {
+            allow read: if getUserRole() in ['admin'] || request.auth.uid == staffId;
+            allow write: if getUserRole() in ['admin'];
         }
-
-        // Discharge summaries can only be read by the patient they belong to, or clinical/admin staff.
-        match /summaries/{patientId}/{admissionId}.pdf {
-             allow read: if request.auth.uid == patientId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'doctor', 'nurse'];
-             // Only trusted server-side processes (Cloud Functions) can write summaries.
-             allow write: if false;
-        }
-
-        // Payslips can only be read by the user they belong to, or by HR/Admin.
-         match /payslips/{userId}/{runId}.pdf {
-          allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin'];
-          // Only trusted server-side processes (Cloud Functions) can write payslips.
-          allow write: if false;
-        }
-      }
     }
-    */
 
+    // Rules for Asset & Facilities Management
+    match /equipment/{equipmentId} {
+      allow read: if getUserRole() in ['admin', 'manager', 'technician'];
+      // A more specific 'asset_manager' role would be ideal in a real system.
+      allow create, update, delete: if getUserRole() in ['admin']; 
+    }
+
+    match /facility_zones/{zoneId} {
+      allow read: if getUserRole() in ['admin', 'manager', 'technician'];
+      // A more specific 'facility_manager' role would be ideal.
+      allow update: if getUserRole() in ['admin'];
+    }
+
+    match /maintenance_requests/{requestId} {
+      allow create: if request.auth != null; // Any authenticated staff member can report an issue
+      allow read: if getUserRole() in ['admin', 'manager', 'technician'];
+      // Only admins or technicians can update the status of a request
+      allow update: if getUserRole() in ['admin', 'technician'];
+    }
+
+    // Conceptual rules for Firebase Storage
+    // match /credentials/{userId}/{documentName} {
+    //   allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr'];
+    //   allow write: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // }
   }
 }
