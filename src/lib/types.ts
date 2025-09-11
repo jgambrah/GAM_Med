@@ -939,57 +939,6 @@ export interface StaffProfile {
   }[];
 }
 
-/**
- * Represents a user in the 'users' collection.
- * The document ID should correspond to the Firebase Auth UID.
- */
-export interface User {
-  uid: string; // Document ID, should match Firebase Auth UID
-  userId?: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
-  is_active: boolean;
-  department?: string;
-  specialty?: string;
-  created_at: string;
-  last_login: string;
-  photoURL?: string;
-  patient_id?: string; // If user is also a patient
-  availability?: Record<string, string[]>;
-  // For HR Module
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
-  dateOfBirth?: string;
-  address?: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  };
-  qualifications?: {
-    degree: string;
-    institution: string;
-    graduationYear: number;
-  }[];
-  certifications?: {
-    name: string;
-    issuingBody: string;
-    issueDate: string;
-    expiryDate?: string;
-  }[];
-  licenses?: {
-    type: string;
-    licenseNumber: string;
-    issuingState: string;
-    expiryDate: string;
-  }[];
-  employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
-  hireDate?: string;
-  leaveBalances?: Record<string, number>;
-  currentOnCallDuty?: boolean;
-}
 
 /**
  * Represents a patient record in the 'patients' collection.
@@ -1219,6 +1168,16 @@ export interface DoctorSchedule {
   updated_at: string; // ISO 8601 format
 }
 
+/**
+ * Represents a scheduled maintenance task for a piece of equipment.
+ */
+export interface MaintenanceSchedule {
+  type: 'Preventive' | 'Corrective';
+  frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Annually' | 'As Needed';
+  lastServiceDate?: string; // ISO Timestamp
+  nextServiceDate?: string; // ISO Timestamp
+}
+
 
 /**
  * Represents a bookable hospital asset. This has been updated to be the comprehensive Asset Register model.
@@ -1227,7 +1186,7 @@ export interface DoctorSchedule {
  */
 export interface Asset {
   assetId: string; // Document ID
-  name: string; // e.g., 'MRI Scanner 1', 'HP EliteBook 840 G5'
+  name: string; // e.g., 'MRI Scanner 1', 'HP Laptop', 'Hospital Bed'
   type: 'Medical Equipment' | 'IT Equipment' | 'Furniture' | 'Building Component' | 'Room';
   modelNumber?: string;
   serialNumber?: string;
@@ -1235,15 +1194,16 @@ export interface Asset {
   purchaseCost?: number;
   currentValue?: number;
   supplierId?: string; // Optional reference to suppliers collection
-  location: string; // e.g., 'Radiology Wing, Basement', 'IT Server Room'
-  department: string; // e.g., 'Radiology', 'IT', 'Cardiology'
-  status: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned' | 'Active';
+  location: string; // e.g., 'Radiology Wing, Basement', 'IT Server Room', 'Ward A'
+  department: string; // e.g., 'Radiology', 'IT', 'Administration'
+  status: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned' | 'Active' | 'Out of Service';
   warrantyEndDate?: string; // ISO Timestamp, optional
   assignedToUserId?: string; // Optional reference to a user
   // Fields for bookable resources
   isBookable?: boolean;
   operatingHours?: Record<string, string>;
   modality?: 'CT Scan' | 'MRI' | 'X-Ray' | 'Ultrasound'; // For radiology equipment
+  maintenanceSchedule?: MaintenanceSchedule[];
 }
 
 /**
@@ -1562,32 +1522,6 @@ export interface LabReport {
 }
 
 /**
- * Represents a scheduled maintenance task for a piece of equipment.
- */
-export interface MaintenanceSchedule {
-  type: 'Preventive' | 'Corrective';
-  frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Annually' | 'As Needed';
-  lastServiceDate?: string; // ISO Timestamp
-  nextServiceDate?: string; // ISO Timestamp
-}
-
-/**
- * Represents a single piece of hospital equipment.
- * Path: /equipment/{equipmentId}
- */
-export interface Equipment {
-  equipmentId: string; // Document ID
-  name: string; // e.g., 'MRI Scanner', 'Ventilator'
-  model?: string;
-  serialNumber: string;
-  purchaseDate?: string; // ISO Timestamp
-  warrantyEndDate?: string; // ISO Timestamp
-  currentLocation?: string; // e.g., 'Radiology Dept.', 'Ward B'
-  status: 'Operational' | 'Under Maintenance' | 'Decommissioned' | 'Needs Repair';
-  maintenanceSchedule?: MaintenanceSchedule[];
-}
-
-/**
  * Defines a physical zone or area within the hospital.
  * Path: /facility_zones/{zoneId}
  */
@@ -1599,7 +1533,7 @@ export interface FacilityZone {
 }
 
 /**
- * Tracks a request for maintenance or repair.
+ * Tracks a request for maintenance or repair, serving as a log.
  * Path: /maintenance_requests/{requestId}
  */
 export interface MaintenanceRequest {
@@ -1614,6 +1548,10 @@ export interface MaintenanceRequest {
   assignedToUserId?: string;
   dateRequested: string; // ISO Timestamp
   completionDate?: string; // ISO Timestamp
+  technicianId?: string; // Reference to users
+  notes?: string;
+  cost?: number;
+  isCompleted?: boolean;
 }
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
@@ -1753,9 +1691,9 @@ export interface StaffProfile {
 }
 
 
-// =======================================================================================
+// =========================================================================
 // == Deprecated Types
-// =======================================================================================
+// =========================================================================
 
 /**
  * @deprecated Replaced by the more comprehensive `Asset` type.
