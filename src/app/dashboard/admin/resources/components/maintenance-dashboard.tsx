@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 
 
 const getPriorityVariant = (priority: MaintenanceRequest['priority']): 'destructive' | 'default' | 'secondary' => {
