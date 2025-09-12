@@ -836,6 +836,12 @@ export const mockResources: Asset[] = [
     purchaseCost: 5000000,
     currentValue: 4200000,
     warrantyEndDate: '2025-01-14T00:00:00Z',
+    maintenanceSchedule: [{
+        type: 'Preventive',
+        frequency: 'Annually',
+        lastServiceDate: '2024-01-15T00:00:00Z',
+        nextServiceDate: '2025-01-15T00:00:00Z',
+    }]
   },
   {
     assetId: 'ct-1',
@@ -852,6 +858,12 @@ export const mockResources: Asset[] = [
     purchaseDate: '2019-05-20T00:00:00Z',
     purchaseCost: 3500000,
     currentValue: 2500000,
+    maintenanceSchedule: [{
+        type: 'Preventive',
+        frequency: 'Quarterly',
+        lastServiceDate: '2024-06-20T00:00:00Z',
+        nextServiceDate: '2024-09-20T00:00:00Z',
+    }]
   },
   {
     assetId: 'proc-room-1',
@@ -870,6 +882,12 @@ export const mockResources: Asset[] = [
     location: 'Cardiology Clinic',
     status: 'Under Maintenance',
     isBookable: true,
+    maintenanceSchedule: [{
+        type: 'Preventive',
+        frequency: 'Monthly',
+        lastServiceDate: '2024-08-01T00:00:00Z',
+        nextServiceDate: '2024-09-01T00:00:00Z',
+    }]
   },
 ];
 

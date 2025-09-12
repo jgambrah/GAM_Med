@@ -29,7 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MaintenanceDashboard } from './components/maintenance-dashboard';
 import { AddMaintenanceRequestDialog } from './components/add-maintenance-request-dialog';
 import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { AddAssetDialog } from './components/add-asset-dialog';
 
 
@@ -63,6 +63,18 @@ function AssetCatalog() {
     setAssets(prev => [newAsset, ...prev]);
   };
 
+  const getRowClass = (asset: Asset) => {
+    if (asset.status === 'Needs Repair') return 'bg-destructive/10 hover:bg-destructive/20';
+    if (asset.status === 'Under Maintenance') return 'bg-yellow-500/10 hover:bg-yellow-500/20';
+    
+    const nextServiceDate = asset.maintenanceSchedule?.[0]?.nextServiceDate;
+    if (nextServiceDate) {
+        const daysToNextService = differenceInDays(parseISO(nextServiceDate), new Date());
+        if (daysToNextService <= 30 && daysToNextService >= 0) return 'bg-yellow-400/10 hover:bg-yellow-400/20';
+    }
+    return '';
+  };
+
 
   return (
       <Card>
@@ -91,34 +103,30 @@ function AssetCatalog() {
                   <TableHead>Asset ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Serial No.</TableHead>
                   <TableHead>Department</TableHead>
-                  <TableHead>Purchase Date</TableHead>
-                  <TableHead>Warranty End</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Cost (₵)</TableHead>
+                  <TableHead>Next Service Date</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {assets.map((asset) => (
-                  <TableRow key={asset.assetId} className={cn(
-                      asset.status === 'Needs Repair' && 'bg-destructive/10',
-                      asset.status === 'Under Maintenance' && 'bg-yellow-500/10'
-                  )}>
+                  <TableRow key={asset.assetId} className={cn(getRowClass(asset))}>
                     <TableCell className="font-mono text-xs">{asset.assetId}</TableCell>
                     <TableCell className="font-medium">{asset.name}</TableCell>
                     <TableCell>{asset.type}</TableCell>
-                    <TableCell>{asset.serialNumber || 'N/A'}</TableCell>
                     <TableCell>{asset.department}</TableCell>
-                    <TableCell>{asset.purchaseDate ? format(parseISO(asset.purchaseDate), 'PPP') : 'N/A'}</TableCell>
-                    <TableCell>{asset.warrantyEndDate ? format(parseISO(asset.warrantyEndDate), 'PPP') : 'N/A'}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusVariant(asset.status)}>
                         {asset.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{asset.purchaseCost?.toFixed(2) || 'N/A'}</TableCell>
+                    <TableCell>
+                        {asset.maintenanceSchedule?.[0]?.nextServiceDate
+                            ? format(parseISO(asset.maintenanceSchedule[0].nextServiceDate), 'PPP')
+                            : 'N/A'
+                        }
+                    </TableCell>
                     <TableCell>
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/dashboard/admin/resources/${asset.assetId}`}>
