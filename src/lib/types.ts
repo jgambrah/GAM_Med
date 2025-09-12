@@ -1488,7 +1488,7 @@ export interface DietaryProfile {
 }
 
 /**
- * Tracks each meal ordered for a patient.
+ * Represents each meal ordered for a patient.
  * Path: /meal_orders/{mealOrderId}
  */
 export interface MealOrder {
@@ -1538,7 +1538,7 @@ export interface FacilityZone {
 export interface WorkOrder {
   workOrderId: string; // Document ID
   assetId?: string; // Optional: Link to a specific asset in the 'assets' collection.
-  facilityIssue?: string; // Optional: Description of a non-asset issue.
+  facilityIssue?: string; // Optional: Description of a non-equipment issue.
   reportedByUserId: string; // UID of the user who reported the issue.
   dateReported: string; // ISO Timestamp of when the issue was reported.
   description: string; // Detailed description of the problem.
@@ -1552,6 +1552,18 @@ export interface WorkOrder {
       partId: string;
       quantityUsed: number;
   }[];
+}
+
+/**
+ * Represents a record of a reported issue by a user.
+ * This is a client-side type for the user portal.
+ */
+export interface MyReportedIssue {
+  issueId: string;
+  dateReported: string;
+  description: string;
+  item: string;
+  status: 'Open' | 'Assigned' | 'In Progress' | 'Resolved' | 'Closed';
 }
 
 /**
