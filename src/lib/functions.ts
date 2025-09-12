@@ -1712,7 +1712,7 @@ exports.dispensePrescription = functions.region('europe-west1').https.onCall(asy
 
             // 2. Process each medication line item
             for (const med of medications) {
-                // a) Call the updateInventory logic to safely decrement stock using FEFO
+                // a) Call the updateInventoryLogic to safely decrement stock using FEFO
                 await updateInventoryLogic(transaction, {
                     itemId: med.itemId,
                     quantityChange: -med.quantity_to_dispense, // Negative for dispense
@@ -1721,7 +1721,7 @@ exports.dispensePrescription = functions.region('europe-west1').https.onCall(asy
                     reason: `Prescription #${prescriptionId}`
                 });
 
-                // b) Call the autoGenerateInvoice logic (from Billing Module)
+                // b) Call the autoGenerateInvoiceLogic (from Billing Module)
                 // await autoGenerateInvoiceLogic(transaction, patientId, 'Medication', med.itemId, med.name, med.quantity_to_dispense);
             }
 
@@ -5565,7 +5565,148 @@ exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
 // =======================================================================================
 
 /**
- * Assigns a corrective maintenance task to a staff member.
+ * Calculates and records the daily consumption for each utility meter.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 23:55'
+ */
+/*
+exports.calculateDailyConsumption = functions.region('europe-west1').pubsub
+    .schedule('every day 23:55')
+    .onRun(async (context) => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        // 1. Get all readings for today
+        const todayReadings = await db.collection('utility_consumption')
+            .where('date', '==', todayStr).get();
+
+        if (todayReadings.empty) {
+            console.log('No utility readings logged for today.');
+            return null;
+        }
+        
+        for (const doc of todayReadings.docs) {
+            const currentReading = doc.data();
+            
+            // 2. Get the previous day's reading for the same meter
+            const prevDay = new Date();
+            prevDay.setDate(prevDay.getDate() - 1);
+            const prevDayStr = prevDay.toISOString().split('T')[0];
+
+            const prevReadingSnapshot = await db.collection('utility_consumption')
+                .where('meterId', '==', currentReading.meterId)
+                .where('date', '==', prevDayStr)
+                .limit(1).get();
+            
+            if (!prevReadingSnapshot.empty) {
+                const prevReading = prevReadingSnapshot.docs[0].data();
+                const consumption = currentReading.reading - prevReading.reading;
+                
+                // 3. Update the current day's document with the calculated consumption
+                await doc.ref.update({ consumption: consumption });
+            }
+        }
+        
+        console.log(`Calculated daily consumption for ${todayReadings.size} meters.`);
+        return null;
+    });
+*/
+
+/**
+ * Sends an alert if daily utility consumption exceeds a predefined threshold.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /utility_consumption/{logId}
+ */
+/*
+exports.alertHighConsumption = functions.region('europe-west1').firestore
+    .document('/utility_consumption/{logId}')
+    .onCreate(async (snapshot, context) => {
+        const log = snapshot.data();
+        const { meterId, consumption } = log;
+        
+        // 1. Fetch the meter's configuration to get its alert threshold
+        const meterDoc = await db.collection('meters').doc(meterId).get();
+        if (!meterDoc.exists) return null;
+        
+        const alertThreshold = meterDoc.data().alertThreshold;
+        if (alertThreshold && consumption > alertThreshold) {
+            const message = `High consumption detected for ${meterDoc.data().type} meter at ${meterDoc.data().location}. Consumption: ${consumption} ${meterDoc.data().unit}.`;
+            // 2. Send notification to the facilities manager
+            // await sendNotificationToRole('facilities_manager', { title: 'High Utility Consumption Alert', body: message });
+            console.warn(message);
+        }
+        
+        return null;
+    });
+*/
+
+/**
+ * Creates a new housekeeping task.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { taskType: string, location: string }
+ */
+/*
+exports.createHousekeepingTask = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for clinical or admin staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { taskType, location } = data;
+    const newTaskRef = db.collection('housekeeping_tasks').doc();
+    
+    await newTaskRef.set({
+        taskId: newTaskRef.id,
+        type: taskType,
+        location: location,
+        status: 'Pending',
+        dateCreated: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Notify the housekeeping team's queue
+    // await sendNotificationToTopic('housekeeping', `New task available: ${taskType} at ${location}`);
+
+    console.log(`Created housekeeping task ${newTaskRef.id}.`);
+    return { success: true, taskId: newTaskRef.id };
+});
+*/
+
+// =======================================================================================
+// == Asset & Facilities Management (Corrective Maintenance)
+// =======================================================================================
+/**
+ * Notifies facilities management when a new corrective task is submitted.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /maintenance_tasks/{taskId}
+ */
+/*
+exports.onCorrectiveTaskSubmitted = functions.region('europe-west1').firestore
+    .document('/maintenance_tasks/{taskId}')
+    .onCreate(async (snapshot, context) => {
+        const taskData = snapshot.data();
+        
+        // 1. Only trigger for corrective tasks
+        if (taskData.type !== 'Corrective') {
+            return null;
+        }
+
+        const message = {
+            title: 'New Corrective Maintenance Request',
+            body: `A new issue has been reported: '${taskData.description}' at location '${taskData.location}'.`
+        };
+
+        // 2. Send notification to the Facilities Management team
+        // await sendNotificationToRole('facilities_manager', message);
+
+        console.log(`Sent notification for new corrective task ${context.params.taskId}.`);
+        return null;
+    });
+*/
+
+/**
+ * Assigns a task to a staff member and notifies them.
  *
  * @trigger_type Callable Function (https)
  * @input { taskId: string, staffId: string }
@@ -5573,10 +5714,8 @@ exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
 /*
 exports.assignTaskToStaff = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check: Ensure user is a facilities manager or admin.
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    }
-    // Add role check...
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
 
     const { taskId, staffId } = data;
     if (!taskId || !staffId) {
@@ -5584,7 +5723,7 @@ exports.assignTaskToStaff = functions.region('europe-west1').https.onCall(async 
     }
 
     const taskRef = db.collection('maintenance_tasks').doc(taskId);
-    const staffRef = db.collection('users').doc(staffId); // Assuming staff are in 'users'
+    const staffRef = db.collection('users').doc(staffId);
 
     try {
         await db.runTransaction(async (transaction) => {
