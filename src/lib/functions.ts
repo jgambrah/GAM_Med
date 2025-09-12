@@ -5292,9 +5292,10 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
 
 /**
  * Resolves a work order and updates related documents.
+ * This now includes logic to call `useSparePart` to handle inventory updates.
  *
  * @trigger_type Callable Function (https)
- * @input { workOrderId: string, resolutionNotes: string, cost?: number }
+ * @input { workOrderId: string, resolutionNotes: string, partsUsed?: { partId: string, quantityUsed: number }[], cost?: number }
  */
 /*
 exports.resolveWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -5302,8 +5303,14 @@ exports.resolveWorkOrder = functions.region('europe-west1').https.onCall(async (
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Role check...
 
-    const { workOrderId, resolutionNotes, cost } = data;
+    const { workOrderId, resolutionNotes, partsUsed, cost } = data;
     const workOrderRef = db.collection('work_orders').doc(workOrderId);
+    
+    // 1. If parts were used, call the useSparePart function first.
+    if (partsUsed && partsUsed.length > 0) {
+        const usePart = functions.https.onCall(useSparePart);
+        await usePart({ workOrderId: workOrderId, partsUsed: partsUsed });
+    }
     
     try {
         await db.runTransaction(async (transaction) => {
@@ -5312,7 +5319,7 @@ exports.resolveWorkOrder = functions.region('europe-west1').https.onCall(async (
 
             const requestData = requestDoc.data();
 
-            // 1. Update the work order status.
+            // 2. Update the work order status.
             transaction.update(workOrderRef, {
                 status: 'Resolved',
                 resolutionNotes: resolutionNotes,
@@ -5321,31 +5328,16 @@ exports.resolveWorkOrder = functions.region('europe-west1').https.onCall(async (
                 cost: cost || 0,
             });
 
-            // 2. If it's an equipment request, update the equipment's status.
+            // 3. If it's an equipment request, update the equipment's status.
             if (requestData.assetId) {
                 const assetRef = db.collection('assets').doc(requestData.assetId);
                 const assetDoc = await transaction.get(assetRef);
                 if (assetDoc.exists) {
-                    const assetData = assetDoc.data();
-                    const schedule = assetData.maintenanceSchedule;
-                    let nextServiceDate = new Date();
-                    
-                    if (schedule && schedule.frequency) {
-                         if (schedule.frequency === 'Monthly') nextServiceDate.setMonth(nextServiceDate.getMonth() + 1);
-                         else if (schedule.frequency === 'Quarterly') nextServiceDate.setMonth(nextServiceDate.getMonth() + 3);
-                         else if (schedule.frequency === 'Annually') nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
-                         else nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
-                    }
-                   
-                    transaction.update(assetRef, {
-                        status: 'Operational',
-                        'maintenanceSchedule.lastServiceDate': admin.firestore.FieldValue.serverTimestamp(),
-                        'maintenanceSchedule.nextServiceDate': admin.firestore.Timestamp.fromDate(nextServiceDate),
-                    });
+                     transaction.update(assetRef, { status: 'Operational' });
                 }
             }
             
-            // 3. Notify the original reporter
+            // 4. Notify the original reporter
             // await sendNotificationToUser(requestData.reportedByUserId, `The issue you reported ('${requestData.description}') has been resolved.`);
         });
         
@@ -5479,7 +5471,6 @@ exports.calculateDepreciation = functions.region('europe-west1').pubsub
 // =======================================================================================
 // == Spare Parts Inventory Management
 // =======================================================================================
-
 /**
  * Atomically decrements the stock for a spare part and updates the maintenance log.
  *
@@ -5514,7 +5505,6 @@ exports.useSparePart = functions.region('europe-west1').https.onCall(async (data
                 
                 // Check if stock is now below reorder level
                 if (newQuantity <= partDoc.data().reorderLevel) {
-                    // Send a low-stock alert
                     console.warn(`Low stock alert for spare part: ${partDoc.data().name} (ID: ${part.partId}).`);
                     // await sendNotificationToRole('procurement_manager', { ... });
                 }
@@ -5570,3 +5560,4 @@ exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
 */
 
 
+    
