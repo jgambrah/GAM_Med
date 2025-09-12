@@ -63,7 +63,7 @@ export function AddMaintenanceRequestDialog() {
     form.reset();
   };
 
-  const equipmentOptions = mockResources.map(r => ({ label: `${r.name} (${r.department})`, value: r.resourceId }));
+  const equipmentOptions = mockResources.map(r => ({ label: `${r.name} (${r.department})`, value: r.assetId }));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

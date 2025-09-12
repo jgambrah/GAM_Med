@@ -103,7 +103,7 @@ export function MaintenanceDashboard() {
 
   const getResourceName = (equipmentId: string | undefined) => {
     if (!equipmentId) return 'Facility Issue';
-    return mockResources.find(r => r.resourceId === equipmentId)?.name || 'Unknown Equipment';
+    return mockResources.find(r => r.assetId === equipmentId)?.name || 'Unknown Equipment';
   };
   
   const getUserName = (userId: string) => allUsers.find(u => u.uid === userId)?.name || 'Unknown';
