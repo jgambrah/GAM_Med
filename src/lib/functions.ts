@@ -5560,4 +5560,111 @@ exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
 */
 
 
+// =======================================================================================
+// == UTILITIES & FACILITIES MANAGEMENT
+// =======================================================================================
+
+/**
+ * Assigns a corrective maintenance task to a staff member.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { taskId: string, staffId: string }
+ */
+/*
+exports.assignTaskToStaff = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is a facilities manager or admin.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role check...
+
+    const { taskId, staffId } = data;
+    if (!taskId || !staffId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Task ID and Staff ID are required.');
+    }
+
+    const taskRef = db.collection('maintenance_tasks').doc(taskId);
+    const staffRef = db.collection('users').doc(staffId); // Assuming staff are in 'users'
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const taskDoc = await transaction.get(taskRef);
+            if (!taskDoc.exists) {
+                throw new Error('Maintenance task not found.');
+            }
+            if (taskDoc.data().status !== 'Open') {
+                throw new Error('Task is not open for assignment.');
+            }
+
+            // a. Update the task with the assigned user and new status
+            transaction.update(taskRef, {
+                assignedTo: staffId,
+                status: 'Assigned'
+            });
+
+            // b. Update the staff member's record to include the new task
+            transaction.update(staffRef, {
+                tasksInProgress: admin.firestore.FieldValue.arrayUnion(taskId)
+            });
+        });
+
+        // 2. Send notification to the assigned staff member.
+        // await sendNotificationToUser(staffId, { title: 'New Task Assigned', body: `You have been assigned task #${taskId}.` });
+
+        console.log(`Task ${taskId} assigned to staff ${staffId}.`);
+        return { success: true };
+    } catch (error) {
+        console.error(`Failed to assign task ${taskId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not assign the task.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * Notifies the original reporter when a task they submitted has been completed.
+ *
+ * @trigger_type Firestore Trigger (onUpdate)
+ * @document /maintenance_tasks/{taskId}
+ */
+/*
+exports.onTaskCompleted = functions.region('europe-west1').firestore
+    .document('/maintenance_tasks/{taskId}')
+    .onUpdate(async (change, context) => {
+        const newData = change.after.data();
+        const oldData = change.before.data();
+        const { taskId } = context.params;
+
+        // 1. Trigger only when status changes to 'Completed'.
+        if (newData.status !== 'Completed' || oldData.status === 'Completed') {
+            return null;
+        }
+
+        const { reportedByUserId, assignedTo, resolutionNotes, description } = newData;
+
+        // 2. Notify the user who originally reported the issue.
+        if (reportedByUserId) {
+            // await sendNotificationToUser(reportedByUserId, {
+            //     title: 'Issue Resolved',
+            //     body: `The issue you reported ('${description}') has been resolved. Notes: ${resolutionNotes}`
+            // });
+            console.log(`Notifying user ${reportedByUserId} of task completion.`);
+        }
+
+        // 3. Update the technician's record: remove task from in-progress and increment completed count.
+        if (assignedTo) {
+            const staffRef = db.collection('users').doc(assignedTo);
+            try {
+                await staffRef.update({
+                    tasksInProgress: admin.firestore.FieldValue.arrayRemove(taskId),
+                    tasksCompleted: admin.firestore.FieldValue.increment(1)
+                });
+                console.log(`Updated records for staff member ${assignedTo}.`);
+            } catch (error) {
+                console.error(`Failed to update records for staff ${assignedTo}:`, error);
+            }
+        }
+        
+        return null;
+    });
+*/
     
