@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -5160,11 +5161,84 @@ exports.postPayrollToLedger = functions.region('europe-west1').https.onCall(asyn
 // =======================================================================================
 
 /**
+ * Creates a new work order for a maintenance or repair request.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { assetId?: string, facilityIssue?: string, description: string, priority: 'Low'|'Medium'|'High' }
+ */
+/*
+exports.createWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check: Any authenticated user can create a work order
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    
+    const { assetId, facilityIssue, description, priority } = data;
+    if ((!assetId && !facilityIssue) || !description || !priority) {
+        throw new functions.https.HttpsError('invalid-argument', 'Either an asset or facility issue must be specified, along with description and priority.');
+    }
+
+    const newWorkOrderRef = db.collection('work_orders').doc();
+    
+    await newWorkOrderRef.set({
+        workOrderId: newWorkOrderRef.id,
+        assetId: assetId || null,
+        facilityIssue: facilityIssue || null,
+        reportedByUserId: context.auth.uid,
+        dateReported: admin.firestore.FieldValue.serverTimestamp(),
+        description,
+        priority,
+        status: 'Open'
+    });
+
+    // If an asset is involved, update its status
+    if (assetId) {
+        const assetRef = db.collection('assets').doc(assetId);
+        await assetRef.update({ status: 'Under Maintenance' });
+    }
+
+    // Notify maintenance manager
+    // await sendNotificationToRole('maintenance_manager', `New work order created: ${description}`);
+    
+    console.log(`Work order ${newWorkOrderRef.id} created.`);
+    return { success: true, workOrderId: newWorkOrderRef.id };
+});
+*/
+
+/**
+ * Assigns a work order to a specific technician.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { workOrderId: string, assignedToUserId: string }
+ */
+/*
+exports.assignWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for maintenance manager
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { workOrderId, assignedToUserId } = data;
+    const workOrderRef = db.collection('work_orders').doc(workOrderId);
+
+    await workOrderRef.update({
+        assignedToUserId,
+        status: 'Assigned'
+    });
+
+    // Notify the assigned technician
+    // await sendNotificationToUser(assignedToUserId, `You have been assigned work order #${workOrderId}`);
+
+    console.log(`Work order ${workOrderId} assigned to user ${assignedToUserId}.`);
+    return { success: true };
+});
+*/
+
+
+/**
  * Automatically creates preventive maintenance tasks based on equipment schedules.
  *
  * @trigger_type Scheduled (cron job)
  * @schedule 'every day 01:00'
  */
+/*
 exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
     .schedule('every day 01:00')
     .onRun(async (context) => {
@@ -5174,7 +5248,7 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
         // 1. Query for operational equipment with a nextServiceDate in the near future.
         const snapshot = await db.collection('assets')
             .where('status', '==', 'Operational')
-            .where('nextServiceDate', '<=', admin.firestore.Timestamp.fromDate(twoWeeksFromNow))
+            .where('maintenanceSchedule.nextServiceDate', '<=', admin.firestore.Timestamp.fromDate(twoWeeksFromNow))
             .get();
 
         if (snapshot.empty) {
@@ -5188,7 +5262,7 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
             const equipment = doc.data();
             
             // 2. Check if a maintenance request for this service is already open.
-            const existingRequestQuery = db.collection('maintenance_requests')
+            const existingRequestQuery = db.collection('work_orders')
                 .where('assetId', '==', doc.id)
                 .where('requestType', '==', 'Preventive Maintenance')
                 .where('status', '==', 'Open');
@@ -5197,15 +5271,15 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
 
             if (existingRequestSnapshot.empty) {
                 // 3. Create a new maintenance request.
-                const newRequestRef = db.collection('maintenance_requests').doc();
+                const newRequestRef = db.collection('work_orders').doc();
                 batch.set(newRequestRef, {
-                    requestId: newRequestRef.id,
-                    equipmentId: doc.id,
+                    workOrderId: newRequestRef.id,
+                    assetId: doc.id,
                     requestType: 'Preventive Maintenance',
                     description: `Scheduled preventive maintenance for ${equipment.name}.`,
                     priority: 'Medium',
                     status: 'Open',
-                    dateRequested: admin.firestore.FieldValue.serverTimestamp(),
+                    dateReported: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
         }
@@ -5214,94 +5288,86 @@ exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
         console.log(`Created preventive maintenance requests for ${snapshot.size} items.`);
         return null;
     });
+*/
 
 /**
- * Resolves a maintenance request and updates related documents.
+ * Resolves a work order and updates related documents.
  *
  * @trigger_type Callable Function (https)
- * @input { requestId: string, completionNotes: string, cost: number }
+ * @input { workOrderId: string, resolutionNotes: string, cost?: number }
  */
-exports.resolveMaintenanceRequest = functions.region('europe-west1').https.onCall(async (data, context) => {
+/*
+exports.resolveWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
     // Auth check for maintenance staff
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     // Role check...
 
-    const { requestId, completionNotes, cost } = data;
-    const requestRef = db.collection('maintenance_requests').doc(requestId);
+    const { workOrderId, resolutionNotes, cost } = data;
+    const workOrderRef = db.collection('work_orders').doc(workOrderId);
     
     try {
         await db.runTransaction(async (transaction) => {
-            const requestDoc = await transaction.get(requestRef);
-            if (!requestDoc.exists) throw new Error('Maintenance request not found.');
+            const requestDoc = await transaction.get(workOrderRef);
+            if (!requestDoc.exists) throw new Error('Work order not found.');
 
             const requestData = requestDoc.data();
 
-            // 1. Update the maintenance request status.
-            transaction.update(requestRef, {
+            // 1. Update the work order status.
+            transaction.update(workOrderRef, {
                 status: 'Resolved',
-                completionNotes: completionNotes,
-                completionDate: admin.firestore.FieldValue.serverTimestamp(),
+                resolutionNotes: resolutionNotes,
+                dateResolved: admin.firestore.FieldValue.serverTimestamp(),
                 technicianId: context.auth.uid,
                 cost: cost || 0,
             });
 
             // 2. If it's an equipment request, update the equipment's status.
-            if (requestData.equipmentId) {
-                const equipmentRef = db.collection('assets').doc(requestData.equipmentId);
-                const equipmentDoc = await transaction.get(equipmentRef);
-                if (equipmentDoc.exists) {
-                    const equipmentData = equipmentDoc.data();
-                    const schedule = equipmentData.maintenanceSchedule;
+            if (requestData.assetId) {
+                const assetRef = db.collection('assets').doc(requestData.assetId);
+                const assetDoc = await transaction.get(assetRef);
+                if (assetDoc.exists) {
+                    const assetData = assetDoc.data();
+                    const schedule = assetData.maintenanceSchedule;
                     let nextServiceDate = new Date();
                     
-                    // Calculate next service date based on schedule frequency
-                    if (schedule?.frequency === 'Monthly') {
-                        nextServiceDate.setMonth(nextServiceDate.getMonth() + 1);
-                    } else if (schedule?.frequency === 'Quarterly') {
-                        nextServiceDate.setMonth(nextServiceDate.getMonth() + 3);
-                    } else if (schedule?.frequency === 'Annually') {
-                        nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
-                    } else {
-                        // Default or other logic
-                        nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
+                    if (schedule && schedule.frequency) {
+                         if (schedule.frequency === 'Monthly') nextServiceDate.setMonth(nextServiceDate.getMonth() + 1);
+                         else if (schedule.frequency === 'Quarterly') nextServiceDate.setMonth(nextServiceDate.getMonth() + 3);
+                         else if (schedule.frequency === 'Annually') nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
+                         else nextServiceDate.setFullYear(nextServiceDate.getFullYear() + 1);
                     }
-
-                    transaction.update(equipmentRef, {
+                   
+                    transaction.update(assetRef, {
                         status: 'Operational',
-                        lastServiceDate: admin.firestore.FieldValue.serverTimestamp(),
-                        nextServiceDate: admin.firestore.Timestamp.fromDate(nextServiceDate),
+                        'maintenanceSchedule.lastServiceDate': admin.firestore.FieldValue.serverTimestamp(),
+                        'maintenanceSchedule.nextServiceDate': admin.firestore.Timestamp.fromDate(nextServiceDate),
                     });
                 }
             }
             
-            // 3. If it's a facility request, decrement the zone's maintenance count.
-            if (requestData.zoneId) {
-                const zoneRef = db.collection('facility_zones').doc(requestData.zoneId);
-                transaction.update(zoneRef, {
-                    maintenanceRequests: admin.firestore.FieldValue.increment(-1),
-                });
-            }
+            // 3. Notify the original reporter
+            // await sendNotificationToUser(requestData.reportedByUserId, `The issue you reported ('${requestData.description}') has been resolved.`);
         });
         
-        console.log(`Resolved maintenance request ${requestId}.`);
+        console.log(`Resolved work order ${workOrderId}.`);
         return { success: true };
 
     } catch (error) {
-        console.error('Failed to resolve maintenance request:', error);
-        throw new functions.https.HttpsError('aborted', 'Could not resolve request.', { message: error.message });
+        console.error('Failed to resolve work order:', error);
+        throw new functions.https.HttpsError('aborted', 'Could not resolve work order.', { message: error.message });
     }
 });
-
+*/
 
 /**
  * Sends an alert when a critical piece of equipment fails.
  *
  * @trigger_type Firestore Trigger (onUpdate)
- * @document /equipment/{equipmentId}
+ * @document /assets/{assetId}
  */
 /*
 exports.equipmentFailureAlert = functions.region('europe-west1').firestore
-    .document('/equipment/{equipmentId}')
+    .document('/assets/{assetId}')
     .onUpdate(async (change, context) => {
         const newData = change.after.data();
         const oldData = change.before.data();
@@ -5313,10 +5379,10 @@ exports.equipmentFailureAlert = functions.region('europe-west1').firestore
             // 2. Send notification to the relevant department head or user role.
             // await sendNotificationToRole(`head_of_${department}`, {
             //     title: 'Equipment Alert',
-            //     body: `${newData.name} in ${newData.currentLocation} is now ${newData.status}.`
+            //     body: `${newData.name} in ${newData.location} is now ${newData.status}.`
             // });
 
-            console.log(`Sent equipment failure alert for ${context.params.equipmentId}.`);
+            console.log(`Sent equipment failure alert for ${context.params.assetId}.`);
         }
         
         return null;
@@ -5341,7 +5407,7 @@ exports.trackAssetWarranty = functions.region('europe-west1').pubsub
 
         // 1. Query for active assets with a warrantyEndDate in the next 30 days.
         const snapshot = await db.collection('assets')
-            .where('status', '==', 'Active')
+            .where('status', '==', 'Operational')
             .where('warrantyEndDate', '<=', admin.firestore.Timestamp.fromDate(thirtyDaysFromNow))
             .get();
 
