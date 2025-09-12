@@ -1549,6 +1549,25 @@ export interface WorkOrder {
   resolutionNotes?: string; // Notes from the technician on how the issue was resolved.
   dateResolved?: string; // ISO Timestamp of when the work was completed.
   cost?: number; // Cost of the repair
+  partsUsed?: {
+      partId: string;
+      quantityUsed: number;
+  }[];
+}
+
+/**
+ * Represents a spare part for equipment maintenance.
+ * Path: /spare_parts/{partId}
+ */
+export interface SparePart {
+    partId: string; // Document ID
+    name: string; // e.g., 'CT Scanner X-Ray Tube'
+    partNumber: string; // Manufacturer's part number
+    compatibleWith: string[]; // Array of assetIds this part is compatible with
+    currentQuantity: number;
+    reorderLevel: number;
+    supplierId: string; // Reference to suppliers
+    location: string; // e.g., 'Maintenance Depot A, Shelf 3'
 }
 
 
