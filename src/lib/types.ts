@@ -835,7 +835,6 @@ export interface User {
   licenses?: {
     type: string;
     licenseNumber: string;
-    issuingState: string;
     expiryDate: string;
   }[];
   employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
@@ -1568,6 +1567,21 @@ export interface SparePart {
     reorderLevel: number;
     supplierId: string; // Reference to suppliers
     location: string; // e.g., 'Maintenance Depot A, Shelf 3'
+}
+
+/**
+ * Represents a single, immutable transaction in the spare parts log.
+ * Path: /spare_parts/{partId}/log/{logId}
+ */
+export interface SparePartLog {
+  logId: string; // Document ID
+  transactionType: 'Usage' | 'Restock' | 'Adjustment';
+  quantityChange: number; // Negative for usage, positive for restock
+  date: string; // ISO Timestamp
+  userId: string; // UID of the user performing the transaction
+  workOrderId?: string; // Link to the work order if used for a repair
+  purchaseOrderId?: string; // Link to the PO if a restock
+  notes?: string;
 }
 
 

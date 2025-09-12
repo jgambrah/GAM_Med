@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -942,6 +942,51 @@ export const mockWorkOrders: WorkOrder[] = [
         reportedByUserId: 'nurse1',
         dateReported: new Date('2024-08-14T09:00:00Z').toISOString(),
         dateResolved: new Date('2024-08-15T12:00:00Z').toISOString()
+    }
+];
+
+export const mockSpareParts: SparePart[] = [
+    {
+        partId: 'CT-TUBE-01',
+        name: 'CT Scanner X-Ray Tube',
+        partNumber: 'Siemens-XRT-5000',
+        compatibleWith: ['ct-1'],
+        currentQuantity: 3,
+        reorderLevel: 2,
+        supplierId: 'SUP-002',
+        location: 'Maintenance Depot A, Shelf 1',
+    },
+    {
+        partId: 'DEFIB-PADS-01',
+        name: 'Defibrillator Pads (Adult)',
+        partNumber: 'Philips-DP-A01',
+        compatibleWith: ['defib-1', 'defib-2'],
+        currentQuantity: 15,
+        reorderLevel: 20,
+        supplierId: 'SUP-003',
+        location: 'Maintenance Depot B, Shelf 4',
+    }
+];
+
+export const mockSparePartsLog: SparePartLog[] = [
+    {
+        logId: 'SPLOG-1',
+        partId: 'CT-TUBE-01',
+        transactionType: 'Usage',
+        quantityChange: -1,
+        date: new Date('2024-07-20T10:00:00Z').toISOString(),
+        userId: 'admin1',
+        workOrderId: 'MR-PREV-CT',
+        notes: 'Replaced tube during scheduled maintenance.',
+    },
+    {
+        logId: 'SPLOG-2',
+        partId: 'CT-TUBE-01',
+        transactionType: 'Restock',
+        quantityChange: 5,
+        date: new Date('2024-06-15T14:00:00Z').toISOString(),
+        userId: 'admin1',
+        purchaseOrderId: 'PO-SPARE-005',
     }
 ];
 
