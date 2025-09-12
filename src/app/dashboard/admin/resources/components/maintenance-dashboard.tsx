@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
+import Link from 'next/link';
 
 
 const getPriorityVariant = (priority: WorkOrder['priority']): 'destructive' | 'default' | 'secondary' => {
@@ -117,30 +118,11 @@ export function MaintenanceDashboard() {
                 <CardTitle>Maintenance Work Orders</CardTitle>
                 <CardDescription>A list of all open and resolved maintenance requests.</CardDescription>
             </div>
-            <div className="flex gap-4">
-                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Filter by priority..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="All">All Priorities</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="Low">Low</SelectItem>
-                    </SelectContent>
-                </Select>
-                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Filter by status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="All">All Statuses</SelectItem>
-                        <SelectItem value="Open">Open</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Resolved">Resolved</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+            <Button asChild>
+                <Link href="/dashboard/facilities/maintenance">
+                    Go to Full Dashboard
+                </Link>
+            </Button>
          </div>
       </CardHeader>
       <CardContent>
@@ -151,20 +133,17 @@ export function MaintenanceDashboard() {
                 <TableHead>Date Reported</TableHead>
                 <TableHead>Item / Zone</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>Reported By</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.length > 0 ? (
-                requests.map((request) => (
+              {requests.slice(0, 5).length > 0 ? (
+                requests.slice(0, 5).map((request) => (
                   <TableRow key={request.workOrderId}>
                     <TableCell>{format(new Date(request.dateReported), 'PPP')}</TableCell>
                     <TableCell className="font-medium">{getResourceName(request.assetId)}</TableCell>
                     <TableCell>{request.description}</TableCell>
-                    <TableCell>{getUserName(request.reportedByUserId)}</TableCell>
                     <TableCell>
                       <Badge variant={getPriorityVariant(request.priority)}>{request.priority}</Badge>
                     </TableCell>
@@ -172,9 +151,6 @@ export function MaintenanceDashboard() {
                       <Badge variant={request.status === 'Open' ? 'default' : 'secondary'}>
                         {request.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <ResolveRequestDialog request={request} />
                     </TableCell>
                   </TableRow>
                 ))

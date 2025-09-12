@@ -26,7 +26,6 @@ import { Asset } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MaintenanceDashboard } from './components/maintenance-dashboard';
 import { AddMaintenanceRequestDialog } from './components/add-maintenance-request-dialog';
 import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -156,7 +155,7 @@ export default function ResourceListPage() {
             <div>
                 <h1 className="text-3xl font-bold">Asset &amp; Facilities Management</h1>
                 <p className="text-muted-foreground">
-                View assets, equipment, and manage maintenance requests.
+                View assets, equipment, and manage facility zones.
                 </p>
             </div>
              <AddMaintenanceRequestDialog />
@@ -191,14 +190,10 @@ export default function ResourceListPage() {
         <Tabs defaultValue="catalog">
             <TabsList>
                 <TabsTrigger value="catalog">Asset Register</TabsTrigger>
-                <TabsTrigger value="maintenance">Work Orders</TabsTrigger>
                 <TabsTrigger value="zones">Facility Zones</TabsTrigger>
             </TabsList>
             <TabsContent value="catalog" className="mt-4">
                 <AssetCatalog />
-            </TabsContent>
-            <TabsContent value="maintenance" className="mt-4">
-                <MaintenanceDashboard />
             </TabsContent>
             <TabsContent value="zones" className="mt-4">
                 <FacilityZonesDashboard />
