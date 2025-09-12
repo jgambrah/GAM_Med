@@ -5475,3 +5475,98 @@ exports.calculateDepreciation = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
+// =======================================================================================
+// == Spare Parts Inventory Management
+// =======================================================================================
+
+/**
+ * Atomically decrements the stock for a spare part and updates the maintenance log.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { workOrderId: string, partsUsed: { partId: string, quantityUsed: number }[] }
+ */
+/*
+exports.useSparePart = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for maintenance staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { workOrderId, partsUsed } = data;
+    if (!workOrderId || !partsUsed || partsUsed.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Work order ID and at least one part are required.');
+    }
+
+    const workOrderRef = db.collection('work_orders').doc(workOrderId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            // For each part used, decrement its stock
+            for (const part of partsUsed) {
+                const partRef = db.collection('spare_parts').doc(part.partId);
+                const partDoc = await transaction.get(partRef);
+                if (!partDoc.exists) throw new Error(`Spare part ${part.partId} not found.`);
+
+                const newQuantity = partDoc.data().currentQuantity - part.quantityUsed;
+                if (newQuantity < 0) throw new Error(`Not enough stock for part ${part.partId}.`);
+
+                transaction.update(partRef, { currentQuantity: newQuantity });
+                
+                // Check if stock is now below reorder level
+                if (newQuantity <= partDoc.data().reorderLevel) {
+                    // Send a low-stock alert
+                    console.warn(`Low stock alert for spare part: ${partDoc.data().name} (ID: ${part.partId}).`);
+                    // await sendNotificationToRole('procurement_manager', { ... });
+                }
+            }
+
+            // Update the maintenance log (work order) with the parts used
+            transaction.update(workOrderRef, { partsUsed: partsUsed });
+        });
+
+        console.log(`Successfully logged parts used for work order ${workOrderId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error(`Failed to log spare part usage for work order ${workOrderId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not update spare part inventory.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * A scheduled function that runs daily to check for low-stock spare parts.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 10:00'
+ */
+/*
+exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
+    .schedule('every day 10:00')
+    .onRun(async (context) => {
+        // Query for spare parts where currentQuantity <= reorderLevel
+        const snapshot = await db.collection('spare_parts').get();
+        const lowStockParts = [];
+
+        snapshot.forEach(doc => {
+            const part = doc.data();
+            if (part.currentQuantity <= part.reorderLevel) {
+                lowStockParts.push({ id: doc.id, ...part });
+            }
+        });
+
+        if (lowStockParts.length === 0) {
+            console.log('All spare parts are sufficiently stocked.');
+            return null;
+        }
+        
+        // Notify procurement team about all low-stock parts
+        // const message = `The following spare parts are low on stock: ${lowStockParts.map(p => p.name).join(', ')}`;
+        // await sendNotificationToRole('procurement_manager', { body: message });
+        
+        console.log(`Found ${lowStockParts.length} low-stock spare parts.`);
+        return null;
+    });
+*/
+
+
