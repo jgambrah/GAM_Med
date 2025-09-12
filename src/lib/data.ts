@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, MaintenanceRequest, FacilityZone } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -914,37 +914,34 @@ export const mockResourceBookings: ResourceBooking[] = [
     }
 ];
 
-export const mockMaintenanceRequests: MaintenanceRequest[] = [
+export const mockWorkOrders: WorkOrder[] = [
     {
-        requestId: 'MR-001',
-        equipmentId: 'ct-1',
-        requestType: 'Repair',
+        workOrderId: 'MR-001',
+        assetId: 'ct-1',
         description: 'CT scanner is producing artifact images. Requires technician assessment.',
         priority: 'High',
         status: 'Open',
-        requestedByUserId: 'rad1',
-        dateRequested: new Date('2024-08-15T11:00:00Z').toISOString(),
+        reportedByUserId: 'rad1',
+        dateReported: new Date('2024-08-15T11:00:00Z').toISOString(),
     },
     {
-        requestId: 'MR-002',
-        zoneId: 'Main-Lobby',
-        requestType: 'Facility Upkeep',
+        workOrderId: 'MR-002',
+        facilityIssue: 'Main-Lobby',
         description: 'Lobby air conditioning unit is not cooling effectively.',
         priority: 'Medium',
         status: 'Open',
-        requestedByUserId: 'reception1',
-        dateRequested: new Date('2024-08-16T09:00:00Z').toISOString(),
+        reportedByUserId: 'reception1',
+        dateReported: new Date('2024-08-16T09:00:00Z').toISOString(),
     },
      {
-        requestId: 'MR-003',
-        equipmentId: 'consult-room-5',
-        requestType: 'Repair',
+        workOrderId: 'MR-003',
+        assetId: 'consult-room-5',
         description: 'Door handle is broken.',
         priority: 'Low',
         status: 'Resolved',
-        requestedByUserId: 'nurse1',
-        dateRequested: new Date('2024-08-14T09:00:00Z').toISOString(),
-        completionDate: new Date('2024-08-15T12:00:00Z').toISOString()
+        reportedByUserId: 'nurse1',
+        dateReported: new Date('2024-08-14T09:00:00Z').toISOString(),
+        dateResolved: new Date('2024-08-15T12:00:00Z').toISOString()
     }
 ];
 

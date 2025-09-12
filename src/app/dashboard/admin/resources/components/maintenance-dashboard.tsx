@@ -44,7 +44,7 @@ function ResolveRequestDialog({ request }: { request: WorkOrder }) {
     const [notes, setNotes] = React.useState('');
 
     const handleResolve = () => {
-        // In a real app, this would call the resolveMaintenanceRequest Cloud Function
+        // In a real app, this would call the resolveWorkOrder Cloud Function
         console.log(`Resolving request ${request.workOrderId} with notes: ${notes}`);
         toast.success("Request Resolved", {
             description: "The maintenance request has been marked as resolved."

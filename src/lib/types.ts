@@ -1543,11 +1543,12 @@ export interface WorkOrder {
   reportedByUserId: string; // UID of the user who reported the issue.
   dateReported: string; // ISO Timestamp of when the issue was reported.
   description: string; // Detailed description of the problem.
-  priority: 'Low' | 'Medium' | 'High' | 'Emergency';
+  priority: 'Low' | 'Medium' | 'High';
   status: 'Open' | 'Assigned' | 'In Progress' | 'Resolved' | 'Closed';
   assignedToUserId?: string; // UID of the technician assigned to the work order.
   resolutionNotes?: string; // Notes from the technician on how the issue was resolved.
   dateResolved?: string; // ISO Timestamp of when the work was completed.
+  cost?: number; // Cost of the repair
 }
 
 
@@ -1698,3 +1699,7 @@ export type Resource = Asset;
  * @deprecated Replaced by the more comprehensive `PurchaseOrder` type.
  */
 export type PharmacyOrder = PurchaseOrder;
+/**
+ * @deprecated Replaced by the more comprehensive `WorkOrder` type.
+ */
+export type MaintenanceRequest = WorkOrder;
