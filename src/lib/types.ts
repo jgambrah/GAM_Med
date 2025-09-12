@@ -752,7 +752,7 @@ export interface TrainingCourse {
  */
 export interface RuleCondition {
   key: string; // The data field to check (e.g., 'temperature', 'hemoglobin')
-  operator: '==' | '!=' | '&lt;' | '&lt;=' | '&gt;' | '&gt;=';
+  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
   value: any; // The value to compare against.
   unit?: string; // Optional unit for the value (e.g., 'C', 'g/dL')
 }
@@ -1430,7 +1430,7 @@ export interface MedicationAdministrationLog {
   patientId: string;
   dosage: string; // Denormalized for easy display
   administeredByUserId: string; // Nurse's user ID
-  administeredAt: string; // ISO Timestamp when the medication was given
+  administeredAt: string; // ISO Timestamp
   notes?: string; // Optional notes, e.g., "Patient refused", "Took with water"
   isBilled: boolean; // Flag to prevent duplicate billing
 }
@@ -1538,7 +1538,7 @@ export interface FacilityZone {
 export interface WorkOrder {
   workOrderId: string; // Document ID
   assetId?: string; // Optional: Link to a specific asset in the 'assets' collection.
-  facilityIssue?: string; // Optional: Description if it's a non-asset issue.
+  facilityIssue?: string; // Optional: Description of a non-asset issue.
   reportedByUserId: string; // UID of the user who reported the issue.
   dateReported: string; // ISO Timestamp of when the issue was reported.
   description: string; // Detailed description of the problem.
@@ -1575,6 +1575,7 @@ export interface SparePart {
  */
 export interface SparePartLog {
   logId: string; // Document ID
+  partId: string; // Added to make querying collection groups easier
   transactionType: 'Usage' | 'Restock' | 'Adjustment';
   quantityChange: number; // Negative for usage, positive for restock
   date: string; // ISO Timestamp
@@ -1584,6 +1585,59 @@ export interface SparePartLog {
   notes?: string;
 }
 
+/**
+ * Represents a meter for tracking utility consumption.
+ * Path: /meters/{meterId}
+ */
+export interface Meter {
+  meterId: string; // Document ID
+  type: 'Electricity' | 'Water' | 'Gas';
+  location: string;
+  unit: 'kWh' | 'm³' | 'Gallon';
+}
+
+/**
+ * Represents a chronological log of utility usage.
+ * Path: /utility_consumption/{logId}
+ */
+export interface UtilityConsumption {
+  logId: string; // Document ID
+  date: string; // ISO Timestamp
+  meterId: string; // Reference to meters collection
+  type: 'Electricity' | 'Water' | 'Gas';
+  reading: number;
+  consumption: number; // Calculated value (current reading - previous reading)
+}
+
+/**
+ * Represents a security incident log.
+ * Path: /security_incidents/{incidentId}
+ */
+export interface SecurityIncident {
+  incidentId: string; // Document ID
+  timestamp: string; // ISO Timestamp
+  type: 'Unauthorized Access' | 'Theft' | 'Dispute' | 'Violence' | 'Other';
+  location: string;
+  reportedByUserId: string;
+  details: string;
+  status: 'Reported' | 'Under Investigation' | 'Resolved';
+  resolutionNotes?: string;
+}
+
+/**
+ * Represents a housekeeping task.
+ * Path: /housekeeping_tasks/{taskId}
+ */
+export interface HousekeepingTask {
+  taskId: string; // Document ID
+  type: 'Room Cleaning' | 'Disinfection' | 'General Area' | 'Waste Disposal';
+  location: string; // e.g., 'Room 201', 'OR-B', 'Main Lobby'
+  assignedToUserId: string; // Reference to housekeeping staff
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Skipped';
+  dateCreated: string; // ISO Timestamp
+  dateCompleted?: string; // ISO Timestamp
+  notes?: string;
+}
 
 // =========================================================================
 // == Performance Management Data Models
