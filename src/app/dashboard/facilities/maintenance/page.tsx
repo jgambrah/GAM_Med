@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { mockWorkOrders, allUsers, mockResources } from '@/lib/data';
-import { WorkOrder } from '@/lib/types';
+import { User, WorkOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { Wrench } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,6 +30,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { AddMaintenanceRequestDialog } from '@/app/dashboard/admin/resources/components/add-maintenance-request-dialog';
+import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
 
 const getPriorityVariant = (priority: WorkOrder['priority']): 'destructive' | 'default' | 'secondary' => {
   switch (priority) {
@@ -39,7 +48,18 @@ const getPriorityVariant = (priority: WorkOrder['priority']): 'destructive' | 'd
   }
 };
 
-function ResolveRequestDialog({ request }: { request: WorkOrder }) {
+const getStatusVariant = (status: WorkOrder['status']): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    switch(status) {
+        case 'Open': return 'destructive';
+        case 'Assigned': return 'default';
+        case 'In Progress': return 'outline';
+        case 'Resolved': return 'secondary';
+        case 'Closed': return 'secondary';
+        default: return 'outline';
+    }
+}
+
+function ResolveRequestDialog({ request, onAction }: { request: WorkOrder, onAction: () => void }) {
     const [open, setOpen] = React.useState(false);
     const [notes, setNotes] = React.useState('');
 
@@ -49,13 +69,14 @@ function ResolveRequestDialog({ request }: { request: WorkOrder }) {
         toast.success("Request Resolved", {
             description: "The maintenance request has been marked as resolved."
         });
+        onAction();
         setOpen(false);
     };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={request.status !== 'Open'}>
+                <Button variant="outline" size="sm" disabled={request.status === 'Resolved' || request.status === 'Closed'}>
                     <Wrench className="mr-2 h-4 w-4" />
                     Resolve
                 </Button>
@@ -84,12 +105,65 @@ function ResolveRequestDialog({ request }: { request: WorkOrder }) {
     );
 }
 
+function AssignTechnicianDialog({ workOrder, onAssigned }: { workOrder: WorkOrder, onAssigned: () => void }) {
+    const [open, setOpen] = React.useState(false);
+    const [selectedTech, setSelectedTech] = React.useState('');
+    const technicians = allUsers.filter(u => u.role === 'admin'); // Assuming admins are technicians for now
+
+    const handleAssign = () => {
+        if (!selectedTech) {
+            toast.error('Please select a technician to assign.');
+            return;
+        }
+        // In a real app, this would call the `assignWorkOrder` Cloud Function
+        console.log(`Assigning work order ${workOrder.workOrderId} to technician ${selectedTech}`);
+        toast.success(`Work order assigned to ${technicians.find(t => t.uid === selectedTech)?.name}.`);
+        onAssigned();
+        setOpen(false);
+    };
+    
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={workOrder.status !== 'Open'}>
+                    Assign
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                 <DialogHeader>
+                    <DialogTitle>Assign Work Order</DialogTitle>
+                    <DialogDescription>
+                        Assign this work order to an available technician.
+                    </DialogDescription>
+                </DialogHeader>
+                 <div className="py-4">
+                    <Select onValueChange={setSelectedTech}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a technician..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {technicians.map(tech => (
+                                <SelectItem key={tech.uid} value={tech.uid}>{tech.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
+                 <DialogFooter>
+                    <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAssign} disabled={!selectedTech}>Confirm Assignment</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 export default function MaintenancePage() {
   const [requests, setRequests] = React.useState<WorkOrder[]>(mockWorkOrders);
   const [priorityFilter, setPriorityFilter] = React.useState('All');
   const [statusFilter, setStatusFilter] = React.useState('Open');
 
-  React.useEffect(() => {
+  const filterAndSortRequests = React.useCallback(() => {
     let filteredList = mockWorkOrders;
 
     if (priorityFilter !== 'All') {
@@ -98,8 +172,17 @@ export default function MaintenancePage() {
     if (statusFilter !== 'All') {
       filteredList = filteredList.filter(item => item.status === statusFilter);
     }
+    
+    // Sort to show high priority items first
+    const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
+    filteredList.sort((a, b) => (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4));
+
     setRequests(filteredList);
   }, [priorityFilter, statusFilter]);
+
+  React.useEffect(() => {
+    filterAndSortRequests();
+  }, [filterAndSortRequests]);
 
   const getResourceName = (assetId: string | undefined) => {
     if (!assetId) return 'Facility Issue';
@@ -146,6 +229,7 @@ export default function MaintenancePage() {
                         <SelectContent>
                             <SelectItem value="All">All Statuses</SelectItem>
                             <SelectItem value="Open">Open</SelectItem>
+                            <SelectItem value="Assigned">Assigned</SelectItem>
                             <SelectItem value="In Progress">In Progress</SelectItem>
                             <SelectItem value="Resolved">Resolved</SelectItem>
                         </SelectContent>
@@ -170,7 +254,7 @@ export default function MaintenancePage() {
                 <TableBody>
                 {requests.length > 0 ? (
                     requests.map((request) => (
-                    <TableRow key={request.workOrderId}>
+                    <TableRow key={request.workOrderId} className={cn(request.priority === 'High' && 'bg-destructive/10')}>
                         <TableCell>{format(new Date(request.dateReported), 'PPP')}</TableCell>
                         <TableCell className="font-medium">{getResourceName(request.assetId)}</TableCell>
                         <TableCell>{request.description}</TableCell>
@@ -179,12 +263,13 @@ export default function MaintenancePage() {
                         <Badge variant={getPriorityVariant(request.priority)}>{request.priority}</Badge>
                         </TableCell>
                         <TableCell>
-                        <Badge variant={request.status === 'Open' ? 'default' : 'secondary'}>
+                        <Badge variant={getStatusVariant(request.status)}>
                             {request.status}
                         </Badge>
                         </TableCell>
-                        <TableCell>
-                        <ResolveRequestDialog request={request} />
+                        <TableCell className="space-x-2">
+                           <AssignTechnicianDialog workOrder={request} onAssigned={filterAndSortRequests} />
+                           <ResolveRequestDialog request={request} onAction={filterAndSortRequests} />
                         </TableCell>
                     </TableRow>
                     ))
