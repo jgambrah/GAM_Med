@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const DetailItem = ({ label, value, children }: { label: string; value?: string | number | null; children?: React.ReactNode }) => (
     <div>
@@ -93,38 +94,48 @@ export default function AssetDetailPage() {
       </div>
       
       <WarrantyAlert warrantyEndDate={asset.warrantyEndDate} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Asset Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <DetailItem label="Type" value={asset.type} />
-                    <DetailItem label="Department" value={asset.department} />
-                    <DetailItem label="Location" value={asset.location} />
-                    <DetailItem label="Model Number" value={asset.modelNumber} />
-                    <DetailItem label="Serial Number" value={asset.serialNumber} />
-                     <DetailItem label="Status">
-                         <Badge variant={getStatusVariant(asset.status)}>{asset.status}</Badge>
-                     </DetailItem>
-                </CardContent>
-            </Card>
+      
+      <Tabs defaultValue="details">
+        <TabsList>
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="maintenance">Maintenance History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details" className="mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Asset Details</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <DetailItem label="Type" value={asset.type} />
+                            <DetailItem label="Department" value={asset.department} />
+                            <DetailItem label="Location" value={asset.location} />
+                            <DetailItem label="Model Number" value={asset.modelNumber} />
+                            <DetailItem label="Serial Number" value={asset.serialNumber} />
+                            <DetailItem label="Status">
+                                <Badge variant={getStatusVariant(asset.status)}>{asset.status}</Badge>
+                            </DetailItem>
+                        </CardContent>
+                    </Card>
+                </div>
+                 <div className="lg:col-span-2">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Financial Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <DetailItem label="Purchase Date" value={asset.purchaseDate ? format(parseISO(asset.purchaseDate), 'PPP') : 'N/A'} />
+                            <DetailItem label="Purchase Cost" value={asset.purchaseCost ? `₵${asset.purchaseCost.toFixed(2)}` : 'N/A'} />
+                            <DetailItem label="Warranty End Date" value={asset.warrantyEndDate ? format(parseISO(asset.warrantyEndDate), 'PPP') : 'N/A'} />
+                            <DetailItem label="Current Depreciated Value" value={asset.currentValue ? `₵${asset.currentValue.toFixed(2)}` : 'N/A'} />
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </TabsContent>
+        <TabsContent value="maintenance" className="mt-4">
              <Card>
-                <CardHeader>
-                    <CardTitle>Financial Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <DetailItem label="Purchase Date" value={asset.purchaseDate ? format(parseISO(asset.purchaseDate), 'PPP') : 'N/A'} />
-                    <DetailItem label="Purchase Cost" value={asset.purchaseCost ? `₵${asset.purchaseCost.toFixed(2)}` : 'N/A'} />
-                    <DetailItem label="Warranty End Date" value={asset.warrantyEndDate ? format(parseISO(asset.warrantyEndDate), 'PPP') : 'N/A'} />
-                    <DetailItem label="Current Depreciated Value" value={asset.currentValue ? `₵${asset.currentValue.toFixed(2)}` : 'N/A'} />
-                </CardContent>
-            </Card>
-        </div>
-        <div className="lg:col-span-2">
-            <Card>
                 <CardHeader>
                 <CardTitle>Maintenance History</CardTitle>
                 <CardDescription>
@@ -164,8 +175,8 @@ export default function AssetDetailPage() {
                     </div>
                 </CardContent>
             </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
