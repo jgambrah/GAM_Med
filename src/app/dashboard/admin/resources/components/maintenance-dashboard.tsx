@@ -13,8 +13,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { mockMaintenanceRequests, allUsers, mockResources } from '@/lib/data';
-import { MaintenanceRequest } from '@/lib/types';
+import { mockWorkOrders, allUsers, mockResources } from '@/lib/data';
+import { WorkOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { Wrench } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -31,7 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 
 
-const getPriorityVariant = (priority: MaintenanceRequest['priority']): 'destructive' | 'default' | 'secondary' => {
+const getPriorityVariant = (priority: WorkOrder['priority']): 'destructive' | 'default' | 'secondary' => {
   switch (priority) {
     case 'High': return 'destructive';
     case 'Medium': return 'default';
@@ -39,13 +39,13 @@ const getPriorityVariant = (priority: MaintenanceRequest['priority']): 'destruct
   }
 };
 
-function ResolveRequestDialog({ request }: { request: MaintenanceRequest }) {
+function ResolveRequestDialog({ request }: { request: WorkOrder }) {
     const [open, setOpen] = React.useState(false);
     const [notes, setNotes] = React.useState('');
 
     const handleResolve = () => {
         // In a real app, this would call the resolveMaintenanceRequest Cloud Function
-        console.log(`Resolving request ${request.requestId} with notes: ${notes}`);
+        console.log(`Resolving request ${request.workOrderId} with notes: ${notes}`);
         toast.success("Request Resolved", {
             description: "The maintenance request has been marked as resolved."
         });
@@ -62,7 +62,7 @@ function ResolveRequestDialog({ request }: { request: MaintenanceRequest }) {
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Resolve Maintenance Request</DialogTitle>
+                    <DialogTitle>Resolve Work Order</DialogTitle>
                     <DialogDescription>
                         Add completion notes for the work done to resolve this request.
                     </DialogDescription>
@@ -85,12 +85,12 @@ function ResolveRequestDialog({ request }: { request: MaintenanceRequest }) {
 }
 
 export function MaintenanceDashboard() {
-  const [requests, setRequests] = React.useState<MaintenanceRequest[]>(mockMaintenanceRequests);
+  const [requests, setRequests] = React.useState<WorkOrder[]>(mockWorkOrders);
   const [priorityFilter, setPriorityFilter] = React.useState('All');
   const [statusFilter, setStatusFilter] = React.useState('Open');
 
   React.useEffect(() => {
-    let filteredList = mockMaintenanceRequests;
+    let filteredList = mockWorkOrders;
 
     if (priorityFilter !== 'All') {
       filteredList = filteredList.filter(item => item.priority === priorityFilter);
@@ -101,9 +101,9 @@ export function MaintenanceDashboard() {
     setRequests(filteredList);
   }, [priorityFilter, statusFilter]);
 
-  const getResourceName = (equipmentId: string | undefined) => {
-    if (!equipmentId) return 'Facility Issue';
-    return mockResources.find(r => r.assetId === equipmentId)?.name || 'Unknown Equipment';
+  const getResourceName = (assetId: string | undefined) => {
+    if (!assetId) return 'Facility Issue';
+    return mockResources.find(r => r.assetId === assetId)?.name || 'Unknown Equipment';
   };
   
   const getUserName = (userId: string) => allUsers.find(u => u.uid === userId)?.name || 'Unknown';
@@ -148,10 +148,10 @@ export function MaintenanceDashboard() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date Requested</TableHead>
+                <TableHead>Date Reported</TableHead>
                 <TableHead>Item / Zone</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>Requested By</TableHead>
+                <TableHead>Reported By</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -160,11 +160,11 @@ export function MaintenanceDashboard() {
             <TableBody>
               {requests.length > 0 ? (
                 requests.map((request) => (
-                  <TableRow key={request.requestId}>
-                    <TableCell>{format(new Date(request.dateRequested), 'PPP')}</TableCell>
-                    <TableCell className="font-medium">{getResourceName(request.equipmentId)}</TableCell>
+                  <TableRow key={request.workOrderId}>
+                    <TableCell>{format(new Date(request.dateReported), 'PPP')}</TableCell>
+                    <TableCell className="font-medium">{getResourceName(request.assetId)}</TableCell>
                     <TableCell>{request.description}</TableCell>
-                    <TableCell>{getUserName(request.requestedByUserId)}</TableCell>
+                    <TableCell>{getUserName(request.reportedByUserId)}</TableCell>
                     <TableCell>
                       <Badge variant={getPriorityVariant(request.priority)}>{request.priority}</Badge>
                     </TableCell>
@@ -181,7 +181,7 @@ export function MaintenanceDashboard() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="h-24 text-center">
-                    No maintenance requests match the current filters.
+                    No work orders match the current filters.
                   </TableCell>
                 </TableRow>
               )}

@@ -36,7 +36,7 @@ import { Plus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 const MaintenanceRequestSchema = z.object({
-  equipmentId: z.string().optional(),
+  assetId: z.string().optional(),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   priority: z.enum(['High', 'Medium', 'Low']),
 });
@@ -47,16 +47,16 @@ export function AddMaintenanceRequestDialog() {
   const form = useForm<z.infer<typeof MaintenanceRequestSchema>>({
     resolver: zodResolver(MaintenanceRequestSchema),
     defaultValues: {
-      equipmentId: '',
+      assetId: '',
       description: '',
       priority: 'Medium',
     },
   });
 
   const onSubmit = (values: z.infer<typeof MaintenanceRequestSchema>) => {
-    // In a real app, this would call a server action to create a new maintenance request.
-    console.log('Submitting new maintenance request:', values);
-    toast.success('Maintenance Request Submitted', {
+    // In a real app, this would call a server action to create a new work order.
+    console.log('Submitting new work order:', values);
+    toast.success('Work Order Submitted', {
       description: 'Your request has been sent to the facilities management team.',
     });
     setOpen(false);
@@ -74,7 +74,7 @@ export function AddMaintenanceRequestDialog() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Submit Maintenance Request</DialogTitle>
+          <DialogTitle>Submit Work Order</DialogTitle>
           <DialogDescription>
             Report an issue with a piece of equipment or a facility area.
           </DialogDescription>
@@ -83,7 +83,7 @@ export function AddMaintenanceRequestDialog() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
              <FormField
                 control={form.control}
-                name="equipmentId"
+                name="assetId"
                 render={({ field }) => (
                     <FormItem>
                         <FormLabel>Equipment / Asset (Optional)</FormLabel>

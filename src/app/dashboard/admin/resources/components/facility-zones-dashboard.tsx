@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockFacilityZones, mockMaintenanceRequests, allUsers } from '@/lib/data';
+import { mockFacilityZones, mockWorkOrders, allUsers } from '@/lib/data';
 import { FacilityZone } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
@@ -12,8 +12,8 @@ export function FacilityZonesDashboard() {
   const [zones, setZones] = React.useState<FacilityZone[]>(mockFacilityZones);
 
   const getOpenRequestsCount = (zoneId: string) => {
-    return mockMaintenanceRequests.filter(
-      (req) => req.zoneId === zoneId && req.status === 'Open'
+    return mockWorkOrders.filter(
+      (req) => req.facilityIssue?.includes(zoneId) && req.status === 'Open'
     ).length;
   };
   
@@ -27,7 +27,7 @@ export function FacilityZonesDashboard() {
       <CardHeader>
         <CardTitle>Facility Zone Overview</CardTitle>
         <CardDescription>
-          A summary of all hospital zones and their open maintenance requests.
+          A summary of all hospital zones and their open work orders.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -37,7 +37,7 @@ export function FacilityZonesDashboard() {
               <TableRow>
                 <TableHead>Zone Name</TableHead>
                 <TableHead>Manager</TableHead>
-                <TableHead className="text-center">Open Maintenance Requests</TableHead>
+                <TableHead className="text-center">Open Work Orders</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

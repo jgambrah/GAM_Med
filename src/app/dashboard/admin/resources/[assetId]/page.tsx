@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, AlertTriangle } from 'lucide-react';
-import { mockResources, mockMaintenanceRequests } from '@/lib/data';
-import { Asset, MaintenanceRequest } from '@/lib/types';
+import { mockResources, mockWorkOrders } from '@/lib/data';
+import { Asset, WorkOrder } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -72,7 +72,7 @@ export default function AssetDetailPage() {
   const assetId = params.assetId as string;
 
   const asset = mockResources.find((r) => r.assetId === assetId);
-  const maintenanceHistory = mockMaintenanceRequests.filter((req) => req.equipmentId === assetId);
+  const maintenanceHistory = mockWorkOrders.filter((req) => req.assetId === assetId);
 
   if (!asset) {
     notFound();
@@ -156,9 +156,9 @@ export default function AssetDetailPage() {
                         <TableBody>
                             {maintenanceHistory.length > 0 ? (
                                 maintenanceHistory.map(req => (
-                                    <TableRow key={req.requestId}>
-                                        <TableCell>{format(parseISO(req.dateRequested), 'PPP')}</TableCell>
-                                        <TableCell>{req.requestType}</TableCell>
+                                    <TableRow key={req.workOrderId}>
+                                        <TableCell>{format(parseISO(req.dateReported), 'PPP')}</TableCell>
+                                        <TableCell>{req.priority}</TableCell>
                                         <TableCell>{req.description}</TableCell>
                                         <TableCell><Badge variant={req.status === 'Resolved' ? 'secondary' : 'default'}>{req.status}</Badge></TableCell>
                                     </TableRow>

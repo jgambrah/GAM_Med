@@ -191,7 +191,7 @@ export default function ResourceListPage() {
         <Tabs defaultValue="catalog">
             <TabsList>
                 <TabsTrigger value="catalog">Asset Register</TabsTrigger>
-                <TabsTrigger value="maintenance">Maintenance Requests</TabsTrigger>
+                <TabsTrigger value="maintenance">Work Orders</TabsTrigger>
                 <TabsTrigger value="zones">Facility Zones</TabsTrigger>
             </TabsList>
             <TabsContent value="catalog" className="mt-4">

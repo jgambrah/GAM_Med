@@ -1533,29 +1533,24 @@ export interface FacilityZone {
 }
 
 /**
- * Tracks a request for maintenance or repair, serving as a log.
- * Path: /maintenance_requests/{requestId}
+ * Represents a work order for maintenance or repair.
+ * Path: /work_orders/{workOrderId}
  */
-export interface MaintenanceRequest {
-  requestId: string; // Document ID
-  equipmentId?: string; // Optional: Link to the specific equipment
-  zoneId?: string; // Optional: Link to the facility zone
-  requestType: 'Repair' | 'Preventive Maintenance' | 'Facility Upkeep' | 'Inspection';
-  description: string;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Open' | 'In Progress' | 'On Hold' | 'Resolved' | 'Closed';
-  requestedByUserId: string;
-  assignedToUserId?: string;
-  dateRequested: string; // ISO Timestamp
-  completionDate?: string; // ISO Timestamp
-  technicianId?: string; // Reference to users
-  notes?: string;
-  cost?: number;
-  isCompleted?: boolean;
+export interface WorkOrder {
+  workOrderId: string; // Document ID
+  assetId?: string; // Optional: Link to a specific asset in the 'assets' collection.
+  facilityIssue?: string; // Optional: Description if it's a non-asset issue.
+  reportedByUserId: string; // UID of the user who reported the issue.
+  dateReported: string; // ISO Timestamp of when the issue was reported.
+  description: string; // Detailed description of the problem.
+  priority: 'Low' | 'Medium' | 'High' | 'Emergency';
+  status: 'Open' | 'Assigned' | 'In Progress' | 'Resolved' | 'Closed';
+  assignedToUserId?: string; // UID of the technician assigned to the work order.
+  resolutionNotes?: string; // Notes from the technician on how the issue was resolved.
+  dateResolved?: string; // ISO Timestamp of when the work was completed.
 }
-// Deprecated type, use PurchaseOrder instead
-export type PharmacyOrder = PurchaseOrder;
-    
+
+
 // =========================================================================
 // == Performance Management Data Models
 // =========================================================================
@@ -1699,3 +1694,7 @@ export interface StaffProfile {
  * @deprecated Replaced by the more comprehensive `Asset` type.
  */
 export type Resource = Asset;
+/**
+ * @deprecated Replaced by the more comprehensive `PurchaseOrder` type.
+ */
+export type PharmacyOrder = PurchaseOrder;
