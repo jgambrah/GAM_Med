@@ -1191,14 +1191,16 @@ export interface Asset {
   serialNumber?: string;
   purchaseDate?: string; // ISO Timestamp
   purchaseCost?: number;
-  currentValue?: number;
+  currentBookValue?: number;
+  salvageValue?: number;
+  usefulLifeYears?: number;
+  depreciationMethod?: 'Straight-line' | 'Double-declining balance';
   supplierId?: string; // Optional reference to suppliers collection
   location: string; // e.g., 'Radiology Wing, Basement', 'IT Server Room', 'Ward A'
   department: string; // e.g., 'Radiology', 'IT', 'Administration'
   status: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned' | 'Active' | 'Out of Service';
   warrantyEndDate?: string; // ISO Timestamp, optional
   assignedToUserId?: string; // Optional reference to a user
-  // Fields for bookable resources
   isBookable?: boolean;
   operatingHours?: Record<string, string>;
   modality?: 'CT Scan' | 'MRI' | 'X-Ray' | 'Ultrasound'; // For radiology equipment
@@ -1650,6 +1652,21 @@ export interface HousekeepingTask {
   dateCompleted?: string; // ISO Timestamp
   notes?: string;
 }
+
+/**
+ * Represents an immutable record of depreciation for a single asset.
+ * Path: /depreciation_records/{recordId}
+ */
+export interface DepreciationRecord {
+    recordId: string; // Document ID
+    assetId: string; // Reference to the asset
+    dateCalculated: string; // ISO Timestamp
+    period: 'Quarterly' | 'Annually'; // The period for which the depreciation was calculated
+    depreciationAmount: number; // The amount depreciated in this period
+    accumulatedDepreciation: number; // The total depreciation up to this point
+    bookValue: number; // The new book value after this depreciation
+}
+
 
 // =========================================================================
 // == Performance Management Data Models
