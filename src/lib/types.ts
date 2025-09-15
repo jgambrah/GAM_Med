@@ -1511,8 +1511,8 @@ export interface MealOrder {
 // =========================================================================
 
 /**
- * Represents aggregated report data, stored in the 'reports' collection.
- * Each document could represent a daily, weekly, or monthly summary.
+ * Represents aggregated lab report data, stored in the 'reports' collection.
+ * Each document could represent a daily, weekly, or monthly summary for the lab dashboard.
  */
 export interface LabReport {
   reportId: string; // e.g., 'daily-2024-08-16'
@@ -1521,6 +1521,20 @@ export interface LabReport {
   turnaroundTimes: { testName: string; avgTAT: number }[];
   abnormalResultTrends: { testName: string; abnormalPercentage: number }[];
 }
+
+/**
+ * Represents a pre-aggregated report for Business Intelligence dashboards.
+ * This generic structure can store various KPIs.
+ * Path: /bi_reports/{reportId}
+ */
+export interface BIReport {
+  reportId: string; // e.g., 'monthly_revenue_2024-08'
+  reportType: 'RevenueSummary' | 'BedOccupancy' | 'AppointmentNoShowRate';
+  period: string; // e.g., '2024-08' for monthly, '2024-Q3' for quarterly
+  data: Record<string, any>; // The aggregated data, e.g., { "totalRevenue": 500000, "patientVisits": 2500 }
+  generatedAt: string; // ISO Timestamp
+}
+
 
 /**
  * Defines a physical zone or area within the hospital.
@@ -1819,3 +1833,6 @@ export type PharmacyOrder = PurchaseOrder;
  * @deprecated Replaced by the more comprehensive `WorkOrder` type.
  */
 export type MaintenanceRequest = WorkOrder;
+
+
+    
