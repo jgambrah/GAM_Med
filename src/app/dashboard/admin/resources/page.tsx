@@ -30,6 +30,7 @@ import { AddMaintenanceRequestDialog } from './components/add-maintenance-reques
 import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { AddAssetDialog } from './components/add-asset-dialog';
+import { UtilitiesDashboard } from './components/utilities-dashboard';
 
 
 const getStatusVariant = (status: Asset['status']): "secondary" | "default" | "destructive" | "outline" => {
@@ -191,12 +192,16 @@ export default function ResourceListPage() {
             <TabsList>
                 <TabsTrigger value="catalog">Asset Register</TabsTrigger>
                 <TabsTrigger value="zones">Facility Zones</TabsTrigger>
+                <TabsTrigger value="utilities">Utilities</TabsTrigger>
             </TabsList>
             <TabsContent value="catalog" className="mt-4">
                 <AssetCatalog />
             </TabsContent>
             <TabsContent value="zones" className="mt-4">
                 <FacilityZonesDashboard />
+            </TabsContent>
+            <TabsContent value="utilities" className="mt-4">
+                <UtilitiesDashboard />
             </TabsContent>
         </Tabs>
     </div>

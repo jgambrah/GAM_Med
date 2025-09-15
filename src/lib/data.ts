@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1829,6 +1829,18 @@ export const mockFacilityZones: FacilityZone[] = [
     { zoneId: 'Main-Lobby', name: 'Main Hospital Lobby', managerId: 'admin1', maintenanceRequests: 1 },
     { zoneId: 'Ward-A', name: 'General Medical Ward A', managerId: 'nurse1', maintenanceRequests: 0 },
     { zoneId: 'Radiology-Dept', name: 'Radiology Department', managerId: 'rad1', maintenanceRequests: 0 },
+];
+
+export const mockUtilityMeters: Meter[] = [
+    { meterId: 'ELEC-MAIN', type: 'Electricity', location: 'Main Building', unit: 'kWh' },
+    { meterId: 'WATER-MAIN', type: 'Water', location: 'Main Building', unit: 'm³' },
+];
+
+export const mockUtilityConsumption: UtilityConsumption[] = [
+    { logId: 'log-e-1', date: '2024-08-15', meterId: 'ELEC-MAIN', type: 'Electricity', reading: 15000, consumption: 500 },
+    { logId: 'log-e-2', date: '2024-08-14', meterId: 'ELEC-MAIN', type: 'Electricity', reading: 14500, consumption: 480 },
+    { logId: 'log-w-1', date: '2024-08-15', meterId: 'WATER-MAIN', type: 'Water', reading: 800, consumption: 25 },
+    { logId: 'log-w-2', date: '2024-08-14', meterId: 'WATER-MAIN', type: 'Water', reading: 775, consumption: 22 },
 ];
 
 
