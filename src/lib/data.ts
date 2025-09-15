@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -119,6 +119,15 @@ export const allUsers: User[] = [
     email: 'd.tian@gammed.com',
     name: 'Dietitian',
     role: 'dietitian',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
+    uid: 'housekeeper1',
+    email: 'h.keeper@gammed.com',
+    name: 'Housekeeper',
+    role: 'housekeeping',
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
@@ -1865,10 +1874,28 @@ export const mockSecurityIncidents: SecurityIncident[] = [
     }
 ];
 
+export const mockHousekeepingTasks: HousekeepingTask[] = [
+    {
+        taskId: 'hk-1',
+        type: 'Room Cleaning',
+        location: 'Room C-102',
+        status: 'Pending',
+        dateCreated: new Date('2024-08-16T09:00:00Z').toISOString(),
+        notes: 'Patient discharged. Terminal cleaning required.'
+    },
+    {
+        taskId: 'hk-2',
+        type: 'Waste Disposal',
+        location: 'OR-B',
+        status: 'Pending',
+        dateCreated: new Date('2024-08-16T10:00:00Z').toISOString(),
+        notes: 'Surgical waste requires pickup.'
+    }
+];
+
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
-

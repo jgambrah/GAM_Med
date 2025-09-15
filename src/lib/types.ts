@@ -801,7 +801,7 @@ export interface User {
   userId?: string;
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian';
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping';
   is_active: boolean;
   department?: string;
   specialty?: string;
@@ -1644,7 +1644,7 @@ export interface HousekeepingTask {
   taskId: string; // Document ID
   type: 'Room Cleaning' | 'Disinfection' | 'General Area' | 'Waste Disposal';
   location: string; // e.g., 'Room 201', 'OR-B', 'Main Lobby'
-  assignedToUserId: string; // Reference to housekeeping staff
+  assignedToUserId?: string; // Reference to housekeeping staff
   status: 'Pending' | 'In Progress' | 'Completed' | 'Skipped';
   dateCreated: string; // ISO Timestamp
   dateCompleted?: string; // ISO Timestamp
