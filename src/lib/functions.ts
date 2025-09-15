@@ -5385,43 +5385,6 @@ exports.equipmentFailureAlert = functions.region('europe-west1').firestore
 // == Asset Register Functions
 // =======================================================================================
 /**
- * Tracks asset warranties and sends alerts for those nearing expiration.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 09:00'
- */
-/*
-exports.trackAssetWarranty = functions.region('europe-west1').pubsub
-    .schedule('every day 09:00')
-    .onRun(async (context) => {
-        const now = new Date();
-        const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
-
-        // 1. Query for active assets with a warrantyEndDate in the next 30 days.
-        const snapshot = await db.collection('assets')
-            .where('status', '==', 'Operational')
-            .where('warrantyEndDate', '<=', admin.firestore.Timestamp.fromDate(thirtyDaysFromNow))
-            .get();
-
-        if (snapshot.empty) {
-            console.log('No asset warranties are expiring soon.');
-            return null;
-        }
-
-        for (const doc of snapshot.docs) {
-            const asset = doc.data();
-            const message = `Warranty for asset "${asset.name}" (ID: ${doc.id}) is expiring on ${asset.warrantyEndDate.toDate().toLocaleDateString()}.`;
-            
-            // 2. Send notification to asset managers or relevant department heads.
-            // await sendNotificationToRole('asset_manager', { body: message });
-            console.log(message);
-        }
-        
-        return null;
-    });
-*/
-
-/**
  * Periodically calculates and updates the depreciated value of assets.
  *
  * @trigger_type Scheduled (cron job)
@@ -5449,16 +5412,34 @@ exports.calculateDepreciation = functions.region('europe-west1').pubsub
             const now = new Date();
             
             // 2. Example: Straight-line depreciation over 5 years.
-            const assetLifespanYears = 5;
-            const yearsSincePurchase = (now - purchaseDate) / (1000 * 60 * 60 * 24 * 365.25);
+            const assetLifespanYears = asset.financialDetails?.usefulLifeYears || 5;
+            const purchasePrice = asset.financialDetails?.purchasePrice || 0;
+            const salvageValue = asset.financialDetails?.salvageValue || 0;
+
+            const yearsSincePurchase = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
             
             if (yearsSincePurchase > assetLifespanYears) {
-                // If past its lifespan, set value to 0 and potentially mark for review.
-                batch.update(doc.ref, { currentValue: 0, status: 'Review for Decommission' });
+                // If past its lifespan, set value to salvage value and potentially mark for review.
+                batch.update(doc.ref, { 'financialDetails.currentBookValue': salvageValue, status: 'Review for Decommission' });
             } else {
-                const depreciationPercentage = yearsSincePurchase / assetLifespanYears;
-                const depreciatedValue = asset.purchaseCost * (1 - depreciationPercentage);
-                batch.update(doc.ref, { currentValue: Math.max(0, depreciatedValue) });
+                const depreciationPerYear = (purchasePrice - salvageValue) / assetLifespanYears;
+                const accumulatedDepreciation = depreciationPerYear * yearsSincePurchase;
+                const newBookValue = purchasePrice - accumulatedDepreciation;
+                
+                // 3. Create a new depreciation record
+                const newRecordRef = doc.ref.collection('depreciation_records').doc(`${now.getFullYear()}`);
+                transaction.set(newRecordRef, {
+                    recordId: newRecordRef.id,
+                    assetId: doc.id,
+                    dateCalculated: admin.firestore.FieldValue.serverTimestamp(),
+                    period: 'Annually',
+                    depreciationAmount: depreciationPerYear,
+                    accumulatedDepreciation: accumulatedDepreciation,
+                    bookValue: newBookValue
+                });
+                
+                // 4. Update the asset's main document
+                batch.update(doc.ref, { 'financialDetails.currentBookValue': Math.max(salvageValue, newBookValue) });
             }
         }
 
@@ -5466,6 +5447,34 @@ exports.calculateDepreciation = functions.region('europe-west1').pubsub
         console.log(`Updated depreciation for ${snapshot.size} assets.`);
         return null;
     });
+*/
+
+/**
+ * Manually recalculates the depreciation for a single asset up to a specified date.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { assetId: string, date: string }
+ */
+/*
+exports.recalculateAssetDepreciation = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for finance admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { assetId, date } = data;
+    const assetRef = db.collection('assets').doc(assetId);
+
+    const assetDoc = await assetRef.get();
+    if (!assetDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Asset not found.');
+    }
+    
+    const asset = assetDoc.data();
+    // Re-run the same calculation logic as the scheduled function, but for a single asset and a specific date.
+    // ...
+
+    return { success: true, message: 'Depreciation recalculated.' };
+});
 */
 
 // =======================================================================================
@@ -5807,3 +5816,184 @@ exports.onTaskCompleted = functions.region('europe-west1').firestore
     });
 */
     
+/**
+ * Atomically decrements the stock for a spare part and updates the maintenance log.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { workOrderId: string, partsUsed: { partId: string, quantityUsed: number }[] }
+ */
+/*
+exports.useSparePart = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for maintenance staff
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { workOrderId, partsUsed } = data;
+    if (!workOrderId || !partsUsed || partsUsed.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Work order ID and at least one part are required.');
+    }
+
+    const workOrderRef = db.collection('work_orders').doc(workOrderId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            // For each part used, decrement its stock
+            for (const part of partsUsed) {
+                const partRef = db.collection('spare_parts').doc(part.partId);
+                const partDoc = await transaction.get(partRef);
+                if (!partDoc.exists) throw new Error(`Spare part ${part.partId} not found.`);
+
+                const newQuantity = partDoc.data().currentQuantity - part.quantityUsed;
+                if (newQuantity < 0) throw new Error(`Not enough stock for part ${part.partId}.`);
+
+                transaction.update(partRef, { currentQuantity: newQuantity });
+                
+                // Check if stock is now below reorder level
+                if (newQuantity <= partDoc.data().reorderLevel) {
+                    console.warn(`Low stock alert for spare part: ${partDoc.data().name} (ID: ${part.partId}).`);
+                    // await sendNotificationToRole('procurement_manager', { ... });
+                }
+            }
+
+            // Update the maintenance log (work order) with the parts used
+            transaction.update(workOrderRef, { partsUsed: partsUsed });
+        });
+
+        console.log(`Successfully logged parts used for work order ${workOrderId}.`);
+        return { success: true };
+
+    } catch (error) {
+        console.error(`Failed to log spare part usage for work order ${workOrderId}:`, error);
+        throw new functions.https.HttpsError('aborted', 'Could not update spare part inventory.', { message: error.message });
+    }
+});
+*/
+
+/**
+ * A scheduled function that runs daily to check for low-stock spare parts.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 10:00'
+ */
+/*
+exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
+    .schedule('every day 10:00')
+    .onRun(async (context) => {
+        // Query for spare parts where currentQuantity <= reorderLevel
+        const snapshot = await db.collection('spare_parts').get();
+        const lowStockParts = [];
+
+        snapshot.forEach(doc => {
+            const part = doc.data();
+            if (part.currentQuantity <= part.reorderLevel) {
+                lowStockParts.push({ id: doc.id, ...part });
+            }
+        });
+
+        if (lowStockParts.length === 0) {
+            console.log('All spare parts are sufficiently stocked.');
+            return null;
+        }
+        
+        // Notify procurement team about all low-stock parts
+        // const message = `The following spare parts are low on stock: ${lowStockParts.map(p => p.name).join(', ')}`;
+        // await sendNotificationToRole('procurement_manager', { body: message });
+        
+        console.log(`Found ${lowStockParts.length} low-stock spare parts.`);
+        return null;
+    });
+*/
+
+/**
+ * Periodically calculates and updates the depreciated value of assets.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'first day of month 02:00'
+ */
+/*
+exports.calculateDepreciation = functions.region('europe-west1').pubsub
+    .schedule('first day of month 02:00')
+    .onRun(async (context) => {
+        // 1. Query for all assets that are not yet decommissioned.
+        const snapshot = await db.collection('assets')
+            .where('status', '!=', 'Decommissioned')
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No assets to depreciate.');
+            return null;
+        }
+
+        const batch = db.batch();
+
+        for (const doc of snapshot.docs) {
+            const asset = doc.data();
+            const purchaseDate = asset.purchaseDate.toDate();
+            const now = new Date();
+            
+            // 2. Example: Straight-line depreciation over 5 years.
+            const assetLifespanYears = asset.financialDetails?.usefulLifeYears || 5;
+            const purchasePrice = asset.financialDetails?.purchasePrice || 0;
+            const salvageValue = asset.financialDetails?.salvageValue || 0;
+
+            const yearsSincePurchase = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            
+            if (yearsSincePurchase > assetLifespanYears) {
+                // If past its lifespan, set value to salvage value and potentially mark for review.
+                batch.update(doc.ref, { 'financialDetails.currentBookValue': salvageValue, status: 'Review for Decommission' });
+            } else {
+                const depreciationPerYear = (purchasePrice - salvageValue) / assetLifespanYears;
+                const accumulatedDepreciation = depreciationPerYear * yearsSincePurchase;
+                const newBookValue = purchasePrice - accumulatedDepreciation;
+                
+                // 3. Create a new depreciation record
+                const newRecordRef = doc.ref.collection('depreciation_records').doc(`${now.getFullYear()}`);
+                transaction.set(newRecordRef, {
+                    recordId: newRecordRef.id,
+                    assetId: doc.id,
+                    dateCalculated: admin.firestore.FieldValue.serverTimestamp(),
+                    period: 'Annually',
+                    depreciationAmount: depreciationPerYear,
+                    accumulatedDepreciation: accumulatedDepreciation,
+                    bookValue: newBookValue
+                });
+                
+                // 4. Update the asset's main document
+                batch.update(doc.ref, { 'financialDetails.currentBookValue': Math.max(salvageValue, newBookValue) });
+            }
+        }
+
+        await batch.commit();
+        console.log(`Updated depreciation for ${snapshot.size} assets.`);
+        return null;
+    });
+*/
+
+/**
+ * Manually recalculates the depreciation for a single asset up to a specified date.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { assetId: string, date: string }
+ */
+/*
+exports.recalculateAssetDepreciation = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check for finance admin
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { assetId, date } = data;
+    const assetRef = db.collection('assets').doc(assetId);
+
+    const assetDoc = await assetRef.get();
+    if (!assetDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Asset not found.');
+    }
+    
+    const asset = assetDoc.data();
+    // Re-run the same calculation logic as the scheduled function, but for a single asset and a specific date.
+    // ...
+
+    return { success: true, message: 'Depreciation recalculated.' };
+});
+*/
+
