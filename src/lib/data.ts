@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1843,9 +1843,32 @@ export const mockUtilityConsumption: UtilityConsumption[] = [
     { logId: 'log-w-2', date: '2024-08-14', meterId: 'WATER-MAIN', type: 'Water', reading: 775, consumption: 22 },
 ];
 
+export const mockSecurityIncidents: SecurityIncident[] = [
+    {
+        incidentId: 'inc-1',
+        timestamp: new Date('2024-08-16T02:30:00Z').toISOString(),
+        type: 'Unauthorized Access',
+        location: 'Pharmacy Storage',
+        reportedByUserId: 'admin1',
+        details: 'CCTV footage shows an individual attempting to access the pharmacy storage area after hours.',
+        status: 'Under Investigation',
+    },
+    {
+        incidentId: 'inc-2',
+        timestamp: new Date('2024-08-15T15:00:00Z').toISOString(),
+        type: 'Dispute',
+        location: 'Parking Lot B',
+        reportedByUserId: 'admin1',
+        details: 'Verbal altercation between two visitors over a parking space. Resolved by security patrol.',
+        status: 'Resolved',
+        resolutionNotes: 'Parties were separated and warned. No further action needed.',
+    }
+];
+
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
+

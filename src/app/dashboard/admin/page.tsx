@@ -20,6 +20,7 @@ import { AccountsPayableDashboard } from './components/accounts-payable-dashboar
 import { FinancialReportsDashboard } from './components/financial-reports-dashboard';
 import { RadiologyDashboard } from './components/radiology-dashboard';
 import { UserManagementDashboard } from './components/user-management-dashboard';
+import { SecurityDashboard } from './components/security-dashboard';
 
 export default function AdminPage() {
   return (
@@ -48,6 +49,7 @@ export default function AdminPage() {
            <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="assets">Asset Management</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
         </TabsList>
@@ -145,6 +147,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="staff-schedules" className="mt-4">
           <StaffScheduleDashboard />
+        </TabsContent>
+        <TabsContent value="security" className="mt-4">
+            <SecurityDashboard />
         </TabsContent>
         <TabsContent value="assets" className="mt-4">
             <Card>
