@@ -14,6 +14,7 @@ import { StaffManagementDashboard } from './components/staff-management-dashboar
 import { PositionsDashboard } from './components/positions-dashboard';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import { HrAnalyticsDashboard } from './components/hr-analytics-dashboard';
 
 export default function HumanResourcesPage() {
   const { user } = useAuth();
@@ -48,12 +49,16 @@ export default function HumanResourcesPage() {
         <TabsList>
             <TabsTrigger value="staff">Staff Directory</TabsTrigger>
             <TabsTrigger value="positions">Positions & Salaries</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
         <TabsContent value="staff" className="mt-4">
             <StaffManagementDashboard />
         </TabsContent>
         <TabsContent value="positions" className="mt-4">
             <PositionsDashboard />
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-4">
+            <HrAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>

@@ -1667,6 +1667,7 @@ export interface HousekeepingTask {
   notes?: string;
 }
 
+
 /**
  * Represents an immutable record of depreciation for a single asset.
  * Path: /depreciation_records/{recordId}

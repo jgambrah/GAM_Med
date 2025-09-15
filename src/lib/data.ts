@@ -1448,6 +1448,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         dateOfBirth: '1980-01-01',
         employmentStatus: 'Active',
         positionId: 'pos-doc',
+        leaveBalances: { 'Annual Leave': 15, 'Sick Leave': 10 },
         recurringAllowances: [{ name: 'Book &amp; Research Allowance', amount: 500 }],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
@@ -1465,6 +1466,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         dateOfBirth: '1982-02-02',
         employmentStatus: 'Active',
         positionId: 'pos-doc',
+        leaveBalances: { 'Annual Leave': 5, 'Sick Leave': 3 },
         recurringAllowances: [{ name: 'Car Maintenance', amount: 300 }],
         recurringDeductions: [{ name: 'Staff Loan', amount: 1000 }, { name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'GCB Bank', accountNumber: '987654321', branchName: 'Accra Central' }
@@ -1479,6 +1481,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         dateOfBirth: '1990-03-03',
         employmentStatus: 'Active',
         positionId: 'pos-snr-nurse',
+        leaveBalances: { 'Annual Leave': 12, 'Sick Leave': 8 },
         recurringAllowances: [],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 30 }],
         bankDetails: { bankName: 'Absa Bank', accountNumber: '555444333', branchName: 'Spintex' }
