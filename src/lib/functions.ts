@@ -5477,6 +5477,7 @@ exports.recalculateAssetDepreciation = functions.region('europe-west1').https.on
 });
 */
 
+
 // =======================================================================================
 // == Spare Parts Inventory Management
 // =======================================================================================
@@ -5997,3 +5998,75 @@ exports.recalculateAssetDepreciation = functions.region('europe-west1').https.on
 });
 */
 
+// =======================================================================================
+// == Reporting & Business Intelligence
+// =======================================================================================
+
+/**
+ * A scheduled function that runs periodically to aggregate data for BI dashboards.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 02:00'
+ */
+/*
+exports.aggregateHospitalData = functions.region('europe-west1').pubsub
+    .schedule('every day 02:00')
+    .onRun(async (context) => {
+        console.log('Starting daily data aggregation for BI reports...');
+        const today = new Date();
+        const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
+        
+        // --- Revenue Calculation ---
+        const revenueSnapshot = await db.collection('payments')
+            .where('paymentDate', '>=', admin.firestore.Timestamp.fromDate(yesterday))
+            .where('paymentDate', '<', admin.firestore.Timestamp.fromDate(today))
+            .get();
+            
+        let totalRevenue = 0;
+        revenueSnapshot.forEach(doc => {
+            totalRevenue += doc.data().amount;
+        });
+
+        // --- Bed Occupancy Calculation ---
+        const bedsSnapshot = await db.collection('beds').get();
+        const totalBeds = bedsSnapshot.size;
+        const occupiedBeds = bedsSnapshot.docs.filter(doc => doc.data().status === 'occupied').length;
+        const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
+        
+        // --- Lab Turnaround Time (TAT) Calculation ---
+        const labResultsSnapshot = await db.collection('lab_results')
+            .where('completedAt', '>=', admin.firestore.Timestamp.fromDate(yesterday))
+            .where('completedAt', '<', admin.firestore.Timestamp.fromDate(today))
+            .get();
+        
+        let totalTAT = 0;
+        let completedTests = 0;
+        labResultsSnapshot.forEach(doc => {
+            const tat = doc.data().turnaroundTime;
+            if (typeof tat === 'number') {
+                totalTAT += tat;
+                completedTests++;
+            }
+        });
+        const averageLabTAT = completedTests > 0 ? totalTAT / completedTests : 0;
+        
+        // --- Store the Aggregated Report ---
+        const reportId = `daily_kpi_${yesterday.toISOString().split('T')[0]}`;
+        const reportRef = db.collection('bi_reports').doc(reportId);
+        
+        await reportRef.set({
+            reportType: 'DailyKPI',
+            period: yesterday.toISOString().split('T')[0],
+            data: {
+                totalRevenue: totalRevenue,
+                bedOccupancyRate: parseFloat(occupancyRate.toFixed(2)),
+                averageLabTAT: parseFloat(averageLabTAT.toFixed(2)),
+                // Add more KPIs as needed
+            },
+            generatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log(`BI Report ${reportId} generated successfully.`);
+        return null;
+    });
+*/
