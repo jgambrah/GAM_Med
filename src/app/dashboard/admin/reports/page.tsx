@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { mockLedgerAccounts, mockLedgerEntries, mockResources } from '@/lib/data';
+import { mockLedgerAccounts, mockLedgerEntries, mockResources, mockClaims } from '@/lib/data';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
 import {
   Table,
@@ -24,60 +24,31 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
 
-function ReportSection({ title, description, children, footerAction }: { title: string, description: string, children: React.ReactNode, footerAction?: boolean }) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {children}
-            </CardContent>
-            {footerAction && (
-                <CardFooter>
-                    <Button variant="outline" className="w-full">
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate Full Report (PDF)
-                    </Button>
-                </CardFooter>
-            )}
-        </Card>
-    );
-}
+const chartConfig = {
+  revenue: {
+    label: "Revenue",
+    color: "hsl(var(--chart-1))",
+  },
+  expenses: {
+    label: "Expenses",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig
 
-function AccountBalanceTable({ accounts }: { accounts: LedgerAccount[] }) {
-    const total = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-    return (
-        <div className="space-y-2">
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Account Name</TableHead>
-                            <TableHead className="text-right">Balance</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {accounts.map(acc => (
-                            <TableRow key={acc.accountId}>
-                                <TableCell>{acc.accountName}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(acc.balance)}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
-             <div className="flex w-full justify-between font-bold text-lg border-t pt-2">
-                <span>Total</span>
-                <span className="font-mono">{formatCurrency(total)}</span>
-            </div>
-        </div>
-    );
-}
+const mockMonthlyPerformance = [
+    { month: "Jan", revenue: 186000, expenses: 80000 },
+    { month: "Feb", revenue: 305000, expenses: 200000 },
+    { month: "Mar", revenue: 237000, expenses: 120000 },
+    { month: "Apr", revenue: 73000, expenses: 190000 },
+    { month: "May", revenue: 209000, expenses: 130000 },
+    { month: "Jun", revenue: 214000, expenses: 140000 },
+];
+
 
 function TrialBalanceTable({ startDate, endDate }: { startDate: string, endDate: string }) {
     const trialBalanceData = React.useMemo(() => {
@@ -164,25 +135,18 @@ export default function FinancialReportsPage() {
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   
-  const assets = mockLedgerAccounts.filter(a => a.accountType === 'Asset' && !a.isSubLedger);
-  const liabilities = mockLedgerAccounts.filter(a => a.accountType === 'Liability' && !a.isSubLedger);
-  const equity = mockLedgerAccounts.filter(a => a.accountType === 'Equity' && !a.isSubLedger);
-  const revenue = mockLedgerAccounts.filter(a => a.accountType === 'Revenue');
-  const expenses = mockLedgerAccounts.filter(a => a.accountType === 'Expense' && !a.isSubLedger);
-
-  const totalAccumulatedDepreciation = mockResources.reduce((sum, asset) => {
-    const purchaseCost = asset.purchaseCost || 0;
-    const bookValue = asset.currentBookValue || 0;
-    return sum + (purchaseCost - bookValue);
-  }, 0);
+  const totalRevenue = mockLedgerAccounts.filter(a => a.accountType === 'Revenue').reduce((sum, acc) => sum + acc.balance, 0);
+  const totalExpenses = mockLedgerAccounts.filter(a => a.accountType === 'Expense').reduce((sum, acc) => sum + acc.balance, 0);
+  const netProfit = totalRevenue - totalExpenses;
+  const outstandingClaims = mockClaims.filter(c => c.status === 'Submitted').reduce((sum, claim) => sum + (claim.payoutAmount || 0), 0);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-            <h1 className="text-3xl font-bold">Financial Reports</h1>
+            <h1 className="text-3xl font-bold">Financial Dashboard</h1>
             <p className="text-muted-foreground">
-            Generate comprehensive financial statements for hospital administration.
+            A high-level overview of the hospital's financial health and performance.
             </p>
         </div>
         <div className="flex items-center gap-4">
@@ -196,40 +160,89 @@ export default function FinancialReportsPage() {
             </div>
         </div>
       </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                Total Revenue
+                </CardTitle>
+                <span className="text-sm text-muted-foreground">₵</span>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+                <p className="text-xs text-muted-foreground">
+                All-time revenue from all services
+                </p>
+            </CardContent>
+            </Card>
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                Total Expenses
+                </CardTitle>
+                 <span className="text-sm text-muted-foreground">₵</span>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
+                <p className="text-xs text-muted-foreground">
+                All-time operational expenses
+                </p>
+            </CardContent>
+            </Card>
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Net Profit / Loss</CardTitle>
+                 <span className="text-sm text-muted-foreground">₵</span>
+            </CardHeader>
+            <CardContent>
+                <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                    {formatCurrency(netProfit)}
+                </div>
+                 <p className="text-xs text-muted-foreground">
+                All-time profitability
+                </p>
+            </CardContent>
+            </Card>
+            <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Outstanding Claims</CardTitle>
+                 <span className="text-sm text-muted-foreground">₵</span>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(outstandingClaims)}</div>
+                 <p className="text-xs text-muted-foreground">
+                Total value of submitted claims awaiting payout
+                </p>
+            </CardContent>
+            </Card>
+        </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Core Financial Statements</CardTitle>
-          <CardDescription>An overview of the hospital's financial health and performance. Balances shown are for all time.</CardDescription>
+          <CardTitle>Revenue vs. Expenses</CardTitle>
+          <CardDescription>Monthly financial performance for the current year.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <ReportSection title="Balance Sheet (Assets)" description="What the hospital owns." footerAction>
-            <AccountBalanceTable accounts={assets} />
-          </ReportSection>
-           <ReportSection title="Balance Sheet (Liabilities)" description="What the hospital owes." footerAction>
-            <AccountBalanceTable accounts={liabilities} />
-          </ReportSection>
-           <ReportSection title="Balance Sheet (Equity)" description="The net worth of the hospital." footerAction>
-            <AccountBalanceTable accounts={equity} />
-          </ReportSection>
-          <ReportSection title="Accumulated Depreciation" description="Total depreciation of all assets.">
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <p className="text-3xl font-bold text-muted-foreground">{formatCurrency(totalAccumulatedDepreciation)}</p>
-                </div>
-              </div>
-          </ReportSection>
-          <ReportSection title="Profit & Loss (Revenue)" description="Income generated from services." footerAction>
-             <AccountBalanceTable accounts={revenue} />
-          </ReportSection>
-           <ReportSection title="Profit & Loss (Expenses)" description="Costs incurred to operate." footerAction>
-            <AccountBalanceTable accounts={expenses} />
-          </ReportSection>
-           <ReportSection title="Cash Flow Statement" description="Movement of cash from operations, investing, and financing." footerAction>
-              <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                <p className="text-sm text-muted-foreground">[Cash Flow Chart Placeholder]</p>
-              </div>
-          </ReportSection>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+            <BarChart data={mockMonthlyPerformance}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+               <YAxis
+                tickFormatter={(value) => `₵${value / 1000}k`}
+              />
+              <ChartTooltip
+                content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />}
+              />
+              <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
+              <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} />
+            </BarChart>
+          </ChartContainer>
         </CardContent>
       </Card>
       
@@ -241,7 +254,14 @@ export default function FinancialReportsPage() {
         <CardContent>
            <TrialBalanceTable startDate={startDate} endDate={endDate} />
         </CardContent>
+        <CardFooter>
+            <Button variant="outline" className="w-full">
+                <Download className="h-4 w-4 mr-2" />
+                Export Full Financial Statements (PDF)
+            </Button>
+        </CardFooter>
       </Card>
     </div>
   );
-}
+
+    
