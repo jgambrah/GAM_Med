@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
+import { mockLedgerAccounts, mockLedgerEntries, mockResources } from '@/lib/data';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
 import {
   Table,
@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 
 const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
 
-function ReportSection({ title, description, children }: { title: string, description: string, children: React.ReactNode }) {
+function ReportSection({ title, description, children, footerAction }: { title: string, description: string, children: React.ReactNode, footerAction?: boolean }) {
     return (
         <Card>
             <CardHeader>
@@ -37,12 +37,14 @@ function ReportSection({ title, description, children }: { title: string, descri
             <CardContent>
                 {children}
             </CardContent>
-            <CardFooter>
-                <Button variant="outline" className="w-full">
-                    <Download className="h-4 w-4 mr-2" />
-                    Generate Full Report (PDF)
-                </Button>
-            </CardFooter>
+            {footerAction && (
+                <CardFooter>
+                    <Button variant="outline" className="w-full">
+                        <Download className="h-4 w-4 mr-2" />
+                        Generate Full Report (PDF)
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
     );
 }
@@ -168,6 +170,12 @@ export default function FinancialReportsPage() {
   const revenue = mockLedgerAccounts.filter(a => a.accountType === 'Revenue');
   const expenses = mockLedgerAccounts.filter(a => a.accountType === 'Expense' && !a.isSubLedger);
 
+  const totalAccumulatedDepreciation = mockResources.reduce((sum, asset) => {
+    const purchaseCost = asset.purchaseCost || 0;
+    const bookValue = asset.currentBookValue || 0;
+    return sum + (purchaseCost - bookValue);
+  }, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -194,23 +202,30 @@ export default function FinancialReportsPage() {
           <CardTitle>Core Financial Statements</CardTitle>
           <CardDescription>An overview of the hospital's financial health and performance. Balances shown are for all time.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <ReportSection title="Balance Sheet (Assets)" description="What the hospital owns.">
+        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ReportSection title="Balance Sheet (Assets)" description="What the hospital owns." footerAction>
             <AccountBalanceTable accounts={assets} />
           </ReportSection>
-           <ReportSection title="Balance Sheet (Liabilities)" description="What the hospital owes.">
+           <ReportSection title="Balance Sheet (Liabilities)" description="What the hospital owes." footerAction>
             <AccountBalanceTable accounts={liabilities} />
           </ReportSection>
-           <ReportSection title="Balance Sheet (Equity)" description="The net worth of the hospital.">
+           <ReportSection title="Balance Sheet (Equity)" description="The net worth of the hospital." footerAction>
             <AccountBalanceTable accounts={equity} />
           </ReportSection>
-          <ReportSection title="Profit & Loss (Revenue)" description="Income generated from services.">
+          <ReportSection title="Accumulated Depreciation" description="Total depreciation of all assets.">
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                    <p className="text-3xl font-bold text-muted-foreground">{formatCurrency(totalAccumulatedDepreciation)}</p>
+                </div>
+              </div>
+          </ReportSection>
+          <ReportSection title="Profit & Loss (Revenue)" description="Income generated from services." footerAction>
              <AccountBalanceTable accounts={revenue} />
           </ReportSection>
-           <ReportSection title="Profit & Loss (Expenses)" description="Costs incurred to operate.">
+           <ReportSection title="Profit & Loss (Expenses)" description="Costs incurred to operate." footerAction>
             <AccountBalanceTable accounts={expenses} />
           </ReportSection>
-           <ReportSection title="Cash Flow Statement" description="Movement of cash from operations, investing, and financing.">
+           <ReportSection title="Cash Flow Statement" description="Movement of cash from operations, investing, and financing." footerAction>
               <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
                 <p className="text-sm text-muted-foreground">[Cash Flow Chart Placeholder]</p>
               </div>
@@ -230,5 +245,3 @@ export default function FinancialReportsPage() {
     </div>
   );
 }
-
-

@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, AlertTriangle } from 'lucide-react';
-import { mockResources, mockWorkOrders } from '@/lib/data';
-import { Asset, WorkOrder } from '@/lib/types';
+import { mockResources, mockWorkOrders, mockDepreciationRecords } from '@/lib/data';
+import { Asset, WorkOrder, DepreciationRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -73,6 +73,7 @@ export default function AssetDetailPage() {
 
   const asset = mockResources.find((r) => r.assetId === assetId);
   const maintenanceHistory = mockWorkOrders.filter((req) => req.assetId === assetId);
+  const depreciationHistory = mockDepreciationRecords.filter((rec) => rec.assetId === assetId);
 
   if (!asset) {
     notFound();
@@ -99,6 +100,7 @@ export default function AssetDetailPage() {
         <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="maintenance">Maintenance History</TabsTrigger>
+            <TabsTrigger value="depreciation">Depreciation History</TabsTrigger>
         </TabsList>
         <TabsContent value="details" className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -128,7 +130,7 @@ export default function AssetDetailPage() {
                             <DetailItem label="Purchase Date" value={asset.purchaseDate ? format(parseISO(asset.purchaseDate), 'PPP') : 'N/A'} />
                             <DetailItem label="Purchase Cost" value={asset.purchaseCost ? `₵${asset.purchaseCost.toFixed(2)}` : 'N/A'} />
                             <DetailItem label="Warranty End Date" value={asset.warrantyEndDate ? format(parseISO(asset.warrantyEndDate), 'PPP') : 'N/A'} />
-                            <DetailItem label="Current Depreciated Value" value={asset.currentValue ? `₵${asset.currentValue.toFixed(2)}` : 'N/A'} />
+                            <DetailItem label="Current Book Value" value={asset.currentBookValue ? `₵${asset.currentBookValue.toFixed(2)}` : 'N/A'} />
                         </CardContent>
                     </Card>
                 </div>
@@ -167,6 +169,48 @@ export default function AssetDetailPage() {
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center">
                                         No maintenance history found for this asset.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </TabsContent>
+         <TabsContent value="depreciation" className="mt-4">
+             <Card>
+                <CardHeader>
+                <CardTitle>Depreciation History</CardTitle>
+                <CardDescription>
+                    An immutable log of all annual depreciation calculations for this asset.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date Calculated</TableHead>
+                                <TableHead>Period</TableHead>
+                                <TableHead className="text-right">Depreciation Amount</TableHead>
+                                <TableHead className="text-right">Book Value</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {depreciationHistory.length > 0 ? (
+                                depreciationHistory.map(rec => (
+                                    <TableRow key={rec.recordId}>
+                                        <TableCell>{format(parseISO(rec.dateCalculated), 'PPP')}</TableCell>
+                                        <TableCell>{rec.period}</TableCell>
+                                        <TableCell className="text-right font-mono">₵{rec.depreciationAmount.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right font-mono">₵{rec.bookValue.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        No depreciation history found for this asset.
                                     </TableCell>
                                 </TableRow>
                             )}

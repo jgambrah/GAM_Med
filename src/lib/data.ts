@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -843,7 +843,7 @@ export const mockResources: Asset[] = [
     modality: 'MRI',
     purchaseDate: '2020-01-15T00:00:00Z',
     purchaseCost: 5000000,
-    currentValue: 4200000,
+    currentBookValue: 4200000,
     warrantyEndDate: '2025-01-14T00:00:00Z',
     maintenanceSchedule: [{
         type: 'Preventive',
@@ -866,7 +866,7 @@ export const mockResources: Asset[] = [
     modality: 'CT Scan',
     purchaseDate: '2019-05-20T00:00:00Z',
     purchaseCost: 3500000,
-    currentValue: 2500000,
+    currentBookValue: 2500000,
     maintenanceSchedule: [{
         type: 'Preventive',
         frequency: 'Quarterly',
@@ -899,6 +899,28 @@ export const mockResources: Asset[] = [
     }]
   },
 ];
+
+export const mockDepreciationRecords: DepreciationRecord[] = [
+    {
+        recordId: 'dep-mri-1-2023',
+        assetId: 'mri-1',
+        dateCalculated: new Date('2023-12-31T23:59:59Z').toISOString(),
+        period: 'Annually',
+        depreciationAmount: 800000,
+        accumulatedDepreciation: 2400000,
+        bookValue: 2600000,
+    },
+     {
+        recordId: 'dep-mri-1-2022',
+        assetId: 'mri-1',
+        dateCalculated: new Date('2022-12-31T23:59:59Z').toISOString(),
+        period: 'Annually',
+        depreciationAmount: 800000,
+        accumulatedDepreciation: 1600000,
+        bookValue: 3400000,
+    }
+];
+
 
 export const mockResourceBookings: ResourceBooking[] = [
     {

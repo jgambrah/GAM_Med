@@ -100,32 +100,29 @@ function AssetCatalog() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Asset ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Asset Name</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Next Service Date</TableHead>
+                  <TableHead className="text-right">Purchase Cost</TableHead>
+                  <TableHead className="text-right">Current Book Value</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {assets.map((asset) => (
                   <TableRow key={asset.assetId} className={cn(getRowClass(asset))}>
-                    <TableCell className="font-mono text-xs">{asset.assetId}</TableCell>
                     <TableCell className="font-medium">{asset.name}</TableCell>
-                    <TableCell>{asset.type}</TableCell>
                     <TableCell>{asset.department}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusVariant(asset.status)}>
                         {asset.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                        {asset.maintenanceSchedule?.[0]?.nextServiceDate
-                            ? format(parseISO(asset.maintenanceSchedule[0].nextServiceDate), 'PPP')
-                            : 'N/A'
-                        }
+                    <TableCell className="text-right font-mono">
+                        {asset.purchaseCost ? `₵${asset.purchaseCost.toFixed(2)}` : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                        {asset.currentBookValue ? `₵${asset.currentBookValue.toFixed(2)}` : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Button asChild variant="outline" size="sm">
