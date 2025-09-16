@@ -6161,3 +6161,144 @@ exports.getDashboardData = functions.region('europe-west1').https.onCall(async (
     return { dashboardData };
 });
 */
+
+// =======================================================================================
+// == Clinical Reporting
+// =======================================================================================
+
+/**
+ * Checks for readmissions within a 30-day window upon a new admission.
+ * This would be called by the handlePatientAdmission function.
+ *
+ * @param {string} patientId - The ID of the admitted patient.
+ * @param {object} newAdmissionRef - The Firestore document reference for the new admission.
+ * @param {object} transaction - The Firestore transaction object.
+ */
+/*
+async function trackReadmission(patientId, newAdmissionRef, transaction) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentAdmissionsQuery = db.collection('patients').doc(patientId).collection('admissions')
+        .where('dischargeDate', '>=', admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
+        .limit(1);
+    
+    const snapshot = await transaction.get(recentAdmissionsQuery);
+    
+    if (!snapshot.empty) {
+        // A recent discharge was found, so this is a readmission.
+        transaction.update(newAdmissionRef, { readmissionFlag: true });
+        console.log(`Readmission detected for patient ${patientId}.`);
+    }
+}
+*/
+// Note: To use the above function, you would call it from within the `handlePatientAdmission` transaction:
+// `await trackReadmission(patientId, newAdmissionRef, transaction);`
+
+
+/**
+ * A scheduled function that runs periodically to analyze treatment efficacy.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every sunday 03:00'
+ */
+/*
+exports.analyzeTreatmentEfficacy = functions.region('europe-west1').pubsub
+    .schedule('every sunday 03:00')
+    .onRun(async (context) => {
+        const snapshot = await db.collectionGroup('care_plans')
+            .where('status', '==', 'Completed')
+            .get();
+
+        const efficacyData = {};
+
+        snapshot.forEach(doc => {
+            const plan = doc.data();
+            const planTitle = plan.title; // Group by care plan title
+            const rating = plan.efficacyRating || 0;
+
+            if (!efficacyData[planTitle]) {
+                efficacyData[planTitle] = { ratings: [], count: 0 };
+            }
+            if (rating > 0) {
+                efficacyData[planTitle].ratings.push(rating);
+            }
+            efficacyData[planTitle].count++;
+        });
+
+        const report = {};
+        for (const title in efficacyData) {
+            const ratings = efficacyData[title].ratings;
+            const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+            report[title] = {
+                averageEfficacy: parseFloat(avgRating.toFixed(2)),
+                totalCases: efficacyData[title].count
+            };
+        }
+
+        // Save the aggregated report
+        const reportId = `efficacy_report_${new Date().toISOString().split('T')[0]}`;
+        await db.collection('clinical_reports').doc(reportId).set({
+            type: 'TreatmentEfficacy',
+            data: report,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log('Generated treatment efficacy report.');
+        return null;
+    });
+*/
+
+
+/**
+ * A scheduled function that runs monthly to calculate and report on infection rates.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule '1st day of month 03:00'
+ */
+/*
+exports.reportInfectionRates = functions.region('europe-west1').pubsub
+    .schedule('1st day of month 03:00')
+    .onRun(async (context) => {
+        const now = new Date();
+        const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        // 1. Count infections in the last month
+        const infectionsSnapshot = await db.collection('infections')
+            .where('dateIdentified', '>=', admin.firestore.Timestamp.fromDate(firstDayOfLastMonth))
+            .where('dateIdentified', '<=', admin.firestore.Timestamp.fromDate(lastDayOfLastMonth))
+            .get();
+        const infectionCount = infectionsSnapshot.size;
+
+        // 2. Calculate total patient-days for the last month
+        // This is a complex query and might require pre-aggregated data.
+        // Simplified concept:
+        const admissionsSnapshot = await db.collectionGroup('admissions').get(); // Inefficient, needs optimization
+        let totalPatientDays = 0;
+        admissionsSnapshot.forEach(doc => {
+            // Complex logic to calculate days within the specific month for each admission...
+            // ... totalPatientDays += calculatedDays;
+        });
+        
+        // Let's use a placeholder value for the prototype
+        totalPatientDays = 5000; // Placeholder
+
+        // 3. Calculate rate per 1,000 patient-days
+        const infectionRate = totalPatientDays > 0 ? (infectionCount / totalPatientDays) * 1000 : 0;
+
+        // 4. Save the report
+        const reportId = `infection_rate_${firstDayOfLastMonth.getFullYear()}-${firstDayOfLastMonth.getMonth() + 1}`;
+        await db.collection('clinical_reports').doc(reportId).set({
+            type: 'InfectionRate',
+            period: `${firstDayOfLastMonth.getFullYear()}-${firstDayOfLastMonth.getMonth() + 1}`,
+            infectionCount: infectionCount,
+            totalPatientDays: totalPatientDays,
+            ratePer1000Days: parseFloat(infectionRate.toFixed(2)),
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log(`Generated infection rate report for ${reportId}.`);
+        return null;
+    });
+*/
