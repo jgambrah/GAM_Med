@@ -1507,7 +1507,7 @@ export interface MealOrder {
 
 
 // =========================================================================
-// == Reporting Data Models
+// == Reporting & BI Data Models
 // =========================================================================
 
 /**
@@ -1533,6 +1533,18 @@ export interface BIReport {
   period: string; // e.g., '2024-08' for monthly, '2024-Q3' for quarterly
   data: Record<string, any>; // The aggregated data, e.g., { "totalRevenue": 500000, "patientVisits": 2500 }
   generatedAt: string; // ISO Timestamp
+}
+
+/**
+ * Represents a pre-calculated Key Performance Indicator (KPI) for BI dashboards.
+ * Path: /kpi_metrics/{metricId}
+ */
+export interface KPIMetric {
+  metricId: string; // e.g., 'bed_occupancy_2025-09-16'
+  metricName: string; // e.g., 'Bed Occupancy Rate', 'Revenue per Patient'
+  value: number;
+  date: string; // ISO Timestamp
+  department?: string; // Optional, for department-specific KPIs
 }
 
 /**
