@@ -5480,7 +5480,6 @@ exports.recalculateAssetDepreciation = functions.region('europe-west1').https.on
 });
 */
 
-
 // =======================================================================================
 // == Spare Parts Inventory Management
 // =======================================================================================
@@ -6301,4 +6300,105 @@ exports.reportInfectionRates = functions.region('europe-west1').pubsub
         console.log(`Generated infection rate report for ${reportId}.`);
         return null;
     });
+*/
+
+// =======================================================================================
+// == BILLING & FINANCIALS
+// =======================================================================================
+
+/**
+ * A scheduled function that runs periodically to aggregate data for BI dashboards.
+ * This is the primary mechanism for calculating high-level financial KPIs.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 02:00'
+ */
+/*
+exports.aggregateFinancialData = functions.region('europe-west1').pubsub
+    .schedule('every day 02:00')
+    .onRun(async (context) => {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const periodId = yesterday.toISOString().split('T')[0]; // e.g., '2024-09-15'
+
+        const startOfPeriod = new Date(yesterday.setHours(0, 0, 0, 0));
+        const endOfPeriod = new Date(yesterday.setHours(23, 59, 59, 999));
+        
+        // --- 1. Calculate Total Revenue ---
+        const paymentsSnapshot = await db.collection('payments')
+            .where('paymentDate', '>=', admin.firestore.Timestamp.fromDate(startOfPeriod))
+            .where('paymentDate', '<=', admin.firestore.Timestamp.fromDate(endOfPeriod))
+            .get();
+        let totalRevenue = 0;
+        paymentsSnapshot.forEach(doc => { totalRevenue += doc.data().amount; });
+
+        // --- 2. Calculate Total Expenses ---
+        // a) Sum up operational expenses
+        const expensesSnapshot = await db.collection('expenses')
+            .where('date', '>=', admin.firestore.Timestamp.fromDate(startOfPeriod))
+            .where('date', '<=', admin.firestore.Timestamp.fromDate(endOfPeriod))
+            .where('status', '==', 'Paid')
+            .get();
+        let totalOpEx = 0;
+        expensesSnapshot.forEach(doc => { totalOpEx += doc.data().amount; });
+        
+        // b) Sum up payroll expenses (assuming payroll is run for the same period)
+        const payrollSnapshot = await db.collection('payroll_runs')
+            .where('payDate', '==', periodId)
+            .get();
+        let totalPayrollExpense = 0;
+        payrollSnapshot.forEach(doc => { totalPayrollExpense += doc.data().totalGrossPay; });
+
+        const totalExpenses = totalOpEx + totalPayrollExpense;
+
+        // --- 3. Calculate Net Profit ---
+        const netProfit = totalRevenue - totalExpenses;
+        
+        // --- 4. Store the Aggregated Report ---
+        const summaryRef = db.collection('financial_summaries').doc(`daily_${periodId}`);
+        await summaryRef.set({
+            period: periodId,
+            totalRevenue,
+            totalExpenses,
+            netProfit,
+            // Include breakdown here if needed
+            generatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log(`Financial summary for ${periodId} generated successfully.`);
+        return null;
+    });
+*/
+
+/**
+ * A real-time update function to keep financial summaries current.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { type: 'revenue'|'expense', amount: number }
+ */
+/*
+exports.updateFinancialSummary = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check should be strict here, probably only callable by other backend services/functions
+    // ...
+
+    const { type, amount } = data;
+    const todayId = `daily_${new Date().toISOString().split('T')[0]}`;
+    const summaryRef = db.collection('financial_summaries').doc(todayId);
+
+    const increment = admin.firestore.FieldValue.increment(amount);
+
+    if (type === 'revenue') {
+        await summaryRef.set({ 
+            totalRevenue: increment, 
+            netProfit: increment 
+        }, { merge: true });
+    } else if (type === 'expense') {
+        await summaryRef.set({ 
+            totalExpenses: increment,
+            netProfit: admin.firestore.FieldValue.increment(-amount)
+        }, { merge: true });
+    }
+    
+    return { success: true };
+});
 */
