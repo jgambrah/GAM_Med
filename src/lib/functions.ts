@@ -14,6 +14,106 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Ad-hoc Reporting
+// =======================================================================================
+
+/**
+ * Dynamically builds and runs a query based on user-defined parameters.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { queryDetails: { collections: string[], filters: object, metrics: string[], groupBy?: string } }
+ * @returns {Promise<object[]>} An array of aggregated results.
+ */
+/*
+exports.generateCustomReport = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is authorized to run reports.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Role check...
+
+    const { queryDetails } = data;
+    if (!queryDetails || !queryDetails.collections || queryDetails.collections.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Query details with at least one collection are required.');
+    }
+
+    // 2. Dynamically build the Firestore query.
+    // This is a simplified example. A real implementation would need a robust parser.
+    let query = db.collection(queryDetails.collections[0]);
+    
+    // Apply filters
+    if (queryDetails.filters) {
+        for (const key in queryDetails.filters) {
+            const filter = queryDetails.filters[key];
+            // Example: query = query.where(key, filter.operator, filter.value);
+        }
+    }
+
+    const snapshot = await query.get();
+    
+    // 3. Aggregate the data based on metrics and groupBy field.
+    const aggregatedResults = {};
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        const groupKey = queryDetails.groupBy ? data[queryDetails.groupBy] : 'all';
+        
+        if (!aggregatedResults[groupKey]) {
+            aggregatedResults[groupKey] = {};
+            if (queryDetails.groupBy) {
+                 aggregatedResults[groupKey][queryDetails.groupBy] = groupKey;
+            }
+            queryDetails.metrics.forEach(metric => {
+                aggregatedResults[groupKey][metric] = 0;
+            });
+        }
+        
+        // Aggregate each metric
+        queryDetails.metrics.forEach(metric => {
+            if (metric === 'count') {
+                aggregatedResults[groupKey][metric]++;
+            } else if (data[metric]) {
+                aggregatedResults[groupKey][metric] += data[metric];
+            }
+        });
+    });
+
+    // 4. Return the aggregated data as an array.
+    return Object.values(aggregatedResults);
+});
+*/
+
+/**
+ * Saves a user-created report template for later use.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { userId: string, reportName: string, queryDetails: object, description?: string }
+ */
+/*
+exports.saveReportTemplate = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { reportName, queryDetails, description } = data;
+    if (!reportName || !queryDetails) {
+        throw new functions.https.HttpsError('invalid-argument', 'Report name and query details are required.');
+    }
+    
+    const newReportRef = db.collection('saved_reports').doc();
+    
+    await newReportRef.set({
+        reportId: newReportRef.id,
+        userId: context.auth.uid,
+        reportName,
+        description: description || null,
+        queryDetails,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`Report template '${reportName}' saved for user ${context.auth.uid}.`);
+    return { success: true, reportId: newReportRef.id };
+});
+*/
+
+
+// =======================================================================================
 // == Employee Database & HR Management
 // =======================================================================================
 
@@ -3750,7 +3850,6 @@ exports.bookOtSession = functions.region('europe-west1').https.onCall(async (dat
                 status: 'Scheduled',
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };
-            
             transaction.set(newOtSessionRef, sessionData);
         });
 
@@ -4525,7 +4624,7 @@ exports.updateClaimPayout = functions.region('europe-west1').firestore
             await newPaymentRef.set({
                 paymentId: newPaymentRef.id,
                 invoiceId: invoiceId,
-                amount: payoutAmount,
+                amount: amount,
                 paymentMethod: 'Insurance Payout',
                 paymentDate: admin.firestore.FieldValue.serverTimestamp(),
                 transactionId: `CLMPAY-${claimId}` // Link back to the claim
@@ -4796,7 +4895,7 @@ exports.notifyEmployeeOfLeaveStatus = functions.region('europe-west1').firestore
         const oldData = change.before.data();
 
         // 1. Trigger only if the status has changed from 'Pending'.
-        if (newData.status === oldData.status || oldData.status !== 'Pending') {
+        if (newData.status !== oldData.status || oldData.status !== 'Pending') {
             return null;
         }
 
@@ -4824,6 +4923,7 @@ exports.notifyEmployeeOfLeaveStatus = functions.region('europe-west1').firestore
         return null;
     });
 */
+
 
 // =======================================================================================
 // == Performance Management
@@ -5154,1251 +5254,10 @@ exports.postPayrollToLedger = functions.region('europe-west1').https.onCall(asyn
         postedAt: now 
     });
 
-    await batch.commit();
-
-    return { success: true };
-});
-*/
-// =======================================================================================
-// == Asset & Facilities Management
-// =======================================================================================
-
-/**
- * Creates a new work order for a maintenance or repair request.
- *
- * @trigger_type Callable Function (https)
- * @input { assetId?: string, facilityIssue?: string, description: string, priority: 'Low'|'Medium'|'High' }
- */
-/*
-exports.createWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check: Any authenticated user can create a work order
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    
-    const { assetId, facilityIssue, description, priority } = data;
-    if ((!assetId && !facilityIssue) || !description || !priority) {
-        throw new functions.https.HttpsError('invalid-argument', 'Either an asset or facility issue must be specified, along with description and priority.');
-    }
-
-    const newWorkOrderRef = db.collection('work_orders').doc();
-    
-    await newWorkOrderRef.set({
-        workOrderId: newWorkOrderRef.id,
-        assetId: assetId || null,
-        facilityIssue: facilityIssue || null,
-        reportedByUserId: context.auth.uid,
-        dateReported: admin.firestore.FieldValue.serverTimestamp(),
-        description,
-        priority,
-        status: 'Open'
-    });
-
-    // If an asset is involved, update its status
-    if (assetId) {
-        const assetRef = db.collection('assets').doc(assetId);
-        await assetRef.update({ status: 'Under Maintenance' });
-    }
-
-    // Notify maintenance manager
-    // await sendNotificationToRole('maintenance_manager', `New work order created: ${description}`);
-    
-    console.log(`Work order ${newWorkOrderRef.id} created.`);
-    return { success: true, workOrderId: newWorkOrderRef.id };
-});
-*/
-
-/**
- * Assigns a work order to a specific technician.
- *
- * @trigger_type Callable Function (https)
- * @input { workOrderId: string, assignedToUserId: string }
- */
-/*
-exports.assignWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for maintenance manager
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { workOrderId, assignedToUserId } = data;
-    const workOrderRef = db.collection('work_orders').doc(workOrderId);
-
-    await workOrderRef.update({
-        assignedToUserId,
-        status: 'Assigned'
-    });
-
-    // Notify the assigned technician
-    // await sendNotificationToUser(assignedToUserId, `You have been assigned work order #${workOrderId}`);
-
-    console.log(`Work order ${workOrderId} assigned to user ${assignedToUserId}.`);
-    return { success: true };
-});
-*/
-
-
-/**
- * Automatically creates preventive maintenance tasks based on equipment schedules.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 01:00'
- */
-/*
-exports.schedulePreventiveMaintenance = functions.region('europe-west1').pubsub
-    .schedule('every day 01:00')
-    .onRun(async (context) => {
-        const today = new Date();
-        const twoWeeksFromNow = new Date(today.getTime() + (14 * 24 * 60 * 60 * 1000));
-        
-        // 1. Query for operational equipment with a nextServiceDate in the near future.
-        const snapshot = await db.collection('assets')
-            .where('status', '==', 'Operational')
-            .where('maintenanceSchedule.nextServiceDate', '<=', admin.firestore.Timestamp.fromDate(twoWeeksFromNow))
-            .get();
-
-        if (snapshot.empty) {
-            console.log('No equipment due for preventive maintenance.');
-            return null;
-        }
-
-        const batch = db.batch();
-
-        for (const doc of snapshot.docs) {
-            const equipment = doc.data();
-            
-            // 2. Check if a maintenance request for this service is already open.
-            const existingRequestQuery = db.collection('work_orders')
-                .where('assetId', '==', doc.id)
-                .where('requestType', '==', 'Preventive Maintenance')
-                .where('status', '==', 'Open');
-                
-            const existingRequestSnapshot = await existingRequestQuery.get();
-
-            if (existingRequestSnapshot.empty) {
-                // 3. Create a new maintenance request.
-                const newRequestRef = db.collection('work_orders').doc();
-                batch.set(newRequestRef, {
-                    workOrderId: newRequestRef.id,
-                    assetId: doc.id,
-                    requestType: 'Preventive Maintenance',
-                    description: `Scheduled preventive maintenance for ${equipment.name}.`,
-                    priority: 'Medium',
-                    status: 'Open',
-                    dateReported: admin.firestore.FieldValue.serverTimestamp(),
-                });
-            }
-        }
-
         await batch.commit();
-        console.log(`Created preventive maintenance requests for ${snapshot.size} items.`);
-        return null;
-    });
-*/
 
-/**
- * Resolves a work order and updates related documents.
- * This now includes logic to call `useSparePart` to handle inventory updates.
- *
- * @trigger_type Callable Function (https)
- * @input { workOrderId: string, resolutionNotes: string, partsUsed?: { partId: string, quantityUsed: number }[], cost?: number }
- */
-/*
-exports.resolveWorkOrder = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for maintenance staff
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { workOrderId, resolutionNotes, partsUsed, cost } = data;
-    const workOrderRef = db.collection('work_orders').doc(workOrderId);
-    
-    // 1. If parts were used, call the useSparePart function first.
-    if (partsUsed && partsUsed.length > 0) {
-        const usePart = functions.https.onCall(useSparePart);
-        await usePart({ workOrderId: workOrderId, partsUsed: partsUsed });
-    }
-    
-    try {
-        await db.runTransaction(async (transaction) => {
-            const requestDoc = await transaction.get(workOrderRef);
-            if (!requestDoc.exists) throw new Error('Work order not found.');
-
-            const requestData = requestDoc.data();
-
-            // 2. Update the work order status.
-            transaction.update(workOrderRef, {
-                status: 'Resolved',
-                resolutionNotes: resolutionNotes,
-                dateResolved: admin.firestore.FieldValue.serverTimestamp(),
-                technicianId: context.auth.uid,
-                cost: cost || 0,
-            });
-
-            // 3. If it's an equipment request, update the equipment's status.
-            if (requestData.assetId) {
-                const assetRef = db.collection('assets').doc(requestData.assetId);
-                const assetDoc = await transaction.get(assetRef);
-                if (assetDoc.exists) {
-                     transaction.update(assetRef, { status: 'Operational' });
-                }
-            }
-            
-            // 4. Notify the original reporter
-            // await sendNotificationToUser(requestData.reportedByUserId, `The issue you reported ('${requestData.description}') has been resolved.`);
-        });
-        
-        console.log(`Resolved work order ${workOrderId}.`);
         return { success: true };
-
-    } catch (error) {
-        console.error('Failed to resolve work order:', error);
-        throw new functions.https.HttpsError('aborted', 'Could not resolve work order.', { message: error.message });
-    }
-});
-*/
-
-/**
- * Sends an alert when a critical piece of equipment fails.
- *
- * @trigger_type Firestore Trigger (onUpdate)
- * @document /assets/{assetId}
- */
-/*
-exports.equipmentFailureAlert = functions.region('europe-west1').firestore
-    .document('/assets/{assetId}')
-    .onUpdate(async (change, context) => {
-        const newData = change.after.data();
-        const oldData = change.before.data();
-        
-        // 1. Trigger only if the status changes TO a non-operational state.
-        if (newData.status !== oldData.status && (newData.status === 'Under Maintenance' || newData.status === 'Needs Repair')) {
-            const department = newData.department;
-            
-            // 2. Send notification to the relevant department head or user role.
-            // await sendNotificationToRole(`head_of_${department}`, {
-            //     title: 'Equipment Alert',
-            //     body: `${newData.name} in ${newData.location} is now ${newData.status}.`
-            // });
-
-            console.log(`Sent equipment failure alert for ${context.params.assetId}.`);
-        }
-        
-        return null;
     });
 */
 
-// =======================================================================================
-// == Asset Register Functions
-// =======================================================================================
-/**
- * Periodically calculates and updates the depreciated value of assets.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'first day of month 02:00'
- */
-/*
-exports.calculateDepreciation = functions.region('europe-west1').pubsub
-    .schedule('first day of month 02:00')
-    .onRun(async (context) => {
-        // 1. Query for all assets that are not yet decommissioned.
-        const snapshot = await db.collection('assets')
-            .where('status', '!=', 'Decommissioned')
-            .get();
-
-        if (snapshot.empty) {
-            console.log('No assets to depreciate.');
-            return null;
-        }
-
-        const batch = db.batch();
-
-        for (const doc of snapshot.docs) {
-            const asset = doc.data();
-            const purchaseDate = asset.purchaseDate.toDate();
-            const now = new Date();
-            
-            // 2. Example: Straight-line depreciation over 5 years.
-            const assetLifespanYears = asset.financialDetails?.usefulLifeYears || 5;
-            const purchasePrice = asset.financialDetails?.purchasePrice || 0;
-            const salvageValue = asset.financialDetails?.salvageValue || 0;
-
-            const yearsSincePurchase = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-            
-            if (yearsSincePurchase > assetLifespanYears) {
-                // If past its lifespan, set value to salvage value and potentially mark for review.
-                batch.update(doc.ref, { 'financialDetails.currentBookValue': salvageValue, status: 'Review for Decommission' });
-            } else {
-                const depreciationPerYear = (purchasePrice - salvageValue) / assetLifespanYears;
-                const accumulatedDepreciation = depreciationPerYear * yearsSincePurchase;
-                const newBookValue = purchasePrice - accumulatedDepreciation;
-                
-                // 3. Create a new depreciation record
-                const newRecordRef = doc.ref.collection('depreciation_records').doc(`${now.getFullYear()}`);
-                transaction.set(newRecordRef, {
-                    recordId: newRecordRef.id,
-                    assetId: doc.id,
-                    dateCalculated: admin.firestore.FieldValue.serverTimestamp(),
-                    period: 'Annually',
-                    depreciationAmount: depreciationPerYear,
-                    accumulatedDepreciation: accumulatedDepreciation,
-                    bookValue: newBookValue
-                });
-                
-                // 4. Update the asset's main document
-                batch.update(doc.ref, { 'financialDetails.currentBookValue': Math.max(salvageValue, newBookValue) });
-            }
-        }
-
-        await batch.commit();
-        console.log(`Updated depreciation for ${snapshot.size} assets.`);
-        return null;
-    });
-*/
-
-/**
- * Manually recalculates the depreciation for a single asset up to a specified date.
- *
- * @trigger_type Callable Function (https)
- * @input { assetId: string, date: string }
- */
-/*
-exports.recalculateAssetDepreciation = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for finance admin
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { assetId, date } = data;
-    const assetRef = db.collection('assets').doc(assetId);
-
-    const assetDoc = await assetRef.get();
-    if (!assetDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Asset not found.');
-    }
     
-    const asset = assetDoc.data();
-    // Re-run the same calculation logic as the scheduled function, but for a single asset and a specific date.
-    // ...
-
-    return { success: true, message: 'Depreciation recalculated.' };
-});
-*/
-
-// =======================================================================================
-// == Spare Parts Inventory Management
-// =======================================================================================
-/**
- * Atomically decrements the stock for a spare part and updates the maintenance log.
- *
- * @trigger_type Callable Function (https)
- * @input { workOrderId: string, partsUsed: { partId: string, quantityUsed: number }[] }
- */
-/*
-exports.useSparePart = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for maintenance staff
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { workOrderId, partsUsed } = data;
-    if (!workOrderId || !partsUsed || partsUsed.length === 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'Work order ID and at least one part are required.');
-    }
-
-    const workOrderRef = db.collection('work_orders').doc(workOrderId);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            // For each part used, decrement its stock
-            for (const part of partsUsed) {
-                const partRef = db.collection('spare_parts').doc(part.partId);
-                const partDoc = await transaction.get(partRef);
-                if (!partDoc.exists) throw new Error(`Spare part ${part.partId} not found.`);
-
-                const newQuantity = partDoc.data().currentQuantity - part.quantityUsed;
-                if (newQuantity < 0) throw new Error(`Not enough stock for part ${part.partId}.`);
-
-                transaction.update(partRef, { currentQuantity: newQuantity });
-                
-                // Check if stock is now below reorder level
-                if (newQuantity <= partDoc.data().reorderLevel) {
-                    console.warn(`Low stock alert for spare part: ${partDoc.data().name} (ID: ${part.partId}).`);
-                    // await sendNotificationToRole('procurement_manager', { ... });
-                }
-            }
-
-            // Update the maintenance log (work order) with the parts used
-            transaction.update(workOrderRef, { partsUsed: partsUsed });
-        });
-
-        console.log(`Successfully logged parts used for work order ${workOrderId}.`);
-        return { success: true };
-
-    } catch (error) {
-        console.error(`Failed to log spare part usage for work order ${workOrderId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not update spare part inventory.', { message: error.message });
-    }
-});
-*/
-
-/**
- * A scheduled function that runs daily to check for low-stock spare parts.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 10:00'
- */
-/*
-exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
-    .schedule('every day 10:00')
-    .onRun(async (context) => {
-        // Query for spare parts where currentQuantity <= reorderLevel
-        const snapshot = await db.collection('spare_parts').get();
-        const lowStockParts = [];
-
-        snapshot.forEach(doc => {
-            const part = doc.data();
-            if (part.currentQuantity <= part.reorderLevel) {
-                lowStockParts.push({ id: doc.id, ...part });
-            }
-        });
-
-        if (lowStockParts.length === 0) {
-            console.log('All spare parts are sufficiently stocked.');
-            return null;
-        }
-        
-        // Notify procurement team about all low-stock parts
-        // const message = `The following spare parts are low on stock: ${lowStockParts.map(p => p.name).join(', ')}`;
-        // await sendNotificationToRole('procurement_manager', { body: message });
-        
-        console.log(`Found ${lowStockParts.length} low-stock spare parts.`);
-        return null;
-    });
-*/
-
-
-// =======================================================================================
-// == UTILITIES & FACILITIES MANAGEMENT
-// =======================================================================================
-
-/**
- * Calculates and records the daily consumption for each utility meter.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 23:55'
- */
-/*
-exports.calculateDailyConsumption = functions.region('europe-west1').pubsub
-    .schedule('every day 23:55')
-    .onRun(async (context) => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        
-        // 1. Get all readings for today
-        const todayReadings = await db.collection('utility_consumption')
-            .where('date', '==', todayStr).get();
-
-        if (todayReadings.empty) {
-            console.log('No utility readings logged for today.');
-            return null;
-        }
-        
-        for (const doc of todayReadings.docs) {
-            const currentReading = doc.data();
-            
-            // 2. Get the previous day's reading for the same meter
-            const prevDay = new Date();
-            prevDay.setDate(prevDay.getDate() - 1);
-            const prevDayStr = prevDay.toISOString().split('T')[0];
-
-            const prevReadingSnapshot = await db.collection('utility_consumption')
-                .where('meterId', '==', currentReading.meterId)
-                .where('date', '==', prevDayStr)
-                .limit(1).get();
-            
-            if (!prevReadingSnapshot.empty) {
-                const prevReading = prevReadingSnapshot.docs[0].data();
-                const consumption = currentReading.reading - prevReading.reading;
-                
-                // 3. Update the current day's document with the calculated consumption
-                await doc.ref.update({ consumption: consumption });
-            }
-        }
-        
-        console.log(`Calculated daily consumption for ${todayReadings.size} meters.`);
-        return null;
-    });
-*/
-
-/**
- * Sends an alert if daily utility consumption exceeds a predefined threshold.
- *
- * @trigger_type Firestore Trigger (onCreate)
- * @document /utility_consumption/{logId}
- */
-/*
-exports.alertHighConsumption = functions.region('europe-west1').firestore
-    .document('/utility_consumption/{logId}')
-    .onCreate(async (snapshot, context) => {
-        const log = snapshot.data();
-        const { meterId, consumption } = log;
-        
-        // 1. Fetch the meter's configuration to get its alert threshold
-        const meterDoc = await db.collection('meters').doc(meterId).get();
-        if (!meterDoc.exists) return null;
-        
-        const alertThreshold = meterDoc.data().alertThreshold;
-        if (alertThreshold && consumption > alertThreshold) {
-            const message = `High consumption detected for ${meterDoc.data().type} meter at ${meterDoc.data().location}. Consumption: ${consumption} ${meterDoc.data().unit}.`;
-            // 2. Send notification to the facilities manager
-            // await sendNotificationToRole('facilities_manager', { title: 'High Utility Consumption Alert', body: message });
-            console.warn(message);
-        }
-        
-        return null;
-    });
-*/
-
-/**
- * Creates a new housekeeping task.
- *
- * @trigger_type Callable Function (https)
- * @input { taskType: string, location: string }
- */
-/*
-exports.createHousekeepingTask = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for clinical or admin staff
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { taskType, location } = data;
-    const newTaskRef = db.collection('housekeeping_tasks').doc();
-    
-    await newTaskRef.set({
-        taskId: newTaskRef.id,
-        type: taskType,
-        location: location,
-        status: 'Pending',
-        dateCreated: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    // Notify the housekeeping team's queue
-    // await sendNotificationToTopic('housekeeping', `New task available: ${taskType} at ${location}`);
-
-    console.log(`Created housekeeping task ${newTaskRef.id}.`);
-    return { success: true, taskId: newTaskRef.id };
-});
-*/
-
-// =======================================================================================
-// == Asset & Facilities Management (Corrective Maintenance)
-// =======================================================================================
-/**
- * Notifies facilities management when a new corrective task is submitted.
- *
- * @trigger_type Firestore Trigger (onCreate)
- * @document /maintenance_tasks/{taskId}
- */
-/*
-exports.onCorrectiveTaskSubmitted = functions.region('europe-west1').firestore
-    .document('/maintenance_tasks/{taskId}')
-    .onCreate(async (snapshot, context) => {
-        const taskData = snapshot.data();
-        
-        // 1. Only trigger for corrective tasks
-        if (taskData.type !== 'Corrective') {
-            return null;
-        }
-
-        const message = {
-            title: 'New Corrective Maintenance Request',
-            body: `A new issue has been reported: '${taskData.description}' at location '${taskData.location}'.`
-        };
-
-        // 2. Send notification to the Facilities Management team
-        // await sendNotificationToRole('facilities_manager', message);
-
-        console.log(`Sent notification for new corrective task ${context.params.taskId}.`);
-        return null;
-    });
-*/
-
-/**
- * Assigns a task to a staff member and notifies them.
- *
- * @trigger_type Callable Function (https)
- * @input { taskId: string, staffId: string }
- */
-/*
-exports.assignTaskToStaff = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check: Ensure user is a facilities manager or admin.
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { taskId, staffId } = data;
-    if (!taskId || !staffId) {
-        throw new functions.https.HttpsError('invalid-argument', 'Task ID and Staff ID are required.');
-    }
-
-    const taskRef = db.collection('maintenance_tasks').doc(taskId);
-    const staffRef = db.collection('users').doc(staffId);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            const taskDoc = await transaction.get(taskRef);
-            if (!taskDoc.exists) {
-                throw new Error('Maintenance task not found.');
-            }
-            if (taskDoc.data().status !== 'Open') {
-                throw new Error('Task is not open for assignment.');
-            }
-
-            // a. Update the task with the assigned user and new status
-            transaction.update(taskRef, {
-                assignedTo: staffId,
-                status: 'Assigned'
-            });
-
-            // b. Update the staff member's record to include the new task
-            transaction.update(staffRef, {
-                tasksInProgress: admin.firestore.FieldValue.arrayUnion(taskId)
-            });
-        });
-
-        // 2. Send notification to the assigned staff member.
-        // await sendNotificationToUser(staffId, { title: 'New Task Assigned', body: `You have been assigned task #${taskId}.` });
-
-        console.log(`Task ${taskId} assigned to staff ${staffId}.`);
-        return { success: true };
-    } catch (error) {
-        console.error(`Failed to assign task ${taskId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not assign the task.', { message: error.message });
-    }
-});
-*/
-
-/**
- * Notifies the original reporter when a task they submitted has been completed.
- *
- * @trigger_type Firestore Trigger (onUpdate)
- * @document /maintenance_tasks/{taskId}
- */
-/*
-exports.onTaskCompleted = functions.region('europe-west1').firestore
-    .document('/maintenance_tasks/{taskId}')
-    .onUpdate(async (change, context) => {
-        const newData = change.after.data();
-        const oldData = change.before.data();
-        const { taskId } = context.params;
-
-        // 1. Trigger only when status changes to 'Completed'.
-        if (newData.status !== 'Completed' || oldData.status === 'Completed') {
-            return null;
-        }
-
-        const { reportedByUserId, assignedTo, resolutionNotes, description } = newData;
-
-        // 2. Notify the user who originally reported the issue.
-        if (reportedByUserId) {
-            // await sendNotificationToUser(reportedByUserId, {
-            //     title: 'Issue Resolved',
-            //     body: `The issue you reported ('${description}') has been resolved. Notes: ${resolutionNotes}`
-            // });
-            console.log(`Notifying user ${reportedByUserId} of task completion.`);
-        }
-
-        // 3. Update the technician's record: remove task from in-progress and increment completed count.
-        if (assignedTo) {
-            const staffRef = db.collection('users').doc(assignedTo);
-            try {
-                await staffRef.update({
-                    tasksInProgress: admin.firestore.FieldValue.arrayRemove(taskId),
-                    tasksCompleted: admin.firestore.FieldValue.increment(1)
-                });
-                console.log(`Updated records for staff member ${assignedTo}.`);
-            } catch (error) {
-                console.error(`Failed to update records for staff ${assignedTo}:`, error);
-            }
-        }
-        
-        return null;
-    });
-*/
-    
-/**
- * Atomically decrements the stock for a spare part and updates the maintenance log.
- *
- * @trigger_type Callable Function (https)
- * @input { workOrderId: string, partsUsed: { partId: string, quantityUsed: number }[] }
- */
-/*
-exports.useSparePart = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for maintenance staff
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { workOrderId, partsUsed } = data;
-    if (!workOrderId || !partsUsed || partsUsed.length === 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'Work order ID and at least one part are required.');
-    }
-
-    const workOrderRef = db.collection('work_orders').doc(workOrderId);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            // For each part used, decrement its stock
-            for (const part of partsUsed) {
-                const partRef = db.collection('spare_parts').doc(part.partId);
-                const partDoc = await transaction.get(partRef);
-                if (!partDoc.exists) throw new Error(`Spare part ${part.partId} not found.`);
-
-                const newQuantity = partDoc.data().currentQuantity - part.quantityUsed;
-                if (newQuantity < 0) throw new Error(`Not enough stock for part ${part.partId}.`);
-
-                transaction.update(partRef, { currentQuantity: newQuantity });
-                
-                // Check if stock is now below reorder level
-                if (newQuantity <= partDoc.data().reorderLevel) {
-                    console.warn(`Low stock alert for spare part: ${partDoc.data().name} (ID: ${part.partId}).`);
-                    // await sendNotificationToRole('procurement_manager', { ... });
-                }
-            }
-
-            // Update the maintenance log (work order) with the parts used
-            transaction.update(workOrderRef, { partsUsed: partsUsed });
-        });
-
-        console.log(`Successfully logged parts used for work order ${workOrderId}.`);
-        return { success: true };
-
-    } catch (error) {
-        console.error(`Failed to log spare part usage for work order ${workOrderId}:`, error);
-        throw new functions.https.HttpsError('aborted', 'Could not update spare part inventory.', { message: error.message });
-    }
-});
-*/
-
-/**
- * A scheduled function that runs daily to check for low-stock spare parts.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 10:00'
- */
-/*
-exports.checkSparePartsInventory = functions.region('europe-west1').pubsub
-    .schedule('every day 10:00')
-    .onRun(async (context) => {
-        // Query for spare parts where currentQuantity <= reorderLevel
-        const snapshot = await db.collection('spare_parts').get();
-        const lowStockParts = [];
-
-        snapshot.forEach(doc => {
-            const part = doc.data();
-            if (part.currentQuantity <= part.reorderLevel) {
-                lowStockParts.push({ id: doc.id, ...part });
-            }
-        });
-
-        if (lowStockParts.length === 0) {
-            console.log('All spare parts are sufficiently stocked.');
-            return null;
-        }
-        
-        // Notify procurement team about all low-stock parts
-        // const message = `The following spare parts are low on stock: ${lowStockParts.map(p => p.name).join(', ')}`;
-        // await sendNotificationToRole('procurement_manager', { body: message });
-        
-        console.log(`Found ${lowStockParts.length} low-stock spare parts.`);
-        return null;
-    });
-*/
-
-/**
- * Periodically calculates and updates the depreciated value of assets.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'first day of month 02:00'
- */
-/*
-exports.calculateDepreciation = functions.region('europe-west1').pubsub
-    .schedule('first day of month 02:00')
-    .onRun(async (context) => {
-        // 1. Query for all assets that are not yet decommissioned.
-        const snapshot = await db.collection('assets')
-            .where('status', '!=', 'Decommissioned')
-            .get();
-
-        if (snapshot.empty) {
-            console.log('No assets to depreciate.');
-            return null;
-        }
-
-        const batch = db.batch();
-
-        for (const doc of snapshot.docs) {
-            const asset = doc.data();
-            const purchaseDate = asset.purchaseDate.toDate();
-            const now = new Date();
-            
-            // 2. Example: Straight-line depreciation over 5 years.
-            const assetLifespanYears = asset.financialDetails?.usefulLifeYears || 5;
-            const purchasePrice = asset.financialDetails?.purchasePrice || 0;
-            const salvageValue = asset.financialDetails?.salvageValue || 0;
-
-            const yearsSincePurchase = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-            
-            if (yearsSincePurchase > assetLifespanYears) {
-                // If past its lifespan, set value to salvage value and potentially mark for review.
-                batch.update(doc.ref, { 'financialDetails.currentBookValue': salvageValue, status: 'Review for Decommission' });
-            } else {
-                const depreciationPerYear = (purchasePrice - salvageValue) / assetLifespanYears;
-                const accumulatedDepreciation = depreciationPerYear * yearsSincePurchase;
-                const newBookValue = purchasePrice - accumulatedDepreciation;
-                
-                // 3. Create a new depreciation record
-                const newRecordRef = doc.ref.collection('depreciation_records').doc(`${now.getFullYear()}`);
-                transaction.set(newRecordRef, {
-                    recordId: newRecordRef.id,
-                    assetId: doc.id,
-                    dateCalculated: admin.firestore.FieldValue.serverTimestamp(),
-                    period: 'Annually',
-                    depreciationAmount: depreciationPerYear,
-                    accumulatedDepreciation: accumulatedDepreciation,
-                    bookValue: newBookValue
-                });
-                
-                // 4. Update the asset's main document
-                batch.update(doc.ref, { 'financialDetails.currentBookValue': Math.max(salvageValue, newBookValue) });
-            }
-        }
-
-        await batch.commit();
-        console.log(`Updated depreciation for ${snapshot.size} assets.`);
-        return null;
-    });
-*/
-
-/**
- * Manually recalculates the depreciation for a single asset up to a specified date.
- *
- * @trigger_type Callable Function (https)
- * @input { assetId: string, date: string }
- */
-/*
-exports.recalculateAssetDepreciation = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check for finance admin
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
-    // Role check...
-
-    const { assetId, date } = data;
-    const assetRef = db.collection('assets').doc(assetId);
-
-    const assetDoc = await assetRef.get();
-    if (!assetDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'Asset not found.');
-    }
-    
-    const asset = assetDoc.data();
-    // Re-run the same calculation logic as the scheduled function, but for a single asset and a specific date.
-    // ...
-
-    return { success: true, message: 'Depreciation recalculated.' };
-});
-*/
-
-// =======================================================================================
-// == Reporting & Business Intelligence
-// =======================================================================================
-
-/**
- * A scheduled function that runs periodically to aggregate data for BI dashboards.
- * This is the primary mechanism for calculating high-level KPIs.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 02:00'
- */
-/*
-exports.aggregateHospitalData = functions.region('europe-west1').pubsub
-    .schedule('every day 02:00')
-    .onRun(async (context) => {
-        console.log('Starting daily data aggregation for BI reports...');
-        const today = new Date();
-        const yesterday = new Date(today.getTime() - (24 * 60 * 60 * 1000));
-        
-        // --- Revenue Calculation ---
-        const revenueSnapshot = await db.collection('payments')
-            .where('paymentDate', '>=', admin.firestore.Timestamp.fromDate(yesterday))
-            .where('paymentDate', '<', admin.firestore.Timestamp.fromDate(today))
-            .get();
-            
-        let totalRevenue = 0;
-        revenueSnapshot.forEach(doc => {
-            totalRevenue += doc.data().amount;
-        });
-
-        // --- Bed Occupancy Rate ---
-        const bedsSnapshot = await db.collection('beds').get();
-        const totalBeds = bedsSnapshot.size;
-        const occupiedBeds = bedsSnapshot.docs.filter(doc => doc.data().status === 'occupied').length;
-        const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
-        
-        // --- Average Length of Stay ---
-        const dischargedAdmissionsQuery = db.collectionGroup('admissions')
-            .where('dischargeDate', '>=', admin.firestore.Timestamp.fromDate(yesterday))
-            .where('dischargeDate', '<', admin.firestore.Timestamp.fromDate(today));
-
-        const dischargedSnapshot = await dischargedAdmissionsQuery.get();
-        let totalStayDuration = 0;
-        dischargedSnapshot.forEach(doc => {
-            const admission = doc.data();
-            const duration = admission.dischargeDate.toMillis() - admission.admission_date.toMillis();
-            totalStayDuration += duration;
-        });
-        const avgLengthOfStayDays = dischargedSnapshot.size > 0 
-            ? (totalStayDuration / dischargedSnapshot.size) / (1000 * 60 * 60 * 24) 
-            : 0;
-
-        // --- Store the Aggregated Report ---
-        const reportId = `daily_kpi_${yesterday.toISOString().split('T')[0]}`;
-        const reportRef = db.collection('bi_reports').doc(reportId);
-        
-        await reportRef.set({
-            reportType: 'DailyKPI',
-            period: yesterday.toISOString().split('T')[0],
-            data: {
-                totalRevenue: totalRevenue,
-                bedOccupancyRate: parseFloat(occupancyRate.toFixed(2)),
-                averageLengthOfStay: parseFloat(avgLengthOfStayDays.toFixed(2)),
-            },
-            generatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-        
-        // You would also save individual KPIs to the `kpi_metrics` collection here.
-        const kpiBatch = db.batch();
-        const kpiBaseRef = db.collection('kpi_metrics');
-        kpiBatch.set(kpiBaseRef.doc(), { metricName: 'Bed Occupancy Rate', value: occupancyRate, date: admin.firestore.FieldValue.serverTimestamp() });
-        kpiBatch.set(kpiBaseRef.doc(), { metricName: 'Average Length of Stay', value: avgLengthOfStayDays, date: admin.firestore.FieldValue.serverTimestamp() });
-        await kpiBatch.commit();
-
-
-        console.log(`BI Report ${reportId} generated successfully.`);
-        return null;
-    });
-*/
-
-/**
- * Saves a user's dashboard preferences.
- *
- * @trigger_type Callable Function (https)
- * @input { userId: string, dashboardLayout: object, defaultFilters: object }
- */
-/*
-exports.saveDashboardPreferences = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check: Ensure the user is updating their own preferences.
-    if (!context.auth || context.auth.uid !== data.userId) {
-        throw new functions.https.HttpsError('permission-denied', 'You can only update your own preferences.');
-    }
-
-    const { userId, dashboardLayout, defaultFilters } = data;
-    const userPrefRef = db.collection('user_preferences').doc(userId);
-
-    await userPrefRef.set({
-        dashboardLayout: dashboardLayout || {},
-        defaultFilters: defaultFilters || {}
-    }, { merge: true }); // Use merge to avoid overwriting entire document if only one part is updated.
-
-    console.log(`Dashboard preferences saved for user ${userId}.`);
-    return { success: true };
-});
-*/
-
-/**
- * Fetches the data needed for a user's customized dashboard view.
- *
- * @trigger_type Callable Function (https)
- * @input { userId: string }
- * @returns {Promise<object>} A promise that resolves to an object containing dashboard data.
- */
-/*
-exports.getDashboardData = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // 1. Auth check
-    if (!context.auth || context.auth.uid !== data.userId) {
-        throw new functions.https.HttpsError('permission-denied', 'You can only fetch your own dashboard data.');
-    }
-
-    const { userId } = data;
-    const userPrefRef = db.collection('user_preferences').doc(userId);
-    const userPrefDoc = await userPrefRef.get();
-
-    if (!userPrefDoc.exists) {
-        // Return default data or an empty state if no preferences are saved.
-        return { dashboardData: {} };
-    }
-
-    const preferences = userPrefDoc.data();
-    const dashboardLayout = preferences.dashboardLayout;
-    
-    const dashboardData = {};
-
-    // 2. Fetch data for each widget defined in the user's layout.
-    // This is a simplified example. In a real-world scenario, you would have more complex logic.
-    for (const widgetId in dashboardLayout) {
-        const widget = dashboardLayout[widgetId];
-        
-        if (widget.name === 'Total Revenue') {
-            // Fetch relevant data from bi_reports
-            const reportSnapshot = await db.collection('bi_reports').where('reportType', '==', 'RevenueSummary').orderBy('period', 'desc').limit(1).get();
-            if (!reportSnapshot.empty) {
-                dashboardData[widgetId] = reportSnapshot.docs[0].data();
-            }
-        }
-        
-        if (widget.name === 'Bed Occupancy') {
-            // Fetch relevant data from bi_reports
-            const reportSnapshot = await db.collection('bi_reports').where('reportType', '==', 'BedOccupancy').orderBy('period', 'desc').limit(1).get();
-             if (!reportSnapshot.empty) {
-                dashboardData[widgetId] = reportSnapshot.docs[0].data();
-            }
-        }
-        // ... add more logic for other widget types
-    }
-
-    return { dashboardData };
-});
-*/
-
-// =======================================================================================
-// == Clinical Reporting
-// =======================================================================================
-
-/**
- * Checks for readmissions within a 30-day window upon a new admission.
- * This would be called by the handlePatientAdmission function.
- *
- * @param {string} patientId - The ID of the admitted patient.
- * @param {object} newAdmissionRef - The Firestore document reference for the new admission.
- * @param {object} transaction - The Firestore transaction object.
- */
-/*
-async function trackReadmission(patientId, newAdmissionRef, transaction) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentAdmissionsQuery = db.collection('patients').doc(patientId).collection('admissions')
-        .where('dischargeDate', '>=', admin.firestore.Timestamp.fromDate(thirtyDaysAgo))
-        .limit(1);
-    
-    const snapshot = await transaction.get(recentAdmissionsQuery);
-    
-    if (!snapshot.empty) {
-        // A recent discharge was found, so this is a readmission.
-        transaction.update(newAdmissionRef, { readmissionFlag: true });
-        console.log(`Readmission detected for patient ${patientId}.`);
-    }
-}
-*/
-// Note: To use the above function, you would call it from within the `handlePatientAdmission` transaction:
-// `await trackReadmission(patientId, newAdmissionRef, transaction);`
-
-
-/**
- * A scheduled function that runs periodically to analyze treatment efficacy.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every sunday 03:00'
- */
-/*
-exports.analyzeTreatmentEfficacy = functions.region('europe-west1').pubsub
-    .schedule('every sunday 03:00')
-    .onRun(async (context) => {
-        const snapshot = await db.collectionGroup('care_plans')
-            .where('status', '==', 'Completed')
-            .get();
-
-        const efficacyData = {};
-
-        snapshot.forEach(doc => {
-            const plan = doc.data();
-            const planTitle = plan.title; // Group by care plan title
-            const rating = plan.efficacyRating || 0;
-
-            if (!efficacyData[planTitle]) {
-                efficacyData[planTitle] = { ratings: [], count: 0 };
-            }
-            if (rating > 0) {
-                efficacyData[planTitle].ratings.push(rating);
-            }
-            efficacyData[planTitle].count++;
-        });
-
-        const report = {};
-        for (const title in efficacyData) {
-            const ratings = efficacyData[title].ratings;
-            const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
-            report[title] = {
-                averageEfficacy: parseFloat(avgRating.toFixed(2)),
-                totalCases: efficacyData[title].count
-            };
-        }
-
-        // Save the aggregated report
-        const reportId = `efficacy_report_${new Date().toISOString().split('T')[0]}`;
-        await db.collection('clinical_reports').doc(reportId).set({
-            type: 'TreatmentEfficacy',
-            data: report,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        console.log('Generated treatment efficacy report.');
-        return null;
-    });
-*/
-
-
-/**
- * A scheduled function that runs monthly to calculate and report on infection rates.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule '1st day of month 03:00'
- */
-/*
-exports.reportInfectionRates = functions.region('europe-west1').pubsub
-    .schedule('1st day of month 03:00')
-    .onRun(async (context) => {
-        const now = new Date();
-        const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-
-        // 1. Count infections in the last month
-        const infectionsSnapshot = await db.collection('infections')
-            .where('dateIdentified', '>=', admin.firestore.Timestamp.fromDate(firstDayOfLastMonth))
-            .where('dateIdentified', '<=', admin.firestore.Timestamp.fromDate(lastDayOfLastMonth))
-            .get();
-        const infectionCount = infectionsSnapshot.size;
-
-        // 2. Calculate total patient-days for the last month
-        // This is a complex query and might require pre-aggregated data.
-        // Simplified concept:
-        const admissionsSnapshot = await db.collectionGroup('admissions').get(); // Inefficient, needs optimization
-        let totalPatientDays = 0;
-        admissionsSnapshot.forEach(doc => {
-            // Complex logic to calculate days within the specific month for each admission...
-            // ... totalPatientDays += calculatedDays;
-        });
-        
-        // Let's use a placeholder value for the prototype
-        totalPatientDays = 5000; // Placeholder
-
-        // 3. Calculate rate per 1,000 patient-days
-        const infectionRate = totalPatientDays > 0 ? (infectionCount / totalPatientDays) * 1000 : 0;
-
-        // 4. Save the report
-        const reportId = `infection_rate_${firstDayOfLastMonth.getFullYear()}-${firstDayOfLastMonth.getMonth() + 1}`;
-        await db.collection('clinical_reports').doc(reportId).set({
-            type: 'InfectionRate',
-            period: `${firstDayOfLastMonth.getFullYear()}-${firstDayOfLastMonth.getMonth() + 1}`,
-            infectionCount: infectionCount,
-            totalPatientDays: totalPatientDays,
-            ratePer1000Days: parseFloat(infectionRate.toFixed(2)),
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        console.log(`Generated infection rate report for ${reportId}.`);
-        return null;
-    });
-*/
-
-// =======================================================================================
-// == BILLING & FINANCIALS
-// =======================================================================================
-
-/**
- * A scheduled function that runs periodically to aggregate data for BI dashboards.
- * This is the primary mechanism for calculating high-level financial KPIs.
- *
- * @trigger_type Scheduled (cron job)
- * @schedule 'every day 02:00'
- */
-/*
-exports.aggregateFinancialData = functions.region('europe-west1').pubsub
-    .schedule('every day 02:00')
-    .onRun(async (context) => {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const periodId = yesterday.toISOString().split('T')[0]; // e.g., '2024-09-15'
-
-        const startOfPeriod = new Date(yesterday.setHours(0, 0, 0, 0));
-        const endOfPeriod = new Date(yesterday.setHours(23, 59, 59, 999));
-        
-        // --- 1. Calculate Total Revenue ---
-        const paymentsSnapshot = await db.collection('payments')
-            .where('paymentDate', '>=', admin.firestore.Timestamp.fromDate(startOfPeriod))
-            .where('paymentDate', '<=', admin.firestore.Timestamp.fromDate(endOfPeriod))
-            .get();
-        let totalRevenue = 0;
-        paymentsSnapshot.forEach(doc => { totalRevenue += doc.data().amount; });
-
-        // --- 2. Calculate Total Expenses ---
-        // a) Sum up operational expenses
-        const expensesSnapshot = await db.collection('expenses')
-            .where('date', '>=', admin.firestore.Timestamp.fromDate(startOfPeriod))
-            .where('date', '<=', admin.firestore.Timestamp.fromDate(endOfPeriod))
-            .where('status', '==', 'Paid')
-            .get();
-        let totalOpEx = 0;
-        expensesSnapshot.forEach(doc => { totalOpEx += doc.data().amount; });
-        
-        // b) Sum up payroll expenses (assuming payroll is run for the same period)
-        const payrollSnapshot = await db.collection('payroll_runs')
-            .where('payDate', '==', periodId)
-            .get();
-        let totalPayrollExpense = 0;
-        payrollSnapshot.forEach(doc => { totalPayrollExpense += doc.data().totalGrossPay; });
-
-        const totalExpenses = totalOpEx + totalPayrollExpense;
-
-        // --- 3. Calculate Net Profit ---
-        const netProfit = totalRevenue - totalExpenses;
-        
-        // --- 4. Store the Aggregated Report ---
-        const summaryRef = db.collection('financial_summaries').doc(`daily_${periodId}`);
-        await summaryRef.set({
-            period: periodId,
-            totalRevenue,
-            totalExpenses,
-            netProfit,
-            // Include breakdown here if needed
-            generatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        console.log(`Financial summary for ${periodId} generated successfully.`);
-        return null;
-    });
-*/
-
-/**
- * A real-time update function to keep financial summaries current.
- *
- * @trigger_type Callable Function (https)
- * @input { type: 'revenue'|'expense', amount: number }
- */
-/*
-exports.updateFinancialSummary = functions.region('europe-west1').https.onCall(async (data, context) => {
-    // Auth check should be strict here, probably only callable by other backend services/functions
-    // ...
-
-    const { type, amount } = data;
-    const todayId = `daily_${new Date().toISOString().split('T')[0]}`;
-    const summaryRef = db.collection('financial_summaries').doc(todayId);
-
-    const increment = admin.firestore.FieldValue.increment(amount);
-
-    if (type === 'revenue') {
-        await summaryRef.set({ 
-            totalRevenue: increment, 
-            netProfit: increment 
-        }, { merge: true });
-    } else if (type === 'expense') {
-        await summaryRef.set({ 
-            totalExpenses: increment,
-            netProfit: admin.firestore.FieldValue.increment(-amount)
-        }, { merge: true });
-    }
-    
-    return { success: true };
-});
-*/
