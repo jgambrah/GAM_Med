@@ -1,37 +1,52 @@
-rules_version = '2';
 
-// Helper function to get user's role from a custom claim
-// In a real project, you would set a custom claim 'role' for each user.
-function getUserRole() {
-  return request.auth.token.role;
-}
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // A user can only read and write their own preferences
-    match /user_preferences/{userId} {
-      allow read, write: if request.auth.uid == userId;
+
+    // Helper function to get user role from custom claims
+    function getUserRole() {
+      return request.auth.token.role;
     }
 
-    // BI reports are read-only for management roles
-    match /bi_reports/{reportId} {
-      allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
-    }
-
-    // KPI metrics are read-only for management roles
     match /kpi_metrics/{metricId} {
       allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
+      allow write: if false; // Data should only be written by backend functions
+    }
+    
+    match /bi_reports/{reportId} {
+        allow read: if getUserRole() in ['admin', 'hospital_manager'];
+        allow write: if false;
     }
 
-    // Infection data can be created by clinical staff and read by a limited set of roles
+    match /user_preferences/{userId} {
+        allow read, write: if request.auth.uid == userId;
+    }
+
     match /infections/{infectionId} {
-      allow create: if getUserRole() in ['admin', 'infection_control_officer', 'doctor'];
-      allow read: if getUserRole() in ['admin', 'doctor', 'infection_control_officer'];
+        allow create: if getUserRole() in ['admin', 'infection_control_officer', 'doctor'];
+        allow read: if getUserRole() in ['admin', 'doctor', 'infection_control_officer'];
+        allow write: if getUserRole() in ['admin', 'infection_control_officer'];
     }
 
-    // Clinical reports are read-only for management and quality control roles
     match /clinical_reports/{reportId} {
-      allow read: if getUserRole() in ['admin', 'hospital_manager', 'quality_control'];
+        allow read: if getUserRole() in ['admin', 'hospital_manager', 'quality_control'];
+        allow write: if false;
+    }
+
+    match /expenses/{expenseId} {
+        allow create, update: if getUserRole() in ['admin', 'financial_staff'];
+        allow read: if getUserRole() in ['admin', 'financial_staff', 'hospital_manager'];
+    }
+
+    match /financial_summaries/{summaryId} {
+        allow read: if getUserRole() in ['admin', 'financial_staff', 'CEO', 'hospital_manager'];
+        allow write: if false; // Only backend functions should write to this
+    }
+
+    // Fallback rule: Deny all reads/writes to any other collection by default
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
