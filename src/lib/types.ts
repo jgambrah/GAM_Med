@@ -577,10 +577,24 @@ export interface Bill {
  */
 export interface Expense {
   expenseId: string; // Document ID
-  type: 'Rent' | 'Payroll' | 'Utilities' | 'Supplies' | 'Other';
   description: string;
   amount: number;
   date: string; // ISO Timestamp
+  category: 'Utilities' | 'Inventory' | 'Rent' | 'Maintenance' | 'Other';
+  status: 'Paid' | 'Pending';
+}
+
+/**
+ * Represents a pre-aggregated financial summary for fast dashboard loading.
+ * Path: /financial_summaries/{summaryId}
+ */
+export interface FinancialSummary {
+  summaryId: string; // e.g., 'monthly_summary_2025-09'
+  period: string; // e.g., '2025-09'
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  breakdown: Record<string, Record<string, number>>; // e.g., { "Revenue": { "Lab": 15000 }, "Expenses": { "Payroll": 30000 } }
 }
 
 /**
@@ -1875,3 +1889,6 @@ export type MaintenanceRequest = WorkOrder;
 
     
 
+
+
+    
