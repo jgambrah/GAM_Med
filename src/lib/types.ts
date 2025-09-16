@@ -1535,6 +1535,15 @@ export interface BIReport {
   generatedAt: string; // ISO Timestamp
 }
 
+/**
+ * Represents a user's preferences for their dashboard layout and filters.
+ * Path: /user_preferences/{userId}
+ */
+export interface UserPreferences {
+  userId: string; // Document ID, same as the user's UID
+  dashboardLayout: Record<string, { name: string; size: 'small' | 'medium' | 'large' }>;
+  defaultFilters: Record<string, any>;
+}
 
 /**
  * Defines a physical zone or area within the hospital.
