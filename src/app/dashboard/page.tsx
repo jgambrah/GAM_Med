@@ -26,6 +26,8 @@ import { Badge } from '@/components/ui/badge';
 import { Appointment } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { AdminDashboard } from './components/admin-dashboard';
+import { Edit } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 function getStatusVariant(status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" {
     switch (status) {
@@ -123,14 +125,28 @@ export default function DashboardPage() {
   const isNurse = user?.role === 'nurse';
   const isAdmin = user?.role === 'admin';
 
+  const handleCustomizeClick = () => {
+    toast.info("Dashboard Customization", {
+      description: "This would open an interface to drag, drop, and configure dashboard widgets."
+    })
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="mt-2 text-muted-foreground">
-          Welcome back, {user?.name || 'User'}. You are logged in as a{' '}
-          <strong>{user?.role}</strong>.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="mt-2 text-muted-foreground">
+            Welcome back, {user?.name || 'User'}. You are logged in as a{' '}
+            <strong>{user?.role}</strong>.
+          </p>
+        </div>
+        {isAdmin && (
+            <Button variant="outline" onClick={handleCustomizeClick}>
+                <Edit className="h-4 w-4 mr-2" />
+                Customize
+            </Button>
+        )}
       </div>
       
       {isAdmin && <AdminDashboard />}
