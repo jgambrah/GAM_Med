@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Appointment } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { AdminDashboard } from './components/admin-dashboard';
 
 function getStatusVariant(status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" {
     switch (status) {
@@ -117,9 +118,10 @@ function DoctorDashboard() {
 export default function DashboardPage() {
   const { user } = useAuth();
   
-  const isDoctor = user && user.role === 'doctor';
-  const isPatient = user && user.role === 'patient';
-  const isNurse = user && user.role === 'nurse';
+  const isDoctor = user?.role === 'doctor';
+  const isPatient = user?.role === 'patient';
+  const isNurse = user?.role === 'nurse';
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="space-y-6">
@@ -131,8 +133,8 @@ export default function DashboardPage() {
         </p>
       </div>
       
+      {isAdmin && <AdminDashboard />}
       {isDoctor && <DoctorDashboard />}
-
       {isPatient && <PatientDashboard />}
 
       {isNurse && (
@@ -147,7 +149,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!isDoctor && !isPatient && !isNurse && (
+      {!isDoctor && !isPatient && !isNurse && !isAdmin && (
         <div className="p-8 border-2 border-dashed rounded-lg text-center">
           <p className="text-muted-foreground">Your role-specific dashboard will appear here.</p>
         </div>
