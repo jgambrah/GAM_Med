@@ -1,45 +1,28 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user's role
+
     function getUserRole() {
-      // In a real app, roles would be stored in a 'users' collection or as custom claims.
-      // For this prototype, we'll return a hardcoded role for demonstration.
-      // This part would be replaced with:
-      // return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return 'admin'; // Assume admin for now to allow all operations during development
+      // In a real app, this would get the role from custom claims on the auth token.
+      // For this prototype, we read it from the user's document.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    
-    // Secure bi_reports collection
+    // Rules for Business Intelligence & KPI Data
     match /bi_reports/{reportId} {
       allow read: if getUserRole() in ['admin', 'hospital_manager', 'financial_staff'];
+      allow write: if false; // Should only be written by backend services
     }
-    
-    // Allow users to read and write only their own preferences
+
+    match /kpi_metrics/{metricId} {
+        allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
+        allow write: if false; // Should only be written by backend services
+    }
+
+    // Rule for user-specific dashboard preferences
     match /user_preferences/{userId} {
-        allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Rules for assets and depreciation_records
-    match /assets/{assetId} {
-      allow read: if getUserRole() in ['admin', 'financial_staff'];
-      // Allow Cloud Functions or admins to update financial details
-      allow write: if getUserRole() == 'admin'; // Simplified for prototype
-    }
-    
-    match /depreciation_records/{recordId} {
-      allow read: if getUserRole() in ['admin', 'financial_staff'];
-      // Only allow creation from a trusted source (e.g., a Cloud Function)
-      // Simplified for prototype:
-      allow create: if getUserRole() == 'admin';
+      allow read, write: if request.auth.uid == userId;
     }
   }
 }
