@@ -743,19 +743,8 @@ export interface TrainingCourse {
 
 
 // =========================================================================
-// == Clinical Decision Support (CDS) Data Models
+// == Clinical Decision Support (CDS) & Reporting Data Models
 // =========================================================================
-
-/**
- * Represents a single condition within a ClinicalRule.
- * This allows for flexible and complex rule definitions.
- */
-export interface RuleCondition {
-  key: string; // The data field to check (e.g., 'temperature', 'hemoglobin')
-  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
-  value: any; // The value to compare against.
-  unit?: string; // Optional unit for the value (e.g., 'C', 'g/dL')
-}
 
 /**
  * Represents a rule in the top-level 'clinical_rules' collection.
@@ -774,6 +763,17 @@ export interface ClinicalRule {
 }
 
 /**
+ * Represents a single condition within a ClinicalRule.
+ * This allows for flexible and complex rule definitions.
+ */
+export interface RuleCondition {
+  key: string; // The data field to check (e.g., 'temperature', 'hemoglobin')
+  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
+  value: any; // The value to compare against.
+  unit?: string; // Optional unit for the value (e.g., 'C', 'g/dL')
+}
+
+/**
  * Represents a generated alert in a patient's 'alerts' sub-collection.
  * When the CDS engine evaluates a rule and finds it to be true, it will create a document
  * with this structure.
@@ -789,6 +789,19 @@ export interface PatientAlert {
   triggeredAt: string; // ISO 8601 Timestamp when the alert was created.
   isAcknowledged: boolean;
   acknowledgedByUserId?: string; // UID of the user who acknowledged the alert.
+}
+
+/**
+ * Represents a hospital-acquired infection (HAI) record.
+ * Path: /infections/{infectionId}
+ */
+export interface Infection {
+    infectionId: string; // Document ID
+    patientId: string; // Reference to patients
+    type: 'Surgical Site Infection' | 'UTI' | 'Pneumonia' | 'Bloodstream Infection';
+    dateIdentified: string; // ISO Timestamp
+    source: 'Post-op' | 'Catheter' | 'Ventilator' | 'Central Line';
+    status: 'Active' | 'Resolved';
 }
 
 
@@ -1051,6 +1064,9 @@ export interface Admission {
    */
   status: 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged' | 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled';
   
+  outcome?: 'Discharged Home' | 'Transferred' | 'Expired';
+  readmissionFlag?: boolean;
+
   // Discharge-specific fields
   discharge_by_doctor_id?: string; // UID of the doctor who authorized the discharge.
   dischargeSummary?: {
@@ -1416,6 +1432,7 @@ export interface CarePlan {
     createdAt: string; // ISO Timestamp
     updatedBy: string; // user ID of the last person to update
     updatedAt: string; // ISO Timestamp
+    efficacyRating?: number; // 1-5 rating of treatment effectiveness
 }
 
 
@@ -1857,3 +1874,4 @@ export type MaintenanceRequest = WorkOrder;
 
 
     
+
