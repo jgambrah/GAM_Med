@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -221,12 +221,13 @@ export const allAdmissions: Admission[] = [
     patient_id: 'P-123456',
     type: 'Inpatient',
     admission_date: new Date('2024-07-28T10:30:00Z').toISOString(),
+    discharge_date: new Date('2024-08-05T14:00:00Z').toISOString(),
     reasonForVisit: 'Follow-up on hypertension',
     ward: 'Cardiology',
     bed_id: 'C-101',
     attending_doctor_id: 'doc1',
     attending_doctor_name: 'Dr. Evelyn Mensah',
-    status: 'Admitted',
+    status: 'Discharged',
     created_at: new Date('2024-07-28T10:30:00Z').toISOString(),
     updated_at: new Date('2024-07-28T10:30:00Z').toISOString(),
   },
@@ -1758,6 +1759,36 @@ export const mockLabReports: LabReport[] = [
   },
 ];
 
+export const mockInfectionReports: InfectionReport[] = [
+    {
+        reportId: 'inf-rep-2024-07',
+        month: 'July 2024',
+        totalPatientDays: 4500,
+        infectionCount: 9,
+        ratePer1000Days: 2.0,
+        breakdownByWard: {
+            'Surgical': 4,
+            'Medical': 3,
+            'ICU': 2
+        }
+    }
+];
+
+export const mockEfficacyReports: EfficacyReport[] = [
+    {
+        reportId: 'eff-rep-1',
+        treatmentPlanTitle: 'Standard Hypertension Management',
+        averageEfficacy: 4.5,
+        totalCases: 50,
+    },
+    {
+        reportId: 'eff-rep-2',
+        treatmentPlanTitle: 'Aggressive Diabetes Control',
+        averageEfficacy: 3.8,
+        totalCases: 35,
+    }
+];
+
 export const mockOtSessions: OTSession[] = [
     {
         sessionId: 'session-1',
@@ -1928,3 +1959,4 @@ export type Resource = Asset;
 
 
     
+

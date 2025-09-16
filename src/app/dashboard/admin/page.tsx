@@ -43,7 +43,8 @@ export default function AdminPage() {
           <TabsTrigger value="payroll">
               <Link href="/dashboard/payroll">Payroll</Link>
           </TabsTrigger>
-          <TabsTrigger value="reports">Financial Reports</TabsTrigger>
+          <TabsTrigger value="financial-reports">Financial Reports</TabsTrigger>
+          <TabsTrigger value="clinical-reports">Clinical Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
            <TabsTrigger value="credentials">Credentials</TabsTrigger>
@@ -102,8 +103,25 @@ export default function AdminPage() {
                 </CardContent>
             </Card>
         </TabsContent>
-        <TabsContent value="reports" className="mt-4">
+        <TabsContent value="financial-reports" className="mt-4">
             <FinancialReportsDashboard />
+        </TabsContent>
+         <TabsContent value="clinical-reports" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Clinical Quality Reports</CardTitle>
+                    <CardDescription>
+                        View key performance indicators related to clinical outcomes.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/reports/clinical">
+                            Go to Clinical Reports
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
         </TabsContent>
         <TabsContent value="chart-of-accounts" className="mt-4">
             <Card>
