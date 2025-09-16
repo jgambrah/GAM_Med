@@ -3653,7 +3653,7 @@ exports.sendImmunizationReminders = functions.region('europe-west1').pubsub
 
                 const message = `Reminder: The next dose of ${reminder.vaccineName} for ${patientData.full_name} is due on ${reminder.nextDueDate}. Please schedule an appointment.`;
 
-                // 3. Send notification (e.g., via SMS, Email, or FCM)
+                // 3. Send SMS/email via a third-party service
                 // await sendSms(contactInfo, message);
                 console.log(`Sending reminder to ${contactInfo}: ${message}`);
 
@@ -3753,6 +3753,9 @@ exports.bookOtSession = functions.region('europe-west1').https.onCall(async (dat
             
             transaction.set(newOtSessionRef, sessionData);
         });
+
+        // Send confirmation notifications to the patient and surgical team.
+        // await sendNotificationToUsers([patientId, ...teamIds], { ... });
 
         console.log(`OT Session ${newOtSessionRef.id} booked successfully.`);
         return { success: true, sessionId: newOtSessionRef.id };
@@ -6004,6 +6007,7 @@ exports.recalculateAssetDepreciation = functions.region('europe-west1').https.on
 
 /**
  * A scheduled function that runs periodically to aggregate data for BI dashboards.
+ * This is the primary mechanism for calculating high-level KPIs.
  *
  * @trigger_type Scheduled (cron job)
  * @schedule 'every day 02:00'
@@ -6027,29 +6031,28 @@ exports.aggregateHospitalData = functions.region('europe-west1').pubsub
             totalRevenue += doc.data().amount;
         });
 
-        // --- Bed Occupancy Calculation ---
+        // --- Bed Occupancy Rate ---
         const bedsSnapshot = await db.collection('beds').get();
         const totalBeds = bedsSnapshot.size;
         const occupiedBeds = bedsSnapshot.docs.filter(doc => doc.data().status === 'occupied').length;
         const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
         
-        // --- Lab Turnaround Time (TAT) Calculation ---
-        const labResultsSnapshot = await db.collection('lab_results')
-            .where('completedAt', '>=', admin.firestore.Timestamp.fromDate(yesterday))
-            .where('completedAt', '<', admin.firestore.Timestamp.fromDate(today))
-            .get();
-        
-        let totalTAT = 0;
-        let completedTests = 0;
-        labResultsSnapshot.forEach(doc => {
-            const tat = doc.data().turnaroundTime;
-            if (typeof tat === 'number') {
-                totalTAT += tat;
-                completedTests++;
-            }
+        // --- Average Length of Stay ---
+        const dischargedAdmissionsQuery = db.collectionGroup('admissions')
+            .where('dischargeDate', '>=', admin.firestore.Timestamp.fromDate(yesterday))
+            .where('dischargeDate', '<', admin.firestore.Timestamp.fromDate(today));
+
+        const dischargedSnapshot = await dischargedAdmissionsQuery.get();
+        let totalStayDuration = 0;
+        dischargedSnapshot.forEach(doc => {
+            const admission = doc.data();
+            const duration = admission.dischargeDate.toMillis() - admission.admission_date.toMillis();
+            totalStayDuration += duration;
         });
-        const averageLabTAT = completedTests > 0 ? totalTAT / completedTests : 0;
-        
+        const avgLengthOfStayDays = dischargedSnapshot.size > 0 
+            ? (totalStayDuration / dischargedSnapshot.size) / (1000 * 60 * 60 * 24) 
+            : 0;
+
         // --- Store the Aggregated Report ---
         const reportId = `daily_kpi_${yesterday.toISOString().split('T')[0]}`;
         const reportRef = db.collection('bi_reports').doc(reportId);
@@ -6060,11 +6063,18 @@ exports.aggregateHospitalData = functions.region('europe-west1').pubsub
             data: {
                 totalRevenue: totalRevenue,
                 bedOccupancyRate: parseFloat(occupancyRate.toFixed(2)),
-                averageLabTAT: parseFloat(averageLabTAT.toFixed(2)),
-                // Add more KPIs as needed
+                averageLengthOfStay: parseFloat(avgLengthOfStayDays.toFixed(2)),
             },
             generatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
+        
+        // You would also save individual KPIs to the `kpi_metrics` collection here.
+        const kpiBatch = db.batch();
+        const kpiBaseRef = db.collection('kpi_metrics');
+        kpiBatch.set(kpiBaseRef.doc(), { metricName: 'Bed Occupancy Rate', value: occupancyRate, date: admin.firestore.FieldValue.serverTimestamp() });
+        kpiBatch.set(kpiBaseRef.doc(), { metricName: 'Average Length of Stay', value: avgLengthOfStayDays, date: admin.firestore.FieldValue.serverTimestamp() });
+        await kpiBatch.commit();
+
 
         console.log(`BI Report ${reportId} generated successfully.`);
         return null;
