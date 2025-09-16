@@ -1337,6 +1337,14 @@ export const mockLedgerEntries: LedgerEntry[] = [
     { entryId: 'e-004', accountId: '1020', date: new Date('2024-08-03T00:00:00Z').toISOString(), description: 'Invoice INV-003 issued to patient', debit: 120.00 },
 ];
 
+export const mockRevenueByDepartment = [
+    { department: 'Consultations', revenue: 450000 },
+    { department: 'Pharmacy', revenue: 320000 },
+    { department: 'Laboratory', revenue: 210000 },
+    { department: 'Radiology', revenue: 180000 },
+];
+
+
 export const mockStaffClaims: StaffExpenseClaim[] = [
     {
         claimId: 'SEC-001',
@@ -1961,5 +1969,7 @@ export type Resource = Asset;
     
 
 
+
+    
 
     

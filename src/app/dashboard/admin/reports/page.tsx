@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { mockLedgerAccounts, mockLedgerEntries, mockResources, mockClaims } from '@/lib/data';
+import { mockLedgerAccounts, mockLedgerEntries, mockResources, mockClaims, mockRevenueByDepartment } from '@/lib/data';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
 import {
   Table,
@@ -25,7 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
 
 const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
 
@@ -38,6 +38,9 @@ const chartConfig = {
     label: "Expenses",
     color: "hsl(var(--chart-2))",
   },
+   department: {
+    label: "Department"
+  }
 } satisfies ChartConfig
 
 const mockMonthlyPerformance = [
@@ -48,6 +51,8 @@ const mockMonthlyPerformance = [
     { month: "May", revenue: 209000, expenses: 130000 },
     { month: "Jun", revenue: 214000, expenses: 140000 },
 ];
+
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 
 function TrialBalanceTable({ startDate, endDate }: { startDate: string, endDate: string }) {
@@ -216,36 +221,62 @@ export default function FinancialReportsPage() {
             </CardContent>
             </Card>
         </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue vs. Expenses</CardTitle>
-          <CardDescription>Monthly financial performance for the current year.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <BarChart data={mockMonthlyPerformance}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => value.slice(0, 3)}
-              />
-               <YAxis
-                tickFormatter={(value) => `₵${value / 1000}k`}
-              />
-              <ChartTooltip
-                content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />}
-              />
-              <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
-              <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} />
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-      
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue vs. Expenses</CardTitle>
+            <CardDescription>Monthly financial performance for the current year.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+              <BarChart data={mockMonthlyPerformance}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickFormatter={(value) => value.slice(0, 3)}
+                />
+                <YAxis
+                  tickFormatter={(value) => `₵${value / 1000}k`}
+                />
+                <ChartTooltip
+                  content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />}
+                />
+                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
+                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle>Revenue by Department</CardTitle>
+                <CardDescription>A breakdown of revenue sources for the current fiscal year.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <ChartContainer config={chartConfig} className="min-h-[300px]">
+                    <PieChart>
+                        <ChartTooltip content={<ChartTooltipContent nameKey="department" />} />
+                        <Pie 
+                            data={mockRevenueByDepartment} 
+                            dataKey="revenue" 
+                            nameKey="department" 
+                            cx="50%" 
+                            cy="50%" 
+                            outerRadius={100} 
+                            label={({ name, revenue }) => `${name}: ${formatCurrency(revenue)}`}
+                        >
+                                {mockRevenueByDepartment.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                    </PieChart>
+                </ChartContainer>
+            </CardContent>
+        </Card>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Trial Balance</CardTitle>
@@ -263,3 +294,5 @@ export default function FinancialReportsPage() {
       </Card>
     </div>
   );
+
+    
