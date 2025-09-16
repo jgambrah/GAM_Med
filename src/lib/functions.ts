@@ -6070,3 +6070,84 @@ exports.aggregateHospitalData = functions.region('europe-west1').pubsub
         return null;
     });
 */
+
+/**
+ * Saves a user's dashboard preferences.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { userId: string, dashboardLayout: object, defaultFilters: object }
+ */
+/*
+exports.saveDashboardPreferences = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the user is updating their own preferences.
+    if (!context.auth || context.auth.uid !== data.userId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only update your own preferences.');
+    }
+
+    const { userId, dashboardLayout, defaultFilters } = data;
+    const userPrefRef = db.collection('user_preferences').doc(userId);
+
+    await userPrefRef.set({
+        dashboardLayout: dashboardLayout || {},
+        defaultFilters: defaultFilters || {}
+    }, { merge: true }); // Use merge to avoid overwriting entire document if only one part is updated.
+
+    console.log(`Dashboard preferences saved for user ${userId}.`);
+    return { success: true };
+});
+*/
+
+/**
+ * Fetches the data needed for a user's customized dashboard view.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { userId: string }
+ * @returns {Promise<object>} A promise that resolves to an object containing dashboard data.
+ */
+/*
+exports.getDashboardData = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth || context.auth.uid !== data.userId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only fetch your own dashboard data.');
+    }
+
+    const { userId } = data;
+    const userPrefRef = db.collection('user_preferences').doc(userId);
+    const userPrefDoc = await userPrefRef.get();
+
+    if (!userPrefDoc.exists) {
+        // Return default data or an empty state if no preferences are saved.
+        return { dashboardData: {} };
+    }
+
+    const preferences = userPrefDoc.data();
+    const dashboardLayout = preferences.dashboardLayout;
+    
+    const dashboardData = {};
+
+    // 2. Fetch data for each widget defined in the user's layout.
+    // This is a simplified example. In a real-world scenario, you would have more complex logic.
+    for (const widgetId in dashboardLayout) {
+        const widget = dashboardLayout[widgetId];
+        
+        if (widget.name === 'Total Revenue') {
+            // Fetch relevant data from bi_reports
+            const reportSnapshot = await db.collection('bi_reports').where('reportType', '==', 'RevenueSummary').orderBy('period', 'desc').limit(1).get();
+            if (!reportSnapshot.empty) {
+                dashboardData[widgetId] = reportSnapshot.docs[0].data();
+            }
+        }
+        
+        if (widget.name === 'Bed Occupancy') {
+            // Fetch relevant data from bi_reports
+            const reportSnapshot = await db.collection('bi_reports').where('reportType', '==', 'BedOccupancy').orderBy('period', 'desc').limit(1).get();
+             if (!reportSnapshot.empty) {
+                dashboardData[widgetId] = reportSnapshot.docs[0].data();
+            }
+        }
+        // ... add more logic for other widget types
+    }
+
+    return { dashboardData };
+});
+*/
