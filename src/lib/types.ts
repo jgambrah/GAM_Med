@@ -1037,7 +1037,7 @@ export interface Admission {
    */
   type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string; // ISO 8601 format
-  
+  discharge_date?: string; // ISO 8601 format, set upon discharge
   reasonForVisit: string;
   ward?: string; // e.g., 'Cardiology', 'Maternity', applicable to Inpatients
   bed_id?: string; // e.g., 'C-101', applicable to Inpatients
@@ -1052,7 +1052,6 @@ export interface Admission {
   status: 'Admitted' | 'In Treatment' | 'Pending Discharge' | 'Discharged' | 'Scheduled' | 'In Progress' | 'Completed' | 'Canceled';
   
   // Discharge-specific fields
-  discharge_date?: string; // ISO 8601 format, set upon discharge
   discharge_by_doctor_id?: string; // UID of the doctor who authorized the discharge.
   dischargeSummary?: {
     clinicalSummary: string;
