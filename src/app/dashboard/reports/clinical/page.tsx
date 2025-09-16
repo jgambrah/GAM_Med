@@ -20,6 +20,8 @@ import {
 import { ChartContainer, ChartConfig, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, LabelList } from 'recharts';
 import { mockInfectionReports, mockEfficacyReports, allAdmissions } from '@/lib/data';
+import { Button } from '@/components/ui/button';
+import { InfectionDrilldownDialog } from './components/infection-drilldown-dialog';
 
 const efficacyChartConfig: ChartConfig = {
   averageEfficacy: {
@@ -28,6 +30,8 @@ const efficacyChartConfig: ChartConfig = {
 };
 
 export default function ClinicalReportsPage() {
+  const [drilldownData, setDrilldownData] = React.useState<{ ward: string; count: number } | null>(null);
+
   const readmissionRate = React.useMemo(() => {
     const readmissions = allAdmissions.filter(a => a.readmissionFlag).length;
     const totalAdmissions = allAdmissions.length;
@@ -37,7 +41,11 @@ export default function ClinicalReportsPage() {
   const infectionReport = mockInfectionReports[0];
   const efficacyReports = mockEfficacyReports;
 
+  // Placeholder for patient satisfaction data
+  const patientSatisfactionScore = 88.5;
+
   return (
+    <>
     <div className="space-y-6">
        <div>
         <h1 className="text-3xl font-bold">Clinical Quality Dashboard</h1>
@@ -46,7 +54,7 @@ export default function ClinicalReportsPage() {
         </p>
       </div>
 
-       <div className="grid gap-4 md:grid-cols-3">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
                 <CardHeader>
                     <CardTitle>30-Day Readmission Rate</CardTitle>
@@ -69,7 +77,18 @@ export default function ClinicalReportsPage() {
                     </p>
                 </CardContent>
             </Card>
-            <Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Patient Satisfaction (CSAT)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-4xl font-bold">{patientSatisfactionScore}%</div>
+                     <p className="text-xs text-muted-foreground">
+                        Based on post-discharge surveys.
+                    </p>
+                </CardContent>
+            </Card>
+             <Card>
                 <CardHeader>
                     <CardTitle>Total Infections (Last Month)</CardTitle>
                 </CardHeader>
@@ -87,7 +106,7 @@ export default function ClinicalReportsPage() {
                 <CardHeader>
                     <CardTitle>Infection Breakdown by Ward</CardTitle>
                     <CardDescription>
-                        Number of hospital-acquired infections per ward for {infectionReport.month}.
+                        Number of hospital-acquired infections per ward for {infectionReport.month}. Click 'View' to drill down.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -97,6 +116,7 @@ export default function ClinicalReportsPage() {
                                 <TableRow>
                                     <TableHead>Ward</TableHead>
                                     <TableHead className="text-right">Infection Count</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -104,6 +124,11 @@ export default function ClinicalReportsPage() {
                                     <TableRow key={ward}>
                                         <TableCell className="font-medium">{ward}</TableCell>
                                         <TableCell className="text-right font-mono">{count}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="outline" size="sm" onClick={() => setDrilldownData({ ward, count })}>
+                                                View Cases
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -139,5 +164,14 @@ export default function ClinicalReportsPage() {
             </Card>
         </div>
     </div>
+     {drilldownData && (
+        <InfectionDrilldownDialog
+            ward={drilldownData.ward}
+            count={drilldownData.count}
+            isOpen={!!drilldownData}
+            onOpenChange={() => setDrilldownData(null)}
+        />
+     )}
+    </>
   );
 }
