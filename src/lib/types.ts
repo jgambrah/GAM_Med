@@ -1868,6 +1868,23 @@ export interface StaffProfile {
   }[];
 }
 
+/**
+ * Represents a user-defined report template for ad-hoc reporting.
+ * Path: /saved_reports/{reportId}
+ */
+export interface SavedReport {
+  reportId: string; // Document ID
+  userId: string; // Reference to users collection, who created the report
+  reportName: string;
+  description?: string;
+  queryDetails: {
+    collections: string[]; // e.g., ['patients', 'invoices']
+    filters: Record<string, any>; // e.g., { "dateRange": ["2025-01-01", "2025-03-31"], "patientType": "Inpatient" }
+    metrics: string[]; // e.g., ['patientCount', 'totalRevenue']
+    groupBy?: string; // e.g., 'doctorId', 'department'
+  };
+}
+
 
 // =========================================================================
 // == Deprecated Types
@@ -1886,9 +1903,20 @@ export type PharmacyOrder = PurchaseOrder;
  */
 export type MaintenanceRequest = WorkOrder;
 
+export interface InfectionReport {
+    reportId: string;
+    month: string;
+    totalPatientDays: number;
+    infectionCount: number;
+    ratePer1000Days: number;
+    breakdownByWard: Record<string, number>;
+}
 
+export interface EfficacyReport {
+    reportId: string;
+    treatmentPlanTitle: string;
+    averageEfficacy: number;
+    totalCases: number;
+}
     
-
-
-
-    
+```
