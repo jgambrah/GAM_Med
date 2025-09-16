@@ -1,28 +1,37 @@
 rules_version = '2';
 
+// Helper function to get user's role from a custom claim
+// In a real project, you would set a custom claim 'role' for each user.
+function getUserRole() {
+  return request.auth.token.role;
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function getUserRole() {
-      // In a real app, this would get the role from custom claims on the auth token.
-      // For this prototype, we read it from the user's document.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    // Rules for Business Intelligence & KPI Data
-    match /bi_reports/{reportId} {
-      allow read: if getUserRole() in ['admin', 'hospital_manager', 'financial_staff'];
-      allow write: if false; // Should only be written by backend services
-    }
-
-    match /kpi_metrics/{metricId} {
-        allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
-        allow write: if false; // Should only be written by backend services
-    }
-
-    // Rule for user-specific dashboard preferences
+    // A user can only read and write their own preferences
     match /user_preferences/{userId} {
       allow read, write: if request.auth.uid == userId;
+    }
+
+    // BI reports are read-only for management roles
+    match /bi_reports/{reportId} {
+      allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
+    }
+
+    // KPI metrics are read-only for management roles
+    match /kpi_metrics/{metricId} {
+      allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
+    }
+
+    // Infection data can be created by clinical staff and read by a limited set of roles
+    match /infections/{infectionId} {
+      allow create: if getUserRole() in ['admin', 'infection_control_officer', 'doctor'];
+      allow read: if getUserRole() in ['admin', 'doctor', 'infection_control_officer'];
+    }
+
+    // Clinical reports are read-only for management and quality control roles
+    match /clinical_reports/{reportId} {
+      allow read: if getUserRole() in ['admin', 'hospital_manager', 'quality_control'];
     }
   }
 }
