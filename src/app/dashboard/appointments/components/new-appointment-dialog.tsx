@@ -41,6 +41,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const mockDepartments = [
     { value: 'Cardiology', label: 'Cardiology' },
@@ -76,6 +77,7 @@ export function NewAppointmentDialog() {
       appointmentTime: '',
       type: 'consultation',
       resourceId: '',
+      isVirtual: false,
     },
   });
 
@@ -132,6 +134,7 @@ export function NewAppointmentDialog() {
         appointmentTime: '',
         type: 'consultation',
         resourceId: '',
+        isVirtual: false,
       });
     } else {
       toast.error(result.message || 'An unexpected error occurred.');
@@ -153,7 +156,7 @@ export function NewAppointmentDialog() {
             Book New Appointment
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Book New Appointment</DialogTitle>
           <DialogDescription>
@@ -353,6 +356,28 @@ export function NewAppointmentDialog() {
                     )}
                 />
             )}
+            
+            <FormField
+              control={form.control}
+              name="isVirtual"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Virtual Consultation</FormLabel>
+                    <FormDescription>
+                        This appointment will be a video call.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>

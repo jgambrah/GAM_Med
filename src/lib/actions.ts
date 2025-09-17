@@ -375,7 +375,10 @@ export async function logImmunization(patientId: string, values: z.infer<typeof 
 export async function bookAppointment(values: z.infer<typeof NewAppointmentSchema>) {
   console.log('Booking new appointment with values:', values);
   // In a real app, this would call the `bookAppointment` Cloud Function.
-  // That function would handle all the complex availability and conflict checks.
+  // If `isVirtual` is true, it would then trigger `generateTelemedicineLink`.
+  if (values.isVirtual) {
+      console.log('This is a virtual appointment. A telemedicine link would be generated and sent.');
+  }
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   revalidatePath('/dashboard/appointments');

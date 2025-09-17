@@ -193,6 +193,7 @@ export const NewAppointmentSchema = z.object({
   appointmentTime: z.string().refine((val) => val, { message: "Time is required." }),
   type: z.enum(['consultation', 'follow-up', 'procedure']),
   resourceId: z.string().optional(),
+  isVirtual: z.boolean().default(false),
 });
 
 /**
