@@ -14,6 +14,63 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Data Visualization
+// =======================================================================================
+
+/**
+ * Fetches pre-aggregated report data for dashboards.
+ * This function acts as a secure data-fetcher for the front-end visualization components.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { reportType: string, dateRange: { start: string, end: string } }
+ * @returns {Promise<object[]>} An array of data points for the specified report.
+ */
+/*
+exports.getReportData = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is authenticated and authorized to view reports.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    // Add role-based access control here...
+
+    const { reportType, dateRange } = data;
+    if (!reportType || !dateRange) {
+        throw new functions.https.HttpsError('invalid-argument', 'Report type and date range are required.');
+    }
+    
+    let collectionName;
+    switch (reportType) {
+        case 'kpi_metrics':
+        case 'bi_reports':
+        case 'clinical_reports':
+            collectionName = reportType;
+            break;
+        default:
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid report type specified.');
+    }
+    
+    // 2. Query the specified collection based on the date range.
+    // The 'period' or 'date' field must be indexed for this query to be efficient.
+    const query = db.collection(collectionName)
+        .where('period', '>=', dateRange.start)
+        .where('period', '<=', dateRange.end)
+        .orderBy('period', 'asc');
+        
+    const snapshot = await query.get();
+    
+    if (snapshot.empty) {
+        console.log(`No data found for report type ${reportType} in the specified date range.`);
+        return [];
+    }
+    
+    // 3. Return the data to the client for rendering.
+    const results = snapshot.docs.map(doc => doc.data());
+    return results;
+});
+*/
+
+
+// =======================================================================================
 // == Ad-hoc Reporting
 // =======================================================================================
 
@@ -5258,6 +5315,77 @@ exports.postPayrollToLedger = functions.region('europe-west1').https.onCall(asyn
 
         return { success: true };
     });
+*/
+
+// =======================================================================================
+// == FINANCIAL REPORTING & AGGREGATION
+// =======================================================================================
+/**
+ * A scheduled function that runs to aggregate financial data for dashboard reporting.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 01:00'
+ */
+/*
+exports.aggregateFinancialData = functions.region('europe-west1').pubsub
+    .schedule('every day 01:00')
+    .onRun(async (context) => {
+        const today = new Date();
+        const period = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`; // e.g., '2025-09'
+
+        // 1. Calculate Total Revenue
+        const revenueSnapshot = await db.collection('invoices').where('status', '==', 'Paid').get();
+        const totalRevenue = revenueSnapshot.docs.reduce((sum, doc) => sum + doc.data().grandTotal, 0);
+
+        // 2. Calculate Total Expenses
+        const expensesSnapshot = await db.collection('expenses').get();
+        const totalExpenses = expensesSnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
+        
+        const payrollSnapshot = await db.collection('payroll_runs').where('status', '==', 'Completed').get();
+        const totalPayroll = payrollSnapshot.docs.reduce((sum, doc) => sum + doc.data().totalGrossPay, 0);
+
+        const netProfit = totalRevenue - (totalExpenses + totalPayroll);
+
+        // 3. Save the aggregated data
+        const summaryRef = db.collection('financial_summaries').doc(`monthly_summary_${period}`);
+        await summaryRef.set({
+            period: period,
+            totalRevenue: totalRevenue,
+            totalExpenses: totalExpenses + totalPayroll,
+            netProfit: netProfit,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        console.log(`Financial summary for ${period} updated successfully.`);
+        return null;
+    });
+*/
+    
+/**
+ * A callable function to update financial summaries in real-time.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { type: 'revenue' | 'expense', amount: number }
+ */
+/*
+exports.updateFinancialSummary = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { type, amount } = data;
+    const period = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const summaryRef = db.collection('financial_summaries').doc(`monthly_summary_${period}`);
+    
+    const fieldToUpdate = type === 'revenue' ? 'totalRevenue' : 'totalExpenses';
+
+    // 2. Atomically increment the appropriate field
+    await summaryRef.set({
+        [fieldToUpdate]: admin.firestore.FieldValue.increment(amount),
+        netProfit: admin.firestore.FieldValue.increment(type === 'revenue' ? amount : -amount)
+    }, { merge: true });
+
+    return { success: true };
+});
 */
 
     
