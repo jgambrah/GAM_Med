@@ -84,10 +84,8 @@ export function NewAppointmentDialog() {
   React.useEffect(() => {
     if (user?.role === 'patient' && user.patient_id) {
       form.setValue('patientId', user.patient_id);
-    } else {
-      form.setValue('patientId', user?.patient_id || '');
     }
-  }, [user, form]);
+  }, [user, form, open]);
   
   const selectedDepartment = form.watch('department');
   const selectedDate = form.watch('appointmentDate');
@@ -170,9 +168,8 @@ export function NewAppointmentDialog() {
                 <FormItem>
                   <FormLabel>Patient</FormLabel>
                   <FormControl>
-                    <Input value={user.name} disabled />
+                    <Input value={user.name} readOnly disabled />
                   </FormControl>
-                  <input type="hidden" {...form.register('patientId')} />
                 </FormItem>
             ) : (
                 <FormField

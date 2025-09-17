@@ -73,7 +73,7 @@ export default function AppointmentsPage() {
             }
           </p>
         </div>
-        {user?.role !== 'patient' && <NewAppointmentDialog />}
+        <NewAppointmentDialog />
       </div>
       <Card>
         <CardHeader>
