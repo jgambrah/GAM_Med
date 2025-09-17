@@ -60,20 +60,18 @@ exports.createPatientPortalAccount = functions.region('europe-west1').https.onCa
  * Sends a secure message and notifies the recipient.
  *
  * @trigger_type Callable Function (https)
- * @input { senderId: string, receiverId: string, messageText: string }
+ * @input { patientId: string, doctorId: string, messageText: string }
  */
 /*
 exports.sendSecureMessage = functions.region('europe-west1').https.onCall(async (data, context) => {
     // 1. Auth check: Ensure the sender is the authenticated user.
-    if (!context.auth || context.auth.uid !== data.senderId) {
-        throw new functions.https.HttpsError('permission-denied', 'You can only send messages as yourself.');
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to send messages.');
     }
     
-    const { senderId, receiverId, messageText } = data;
-
-    // 2. Determine the correct message collection (assuming patient is always one side of the conversation)
-    const patientId = senderId.startsWith('P-') ? senderId : (receiverId.startsWith('P-') ? receiverId : null);
-    if (!patientId) throw new functions.https.HttpsError('invalid-argument', 'Invalid message participants.');
+    const { patientId, doctorId, messageText } = data;
+    const senderId = context.auth.uid;
+    const receiverId = senderId === patientId ? doctorId : patientId; // Determine the recipient
 
     const messageRef = db.collection('patients').doc(patientId).collection('messages').doc();
     
@@ -81,16 +79,83 @@ exports.sendSecureMessage = functions.region('europe-west1').https.onCall(async 
         messageId: messageRef.id,
         senderId,
         receiverId,
-        messageText,
+        messageBody: messageText,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         isRead: false
     });
 
     // 3. Send a push notification (FCM) to the recipient.
-    // await sendNotificationToUser(receiverId, { title: 'New Secure Message', body: `You have a new message from ${senderName}` });
+    // await sendNotificationToUser(receiverId, { title: 'New Secure Message', body: `You have a new message.` });
 
     console.log(`Message sent from ${senderId} to ${receiverId}.`);
     return { success: true, messageId: messageRef.id };
+});
+*/
+
+/**
+ * Processes a patient's request for a prescription refill.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, prescriptionId: string }
+ */
+/*
+exports.requestPrescriptionRefill = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check: Ensure the caller is the patient themselves.
+    if (!context.auth || context.auth.uid !== data.patientId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only request refills for yourself.');
+    }
+    
+    const { patientId, prescriptionId } = data;
+    const newRequestRef = db.collection('refill_requests').doc();
+
+    await newRequestRef.set({
+        requestId: newRequestRef.id,
+        patientId,
+        prescriptionId,
+        status: 'Pending',
+        requestedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Notify pharmacy and original doctor
+    // const prescriptionDoc = await db.collection('prescriptions').doc(prescriptionId).get();
+    // const doctorId = prescriptionDoc.data().doctorId;
+    // await sendNotificationToRole('pharmacist', `New refill request from patient ${patientId}.`);
+    // await sendNotificationToUser(doctorId, `Patient ${patientId} requested a refill for ${prescriptionId}.`);
+
+    return { success: true, requestId: newRequestRef.id };
+});
+*/
+
+/**
+ * Handles an online payment for an invoice.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { invoiceId: string, paymentAmount: number, paymentToken: string }
+ */
+/*
+exports.processOnlinePayment = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // Auth check
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+
+    const { invoiceId, paymentAmount, paymentToken } = data;
+
+    // 1. Process payment through a secure gateway like Stripe
+    // const charge = await stripe.charges.create({
+    //     amount: paymentAmount * 100, // in smallest currency unit
+    //     currency: 'ghs',
+    //     source: paymentToken,
+    //     description: `Payment for Invoice #${invoiceId}`
+    // });
+
+    // 2. If payment is successful, update the invoice status
+    // This logic can be handled by a separate Firestore trigger for better separation of concerns.
+    const invoiceRef = db.collection('invoices').doc(invoiceId);
+    await invoiceRef.update({
+        status: 'Paid',
+        amountDue: 0
+    });
+    
+    return { success: true };
 });
 */
 
@@ -1365,7 +1430,6 @@ exports.validateAndSubmitResult = functions.region('europe-west1').https.onCall(
     }
 
     const patientData = patientDoc.data();
-    const testData = testDoc.data();
     const demographicKey = `${patientData.gender.toLowerCase()}_adult`; // e.g., "male_adult"
     const referenceRanges = testData.referenceRanges?.[demographicKey];
 
@@ -5508,5 +5572,7 @@ exports.updateFinancialSummary = functions.region('europe-west1').https.onCall(a
     return { success: true };
 });
 */
+
+    
 
     
