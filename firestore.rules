@@ -4,47 +4,55 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user role from custom claims
+    // Helper function to get user's role from custom claims
     function getUserRole() {
-      return request.auth.token.role;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    match /kpi_metrics/{metricId} {
-      allow read: if getUserRole() in ['admin', 'hospital_manager', 'department_head'];
-      allow write: if false; // Data should only be written by backend functions
+    match /patients/{patientId} {
+      allow read, write: if request.auth != null; // Broad for prototype
+      // Sub-collections would have more granular rules
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
     }
     
-    match /bi_reports/{reportId} {
-        allow read: if getUserRole() in ['admin', 'hospital_manager'];
-        allow write: if false;
-    }
-
-    match /user_preferences/{userId} {
-        allow read, write: if request.auth.uid == userId;
-    }
-
     match /infections/{infectionId} {
-        allow create: if getUserRole() in ['admin', 'infection_control_officer', 'doctor'];
-        allow read: if getUserRole() in ['admin', 'doctor', 'infection_control_officer'];
-        allow write: if getUserRole() in ['admin', 'infection_control_officer'];
+    	allow create: if getUserRole() in ['admin', 'infection_control_officer', 'doctor'];
+      allow read: if getUserRole() in ['admin', 'doctor', 'infection_control_officer'];
     }
-
+    
     match /clinical_reports/{reportId} {
-        allow read: if getUserRole() in ['admin', 'hospital_manager', 'quality_control'];
-        allow write: if false;
+    	allow read: if getUserRole() in ['admin', 'hospital_manager', 'quality_control'];
+      // No one should be able to write directly; it is done by a trusted Cloud Function
+      allow write: if false;
     }
-
+    
     match /expenses/{expenseId} {
-        allow create, update: if getUserRole() in ['admin', 'financial_staff'];
-        allow read: if getUserRole() in ['admin', 'financial_staff', 'hospital_manager'];
+    	allow create, update: if getUserRole() in ['admin', 'financial_staff'];
+      allow read: if getUserRole() in ['admin', 'financial_staff', 'hospital_manager'];
     }
-
+    
     match /financial_summaries/{summaryId} {
-        allow read: if getUserRole() in ['admin', 'financial_staff', 'CEO', 'hospital_manager'];
-        allow write: if false; // Only backend functions should write to this
+    	allow read: if getUserRole() in ['admin', 'financial_staff', 'CEO', 'hospital_manager'];
+      allow write: if false; // Only a trusted Cloud Function can write
     }
 
-    // Fallback rule: Deny all reads/writes to any other collection by default
+    match /saved_reports/{reportId} {
+      // Users can create, read, update, and delete their own reports
+      allow create: if request.auth.uid == request.resource.data.userId;
+      allow read, update, delete: if request.auth.uid == resource.data.userId;
+
+      // Admins or other designated roles can also read reports (e.g., for collaboration)
+      allow read: if request.auth.uid == resource.data.userId || getUserRole() == 'admin';
+    }
+
+    // Default deny all other collections
     match /{document=**} {
       allow read, write: if false;
     }
