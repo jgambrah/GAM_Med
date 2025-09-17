@@ -1195,6 +1195,19 @@ export interface VitalsLog {
 }
 
 /**
+ * Represents data from a remote patient monitoring device.
+ * Path: /remote_patient_data/{dataId}
+ */
+export interface RemotePatientData {
+    dataId: string;
+    patientId: string;
+    dataType: 'Blood Pressure' | 'Heart Rate' | 'Oxygen Saturation' | 'Glucose';
+    value: number | { systolic: number, diastolic: number };
+    timestamp: string; // ISO Timestamp
+}
+
+
+/**
  * Represents a patient's care plan.
  * Path: /patients/{patientId}/care_plans/{planId}
  */
