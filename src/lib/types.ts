@@ -1530,7 +1530,7 @@ export interface Message {
   senderId: string;
   senderName: string; // Denormalized for display
   receiverId: string;
-  messageText: string;
+  messageBody: string;
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }

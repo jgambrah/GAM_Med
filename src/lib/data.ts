@@ -2012,7 +2012,7 @@ export const mockMessages: Message[] = [
         senderId: 'doc1',
         senderName: 'Dr. Evelyn Mensah',
         receiverId: 'patient1',
-        messageText: 'Hello Kwame, your recent lab results are back and look good. We will discuss them at your next appointment.',
+        messageBody: 'Hello Kwame, your recent lab results are back and look good. We will discuss them at your next appointment.',
         timestamp: new Date('2024-08-14T10:00:00Z').toISOString(),
         isRead: true,
     },
@@ -2021,7 +2021,7 @@ export const mockMessages: Message[] = [
         senderId: 'patient1',
         senderName: 'Kwame Owusu',
         receiverId: 'doc1',
-        messageText: 'Thank you, Doctor. That is great news!',
+        messageBody: 'Thank you, Doctor. That is great news!',
         timestamp: new Date('2024-08-14T11:30:00Z').toISOString(),
         isRead: true,
     },
@@ -2030,7 +2030,7 @@ export const mockMessages: Message[] = [
         senderId: 'doc1',
         senderName: 'Dr. Evelyn Mensah',
         receiverId: 'patient1',
-        messageText: 'You are welcome. Remember to continue monitoring your blood pressure at home.',
+        messageBody: 'You are welcome. Remember to continue monitoring your blood pressure at home.',
         timestamp: new Date('2024-08-14T11:32:00Z').toISOString(),
         isRead: false,
     },
@@ -2039,7 +2039,7 @@ export const mockMessages: Message[] = [
         senderId: 'nurse1',
         senderName: 'Florence Agyepong',
         receiverId: 'patient1',
-        messageText: 'Hi Kwame, just a reminder to fast before your procedure tomorrow.',
+        messageBody: 'Hi Kwame, just a reminder to fast before your procedure tomorrow.',
         timestamp: new Date('2024-08-15T16:00:00Z').toISOString(),
         isRead: false,
     }
@@ -2060,6 +2060,7 @@ export type Resource = Asset;
     
 
     
+
 
 
 

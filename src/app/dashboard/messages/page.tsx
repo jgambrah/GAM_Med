@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -38,7 +39,7 @@ function ConversationList({ conversations, onSelect, selectedConversationId }: {
                             </Avatar>
                             <div className="flex-1 truncate">
                                 <p className="font-semibold">{convo.otherUser.name}</p>
-                                <p className="text-xs truncate">{convo.lastMessage.messageText}</p>
+                                <p className="text-xs truncate">{convo.lastMessage.messageBody}</p>
                             </div>
                         </div>
                     </button>
@@ -71,7 +72,7 @@ function MessageArea({ messages, onSendMessage }: { messages: Message[], onSendM
                                 </Avatar>
                              )}
                             <div className={cn("max-w-xs md:max-w-md p-3 rounded-lg", msg.senderId === user?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-                                <p className="text-sm">{msg.messageText}</p>
+                                <p className="text-sm">{msg.messageBody}</p>
                                 <p className="text-xs opacity-70 mt-1 text-right">{format(new Date(msg.timestamp), 'p')}</p>
                             </div>
                         </div>
@@ -143,7 +144,7 @@ export default function MessagesPage() {
             senderId: user.uid,
             senderName: user.name,
             receiverId: selectedConversationId,
-            messageText: text,
+            messageBody: text,
             timestamp: new Date().toISOString(),
             isRead: false,
         };
