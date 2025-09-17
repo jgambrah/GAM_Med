@@ -1105,8 +1105,10 @@ export interface Appointment {
   duration: number; // in minutes
   type: 'consultation' | 'follow-up' | 'procedure';
   department: string;
-  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
   isBilled: boolean;
+  isConfirmed: boolean;
+  bookingMethod: 'Online Portal' | 'Front Desk' | 'Referral';
   notes?: string;
   isVirtual?: boolean; // Flag for telemedicine appointments
   telemedicineLink?: string; // URL for the virtual consultation
