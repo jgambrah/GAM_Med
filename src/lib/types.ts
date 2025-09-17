@@ -818,6 +818,27 @@ export interface Infection {
     status: 'Active' | 'Resolved';
 }
 
+export interface MyReportedIssue {
+  issueId: string;
+  dateReported: string;
+  description: string;
+  item: string;
+  status: string;
+}
+
+export interface Report {
+    id: string;
+    name: string;
+    description: string;
+    data: any[];
+}
+export interface LabReport {
+    reportId: string;
+    date: string;
+    testVolumes: { testName: string; volume: number }[];
+    turnaroundTimes: { testName: string; avgTAT: number }[];
+    abnormalResultTrends: { testName: string; abnormalPercentage: number }[];
+}
 
 /**
  * Represents a user in the 'users' collection.
