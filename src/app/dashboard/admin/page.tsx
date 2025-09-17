@@ -45,6 +45,7 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="financial-reports">Financial Reports</TabsTrigger>
           <TabsTrigger value="clinical-reports">Clinical Reports</TabsTrigger>
+           <TabsTrigger value="adhoc-reports">Ad-hoc Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
            <TabsTrigger value="credentials">Credentials</TabsTrigger>
@@ -118,6 +119,23 @@ export default function AdminPage() {
                     <Button asChild className="mt-4">
                         <Link href="/dashboard/reports/clinical">
                             Go to Clinical Reports
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="adhoc-reports" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Ad-hoc Reporting</CardTitle>
+                    <CardDescription>
+                        Build custom reports to gain insights from your data.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/admin/reports/custom">
+                            Go to Report Builder
                         </Link>
                     </Button>
                 </CardContent>
