@@ -19,22 +19,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { allAdmissions, mockWaitingList, allAppointments, mockMedicationRecords, mockLabResults } from '@/lib/data';
-import { Admission, WaitingListEntry, Appointment, MedicationRecord, LabResult } from '@/lib/types';
-import { format } from 'date-fns';
+import { mockWaitingList, allAppointments, mockMedicationRecords, mockLabResults, mockInvoices, mockMessages } from '@/lib/data';
+import { WaitingListEntry, Appointment, MedicationRecord, LabResult, Invoice, Message } from '@/lib/types';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Clock, Video } from 'lucide-react';
+import { ArrowRight, Clock, Video, FileText, MessageSquare, CreditCard } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-
-const getPriorityVariant = (priority: WaitingListEntry['priority']): "destructive" | "default" | "secondary" => {
-    switch (priority) {
-        case 'Urgent': return 'destructive';
-        case 'Routine': return 'default';
-        default: return 'secondary';
-    }
-}
 
 function MyWaitingListStatus() {
     const { user } = useAuth();
@@ -103,12 +95,15 @@ function UpcomingAppointments() {
 
     return (
         <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Upcoming Appointments</CardTitle>
+                <Button asChild variant="outline" size="sm">
+                    <Link href="/dashboard/appointments">View All</Link>
+                </Button>
             </CardHeader>
             <CardContent>
                  <div className="space-y-4">
-                    {upcomingAppointments.length > 0 ? upcomingAppointments.map(appt => (
+                    {upcomingAppointments.length > 0 ? upcomingAppointments.slice(0, 2).map(appt => (
                         <div key={appt.appointment_id} className="flex items-center justify-between p-3 border rounded-lg">
                             <div>
                                 <p className="font-semibold">{format(new Date(appt.appointment_date), 'PPP p')}</p>
@@ -131,143 +126,105 @@ function UpcomingAppointments() {
     );
 }
 
-function CurrentMedications() {
+function RecentActivity() {
     const { user } = useAuth();
-    const medications = mockMedicationRecords.filter(med => med.patientId === user?.patient_id && med.status === 'Active');
 
-    return (
-         <Card>
-            <CardHeader>
-                <CardTitle>My Current Medications</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ul className="space-y-2 text-sm list-disc pl-5">
-                    {medications.length > 0 ? medications.map(med => (
-                        <li key={med.prescriptionId}>
-                            <strong>{med.medicationName}</strong> ({med.dosage}) - {med.frequency}
-                        </li>
-                    )) : (
-                         <p className="text-sm text-muted-foreground text-center py-4">No active medications on your record.</p>
-                    )}
-                </ul>
-            </CardContent>
-        </Card>
-    )
-}
-
-function RecentLabResults() {
-    const { user } = useAuth();
-    const results = mockLabResults
+    const recentResults = mockLabResults
         .filter(res => res.patientId === user?.patient_id && res.status === 'Validated')
         .sort((a,b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
-        .slice(0, 3);
+        .slice(0, 1);
+    
+    const unreadMessages = mockMessages
+        .filter(msg => msg.receiverId === user?.uid && !msg.isRead)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 1);
 
-    return (
+    const outstandingBills = mockInvoices
+        .filter(inv => inv.patientId === user?.patient_id && (inv.status === 'Pending Payment' || inv.status === 'Overdue'))
+        .sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+        .slice(0, 1);
+
+    const activities = [
+        ...recentResults.map(r => ({ type: 'Lab Result', data: r })),
+        ...unreadMessages.map(m => ({ type: 'Message', data: m })),
+        ...outstandingBills.map(b => ({ type: 'Billing', data: b })),
+    ].sort((a,b) => new Date(b.data.completedAt || b.data.timestamp || b.data.dueDate).getTime() - new Date(a.data.completedAt || a.data.timestamp || a.data.dueDate).getTime());
+
+
+    const renderActivity = (activity: any) => {
+        const { type, data } = activity;
+        let icon, title, description, link;
+
+        switch (type) {
+            case 'Lab Result':
+                icon = <FileText className="h-5 w-5 text-blue-500" />;
+                title = `New Lab Result: ${data.testName}`;
+                description = `Completed ${formatDistanceToNowStrict(new Date(data.completedAt), { addSuffix: true })}`;
+                link = '/dashboard/my-records';
+                break;
+            case 'Message':
+                icon = <MessageSquare className="h-5 w-5 text-green-500" />;
+                title = `New Message from ${data.senderName}`;
+                description = `Received ${formatDistanceToNowStrict(new Date(data.timestamp), { addSuffix: true })}`;
+                link = '/dashboard/messages';
+                break;
+            case 'Billing':
+                icon = <CreditCard className="h-5 w-5 text-red-500" />;
+                title = `Outstanding Bill: Invoice ${data.invoiceId}`;
+                description = `Due ${format(new Date(data.dueDate), 'PPP')}`;
+                link = '/dashboard/my-billing';
+                break;
+            default: return null;
+        }
+
+        return (
+             <Link href={link} key={`${type}-${data.id || data.invoiceId || data.testId || data.messageId}`}>
+                <div className="flex items-center gap-4 p-3 hover:bg-muted/50 rounded-lg transition-colors">
+                    {icon}
+                    <div className="flex-grow">
+                        <p className="font-semibold">{title}</p>
+                        <p className="text-sm text-muted-foreground">{description}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+            </Link>
+        )
+    }
+
+     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Recent Lab Results</CardTitle>
-                <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard/my-billing">View All</Link>
-                </Button>
+            <CardHeader>
+                <CardTitle>Recent Updates</CardTitle>
             </CardHeader>
-            <CardContent>
-                <ul className="space-y-3">
-                    {results.length > 0 ? results.map(res => (
-                        <li key={res.testId} className="flex justify-between items-center text-sm">
-                            <span>{res.testName}</span>
-                            <span className="text-muted-foreground">{format(new Date(res.completedAt!), 'PPP')}</span>
-                        </li>
-                    )) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No recent lab results available.</p>
-                    )}
-                </ul>
+            <CardContent className="space-y-2">
+                {activities.length > 0 ? (
+                    activities.map(renderActivity)
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No recent updates.</p>
+                )}
             </CardContent>
         </Card>
-    )
+    );
+
 }
 
 
 export function PatientDashboard() {
-    const { user } = useAuth();
-  
-    // In a real app, this would be a real-time query for the logged-in patient.
-    const myAdmissions = allAdmissions.filter(
-      (admission) => admission.patient_id === user?.patient_id
-    );
-
-    const isDischarged = (status: Admission['status']) => status === 'Discharged';
-
   return (
     <div className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <UpcomingAppointments />
-            <CurrentMedications />
+            <RecentActivity />
         </div>
-
-        <RecentLabResults />
-        
         <MyWaitingListStatus />
-        
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>My Visit History</CardTitle>
-                        <CardDescription>
-                        A summary of your recent visits and admissions.
-                        </CardDescription>
-                    </div>
-                    {user?.patient_id && (
-                        <Button asChild variant="outline">
-                            <Link href={`/dashboard/patients/${user.patient_id}`}>
-                                View Full Record
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Admission Date</TableHead>
-                        <TableHead>Discharge Date</TableHead>
-                        <TableHead>Reason for Visit</TableHead>
-                        <TableHead>Status</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {myAdmissions.length > 0 ? (
-                        myAdmissions.map((admission) => (
-                        <TableRow key={admission.admission_id}>
-                            <TableCell className="font-medium">
-                                {format(new Date(admission.admission_date), 'PPP')}
-                            </TableCell>
-                            <TableCell>
-                                {admission.discharge_date ? format(new Date(admission.discharge_date), 'PPP') : 'N/A'}
-                            </TableCell>
-                            <TableCell>{admission.reasonForVisit}</TableCell>
-                            <TableCell>
-                            <Badge variant={isDischarged(admission.status) ? 'secondary' : 'default'}>
-                                {admission.status}
-                            </Badge>
-                            </TableCell>
-                        </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                            You have no visit history on record.
-                        </TableCell>
-                        </TableRow>
-                    )}
-                    </TableBody>
-                </Table>
-                </div>
-            </CardContent>
-        </Card>
     </div>
   );
+}
+
+const getPriorityVariant = (priority: WaitingListEntry['priority']): "destructive" | "default" | "secondary" => {
+    switch (priority) {
+        case 'Urgent': return 'destructive';
+        case 'Routine': return 'default';
+        default: return 'secondary';
+    }
 }
