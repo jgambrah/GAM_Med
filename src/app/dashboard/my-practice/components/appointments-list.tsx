@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Video } from 'lucide-react';
 
 interface AppointmentsListProps {
   onAppointmentSelect: (appointment: Appointment | null) => void;
@@ -111,12 +112,19 @@ export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps)
                                         <p className="text-sm">{format(new Date(appt.appointment_date), 'p')}</p>
                                     </div>
                                     <div className="flex justify-between items-center mt-1 text-sm">
-                                       <Badge 
-                                            variant={selectedAppointmentId === appt.appointment_id ? 'secondary' : 'outline'}
-                                            className="capitalize"
-                                        >
-                                           {appt.type}
-                                       </Badge>
+                                       <div className="flex items-center gap-2">
+                                            <Badge 
+                                                    variant={selectedAppointmentId === appt.appointment_id ? 'secondary' : 'outline'}
+                                                    className="capitalize"
+                                                >
+                                                {appt.type}
+                                            </Badge>
+                                             {appt.isVirtual && (
+                                                <Badge variant={selectedAppointmentId === appt.appointment_id ? 'secondary' : 'outline'}>
+                                                    <Video className="h-3 w-3" />
+                                                </Badge>
+                                            )}
+                                       </div>
                                        <p className="capitalize">{appt.status}</p>
                                     </div>
                                 </button>

@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan, Edit, Scissors } from 'lucide-react';
+import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan, Edit, Scissors, Video } from 'lucide-react';
 import { allPatients, allAdmissions, mockNotes, mockCarePlans, mockOtSessions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +36,7 @@ import { RadiologyTab } from './components/radiology-tab';
 import { CarePlanTab } from './components/care-plan-tab';
 import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 import { PostOpCareTab } from './components/post-op-care-tab';
+import { toast } from '@/hooks/use-toast';
 
 
 /**
@@ -73,6 +74,11 @@ export default function PatientDetailPage() {
   
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
   const isDoctor = user && user.role === 'doctor';
+
+  const handleJoinCall = (link: string) => {
+    toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
+    window.open(link, '_blank');
+  }
 
   return (
     <div className="space-y-4">

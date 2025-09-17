@@ -24,6 +24,9 @@ import Link from 'next/link';
 import { allAppointments } from '@/lib/data';
 import { Appointment } from '@/lib/types';
 import { InpatientList } from './inpatient-list';
+import { Button } from '@/components/ui/button';
+import { Video } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 function getStatusVariant(status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" {
     switch (status) {
@@ -50,6 +53,11 @@ export function DoctorDashboard() {
         new Date(b.appointment_date).getTime()
     );
 
+  const handleJoinCall = (link: string) => {
+    toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
+    window.open(link, '_blank');
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="col-span-1 lg:col-span-2">
@@ -69,6 +77,7 @@ export function DoctorDashboard() {
                         <TableHead>Patient</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -90,11 +99,19 @@ export function DoctorDashboard() {
                             <TableCell>
                                 <Badge variant={getStatusVariant(appt.status)}>{appt.status}</Badge>
                             </TableCell>
+                            <TableCell>
+                              {appt.isVirtual && (
+                                <Button variant="outline" size="sm" onClick={() => handleJoinCall(appt.telemedicineLink!)}>
+                                  <Video className="h-4 w-4 mr-2" />
+                                  Join Call
+                                </Button>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
+                          <TableCell colSpan={5} className="h-24 text-center">
                             No appointments scheduled for today.
                           </TableCell>
                         </TableRow>
