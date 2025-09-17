@@ -16,6 +16,7 @@ import { RadiologyTab } from '../patients/[patientId]/components/radiology-tab';
 import { ImmunizationsTab } from '../patients/[patientId]/components/immunizations-tab';
 import { AdmissionsHistoryTab } from '../patients/[patientId]/components/admissions-history-tab';
 import { allAdmissions } from '@/lib/data';
+import { MedicationsTab } from '../patients/[patientId]/components/medications-tab';
 
 export default function MyRecordsPage() {
     const { user } = useAuth();
@@ -39,15 +40,21 @@ export default function MyRecordsPage() {
                 </p>
             </div>
              <Card>
-                 <Tabs defaultValue="labs">
+                 <Tabs defaultValue="medications">
                     <CardHeader>
                         <TabsList className="h-auto flex-wrap justify-start">
+                            <TabsTrigger value="medications">Medications</TabsTrigger>
                             <TabsTrigger value="labs">Lab Results</TabsTrigger>
                             <TabsTrigger value="radiology">Imaging Reports</TabsTrigger>
                             <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
                             <TabsTrigger value="admissions">Visit History</TabsTrigger>
                         </TabsList>
                     </CardHeader>
+                    <TabsContent value="medications" className="m-0">
+                         <CardContent>
+                            <MedicationsTab patientId={user.patient_id} />
+                        </CardContent>
+                    </TabsContent>
                     <TabsContent value="labs" className="m-0">
                          <CardContent>
                             <LabResultsTab />
@@ -73,4 +80,3 @@ export default function MyRecordsPage() {
         </div>
     );
 }
-

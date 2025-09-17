@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -12,18 +13,19 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { MedicationRecord } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
-import { addPrescription, logMedicationAdministration } from '@/lib/actions';
+import { addPrescription, logMedicationAdministration, requestPrescriptionRefill } from '@/lib/actions';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useParams } from 'next/navigation';
 import { NewPrescriptionSchema } from '@/lib/schemas';
-import { AlertTriangle, Pill } from 'lucide-react';
+import { AlertTriangle, Pill, RefreshCw } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { useDebouncedCallback } from 'use-debounce';
 import { mockMedicationRecords } from '@/lib/data';
+import { toast } from '@/hooks/use-toast';
 
 
 // This would come from our central 'medications' formulary collection.
@@ -323,6 +325,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
     const { user } = useAuth();
     const canAdminister = user?.role === 'nurse';
     const isDoctor = user?.role === 'doctor';
+    const isPatient = user?.role === 'patient';
 
     const params = useParams();
     const resolvedPatientId = patientId || params.patientId as string;
@@ -331,6 +334,16 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
     // In a real application, this data would come from a real-time listener
     // on the /patients/{patientId}/medication_history sub-collection.
     const patientMedications = mockMedicationRecords.filter(med => med.patientId === resolvedPatientId);
+
+    const handleRequestRefill = async (prescriptionId: string) => {
+        toast.info("Submitting refill request...");
+        const result = await requestPrescriptionRefill(resolvedPatientId, prescriptionId);
+        if (result.success) {
+            toast.success("Your refill request has been sent to the pharmacy.");
+        } else {
+            toast.error(result.message || "Failed to submit refill request.");
+        }
+    }
 
     return (
         <Card>
@@ -351,7 +364,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
                                 <TableHead>Dosage</TableHead>
                                 <TableHead>Frequency</TableHead>
                                 <TableHead>Status</TableHead>
-                                {canAdminister && <TableHead>Actions</TableHead>}
+                                {(canAdminister || isPatient) && <TableHead className="text-right">Actions</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -363,16 +376,22 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
                                         <TableCell>{med.dosage}</TableCell>
                                         <TableCell>{med.frequency}</TableCell>
                                         <TableCell><Badge variant={getStatusVariant(med.status)}>{med.status}</Badge></TableCell>
-                                        {canAdminister && (
-                                            <TableCell>
-                                                <AdministerMedicationDialog patientId={resolvedPatientId} medication={med} />
+                                        {(canAdminister || isPatient) && (
+                                            <TableCell className="text-right">
+                                                {canAdminister && <AdministerMedicationDialog patientId={resolvedPatientId} medication={med} />}
+                                                {isPatient && med.status === 'Active' && (
+                                                    <Button variant="outline" size="sm" onClick={() => handleRequestRefill(med.prescriptionId)}>
+                                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                                        Request Refill
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         )}
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={canAdminister ? 6 : 5} className="h-24 text-center">
+                                    <TableCell colSpan={canAdminister || isPatient ? 6 : 5} className="h-24 text-center">
                                         No medications prescribed.
                                     </TableCell>
                                 </TableRow>

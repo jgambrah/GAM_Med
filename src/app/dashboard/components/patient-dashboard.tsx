@@ -25,8 +25,9 @@ import { format, formatDistanceToNowStrict } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Clock, Video, FileText, MessageSquare, CreditCard } from 'lucide-react';
+import { ArrowRight, Clock, Video, FileText, MessageSquare, CreditCard, Pill } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { MedicationsTab } from '../patients/[patientId]/components/medications-tab';
 
 function MyWaitingListStatus() {
     const { user } = useAuth();
@@ -210,12 +211,29 @@ function RecentActivity() {
 
 
 export function PatientDashboard() {
+  const { user } = useAuth();
+  if (!user?.patient_id) return null;
+
   return (
     <div className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <UpcomingAppointments />
             <RecentActivity />
         </div>
+         <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                 <div>
+                    <CardTitle>My Medications</CardTitle>
+                    <CardDescription>A list of your current and past medications. Click to request a refill.</CardDescription>
+                </div>
+                 <Button asChild variant="outline" size="sm">
+                    <Link href="/dashboard/my-records">View All Records</Link>
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <MedicationsTab patientId={user.patient_id} />
+            </CardContent>
+        </Card>
         <MyWaitingListStatus />
     </div>
   );

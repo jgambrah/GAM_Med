@@ -203,6 +203,20 @@ export async function addPrescription(patientId: string, values: z.infer<typeof 
     return { success: true, message: 'Prescription added successfully.' };
 }
 
+export async function requestPrescriptionRefill(patientId: string, prescriptionId: string) {
+    console.log(`Processing refill request for patient ${patientId}, prescription ${prescriptionId}.`);
+
+    // In a real app, this would call the `requestPrescriptionRefill` Cloud Function
+    // which would create a document in a `refill_requests` collection and notify the pharmacy.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    revalidatePath(`/dashboard/my-records`);
+    revalidatePath(`/dashboard`);
+    
+    return { success: true, message: 'Refill request submitted successfully.' };
+}
+
+
 export async function addDiagnosis(patientId: string, values: z.infer<typeof NewDiagnosisSchema>) {
     console.log(`Adding diagnosis for patient ${patientId}:`, values);
     await new Promise((resolve) => setTimeout(resolve, 1000));
