@@ -1520,3 +1520,17 @@ export interface DepreciationRecord {
   accumulatedDepreciation: number;
   bookValue: number;
 }
+
+/**
+ * Represents a secure message between a patient and a provider.
+ * Path: /patients/{patientId}/messages/{messageId}
+ */
+export interface Message {
+  messageId: string;
+  senderId: string;
+  senderName: string; // Denormalized for display
+  receiverId: string;
+  messageText: string;
+  timestamp: string; // ISO Timestamp
+  isRead: boolean;
+}

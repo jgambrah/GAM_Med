@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -344,6 +344,7 @@ export const allAppointments: Appointment[] = [
     notes: 'Follow-up consultation for hypertension.',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
+    isVirtual: false,
   },
    {
     appointment_id: 'AP-002',
@@ -359,6 +360,26 @@ export const allAppointments: Appointment[] = [
     status: 'confirmed',
     isBilled: false,
     notes: 'Initial consultation.',
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+    isVirtual: false,
+  },
+  {
+    appointment_id: 'AP-003',
+    patient_id: 'P-123456',
+    patient_name: 'Kwame Owusu',
+    doctor_id: 'doc2',
+    doctor_name: 'Dr. Kofi Asante',
+    appointment_date: new Date('2024-08-20T09:00:00.000Z').toISOString(),
+    end_time: new Date('2024-08-20T09:30:00.000Z').toISOString(),
+    duration: 30,
+    type: 'consultation',
+    department: 'Neurology',
+    status: 'scheduled',
+    isBilled: false,
+    notes: 'Telemedicine consultation regarding recurring migraines.',
+    isVirtual: true,
+    telemedicineLink: 'https://meet.gammed.com/session/AP-003',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
   },
@@ -1985,6 +2006,45 @@ export const mockSavedReports: SavedReport[] = [
     }
 ];
 
+export const mockMessages: Message[] = [
+    {
+        messageId: 'msg1',
+        senderId: 'doc1',
+        senderName: 'Dr. Evelyn Mensah',
+        receiverId: 'patient1',
+        messageText: 'Hello Kwame, your recent lab results are back and look good. We will discuss them at your next appointment.',
+        timestamp: new Date('2024-08-14T10:00:00Z').toISOString(),
+        isRead: true,
+    },
+    {
+        messageId: 'msg2',
+        senderId: 'patient1',
+        senderName: 'Kwame Owusu',
+        receiverId: 'doc1',
+        messageText: 'Thank you, Doctor. That is great news!',
+        timestamp: new Date('2024-08-14T11:30:00Z').toISOString(),
+        isRead: true,
+    },
+    {
+        messageId: 'msg3',
+        senderId: 'doc1',
+        senderName: 'Dr. Evelyn Mensah',
+        receiverId: 'patient1',
+        messageText: 'You are welcome. Remember to continue monitoring your blood pressure at home.',
+        timestamp: new Date('2024-08-14T11:32:00Z').toISOString(),
+        isRead: false,
+    },
+     {
+        messageId: 'msg4',
+        senderId: 'nurse1',
+        senderName: 'Florence Agyepong',
+        receiverId: 'patient1',
+        messageText: 'Hi Kwame, just a reminder to fast before your procedure tomorrow.',
+        timestamp: new Date('2024-08-15T16:00:00Z').toISOString(),
+        isRead: false,
+    }
+];
+
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
@@ -2000,5 +2060,6 @@ export type Resource = Asset;
     
 
     
+
 
 
