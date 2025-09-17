@@ -14,6 +14,127 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == Patient Portal & Telemedicine
+// =======================================================================================
+
+/**
+ * Creates and sends a secure invitation link for a patient to create their portal account.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string }
+ */
+/*
+exports.createPatientPortalAccount = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is an admin or staff member.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
+
+    const { patientId } = data;
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    if (!patientDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Patient not found.');
+    }
+    const patientData = patientDoc.data();
+    const email = patientData.contact?.email;
+    if (!email) {
+        throw new functions.https.HttpsError('failed-precondition', 'Patient does not have a registered email address.');
+    }
+
+    // 2. Generate a unique, one-time use token for the invitation.
+    const invitationToken = '...'; // Securely generated random token
+    await db.collection('portal_invitations').doc(invitationToken).set({
+        patientId: patientId,
+        expires: admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000) // 24-hour expiry
+    });
+
+    // 3. Construct the invitation link and send it.
+    const invitationLink = `https://gammed.com/portal-signup?token=${invitationToken}`;
+    // await sendEmail(email, 'Your GamMed Portal Invitation', `Click here to register: ${invitationLink}`);
+
+    console.log(`Sent portal invitation to patient ${patientId}.`);
+    return { success: true };
+});
+*/
+
+/**
+ * Sends a secure message and notifies the recipient.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { senderId: string, receiverId: string, messageText: string }
+ */
+/*
+exports.sendSecureMessage = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure the sender is the authenticated user.
+    if (!context.auth || context.auth.uid !== data.senderId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only send messages as yourself.');
+    }
+    
+    const { senderId, receiverId, messageText } = data;
+
+    // 2. Determine the correct message collection (assuming patient is always one side of the conversation)
+    const patientId = senderId.startsWith('P-') ? senderId : (receiverId.startsWith('P-') ? receiverId : null);
+    if (!patientId) throw new functions.https.HttpsError('invalid-argument', 'Invalid message participants.');
+
+    const messageRef = db.collection('patients').doc(patientId).collection('messages').doc();
+    
+    await messageRef.set({
+        messageId: messageRef.id,
+        senderId,
+        receiverId,
+        messageText,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        isRead: false
+    });
+
+    // 3. Send a push notification (FCM) to the recipient.
+    // await sendNotificationToUser(receiverId, { title: 'New Secure Message', body: `You have a new message from ${senderName}` });
+
+    console.log(`Message sent from ${senderId} to ${receiverId}.`);
+    return { success: true, messageId: messageRef.id };
+});
+*/
+
+
+/**
+ * Generates a unique meeting link for a virtual consultation.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /appointments/{appointmentId}
+ */
+/*
+exports.generateTelemedicineLink = functions.region('europe-west1').firestore
+    .document('/appointments/{appointmentId}')
+    .onCreate(async (snapshot, context) => {
+        const appointmentData = snapshot.data();
+
+        // 1. Condition: Only run if the appointment is marked as virtual.
+        if (!appointmentData.isVirtual) {
+            return null;
+        }
+
+        // 2. Integrate with a telemedicine API (e.g., Twilio Video, Zoom SDK).
+        // const meetingDetails = await telemedicineProvider.createMeeting({
+        //     topic: `Consultation for patient ${appointmentData.patientId}`,
+        //     startTime: appointmentData.startTime.toDate()
+        // });
+        const meetingDetails = { link: `https://meet.gammed.com/session/${context.params.appointmentId}` }; // Placeholder
+
+        // 3. Update the appointment document with the new link.
+        await snapshot.ref.update({
+            telemedicineLink: meetingDetails.link
+        });
+        
+        // 4. Send notifications to both patient and doctor with the meeting link.
+        // await sendNotificationToUser(appointmentData.patientId, { body: `Your meeting link is: ${meetingDetails.link}` });
+        // await sendNotificationToUser(appointmentData.doctorId, { body: `Your meeting link is: ${meetingDetails.link}` });
+
+        console.log(`Generated telemedicine link for appointment ${context.params.appointmentId}.`);
+        return null;
+    });
+*/
+
+
+// =======================================================================================
 // == Data Visualization
 // =======================================================================================
 
