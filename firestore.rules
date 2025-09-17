@@ -1,33 +1,55 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user's role
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    // Patients can only access their own data
-    match /patients/{patientId} {
-      allow read: if request.auth.uid == resource.data.userId || getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow update: if request.auth.uid == resource.data.userId; // Simplified for now
-
-      // Messages sub-collection
-      match /messages/{messageId} {
-        allow read, create: if request.auth.uid == patientId || request.auth.uid == resource.data.receiverId;
-      }
-    }
-
-    // Appointments can only be read by participants
-    match /appointments/{appointmentId} {
-        allow read: if request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId;
+    // Helper function to check user role
+    function isUserRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
     
-    // Remote patient data can be created by the patient and read by the patient or their care team
+    // Patients can only read their own data. Clinical staff can read all patient data.
+    match /patients/{patientId} {
+      allow read: if request.auth.uid == patientId || isUserRole('doctor') || isUserRole('nurse') || isUserRole('admin') || isUserRole('billing_clerk');
+      allow create: if isUserRole('admin') || isUserRole('nurse');
+      allow update: if isUserRole('admin') || isUserRole('doctor') || isUserRole('nurse');
+    }
+    
+    // Sub-collections under patients
+    match /patients/{patientId}/{subcollection}/{documentId} {
+        allow read: if request.auth.uid == patientId || isUserRole('doctor') || isUserRole('nurse') || isUserRole('admin');
+        // Create/Update rules should be more specific per subcollection if needed
+        allow write: if isUserRole('doctor') || isUserRole('nurse') || isUserRole('admin');
+    }
+
+    // Remote Patient Data Rules
     match /remote_patient_data/{dataId} {
+      allow create: if request.auth.uid == request.resource.data.patientId; // Patient can create their own data
+      allow read: if request.auth.uid == resource.data.patientId || isUserRole('doctor') || isUserRole('nurse');
+      allow write: if false; // Data should be immutable once created
+    }
+
+    // Users can read their own profile, admins can read all
+    match /users/{userId} {
+      allow get: if request.auth.uid == userId || isUserRole('admin');
+      allow list: if request.auth != null;
+      // Users can update their own non-critical info. 'availability' is protected.
+      allow update: if request.auth.uid == userId && !("availability" in request.resource.data);
+    }
+    
+    // Beds can be read by clinical staff, updated by clinical/admin staff
+    match /beds/{bedId} {
+        allow read: if isUserRole('doctor') || isUserRole('nurse') || isUserRole('admin');
+        allow write: if isUserRole('doctor') || isUserRole('nurse') || isUserRole('admin');
+    }
+    
+    // Appointments can be created by a patient for themselves.
+    // They can be read by the patient or the doctor involved.
+    match /appointments/{appointmentId} {
         allow create: if request.auth.uid == request.resource.data.patientId;
-        allow read: if request.auth.uid == resource.data.patientId || getUserRole() in ['admin', 'doctor', 'nurse'];
+        allow read: if request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId;
+        allow update, delete: if isUserRole('admin') || isUserRole('doctor');
     }
   }
 }
