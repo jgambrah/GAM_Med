@@ -40,9 +40,9 @@ export default function CustomReportBuilderPage() {
     const sourceFields = dataSources.find(ds => ds.id === selectedSource)?.fields || [];
     
     const handleRunReport = async (report?: SavedReport) => {
-        const queryDetails = report ? report.queryDetails : { selectedSource, selectedMetrics, selectedFilters, groupBy };
+        const queryDetails = report ? report.queryDetails : { collections: [selectedSource], metrics: selectedMetrics, filters: selectedFilters, groupBy };
         
-        if (!queryDetails.collections || queryDetails.collections.length === 0) {
+        if (!queryDetails.collections || queryDetails.collections.length === 0 || queryDetails.collections[0] === '') {
             toast.error('Please select a data source and at least one metric.');
             return;
         }
@@ -240,3 +240,4 @@ export default function CustomReportBuilderPage() {
         </div>
     );
 }
+
