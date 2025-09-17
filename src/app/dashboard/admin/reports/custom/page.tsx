@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -10,7 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
-import { ChevronRight, ChevronsRight, FileDown, Play } from 'lucide-react';
+import { ChevronRight, ChevronsRight, FileDown, Play, Share2 } from 'lucide-react';
+import { mockSavedReports } from '@/lib/data';
+import { SavedReport } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 const dataSources = [
     { id: 'invoices', name: 'Invoices', fields: ['status', 'patientType', 'totalAmount', 'issueDate'] },
@@ -25,6 +29,7 @@ const metricsOptions = [
 ];
 
 export default function CustomReportBuilderPage() {
+    const { user } = useAuth();
     const [selectedSource, setSelectedSource] = React.useState('');
     const [selectedMetrics, setSelectedMetrics] = React.useState<string[]>([]);
     const [selectedFilters, setSelectedFilters] = React.useState<any[]>([]);
@@ -34,8 +39,10 @@ export default function CustomReportBuilderPage() {
 
     const sourceFields = dataSources.find(ds => ds.id === selectedSource)?.fields || [];
     
-    const handleRunReport = async () => {
-        if (!selectedSource || selectedMetrics.length === 0) {
+    const handleRunReport = async (report?: SavedReport) => {
+        const queryDetails = report ? report.queryDetails : { selectedSource, selectedMetrics, selectedFilters, groupBy };
+        
+        if (!queryDetails.collections || queryDetails.collections.length === 0) {
             toast.error('Please select a data source and at least one metric.');
             return;
         }
@@ -43,13 +50,13 @@ export default function CustomReportBuilderPage() {
         setResults(null);
         
         // In a real app, this would call the generateCustomReport Cloud Function
-        console.log('Running report with:', { selectedSource, selectedMetrics, selectedFilters, groupBy });
+        console.log('Running report with:', queryDetails);
         
         await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
         
         // Mock results based on selection
         let mockResults = [];
-        if (selectedSource === 'admissions' && groupBy === 'ward') {
+        if (queryDetails.collections[0] === 'admissions' && queryDetails.groupBy === 'ward') {
             mockResults = [
                 { ward: 'Cardiology', count: 50 },
                 { ward: 'General Ward', count: 120 },
@@ -70,6 +77,9 @@ export default function CustomReportBuilderPage() {
         // In a real app, this would call the saveReportTemplate Cloud Function
         toast.success('Report template has been saved to your personal dashboard.');
     };
+
+    const userReports = mockSavedReports.filter(r => r.userId === user?.uid);
+
 
     return (
         <div className="space-y-6">
@@ -155,7 +165,7 @@ export default function CustomReportBuilderPage() {
                                         <FileDown className="h-4 w-4 mr-2" />
                                         Save Report Template
                                     </Button>
-                                    <Button onClick={handleRunReport} disabled={isLoading}>
+                                    <Button onClick={() => handleRunReport()} disabled={isLoading}>
                                         <Play className="h-4 w-4 mr-2" />
                                         {isLoading ? 'Running...' : 'Run Report'}
                                     </Button>
@@ -191,6 +201,42 @@ export default function CustomReportBuilderPage() {
                     </Card>
                 </div>
             </div>
+
+             <Card>
+                <CardHeader>
+                    <CardTitle>Saved Reports Library</CardTitle>
+                    <CardDescription>Re-run your frequently used custom reports with a single click.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Report Name</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead>Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {userReports.map(report => (
+                                    <TableRow key={report.reportId}>
+                                        <TableCell className="font-medium">{report.reportName}</TableCell>
+                                        <TableCell className="text-muted-foreground">{report.description}</TableCell>
+                                        <TableCell className="space-x-2">
+                                            <Button size="sm" onClick={() => handleRunReport(report)}>
+                                                <Play className="h-4 w-4 mr-2" /> Run
+                                            </Button>
+                                            <Button size="sm" variant="outline" disabled>
+                                                <Share2 className="h-4 w-4 mr-2" /> Share
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

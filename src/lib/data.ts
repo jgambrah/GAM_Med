@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1955,6 +1955,33 @@ export const mockHousekeepingTasks: HousekeepingTask[] = [
         status: 'Pending',
         dateCreated: new Date('2024-08-16T10:00:00Z').toISOString(),
         notes: 'Surgical waste requires pickup.'
+    }
+];
+
+export const mockSavedReports: SavedReport[] = [
+    {
+        reportId: 'rep-1',
+        userId: 'admin1',
+        reportName: 'Monthly Admission Counts by Ward',
+        description: 'Shows the total number of patient admissions for each ward over the last 30 days.',
+        queryDetails: {
+            collections: ['admissions'],
+            filters: { 'dateRange': 'Last 30 Days' },
+            metrics: ['count'],
+            groupBy: 'ward'
+        }
+    },
+    {
+        reportId: 'rep-2',
+        userId: 'admin1',
+        reportName: 'Revenue by Patient Type (YTD)',
+        description: 'Total revenue generated, grouped by patient pricing tier (private, corporate, public) for the year to date.',
+        queryDetails: {
+            collections: ['invoices'],
+            filters: { 'dateRange': 'Year to Date' },
+            metrics: ['sum:totalAmount'],
+            groupBy: 'patientType'
+        }
     }
 ];
 
