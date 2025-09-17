@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -37,15 +36,13 @@ import {
     Apple,
     Briefcase,
     Receipt,
-    CalendarOff,
-    Wrench,
-    Trash2
+    CalendarOff
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'housekeeping'];
-const staffRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'housekeeping'];
+const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
+const staffRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
 
 
 export function MainNavClient() {
@@ -174,12 +171,6 @@ export function MainNavClient() {
         icon: Apple,
         roles: ['admin', 'dietitian', 'nurse', 'doctor'],
     },
-     {
-        href: '/dashboard/housekeeping',
-        label: 'Housekeeping',
-        icon: Trash2,
-        roles: ['admin', 'housekeeping'],
-    },
     {
       href: '/dashboard/pharmacy',
       label: 'Pharmacy',
@@ -197,18 +188,6 @@ export function MainNavClient() {
         label: 'Controlled Substances',
         icon: ShieldCheck,
         roles: ['admin', 'pharmacist'],
-    },
-    {
-      href: '/dashboard/facilities/maintenance',
-      label: 'Maintenance',
-      icon: Wrench,
-      roles: ['admin'], // Later to include 'maintenance_manager', 'technician'
-    },
-     {
-      href: '/dashboard/facilities/report-issue',
-      label: 'Report an Issue',
-      icon: Wrench,
-      roles: staffRoles,
     },
     {
         href: '/dashboard/payroll',
@@ -244,7 +223,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/housekeeping', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/facilities/maintenance', '/dashboard/facilities/report-issue', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
@@ -268,6 +247,3 @@ export function MainNavClient() {
     </SidebarMenu>
   );
 }
-
-
-    
