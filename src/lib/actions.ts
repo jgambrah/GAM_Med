@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -385,6 +384,21 @@ export async function bookAppointment(values: z.infer<typeof NewAppointmentSchem
   revalidatePath('/dashboard/my-practice');
 
   return { success: true, message: 'Appointment booked successfully.' };
+}
+
+export async function cancelAppointment(appointmentId: string) {
+  console.log(`Canceling appointment ${appointmentId}`);
+
+  // In a real app, this server action would call the `cancelAppointment` Cloud Function.
+  // That function would atomically update the appointment status and free up the doctor's time slot.
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  // Revalidate paths to reflect the change in the UI.
+  revalidatePath('/dashboard/appointments');
+  revalidatePath('/dashboard/my-practice');
+
+  return { success: true, message: 'Appointment canceled successfully.' };
 }
 
 export async function submitLeaveRequest(values: z.infer<typeof LeaveRequestSchema>) {

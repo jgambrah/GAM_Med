@@ -24,6 +24,8 @@ import { Appointment } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { toast } from '@/hooks/use-toast';
+import { cancelAppointment } from '@/lib/actions';
 
 interface AppointmentsDataTableProps {
   data: Appointment[];
@@ -42,9 +44,18 @@ const getStatusVariant = (status: Appointment['status']): "default" | "secondary
 export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
     const { user } = useAuth();
 
-    const handleCancel = (appointmentId: string) => {
-        // In a real app, this would call a server action `cancelAppointment(appointmentId)`
-        alert(`Simulating cancellation for appointment ${appointmentId}. Remember to check the waiting list to fill this new opening!`);
+    const handleCancel = async (appointmentId: string) => {
+        const result = await cancelAppointment(appointmentId);
+        if (result.success) {
+            toast.success("Appointment Canceled", {
+                description: "The appointment has been canceled and the time slot has been opened."
+            });
+            // In a real app, this would trigger a re-fetch of the data.
+        } else {
+            toast.error("Cancellation Failed", {
+                description: result.message
+            });
+        }
     }
 
   return (

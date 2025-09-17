@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { Appointment } from '@/lib/types';
-import { format, startOfWeek, addDays, isSameDay, isToday, differenceInMinutes } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, isToday, differenceInMinutes, isFuture } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Video } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { cancelAppointment } from '@/lib/actions';
 
 interface AppointmentDetailDialogProps { 
   appointment: Appointment, 
@@ -44,11 +45,22 @@ function AppointmentDetailDialog({ appointment, trigger }: AppointmentDetailDial
     window.open(link, '_blank');
   }
 
-  const handleCancel = (appointmentId: string) => {
-    alert(`Simulating cancellation for appointment ${appointmentId}.`);
+  const handleCancel = async (appointmentId: string) => {
+    const result = await cancelAppointment(appointmentId);
+    if (result.success) {
+        toast.success("Appointment Canceled", {
+            description: "Your appointment has been successfully canceled."
+        });
+        // In a real app, this would trigger a re-fetch of data.
+    } else {
+        toast.error("Cancellation Failed", {
+            description: result.message
+        });
+    }
   };
   
   const canJoinCall = differenceInMinutes(new Date(appointment.appointment_date), now) <= 15;
+  const canCancel = isFuture(new Date(appointment.appointment_date)) && (appointment.status === 'scheduled' || appointment.status === 'confirmed');
   
   return (
     <Dialog>
@@ -69,10 +81,10 @@ function AppointmentDetailDialog({ appointment, trigger }: AppointmentDetailDial
           <p><strong>Notes:</strong> {appointment.notes || 'N/A'}</p>
         </div>
          <DialogFooter className="sm:justify-between">
-          <Button variant="destructive" onClick={() => handleCancel(appointment.appointment_id)} disabled={appointment.status !== 'scheduled'}>
+          <Button variant="destructive" onClick={() => handleCancel(appointment.appointment_id)} disabled={!canCancel}>
             Cancel Appointment
           </Button>
-          {appointment.isVirtual && (
+          {appointment.isVirtual ? (
             canJoinCall ? (
               <Button onClick={() => handleJoinCall(appointment.telemedicineLink!)}>
                 <Video className="mr-2 h-4 w-4" /> Join Virtual Call
@@ -82,6 +94,8 @@ function AppointmentDetailDialog({ appointment, trigger }: AppointmentDetailDial
                  <Video className="mr-2 h-4 w-4" /> Joinable 15 mins before start
               </Button>
             )
+          ) : (
+              <Button disabled>In-Person Visit</Button>
           )}
         </DialogFooter>
       </DialogContent>
