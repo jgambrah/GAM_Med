@@ -60,7 +60,7 @@ exports.createPatientPortalAccount = functions.region('europe-west1').https.onCa
  * Sends a secure message and notifies the recipient.
  *
  * @trigger_type Callable Function (https)
- * @input { patientId: string, doctorId: string, messageText: string }
+ * @input { patientId: string, doctorId: string, messageBody: string }
  */
 /*
 exports.sendSecureMessage = functions.region('europe-west1').https.onCall(async (data, context) => {
@@ -69,7 +69,7 @@ exports.sendSecureMessage = functions.region('europe-west1').https.onCall(async 
         throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to send messages.');
     }
     
-    const { patientId, doctorId, messageText } = data;
+    const { patientId, doctorId, messageBody } = data;
     const senderId = context.auth.uid;
     const receiverId = senderId === patientId ? doctorId : patientId; // Determine the recipient
 
@@ -79,7 +79,7 @@ exports.sendSecureMessage = functions.region('europe-west1').https.onCall(async 
         messageId: messageRef.id,
         senderId,
         receiverId,
-        messageBody: messageText,
+        messageBody: messageBody,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         isRead: false
     });
@@ -163,39 +163,97 @@ exports.processOnlinePayment = functions.region('europe-west1').https.onCall(asy
 /**
  * Generates a unique meeting link for a virtual consultation.
  *
- * @trigger_type Firestore Trigger (onCreate)
- * @document /appointments/{appointmentId}
+ * @trigger_type Callable Function (https)
+ * @input { appointmentId: string }
  */
 /*
-exports.generateTelemedicineLink = functions.region('europe-west1').firestore
-    .document('/appointments/{appointmentId}')
-    .onCreate(async (snapshot, context) => {
-        const appointmentData = snapshot.data();
+exports.generateTelemedicineLink = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Ensure user is authorized to create meeting links.
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    // Add role check...
 
-        // 1. Condition: Only run if the appointment is marked as virtual.
-        if (!appointmentData.isVirtual) {
-            return null;
-        }
+    const { appointmentId } = data;
+    const appointmentRef = db.collection('appointments').doc(appointmentId);
 
-        // 2. Integrate with a telemedicine API (e.g., Twilio Video, Zoom SDK).
-        // const meetingDetails = await telemedicineProvider.createMeeting({
-        //     topic: `Consultation for patient ${appointmentData.patientId}`,
-        //     startTime: appointmentData.startTime.toDate()
-        // });
-        const meetingDetails = { link: `https://meet.gammed.com/session/${context.params.appointmentId}` }; // Placeholder
+    // 2. Integrate with a telemedicine API (e.g., Twilio Video, Zoom SDK).
+    // const meetingDetails = await telemedicineProvider.createMeeting({
+    //     topic: `Consultation for appointment ${appointmentId}`,
+    //     startTime: appointmentData.startTime.toDate()
+    // });
+    const meetingDetails = { link: `https://meet.gammed.com/session/${appointmentId}`, password: 'secure_password' }; // Placeholder
 
-        // 3. Update the appointment document with the new link.
-        await snapshot.ref.update({
-            telemedicineLink: meetingDetails.link
-        });
-        
-        // 4. Send notifications to both patient and doctor with the meeting link.
-        // await sendNotificationToUser(appointmentData.patientId, { body: `Your meeting link is: ${meetingDetails.link}` });
-        // await sendNotificationToUser(appointmentData.doctorId, { body: `Your meeting link is: ${meetingDetails.link}` });
-
-        console.log(`Generated telemedicine link for appointment ${context.params.appointmentId}.`);
-        return null;
+    // 3. Update the appointment document with the new link.
+    await appointmentRef.update({
+        telemedicineLink: meetingDetails.link,
     });
+    
+    // 4. Send notifications to both patient and doctor with the meeting link.
+    const appointmentData = (await appointmentRef.get()).data();
+    // await sendNotificationToUser(appointmentData.patientId, { body: `Your meeting link is: ${meetingDetails.link}` });
+    // await sendNotificationToUser(appointmentData.doctorId, { body: `Your meeting link is: ${meetingDetails.link}` });
+
+    console.log(`Generated telemedicine link for appointment ${appointmentId}.`);
+    return { success: true, link: meetingDetails.link };
+});
+*/
+
+/**
+ * Processes incoming data from a remote monitoring device.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { patientId: string, dataType: string, value: number | object }
+ */
+/*
+exports.processRemoteData = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check: Can be authenticated via a device-specific API key or patient's auth token.
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'A valid authentication method is required.');
+    }
+
+    const { patientId, dataType, value } = data;
+    if (!patientId || !dataType || value === undefined) {
+        throw new functions.https.HttpsError('invalid-argument', 'Patient ID, data type, and value are required.');
+    }
+
+    // 2. Create a new document in the remote_patient_data collection.
+    const newDataRef = db.collection('remote_patient_data').doc();
+    await newDataRef.set({
+        dataId: newDataRef.id,
+        patientId: patientId,
+        dataType: dataType,
+        value: value,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // 3. Check for abnormal values (CDS Engine logic)
+    // This is a simplified example. In a real system, these rules would be stored in a 'clinical_rules' collection.
+    let alertMessage = null;
+    if (dataType === 'Blood Pressure' && (value.systolic > 180 || value.diastolic > 110)) {
+        alertMessage = `Critically high remote blood pressure reading: ${value.systolic}/${value.diastolic} mmHg.`;
+    } else if (dataType === 'Heart Rate' && value > 120) {
+        alertMessage = `High remote heart rate detected: ${value} bpm.`;
+    }
+    
+    // 4. If an abnormality is detected, create a high-priority alert.
+    if (alertMessage) {
+        const newAlertRef = db.collection('patients').doc(patientId).collection('alerts').doc();
+        await newAlertRef.set({
+            alertId: newAlertRef.id,
+            patientId: patientId,
+            severity: 'Critical',
+            alert_message: alertMessage,
+            source: 'Remote Monitoring',
+            triggeredAt: admin.firestore.FieldValue.serverTimestamp(),
+            isAcknowledged: false
+        });
+        // Send a high-priority notification to the care team.
+        // await sendNotificationToCareTeam(patientId, { title: 'Critical Remote Patient Alert', body: alertMessage });
+        console.log(`High-priority alert created for patient ${patientId}.`);
+    }
+
+    console.log(`Processed remote ${dataType} data for patient ${patientId}.`);
+    return { success: true };
+});
 */
 
 
