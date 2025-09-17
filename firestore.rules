@@ -3,74 +3,59 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get the user's role from the 'users' collection
+
+    // Helper function to get user's role from the 'users' collection
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Rules for the main 'patients' collection
-    match /patients/{patientId} {
-      // Patients can read their own data.
-      // Admins, doctors, and nurses can read any patient's data.
-      allow read: if request.auth.uid == resource.data.uid || getUserRole() in ['admin', 'doctor', 'nurse'];
-
-      // Patients can update their own non-critical data (e.g., contact info).
-      // Clinical/admin staff can update all fields.
-      // Note: More granular field-level security would be enforced in Cloud Functions.
-      allow update: if request.auth.uid == resource.data.uid || getUserRole() in ['admin', 'doctor', 'nurse'];
-      
-      // Only admins/nurses can create new patients.
-      allow create: if getUserRole() in ['admin', 'nurse'];
-
-      // Patients should not be able to delete their own records.
-      allow delete: if getUserRole() == 'admin';
-      
-      // Rules for the 'messages' sub-collection
-      match /messages/{messageId} {
-          // A patient can read/write messages in their own sub-collection.
-          // A doctor can also read/write messages to any patient.
-          allow read, create: if request.auth.uid == patientId || getUserRole() == 'doctor';
-      }
-
-      // Add rules for other patient sub-collections as needed...
-      match /{allPaths=**} {
-        allow read, write: if getUserRole() in ['admin', 'doctor'];
-      }
-    }
-
-    // Rules for user roles and profiles
+    // Rule for the main 'users' collection
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
+      allow read: if request.auth.uid == userId || getUserRole() in ['admin'];
+      allow update: if request.auth.uid == userId; // Allow users to update their own profile
     }
 
-    // Rules for aggregated reporting data
-    match /kpi_metrics/{docId} {
-      allow read: if getUserRole() == 'admin';
-      allow write: if false; // Only backend functions can write
-    }
-    match /bi_reports/{docId} {
-      allow read: if getUserRole() == 'admin';
-      allow write: if false;
-    }
-    match /clinical_reports/{docId} {
-      allow read: if getUserRole() in ['admin', 'doctor'];
-      allow write: if false;
+    // Patients can only read their own data.
+    // Clinical and admin staff can read any patient data.
+    match /patients/{patientId} {
+      // Patients can read their own document by matching the patientId in their user profile
+      allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId || getUserRole() in ['admin', 'doctor', 'nurse'];
+      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId;
     }
     
-    // Rules for saved ad-hoc reports
-    match /saved_reports/{reportId} {
-        // Users can manage their own reports.
-        allow read, create, update, delete: if request.auth.uid == resource.data.userId;
-        
-        // Admins can read any report. (Future: Add sharing logic here)
-        allow read: if getUserRole() == 'admin';
+    // Messages can only be read/written by the patient or their doctor.
+    match /patients/{patientId}/messages/{messageId} {
+      allow read, create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.patient_id == patientId || getUserRole() in ['doctor', 'nurse'];
     }
 
-    // Fallback rule: Deny all other access by default
-    match /{document=**} {
-      allow read, write: if false;
+    // Shared collections that require patient-specific access control
+    match /appointments/{appointmentId} {
+      allow read: if request.auth.token.patient_id == resource.data.patient_id || getUserRole() in ['admin', 'doctor', 'nurse', 'receptionist'];
+    }
+
+    match /lab_results/{resultId} {
+        allow read: if request.auth.token.patient_id == resource.data.patientId || getUserRole() in ['admin', 'doctor', 'lab_technician'];
+    }
+
+    match /invoices/{invoiceId} {
+        allow read: if request.auth.token.patient_id == resource.data.patientId || getUserRole() in ['admin', 'billing_clerk'];
+    }
+    
+    match /prescriptions/{prescriptionId} {
+       allow read: if request.auth.token.patient_id == resource.data.patientId || getUserRole() in ['admin', 'doctor', 'pharmacist'];
+    }
+
+    // Rules for aggregated data collections
+    match /kpi_metrics/{docId} {
+      allow read: if getUserRole() in ['admin'];
+    }
+
+    match /bi_reports/{docId} {
+      allow read: if getUserRole() in ['admin'];
+    }
+    
+    match /clinical_reports/{docId} {
+        allow read: if getUserRole() in ['admin', 'doctor'];
     }
   }
 }
