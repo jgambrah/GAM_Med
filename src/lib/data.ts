@@ -392,6 +392,25 @@ export const allAppointments: Appointment[] = [
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
   },
+  {
+    appointment_id: 'AP-004-VIRTUAL',
+    patient_id: 'P-123456',
+    patient_name: 'Kwame Owusu',
+    doctor_id: 'doc1',
+    doctor_name: 'Dr. Evelyn Mensah',
+    appointment_date: new Date(now.getTime() + 20 * 60 * 1000).toISOString(), // 20 mins from now
+    end_time: new Date(now.getTime() + 50 * 60 * 1000).toISOString(),
+    duration: 30,
+    type: 'consultation',
+    department: 'Cardiology',
+    status: 'scheduled',
+    isBilled: false,
+    notes: 'Follow-up virtual check-in.',
+    isVirtual: true,
+    telemedicineLink: 'https://meet.gammed.com/session/AP-004-VIRTUAL',
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  }
 ];
 
 
@@ -2107,6 +2126,7 @@ export type Resource = Asset;
     
 
     
+
 
 
 

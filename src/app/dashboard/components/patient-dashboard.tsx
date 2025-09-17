@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { mockWaitingList, allAppointments, mockMedicationRecords, mockLabResults, mockInvoices, mockMessages } from '@/lib/data';
 import { WaitingListEntry, Appointment, MedicationRecord, LabResult, Invoice, Message } from '@/lib/types';
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { format, formatDistanceToNowStrict, differenceInMinutes } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -85,13 +85,27 @@ function MyWaitingListStatus() {
 
 function UpcomingAppointments() {
     const { user } = useAuth();
+    const [now, setNow] = React.useState(new Date());
+
+    React.useEffect(() => {
+        const timer = setInterval(() => {
+            setNow(new Date());
+        }, 60000); // Update every minute
+        return () => clearInterval(timer);
+    }, []);
+
     const upcomingAppointments = allAppointments.filter(
-        appt => appt.patient_id === user?.patient_id && new Date(appt.appointment_date) >= new Date()
+        appt => appt.patient_id === user?.patient_id && new Date(appt.appointment_date) >= now
     ).sort((a,b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
 
     const handleJoinCall = (link: string) => {
         toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
         window.open(link, '_blank');
+    }
+    
+    const canJoinCall = (appointmentDate: string) => {
+        const diff = differenceInMinutes(new Date(appointmentDate), now);
+        return diff <= 15 && diff >= -60; // Can join 15 mins before up to 60 mins after start
     }
 
     return (
@@ -111,9 +125,15 @@ function UpcomingAppointments() {
                                 <p className="text-sm text-muted-foreground">{appt.doctor_name} - {appt.department}</p>
                             </div>
                             {appt.isVirtual ? (
-                                <Button size="sm" onClick={() => handleJoinCall(appt.telemedicineLink || '#')}>
-                                    <Video className="mr-2 h-4 w-4" /> Join Call
-                                </Button>
+                                canJoinCall(appt.appointment_date) ? (
+                                    <Button size="sm" onClick={() => handleJoinCall(appt.telemedicineLink || '#')}>
+                                        <Video className="mr-2 h-4 w-4" /> Join Call
+                                    </Button>
+                                ) : (
+                                    <div className="text-xs text-center text-muted-foreground">
+                                        <p>Join call 15 mins before start</p>
+                                    </div>
+                                )
                             ) : (
                                 <Badge variant="outline">In-Person</Badge>
                             )}
@@ -146,10 +166,10 @@ function RecentActivity() {
         .slice(0, 1);
 
     const activities = [
-        ...recentResults.map(r => ({ type: 'Lab Result', data: r })),
-        ...unreadMessages.map(m => ({ type: 'Message', data: m })),
-        ...outstandingBills.map(b => ({ type: 'Billing', data: b })),
-    ].sort((a,b) => new Date(b.data.completedAt || b.data.timestamp || b.data.dueDate).getTime() - new Date(a.data.completedAt || a.data.timestamp || a.data.dueDate).getTime());
+        ...recentResults.map(r => ({ type: 'Lab Result', data: r, date: r.completedAt })),
+        ...unreadMessages.map(m => ({ type: 'Message', data: m, date: m.timestamp })),
+        ...outstandingBills.map(b => ({ type: 'Billing', data: b, date: b.dueDate })),
+    ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 
     const renderActivity = (activity: any) => {

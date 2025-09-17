@@ -1,8 +1,9 @@
+
 'use client';
 
 import * as React from 'react';
 import { Appointment } from '@/lib/types';
-import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, isToday, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -17,17 +18,27 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Video } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
-interface AppointmentCalendarProps {
-  appointments: Appointment[];
+interface AppointmentDetailDialogProps { 
+  appointment: Appointment, 
+  trigger: React.ReactNode 
 }
 
-function AppointmentDetailDialog({ appointment, trigger }: { appointment: Appointment, trigger: React.ReactNode }) {
+function AppointmentDetailDialog({ appointment, trigger }: AppointmentDetailDialogProps) {
+  const [now, setNow] = React.useState(new Date());
+
+  React.useEffect(() => {
+      const timer = setInterval(() => {
+          setNow(new Date());
+      }, 60000);
+      return () => clearInterval(timer);
+  }, []);
+
   const handleJoinCall = (link: string) => {
     toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
     window.open(link, '_blank');
@@ -36,6 +47,8 @@ function AppointmentDetailDialog({ appointment, trigger }: { appointment: Appoin
   const handleCancel = (appointmentId: string) => {
     alert(`Simulating cancellation for appointment ${appointmentId}.`);
   };
+  
+  const canJoinCall = differenceInMinutes(new Date(appointment.appointment_date), now) <= 15;
   
   return (
     <Dialog>
@@ -60,9 +73,15 @@ function AppointmentDetailDialog({ appointment, trigger }: { appointment: Appoin
             Cancel Appointment
           </Button>
           {appointment.isVirtual && (
-            <Button onClick={() => handleJoinCall(appointment.telemedicineLink!)}>
-              <Video className="mr-2 h-4 w-4" /> Join Virtual Call
-            </Button>
+            canJoinCall ? (
+              <Button onClick={() => handleJoinCall(appointment.telemedicineLink!)}>
+                <Video className="mr-2 h-4 w-4" /> Join Virtual Call
+              </Button>
+            ) : (
+               <Button variant="outline" disabled>
+                 <Video className="mr-2 h-4 w-4" /> Joinable 15 mins before start
+              </Button>
+            )
           )}
         </DialogFooter>
       </DialogContent>
@@ -70,7 +89,7 @@ function AppointmentDetailDialog({ appointment, trigger }: { appointment: Appoin
   )
 }
 
-export function PatientAppointmentCalendar({ appointments }: AppointmentCalendarProps) {
+export function PatientAppointmentCalendar({ appointments }: { appointments: Appointment[] }) {
   const weekStartsOn = 1; // Monday
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn });
