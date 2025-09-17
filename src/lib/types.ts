@@ -849,7 +849,7 @@ export interface User {
   userId?: string;
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping';
+  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'triage_officer' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager';
   is_active: boolean;
   department?: string;
   specialty?: string;
@@ -1367,7 +1367,7 @@ export interface WaitingListEntry {
 export interface OTSession {
   sessionId: string;
   patientId: string;
-  otRoomId: string; // Reference to resources
+  otRoomId: string;
   procedureName: string;
   patientName: string;
   leadSurgeonName: string;

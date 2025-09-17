@@ -131,7 +131,16 @@ export const allUsers: User[] = [
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
-  }
+  },
+    {
+    uid: 'space_manager1',
+    email: 's.manager@gammed.com',
+    name: 'Space Manager',
+    role: 'space_manager',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
 ];
 
 // Mock Patient Data
@@ -921,6 +930,24 @@ export const mockResources: Asset[] = [
         nextServiceDate: '2024-09-01T00:00:00Z',
     }]
   },
+   {
+    assetId: 'OT-1',
+    name: 'Operating Theatre 1',
+    type: 'Room',
+    department: 'Surgery',
+    location: 'Surgical Wing, 3rd Floor',
+    status: 'Operational',
+    isBookable: true,
+  },
+  {
+    assetId: 'OT-2',
+    name: 'Operating Theatre 2',
+    type: 'Room',
+    department: 'Surgery',
+    location: 'Surgical Wing, 3rd Floor',
+    status: 'Operational',
+    isBookable: true,
+  },
 ];
 
 export const mockDepreciationRecords: DepreciationRecord[] = [
@@ -965,6 +992,26 @@ export const mockResourceBookings: ResourceBooking[] = [
         status: 'Confirmed',
         reason: 'Biopsy sample collection',
         relatedAppointmentId: 'AP-ABC'
+    },
+     {
+        bookingId: 'booking-ot-1',
+        resourceId: 'OT-1',
+        bookedByUserId: 'doc1',
+        startTime: '2024-08-16T09:00:00Z',
+        endTime: '2024-08-16T11:00:00Z',
+        status: 'Confirmed',
+        reason: 'Appendectomy',
+        relatedAppointmentId: 'AP-SURG-1'
+    },
+    {
+        bookingId: 'booking-ot-2',
+        resourceId: 'OT-1',
+        bookedByUserId: 'doc2',
+        startTime: '2024-08-16T12:00:00Z',
+        endTime: '2024-08-16T14:30:00Z',
+        status: 'Confirmed',
+        reason: 'Hernia Repair',
+        relatedAppointmentId: 'AP-SURG-2'
     }
 ];
 
@@ -2060,6 +2107,7 @@ export type Resource = Asset;
     
 
     
+
 
 
 
