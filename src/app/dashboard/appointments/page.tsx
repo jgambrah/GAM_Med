@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { PatientAppointmentCalendar } from './components/patient-appointment-calendar';
 
 const mockDepartments = [
     { value: 'all', label: 'All Departments' },
@@ -72,7 +73,7 @@ export default function AppointmentsPage() {
             }
           </p>
         </div>
-        <NewAppointmentDialog />
+        {user?.role !== 'patient' && <NewAppointmentDialog />}
       </div>
       <Card>
         <CardHeader>
@@ -83,7 +84,7 @@ export default function AppointmentsPage() {
                 </CardTitle>
                 <CardDescription>
                     {user?.role === 'patient' 
-                        ? "A list of your upcoming and past appointments."
+                        ? "A calendar view of your upcoming and past appointments."
                         : "A comprehensive list of all scheduled appointments."
                     }
                 </CardDescription>
@@ -118,7 +119,11 @@ export default function AppointmentsPage() {
           </div>
         </CardHeader>
         <CardContent>
-            <AppointmentsDataTable data={appointments} />
+            {user?.role === 'patient' ? (
+              <PatientAppointmentCalendar appointments={appointments} />
+            ) : (
+              <AppointmentsDataTable data={appointments} />
+            )}
         </CardContent>
       </Card>
     </div>
