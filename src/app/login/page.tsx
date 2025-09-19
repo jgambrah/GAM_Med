@@ -42,7 +42,7 @@ export default function LoginPage() {
     const handleMfaSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         // In a real app, you'd verify the MFA code here.
-        console.log(`Verifying MFA code: ${mfaCode}`);
+        console.log(`Verifying MFA code...`);
         
         // After successful verification, redirect to the dashboard.
         router.push('/dashboard');
