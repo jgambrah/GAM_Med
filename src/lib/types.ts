@@ -34,7 +34,7 @@ export interface AuditLog {
   logId: string;
   timestamp: string; // ISO Timestamp
   userId: string; // UID of the user who performed the action
-  action: string; // e.g., 'VIEWED_PATIENT_RECORD', 'UPDATED_INVOICE'
+  action: string; // e.g., 'ACCESSED_PATIENT_RECORD', 'UPDATED_INVOICE'
   details: {
     targetCollection: string;
     targetDocId: string;
@@ -1617,5 +1617,3 @@ export interface Message {
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }
-    
-```

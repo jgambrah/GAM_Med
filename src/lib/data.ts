@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -2156,6 +2156,29 @@ export const mockHealthContent: HealthContent[] = [
     },
 ];
 
+export const mockAuditLogs: AuditLog[] = [
+  {
+    logId: 'audit-1',
+    timestamp: new Date('2024-08-16T10:10:00Z').toISOString(),
+    userId: 'doc1',
+    action: 'ACCESSED_PATIENT_EHR',
+    details: { targetCollection: 'patients', targetDocId: 'P-123456' },
+  },
+  {
+    logId: 'audit-2',
+    timestamp: new Date('2024-08-16T10:05:00Z').toISOString(),
+    userId: 'admin1',
+    action: 'UPDATE_USER_ROLE',
+    details: { targetCollection: 'users', targetDocId: 'nurse1', changes: { role: 'senior_nurse' } },
+  },
+  {
+    logId: 'audit-3',
+    timestamp: new Date('2024-08-16T09:55:00Z').toISOString(),
+    userId: 'billing1',
+    action: 'CREATE_INVOICE',
+    details: { targetCollection: 'invoices', targetDocId: 'INV-004' },
+  },
+];
 
 
 // Deprecated type, use PurchaseOrder instead

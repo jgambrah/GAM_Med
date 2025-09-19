@@ -21,6 +21,7 @@ import { FinancialReportsDashboard } from './components/financial-reports-dashbo
 import { RadiologyDashboard } from './components/radiology-dashboard';
 import { UserManagementDashboard } from './components/user-management-dashboard';
 import { SecurityDashboard } from './components/security-dashboard';
+import { AuditLogDashboard } from './components/audit-log-dashboard';
 
 export default function AdminPage() {
   return (
@@ -48,6 +49,7 @@ export default function AdminPage() {
            <TabsTrigger value="adhoc-reports">Ad-hoc Reports</TabsTrigger>
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
+          <TabsTrigger value="audit-log">Audit Log</TabsTrigger>
            <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="health-content">Health Library</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
@@ -161,6 +163,9 @@ export default function AdminPage() {
         </TabsContent>
          <TabsContent value="user-management" className="mt-4">
             <UserManagementDashboard />
+        </TabsContent>
+         <TabsContent value="audit-log" className="mt-4">
+            <AuditLogDashboard />
         </TabsContent>
          <TabsContent value="credentials" className="mt-4">
             <Card>

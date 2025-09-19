@@ -58,6 +58,7 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
       firstName: '',
       lastName: '',
       email: '',
+      role: 'nurse',
       department: '',
     },
   });
@@ -66,7 +67,6 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
     // In a real app, this would call the onboardNewEmployee Cloud Function
     const newUser: User = {
         uid: `new-${Date.now()}`,
-        userId: `new-${Date.now()}`,
         ...values,
         name: `${values.firstName} ${values.lastName}`,
         is_active: true,
@@ -147,6 +147,8 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
                                     <SelectItem value="doctor">Doctor</SelectItem>
                                     <SelectItem value="nurse">Nurse</SelectItem>
                                     <SelectItem value="pharmacist">Pharmacist</SelectItem>
+                                    <SelectItem value="lab_technician">Lab Technician</SelectItem>
+                                    <SelectItem value="receptionist">Receptionist</SelectItem>
                                     <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -167,6 +169,8 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
                                     <SelectItem value="Neurology">Neurology</SelectItem>
                                     <SelectItem value="Pharmacy">Pharmacy</SelectItem>
                                     <SelectItem value="Administration">Administration</SelectItem>
+                                     <SelectItem value="Nursing">Nursing</SelectItem>
+                                      <SelectItem value="Laboratory">Laboratory</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormMessage />

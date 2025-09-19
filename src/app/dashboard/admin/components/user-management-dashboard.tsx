@@ -29,17 +29,25 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddUserDialog } from '../../hr/components/add-user-dialog';
 
 export function UserManagementDashboard() {
   const [users, setUsers] = React.useState<User[]>(allUsers);
 
+  const handleUserCreated = (newUser: User) => {
+    setUsers(prev => [newUser, ...prev]);
+  };
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>User Management</CardTitle>
-        <CardDescription>
-          A list of all users in the system and their assigned roles.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>User Management</CardTitle>
+          <CardDescription>
+            A list of all users in the system and their assigned roles.
+          </CardDescription>
+        </div>
+        <AddUserDialog onUserCreated={handleUserCreated} />
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -74,8 +82,10 @@ export function UserManagementDashboard() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem disabled>Change Role</DropdownMenuItem>
-                        <DropdownMenuItem disabled>Deactivate User</DropdownMenuItem>
+                        <DropdownMenuItem>Change Role</DropdownMenuItem>
+                        <DropdownMenuItem>
+                          {user.is_active ? 'Deactivate User' : 'Activate User'}
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
