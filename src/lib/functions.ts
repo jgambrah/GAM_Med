@@ -220,6 +220,82 @@ exports.enforceSecurityPolicy = functions.region('europe-west1').https.onCall(as
 });
 */
 
+// =======================================================================================
+// == AUDIT TRAIL & LOGGING
+// =======================================================================================
+
+/**
+ * A generic, database-wide trigger to log all user actions for auditing purposes.
+ *
+ * @trigger_type Firestore Trigger (onWrite)
+ * @document /{collectionId}/{documentId}
+ */
+/*
+exports.logUserAction = functions.region('europe-west1').firestore
+    .document('/{collectionId}/{documentId}')
+    .onWrite(async (change, context) => {
+        const { collectionId, documentId } = context.params;
+        const eventType = context.eventType;
+        const userId = context.auth?.uid;
+
+        // 1. Do not log actions performed by other functions, unauthenticated users, or the creation of new audit logs.
+        if (!userId || collectionId === 'audit_logs') {
+            return null;
+        }
+
+        let action = 'UNKNOWN';
+        if (eventType.includes('create')) action = 'CREATE';
+        if (eventType.includes('update')) action = 'UPDATE';
+        if (eventType.includes('delete')) action = 'DELETE';
+
+        // 2. Create the audit log entry.
+        const logData = {
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            userId: userId,
+            action: `${action}_${collectionId.toUpperCase()}`,
+            details: {
+                targetCollection: collectionId,
+                targetDocId: documentId,
+                changes: eventType.includes('update') ? { before: change.before.data(), after: change.after.data() } : null
+            }
+        };
+
+        await db.collection('audit_logs').add(logData);
+        return null;
+    });
+*/
+
+/**
+ * Logs successful user sign-ins.
+ * Note: A direct `onSignIn` trigger for Firestore doesn't exist. This logic is conceptual and
+ * would typically be implemented by having the client call this function after a successful login.
+ *
+ * @trigger_type Callable Function (https)
+ */
+/*
+exports.logLogin = functions.region('europe-west1').https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    
+    await db.collection('audit_logs').add({
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        userId: context.auth.uid,
+        action: 'USER_LOGIN',
+        details: {
+            // Include details from the request like IP address or user agent if needed
+        }
+    });
+
+    // Also update the last_login field on the user's document
+    await db.collection('users').doc(context.auth.uid).update({
+        last_login: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    return { success: true };
+});
+*/
+
 
 // =======================================================================================
 // == Patient Portal & Telemedicine
@@ -5963,3 +6039,4 @@ exports.deliverHealthContent = functions.region('europe-west1').firestore
     
 
     
+
