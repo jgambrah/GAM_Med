@@ -14,6 +14,100 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == ACCESS CONTROL & SECURITY
+// =======================================================================================
+
+/**
+ * A generic, database-wide trigger to log all user actions for auditing purposes.
+ * In a real Firebase project, you would deploy this with a wildcard for all collections.
+ *
+ * @trigger_type Firestore Trigger (onWrite)
+ * @document /{collectionId}/{documentId}
+ */
+/*
+exports.logUserAction = functions.region('europe-west1').firestore
+    .document('/{collectionId}/{documentId}')
+    .onWrite(async (change, context) => {
+        const { collectionId, documentId } = context.params;
+        const eventType = context.eventType; // e.g., 'google.firestore.document.create', 'google.firestore.document.update', 'google.firestore.document.delete'
+        const userId = context.auth?.uid;
+
+        // 1. Do not log actions performed by other functions or unauthenticated users.
+        // Also, prevent an infinite loop by not logging the creation of new audit logs.
+        if (!userId || collectionId === 'audit_logs') {
+            return null;
+        }
+        
+        let action = 'UNKNOWN_ACTION';
+        if (eventType.includes('create')) action = 'CREATE';
+        if (eventType.includes('update')) action = 'UPDATE';
+        if (eventType.includes('delete')) action = 'DELETE';
+
+        // 2. Create the audit log entry.
+        const logData = {
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            userId: userId,
+            action: `${action}_${collectionId.toUpperCase()}`,
+            details: {
+                targetCollection: collectionId,
+                targetDocId: documentId,
+                // For updates, you could optionally log what changed.
+                changes: eventType.includes('update') ? { before: change.before.data(), after: change.after.data() } : null
+            }
+        };
+        
+        await db.collection('audit_logs').add(logData);
+        
+        return null;
+    });
+*/
+
+/**
+ * A centralized function that can be called before an action is performed to check permissions.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { action: 'read' | 'write', resource: { type: string, id?: string } }
+ * @returns {Promise<{isAllowed: boolean}>}
+ */
+/*
+exports.enforceSecurityPolicy = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // 1. Auth check
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+    
+    const { action, resource } = data; // e.g., action: 'write', resource: { type: 'patients', id: 'P-123456' }
+    const userId = context.auth.uid;
+
+    // 2. Fetch user's role
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User profile not found.');
+    }
+    const userRole = userDoc.data().role;
+
+    // 3. Fetch permissions for that role
+    const roleDoc = await db.collection('roles').doc(userRole).get();
+    if (!roleDoc.exists) {
+        console.error(`Role '${userRole}' not found in permissions table.`);
+        return { isAllowed: false };
+    }
+    const permissions = roleDoc.data().permissions;
+
+    // 4. Check if the action is allowed on the resource type
+    const resourcePermissions = permissions[resource.type]; // e.g., permissions['patients']
+    if (!resourcePermissions || !resourcePermissions[action]) {
+        return { isAllowed: false }; // Action not allowed
+    }
+
+    // Further logic could be added here for specific document-level checks if needed.
+
+    return { isAllowed: true };
+});
+*/
+
+
+// =======================================================================================
 // == Patient Portal & Telemedicine
 // =======================================================================================
 
@@ -2997,7 +3091,7 @@ exports.getClinicAvailability = functions.region('europe-west1').https.onCall(as
 /**
  * Books a new appointment after performing complex availability and conflict checks.
  *
- * @trigger_type Callable Function (https)
+ * @trigger_type Callable Cloud Function
  * @input { patientId: string, doctorId: string, scheduledDateTime: Timestamp }
  */
 /*
@@ -3006,7 +3100,10 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
-    
+    // Check if the user is booking for themselves or if they are staff
+    const isSelfBooking = context.auth.uid === data.patientId;
+    // ... add more role checks for staff
+
     const { patientId, doctorId, scheduledDateTime } = data;
     const dateStr = scheduledDateTime.toDate().toISOString().split('T')[0];
     const timeStr = scheduledDateTime.toDate().toTimeString().split(' ')[0].slice(0, 5); // HH:mm
@@ -3029,8 +3126,8 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
             // 3. Atomically add the appointment and update the doctor's availability
             // This prevents race conditions where two users book the same slot simultaneously.
             
-            // a) Remove the booked slot from the doctor's availability
-            const updatedDaySlots = daySlots.filter(slot => slot !== timeStr);
+            // a) Add the appointment to the doctor's availability map (as booked)
+            const updatedSlots = daySlots.map(slot => slot === timeStr ? { time: timeStr, status: 'booked' } : slot);
             transaction.update(doctorRef, { [`availability.${dateStr}`]: updatedDaySlots });
 
             // b) Create the new appointment document
@@ -3039,16 +3136,18 @@ exports.bookAppointment = functions.region('europe-west1').https.onCall(async (d
                 patientId,
                 doctorId,
                 scheduledDateTime,
-                bookingMethod: 'Online Portal',
-                isConfirmed: false, // Must be confirmed by staff
+                bookingMethod: isSelfBooking ? 'Online Portal' : 'Front Desk',
+                isConfirmed: !isSelfBooking, // Staff bookings are auto-confirmed
                 status: 'Scheduled',
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };
             transaction.set(newAppointmentRef, appointmentData);
         });
 
-        // 4. Send notification to front desk for confirmation
-        // await sendNotificationToRole('receptionist', `New appointment for patient ${patientId} needs confirmation.`);
+        // 4. Send notification to front desk for confirmation if booked by patient
+        if(isSelfBooking) {
+            // await sendNotificationToRole('receptionist', `New appointment for patient ${patientId} needs confirmation.`);
+        }
 
         console.log(`Appointment ${newAppointmentRef.id} booked successfully, pending confirmation.`);
         return { success: true, appointmentId: newAppointmentRef.id };
@@ -3082,15 +3181,26 @@ exports.cancelAppointment = functions.region('europe-west1').https.onCall(async 
             const appointmentDoc = await transaction.get(appointmentRef);
             if (!appointmentDoc.exists) throw new Error('Appointment not found.');
             
-            const patientId = appointmentDoc.data().patientId;
-            const patientHistoryRef = db.collection('patients').doc(patientId).collection('appointment_history').doc(appointmentId);
-
-            // 2. Update status in both locations
+            const appointmentData = appointmentDoc.data();
+            const { patientId, doctorId, scheduledDateTime } = appointmentData;
+            
+            const dateStr = scheduledDateTime.toDate().toISOString().split('T')[0];
+            const timeStr = scheduledDateTime.toDate().toTimeString().split(' ')[0].slice(0, 5);
+            
+            // 2. Update status in the appointments collection
             transaction.update(appointmentRef, { status: 'Canceled', cancellationReason: reason });
-            transaction.update(patientHistoryRef, { status: 'Canceled', cancellationReason: reason });
+            
+            // 3. Free up the doctor's time slot
+            const doctorRef = db.collection('users').doc(doctorId);
+            const doctorDoc = await transaction.get(doctorRef);
+            const availability = doctorDoc.data()?.availability || {};
+            const daySlots = (availability[dateStr] || []).map(slot => 
+                (typeof slot === 'object' && slot.time === timeStr) ? timeStr : slot
+            );
+             transaction.update(doctorRef, { [`availability.${dateStr}`]: daySlots });
         });
         
-        // 3. Send cancellation notifications to patient and doctor.
+        // 4. Send cancellation notifications to patient and doctor.
         // await sendCancellationEmail(...);
 
         console.log(`Appointment ${appointmentId} canceled.`);
@@ -5735,5 +5845,7 @@ exports.deliverHealthContent = functions.region('europe-west1').firestore
 
 
 
+
+    
 
     
