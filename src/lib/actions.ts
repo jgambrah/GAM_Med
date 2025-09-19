@@ -13,7 +13,7 @@ import { allPatients, mockMedicationRecords } from './data';
  * making it a secure and robust entry point for the client.
  */
 export async function addPatient(values: z.infer<typeof PatientSchema>) {
-  console.log('Attempting to register a new patient.');
+  console.log('Server Action: Registering new patient.');
 
   /**
    * == Production Implementation Workflow ==
@@ -68,7 +68,7 @@ export async function dischargePatient(
     dischargeSummary: string,
     dischargeInstructions: string
 ) {
-    console.log(`Discharging patient: ${patientId} from admission ${admissionId}.`);
+    console.log(`Server Action: Discharging patient ${patientId}.`);
     
     // Here you would call your `handlePatientDischarge` Cloud Function
     // The call would look like this:
@@ -84,7 +84,7 @@ export async function dischargePatient(
 }
 
 export async function addClinicalNote(patientId: string, note: string) {
-    console.log(`Adding clinical note for patient ${patientId}.`);
+    console.log(`Server Action: Adding clinical note for patient ${patientId}.`);
     // Here you would save the note to the patient's EHR sub-collection in Firestore.
     await new Promise((resolve) => setTimeout(resolve, 500));
     revalidatePath(`/dashboard/patients/${patientId}`);
@@ -94,7 +94,7 @@ export async function addClinicalNote(patientId: string, note: string) {
 
 // Placeholder for allocating a bed and admitting a patient. In a real app, this would call handlePatientAdmission.
 export async function allocateBed(values: z.infer<typeof BedAllocationSchema>) {
-    console.log(`Attempting to admit patient ${values.patientId} to bed ${values.bedId}.`);
+    console.log(`Server Action: Admitting patient ${values.patientId} to bed ${values.bedId}.`);
     
     // In a real app, you would call your `handlePatientAdmission` Cloud Function with these details.
     // const result = await handlePatientAdmission({ ... });
@@ -111,7 +111,7 @@ export async function allocateBed(values: z.infer<typeof BedAllocationSchema>) {
 }
 
 export async function transferPatient(patientId: string, currentBedId: string, newBedId: string) {
-    console.log(`Transferring patient ${patientId} from bed ${currentBedId} to ${newBedId}`);
+    console.log(`Server Action: Transferring patient ${patientId} from bed ${currentBedId} to ${newBedId}.`);
 
     // Here you would implement an atomic transaction, likely in a Cloud Function:
     // 1. Get patient's current admission record.
@@ -129,7 +129,7 @@ export async function transferPatient(patientId: string, currentBedId: string, n
 }
 
 export async function updateOutpatientStatus(appointmentId: string, newStatus: Appointment['status']) {
-    console.log(`Updating appointment ${appointmentId} to status: ${newStatus}`);
+    console.log(`Server Action: Updating appointment ${appointmentId} to status: ${newStatus}.`);
     
     // This server action would call the `updateOutpatientStatus` Cloud Function.
     // In this prototype, we'll just simulate the action.
@@ -149,7 +149,7 @@ export async function searchPatientsAction(query: string): Promise<{
     data?: Patient[];
     message?: string;
   }> {
-    console.log(`Searching for patients with query: "${query}"`);
+    console.log(`Server Action: Searching for patients with query: "${query}".`);
   
     /**
      * == Production Implementation Workflow ==
@@ -188,8 +188,12 @@ export async function searchPatientsAction(query: string): Promise<{
 }
 
 export async function addPrescription(patientId: string, values: z.infer<typeof NewPrescriptionSchema>) {
-    console.log(`Adding prescription for patient ${patientId}.`);
+    console.log(`Server Action: Creating new prescription for patient ${patientId}.`);
     
+    // **SEGREGATION OF DUTIES**: In a real app, the calling Cloud Function would verify the user's role.
+    // const userRole = context.auth.token.role;
+    // if (userRole !== 'doctor') { throw new Error('Permission denied.'); }
+
     // This server action would call a Cloud Function `onNewMedicationPrescribed`
     // which would create a document in the `/patients/{patientId}/medication_history` sub-collection.
     
@@ -201,7 +205,7 @@ export async function addPrescription(patientId: string, values: z.infer<typeof 
 }
 
 export async function requestPrescriptionRefill(patientId: string, prescriptionId: string) {
-    console.log(`Processing refill request for patient ${patientId}, prescription ${prescriptionId}.`);
+    console.log(`Server Action: Processing refill request for patient ${patientId}.`);
 
     // In a real app, this would call the `requestPrescriptionRefill` Cloud Function
     // which would create a document in a `refill_requests` collection and notify the pharmacy.
@@ -215,14 +219,14 @@ export async function requestPrescriptionRefill(patientId: string, prescriptionI
 
 
 export async function addDiagnosis(patientId: string, values: z.infer<typeof NewDiagnosisSchema>) {
-    console.log(`Adding diagnosis for patient ${patientId}.`);
+    console.log(`Server Action: Adding diagnosis for patient ${patientId}.`);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
     return { success: true, message: 'Diagnosis added successfully.' };
 }
 
 export async function orderLabTest(patientId: string, values: z.infer<typeof NewLabOrderSchema>) {
-    console.log(`Ordering lab test for patient ${patientId}.`);
+    console.log(`Server Action: Ordering lab test for patient ${patientId}.`);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
     revalidatePath('/dashboard/lab');
@@ -230,7 +234,7 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
 }
 
 export async function orderImagingStudy(patientId: string, values: z.infer<typeof NewRadOrderSchema>) {
-    console.log(`Ordering imaging study for patient ${patientId}.`);
+    console.log(`Server Action: Ordering imaging study for patient ${patientId}.`);
     // In a real app, this would call the 'createRadOrder' Cloud Function
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
@@ -239,7 +243,7 @@ export async function orderImagingStudy(patientId: string, values: z.infer<typeo
 }
 
 export async function submitRadiologyReport(orderId: string, values: z.infer<typeof RadiologyReportSchema>) {
-    console.log(`Submitting radiology report for order ${orderId}.`);
+    console.log(`Server Action: Submitting radiology report for order ${orderId}.`);
     // In a real app, this would call the 'processRadReport' Cloud Function
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath('/dashboard/radiology');
@@ -247,7 +251,7 @@ export async function submitRadiologyReport(orderId: string, values: z.infer<typ
 }
 
 export async function updateLabOrderStatus(testId: string, status: LabResult['status']) {
-  console.log(`Updating lab test ${testId} to status: ${status}`);
+  console.log(`Server Action: Updating lab test ${testId} to status: ${status}.`);
   // In a real app, this would call the `updateLabOrder` Cloud Function.
   await new Promise((resolve) => setTimeout(resolve, 500));
   revalidatePath('/dashboard/lab');
@@ -259,7 +263,7 @@ export async function fulfillLabRequest(
     testId: string,
     values: z.infer<typeof FulfillLabRequestSchema>
 ) {
-    console.log(`Fulfilling lab request ${testId} for patient ${patientId}.`);
+    console.log(`Server Action: Fulfilling lab request ${testId} for patient ${patientId}.`);
 
     // This server action would update the lab result document in Firestore.
     // It would set the status to 'Completed', add the result, and set the completedAt timestamp.
@@ -277,7 +281,7 @@ export async function validateLabResult(
     testId: string,
     values: z.infer<typeof ValidateLabResultSchema>
 ) {
-    console.log(`Validating lab result ${testId}.`);
+    console.log(`Server Action: Validating lab result ${testId}.`);
 
     // This server action would call a Cloud Function to update the lab result document.
     // It would set the status to 'Validated' (or 'Final') and add the validation notes.
@@ -294,7 +298,7 @@ export async function logVitals(patientId: string, values: z.infer<typeof Vitals
     alerts: { severity: 'Critical' | 'Warning' | 'Information', message: string }[];
     message?: string;
 }> {
-    console.log(`Logging vitals for patient ${patientId}.`);
+    console.log(`Server Action: Logging vitals for patient ${patientId}.`);
     // In a real app, this would call the `logVitals` Cloud Function.
     // The Cloud Function would then run the `checkVitalSigns` trigger.
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -329,7 +333,7 @@ export async function logVitals(patientId: string, values: z.infer<typeof Vitals
 }
 
 export async function logMedicationAdministration(patientId: string, prescriptionId: string, notes: string) {
-    console.log(`Logging medication administration for patient ${patientId}, prescription ${prescriptionId}.`);
+    console.log(`Server Action: Logging medication administration for patient ${patientId}.`);
     // In a real app, this would call the `logMedicationAdministration` Cloud Function,
     // which would create a new document in a sub-collection like `medication_administration_logs`.
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -341,7 +345,7 @@ export async function logMedicationAdministration(patientId: string, prescriptio
 }
 
 export async function updateCarePlan(patientId: string, planId: string, values: z.infer<typeof CarePlanSchema>) {
-    console.log(`Updating care plan ${planId} for patient ${patientId}.`);
+    console.log(`Server Action: Updating care plan ${planId} for patient ${patientId}.`);
     // In a real app, this would call the `updateCarePlan` Cloud Function.
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -353,7 +357,7 @@ export async function updateCarePlan(patientId: string, planId: string, values: 
 
 
 export async function acknowledgeAlert(patientId: string, alertId: string) {
-    console.log(`Acknowledging alert ${alertId} for patient ${patientId}.`);
+    console.log(`Server Action: Acknowledging alert ${alertId} for patient ${patientId}.`);
     // This would call a Cloud Function to update the alert document's `isAcknowledged` field to true.
     await new Promise((resolve) => setTimeout(resolve, 500));
     revalidatePath(`/dashboard/patients/${patientId}`);
@@ -362,7 +366,7 @@ export async function acknowledgeAlert(patientId: string, alertId: string) {
 }
 
 export async function logImmunization(patientId: string, values: z.infer<typeof LogImmunizationSchema>) {
-    console.log(`Logging immunization for patient ${patientId}.`);
+    console.log(`Server Action: Logging immunization for patient ${patientId}.`);
     // In a real app, this would call the `logImmunization` Cloud Function.
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
@@ -370,7 +374,7 @@ export async function logImmunization(patientId: string, values: z.infer<typeof 
 }
 
 export async function bookAppointment(values: z.infer<typeof NewAppointmentSchema>) {
-  console.log('Booking new appointment.');
+  console.log('Server Action: Booking new appointment.');
   // In a real app, this would call the `bookAppointment` Cloud Function.
   // If `isVirtual` is true, it would then trigger `generateTelemedicineLink`.
   if (values.isVirtual) {
@@ -385,7 +389,7 @@ export async function bookAppointment(values: z.infer<typeof NewAppointmentSchem
 }
 
 export async function cancelAppointment(appointmentId: string) {
-  console.log(`Canceling appointment ${appointmentId}`);
+  console.log(`Server Action: Canceling appointment ${appointmentId}.`);
 
   // In a real app, this server action would call the `cancelAppointment` Cloud Function.
   // That function would atomically update the appointment status and free up the doctor's time slot.
@@ -400,7 +404,7 @@ export async function cancelAppointment(appointmentId: string) {
 }
 
 export async function submitLeaveRequest(values: z.infer<typeof LeaveRequestSchema>) {
-    console.log('Submitting leave request.');
+    console.log('Server Action: Submitting leave request.');
     // In a real app, this would call the `handleLeaveRequest` Cloud Function.
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -412,7 +416,7 @@ export async function submitLeaveRequest(values: z.infer<typeof LeaveRequestSche
 }
 
 export async function addToWaitingList(values: z.infer<typeof NewWaitingListSchema>) {
-    console.log('Adding to waiting list.');
+    console.log('Server Action: Adding to waiting list.');
     // This would call the `addToWaitingList` Cloud Function.
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -422,7 +426,7 @@ export async function addToWaitingList(values: z.infer<typeof NewWaitingListSche
 }
 
 export async function generateInvoice(patientId: string, values: z.infer<typeof NewInvoiceSchema>) {
-    console.log(`Generating invoice for patient ${patientId}.`);
+    console.log(`Server Action: Generating invoice for patient ${patientId}.`);
     // In a real app, this would call the `generateInvoice` Cloud Function.
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -445,7 +449,7 @@ export async function streamVitals(patientId: string) {
 }
 
 export async function logPayment(values: z.infer<typeof LogPaymentSchema>) {
-    console.log('Logging payment.');
+    console.log('Server Action: Logging payment.');
     // In a real app, this would call the processPayment Cloud Function.
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -456,7 +460,7 @@ export async function logPayment(values: z.infer<typeof LogPaymentSchema>) {
 }
 
 export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>) {
-    console.log('Posting to ledger.');
+    console.log('Server Action: Posting to ledger.');
     // In a real app, this would create two new LedgerEntry documents in Firestore,
     // one for the debit and one for the credit, and update the balances on the
     // corresponding LedgerAccount documents within a transaction.
@@ -468,7 +472,7 @@ export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>)
 }
 
 export async function submitStaffClaim(values: z.infer<typeof NewStaffClaimSchema>) {
-    console.log('Submitting new staff claim.');
+    console.log('Server Action: Submitting new staff claim.');
     // In a real app, this would create a new StaffExpenseClaim document with 'Pending HOD' status
     // and trigger a notification to the user's HOD.
     if (values.attachment) {
@@ -487,7 +491,7 @@ export async function submitStaffClaim(values: z.infer<typeof NewStaffClaimSchem
 }
 
 export async function approveStaffClaim(claimId: string) {
-    console.log(`Approving staff claim: ${claimId}`);
+    console.log(`Server Action: Approving staff claim ${claimId}.`);
     // In a real app, this would update the claim document's status to 'Approved'
     // and trigger a notification to the Accounts Payable team.
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -497,7 +501,7 @@ export async function approveStaffClaim(claimId: string) {
 }
 
 export async function rejectStaffClaim(claimId: string) {
-    console.log(`Rejecting staff claim: ${claimId}`);
+    console.log(`Server Action: Rejecting staff claim ${claimId}.`);
     // In a real app, this would update the claim document's status to 'Rejected'
     // and trigger a notification back to the submitting staff member.
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -507,7 +511,12 @@ export async function rejectStaffClaim(claimId: string) {
 }
 
 export async function updateInventory(values: z.infer<typeof UpdateInventorySchema>) {
-    console.log('Updating inventory.');
+    console.log(`Server Action: Updating inventory for item ${values.itemId}.`);
+
+    // **SEGREGATION OF DUTIES**: In a real app, the calling Cloud Function would verify the user's role.
+    // const userRole = context.auth.token.role;
+    // if (userRole !== 'pharmacist') { throw new Error('Permission denied.'); }
+
     // This server action would call the `updateInventory` Cloud Function,
     // which would perform an atomic write to the inventory item and create a transaction log.
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -527,7 +536,7 @@ export async function checkPrescriptionSafety(
   success: boolean;
   alerts: { type: 'Allergy' | 'Interaction'; severity: 'High' | 'Moderate' | 'Low'; message: string }[];
 }> {
-  console.log(`Checking safety for patient ${patientId} and medication ${medicationName}`);
+  console.log(`Server Action: Checking safety for patient ${patientId} and medication ${medicationName}.`);
   await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate network delay
 
   const alerts: { type: 'Allergy' | 'Interaction'; severity: 'High'; message: string }[] = [];
@@ -562,7 +571,7 @@ export async function checkPrescriptionSafety(
  * Server Action to simulate a lab machine analyzing a sample.
  */
 export async function analyzeSample(testId: string) {
-    console.log(`Analyzing sample for lab test ${testId}...`);
+    console.log(`Server Action: Analyzing sample for lab test ${testId}.`);
 
     // In a real application, this would not be needed. The equipment would send data to a webhook,
     // triggering the `processEquipmentData` Cloud Function.
