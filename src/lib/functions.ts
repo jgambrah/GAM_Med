@@ -76,7 +76,7 @@ exports.enforceSecurityPolicy = functions.region('europe-west1').https.onCall(as
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
     }
     
-    const { action, resource } = data; // e.g., action: 'write', resource: { type: 'patients', id: 'P-123456' }
+    const { action, resource } = data; // e.g., action: 'write', resource: { type: string, id?: string }
     const userId = context.auth.uid;
 
     // 2. Fetch user's role
