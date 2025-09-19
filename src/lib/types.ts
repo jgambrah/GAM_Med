@@ -1619,6 +1619,3 @@ export interface Message {
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }
-
-
-    
