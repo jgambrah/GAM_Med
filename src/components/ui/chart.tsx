@@ -91,7 +91,6 @@ ChartContainer.displayName = "Chart"
 // #endregion
 
 // #region Chart-specific components
-const ChartStyle = RechartsPrimitive.Style
 const ChartTooltip = RechartsPrimitive.Tooltip
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
@@ -314,7 +313,6 @@ export {
   ChartRadialBar,
   ChartSankey,
   ChartScatter,
-  ChartStyle,
   ChartTooltip,
   ChartTooltipContent,
   ChartTreemap,
