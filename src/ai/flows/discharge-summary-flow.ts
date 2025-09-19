@@ -10,7 +10,6 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/googleai';
 import { z } from 'zod';
 
 // Define the schema for the clinical notes that will be passed into the flow.
@@ -50,7 +49,7 @@ const dischargeSummaryPrompt = ai.definePrompt({
   name: 'dischargeSummaryPrompt',
   input: { schema: GenerateDischargeSummaryInputSchema },
   output: { schema: GenerateDischargeSummaryOutputSchema },
-  model: googleAI('gemini-1.5-flash-preview'),
+  model: 'googleai/gemini-1.5-flash-preview',
   // The prompt uses Handlebars templating to format the input data.
   prompt: `
     You are an expert medical assistant responsible for writing discharge summaries.
