@@ -2,93 +2,55 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    //
-    // Helper Functions
-    //
-    function isAuth() {
-      return request.auth != null;
+  
+    // Helper function to get the role of the currently authenticated user
+    function isUserRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
-    function isPatientOwner(patientId) {
-      // Check if the authenticated user's UID matches the patient's UID in the users collection
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return user.patient_id == patientId;
+    // Patients can be read by doctors or the patient themselves.
+    // Only admins should have broad write access.
+    match /patients/{patientId} {
+      allow read: if request.auth != null && (isUserRole('admin') || isUserRole('doctor') || isUserRole('nurse') || request.auth.uid == resource.data.userId);
+      allow write: if request.auth != null && isUserRole('admin');
+      
+      // Rules for subcollections
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null && (isUserRole('admin') || isUserRole('doctor') || isUserRole('nurse'));
+      }
     }
 
-    function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // Invoices can be read by billing staff, or the patient they belong to.
+    // Only billing staff can create or modify invoices.
+    match /invoices/{invoiceId} {
+        allow read: if request.auth != null && (isUserRole('admin') || isUserRole('billing_clerk') || request.auth.uid == resource.data.patientId);
+        allow write: if request.auth != null && (isUserRole('admin') || isUserRole('billing_clerk'));
     }
 
-    function isDoctor() {
-      return getUserRole() == 'doctor';
-    }
-
-    function isNurse() {
-        return getUserRole() == 'nurse';
-    }
-
-    function isAdmin() {
-        return getUserRole() == 'admin';
-    }
-
-    //
-    // Collection Rules
-    //
-
-    // Users can read other user profiles (for names, etc.) but only update their own.
-    // Critically, users cannot change their own role.
+    // User profile data can be read by any authenticated user,
+    // but a user can only write to their own document.
     match /users/{userId} {
-      allow read: if isAuth();
-      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
-      allow create, delete: if isAdmin();
+      allow read: if request.auth != null;
+      // Prevent users from changing their own role.
+      allow write: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
     }
     
-    // Roles and Audit Logs are admin-only and immutable from the client.
+    // Roles are highly sensitive and should only be readable by admins
+    // and not writable from the client at all.
     match /roles/{roleId} {
-        allow read, write, create, delete: if isAdmin();
+        allow read: if request.auth != null && isUserRole('admin');
+        allow write: if false;
     }
-    
+
+    // Audit logs are immutable and cannot be read or written from the client.
+    // They should only be created by secure Cloud Functions.
     match /audit_logs/{logId} {
-        // No client access. All writes should be from trusted backend functions.
         allow read, write: if false;
     }
     
-    // Health content is readable by any authenticated user, but only writable by admins.
-    match /health_content/{contentId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
-    }
-    
-    // Reminders are private to the patient they belong to. Only backend can create them.
-    match /reminders/{reminderId} {
-        allow read: if isPatientOwner(resource.data.patientId);
-        allow write: if false; // Should be managed by Cloud Functions
-    }
-
-    // Core patient data and sub-collections
-    match /patients/{patientId} {
-      allow read, write: if isDoctor() || isNurse() || isAdmin();
-      allow create: if isAuth();
-
-      // Patients can only book their own appointments. Doctors and staff can also view.
-      match /appointments/{appointmentId} {
-        allow create: if isPatientOwner(request.resource.data.patientId);
-        allow read: if isPatientOwner(resource.data.patientId) || isDoctor() || isNurse() || isAdmin();
-        // Allow updates only from authorized users or the patient themselves for cancellation.
-        allow update: if isDoctor() || isAdmin() || isPatientOwner(resource.data.patientId);
-      }
-      
-      // Clinical data is restricted to clinical staff.
-      match /clinical_notes/{noteId} {
-        allow read, create: if isDoctor() || isNurse() || isAdmin();
-      }
-      
-      match /vitals/{vitalId} {
-        allow read, create: if isDoctor() || isNurse() || isAdmin();
-      }
-
-      // Other sub-collections can inherit from the parent or have specific rules.
-      // By default, access is denied unless explicitly allowed.
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
