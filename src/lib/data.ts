@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -350,6 +350,8 @@ export const allAppointments: Appointment[] = [
     department: 'Cardiology',
     status: 'confirmed',
     isBilled: false,
+    isConfirmed: true,
+    bookingMethod: 'Front Desk',
     notes: 'Follow-up consultation for hypertension.',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
@@ -368,6 +370,8 @@ export const allAppointments: Appointment[] = [
     department: 'Cardiology',
     status: 'confirmed',
     isBilled: false,
+    isConfirmed: true,
+    bookingMethod: 'Front Desk',
     notes: 'Initial consultation.',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
@@ -386,6 +390,8 @@ export const allAppointments: Appointment[] = [
     department: 'Neurology',
     status: 'scheduled',
     isBilled: false,
+    isConfirmed: false,
+    bookingMethod: 'Online Portal',
     notes: 'Telemedicine consultation regarding recurring migraines.',
     isVirtual: true,
     telemedicineLink: 'https://meet.gammed.com/session/AP-003',
@@ -405,6 +411,8 @@ export const allAppointments: Appointment[] = [
     department: 'Cardiology',
     status: 'scheduled',
     isBilled: false,
+    isConfirmed: true,
+    bookingMethod: 'Online Portal',
     notes: 'Follow-up virtual check-in.',
     isVirtual: true,
     telemedicineLink: 'https://meet.gammed.com/session/AP-004-VIRTUAL',
@@ -2111,24 +2119,47 @@ export const mockMessages: Message[] = [
     }
 ];
 
+export const mockReminders: Reminder[] = [
+    {
+        reminderId: 'rem-1',
+        patientId: 'P-123456',
+        type: 'Medication',
+        scheduledDateTime: new Date('2024-08-16T20:00:00Z').toISOString(),
+        message: 'Time to take your Atorvastatin (20mg).',
+        isSent: false,
+        relatedDocId: 'med-2'
+    },
+    {
+        reminderId: 'rem-2',
+        patientId: 'P-123456',
+        type: 'Appointment',
+        scheduledDateTime: new Date('2024-08-19T09:00:00Z').toISOString(), // For the appointment on the 20th
+        message: 'Reminder: You have a virtual consultation with Dr. Kofi Asante tomorrow.',
+        isSent: false,
+        relatedDocId: 'AP-003'
+    }
+];
+
+export const mockHealthContent: HealthContent[] = [
+    {
+        contentId: 'hc-1',
+        title: 'Managing Your Hypertension',
+        body: 'Hypertension, or high blood pressure, is a common condition... Here are five key things you can do:\n\n1. Monitor your blood pressure regularly.\n2. Reduce your salt intake.\n3. Engage in regular physical activity.\n4. Take your prescribed medications consistently.\n5. Manage stress through relaxation techniques.',
+        keywords: ['hypertension', 'blood pressure'],
+        fileUrl: '/public/hypertension_guide.pdf'
+    },
+    {
+        contentId: 'hc-2',
+        title: 'Understanding Your Lipid Panel Results',
+        body: 'A lipid panel is a blood test that measures the amount of cholesterol and other fats in your blood...',
+        keywords: ['lipid', 'cholesterol'],
+    },
+];
+
+
 
 // Deprecated type, use PurchaseOrder instead
 export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
-
-
-    
-
-
-
-    
-
-    
-
-
-
-
-
-

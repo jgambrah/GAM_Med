@@ -19,13 +19,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { mockWaitingList, allAppointments, mockMedicationRecords, mockLabResults, mockInvoices, mockMessages } from '@/lib/data';
-import { WaitingListEntry, Appointment, MedicationRecord, LabResult, Invoice, Message } from '@/lib/types';
+import { mockWaitingList, allAppointments, mockMedicationRecords, mockLabResults, mockInvoices, mockMessages, mockReminders } from '@/lib/data';
+import { WaitingListEntry, Appointment, MedicationRecord, LabResult, Invoice, Message, Reminder } from '@/lib/types';
 import { format, formatDistanceToNowStrict, differenceInMinutes } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Clock, Video, FileText, MessageSquare, CreditCard, Pill } from 'lucide-react';
+import { ArrowRight, Clock, Video, FileText, MessageSquare, CreditCard, Pill, Bell } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { MedicationsTab } from '../patients/[patientId]/components/medications-tab';
 
@@ -164,11 +164,17 @@ function RecentActivity() {
         .filter(inv => inv.patientId === user?.patient_id && (inv.status === 'Pending Payment' || inv.status === 'Overdue'))
         .sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
         .slice(0, 1);
+    
+    const upcomingReminders = mockReminders
+        .filter(rem => rem.patientId === user?.patient_id && !rem.isSent)
+        .sort((a,b) => new Date(a.scheduledDateTime).getTime() - new Date(b.scheduledDateTime).getTime())
+        .slice(0,1);
 
     const activities = [
         ...recentResults.map(r => ({ type: 'Lab Result', data: r, date: r.completedAt })),
         ...unreadMessages.map(m => ({ type: 'Message', data: m, date: m.timestamp })),
         ...outstandingBills.map(b => ({ type: 'Billing', data: b, date: b.dueDate })),
+        ...upcomingReminders.map(rem => ({ type: 'Reminder', data: rem, date: rem.scheduledDateTime }))
     ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 
@@ -195,11 +201,17 @@ function RecentActivity() {
                 description = `Due ${format(new Date(data.dueDate), 'PPP')}`;
                 link = '/dashboard/my-billing';
                 break;
+            case 'Reminder':
+                 icon = <Bell className="h-5 w-5 text-yellow-500" />;
+                title = `Reminder: ${data.message}`;
+                description = `Scheduled for ${format(new Date(data.scheduledDateTime), 'PPP p')}`;
+                link = data.type === 'Appointment' ? '/dashboard/appointments' : '/dashboard/my-records';
+                break;
             default: return null;
         }
 
         return (
-             <Link href={link} key={`${type}-${data.id || data.invoiceId || data.testId || data.messageId}`}>
+             <Link href={link} key={`${type}-${data.id || data.invoiceId || data.testId || data.messageId || data.reminderId}`}>
                 <div className="flex items-center gap-4 p-3 hover:bg-muted/50 rounded-lg transition-colors">
                     {icon}
                     <div className="flex-grow">

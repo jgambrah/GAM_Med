@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -17,6 +18,7 @@ import { ImmunizationsTab } from '../patients/[patientId]/components/immunizatio
 import { AdmissionsHistoryTab } from '../patients/[patientId]/components/admissions-history-tab';
 import { allAdmissions } from '@/lib/data';
 import { MedicationsTab } from '../patients/[patientId]/components/medications-tab';
+import Link from 'next/link';
 
 export default function MyRecordsPage() {
     const { user } = useAuth();
@@ -42,13 +44,18 @@ export default function MyRecordsPage() {
              <Card>
                  <Tabs defaultValue="medications">
                     <CardHeader>
-                        <TabsList className="h-auto flex-wrap justify-start">
-                            <TabsTrigger value="medications">Medications</TabsTrigger>
-                            <TabsTrigger value="labs">Lab Results</TabsTrigger>
-                            <TabsTrigger value="radiology">Imaging Reports</TabsTrigger>
-                            <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
-                            <TabsTrigger value="admissions">Visit History</TabsTrigger>
-                        </TabsList>
+                        <div className="flex justify-between items-center">
+                            <TabsList className="h-auto flex-wrap justify-start">
+                                <TabsTrigger value="medications">Medications</TabsTrigger>
+                                <TabsTrigger value="labs">Lab Results</TabsTrigger>
+                                <TabsTrigger value="radiology">Imaging Reports</TabsTrigger>
+                                <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
+                                <TabsTrigger value="admissions">Visit History</TabsTrigger>
+                                <TabsTrigger asChild>
+                                    <Link href="/dashboard/my-records/health-library">Health Library</Link>
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
                     </CardHeader>
                     <TabsContent value="medications" className="m-0">
                          <CardContent>

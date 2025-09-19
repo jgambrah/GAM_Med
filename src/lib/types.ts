@@ -1569,7 +1569,6 @@ export interface DepreciationRecord {
 
 /**
  * Represents a secure message between a patient and a provider.
- * Path: /patients/{patientId}/messages/{messageId}
  */
 export interface Message {
   messageId: string;
@@ -1580,5 +1579,5 @@ export interface Message {
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }
-
     
+```
