@@ -38,7 +38,7 @@ export function AddAssetDialog({ onAssetCreated }: AddAssetDialogProps) {
     resolver: zodResolver(NewAssetSchema),
     defaultValues: {
       name: '',
-      type: '',
+      type: undefined,
       department: '',
       location: '',
       status: 'Operational',
