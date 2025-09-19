@@ -345,7 +345,7 @@ export const ControlledSubstanceTransactionSchema = z.object({
 
 export const NewAssetSchema = z.object({
   name: z.string().min(3, 'Asset name is required.'),
-  type: z.string().min(1, 'Asset type is required.'),
+  type: z.enum(['Medical Equipment', 'IT Equipment', 'Furniture', 'Building Component', 'Room']),
   department: z.string().min(1, 'Department is required.'),
   location: z.string().min(1, 'Location is required.'),
   status: z.enum(['Operational', 'Under Maintenance', 'Needs Repair', 'Decommissioned']),
