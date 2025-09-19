@@ -1005,6 +1005,37 @@ export interface SavedReport {
 
 
 // =========================================================================
+// == Health Education & Reminders
+// =========================================================================
+
+/**
+ * Represents a piece of health education material.
+ * Path: /health_content/{contentId}
+ */
+export interface HealthContent {
+  contentId: string;
+  title: string;
+  body: string; // The main content, can be markdown or plain text
+  keywords: string[]; // For tagging and searching, e.g., ['hypertension', 'blood pressure']
+  fileUrl?: string; // Optional link to a PDF or video
+}
+
+/**
+ * Represents a scheduled reminder for a patient.
+ * Path: /reminders/{reminderId}
+ */
+export interface Reminder {
+  reminderId: string;
+  patientId: string;
+  type: 'Appointment' | 'Medication' | 'Immunization';
+  scheduledDateTime: string; // ISO Timestamp
+  message: string;
+  isSent: boolean;
+  relatedDocId?: string; // Optional link to the original document, e.g., appointmentId
+}
+
+
+// =========================================================================
 // == Deprecated Types
 // =========================================================================
 
@@ -1549,3 +1580,5 @@ export interface Message {
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }
+
+    
