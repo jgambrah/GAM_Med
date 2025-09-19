@@ -5601,6 +5601,127 @@ exports.updateFinancialSummary = functions.region('europe-west1').https.onCall(a
 });
 */
 
+// =======================================================================================
+// == Health Education & Reminders
+// =======================================================================================
+
+/**
+ * Sends pending reminders via push notification (FCM).
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every 5 minutes'
+ */
+/*
+exports.sendReminder = functions.region('europe-west1').pubsub.schedule('every 5 minutes').onRun(async (context) => {
+    const now = admin.firestore.Timestamp.now();
+    const remindersQuery = db.collection('reminders')
+        .where('isSent', '==', false)
+        .where('scheduledDateTime', '<=', now);
+
+    const snapshot = await remindersQuery.get();
+    if (snapshot.empty) {
+        console.log('No reminders to send.');
+        return null;
+    }
+
+    const batch = db.batch();
+    const notificationsToSend = [];
+
+    snapshot.forEach(doc => {
+        const reminder = doc.data();
+        notificationsToSend.push({
+            patientId: reminder.patientId,
+            message: reminder.message
+        });
+        // Mark the reminder as sent
+        batch.update(doc.ref, { isSent: true });
+    });
+
+    // Send notifications (this part is conceptual)
+    for (const notification of notificationsToSend) {
+        // const patientDoc = await db.collection('users').where('patient_id', '==', notification.patientId).get();
+        // if (!patientDoc.empty) {
+        //     const user = patientDoc.docs[0].data();
+        //     // await sendFCM(user.fcmToken, { title: 'Health Reminder', body: notification.message });
+        // }
+    }
+    
+    await batch.commit();
+    console.log(`Sent ${snapshot.size} reminders.`);
+    return null;
+});
+*/
+
+/**
+ * Creates reminders automatically based on events in other collections.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /appointments/{appointmentId}, /prescriptions/{prescriptionId}, etc.
+ */
+/*
+exports.createRemindersOnEvent = functions.region('europe-west1').firestore
+    .document('/appointments/{appointmentId}')
+    .onCreate(async (snapshot, context) => {
+        const appointment = snapshot.data();
+        
+        // Reminder 24 hours before
+        const reminderTime = new Date(appointment.appointment_date.toMillis() - (24 * 60 * 60 * 1000));
+
+        await db.collection('reminders').add({
+            patientId: appointment.patientId,
+            type: 'Appointment',
+            scheduledDateTime: admin.firestore.Timestamp.fromDate(reminderTime),
+            message: `Reminder: Your appointment with ${appointment.doctor_name} is tomorrow.`,
+            isSent: false,
+            relatedDocId: context.params.appointmentId,
+        });
+
+        return null;
+    });
+// Note: You would create similar triggers for other collections like 'prescriptions'.
+*/
+
+
+/**
+ * Delivers relevant health content to a patient when a new diagnosis is recorded.
+ *
+ * @trigger_type Firestore Trigger (onCreate)
+ * @document /patients/{patientId}/diagnoses/{diagnosisId}
+ */
+/*
+exports.deliverHealthContent = functions.region('europe-west1').firestore
+    .document('/patients/{patientId}/diagnoses/{diagnosisId}')
+    .onCreate(async (snapshot, context) => {
+        const diagnosis = snapshot.data();
+        const { patientId } = context.params;
+
+        // 1. Get keywords from the diagnosis text
+        // In a real app, you'd use NLP or a more robust mapping. Here we'll just use the text.
+        const keywords = diagnosis.diagnosisText.toLowerCase().split(' ');
+
+        // 2. Find matching content
+        const contentQuery = db.collection('health_content').where('keywords', 'array-contains-any', keywords);
+        const contentSnapshot = await contentQuery.get();
+
+        if (contentSnapshot.empty) {
+            console.log(`No health content found for diagnosis: ${diagnosis.diagnosisText}`);
+            return null;
+        }
+        
+        // 3. Send a notification to the patient with a link to the content.
+        for (const doc of contentSnapshot.docs) {
+            const content = doc.data();
+            const message = {
+                title: 'New Health Information for You',
+                body: `Learn more about managing ${content.title}.`,
+                link: `/patient-portal/health-library/${content.contentId}` // Deep link into the app
+            };
+            // await sendNotificationToUser(patientId, message);
+        }
+        
+        return null;
+    });
+*/
     
 
     
@@ -5613,3 +5734,6 @@ exports.updateFinancialSummary = functions.region('europe-west1').https.onCall(a
 
 
 
+
+
+    
