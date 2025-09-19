@@ -14,6 +14,120 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == USER AUTHENTICATION
+// =======================================================================================
+
+/**
+ * Enforces password policies upon user creation.
+ *
+ * @trigger_type Authentication Trigger (onCreate)
+ * @user `auth.UserRecord`
+ */
+/*
+exports.enforcePasswordPolicy = functions.region('europe-west1').auth.user().onCreate(async (user) => {
+    // Note: Firebase Auth doesn't expose the password directly to Cloud Functions for security reasons.
+    // This check is therefore conceptual. In a real-world scenario, you would use client-side
+    // checks before sending the password to Firebase Auth, or use a custom authentication flow.
+    // Alternatively, you could enforce this by using Identity Platform's password policies.
+    
+    // For this conceptual example, we assume we could check it.
+    const passwordIsWeak = false; // Placeholder for actual policy check logic.
+    if (passwordIsWeak) {
+        // If weak, delete the newly created user and log the event.
+        await admin.auth().deleteUser(user.uid);
+        console.log(`User ${user.uid} deleted due to weak password.`);
+        // You could also log this as a security event in your audit trail.
+        return null;
+    }
+    
+    console.log(`User ${user.uid} created successfully.`);
+    return null;
+});
+*/
+
+/**
+ * Checks if a user has MFA enabled and triggers the MFA flow if necessary.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { userId: string }
+ * @returns {Promise<{mfaRequired: boolean}>}
+ */
+/*
+exports.checkMfaStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
+    if (!context.auth || context.auth.uid !== data.userId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only check your own MFA status.');
+    }
+
+    const { userId } = data;
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+
+    const isMfaEnabled = userDoc.data().isMfaEnabled || false;
+
+    if (isMfaEnabled) {
+        // Trigger the MFA flow (e.g., send an SMS via Twilio, generate a code).
+        // This is a simplified example.
+        const mfaCode = Math.floor(100000 + Math.random() * 900000).toString();
+        await db.collection('users').doc(userId).update({ mfaCode: mfaCode });
+        // await sendSms(userDoc.data().phoneNumber, `Your GamMed login code is: ${mfaCode}`);
+    }
+
+    return { mfaRequired: isMfaEnabled };
+});
+*/
+
+/**
+ * Tracks failed login attempts and disables the account if a threshold is breached.
+ *
+ * @trigger_type Callable Function (https)
+ * @input { email: string }
+ */
+/*
+exports.trackLoginAttempts = functions.region('europe-west1').https.onCall(async (data, context) => {
+    // This function would be called from the client on a failed login attempt.
+    const { email } = data;
+    if (!email) {
+        throw new functions.https.HttpsError('invalid-argument', 'Email is required.');
+    }
+
+    // Find user by email
+    const userQuery = await admin.auth().getUserByEmail(email);
+    const userRef = db.collection('users').doc(userQuery.uid);
+    const MAX_ATTEMPTS = 5;
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) return; // User not in Firestore, do nothing.
+
+            const currentAttempts = userDoc.data().failedLoginAttempts || 0;
+            const newAttempts = currentAttempts + 1;
+
+            if (newAttempts >= MAX_ATTEMPTS) {
+                // Lock the account in both Auth and Firestore
+                await admin.auth().updateUser(userQuery.uid, { disabled: true });
+                transaction.update(userRef, { 
+                    status: 'Disabled',
+                    failedLoginAttempts: newAttempts,
+                });
+                // Send alert to admin
+                // await sendNotificationToRole('admin', `Account for ${email} has been locked due to too many failed login attempts.`);
+            } else {
+                transaction.update(userRef, { failedLoginAttempts: newAttempts });
+            }
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error(`Failed to track login attempt for ${email}:`, error);
+        throw new functions.https.HttpsError('internal', 'Could not update login attempts.');
+    }
+});
+*/
+
+// =======================================================================================
 // == ACCESS CONTROL & SECURITY
 // =======================================================================================
 
