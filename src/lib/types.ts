@@ -1620,3 +1620,18 @@ export interface Message {
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }
+
+/**
+ * Represents a patient's medical diagnosis.
+ * Path: /patients/{patientId}/diagnoses/{diagnosisId}
+ */
+export interface Diagnosis {
+  diagnosisId: string;
+  icd10Code: string;
+  diagnosisText: string;
+  isPrimary: boolean;
+  diagnosedByDoctorId: string;
+  diagnosedAt: string; // ISO Timestamp
+}
+
+    
