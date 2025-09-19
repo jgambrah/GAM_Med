@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ChartContainer, ChartConfig, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, LabelList } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts';
 import { mockInfectionReports, mockEfficacyReports, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { InfectionDrilldownDialog } from './components/infection-drilldown-dialog';
