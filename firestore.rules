@@ -1,41 +1,40 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isUserRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    // Helper function to get user's role from the 'users' collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isUserRole('admin');
-      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
-      allow create, delete: if isUserRole('admin');
-    }
+      // Allow users to read their own profile, or allow admins to read any profile.
+      allow read: if request.auth.uid == userId || getUserRole() == 'admin';
 
-    match /roles/{roleId} {
-      allow read: if isUserRole('admin');
-      allow write: if false; // Roles are read-only from the client
+      // Allow users to update their own profile, but NOT change their role.
+      allow update: if request.auth.uid == userId && !('role' in request.resource.data);
     }
-
+    
+    // Rules for the 'patients' collection to enforce data privacy
     match /patients/{patientId} {
-      // Allow doctors to read any patient, and patients to read their own record.
-      allow read: if isUserRole('doctor') || request.auth.uid == resource.data.uid;
-      // Allow only admins to create or update patient records.
-      allow write: if isUserRole('admin');
+      // Allow read/write access if the user is an admin.
+      // Allow the patient to read their own record (patientId matches auth uid).
+      // Allow clinical staff (doctors, nurses) to read/write if their uid is in the patient's assignedCareTeam array.
+      allow read, write: if getUserRole() == 'admin' 
+                      || request.auth.uid == patientId 
+                      || (request.auth.uid in resource.data.assignedCareTeam);
     }
 
-    match /invoices/{invoiceId} {
-        // Allow billing clerks to read any invoice, and patients to read their own.
-        allow read: if isUserRole('billing_clerk') || request.auth.uid == resource.data.patient_uid;
-        // Only allow billing clerks to create or modify invoices.
-        allow write: if isUserRole('billing_clerk');
-    }
-
+    // Rules for the 'audit_logs' collection to ensure immutability
     match /audit_logs/{logId} {
-      allow read: if isUserRole('admin');
-      allow write: if false; // Deny all client-side writes to ensure immutability
+      // Only allow administrators to read the audit logs.
+      allow read: if getUserRole() == 'admin';
+      
+      // Deny all client-side writes (create, update, delete).
+      // Logs should only be created by secure backend Cloud Functions.
+      allow write: if false;
     }
   }
 }
