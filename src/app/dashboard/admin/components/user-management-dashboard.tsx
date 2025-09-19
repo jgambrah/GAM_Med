@@ -30,15 +30,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AddUserDialog } from '../../hr/components/add-user-dialog';
+import { ChangeRoleDialog } from './change-role-dialog';
 
 export function UserManagementDashboard() {
   const [users, setUsers] = React.useState<User[]>(allUsers);
+  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
 
   const handleUserCreated = (newUser: User) => {
     setUsers(prev => [newUser, ...prev]);
   };
+  
+  const handleRoleChanged = (userId: string, newRole: User['role']) => {
+    setUsers(prev => prev.map(u => u.uid === userId ? { ...u, role: newRole } : u));
+    setSelectedUser(null);
+  };
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -82,7 +90,9 @@ export function UserManagementDashboard() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Change Role</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedUser(user)}>
+                          Change Role
+                        </DropdownMenuItem>
                         <DropdownMenuItem>
                           {user.is_active ? 'Deactivate User' : 'Activate User'}
                         </DropdownMenuItem>
@@ -96,5 +106,17 @@ export function UserManagementDashboard() {
         </div>
       </CardContent>
     </Card>
+    {selectedUser && (
+        <ChangeRoleDialog
+            user={selectedUser}
+            onRoleChanged={handleRoleChanged}
+            onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                    setSelectedUser(null);
+                }
+            }}
+        />
+    )}
+    </>
   );
 }
