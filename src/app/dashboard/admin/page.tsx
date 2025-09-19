@@ -22,6 +22,7 @@ import { RadiologyDashboard } from './components/radiology-dashboard';
 import { UserManagementDashboard } from './components/user-management-dashboard';
 import { SecurityDashboard } from './components/security-dashboard';
 import { AuditLogDashboard } from './components/audit-log-dashboard';
+import { BackupDashboard } from './components/backup-dashboard';
 
 export default function AdminPage() {
   return (
@@ -55,6 +56,7 @@ export default function AdminPage() {
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="data-backup">Data Backup</TabsTrigger>
           <TabsTrigger value="assets">Asset Management</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
         </TabsList>
@@ -209,6 +211,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="security" className="mt-4">
             <SecurityDashboard />
+        </TabsContent>
+        <TabsContent value="data-backup" className="mt-4">
+            <BackupDashboard />
         </TabsContent>
         <TabsContent value="assets" className="mt-4">
             <Card>

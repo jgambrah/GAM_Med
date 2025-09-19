@@ -41,7 +41,8 @@ import {
     MessageSquare,
     FileText,
     Building,
-    BookHeart
+    BookHeart,
+    DatabaseBackup
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -276,4 +277,3 @@ export function MainNavClient() {
     </SidebarMenu>
   );
 }
-
