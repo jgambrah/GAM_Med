@@ -1,54 +1,71 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get the role of the currently authenticated user
+
+    // Helper function to get the role of the currently authenticated user.
     function isUserRole(role) {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
-    // Patients can be read by doctors or the patient themselves.
-    // Only admins should have broad write access.
+    // Rules for the users collection
+    match /users/{userId} {
+      // Allow users to read their own profile. Allow admins to read any profile.
+      allow read: if request.auth.uid == userId || isUserRole('admin');
+
+      // Allow users to update their own profile, but NOT their role.
+      // This prevents a user from escalating their own privileges.
+      allow update: if request.auth.uid == userId && !('role' in request.resource.data);
+    }
+    
+    // Rules for the central roles collection
+    match /roles/{roleId} {
+      // Only admins can read the roles and permissions.
+      allow read: if isUserRole('admin');
+      // Deny all write operations to prevent tampering with roles.
+      allow write: if false;
+    }
+
+    // Rules for the immutable audit logs
+    match /audit_logs/{logId} {
+      // Only admins can read the audit trail.
+      allow read: if isUserRole('admin');
+      // Deny all write operations to ensure the log is immutable from the client.
+      allow write: if false;
+    }
+    
+    // Rules for the patients collection
     match /patients/{patientId} {
-      allow read: if request.auth != null && (isUserRole('admin') || isUserRole('doctor') || isUserRole('nurse') || request.auth.uid == resource.data.userId);
-      allow write: if request.auth != null && isUserRole('admin');
+      // Allow doctors to read any patient record.
+      // Allow patients to read their own record.
+      allow read: if isUserRole('doctor') || isUserRole('nurse') || request.auth.uid == patientId;
       
-      // Rules for subcollections
-      match /{allPaths=**} {
-        allow read, write: if request.auth != null && (isUserRole('admin') || isUserRole('doctor') || isUserRole('nurse'));
+      // Only allow admins to create or update patient records directly.
+      // Most updates should go through secure Cloud Functions.
+      allow write: if isUserRole('admin');
+
+      // Rules for patient sub-collections (vitals, notes, etc.)
+      match /{subcollection}/{docId} {
+        allow read: if isUserRole('doctor') || isUserRole('nurse') || request.auth.uid == patientId;
+        allow write: if isUserRole('doctor') || isUserRole('nurse');
       }
     }
-
-    // Invoices can be read by billing staff, or the patient they belong to.
-    // Only billing staff can create or modify invoices.
-    match /invoices/{invoiceId} {
-        allow read: if request.auth != null && (isUserRole('admin') || isUserRole('billing_clerk') || request.auth.uid == resource.data.patientId);
-        allow write: if request.auth != null && (isUserRole('admin') || isUserRole('billing_clerk'));
-    }
-
-    // User profile data can be read by any authenticated user,
-    // but a user can only write to their own document.
-    match /users/{userId} {
+    
+    // Rules for health content and reminders (Patient Portal)
+    match /health_content/{contentId} {
+      // Any authenticated user can read health content.
       allow read: if request.auth != null;
-      // Prevent users from changing their own role.
-      allow write: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
-    }
-    
-    // Roles are highly sensitive and should only be readable by admins
-    // and not writable from the client at all.
-    match /roles/{roleId} {
-        allow read: if request.auth != null && isUserRole('admin');
-        allow write: if false;
+      // Only admins can write health content.
+      allow write: if isUserRole('admin');
     }
 
-    // Audit logs are immutable and cannot be read or written from the client.
-    // They should only be created by secure Cloud Functions.
-    match /audit_logs/{logId} {
-        allow read, write: if false;
+    match /reminders/{reminderId} {
+      // A user can only access reminders linked to their patientId.
+      allow read, write: if request.auth.uid == resource.data.patientId;
     }
-    
-    // Default deny all other collections
+
+    // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
     }
