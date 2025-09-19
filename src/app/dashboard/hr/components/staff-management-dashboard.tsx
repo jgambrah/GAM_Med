@@ -105,7 +105,7 @@ export function StaffDirectoryDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="All">All Departments</SelectItem>
-                    {departments.map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
+                    {departments.filter((dep): dep is string => !!dep).map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}
                 </SelectContent>
             </Select>
           </div>
