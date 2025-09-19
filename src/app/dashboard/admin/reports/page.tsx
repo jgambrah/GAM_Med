@@ -294,5 +294,4 @@ export default function FinancialReportsPage() {
       </Card>
     </div>
   );
-
-    
+}
