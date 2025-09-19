@@ -7,6 +7,44 @@
  */
 
 // =========================================================================
+// == Access Control & Security
+// =========================================================================
+
+/**
+ * Represents a user role in the central 'roles' collection.
+ * This defines the permissions for each role across the application.
+ */
+export interface Role {
+  roleId: string; // e.g., 'doctor', 'admin'
+  permissions: {
+    [collectionName: string]: {
+      read?: boolean;
+      write?: boolean;
+      create?: boolean;
+      delete?: boolean;
+    };
+  };
+}
+
+/**
+ * Represents an immutable audit log entry.
+ * Path: /audit_logs/{logId}
+ */
+export interface AuditLog {
+  logId: string;
+  timestamp: string; // ISO Timestamp
+  userId: string; // UID of the user who performed the action
+  action: string; // e.g., 'VIEWED_PATIENT_RECORD', 'UPDATED_INVOICE'
+  details: {
+    targetCollection: string;
+    targetDocId: string;
+    changes?: Record<string, any>; // For update actions
+    ipAddress?: string; // For security auditing
+  };
+}
+
+
+// =========================================================================
 // == Ward, Bed & OT Management
 // =========================================================================
 
@@ -1136,7 +1174,7 @@ export interface Appointment {
   duration: number; // in minutes
   type: 'consultation' | 'follow-up' | 'procedure';
   department: string;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'confirmed';
   isBilled: boolean;
   isConfirmed: boolean;
   bookingMethod: 'Online Portal' | 'Front Desk' | 'Referral';
@@ -1192,8 +1230,8 @@ export interface Referral {
   assignedDoctorId?: string;
   status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed';
   appointmentId?: string; // Link to the appointment created from this referral
-  created_at: string; // ISO Timestamp
-  updated_at: string; // ISO Timestamp
+  created_at: string; // ISO 8601 format
+  updated_at: string; // ISO 8601 format
 }
 
 /**
