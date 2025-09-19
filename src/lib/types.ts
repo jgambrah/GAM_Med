@@ -896,6 +896,8 @@ export interface User {
   photoURL?: string;
   patient_id?: string; // If user is also a patient
   availability?: Record<string, string[]>;
+  isMfaEnabled?: boolean;
+  failedLoginAttempts?: number;
   // For HR Module
   firstName?: string;
   lastName?: string;
@@ -1617,3 +1619,6 @@ export interface Message {
   timestamp: string; // ISO Timestamp
   isRead: boolean;
 }
+
+
+    
