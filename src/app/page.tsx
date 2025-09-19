@@ -7,7 +7,7 @@ export default function Home() {
       <h1 className="text-4xl font-bold">Welcome to GamMed</h1>
       <p className="mt-4 text-lg">Your modern Hospital Management ERP System.</p>
       <Button asChild className="mt-8">
-        <Link href="/dashboard">Go to Dashboard</Link>
+        <Link href="/login">Login to Dashboard</Link>
       </Button>
     </main>
   );
