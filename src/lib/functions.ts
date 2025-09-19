@@ -14,6 +14,68 @@
 // const db = admin.firestore();
 
 // =======================================================================================
+// == SECURE DATA STORAGE & DISASTER RECOVERY
+// =======================================================================================
+
+/**
+ * A scheduled function to automatically back up the entire Firestore database to Google Cloud Storage.
+ * This is a critical component of the disaster recovery plan.
+ *
+ * @trigger_type Scheduled (cron job)
+ * @schedule 'every day 02:00'
+ */
+/*
+const client = new admin.firestore.v1.FirestoreAdminClient();
+const BUCKET_NAME = 'gs://gammed-firestore-backups'; // Replace with your GCS bucket name
+
+exports.automatedBackups = functions.region('europe-west1').pubsub
+    .schedule('every day 02:00')
+    .timeZone('Africa/Accra')
+    .onRun(async (context) => {
+        const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT;
+        const databaseName = client.databasePath(projectId, '(default)');
+        
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
+        const exportPath = `${BUCKET_NAME}/${timestamp}`;
+
+        console.log(`Starting Firestore export to ${exportPath}`);
+        
+        try {
+            const [response] = await client.exportDocuments({
+                name: databaseName,
+                outputUriPrefix: exportPath,
+                // Leave collectionIds empty to export all collections
+                collectionIds: []
+            });
+            console.log(`Export operation started: ${response.name}`);
+            return null;
+        } catch (error) {
+            console.error('Failed to start Firestore export:', error);
+            throw new functions.https.HttpsError('internal', 'Could not start database export.');
+        }
+    });
+*/
+
+/**
+ * --- DISASTER RECOVERY PLAN ---
+ * 
+ * 1.  **Data Restoration (Manual):**
+ *     In the event of catastrophic data loss, a system administrator would use the `gcloud` command-line
+ *     tool to import data from a specific backup in the Google Cloud Storage bucket.
+ *     
+ *     Command:
+ *     gcloud firestore import gs://[BUCKET_NAME]/[BACKUP_TIMESTAMP_FOLDER]
+ * 
+ * 2.  **Business Continuity (Automatic Failover):**
+ *     Because Firestore is a multi-regional database, if a single data center experiences an outage,
+ *     traffic is automatically and transparently routed to another data center in the same region.
+ *     This provides high availability with no manual intervention required. For regional outages,
+ *     the GCS backups (stored in a multi-regional bucket) provide the data needed to restore service
+ *     in a different geographic region if necessary.
+ */
+
+
+// =======================================================================================
 // == USER AUTHENTICATION
 // =======================================================================================
 
@@ -6039,4 +6101,5 @@ exports.deliverHealthContent = functions.region('europe-west1').firestore
     
 
     
+
 
