@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -20,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -35,6 +37,7 @@ import {
 import { PatientSchema } from '@/lib/schemas';
 import { addPatient } from '@/lib/actions';
 import { mockPricingTables } from '@/lib/data';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /**
  * PatientRegistrationForm (Conceptual Component)
@@ -85,7 +88,8 @@ export function AddPatientDialog() {
         providerName: '',
         policyNumber: '',
         expiryDate: '',
-      }
+      },
+      consent: false,
     },
   });
 
@@ -459,6 +463,30 @@ export function AddPatientDialog() {
                   )}
                 />
               </div>
+
+               <FormField
+                control={form.control}
+                name="consent"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Patient Consent
+                      </FormLabel>
+                      <FormDescription>
+                        I consent to the collection and processing of my personal and health data for the purpose of receiving medical care, in accordance with the Data Protection Act, 2012 (Act 843).
+                      </FormDescription>
+                       <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
 
             </div>
             <DialogFooter>

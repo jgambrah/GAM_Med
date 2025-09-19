@@ -71,6 +71,9 @@ export const PatientSchema = z.object({
     policyNumber: z.string().optional(),
     expiryDate: z.string().optional(),
   }).optional(),
+  consent: z.literal(true, {
+    errorMap: () => ({ message: "You must consent to data processing to register." }),
+  }),
 });
 
 /**
