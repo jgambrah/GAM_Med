@@ -1,40 +1,40 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user's role from the 'users' collection
+    // Helper function to get user role
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow users to read their own profile, or allow admins to read any profile.
       allow read: if request.auth.uid == userId || getUserRole() == 'admin';
-
-      // Allow users to update their own profile, but NOT change their role.
-      allow update: if request.auth.uid == userId && !('role' in request.resource.data);
+      allow write: if request.auth.uid == userId || getUserRole() == 'admin';
     }
-    
-    // Rules for the 'patients' collection to enforce data privacy
+
     match /patients/{patientId} {
-      // Allow read/write access if the user is an admin.
-      // Allow the patient to read their own record (patientId matches auth uid).
-      // Allow clinical staff (doctors, nurses) to read/write if their uid is in the patient's assignedCareTeam array.
       allow read, write: if getUserRole() == 'admin' 
-                      || request.auth.uid == patientId 
-                      || (request.auth.uid in resource.data.assignedCareTeam);
+                      || request.auth.uid == patientId
+                      || request.auth.uid in get(/databases/$(database)/documents/patients/$(patientId)).data.assignedCareTeam;
     }
 
-    // Rules for the 'audit_logs' collection to ensure immutability
     match /audit_logs/{logId} {
-      // Only allow administrators to read the audit logs.
       allow read: if getUserRole() == 'admin';
-      
-      // Deny all client-side writes (create, update, delete).
-      // Logs should only be created by secure backend Cloud Functions.
-      allow write: if false;
+      allow write: if false; // Immutable from the client
+    }
+
+    match /prescriptions/{prescriptionId} {
+      allow create: if getUserRole() == 'doctor';
+      allow update: if getUserRole() == 'pharmacist';
+      // No one can delete a prescription record directly, it must be marked as 'Canceled'.
+      allow delete: if false; 
+    }
+
+    match /inventory/{itemId} {
+      // Only pharmacists can update inventory levels (e.g., through dispensing or restocking).
+      allow update: if getUserRole() == 'pharmacist';
+      allow read: if request.auth.uid != null; // Allow any authenticated user to read inventory levels
+      allow create, delete: if getUserRole() == 'admin'; // Only admins can add new items to the catalog
     }
   }
 }
