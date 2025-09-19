@@ -14,7 +14,9 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type Credential = (User['licenses'][0] & { type: 'License' }) | (User['certifications'][0] & { type: 'Certification' });
+type License = NonNullable<User['licenses']>[number];
+type Certification = NonNullable<User['certifications']>[number];
+type Credential = (License & { type: 'License' }) | (Certification & { type: 'Certification' });
 
 type FlatCredential = Credential & {
   staffId: string;
@@ -137,7 +139,7 @@ export function CredentialsDashboard() {
               <TableBody>
                 {filteredCredentials.length > 0 ? (
                   filteredCredentials.map(cred => (
-                    <TableRow key={`${cred.staffId}-${cred.name}-${cred.type}`} className={cn(cred.status === 'Expired' && 'bg-destructive/10', cred.status === 'Expiring Soon' && 'bg-yellow-500/10')}>
+                    <TableRow key={`${cred.staffId}-${(cred as any).name || (cred as any).licenseNumber}-${cred.type}`} className={cn(cred.status === 'Expired' && 'bg-destructive/10', cred.status === 'Expiring Soon' && 'bg-yellow-500/10')}>
                       <TableCell>
                         <Button asChild variant="link" className="p-0 h-auto font-medium">
                             <Link href={`/dashboard/hr/staff/${cred.staffId}`}>
@@ -146,7 +148,7 @@ export function CredentialsDashboard() {
                         </Button>
                       </TableCell>
                       <TableCell>{cred.type}</TableCell>
-                      <TableCell className="font-medium">{cred.name || cred.licenseNumber}</TableCell>
+                      <TableCell className="font-medium">{(cred as any).name || (cred as any).licenseNumber}</TableCell>
                       <TableCell>{format(parseISO(cred.expiryDate), 'PPP')}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusVariant(cred.status)}>{cred.status}</Badge>
@@ -168,3 +170,4 @@ export function CredentialsDashboard() {
     </div>
   );
 }
+
