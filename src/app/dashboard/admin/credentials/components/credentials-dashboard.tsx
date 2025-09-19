@@ -48,7 +48,7 @@ export function CredentialsDashboard() {
         type: 'Certification' as const,
         staffId: user.uid,
         staffName: user.name,
-        status: getStatus(cert.expiryDate),
+        status: cert.expiryDate ? getStatus(cert.expiryDate) : 'Active',
       }));
       return [...licenses, ...certs];
     });
@@ -149,7 +149,7 @@ export function CredentialsDashboard() {
                       </TableCell>
                       <TableCell>{cred.type}</TableCell>
                       <TableCell className="font-medium">{(cred as any).name || (cred as any).licenseNumber}</TableCell>
-                      <TableCell>{format(parseISO(cred.expiryDate), 'PPP')}</TableCell>
+                      <TableCell>{cred.expiryDate ? format(parseISO(cred.expiryDate), 'PPP') : 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusVariant(cred.status)}>{cred.status}</Badge>
                       </TableCell>
@@ -170,4 +170,3 @@ export function CredentialsDashboard() {
     </div>
   );
 }
-
