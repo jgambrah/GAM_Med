@@ -18,7 +18,6 @@ import { ImmunizationsTab } from '../patients/[patientId]/components/immunizatio
 import { AdmissionsHistoryTab } from '../patients/[patientId]/components/admissions-history-tab';
 import { allAdmissions } from '@/lib/data';
 import { MedicationsTab } from '../patients/[patientId]/components/medications-tab';
-import Link from 'next/link';
 
 export default function MyRecordsPage() {
     const { user } = useAuth();
@@ -84,4 +83,3 @@ export default function MyRecordsPage() {
         </div>
     );
 }
-
