@@ -49,6 +49,7 @@ export default function AdminPage() {
           <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="user-management">User Management</TabsTrigger>
            <TabsTrigger value="credentials">Credentials</TabsTrigger>
+          <TabsTrigger value="health-content">Health Library</TabsTrigger>
           <TabsTrigger value="global-alerts">Global Alerts</TabsTrigger>
           <TabsTrigger value="staff-schedules">Staff Schedules</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -173,6 +174,23 @@ export default function AdminPage() {
                     <Button asChild className="mt-4">
                         <Link href="/dashboard/admin/credentials">
                             Go to Credentials Dashboard
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="health-content" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Health Library Management</CardTitle>
+                    <CardDescription>
+                        Create, edit, and manage health education articles for the patient portal.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/admin/health-content">
+                            Go to Content Dashboard
                         </Link>
                     </Button>
                 </CardContent>
