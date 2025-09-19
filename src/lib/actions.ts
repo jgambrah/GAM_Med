@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema, NewAssetSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 
@@ -570,7 +570,7 @@ export async function checkPrescriptionSafety(
 /**
  * Server Action to simulate a lab machine analyzing a sample.
  */
-export async function analyzeSample(testId: string) {
+export async function analyzeSample(testId: string): Promise<{ success: boolean, message?: string }> {
     console.log(`Server Action: Analyzing sample for lab test ${testId}.`);
 
     // In a real application, this would not be needed. The equipment would send data to a webhook,
@@ -583,5 +583,5 @@ export async function analyzeSample(testId: string) {
     // For the prototype, we'll just update the status to 'Draft' to move it to the next queue.
     revalidatePath('/dashboard/lab');
 
-    return { success: true };
+    return { success: true, message: 'Analysis complete.' };
 }
