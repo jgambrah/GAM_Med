@@ -175,7 +175,7 @@ function RecentActivity() {
         ...unreadMessages.map(m => ({ type: 'Message', data: m, date: m.timestamp })),
         ...outstandingBills.map(b => ({ type: 'Billing', data: b, date: b.dueDate })),
         ...upcomingReminders.map(rem => ({ type: 'Reminder', data: rem, date: rem.scheduledDateTime }))
-    ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    ].filter(a => a.date).sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
 
 
     const renderActivity = (activity: any) => {
