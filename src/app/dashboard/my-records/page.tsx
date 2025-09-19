@@ -51,9 +51,6 @@ export default function MyRecordsPage() {
                                 <TabsTrigger value="radiology">Imaging Reports</TabsTrigger>
                                 <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
                                 <TabsTrigger value="admissions">Visit History</TabsTrigger>
-                                <TabsTrigger asChild>
-                                    <Link href="/dashboard/my-records/health-library">Health Library</Link>
-                                </TabsTrigger>
                             </TabsList>
                         </div>
                     </CardHeader>
@@ -87,3 +84,4 @@ export default function MyRecordsPage() {
         </div>
     );
 }
+
