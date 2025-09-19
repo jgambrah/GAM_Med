@@ -37,7 +37,7 @@ const ItemSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be greater than zero.'),
 });
 
-function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: User, itemType: 'Allowance' | 'Deduction', onAdded: (name: string, amount: number) => void }) {
+function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: UserType, itemType: 'Allowance' | 'Deduction', onAdded: (name: string, amount: number) => void }) {
   const [open, setOpen] = React.useState(false);
   
   const form = useForm<z.infer<typeof ItemSchema>>({
@@ -271,7 +271,7 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
 }
 
 
-function SalaryTab({ staff, setStaff }: { staff: User, setStaff: React.Dispatch<React.SetStateAction<User | undefined>> }) {
+function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispatch<React.SetStateAction<UserType | undefined>> }) {
     const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
     
     // For prototype, we need to find the full staff profile to get allowances/deductions
@@ -611,5 +611,3 @@ export default function StaffProfilePage() {
     </div>
   );
 }
-
-    
