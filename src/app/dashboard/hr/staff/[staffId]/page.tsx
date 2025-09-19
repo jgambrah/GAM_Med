@@ -6,7 +6,7 @@ import { useParams, notFound, useRouter } from 'next/navigation';
 import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
 import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -503,6 +503,41 @@ function TrainingTab({ staff }: { staff: StaffProfile }) {
   );
 }
 
+function SecurityTab({ isSelf, isMfaEnabled, onEnable }: { isSelf: boolean, isMfaEnabled: boolean, onEnable: () => void }) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Account Security</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Multi-Factor Authentication (MFA)</CardTitle>
+                        <CardDescription>
+                            Add an extra layer of security to your account.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-semibold">Status: <Badge variant={isMfaEnabled ? "secondary" : "destructive"}>{isMfaEnabled ? "Enabled" : "Disabled"}</Badge></p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    When enabled, you will be asked for a code from your authenticator app after logging in.
+                                </p>
+                            </div>
+                            {isSelf && !isMfaEnabled && (
+                                <Button onClick={onEnable}>
+                                    Enable MFA
+                                </Button>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function StaffProfilePage() {
   const router = useRouter();
   const params = useParams();
@@ -520,6 +555,14 @@ export default function StaffProfilePage() {
   }
 
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
+  const isSelf = staff.uid === user?.uid;
+
+  const handleEnableMfa = () => {
+      // In a real app, this would trigger a dialog with a QR code and verification step.
+      toast.info("Opening MFA Enrollment", {
+          description: "This would open a dialog to scan a QR code with an authenticator app."
+      })
+  }
 
   return (
     <div className="space-y-6">
@@ -542,6 +585,7 @@ export default function StaffProfilePage() {
             <TabsTrigger value="performance">Performance & Goals</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
+            {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
          <TabsContent value="profile" className="mt-4">
             <ProfileDetailsTab staff={staff} user={user} />
@@ -558,6 +602,11 @@ export default function StaffProfilePage() {
                  <PayrollHistoryTab staffId={staff.uid} />
             </div>
         </TabsContent>
+        {isSelf && (
+            <TabsContent value="security" className="mt-4">
+                <SecurityTab isSelf={isSelf} isMfaEnabled={staff.isMfaEnabled || false} onEnable={handleEnableMfa} />
+            </TabsContent>
+        )}
       </Tabs>
     </div>
   );
