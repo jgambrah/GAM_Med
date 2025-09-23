@@ -114,13 +114,6 @@ const ChartTooltipContent = React.forwardRef<
     const { config } = useChart()
 
     const item = payload?.[0]
-    const itemConfig = item ? config[item.dataKey as string] : undefined
-
-    const value =
-      formatter && item?.value
-        ? formatter(item.value, item.name || '', item, 0, item.payload)
-        : item?.value
-    const name = nameKey && item?.payload ? item.payload[nameKey] : itemConfig?.label || item?.name
     
     // Fallback to payload's x/y key if label is not provided
     const finalLabel = labelKey && item?.payload ? item.payload[labelKey] : label
@@ -135,7 +128,7 @@ const ChartTooltipContent = React.forwardRef<
         : [
             {
               ...item,
-              name: name,
+              name: (nameKey && item.payload?.[nameKey]) || item.name,
             },
           ]
 
@@ -150,8 +143,7 @@ const ChartTooltipContent = React.forwardRef<
         {!hideLabel && finalLabel ? (
           <div className={cn("font-medium", labelClassName)}>
             {labelFormatter
-              ? 
-                labelFormatter(finalLabel, payload)
+              ? labelFormatter(finalLabel, payload)
               : finalLabel}
           </div>
         ) : null}
@@ -188,7 +180,7 @@ const ChartTooltipContent = React.forwardRef<
                     {itemConfig?.label || item.name}
                   </span>
                   <span>
-                    {formatter
+                    {formatter && item.value != null
                       ? formatter(item.value, item.name || "", item, index, item.payload)
                       : item.value}
                   </span>
