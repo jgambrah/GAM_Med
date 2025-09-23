@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -7,7 +8,7 @@ import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockP
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
-import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse } from '@/lib/types';
+import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -31,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { NewGoalSchema, LogTrainingSchema } from '@/lib/schemas';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -386,9 +388,87 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
     )
 }
 
-function PerformanceTab({ staff }: { staff: StaffProfile }) {
+function AddGoalDialog({ onGoalAdded }: { onGoalAdded: (newGoal: DevelopmentGoal) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const form = useForm<z.infer<typeof NewGoalSchema>>({
+    resolver: zodResolver(NewGoalSchema),
+    defaultValues: { description: '', targetDate: '' },
+  });
+
+  const onSubmit = (values: z.infer<typeof NewGoalSchema>) => {
+    const newGoal = {
+      goalId: `goal-${Date.now()}`,
+      status: 'Not Started' as const,
+      ...values,
+    };
+    onGoalAdded(newGoal);
+    toast.success('New development goal has been added.');
+    setOpen(false);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Plus className="mr-2 h-4 w-4" /> Add Goal
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Development Goal</DialogTitle>
+          <DialogDescription>Set a new performance or development goal for this staff member.</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Goal Description</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="e.g., Complete advanced certification in..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="targetDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Target Completion Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit">Add Goal</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
   const reviews: PerformanceReview[] = mockPerformanceReviews.filter(r => r.employeeId === staff.staffId);
   const goals = staff.developmentGoals || [];
+
+  const handleGoalAdded = (newGoal: DevelopmentGoal) => {
+    const updatedStaff = {
+        ...staff,
+        developmentGoals: [...(staff.developmentGoals || []), newGoal]
+    };
+    setStaff(updatedStaff);
+  }
 
   return (
     <div className="space-y-6">
@@ -398,7 +478,7 @@ function PerformanceTab({ staff }: { staff: StaffProfile }) {
             <CardTitle>Development Goals</CardTitle>
             <CardDescription>Current development goals for this staff member.</CardDescription>
           </div>
-          <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4"/> Add Goal</Button>
+          <AddGoalDialog onGoalAdded={handleGoalAdded} />
         </CardHeader>
         <CardContent>
             {goals.length > 0 ? (
@@ -457,8 +537,100 @@ function PerformanceTab({ staff }: { staff: StaffProfile }) {
   );
 }
 
-function TrainingTab({ staff }: { staff: StaffProfile }) {
+function LogTrainingDialog({ onTrainingLogged }: { onTrainingLogged: (newRecord: any) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const form = useForm<z.infer<typeof LogTrainingSchema>>({
+    resolver: zodResolver(LogTrainingSchema),
+    defaultValues: { courseId: '', completionDate: '' },
+  });
+
+  const onSubmit = (values: z.infer<typeof LogTrainingSchema>) => {
+    const course = mockTrainingCourses.find(c => c.courseId === values.courseId);
+    if (!course) return;
+
+    const newRecord = {
+      trainingId: course.courseId,
+      courseName: course.courseName,
+      completionDate: values.completionDate,
+      provider: course.provider,
+    };
+    
+    onTrainingLogged(newRecord);
+    toast.success('Training has been logged to the staff member\'s profile.');
+    setOpen(false);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Plus className="mr-2 h-4 w-4" /> Log Training
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Log Completed Training</DialogTitle>
+          <DialogDescription>Select a course and the date it was completed.</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="courseId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Training Course</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select a course..." /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {mockTrainingCourses.map(course => (
+                        <SelectItem key={course.courseId} value={course.courseId}>
+                          {course.courseName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="completionDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Completion Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit">Log Training</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TrainingTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
     const trainingRecords = staff.trainingRecords || [];
+
+    const handleTrainingLogged = (newRecord: any) => {
+        const updatedStaff = {
+            ...staff,
+            trainingRecords: [...(staff.trainingRecords || []), newRecord]
+        };
+        setStaff(updatedStaff);
+    };
 
   return (
     <Card>
@@ -467,7 +639,7 @@ function TrainingTab({ staff }: { staff: StaffProfile }) {
           <CardTitle>Training & Certifications</CardTitle>
           <CardDescription>A log of all completed training courses.</CardDescription>
         </div>
-        <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4"/> Log Training</Button>
+        <LogTrainingDialog onTrainingLogged={handleTrainingLogged} />
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -548,7 +720,10 @@ export default function StaffProfilePage() {
     allUsers.find((p) => p.uid === staffId)
   );
 
-  const staffProfile = mockStaffProfiles.find(p => p.staffId === staffId);
+  const [staffProfile, setStaffProfile] = React.useState<StaffProfile | undefined>(
+      mockStaffProfiles.find(p => p.staffId === staffId)
+  );
+
 
   if (!staff || !staffProfile) {
     notFound();
@@ -591,10 +766,10 @@ export default function StaffProfilePage() {
             <ProfileDetailsTab staff={staff} user={user} />
         </TabsContent>
          <TabsContent value="performance" className="mt-4">
-            <PerformanceTab staff={staffProfile} />
+            <PerformanceTab staff={staffProfile} setStaff={setStaffProfile as any} />
         </TabsContent>
          <TabsContent value="training" className="mt-4">
-            <TrainingTab staff={staffProfile} />
+            <TrainingTab staff={staffProfile} setStaff={setStaffProfile as any} />
         </TabsContent>
         <TabsContent value="payroll" className="mt-4">
             <SalaryTab staff={staff} setStaff={setStaff} />

@@ -793,6 +793,15 @@ export interface TrainingCourse {
   type: 'Mandatory' | 'Skill Development' | 'Leadership';
 }
 
+/**
+ * Represents a single development goal for a staff member.
+ */
+export interface DevelopmentGoal {
+  goalId: string;
+  description: string;
+  targetDate: string; // ISO Date YYYY-MM-DD
+  status: 'Not Started' | 'In Progress' | 'Completed' | 'Deferred';
+}
 
 // =========================================================================
 // == Clinical Decision Support (CDS) & Reporting Data Models
@@ -1018,12 +1027,7 @@ export interface StaffProfile {
     completionDate: string; // ISO Timestamp
     provider: string;
   }[];
-  developmentGoals?: {
-    goalId: string;
-    description: string;
-    targetDate: string;
-    status: 'Not Started' | 'In Progress' | 'Completed' | 'Deferred';
-  }[];
+  developmentGoals?: DevelopmentGoal[];
 }
 
 /**
@@ -1634,4 +1638,3 @@ export interface Diagnosis {
   diagnosedAt: string; // ISO Timestamp
 }
     
-

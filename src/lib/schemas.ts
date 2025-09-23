@@ -356,4 +356,13 @@ export const NewAssetSchema = z.object({
   warrantyEndDate: z.string().optional(),
 });
 
+export const NewGoalSchema = z.object({
+  description: z.string().min(10, 'Goal description must be at least 10 characters.'),
+  targetDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid target date is required." }),
+});
+
+export const LogTrainingSchema = z.object({
+  courseId: z.string().min(1, 'A course must be selected.'),
+  completionDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid completion date is required.' }),
+});
     
