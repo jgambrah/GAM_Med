@@ -222,7 +222,7 @@ const ChartLegendContent = React.forwardRef<
           className
         )}
       >
-        {payload.map((item) => {
+        {payload.map((item: any) => {
           const key = (nameKey && item.payload?.[nameKey]) || (item.dataKey as string) || "value"
           const itemConfig = config[key]
 
