@@ -6,6 +6,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { format } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +44,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Appointment } from '@/lib/types';
 
 const mockDepartments = [
     { value: 'Cardiology', label: 'Cardiology' },
@@ -62,11 +64,21 @@ const mockProcedureRooms = [
     { value: 'proc-room-2', label: 'Procedure Room 2' },
 ];
 
-export function NewAppointmentDialog() {
-  const [open, setOpen] = React.useState(false);
+interface NewAppointmentDialogProps {
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  appointmentToReschedule?: Appointment | null;
+}
+
+export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToReschedule }: NewAppointmentDialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
   const { user } = useAuth();
+  
+  const isEditing = !!appointmentToReschedule;
+  const open = isOpen !== undefined ? isOpen : internalOpen;
+  const setOpen = onOpenChange !== undefined ? onOpenChange : setInternalOpen;
   
   const form = useForm<z.infer<typeof NewAppointmentSchema>>({
     resolver: zodResolver(NewAppointmentSchema),
@@ -83,10 +95,28 @@ export function NewAppointmentDialog() {
   });
 
   React.useEffect(() => {
-    if (user?.role === 'patient' && user.patient_id) {
-      form.setValue('patientId', user.patient_id);
+     if (open) {
+      if (isEditing && appointmentToReschedule) {
+        form.reset({
+          patientId: appointmentToReschedule.patient_id,
+          department: appointmentToReschedule.department,
+          doctorId: appointmentToReschedule.doctor_id,
+          appointmentDate: format(new Date(appointmentToReschedule.appointment_date), 'yyyy-MM-dd'),
+          appointmentTime: format(new Date(appointmentToReschedule.appointment_date), 'HH:mm'),
+          type: appointmentToReschedule.type,
+          isVirtual: appointmentToReschedule.isVirtual,
+        });
+      } else if (user?.role === 'patient' && user.patient_id) {
+        form.reset({
+          ...form.getValues(),
+          patientId: user.patient_id
+        });
+      } else {
+        form.reset();
+      }
     }
-  }, [user, form, open]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isEditing, appointmentToReschedule, user, form.reset]);
   
   const selectedDepartment = form.watch('department');
   const selectedDate = form.watch('appointmentDate');
@@ -123,18 +153,9 @@ export function NewAppointmentDialog() {
     console.log("Booking appointment with values:", values);
     const result = await bookAppointment(values);
     if (result.success) {
-      toast.success('The appointment has been successfully scheduled.');
+      toast.success(isEditing ? 'The appointment has been successfully rescheduled.' : 'The appointment has been successfully scheduled.');
       setOpen(false);
-      form.reset({
-        patientId: user?.role === 'patient' ? user.patient_id : '',
-        department: '',
-        doctorId: 'any',
-        appointmentDate: '',
-        appointmentTime: '',
-        type: 'consultation',
-        resourceId: '',
-        isVirtual: false,
-      });
+      form.reset();
     } else {
       toast.error(result.message || 'An unexpected error occurred.');
     }
@@ -147,19 +168,12 @@ export function NewAppointmentDialog() {
     alert("This would open the 'Add to Waitlist' dialog.");
   }
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Book New Appointment
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+  const dialogContent = (
+    <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Book New Appointment</DialogTitle>
+          <DialogTitle>{isEditing ? 'Reschedule Appointment' : 'Book New Appointment'}</DialogTitle>
           <DialogDescription>
-            Fill in the details below to schedule a new appointment.
+            {isEditing ? 'Modify the details below to reschedule the appointment.' : 'Fill in the details below to schedule a new appointment.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -202,7 +216,7 @@ export function NewAppointmentDialog() {
                   <Select onValueChange={(value) => {
                       field.onChange(value);
                       form.setValue('doctorId', 'any');
-                  }} defaultValue={field.value}>
+                  }} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a department" />
@@ -311,7 +325,7 @@ export function NewAppointmentDialog() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Appointment Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a type" />
@@ -335,7 +349,7 @@ export function NewAppointmentDialog() {
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Book Procedure Room</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a procedure room" />
@@ -380,12 +394,32 @@ export function NewAppointmentDialog() {
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Booking...' : 'Book Appointment'}
+                {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
+  );
+
+  if (isEditing) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        {dialogContent}
+      </Dialog>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Book New Appointment
+        </Button>
+      </DialogTrigger>
+      {dialogContent}
     </Dialog>
   );
 }
+

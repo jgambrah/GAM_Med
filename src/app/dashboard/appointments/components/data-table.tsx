@@ -26,6 +26,8 @@ import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { toast } from '@/hooks/use-toast';
 import { cancelAppointment } from '@/lib/actions';
+import { NewAppointmentDialog } from './new-appointment-dialog';
+import { AppointmentDetailDialog } from './appointment-detail-dialog';
 
 interface AppointmentsDataTableProps {
   data: Appointment[];
@@ -43,6 +45,8 @@ const getStatusVariant = (status: Appointment['status']): "default" | "secondary
 
 export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
     const { user } = useAuth();
+    const [selectedAppointment, setSelectedAppointment] = React.useState<Appointment | null>(null);
+    const [dialog, setDialog] = React.useState<'view' | 'reschedule' | null>(null);
 
     const handleCancel = async (appointmentId: string) => {
         const result = await cancelAppointment(appointmentId);
@@ -57,8 +61,14 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
             });
         }
     }
+    
+    const closeDialog = () => {
+        setSelectedAppointment(null);
+        setDialog(null);
+    }
 
   return (
+    <>
     <div className="rounded-md border">
         <Table>
             <TableHeader>
@@ -100,8 +110,8 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Reschedule</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setSelectedAppointment(appt); setDialog('view'); }}>View Details</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setSelectedAppointment(appt); setDialog('reschedule'); }}>Reschedule</DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="text-destructive"
                                 onClick={() => handleCancel(appt.appointment_id)}
@@ -124,5 +134,22 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
             </TableBody>
         </Table>
     </div>
+
+    {selectedAppointment && (
+        <>
+            <AppointmentDetailDialog
+                appointment={selectedAppointment}
+                isOpen={dialog === 'view'}
+                onOpenChange={(isOpen) => !isOpen && closeDialog()}
+            />
+            <NewAppointmentDialog
+                appointmentToReschedule={selectedAppointment}
+                isOpen={dialog === 'reschedule'}
+                onOpenChange={(isOpen) => !isOpen && closeDialog()}
+            />
+        </>
+    )}
+    </>
   );
 }
+
