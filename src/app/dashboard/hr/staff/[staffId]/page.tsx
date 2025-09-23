@@ -184,8 +184,8 @@ function PayrollHistoryTab({ staffId }: { staffId: string }) {
 
 const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string; value?: string | null; children?: React.ReactNode }) => (
     <div>
-        <p className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Icon className="h-4 w-4" />{label}</p>
-        {value && <p className="text-base font-semibold ml-6">{value}</p>}
+        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Icon className="h-4 w-4" />{label}</div>
+        {value && <div className="text-base font-semibold ml-6">{value}</div>}
         {children && <div className="ml-6">{children}</div>}
     </div>
 );
@@ -241,7 +241,7 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
                                 <ul className="list-disc pl-5 space-y-1">
                                     {staff.qualifications.map((q, i) => <li key={i}>{q.degree} - {q.institution} ({q.graduationYear})</li>)}
                                 </ul>
-                             ): <p className="text-sm text-muted-foreground">No qualifications on file.</p>}
+                             ): <div className="text-sm text-muted-foreground">No qualifications on file.</div>}
                         </div>
                         <Separator />
                          <div>
@@ -252,7 +252,7 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
                                          <li key={i}>{c.name} (Expires: <span className={getExpiryColor(c.expiryDate!)}>{format(parseISO(c.expiryDate!), 'PPP')}</span>)</li>
                                     ))}
                                 </ul>
-                             ): <p className="text-sm text-muted-foreground">No certifications on file.</p>}
+                             ): <div className="text-sm text-muted-foreground">No certifications on file.</div>}
                         </div>
                         <Separator />
                          <div>
@@ -263,7 +263,7 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
                                         <li key={i}>{l.type} - {l.licenseNumber} (Expires: <span className={getExpiryColor(l.expiryDate)}>{format(parseISO(l.expiryDate), 'PPP')}</span>)</li>
                                     ))}
                                 </ul>
-                             ): <p className="text-sm text-muted-foreground">No licenses on file.</p>}
+                             ): <div className="text-sm text-muted-foreground">No licenses on file.</div>}
                         </div>
                     </CardContent>
                 </Card>
@@ -458,8 +458,116 @@ function AddGoalDialog({ onGoalAdded }: { onGoalAdded: (newGoal: DevelopmentGoal
   );
 }
 
+const NewReviewSchema = z.object({
+  reviewerId: z.string().min(1, 'A reviewer must be selected.'),
+  ratingPeriodStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
+  ratingPeriodEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
+}).refine(data => new Date(data.ratingPeriodEnd) > new Date(data.ratingPeriodStart), {
+    message: "End date must be after start date.",
+    path: ["ratingPeriodEnd"],
+});
+
+function InitiateReviewDialog({ onReviewInitiated }: { onReviewInitiated: (newReview: PerformanceReview) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const form = useForm<z.infer<typeof NewReviewSchema>>({
+    resolver: zodResolver(NewReviewSchema),
+    defaultValues: { reviewerId: '', ratingPeriodStart: '', ratingPeriodEnd: '' },
+  });
+
+  const onSubmit = (values: z.infer<typeof NewReviewSchema>) => {
+    // In a real app, this would call a server action `initiatePerformanceReview`
+    const newReview = {
+      reviewId: `rev-${Date.now()}`,
+      employeeId: '', // This would be passed as a prop
+      reviewerId: values.reviewerId,
+      dateOfReview: '',
+      ratingPeriodStart: values.ratingPeriodStart,
+      ratingPeriodEnd: values.ratingPeriodEnd,
+      overallRating: 'Meets Expectations' as const, // Default, would be updated later
+      strengths: '',
+      areasForDevelopment: '',
+      goalsAchieved: [],
+      trainingRecommendations: '',
+      nextReviewDate: '',
+    };
+    onReviewInitiated(newReview);
+    toast.success('Performance review has been initiated and the reviewer has been notified.');
+    setOpen(false);
+    form.reset();
+  };
+
+  const reviewerOptions = allUsers.filter(u => u.role === 'admin' || u.role === 'doctor');
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Plus className="mr-2 h-4 w-4" /> Initiate Review
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Initiate New Performance Review</DialogTitle>
+          <DialogDescription>Select a reviewer and the rating period for this review cycle.</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="reviewerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reviewer</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a reviewer..." /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {reviewerOptions.map(u => <SelectItem key={u.uid} value={u.uid}>{u.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="ratingPeriodStart"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Period Start Date</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ratingPeriodEnd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Period End Date</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit">Initiate Review</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
-  const reviews: PerformanceReview[] = mockPerformanceReviews.filter(r => r.employeeId === staff.staffId);
+  const [reviews, setReviews] = React.useState<PerformanceReview[]>(
+    mockPerformanceReviews.filter(r => r.employeeId === staff.staffId)
+  );
+
   const goals = staff.developmentGoals || [];
 
   const handleGoalAdded = (newGoal: DevelopmentGoal) => {
@@ -469,6 +577,10 @@ function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (p
     };
     setStaff(updatedStaff);
   }
+
+  const handleReviewInitiated = (newReview: PerformanceReview) => {
+      setReviews(prev => [...prev, newReview]);
+  };
 
   return (
     <div className="space-y-6">
@@ -498,7 +610,7 @@ function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (p
             <CardTitle>Performance Review History</CardTitle>
             <CardDescription>A log of all past performance appraisals.</CardDescription>
           </div>
-          <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4"/> Initiate Review</Button>
+          <InitiateReviewDialog onReviewInitiated={handleReviewInitiated} />
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -693,9 +805,9 @@ function SecurityTab({ isSelf, isMfaEnabled, onEnable }: { isSelf: boolean, isMf
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className="font-semibold flex items-center gap-2">Status: <Badge variant={isMfaEnabled ? "secondary" : "destructive"}>{isMfaEnabled ? "Enabled" : "Disabled"}</Badge></div>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <div className="text-sm text-muted-foreground mt-1">
                                     When enabled, you will be asked for a code from your authenticator app after logging in.
-                                </p>
+                                </div>
                             </div>
                             {isSelf && !isMfaEnabled && (
                                 <Button onClick={onEnable}>
