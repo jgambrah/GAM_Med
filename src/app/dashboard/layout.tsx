@@ -12,7 +12,6 @@ import { UserNav } from '@/components/dashboard/user-nav';
 import { MainNavClient } from '@/components/dashboard/main-nav-client';
 import { AuthProvider } from '@/context/auth-provider';
 import { Toaster } from '@/components/ui/toaster';
-import { AiAssistant } from '@/components/dashboard/ai-assistant';
 
 export default function DashboardLayout({
   children,
@@ -42,7 +41,6 @@ export default function DashboardLayout({
         </SidebarInset>
       </SidebarProvider>
       <Toaster />
-      <AiAssistant />
     </AuthProvider>
   );
 }
