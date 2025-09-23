@@ -769,7 +769,7 @@ export interface PerformanceReview {
   dateOfReview: string; // ISO Timestamp
   ratingPeriodStart: string; // ISO Timestamp
   ratingPeriodEnd: string; // ISO Timestamp
-  overallRating: 'Exceeds Expectations' | 'Meets Expectations' | 'Needs Improvement' | 'Unsatisfactory';
+  overallRating: 'Exceeds Expectations' | 'Meets Expectations' | 'Needs Improvement' | 'Unsatisfactory' | 'Pending';
   strengths: string;
   areasForDevelopment: string;
   goalsAchieved: {

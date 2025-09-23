@@ -30,17 +30,19 @@ export function AiAssistant() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: input }];
+    const userMessage: Message = { role: 'user', content: input };
+    const newMessages: Message[] = [...messages, userMessage];
     setMessages(newMessages);
     const currentInput = input;
     setInput('');
     setIsLoading(true);
 
     try {
-      const response = await askAssistant({
-        query: currentInput,
-        history: newMessages.slice(0, -1), // Pass all messages except the current one
-      });
+      // Pass query and history as separate arguments
+      const response = await askAssistant(
+        currentInput,
+        messages // Pass the history *before* adding the new user message
+      );
       const modelMessage: Message = { role: 'model', content: response };
       setMessages((prev) => [...prev, modelMessage]);
     } catch (error) {

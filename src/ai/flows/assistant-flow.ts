@@ -5,53 +5,49 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { Message } from '@/lib/types';
 import { z } from 'zod';
 
-const AssistantInputSchema = z.object({
-  query: z.string().describe('The user\'s question about the application.'),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'model']),
-        content: z.string(),
-      })
-    )
-    .default([])
-    .describe('The previous conversation history.'),
-});
-export type AssistantInput = z.infer<typeof AssistantInputSchema>;
-
-export async function askAssistant(input: AssistantInput): Promise<string> {
-    const { output } = await assistantFlow(input);
-    return output || 'Sorry, I am unable to answer at this time.';
+// This function is the main entry point called by the client.
+export async function askAssistant(
+  query: string,
+  history: Message[]
+): Promise<string> {
+  const { output } = await assistantFlow({ query, history });
+  return output || 'Sorry, I am unable to answer at this time.';
 }
 
 const assistantFlow = ai.defineFlow(
-    {
-        name: 'assistantFlow',
-        inputSchema: AssistantInputSchema,
-        outputSchema: z.string(),
-    },
-    async (input) => {
-        const history = input.history || [];
-        const result = await ai.generate({
-            model: 'googleai/gemini-1.5-flash-preview',
-            prompt: `You are a friendly and helpful AI assistant for the GamMed Hospital Management ERP System. Your goal is to guide users on how to use the application.
+  {
+    name: 'assistantFlow',
+    inputSchema: z.object({
+      query: z.string(),
+      history: z.array(z.object({
+        role: z.enum(['user', 'model']),
+        content: z.string()
+      }))
+    }),
+    outputSchema: z.string(),
+  },
+  async ({ query, history }) => {
+    const result = await ai.generate({
+      model: 'googleai/gemini-1.5-flash-preview',
+      prompt: `You are a friendly and helpful AI assistant for the GamMed Hospital Management ERP System. Your goal is to guide users on how to use the application.
 
-    Here are the key features of the app:
-    - **Patient Management:** Manage patient records (EHR), including demographics, medical history, and insurance.
-    - **Appointment Scheduling:** Book, reschedule, and manage patient appointments.
-    - **Billing & Finance:** Handle patient billing, insurance claims, and payroll.
-    - **Clinical Modules:** Includes Pharmacy (inventory, prescriptions), Laboratory (LIS), Radiology (RIS), and Operating Theatre (OT) management.
-    - **Patient Portal:** Patients can view their records, book appointments, and message their care team.
-    - **HR Management:** Manage staff profiles, credentials, and leave requests.
+Here are the key features of the app:
+- **Patient Management:** Manage patient records (EHR), including demographics, medical history, and insurance.
+- **Appointment Scheduling:** Book, reschedule, and manage patient appointments.
+- **Billing & Finance:** Handle patient billing, insurance claims, and payroll.
+- **Clinical Modules:** Includes Pharmacy (inventory, prescriptions), Laboratory (LIS), Radiology (RIS), and Operating Theatre (OT) management.
+- **Patient Portal:** Patients can view their records, book appointments, and message their care team.
+- **HR Management:** Manage staff profiles, credentials, and leave requests.
 
-    Based on the user's question, provide a concise and clear explanation. Use bullet points if necessary. Do not answer questions that are not related to the GamMed application.
+Based on the user's question, provide a concise and clear explanation. Use bullet points if necessary. Do not answer questions that are not related to the GamMed application.
 
-    User Question: ${input.query}`,
-            history: history,
-        });
+User Question: ${query}`,
+      history: history,
+    });
 
-        return result.text;
-    }
+    return result.text;
+  }
 );
