@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -28,44 +29,60 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-function CreatePositionDialog({ onPositionCreated }: { onPositionCreated: (newPosition: Position) => void }) {
+function CreateOrEditPositionDialog({ 
+  position, 
+  onSave,
+  children
+}: { 
+  position?: Position | null, 
+  onSave: (newPosition: Position) => void,
+  children: React.ReactNode
+}) {
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState('');
   const [baseAnnualSalary, setBaseAnnualSalary] = React.useState(0);
+  const isEditing = !!position;
 
-  const handleCreate = () => {
+  React.useEffect(() => {
+    if (open) {
+      if (isEditing && position) {
+        setTitle(position.title);
+        setBaseAnnualSalary(position.baseAnnualSalary);
+      } else {
+        setTitle('');
+        setBaseAnnualSalary(0);
+      }
+    }
+  }, [open, position, isEditing]);
+
+  const handleSave = () => {
     if (!title.trim() || baseAnnualSalary <= 0) {
       toast.error('Title and a valid salary are required.');
       return;
     }
 
     const newPosition: Position = {
-      positionId: `POS-${Date.now()}`,
+      positionId: isEditing ? position.positionId : `POS-${Date.now()}`,
       title,
       baseAnnualSalary,
     };
 
-    onPositionCreated(newPosition);
-    toast.success(`Position "${title}" has been successfully created.`);
+    onSave(newPosition);
+    toast.success(`Position "${title}" has been successfully ${isEditing ? 'updated' : 'created'}.`);
 
     setOpen(false);
-    setTitle('');
-    setBaseAnnualSalary(0);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Position
-        </Button>
+        {children}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Position</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit' : 'Create New'} Position</DialogTitle>
           <DialogDescription>
-            Define a new job role and its associated base annual salary.
+            {isEditing ? 'Update the details for this position.' : 'Define a new job role and its associated base annual salary.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -90,7 +107,7 @@ function CreatePositionDialog({ onPositionCreated }: { onPositionCreated: (newPo
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreate}>Create Position</Button>
+          <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -160,8 +177,13 @@ function ApplySalaryIncreaseDialog({ positions, onIncreaseApplied }: { positions
 export function PositionsDashboard() {
   const [positions, setPositions] = React.useState<Position[]>(mockPositions);
 
-  const handlePositionCreated = (newPosition: Position) => {
-    setPositions(prev => [...prev, newPosition]);
+  const handleSave = (positionToSave: Position) => {
+    const exists = positions.some(p => p.positionId === positionToSave.positionId);
+    if (exists) {
+        setPositions(prev => prev.map(p => p.positionId === positionToSave.positionId ? positionToSave : p));
+    } else {
+        setPositions(prev => [...prev, positionToSave]);
+    }
   };
   
   const handleIncreaseApplied = (updatedPositions: Position[]) => {
@@ -179,7 +201,12 @@ export function PositionsDashboard() {
         </div>
         <div className="flex gap-2">
             <ApplySalaryIncreaseDialog positions={positions} onIncreaseApplied={handleIncreaseApplied} />
-            <CreatePositionDialog onPositionCreated={handlePositionCreated} />
+            <CreateOrEditPositionDialog onSave={handleSave}>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Position
+              </Button>
+            </CreateOrEditPositionDialog>
         </div>
       </CardHeader>
       <CardContent>
@@ -198,7 +225,9 @@ export function PositionsDashboard() {
                   <TableCell className="font-medium">{position.title}</TableCell>
                   <TableCell className="text-right font-mono">{position.baseAnnualSalary.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" disabled>Edit</Button>
+                    <CreateOrEditPositionDialog position={position} onSave={handleSave}>
+                      <Button variant="outline" size="sm">Edit</Button>
+                    </CreateOrEditPositionDialog>
                   </TableCell>
                 </TableRow>
               ))}
