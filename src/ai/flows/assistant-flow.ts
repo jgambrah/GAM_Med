@@ -16,7 +16,7 @@ const AssistantInputSchema = z.object({
         content: z.string(),
       })
     )
-    .optional()
+    .default([])
     .describe('The previous conversation history.'),
 });
 export type AssistantInput = z.infer<typeof AssistantInputSchema>;
