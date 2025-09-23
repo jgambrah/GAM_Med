@@ -17,8 +17,8 @@ import { Input } from '@/components/ui/input';
 import { ProcurementDashboard } from './procurement/components/procurement-dashboard';
 import { useAuth } from '@/hooks/use-auth';
 import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import ControlledSubstancesPage from './controlled-substances/page';
+import SuppliersPage from './suppliers/page';
 
 export default function PharmacyPage() {
   const { user } = useAuth();
@@ -51,8 +51,8 @@ export default function PharmacyPage() {
             {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
             {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="controlled-substances"><Link href="/dashboard/pharmacy/controlled-substances">Controlled Substances</Link></TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="suppliers"><Link href="/dashboard/pharmacy/suppliers">Suppliers</Link></TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="controlled-substances">Controlled Substances</TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="suppliers">Suppliers</TabsTrigger>}
         </TabsList>
         
         {canViewWorkQueue && (
@@ -108,6 +108,18 @@ export default function PharmacyPage() {
         {canViewProcurement && (
             <TabsContent value="procurement" className="mt-4">
                 <ProcurementDashboard />
+            </TabsContent>
+        )}
+
+        {canViewProcurement && (
+            <TabsContent value="controlled-substances" className="mt-4">
+                <ControlledSubstancesPage />
+            </TabsContent>
+        )}
+
+        {canViewProcurement && (
+            <TabsContent value="suppliers" className="mt-4">
+                <SuppliersPage />
             </TabsContent>
         )}
 
