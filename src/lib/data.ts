@@ -151,6 +151,7 @@ export const allPatients: Patient[] = [
     first_name: 'Kwame',
     last_name: 'Owusu',
     full_name: 'Kwame Owusu',
+    otherNames: 'K.',
     ghanaCardId: 'GHA-123456789-0',
     dob: '1985-05-20',
     gender: 'Male',
@@ -1590,6 +1591,21 @@ export const mockStaffProfiles: StaffProfile[] = [
         recurringAllowances: [],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 30 }],
         bankDetails: { bankName: 'Absa Bank', accountNumber: '555444333', branchName: 'Spintex' }
+    },
+    {
+        staffId: 'space_manager1',
+        userId: 'space_manager1',
+        employeeId: 'GAMMED/HR/004',
+        firstName: 'Space',
+        lastName: 'Manager',
+        gender: 'Male',
+        dateOfBirth: '1990-01-01',
+        employmentStatus: 'Active',
+        positionId: 'pos-admin',
+        leaveBalances: { 'Annual Leave': 20, 'Sick Leave': 10 },
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
     }
 ];
 
