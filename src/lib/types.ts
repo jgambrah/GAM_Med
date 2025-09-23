@@ -1397,7 +1397,7 @@ export interface Asset {
   warrantyEndDate?: string;
   maintenanceSchedule?: {
       type: 'Preventive' | 'Corrective';
-      frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Annually';
+      frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Annually';
       lastServiceDate: string;
       nextServiceDate: string;
   }[];
