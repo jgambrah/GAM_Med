@@ -1545,6 +1545,20 @@ export const mockPositions: Position[] = [
 
 export const mockStaffProfiles: StaffProfile[] = [
     {
+        staffId: 'admin1',
+        userId: 'admin1',
+        employeeId: 'GAMMED/HR/000',
+        firstName: 'Admin',
+        lastName: 'User',
+        gender: 'Other',
+        dateOfBirth: '1990-01-01',
+        employmentStatus: 'Active',
+        positionId: 'pos-admin',
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
+    },
+    {
         staffId: 'doc1',
         userId: 'doc1',
         employeeId: 'GAMMED/HR/001',
@@ -1621,6 +1635,104 @@ export const mockStaffProfiles: StaffProfile[] = [
         recurringAllowances: [],
         recurringDeductions: [],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '111222333', branchName: 'Legon' },
+    },
+    {
+        staffId: 'rad1',
+        userId: 'rad1',
+        employeeId: 'GAMMED/HR/006',
+        firstName: 'Amina',
+        lastName: 'El-Rufai',
+        gender: 'Female',
+        dateOfBirth: '1985-05-05',
+        employmentStatus: 'Active',
+        positionId: 'pos-doc',
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'Stanbic Bank', accountNumber: '456123789', branchName: 'Airport City' }
+    },
+    {
+        staffId: 'pharma1',
+        userId: 'pharma1',
+        employeeId: 'GAMMED/HR/007',
+        firstName: 'James',
+        lastName: 'Boateng',
+        gender: 'Male',
+        dateOfBirth: '1988-08-08',
+        employmentStatus: 'Active',
+        positionId: 'pos-admin', // Placeholder
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'EcoBank', accountNumber: '789456123', branchName: 'East Legon' }
+    },
+    {
+        staffId: 'labtech1',
+        userId: 'labtech1',
+        employeeId: 'GAMMED/HR/008',
+        firstName: 'Lab',
+        lastName: 'Technician',
+        gender: 'Female',
+        dateOfBirth: '1992-12-12',
+        employmentStatus: 'Active',
+        positionId: 'pos-jnr-nurse', // Placeholder
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'CalBank', accountNumber: '321654987', branchName: 'Tema' }
+    },
+    {
+        staffId: 'otc1',
+        userId: 'otc1',
+        employeeId: 'GAMMED/HR/009',
+        firstName: 'OT',
+        lastName: 'Coordinator',
+        gender: 'Male',
+        dateOfBirth: '1989-09-09',
+        employmentStatus: 'Active',
+        positionId: 'pos-snr-nurse', // Placeholder
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'Republic Bank', accountNumber: '654987321', branchName: 'Osu' }
+    },
+    {
+        staffId: 'billing1',
+        userId: 'billing1',
+        employeeId: 'GAMMED/HR/010',
+        firstName: 'Billing',
+        lastName: 'Clerk',
+        gender: 'Female',
+        dateOfBirth: '1995-04-04',
+        employmentStatus: 'Active',
+        positionId: 'pos-admin', // Placeholder
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'Zenith Bank', accountNumber: '987321654', branchName: 'Spintex' }
+    },
+    {
+        staffId: 'reception1',
+        userId: 'reception1',
+        employeeId: 'GAMMED/HR/011',
+        firstName: 'Reception',
+        lastName: 'Staff',
+        gender: 'Female',
+        dateOfBirth: '1998-01-01',
+        employmentStatus: 'Active',
+        positionId: 'pos-admin', // Placeholder
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'GT Bank', accountNumber: '147258369', branchName: 'Accra Mall' }
+    },
+    {
+        staffId: 'dietitian1',
+        userId: 'dietitian1',
+        employeeId: 'GAMMED/HR/012',
+        firstName: 'Dietitian',
+        lastName: 'User',
+        gender: 'Male',
+        dateOfBirth: '1991-11-11',
+        employmentStatus: 'Active',
+        positionId: 'pos-snr-nurse', // Placeholder
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'UBA', accountNumber: '369258147', branchName: 'Legon' }
     }
 ];
 
@@ -2217,4 +2329,3 @@ export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
-
