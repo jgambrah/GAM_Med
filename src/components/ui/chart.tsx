@@ -52,7 +52,7 @@ const ChartContainer = React.forwardRef<
 >(({ id, className, children, config, ...props }, ref) => {
   const chartContainerRef = React.useRef<HTMLDivElement>(null)
   const [activeChart, setActiveChart] =
-    React.useState<keyof typeof CHART_TYPES>("bar")
+    React.useState<keyof typeof CHART_TYPES>("Bar")
 
   React.useEffect(() => {
     // Format: Log to console in development
