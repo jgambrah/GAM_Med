@@ -520,7 +520,7 @@ function SecurityTab({ isSelf, isMfaEnabled, onEnable }: { isSelf: boolean, isMf
                     <CardContent>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-semibold">Status: <Badge variant={isMfaEnabled ? "secondary" : "destructive"}>{isMfaEnabled ? "Enabled" : "Disabled"}</Badge></p>
+                                <div className="font-semibold flex items-center gap-2">Status: <Badge variant={isMfaEnabled ? "secondary" : "destructive"}>{isMfaEnabled ? "Enabled" : "Disabled"}</Badge></div>
                                 <p className="text-sm text-muted-foreground mt-1">
                                     When enabled, you will be asked for a code from your authenticator app after logging in.
                                 </p>
@@ -611,3 +611,6 @@ export default function StaffProfilePage() {
     </div>
   );
 }
+
+
+    
