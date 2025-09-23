@@ -30,45 +30,60 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
-function CreateAllowanceDialog({ onAllowanceCreated }: { onAllowanceCreated: (newAllowance: Allowance) => void }) {
+
+function CreateOrEditAllowanceDialog({ 
+  allowance, 
+  onSave,
+  children
+}: { 
+  allowance?: Allowance | null, 
+  onSave: (newAllowance: Allowance) => void,
+  children: React.ReactNode
+}) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const [isTaxable, setIsTaxable] = React.useState(false);
+  const isEditing = !!allowance;
 
-  const handleCreate = () => {
+  React.useEffect(() => {
+    if (isEditing && allowance) {
+      setName(allowance.name);
+      setIsTaxable(allowance.isTaxable);
+    }
+  }, [allowance, isEditing]);
+
+  const handleSave = () => {
     if (!name.trim()) {
       toast.error('Allowance name cannot be empty.');
       return;
     }
 
     const newAllowance: Allowance = {
-      allowanceId: `ALW-${Date.now()}`,
+      allowanceId: isEditing ? allowance.allowanceId : `ALW-${Date.now()}`,
       name,
       isTaxable,
     };
 
-    // In a real app, this would call a server action.
-    onAllowanceCreated(newAllowance);
-    toast.success(`Allowance "${name}" has been successfully created.`);
+    onSave(newAllowance);
+    toast.success(`Allowance "${name}" has been successfully ${isEditing ? 'updated' : 'created'}.`);
 
     setOpen(false);
-    setName('');
-    setIsTaxable(false);
+    if (!isEditing) {
+      setName('');
+      setIsTaxable(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Allowance
-        </Button>
+        {children}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Allowance</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit' : 'Create New'} Allowance</DialogTitle>
           <DialogDescription>
-            Define a new allowance that can be assigned to staff profiles.
+            {isEditing ? 'Update the details for this allowance.' : 'Define a new allowance that can be assigned to staff profiles.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -92,7 +107,7 @@ function CreateAllowanceDialog({ onAllowanceCreated }: { onAllowanceCreated: (ne
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreate}>Create Allowance</Button>
+          <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -101,9 +116,15 @@ function CreateAllowanceDialog({ onAllowanceCreated }: { onAllowanceCreated: (ne
 
 export function PayrollAllowancesDashboard() {
   const [allowances, setAllowances] = React.useState<Allowance[]>(mockAllowances);
+  const [allowanceToEdit, setAllowanceToEdit] = React.useState<Allowance | null>(null);
 
-  const handleAllowanceCreated = (newAllowance: Allowance) => {
-    setAllowances(prev => [...prev, newAllowance]);
+  const handleSave = (allowanceToSave: Allowance) => {
+    const exists = allowances.some(a => a.allowanceId === allowanceToSave.allowanceId);
+    if (exists) {
+      setAllowances(prev => prev.map(a => a.allowanceId === allowanceToSave.allowanceId ? allowanceToSave : a));
+    } else {
+      setAllowances(prev => [...prev, allowanceToSave]);
+    }
   };
 
   return (
@@ -115,7 +136,12 @@ export function PayrollAllowancesDashboard() {
             Define standard allowances that can be applied to staff salaries.
           </CardDescription>
         </div>
-        <CreateAllowanceDialog onAllowanceCreated={handleAllowanceCreated} />
+        <CreateOrEditAllowanceDialog onSave={handleSave}>
+             <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Allowance
+            </Button>
+        </CreateOrEditAllowanceDialog>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -143,7 +169,9 @@ export function PayrollAllowancesDashboard() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" disabled>Edit</Button>
+                    <CreateOrEditAllowanceDialog allowance={allowance} onSave={handleSave}>
+                      <Button variant="outline" size="sm">Edit</Button>
+                    </CreateOrEditAllowanceDialog>
                   </TableCell>
                 </TableRow>
               ))}
