@@ -118,7 +118,7 @@ const ChartTooltipContent = React.forwardRef<
 
     const value =
       formatter && item?.value
-        ? formatter(item.value, item.name, item, 0, item.payload)
+        ? formatter(item.value, item.name || "", item, 0, item.payload)
         : item?.value
     const name = nameKey && item?.payload ? item.payload[nameKey] : itemConfig?.label || item?.name
     
