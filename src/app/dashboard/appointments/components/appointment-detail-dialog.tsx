@@ -35,8 +35,8 @@ export function AppointmentDetailDialog({ appointment, isOpen, onOpenChange }: A
           <p><strong>Patient:</strong> {appointment.patient_name}</p>
           <p><strong>Doctor:</strong> {appointment.doctor_name}</p>
           <p><strong>Department:</strong> {appointment.department}</p>
-          <p><strong>Type:</strong> <span className="capitalize">{appointment.type}</span></p>
-          <p><strong>Status:</strong> <Badge>{appointment.status}</Badge></p>
+          <div><strong>Type:</strong> <span className="capitalize">{appointment.type}</span></div>
+          <div><strong>Status:</strong> <Badge>{appointment.status}</Badge></div>
           <p><strong>Notes:</strong> {appointment.notes || 'N/A'}</p>
         </div>
       </DialogContent>
