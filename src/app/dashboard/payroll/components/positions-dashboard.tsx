@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { mockPositions } from '@/lib/data';
 import { Position } from '@/lib/types';
 import { Plus, TrendingUp } from 'lucide-react';
@@ -29,7 +29,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 function CreatePositionDialog({ onPositionCreated }: { onPositionCreated: (newPosition: Position) => void }) {
-  const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState('');
   const [baseAnnualSalary, setBaseAnnualSalary] = React.useState(0);
@@ -47,9 +46,7 @@ function CreatePositionDialog({ onPositionCreated }: { onPositionCreated: (newPo
     };
 
     onPositionCreated(newPosition);
-    toast.success('Position Created', {
-      description: `Position "${title}" has been successfully created.`,
-    });
+    toast.success(`Position "${title}" has been successfully created.`);
 
     setOpen(false);
     setTitle('');
@@ -101,7 +98,6 @@ function CreatePositionDialog({ onPositionCreated }: { onPositionCreated: (newPo
 }
 
 function ApplySalaryIncreaseDialog({ positions, onIncreaseApplied }: { positions: Position[], onIncreaseApplied: (newPositions: Position[]) => void }) {
-    const { toast } = useToast();
     const [open, setOpen] = React.useState(false);
     const [percentage, setPercentage] = React.useState(0);
   
@@ -119,9 +115,7 @@ function ApplySalaryIncreaseDialog({ positions, onIncreaseApplied }: { positions
   
       onIncreaseApplied(updatedPositions);
       
-      toast.success('Salaries Increased', {
-        description: `All position base salaries have been increased by ${percentage}%.`,
-      });
+      toast.success(`All position base salaries have been increased by ${percentage}%.`);
   
       setOpen(false);
       setPercentage(0);
