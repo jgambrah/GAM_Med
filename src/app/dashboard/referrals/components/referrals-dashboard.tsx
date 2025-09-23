@@ -30,6 +30,9 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ReferralDetailDialog } from './referral-detail-dialog';
+import { AssignDoctorDialog } from './assign-doctor-dialog';
+
 
 type StatusFilter = 'All' | Referral['status'];
 
@@ -64,6 +67,10 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
 export function ReferralsDashboard() {
   const { user } = useAuth();
   const [filter, setFilter] = React.useState<StatusFilter>('Pending Review');
+  const [referrals, setReferrals] = React.useState<Referral[]>(mockReferrals);
+  const [selectedReferral, setSelectedReferral] = React.useState<Referral | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+  const [isAssignOpen, setIsAssignOpen] = React.useState(false);
   const isDoctor = user?.role === 'doctor';
 
   /**
@@ -98,18 +105,30 @@ export function ReferralsDashboard() {
    *   // 'react-firebase-hooks/firestore' to get real-time data.
    *   const [referrals, loading, error] = useCollection(q);
    */
-  const referrals = React.useMemo(() => {
+   React.useEffect(() => {
+    let filteredList = mockReferrals;
     if (isDoctor) {
-        // For a doctor, always show their assigned referrals regardless of status.
-        return mockReferrals.filter(r => r.assignedDoctorId === user.uid);
+      filteredList = mockReferrals.filter(r => r.assignedDoctorId === user.uid);
+    } else {
+      if (filter !== 'All') {
+        filteredList = mockReferrals.filter(r => r.status === filter);
+      }
     }
-    // For admin/triage, filter based on the selected status.
-    if (filter === 'All') return mockReferrals;
-    return mockReferrals.filter(r => r.status === filter);
+    setReferrals(filteredList);
   }, [user, filter, isDoctor]);
 
+  const handleReferralAssigned = (referralId: string, doctorId: string, doctorName: string) => {
+    setReferrals(prev => prev.map(ref => 
+        ref.referral_id === referralId 
+            ? { ...ref, status: 'Assigned', assignedDoctorId: doctorId, assignedDoctorName: doctorName } 
+            : ref
+    ));
+    setIsAssignOpen(false);
+    setSelectedReferral(null);
+  };
 
   return (
+    <>
     <div className="space-y-4">
       {/*
         == ROLE-BASED UI ==
@@ -180,36 +199,18 @@ export function ReferralsDashboard() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                             <DropdownMenuItem>
-                                {/* This opens a read-only view of the full referral */}
+                             <DropdownMenuItem onSelect={() => { setSelectedReferral(referral); setIsDetailOpen(true); }}>
                                 View Full Details
                              </DropdownMenuItem>
-                            {/* == Admin/Triage Workflow Action == */}
                             {!isDoctor && (
-                            <DropdownMenuItem>
-                                {/* This action is the entry point for the assignment workflow.
-                                    In a full implementation, this would open a dialog with a
-                                    dropdown of doctors in the 'assignedDepartment'. On confirmation,
-                                    it would update the referral document with the doctor's ID, which
-                                    then triggers the `onReferralAssignment` Cloud Function to
-                                    send a notification to the doctor. This guides the admin
-                                    to the next logical step.
-                                */}
+                            <DropdownMenuItem onSelect={() => { setSelectedReferral(referral); setIsAssignOpen(true); }} disabled={referral.status !== 'Pending Review'}>
                                 Assign to Doctor
                             </DropdownMenuItem>
                             )}
-                            {/* == Doctor Workflow Actions == */}
                             {isDoctor && (
                                 <>
                                 <DropdownMenuItem>Update Status</DropdownMenuItem>
                                 <DropdownMenuItem>
-                                    {/* This is the primary action for a doctor. It would open
-                                        the scheduling modal/page, pre-filled with the patient
-                                        and referral info. On save, it would call the
-                                        `linkReferralToAppointment` Cloud Function to create the
-                                        bidirectional link between the referral and the new appointment.
-                                        This provides a clear path from receiving a referral to taking action.
-                                    */}
                                     Schedule Appointment
                                 </DropdownMenuItem>
                                 </>
@@ -234,5 +235,21 @@ export function ReferralsDashboard() {
         </TooltipProvider>
       </div>
     </div>
+    {selectedReferral && (
+        <>
+            <ReferralDetailDialog
+                referral={selectedReferral}
+                isOpen={isDetailOpen}
+                onOpenChange={setIsDetailOpen}
+            />
+            <AssignDoctorDialog
+                referral={selectedReferral}
+                isOpen={isAssignOpen}
+                onOpenChange={setIsAssignOpen}
+                onAssigned={handleReferralAssigned}
+            />
+        </>
+    )}
+    </>
   );
 }
