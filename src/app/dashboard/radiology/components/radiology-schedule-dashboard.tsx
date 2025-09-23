@@ -73,13 +73,13 @@ export function RadiologyScheduleDashboard() {
             </div>
             <div className="divide-y relative">
                 {radiologyEquipment.map(equip => (
-                    <div key={equip.resourceId} className="grid grid-cols-[1fr_repeat(48,1fr)] items-center min-h-[6rem]">
+                    <div key={equip.assetId} className="grid grid-cols-[1fr_repeat(48,1fr)] items-center min-h-[6rem]">
                         <div className="p-2 border-r h-full flex flex-col justify-center items-center font-semibold bg-muted/10">
                             <span>{equip.name}</span>
                             <span className="text-xs text-muted-foreground">{equip.modality}</span>
                         </div>
                          {scheduledOrders
-                            .filter(order => getEquipmentForOrder(order)?.resourceId === equip.resourceId)
+                            .filter(order => getEquipmentForOrder(order)?.assetId === equip.assetId)
                             .map(order => (
                                 <TooltipProvider key={order.orderId}>
                                     <Tooltip>
