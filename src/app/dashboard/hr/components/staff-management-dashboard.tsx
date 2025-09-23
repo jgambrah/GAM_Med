@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -136,7 +135,7 @@ export function StaffDirectoryDashboard() {
                   </TableCell>
                   <TableCell>
                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/hr/staff/${user.uid}`}>
+                        <Link href={`/dashboard/hr/${user.uid}`}>
                           View Details
                         </Link>
                       </Button>
