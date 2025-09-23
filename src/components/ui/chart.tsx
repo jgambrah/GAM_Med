@@ -51,37 +51,27 @@ const ChartContainer = React.forwardRef<
   }
 >(({ id, className, children, config, ...props }, ref) => {
   const chartContainerRef = React.useRef<HTMLDivElement>(null)
-  const [activeChart, setActiveChart] =
-    React.useState<keyof typeof CHART_TYPES>("Bar")
 
   React.useEffect(() => {
-    // Format: Log to console in development
-    const env = process.env.NODE_ENV
-    if (env === "development") {
-      console.log(
-        "Recharts is in development mode. A bunch of warnings will be logged to the console. These can be ignored."
-      )
+    const handleResize = () => {
+      chartContainerRef.current?.dispatchEvent(new Event("resize"))
     }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
-
-  const Chart = React.useCallback(() => {
-    const chart = CHART_TYPES[activeChart]
-    return chart ? React.createElement(chart) : null
-  }, [activeChart])
 
   return (
     <ChartContext.Provider value={{ config }}>
       <div
-        data-chart={activeChart}
         ref={chartContainerRef}
         className={cn(
-          "flex aspect-video items-center justify-center gap-4 [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border/50 [&_.recharts-label_text]:fill-muted-foreground [&_.recharts-polar-axis-name_text]:fill-muted-foreground [&_.recharts-polar-grid_line]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-sector_path]:stroke-border [&_.recharts-surface]:overflow-visible",
+          "flex aspect-video justify-center gap-4 [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border/50 [&_.recharts-label_text]:fill-muted-foreground [&_.recharts-polar-axis-name_text]:fill-muted-foreground [&_.recharts-polar-grid_line]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-sector_path]:stroke-border [&_.recharts-surface]:overflow-visible",
           className
         )}
         {...props}
       >
         <RechartsPrimitive.ResponsiveContainer>
-          {children as React.ReactElement}
+          {children}
         </RechartsPrimitive.ResponsiveContainer>
       </div>
     </ChartContext.Provider>
@@ -122,30 +112,32 @@ const ChartTooltipContent = React.forwardRef<
     ref
   ) => {
     const { config } = useChart()
-    const [_, item] = payload ?? []
-    const [itemConfig] =
-      (item &&
-        Object.entries(config).find(
-          ([key, f]) => f.label === item.name || key === item.name
-        )) ||
-      []
+
+    const item = payload?.[0]
+    const itemConfig = item ? config[item.dataKey as string] : undefined
 
     const value =
       formatter && item?.value
         ? formatter(item.value, item.name, item, 0, item.payload)
         : item?.value
-    const name = nameKey && item?.payload ? item.payload[nameKey] : item?.name
-    const finalLabel =
-      labelKey && item?.payload
-        ? item.payload[labelKey]
-        // @ts-expect-error - bug in recharts type
-        : label || item?.payload.x
-    // @ts-expect-error - bug in recharts type
-    const indicatorColor = color || item?.color || itemConfig?.[1].color
+    const name = nameKey && item?.payload ? item.payload[nameKey] : itemConfig?.label || item?.name
+    
+    // Fallback to payload's x/y key if label is not provided
+    const finalLabel = labelKey && item?.payload ? item.payload[labelKey] : label
 
-    if (itemConfig?.[1].hideTooltip || !active || !payload || payload.length === 0) {
+    if (!active || !item) {
       return null
     }
+
+    const categoryPayload =
+      payload.length > 1
+        ? payload
+        : [
+            {
+              ...item,
+              name: name,
+            },
+          ]
 
     return (
       <div
@@ -164,30 +156,46 @@ const ChartTooltipContent = React.forwardRef<
           </div>
         ) : null}
         <div className="grid gap-1.5">
-          <div
-            className={cn("flex items-center gap-2 font-medium leading-none")}
-          >
-            {!hideIndicator && (
-              <span
-                className={cn("h-2.5 w-2.5 shrink-0 rounded-[2px]", {
-                  "bg-[var(--color-indicator)]": indicator === "dot",
-                  "h-1": indicator === "line",
-                  "w-0 border-[1.5px] border-dashed bg-transparent":
-                    indicator === "dashed",
-                  "border-border": !indicatorColor,
-                })}
-                style={
-                  {
-                    "--color-indicator": indicatorColor,
-                  } as React.CSSProperties
-                }
-              />
-            )}
-            <div className="flex flex-1 justify-between">
-              <span className="text-muted-foreground">{name}</span>
-              <span>{value}</span>
-            </div>
-          </div>
+          {categoryPayload.map((item, index) => {
+            const itemConfig = config[item.dataKey as string]
+            const indicatorColor = color || item.color || itemConfig?.color
+
+            return (
+              <div
+                key={item.dataKey}
+                className={cn(
+                  "flex items-center gap-2 font-medium [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground"
+                )}
+              >
+                {!hideIndicator && (
+                  <span
+                    className={cn("h-2.5 w-2.5 shrink-0 rounded-[2px]", {
+                      "bg-[var(--color-indicator)]": indicator === "dot",
+                      "h-1": indicator === "line",
+                      "w-0 border-[1.5px] border-dashed bg-transparent":
+                        indicator === "dashed",
+                      "border-border": !indicatorColor,
+                    })}
+                    style={
+                      {
+                        "--color-indicator": indicatorColor,
+                      } as React.CSSProperties
+                    }
+                  />
+                )}
+                <div className="flex flex-1 justify-between">
+                  <span className="text-muted-foreground">
+                    {itemConfig?.label || item.name}
+                  </span>
+                  <span>
+                    {formatter
+                      ? formatter(item.value, item.name, item, index, item.payload)
+                      : item.value}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -223,7 +231,7 @@ const ChartLegendContent = React.forwardRef<
         )}
       >
         {payload.map((item) => {
-          const key = (nameKey && item.payload?.[nameKey]) || item.dataKey || "value"
+          const key = (nameKey && item.payload?.[nameKey]) || (item.dataKey as string) || "value"
           const itemConfig = config[key]
 
           if (itemConfig?.hideLegend) {
@@ -232,12 +240,12 @@ const ChartLegendContent = React.forwardRef<
 
           return (
             <div
-              key={item.value}
+              key={item.value as string}
               className={cn(
                 "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
               )}
             >
-              {!hideIcon && itemConfig?.icon ? (
+              {itemConfig?.icon ? (
                 <itemConfig.icon />
               ) : (
                 <div
@@ -284,18 +292,10 @@ type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode
     icon?: React.ComponentType
-  } & (
-    | {
-        color?: string
-        fill?: never
-        stroke?: never
-      }
-    | {
-        color?: never
-        fill?: string
-        stroke?: string
-      }
-  )
+    color?: string
+    hideTooltip?: boolean
+    hideLegend?: boolean
+  }
 }
 
 export {
