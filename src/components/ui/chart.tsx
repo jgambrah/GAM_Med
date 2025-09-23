@@ -118,7 +118,7 @@ const ChartTooltipContent = React.forwardRef<
 
     const value =
       formatter && item?.value
-        ? formatter(item.value, item.name || "", item, 0, item.payload)
+        ? formatter(item.value, item.name || '', item, 0, item.payload)
         : item?.value
     const name = nameKey && item?.payload ? item.payload[nameKey] : itemConfig?.label || item?.name
     
@@ -150,7 +150,7 @@ const ChartTooltipContent = React.forwardRef<
         {!hideLabel && finalLabel ? (
           <div className={cn("font-medium", labelClassName)}>
             {labelFormatter
-              ? // @ts-expect-error - bug in recharts type
+              ? 
                 labelFormatter(finalLabel, payload)
               : finalLabel}
           </div>
@@ -189,7 +189,7 @@ const ChartTooltipContent = React.forwardRef<
                   </span>
                   <span>
                     {formatter
-                      ? formatter(item.value, item.name, item, index, item.payload)
+                      ? formatter(item.value, item.name || "", item, index, item.payload)
                       : item.value}
                   </span>
                 </div>
