@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1606,6 +1606,21 @@ export const mockStaffProfiles: StaffProfile[] = [
         recurringAllowances: [],
         recurringDeductions: [],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
+    },
+    {
+        staffId: 'housekeeper1',
+        userId: 'housekeeper1',
+        employeeId: 'GAMMED/HR/005',
+        firstName: 'House',
+        lastName: 'Keeper',
+        gender: 'Female',
+        dateOfBirth: '1988-01-01',
+        employmentStatus: 'Active',
+        positionId: 'pos-admin', // Placeholder
+        leaveBalances: { 'Annual Leave': 18, 'Sick Leave': 10 },
+        recurringAllowances: [],
+        recurringDeductions: [],
+        bankDetails: { bankName: 'Fidelity Bank', accountNumber: '111222333', branchName: 'Legon' },
     }
 ];
 
@@ -2202,3 +2217,4 @@ export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
+

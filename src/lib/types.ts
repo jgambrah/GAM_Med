@@ -1633,5 +1633,5 @@ export interface Diagnosis {
   diagnosedByDoctorId: string;
   diagnosedAt: string; // ISO Timestamp
 }
-
     
+
