@@ -71,8 +71,8 @@ export const PatientSchema = z.object({
     policyNumber: z.string().optional(),
     expiryDate: z.string().optional(),
   }).optional(),
-  consent: z.literal(true, {
-    errorMap: () => ({ message: "You must consent to data processing to register." }),
+  consent: z.boolean().refine(val => val === true, {
+    message: "You must consent to data processing to register.",
   }),
 });
 
@@ -355,3 +355,5 @@ export const NewAssetSchema = z.object({
   purchaseCost: z.coerce.number().optional(),
   warrantyEndDate: z.string().optional(),
 });
+
+    
