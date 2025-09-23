@@ -30,15 +30,16 @@ export function AiAssistant() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    const newMessages: Message[] = [...messages, { role: 'user', content: input }];
+    setMessages(newMessages);
+    const currentInput = input;
     setInput('');
     setIsLoading(true);
 
     try {
       const response = await askAssistant({
-        query: input,
-        history: messages,
+        query: currentInput,
+        history: newMessages.slice(0, -1), // Pass all messages except the current one
       });
       const modelMessage: Message = { role: 'model', content: response };
       setMessages((prev) => [...prev, modelMessage]);
