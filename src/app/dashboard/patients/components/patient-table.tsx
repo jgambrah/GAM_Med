@@ -22,13 +22,30 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddPatientDialog } from './add-patient-dialog';
+import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
+import { toast } from '@/hooks/use-toast';
 
 interface PatientTableProps {
   data: Patient[];
+  onPatientUpdated: () => void;
+  onPatientDeleted: (patientId: string) => void;
 }
 
-export function PatientTable({ data }: PatientTableProps) {
+export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: PatientTableProps) {
+  const [patientToEdit, setPatientToEdit] = React.useState<Patient | null>(null);
+  const [patientToDelete, setPatientToDelete] = React.useState<Patient | null>(null);
+
+  const handleDelete = () => {
+    if (!patientToDelete) return;
+    console.log(`Deleting patient ${patientToDelete.patient_id}`);
+    onPatientDeleted(patientToDelete.patient_id);
+    setPatientToDelete(null);
+    toast.success(`Patient record for ${patientToDelete.full_name} has been deleted.`);
+  };
+
   return (
+    <>
     <div className="rounded-md border">
       <Table>
         <TableHeader>
@@ -73,8 +90,13 @@ export function PatientTable({ data }: PatientTableProps) {
                       <DropdownMenuItem asChild>
                         <Link href={`/dashboard/patients/${patient.patient_id}`}>View Details</Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem>Edit Record</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem onClick={() => setPatientToEdit(patient)}>
+                        Edit Record
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setPatientToDelete(patient)}
+                      >
                         Delete Record
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -92,5 +114,27 @@ export function PatientTable({ data }: PatientTableProps) {
         </TableBody>
       </Table>
     </div>
+
+    {patientToEdit && (
+      <AddPatientDialog
+        patientToEdit={patientToEdit}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPatientToEdit(null);
+        }}
+        onPatientAdded={onPatientUpdated}
+      />
+    )}
+
+    {patientToDelete && (
+      <DeleteConfirmationDialog
+        isOpen={!!patientToDelete}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPatientToDelete(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={patientToDelete.full_name}
+      />
+    )}
+    </>
   );
 }

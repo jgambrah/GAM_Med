@@ -33,7 +33,7 @@ export default function PatientsPage() {
       setPatients([]);
     }
     setIsLoading(false);
-  }, 300); // 300ms debounce delay
+  }, 300);
 
   const onSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -47,6 +47,17 @@ export default function PatientsPage() {
     // For this prototype, we start with the full mock list.
     setPatients(allPatients);
   }, []);
+  
+  const handlePatientUpdated = () => {
+    // This is a placeholder. In a real app with a database, you would re-fetch the data.
+    // For this prototype, we assume the mock data is mutated and just re-filter.
+    handleSearch(searchQuery);
+  }
+
+  const handlePatientDeleted = (patientId: string) => {
+    // This is a placeholder for the prototype to simulate deletion from the list.
+    setPatients(prev => prev.filter(p => p.patient_id !== patientId));
+  }
 
   return (
     <div className="space-y-6">
@@ -57,7 +68,7 @@ export default function PatientsPage() {
             Browse, register, and manage patient records.
           </p>
         </div>
-        <AddPatientDialog />
+        <AddPatientDialog onPatientAdded={handlePatientUpdated} />
       </div>
       <Card>
         <CardHeader>
@@ -85,7 +96,11 @@ export default function PatientsPage() {
                 <p className="text-muted-foreground">Searching...</p>
              </div>
            ) : (
-             <PatientTable data={patients} />
+             <PatientTable 
+                data={patients} 
+                onPatientUpdated={handlePatientUpdated} 
+                onPatientDeleted={handlePatientDeleted}
+             />
            )}
         </CardContent>
       </Card>

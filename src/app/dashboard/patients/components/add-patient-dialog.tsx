@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -38,27 +37,30 @@ import { PatientSchema } from '@/lib/schemas';
 import { addPatient } from '@/lib/actions';
 import { mockPricingTables } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Patient } from '@/lib/types';
 
-/**
- * PatientRegistrationForm (Conceptual Component)
- *
- * This component demonstrates a robust patient registration form, serving as the primary
- * data entry point for new patients.
- *
- * Structure:
- * - Uses ShadCN's <Dialog> to appear as a modal, providing a focused user experience.
- * - State management and validation are handled by `react-hook-form` and a Zod schema
- *   (`PatientSchema`), ensuring data integrity before any server communication.
- * - The form is organized into logical sections (Personal, Contact, Emergency, Insurance)
- *   using headers and a grid layout for clarity and ease of use.
- * - Submission is handled by a Server Action (`addPatient`), which encapsulates the
- *   backend logic for creating a new patient record in Firestore.
- */
-export function AddPatientDialog() {
-  const [open, setOpen] = React.useState(false);
+interface AddPatientDialogProps {
+    patientToEdit?: Patient | null;
+    onOpenChange?: (isOpen: boolean) => void;
+    onPatientAdded?: () => void;
+}
+
+export function AddPatientDialog({
+  patientToEdit,
+  onOpenChange,
+  onPatientAdded,
+}: AddPatientDialogProps) {
+  const [open, setOpen] = React.useState(!!patientToEdit);
+  const isEditing = !!patientToEdit;
+
   const form = useForm<z.infer<typeof PatientSchema>>({
     resolver: zodResolver(PatientSchema),
-    defaultValues: {
+    defaultValues: isEditing ? {
+        ...patientToEdit,
+        firstName: patientToEdit?.first_name || '',
+        lastName: patientToEdit?.last_name || '',
+        consent: true, // Assume consent was given if editing
+    } : {
       title: '',
       firstName: '',
       lastName: '',
@@ -93,46 +95,57 @@ export function AddPatientDialog() {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    /**
-     * == Frontend Interaction with Backend Workflow ==
-     *
-     * This is where the front-end triggers the secure registration process. Instead
-     * of managing a multi-step process on the client (which is less secure and more
-     * complex), it makes a single, trusted call to the `addPatient` server action.
-     *
-     * STATE MANAGEMENT:
-     * The `react-hook-form` library handles the state of the form fields. There is no
-     * need for the client to store the generated `patientId` in its state. The entire
-     * two-step process (get ID, then save data) is managed securely on the server
-     * by the `addPatient` action.
-     *
-     * The client's only job is to:
-     * 1. Collect and validate the form data.
-     * 2. Call the `addPatient` action.
-     * 3. Wait for a single success or failure response.
-     * 4. Display a confirmation or error message to the user.
-     */
-    const result = await addPatient(values);
-    if (result.success) {
-      alert('Patient registered successfully (simulated).');
-      setOpen(false);
-      form.reset();
+   React.useEffect(() => {
+    if (patientToEdit) {
+      setOpen(true);
+      form.reset({
+        ...patientToEdit,
+        firstName: patientToEdit.first_name || '',
+        lastName: patientToEdit.last_name || '',
+        consent: true,
+      });
     } else {
-      alert(`Error: ${result.message || 'Failed to add patient.'}`);
+        setOpen(false);
+    }
+  }, [patientToEdit, form]);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(isOpen);
+    } else {
+      setOpen(isOpen);
+    }
+    if (!isOpen) {
+      form.reset();
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Add New Patient</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+  const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
+    if (isEditing) {
+      // In a real app, this would call an `updatePatient` server action
+      console.log('Updating patient:', values);
+      alert('Patient updated successfully (simulated).');
+    } else {
+      const result = await addPatient(values);
+      if (!result.success) {
+        alert(`Error: ${result.message || 'Failed to add patient.'}`);
+        return;
+      }
+      alert('Patient registered successfully (simulated).');
+    }
+
+    if (onPatientAdded) {
+      onPatientAdded();
+    }
+    handleOpenChange(false);
+  };
+
+  const dialogContent = (
+    <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Register New Patient</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Patient Details' : 'Register New Patient'}</DialogTitle>
           <DialogDescription>
-            Fill in the details below to add a new patient to the system.
+            {isEditing ? `Editing record for ${patientToEdit?.full_name}` : 'Fill in the details below to add a new patient to the system.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -464,40 +477,58 @@ export function AddPatientDialog() {
                 />
               </div>
 
-               <FormField
-                control={form.control}
-                name="consent"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Patient Consent
-                      </FormLabel>
-                      <FormDescription>
-                        I consent to the collection and processing of my personal and health data for the purpose of receiving medical care, in accordance with the Data Protection Act, 2012 (Act 843).
-                      </FormDescription>
-                       <FormMessage />
-                    </div>
-                  </FormItem>
-                )}
-              />
-
+               {!isEditing && (
+                <FormField
+                    control={form.control}
+                    name="consent"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                        <FormLabel>
+                            Patient Consent
+                        </FormLabel>
+                        <FormDescription>
+                            I consent to the collection and processing of my personal and health data for the purpose of receiving medical care, in accordance with the Data Protection Act, 2012 (Act 843).
+                        </FormDescription>
+                        <FormMessage />
+                        </div>
+                    </FormItem>
+                    )}
+                />
+               )}
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Saving...' : 'Register Patient'}
+                {form.formState.isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Register Patient')}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
+  );
+
+
+  if (isEditing) {
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            {dialogContent}
+        </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button>Add New Patient</Button>
+      </DialogTrigger>
+      {dialogContent}
     </Dialog>
   );
 }
