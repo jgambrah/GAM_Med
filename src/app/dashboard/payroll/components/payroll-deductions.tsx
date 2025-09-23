@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -29,42 +28,56 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-function CreateDeductionDialog({ onDeductionCreated }: { onDeductionCreated: (newDeduction: Deduction) => void }) {
+function CreateOrEditDeductionDialog({ 
+  deduction, 
+  onSave,
+  children
+}: { 
+  deduction?: Deduction | null, 
+  onSave: (newDeduction: Deduction) => void,
+  children: React.ReactNode
+}) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
+  const isEditing = !!deduction;
 
-  const handleCreate = () => {
+  React.useEffect(() => {
+    if (open) {
+      if (isEditing && deduction) {
+        setName(deduction.name);
+      } else {
+        setName('');
+      }
+    }
+  }, [open, deduction, isEditing]);
+
+  const handleSave = () => {
     if (!name.trim()) {
       toast.error('Deduction name cannot be empty.');
       return;
     }
 
     const newDeduction: Deduction = {
-      id: `DED-${Date.now()}`,
+      id: isEditing ? deduction.id : `DED-${Date.now()}`,
       name,
     };
 
-    // In a real app, this would call a server action.
-    onDeductionCreated(newDeduction);
-    toast.success(`Deduction type "${name}" has been successfully created.`);
+    onSave(newDeduction);
+    toast.success(`Deduction "${name}" has been successfully ${isEditing ? 'updated' : 'created'}.`);
 
     setOpen(false);
-    setName('');
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Deduction
-        </Button>
+        {children}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Deduction Type</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit' : 'Create New'} Deduction</DialogTitle>
           <DialogDescription>
-            Define a new non-statutory deduction that can be assigned to staff profiles.
+            {isEditing ? 'Update the name for this deduction.' : 'Define a new non-statutory deduction that can be assigned to staff profiles.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -80,7 +93,7 @@ function CreateDeductionDialog({ onDeductionCreated }: { onDeductionCreated: (ne
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreate}>Create Deduction</Button>
+          <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -90,8 +103,13 @@ function CreateDeductionDialog({ onDeductionCreated }: { onDeductionCreated: (ne
 export function PayrollDeductionsDashboard() {
   const [deductions, setDeductions] = React.useState<Deduction[]>(mockDeductions);
 
-  const handleDeductionCreated = (newDeduction: Deduction) => {
-    setDeductions(prev => [...prev, newDeduction]);
+  const handleSave = (deductionToSave: Deduction) => {
+    const exists = deductions.some(d => d.id === deductionToSave.id);
+    if (exists) {
+      setDeductions(prev => prev.map(d => d.id === deductionToSave.id ? deductionToSave : d));
+    } else {
+      setDeductions(prev => [...prev, deductionToSave]);
+    }
   };
 
   return (
@@ -103,7 +121,12 @@ export function PayrollDeductionsDashboard() {
             Define standard non-statutory deductions that can be applied to staff salaries.
           </CardDescription>
         </div>
-        <CreateDeductionDialog onDeductionCreated={handleDeductionCreated} />
+        <CreateOrEditDeductionDialog onSave={handleSave}>
+            <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Deduction
+            </Button>
+        </CreateOrEditDeductionDialog>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -119,7 +142,9 @@ export function PayrollDeductionsDashboard() {
                 <TableRow key={deduction.id}>
                   <TableCell className="font-medium">{deduction.name}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" disabled>Edit</Button>
+                     <CreateOrEditDeductionDialog deduction={deduction} onSave={handleSave}>
+                        <Button variant="outline" size="sm">Edit</Button>
+                    </CreateOrEditDeductionDialog>
                   </TableCell>
                 </TableRow>
               ))}
