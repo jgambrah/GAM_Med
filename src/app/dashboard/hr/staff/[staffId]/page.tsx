@@ -33,6 +33,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { NewGoalSchema, LogTrainingSchema } from '@/lib/schemas';
+import { InitiateReviewDialog } from './components/initiate-review-dialog';
+import { EnableMfaDialog } from './components/enable-mfa-dialog';
+import { LogTrainingDialog } from './components/log-training-dialog';
+import { AddGoalDialog } from './components/add-goal-dialog';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -388,181 +392,6 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
     )
 }
 
-function AddGoalDialog({ onGoalAdded }: { onGoalAdded: (newGoal: DevelopmentGoal) => void }) {
-  const [open, setOpen] = React.useState(false);
-  const form = useForm<z.infer<typeof NewGoalSchema>>({
-    resolver: zodResolver(NewGoalSchema),
-    defaultValues: { description: '', targetDate: '' },
-  });
-
-  const onSubmit = (values: z.infer<typeof NewGoalSchema>) => {
-    const newGoal = {
-      goalId: `goal-${Date.now()}`,
-      status: 'Not Started' as const,
-      ...values,
-    };
-    onGoalAdded(newGoal);
-    toast.success('New development goal has been added.');
-    setOpen(false);
-    form.reset();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-2 h-4 w-4" /> Add Goal
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Development Goal</DialogTitle>
-          <DialogDescription>Set a new performance or development goal for this staff member.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Goal Description</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="e.g., Complete advanced certification in..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="targetDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Completion Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">Add Goal</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-const NewReviewSchema = z.object({
-  reviewerId: z.string().min(1, 'A reviewer must be selected.'),
-  ratingPeriodStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
-  ratingPeriodEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
-}).refine(data => new Date(data.ratingPeriodEnd) > new Date(data.ratingPeriodStart), {
-    message: "End date must be after start date.",
-    path: ["ratingPeriodEnd"],
-});
-
-function InitiateReviewDialog({ onReviewInitiated }: { onReviewInitiated: (newReview: PerformanceReview) => void }) {
-  const [open, setOpen] = React.useState(false);
-  const form = useForm<z.infer<typeof NewReviewSchema>>({
-    resolver: zodResolver(NewReviewSchema),
-    defaultValues: { reviewerId: '', ratingPeriodStart: '', ratingPeriodEnd: '' },
-  });
-
-  const onSubmit = (values: z.infer<typeof NewReviewSchema>) => {
-    // In a real app, this would call a server action `initiatePerformanceReview`
-    const newReview = {
-      reviewId: `rev-${Date.now()}`,
-      employeeId: '', // This would be passed as a prop
-      reviewerId: values.reviewerId,
-      dateOfReview: '',
-      ratingPeriodStart: values.ratingPeriodStart,
-      ratingPeriodEnd: values.ratingPeriodEnd,
-      overallRating: 'Meets Expectations' as const, // Default, would be updated later
-      strengths: '',
-      areasForDevelopment: '',
-      goalsAchieved: [],
-      trainingRecommendations: '',
-      nextReviewDate: '',
-    };
-    onReviewInitiated(newReview);
-    toast.success('Performance review has been initiated and the reviewer has been notified.');
-    setOpen(false);
-    form.reset();
-  };
-
-  const reviewerOptions = allUsers.filter(u => u.role === 'admin' || u.role === 'doctor');
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-2 h-4 w-4" /> Initiate Review
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Initiate New Performance Review</DialogTitle>
-          <DialogDescription>Select a reviewer and the rating period for this review cycle.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="reviewerId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reviewer</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select a reviewer..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {reviewerOptions.map(u => <SelectItem key={u.uid} value={u.uid}>{u.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="ratingPeriodStart"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Period Start Date</FormLabel>
-                    <FormControl><Input type="date" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="ratingPeriodEnd"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Period End Date</FormLabel>
-                    <FormControl><Input type="date" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">Initiate Review</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
   const [reviews, setReviews] = React.useState<PerformanceReview[]>(
     mockPerformanceReviews.filter(r => r.employeeId === staff.staffId)
@@ -646,90 +475,6 @@ function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (p
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function LogTrainingDialog({ onTrainingLogged }: { onTrainingLogged: (newRecord: any) => void }) {
-  const [open, setOpen] = React.useState(false);
-  const form = useForm<z.infer<typeof LogTrainingSchema>>({
-    resolver: zodResolver(LogTrainingSchema),
-    defaultValues: { courseId: '', completionDate: '' },
-  });
-
-  const onSubmit = (values: z.infer<typeof LogTrainingSchema>) => {
-    const course = mockTrainingCourses.find(c => c.courseId === values.courseId);
-    if (!course) return;
-
-    const newRecord = {
-      trainingId: course.courseId,
-      courseName: course.courseName,
-      completionDate: values.completionDate,
-      provider: course.provider,
-    };
-    
-    onTrainingLogged(newRecord);
-    toast.success('Training has been logged to the staff member\'s profile.');
-    setOpen(false);
-    form.reset();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-2 h-4 w-4" /> Log Training
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Log Completed Training</DialogTitle>
-          <DialogDescription>Select a course and the date it was completed.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="courseId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Training Course</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select a course..." /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {mockTrainingCourses.map(course => (
-                        <SelectItem key={course.courseId} value={course.courseId}>
-                          {course.courseName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="completionDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Completion Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">Log Training</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -831,6 +576,9 @@ export default function StaffProfilePage() {
   const [staff, setStaff] = React.useState<UserType | undefined>(
     allUsers.find((p) => p.uid === staffId)
   );
+  
+  const [isMfaDialogOpen, setIsMfaDialogOpen] = React.useState(false);
+
 
   const [staffProfile, setStaffProfile] = React.useState<StaffProfile | undefined>(
       mockStaffProfiles.find(p => p.staffId === staffId)
@@ -844,11 +592,9 @@ export default function StaffProfilePage() {
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
   const isSelf = staff.uid === user?.uid;
 
-  const handleEnableMfa = () => {
-      // In a real app, this would trigger a dialog with a QR code and verification step.
-      toast.info("Opening MFA Enrollment", {
-          description: "This would open a dialog to scan a QR code with an authenticator app."
-      })
+  const handleMfaEnabled = () => {
+      // In a real app, this would re-fetch the user data or update the state.
+      setStaff(prev => prev ? { ...prev, isMfaEnabled: true } : undefined);
   }
 
   return (
@@ -891,13 +637,22 @@ export default function StaffProfilePage() {
         </TabsContent>
         {isSelf && (
             <TabsContent value="security" className="mt-4">
-                <SecurityTab isSelf={isSelf} isMfaEnabled={staff.isMfaEnabled || false} onEnable={handleEnableMfa} />
+                <SecurityTab isSelf={isSelf} isMfaEnabled={staff.isMfaEnabled || false} onEnable={() => setIsMfaDialogOpen(true)} />
             </TabsContent>
         )}
       </Tabs>
+       {isMfaDialogOpen && (
+        <EnableMfaDialog 
+            user={staff}
+            isOpen={isMfaDialogOpen}
+            onOpenChange={setIsMfaDialogOpen}
+            onMfaEnabled={handleMfaEnabled}
+        />
+      )}
     </div>
   );
 }
 
 
     
+
