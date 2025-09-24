@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -77,3 +78,5 @@ export function ReferralDetailDialog({ referral, isOpen, onOpenChange }: Referra
     </Dialog>
   )
 }
+
+    

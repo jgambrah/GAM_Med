@@ -1235,6 +1235,7 @@ export interface Referral {
   priority: 'Routine' | 'Urgent' | 'Emergency';
   assignedDepartment: string;
   assignedDoctorId?: string;
+  assignedDoctorName?: string;
   status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed';
   appointmentId?: string; // Link to the appointment created from this referral
   created_at: string; // ISO 8601 format
@@ -1637,4 +1638,6 @@ export interface Diagnosis {
   diagnosedByDoctorId: string;
   diagnosedAt: string; // ISO Timestamp
 }
+    
+
     
