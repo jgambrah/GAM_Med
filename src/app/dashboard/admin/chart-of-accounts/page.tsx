@@ -20,6 +20,7 @@ import {
 import { mockLedgerAccounts } from '@/lib/data';
 import { LedgerAccount } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-account-dialog';
 
 export default function ChartOfAccountsPage() {
     // In a real app, this data would be fetched.
@@ -47,21 +48,20 @@ export default function ChartOfAccountsPage() {
         return rootAccounts;
 
     }, [accounts]);
+    
+  const handleAccountCreated = (newAccount: LedgerAccount) => {
+    setAccounts(prev => [...prev, newAccount]);
+  };
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center justify-between">
-            <div>
-                <h1 className="text-3xl font-bold">Chart of Accounts</h1>
-                <p className="text-muted-foreground">
-                    A hierarchical view of all financial ledgers and sub-ledgers.
-                </p>
-            </div>
-        </div>
       <Card>
-        <CardHeader>
-          <CardTitle>Ledger Accounts</CardTitle>
-          <CardDescription>A structural view of all financial accounts.</CardDescription>
+        <CardHeader className="flex flex-row justify-between items-center">
+          <div>
+            <CardTitle>Chart of Accounts</CardTitle>
+            <CardDescription>A structural view of all financial accounts.</CardDescription>
+          </div>
+          <CreateLedgerAccountDialog onAccountCreated={handleAccountCreated} />
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">

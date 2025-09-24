@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
@@ -12,6 +13,55 @@ import { BalanceSheet } from './components/balance-sheet';
 import { IncomeStatement } from './components/income-statement';
 import { CashFlowStatement } from './components/cash-flow-statement';
 import { TrialBalance } from './components/trial-balance';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { mockLedgerAccounts } from '@/lib/data';
+import { LedgerAccount } from '@/lib/types';
+
+
+function LedgerAccountsList() {
+  const accounts = mockLedgerAccounts;
+
+  return (
+     <Card>
+        <CardHeader>
+            <CardTitle>General Ledger</CardTitle>
+            <CardDescription>A list of all ledger accounts and their current balances.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Account Code</TableHead>
+                            <TableHead>Account Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="text-right">Balance</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {accounts.map(account => (
+                            <TableRow key={account.accountId}>
+                                <TableCell>{account.accountCode}</TableCell>
+                                <TableCell className="font-medium">{account.accountName}</TableCell>
+                                <TableCell>{account.accountType}</TableCell>
+                                <TableCell className="text-right font-mono">₵{account.balance.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`}>
+                                            View Details
+                                        </Link>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        </CardContent>
+    </Card>
+  )
+}
 
 export default function FinancialReportsPage() {
   const [endDate, setEndDate] = React.useState(new Date().toISOString().split('T')[0]);
@@ -43,11 +93,12 @@ export default function FinancialReportsPage() {
         </div>
       </div>
       <Tabs defaultValue="income-statement">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="income-statement">Income Statement</TabsTrigger>
           <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
           <TabsTrigger value="cash-flow">Cash Flow Statement</TabsTrigger>
           <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
+          <TabsTrigger value="ledger">Ledger</TabsTrigger>
         </TabsList>
         <TabsContent value="income-statement" className="mt-4">
             <Card>
@@ -92,6 +143,9 @@ export default function FinancialReportsPage() {
                     <TrialBalance period={endDate} />
                 </CardContent>
             </Card>
+        </TabsContent>
+         <TabsContent value="ledger" className="mt-4">
+            <LedgerAccountsList />
         </TabsContent>
       </Tabs>
     </div>

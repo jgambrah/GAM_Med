@@ -23,6 +23,7 @@ import { UserManagementDashboard } from './components/user-management-dashboard'
 import { SecurityDashboard } from './components/security-dashboard';
 import { AuditLogDashboard } from './components/audit-log-dashboard';
 import { BackupDashboard } from './components/backup-dashboard';
+import ChartOfAccountsPage from './chart-of-accounts/page';
 
 export default function AdminPage() {
   return (
@@ -147,21 +148,7 @@ export default function AdminPage() {
             </Card>
         </TabsContent>
         <TabsContent value="chart-of-accounts" className="mt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Chart of Accounts Management</CardTitle>
-                    <CardDescription>
-                        View the complete Chart of Accounts, including ledger details, in the Financial Reports dashboard.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                    <Button asChild className="mt-4">
-                        <Link href="/dashboard/admin/reports">
-                            Go to Financial Reports
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
+            <ChartOfAccountsPage />
         </TabsContent>
          <TabsContent value="user-management" className="mt-4">
             <UserManagementDashboard />
