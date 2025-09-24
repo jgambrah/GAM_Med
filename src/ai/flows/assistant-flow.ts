@@ -13,8 +13,8 @@ export async function askAssistant(
   query: string,
   history: Message[]
 ): Promise<string> {
-  const { output } = await assistantFlow({ query, history });
-  return output || 'Sorry, I am unable to answer at this time.';
+  const response = await assistantFlow({ query, history });
+  return response || 'Sorry, I am unable to answer at this time.';
 }
 
 const assistantFlow = ai.defineFlow(
