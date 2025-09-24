@@ -427,6 +427,7 @@ export interface InvoiceLineItem {
   linkedServiceId: string; // The ID of the original service document (e.g., appointmentId, labResultId)
   billingCode: string; // The billing code, e.g., 'A001'
   price: number;
+  description?: string; // Optional description for display
 }
 
 /**
@@ -1238,7 +1239,6 @@ export interface Referral {
   assignedDoctorName?: string;
   status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed';
   appointmentId?: string; // Link to the appointment created from this referral
-  notes?: string;
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }

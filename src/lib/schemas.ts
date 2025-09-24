@@ -1,5 +1,4 @@
 
-
 import { z } from 'zod';
 
 export const RadiologyReportSchema = z.object({
@@ -214,6 +213,7 @@ export const NewWaitingListSchema = z.object({
  */
 const InvoiceItemSchema = z.object({
   billingCode: z.string().min(1, { message: "A service must be selected." }),
+  description: z.string(), // Description of the service
   quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
   unitPrice: z.coerce.number().min(0, { message: "Price cannot be negative." }),
 });

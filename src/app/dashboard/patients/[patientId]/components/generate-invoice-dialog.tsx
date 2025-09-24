@@ -35,10 +35,15 @@ import { NewInvoiceSchema } from '@/lib/schemas';
 import { toast } from '@/hooks/use-toast';
 import { generateInvoice } from '@/lib/actions';
 import { FilePlus, Plus, Trash2 } from 'lucide-react';
-import { allPatients, mockPricingTables } from '@/lib/data';
-import { Patient } from '@/lib/types';
+import { allPatients, mockPricingTables, allAppointments, mockLabResults } from '@/lib/data';
+import { Patient, Appointment, LabResult } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { format } from 'date-fns';
 
+interface GenerateInvoiceDialogProps {
+  patientId: string;
+}
 
 // In a real app, this would come from a 'billing_codes' collection
 const billableServices = [
@@ -46,10 +51,6 @@ const billableServices = [
     { code: 'L001', description: 'Full Blood Count' },
     { code: 'A005', description: 'Other Procedure/Service' },
 ];
-
-interface GenerateInvoiceDialogProps {
-  patientId: string;
-}
 
 function getPrice(patient: Patient, billingCode: string): number {
     if (!patient || !billingCode) return 0;
@@ -59,7 +60,6 @@ function getPrice(patient: Patient, billingCode: string): number {
         return patientTier.rate_card[billingCode];
     }
     
-    // Fallback to the first (default/private) pricing table
     const defaultTier = mockPricingTables[0];
     return defaultTier?.rate_card[billingCode] || 0;
 }
@@ -89,113 +89,84 @@ const calculateTaxes = (subtotal: number, vatOption: string) => {
 
 const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
 
-function InvoiceItemRow({ control, index, patient, remove }: { control: any, index: number, patient: Patient, remove: (index: number) => void }) {
-    const { setValue } = useFormContext();
-    const billingCode = useWatch({
-        control,
-        name: `items.${index}.billingCode`
-    });
-
-    React.useEffect(() => {
-        const price = getPrice(patient, billingCode);
-        setValue(`items.${index}.unitPrice`, price);
-    }, [billingCode, patient, index, setValue]);
-
-    return (
-        <div className="flex items-end gap-2 p-2 border rounded-md">
-            <FormField
-                control={control}
-                name={`items.${index}.billingCode`}
-                render={({ field }) => (
-                    <FormItem className="flex-grow">
-                        <FormLabel>Service</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a service..." />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {billableServices.map(service => (
-                                    <SelectItem key={service.code} value={service.code}>
-                                        {service.description} ({service.code})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-            <FormField
-                control={control}
-                name={`items.${index}.quantity`}
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Qty</FormLabel>
-                        <FormControl>
-                            <Input type="number" className="w-20" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-            <FormField
-                control={control}
-                name={`items.${index}.unitPrice`}
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Unit Price</FormLabel>
-                        <FormControl>
-                            {/* This input is now for display; its value is set programmatically */}
-                            <Input type="number" className="w-24 bg-muted" {...field} readOnly />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-            <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={() => remove(index)}
-            >
-                <Trash2 className="h-4 w-4" />
-            </Button>
-        </div>
-    )
-}
+type UnbilledService = {
+  serviceId: string;
+  description: string;
+  date: string;
+  billingCode: string;
+  price: number;
+};
 
 export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [unbilledServices, setUnbilledServices] = React.useState<UnbilledService[]>([]);
   const patient = allPatients.find(p => p.patient_id === patientId);
+
+  React.useEffect(() => {
+    if (open && patient) {
+      // ** CONCEPT: Fetch Unbilled Services **
+      // This simulates fetching all billable items for the patient that have `isBilled: false`.
+      // In a real app, this would be a server action calling a Cloud Function.
+      const completedAppointments = allAppointments.filter(
+        (a) => a.patient_id === patientId && a.status === 'completed' && !a.isBilled
+      ).map(a => ({
+        serviceId: a.appointment_id,
+        description: `Consultation with ${a.doctor_name}`,
+        date: a.appointment_date,
+        billingCode: 'A001', // Example mapping
+        price: getPrice(patient, 'A001')
+      }));
+
+      const completedLabs = mockLabResults.filter(
+        (l) => l.patientId === patientId && (l.status === 'Completed' || l.status === 'Validated') && !l.isBilled
+      ).map(l => ({
+        serviceId: l.testId,
+        description: `Lab Test: ${l.testName}`,
+        date: l.completedAt!,
+        billingCode: 'L001', // Example mapping
+        price: getPrice(patient, 'L001')
+      }));
+
+      setUnbilledServices([...completedAppointments, ...completedLabs]);
+    }
+  }, [open, patient, patientId]);
 
   const form = useForm<z.infer<typeof NewInvoiceSchema>>({
     resolver: zodResolver(NewInvoiceSchema),
     defaultValues: {
       vatOption: 'zero',
-      items: [{ billingCode: '', quantity: 1, unitPrice: 0 }],
+      items: [],
     },
   });
+  
+  const { control, handleSubmit, watch } = form;
+  const { fields, append, remove } = useFieldArray({ control, name: 'items' });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'items',
-  });
-
-  const watchedItems = useWatch({ control: form.control, name: 'items' });
-  const watchedVatOption = useWatch({ control: form.control, name: 'vatOption' });
+  const watchedVatOption = watch('vatOption');
+  const watchedItems = watch('items');
 
   const { subtotal, nhia, getfund, vat, covidLevy, totalTax } = React.useMemo(() => {
-    const currentSubtotal = watchedItems.reduce((acc, item) => {
-        const qty = Number(item.quantity) || 0;
-        const price = Number(item.unitPrice) || 0;
-        return acc + (qty * price);
-    }, 0);
+    const currentSubtotal = watchedItems.reduce((acc, item) => acc + item.unitPrice, 0);
     return calculateTaxes(currentSubtotal, watchedVatOption);
   }, [watchedItems, watchedVatOption]);
   
   const grandTotal = subtotal + totalTax;
+
+  const handleSelectService = (service: UnbilledService, isSelected: boolean) => {
+    if (isSelected) {
+      append({
+        billingCode: service.billingCode,
+        description: service.description, // Store description
+        quantity: 1,
+        unitPrice: service.price,
+      });
+    } else {
+      const itemIndex = fields.findIndex(field => field.description === service.description);
+      if (itemIndex > -1) {
+        remove(itemIndex);
+      }
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof NewInvoiceSchema>) => {
     const result = await generateInvoice(patientId, values);
@@ -204,10 +175,7 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
         description: 'The new invoice has been successfully created.',
       });
       setOpen(false);
-      form.reset({
-         vatOption: 'zero',
-         items: [{ billingCode: '', quantity: 1, unitPrice: 0 }]
-      });
+      form.reset();
     } else {
       toast.error('Failed to Generate Invoice', {
         description: result.message || 'An unexpected error occurred.',
@@ -221,44 +189,42 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-            <FilePlus className="h-4 w-4 mr-2" />
-            Generate New Invoice
+          <FilePlus className="h-4 w-4 mr-2" />
+          Generate New Invoice
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Generate New Invoice</DialogTitle>
           <DialogDescription>
-            Create a new bill for ad-hoc services for {patient.full_name}.
+            Select unbilled services for {patient.full_name} to add them to the invoice.
             Prices are automatically set based on the patient's '{patient.patientType}' pricing tier.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                     <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                        {fields.map((field, index) => (
-                            <InvoiceItemRow 
-                                key={field.id}
-                                control={form.control}
-                                index={index}
-                                patient={patient}
-                                remove={() => remove(index)}
-                            />
-                        ))}
+                    <h4 className="font-semibold">Unbilled Services</h4>
+                     <div className="space-y-2 max-h-96 overflow-y-auto pr-2 border rounded-md p-2">
+                        {unbilledServices.length > 0 ? unbilledServices.map(service => (
+                            <div key={service.serviceId} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted">
+                                <Checkbox
+                                    id={service.serviceId}
+                                    onCheckedChange={(checked) => handleSelectService(service, !!checked)}
+                                />
+                                <label htmlFor={service.serviceId} className="flex-grow text-sm font-medium leading-none">
+                                    {service.description} ({format(new Date(service.date), 'PPP')})
+                                </label>
+                                <span className="text-sm font-mono">{formatCurrency(service.price)}</span>
+                            </div>
+                        )) : (
+                            <p className="text-center text-sm text-muted-foreground p-4">No unbilled services found for this patient.</p>
+                        )}
                     </div>
-                    <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => append({ billingCode: '', quantity: 1, unitPrice: 0 })}
-                    >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Item
-                    </Button>
                 </div>
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                     <h3 className="text-lg font-semibold">Invoice Summary</h3>
                      <FormField
                         control={form.control}
                         name="vatOption"
@@ -314,7 +280,7 @@ export function GenerateInvoiceDialog({ patientId }: GenerateInvoiceDialogProps)
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting || watchedItems.length === 0}>
                 {form.formState.isSubmitting ? 'Generating...' : 'Generate Invoice'}
               </Button>
             </DialogFooter>
