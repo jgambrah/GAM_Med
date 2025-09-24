@@ -440,6 +440,7 @@ export const mockReferrals: Referral[] = [
     status: 'Pending Review',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
+    notes: 'Patient has a history of migraines.',
   },
   {
     referral_id: 'REF-002',
@@ -454,6 +455,7 @@ export const mockReferrals: Referral[] = [
     priority: 'Routine',
     assignedDepartment: 'Cardiology',
     assignedDoctorId: 'doc1', // Assigned to Dr. Evelyn Mensah
+    assignedDoctorName: 'Dr. Evelyn Mensah',
     status: 'Assigned',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
