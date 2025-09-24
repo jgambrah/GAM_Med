@@ -7,10 +7,10 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
-// Define the correct message type for the conversation history
+// This is the correct message type for the conversation history
 type Message = {
-  role: 'user' | 'model';
-  content: string;
+    role: 'user' | 'model';
+    content: string;
 };
 
 
