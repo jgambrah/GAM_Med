@@ -13,12 +13,12 @@ const formatCurrency = (amount: number) => {
     return `₵ ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const SectionRow = ({ title, isSub = false, isTotal = false }: { title: string, isSub?: boolean, isTotal?: boolean }) => (
+const SectionRow = ({ title, value, isSub = false, isTotal = false }: { title: string, value?: number, isSub?: boolean, isTotal?: boolean }) => (
     <TableRow className={isTotal ? 'bg-muted/50 font-bold' : ''}>
         <TableCell className={`${isSub ? 'pl-8' : 'font-semibold'} ${isTotal ? 'text-right' : ''}`}>
             {title}
         </TableCell>
-        <TableCell></TableCell>
+        <TableCell className="text-right font-mono">{value ? formatCurrency(value) : ''}</TableCell>
         <TableCell></TableCell>
     </TableRow>
 );
