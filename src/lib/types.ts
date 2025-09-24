@@ -1238,6 +1238,7 @@ export interface Referral {
   assignedDoctorName?: string;
   status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed';
   appointmentId?: string; // Link to the appointment created from this referral
+  notes?: string;
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
 }
