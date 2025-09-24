@@ -39,7 +39,7 @@ const assistantFlow = ai.defineFlow(
     const result = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
       prompt: [
-        ...history,
+        ...history.map(m => ({ text: m.content })),
         {text: `You are a friendly and helpful AI assistant for the GamMed Hospital Management ERP System. Your goal is to guide users on how to use the application.
 
 Here are the key features of the app:
