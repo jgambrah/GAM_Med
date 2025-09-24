@@ -55,10 +55,38 @@ export function AddPatientDialog({
 
   const form = useForm<z.infer<typeof PatientSchema>>({
     resolver: zodResolver(PatientSchema),
-    defaultValues: isEditing ? {
-        ...patientToEdit,
-        firstName: patientToEdit?.first_name || '',
-        lastName: patientToEdit?.last_name || '',
+    defaultValues: isEditing && patientToEdit ? {
+        // Manually map fields to match the schema
+        title: patientToEdit.title,
+        firstName: patientToEdit.first_name,
+        lastName: patientToEdit.last_name,
+        otherNames: patientToEdit.otherNames,
+        ghanaCardId: patientToEdit.ghanaCardId,
+        dob: patientToEdit.dob,
+        gender: patientToEdit.gender,
+        maritalStatus: patientToEdit.maritalStatus,
+        occupation: patientToEdit.occupation,
+        patientType: patientToEdit.patientType,
+        contact: {
+            primaryPhone: patientToEdit.contact.primaryPhone,
+            alternatePhone: patientToEdit.contact.alternatePhone,
+            email: patientToEdit.contact.email,
+            address: {
+                street: patientToEdit.contact.address.street,
+                city: patientToEdit.contact.address.city,
+                region: patientToEdit.contact.address.region,
+            }
+        },
+        emergencyContact: {
+            name: patientToEdit.emergency_contact.name,
+            relationship: patientToEdit.emergency_contact.relationship,
+            phone: patientToEdit.emergency_contact.phone
+        },
+        insurance: {
+            providerName: patientToEdit.insurance?.provider_name,
+            policyNumber: patientToEdit.insurance?.policy_number,
+            expiryDate: patientToEdit.insurance?.expiry_date,
+        },
         consent: true, // Assume consent was given if editing
     } : {
       title: '',
@@ -99,9 +127,36 @@ export function AddPatientDialog({
     if (patientToEdit) {
       setOpen(true);
       form.reset({
-        ...patientToEdit,
-        firstName: patientToEdit.first_name || '',
-        lastName: patientToEdit.last_name || '',
+        title: patientToEdit.title,
+        firstName: patientToEdit.first_name,
+        lastName: patientToEdit.last_name,
+        otherNames: patientToEdit.otherNames,
+        ghanaCardId: patientToEdit.ghanaCardId,
+        dob: patientToEdit.dob,
+        gender: patientToEdit.gender,
+        maritalStatus: patientToEdit.maritalStatus,
+        occupation: patientToEdit.occupation,
+        patientType: patientToEdit.patientType,
+        contact: {
+            primaryPhone: patientToEdit.contact.primaryPhone,
+            alternatePhone: patientToEdit.contact.alternatePhone,
+            email: patientToEdit.contact.email,
+            address: {
+                street: patientToEdit.contact.address.street,
+                city: patientToEdit.contact.address.city,
+                region: patientToEdit.contact.address.region,
+            }
+        },
+        emergencyContact: {
+            name: patientToEdit.emergency_contact.name,
+            relationship: patientToEdit.emergency_contact.relationship,
+            phone: patientToEdit.emergency_contact.phone
+        },
+        insurance: {
+            providerName: patientToEdit.insurance?.provider_name,
+            policyNumber: patientToEdit.insurance?.policy_number,
+            expiryDate: patientToEdit.insurance?.expiry_date,
+        },
         consent: true,
       });
     } else {
