@@ -36,6 +36,7 @@ import { transferPatient } from '@/lib/actions';
 import { Patient } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toast } from '@/hooks/use-toast';
 
 interface TransferPatientDialogProps {
   patient: Patient;
@@ -59,18 +60,22 @@ export function TransferPatientDialog({ patient, currentBedId, disabled }: Trans
 
   const onSubmit = async (values: z.infer<typeof TransferSchema>) => {
     if (!currentBedId) {
-      alert('Error: No current bed found for this patient.');
+      toast.error('Error: No current bed found for this patient.');
       return;
     }
     
     const result = await transferPatient(patient.patient_id, currentBedId, values.newBedId);
 
     if (result.success) {
-      alert('Patient transferred successfully (simulated).');
+      toast.success('Patient Transferred', {
+        description: `${patient.full_name} has been successfully transferred to bed ${values.newBedId}.`
+      });
       setOpen(false);
       form.reset();
     } else {
-      alert(`Error: ${result.message || 'Failed to transfer patient.'}`);
+      toast.error('Transfer Failed', {
+        description: result.message || 'Failed to transfer patient.'
+      });
     }
   };
 
