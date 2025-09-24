@@ -11,7 +11,6 @@ import {
 import { UserNav } from '@/components/dashboard/user-nav';
 import { MainNavClient } from '@/components/dashboard/main-nav-client';
 import { AuthProvider } from '@/context/auth-provider';
-import { Toaster } from '@/components/ui/toaster';
 import { AiAssistant } from '@/components/dashboard/ai-assistant';
 
 export default function DashboardLayout({
@@ -41,7 +40,6 @@ export default function DashboardLayout({
           <main className="flex-1 p-4 sm:p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>
-      <Toaster />
       <AiAssistant />
     </AuthProvider>
   );
