@@ -2,7 +2,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -18,10 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
 import { mockLedgerAccounts } from '@/lib/data';
 import { LedgerAccount } from '@/lib/types';
-import { Eye, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function ChartOfAccountsPage() {
@@ -64,7 +61,7 @@ export default function ChartOfAccountsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Ledger Accounts</CardTitle>
-          <CardDescription>Click 'View Ledger' to see the transaction history for an account.</CardDescription>
+          <CardDescription>A structural view of all financial accounts.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -74,7 +71,6 @@ export default function ChartOfAccountsPage() {
                   <TableHead>Account Code</TableHead>
                   <TableHead>Account Name</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -87,28 +83,12 @@ export default function ChartOfAccountsPage() {
                                 {account.children.length > 0 && <Badge variant="secondary">Control Account</Badge>}
                             </TableCell>
                             <TableCell>{account.accountType}</TableCell>
-                             <TableCell>
-                                <Button asChild variant="outline" size="sm">
-                                    <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`}>
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        View Ledger
-                                    </Link>
-                                </Button>
-                            </TableCell>
                         </TableRow>
                         {account.children.map(child => (
                             <TableRow key={child.accountId}>
                                 <TableCell className="pl-8">{child.accountCode}</TableCell>
                                 <TableCell>{child.accountName}</TableCell>
                                 <TableCell>{child.accountType}</TableCell>
-                                 <TableCell>
-                                    <Button asChild variant="outline" size="sm">
-                                        <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`}>
-                                           <Eye className="h-4 w-4 mr-2" />
-                                           View Ledger
-                                        </Link>
-                                    </Button>
-                                </TableCell>
                             </TableRow>
                         ))}
                     </React.Fragment>
