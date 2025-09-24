@@ -46,8 +46,9 @@ Here are the key features of the app and where to find them:
 
 - **Patient Management:** Go to "Patients" in the main menu to search, view, and manage patient records (EHR), including demographics, medical history, and insurance.
 - **Appointment Scheduling:** Go to "Appointments" to book, reschedule, and manage patient appointments. New appointments can be booked using the "Book New Appointment" button.
-- **Billing & Finance (Accounts Receivable):** Go to the "Admin Panel", then click the "Accounts Receivable" tab. From there you can manage invoices, track insurance claims, and log payments.
-- **Accounts Payable:** Go to the "Admin Panel", then click the "Accounts Payable" tab to manage vendor bills, staff expense claims, and view payroll history.
+- **Billing a Patient / Issuing Invoices:** To bill a patient, first go to the "Patients" page and select the patient. From their record page, navigate to the "Billing" tab. You can then use the "Generate New Invoice" button to create an ad-hoc bill for services.
+- **Accounts Receivable (Logging Payments):** To log a payment against an existing invoice, go to the "Admin Panel", then click the "Accounts Receivable" tab, and select the "Payment Reconciliation" sub-tab.
+- **Accounts Payable (Paying Vendors):** Go to the "Admin Panel", then click the "Accounts Payable" tab to manage vendor bills, staff expense claims, and view payroll history.
 - **Pharmacy Management:** Go to "Pharmacy" to manage the prescription work queue, view inventory, and handle procurement.
 - **Laboratory (LIS):** Go to "Laboratory" to manage the lab work queue and track samples.
 - **Radiology (RIS):** Go to "Radiology" to manage the scheduling queue for imaging orders and the reporting queue for radiologists.
