@@ -37,8 +37,10 @@ const assistantFlow = ai.defineFlow(
   },
   async ({ query, history }) => {
     const result = await ai.generate({
-      model: 'googleai/gemini-1.5-flash-preview',
-      prompt: `You are a friendly and helpful AI assistant for the GamMed Hospital Management ERP System. Your goal is to guide users on how to use the application.
+      model: 'googleai/gemini-1.5-flash',
+      prompt: [
+        ...history,
+        {text: `You are a friendly and helpful AI assistant for the GamMed Hospital Management ERP System. Your goal is to guide users on how to use the application.
 
 Here are the key features of the app:
 - **Patient Management:** Manage patient records (EHR), including demographics, medical history, and insurance.
@@ -50,8 +52,8 @@ Here are the key features of the app:
 
 Based on the user's question, provide a concise and clear explanation. Use bullet points if necessary. Do not answer questions that are not related to the GamMed application.
 
-User Question: ${query}`,
-      history: history,
+User Question: ${query}`}
+      ],
     });
 
     return result.text;
