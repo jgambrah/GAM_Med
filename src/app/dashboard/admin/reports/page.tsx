@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BalanceSheet } from './components/balance-sheet';
 import { IncomeStatement } from './components/income-statement';
 import { CashFlowStatement } from './components/cash-flow-statement';
+import { TrialBalance } from './components/trial-balance';
 
 export default function FinancialReportsPage() {
   const [endDate, setEndDate] = React.useState(new Date().toISOString().split('T')[0]);
@@ -46,6 +47,7 @@ export default function FinancialReportsPage() {
           <TabsTrigger value="income-statement">Income Statement</TabsTrigger>
           <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
           <TabsTrigger value="cash-flow">Cash Flow Statement</TabsTrigger>
+          <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
         </TabsList>
         <TabsContent value="income-statement" className="mt-4">
             <Card>
@@ -77,6 +79,17 @@ export default function FinancialReportsPage() {
                 </CardHeader>
                 <CardContent>
                     <CashFlowStatement period={endDate} />
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="trial-balance" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Trial Balance</CardTitle>
+                    <CardDescription>A list of all ledger accounts and their balances as at {endDate} to ensure debits equal credits.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <TrialBalance period={endDate} />
                 </CardContent>
             </Card>
         </TabsContent>

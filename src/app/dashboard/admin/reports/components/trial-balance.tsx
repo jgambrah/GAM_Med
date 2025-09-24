@@ -1,0 +1,74 @@
+
+'use client';
+
+import * as React from 'react';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { mockLedgerAccounts } from '@/lib/data';
+
+interface ReportProps {
+  period: string;
+}
+
+const formatCurrency = (amount: number) => {
+    return amount !== 0 ? `₵ ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+};
+
+export function TrialBalance({ period }: ReportProps) {
+    const debitAccountTypes = ['Asset', 'Expense'];
+    
+    let totalDebits = 0;
+    let totalCredits = 0;
+
+    const accounts = mockLedgerAccounts.map(acc => {
+        const isDebit = debitAccountTypes.includes(acc.accountType);
+        if (isDebit) {
+            totalDebits += acc.balance;
+        } else {
+            totalCredits += acc.balance;
+        }
+        return {
+            ...acc,
+            debit: isDebit ? acc.balance : 0,
+            credit: !isDebit ? acc.balance : 0,
+        }
+    });
+
+  return (
+    <div className="rounded-md border">
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Account Code</TableHead>
+                    <TableHead>Account Name</TableHead>
+                    <TableHead className="text-right">Debit (₵)</TableHead>
+                    <TableHead className="text-right">Credit (₵)</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {accounts.map(account => (
+                    <TableRow key={account.accountId}>
+                        <TableCell>{account.accountCode}</TableCell>
+                        <TableCell>{account.accountName}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(account.debit)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(account.credit)}</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+            <TableFooter>
+                <TableRow className="font-bold text-lg bg-muted/50">
+                    <TableCell colSpan={2} className="text-right">Totals</TableCell>
+                    <TableCell className="text-right font-mono">₵ {totalDebits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono">₵ {totalCredits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                </TableRow>
+                 {totalDebits.toFixed(2) !== totalCredits.toFixed(2) && (
+                    <TableRow>
+                        <TableCell colSpan={4} className="text-center text-destructive font-bold p-4">
+                            The Trial Balance is out of balance. Total Debits do not equal Total Credits.
+                        </TableCell>
+                    </TableRow>
+                )}
+            </TableFooter>
+        </Table>
+    </div>
+  );
+}
