@@ -5,8 +5,14 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { Message } from '@/lib/types';
 import { z } from 'zod';
+
+// Define the correct message type for the conversation history
+type Message = {
+  role: 'user' | 'model';
+  content: string;
+};
+
 
 // This function is the main entry point called by the client.
 export async function askAssistant(
