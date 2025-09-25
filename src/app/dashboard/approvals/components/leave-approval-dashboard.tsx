@@ -25,8 +25,13 @@ export function LeaveApprovalDashboard() {
   // Use the shared local storage key to see all leave requests
   const [allLeaveRequests, setAllLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
   
-  // In a real app, this would be a Firestore query for leave requests where `hodId === user.uid` and status is 'Pending'
-  const pendingRequests = allLeaveRequests.filter(c => c.hodId === user?.uid && c.status === 'Pending');
+  // Admins see all pending requests, HODs only see requests assigned to them.
+  const pendingRequests = allLeaveRequests.filter(c => {
+    if (user?.role === 'admin') {
+      return c.status === 'Pending';
+    }
+    return c.hodId === user?.uid && c.status === 'Pending';
+  });
 
   const handleApprove = async (requestId: string) => {
     toast.success('Leave Approved', {

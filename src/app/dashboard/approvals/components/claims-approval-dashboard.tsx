@@ -25,8 +25,13 @@ export function ClaimsApprovalDashboard() {
   // Use the shared key to see all claims
   const [allClaims, setAllClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
 
-  // Filter for claims that need this user's approval
-  const pendingClaims = allClaims.filter(c => c.hodId === user?.uid && c.approvalStatus === 'Pending HOD');
+  // Admins see all pending claims, HODs only see claims assigned to them.
+  const pendingClaims = allClaims.filter(c => {
+    if (user?.role === 'admin') {
+      return c.approvalStatus === 'Pending HOD';
+    }
+    return c.hodId === user?.uid && c.approvalStatus === 'Pending HOD';
+  });
 
   const handleApprove = async (claimId: string) => {
     const result = await approveStaffClaim(claimId);
