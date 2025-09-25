@@ -25,9 +25,9 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<Re
             setStoredValue(initialValue);
         }
     }
-  // The dependency array should be stable. We only re-run this if the key changes,
-  // which is a rare edge case but good practice.
-  }, [key, isMounted, initialValue]);
+  // The dependency array is now stable and won't cause re-renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, isMounted]);
 
 
   const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
