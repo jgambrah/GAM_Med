@@ -13,8 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { addClinicalNote } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
 import { FileText } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { toast } from '@/hooks/use-toast';
 
-export function AddNoteDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId: string, disabled?: boolean, onNoteAdded: (note: ClinicalNote) => void }) {
     const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     const [newNote, setNewNote] = React.useState('');
@@ -22,13 +24,21 @@ export function AddNoteDialog({ patientId, disabled }: { patientId: string, disa
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newNote.trim()) return;
+        if (!newNote.trim() || !user) return;
 
         setIsSubmitting(true);
-        // This server action encapsulates the logic to write to the
-        // /patients/{patientId}/clinical_notes sub-collection.
-        await addClinicalNote(patientId, newNote);
-        alert('New clinical note has been added (simulated).');
+
+        const newNoteObject: ClinicalNote = {
+            noteId: `note-${Date.now()}`,
+            patientId: patientId,
+            noteType: 'Consultation',
+            recordedByUserId: user.uid,
+            noteText: newNote,
+            recordedAt: new Date().toISOString()
+        };
+
+        onNoteAdded(newNoteObject);
+        toast.success('New clinical note has been added.');
         setNewNote('');
         setIsSubmitting(false);
         setOpen(false);
@@ -75,7 +85,13 @@ interface ClinicalNotesTabProps {
 export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
     const { user } = useAuth();
     const canAddNote = user?.role === 'doctor' || user?.role === 'nurse';
-    const notes = allMockNotes.filter(note => note.patientId === patientId)
+    const [notes, setNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', allMockNotes);
+
+    const patientNotes = notes.filter(note => note.patientId === patientId)
+
+    const handleNoteAdded = (newNote: ClinicalNote) => {
+        setNotes(prev => [newNote, ...prev]);
+    }
 
     return (
         <Card>
@@ -84,12 +100,12 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
                     <CardTitle>Clinical Notes</CardTitle>
                     <CardDescription>A chronological record of all clinical interactions and observations.</CardDescription>
                 </div>
-                {canAddNote && <AddNoteDialog patientId={patientId} />}
+                {canAddNote && <AddNoteDialog patientId={patientId} onNoteAdded={handleNoteAdded} />}
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
-                    {notes.length > 0 ? (
-                        notes.map((note) => (
+                    {patientNotes.length > 0 ? (
+                        patientNotes.map((note) => (
                         <div key={note.noteId} className="border-l-4 border-primary pl-4 py-2">
                            <p className="text-sm text-muted-foreground">
                              {format(new Date(note.recordedAt), 'PPP p')} by <span className="font-semibold">{note.recordedByUserId === 'doc1' ? 'Dr. Evelyn Mensah' : 'F. Agyepong'}</span>

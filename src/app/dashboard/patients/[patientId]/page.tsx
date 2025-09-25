@@ -4,8 +4,8 @@
 import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Pill, TestTube, FileText, HeartPulse, AlertTriangle, Shield, Scan, Edit, Scissors, Video } from 'lucide-react';
-import { allPatients, allAdmissions, mockNotes, mockCarePlans, mockOtSessions } from '@/lib/data';
+import { ChevronLeft } from 'lucide-react';
+import { allAdmissions, mockCarePlans, mockOtSessions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -13,7 +13,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
 import { ClinicalNotesTab } from './components/clinical-notes-tab';
@@ -37,7 +36,8 @@ import { CarePlanTab } from './components/care-plan-tab';
 import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
-
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Patient } from '@/lib/types';
 
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
@@ -57,7 +57,10 @@ export default function PatientDetailPage() {
   const { user } = useAuth(); // Get the current user to tailor the UI
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // In a real app, this data would be fetched from Firestore, including all EHR sub-collections.
+  // Read the full patient list from local storage
+  const [allPatients] = useLocalStorage<Patient[]>('patients', []);
+  const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
+
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
   const carePlan = mockCarePlans.find(cp => cp.patientId === patientId);
@@ -65,7 +68,12 @@ export default function PatientDetailPage() {
 
 
   if (!patient) {
-    notFound();
+    // This will render a not found page if the patient isn't in local storage.
+    // Give it a moment for local storage to load.
+    if (allPatients.length > 0) {
+        notFound();
+    }
+    return <div>Loading patient data...</div>;
   }
 
   const defaultTab = searchParams.get('tab') || 'vitals';
@@ -133,7 +141,7 @@ export default function PatientDetailPage() {
                     />
                     <DischargePatientDialog 
                         patient={patient}
-                        clinicalNotes={mockNotes.filter(note => note.patientId === patientId)}
+                        clinicalNotes={clinicalNotes.filter(note => note.patientId === patientId)}
                         disabled={isSubmitting || !patient.is_admitted}
                     />
             </div>
