@@ -65,7 +65,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         claimId: `SEC-${Date.now()}`,
         staffId: user.uid,
         staffName: user.name,
-        hodId: user.hodId, // Assuming hodId is on the user object
+        hodId: user.hodId, // Correctly assign the HOD ID from the user object
         claimType: values.claimType,
         amount: values.amount,
         description: values.description,

@@ -69,7 +69,7 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
             leaveId: `LR-${Date.now()}`,
             staffId: user.uid,
             staffName: user.name,
-            hodId: user.hodId,
+            hodId: user.hodId, // Correctly assign the HOD ID
             leaveType: values.leaveType,
             startDate: values.startDate,
             endDate: values.endDate,
