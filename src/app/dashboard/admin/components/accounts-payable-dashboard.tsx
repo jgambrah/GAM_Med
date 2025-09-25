@@ -40,6 +40,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Paperclip } from 'lucide-react';
 import Link from 'next/link';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -365,7 +366,8 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
 }
 
 function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string) => void }) {
-    const unpaidClaims = mockStaffClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
+    const [allClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
+    const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
         <div className="rounded-md border">
@@ -508,3 +510,5 @@ export function AccountsPayableDashboard() {
     </>
   );
 }
+
+    
