@@ -12,17 +12,18 @@ import {
 } from '@/components/ui/tabs';
 import { DemographicsTab } from '../../patients/[patientId]/components/demographics-tab';
 import { AdmissionsHistoryTab } from '../../patients/[patientId]/components/admissions-history-tab';
-import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
+import { ClinicalNotesTab, AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { BillingTab } from '../../patients/[patientId]/components/billing-tab';
 import { DiagnosesTab } from '../../patients/[patientId]/components/diagnoses-tab';
 import { MedicationsTab } from '../../patients/[patientId]/components/medications-tab';
 import { LabResultsTab } from '../../patients/[patientId]/components/lab-results-tab';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { PatientAlerts } from '../../patients/[patientId]/components/patient-alerts';
 import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { OrderTestDialog } from '../../patients/[patientId]/components/order-test-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { ClinicalNote } from '@/lib/types';
 
 
 interface PatientEHRProps {
@@ -34,6 +35,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
   // In a real app, this data would be fetched from Firestore, including all EHR sub-collections.
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
+  const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   
   if (!patient) {
     return (
@@ -42,6 +44,10 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
         </Card>
     );
   }
+
+  const handleNoteAdded = (newNote: ClinicalNote) => {
+    setClinicalNotes(prev => [newNote, ...prev]);
+  };
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
 
@@ -62,7 +68,7 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
 
                  <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
                     <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-                    <AddNoteDialog patientId={patient.patient_id} />
+                    <AddNoteDialog patientId={patient.patient_id} onNoteAdded={handleNoteAdded} />
                     <OrderTestDialog patientId={patient.patient_id} />
                 </div>
 
@@ -108,3 +114,4 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
     </Card>
   );
 }
+
