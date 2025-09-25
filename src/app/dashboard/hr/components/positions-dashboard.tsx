@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 function CreateOrEditPositionDialog({ 
   position, 
@@ -174,7 +175,7 @@ function ApplySalaryIncreaseDialog({ positions, onIncreaseApplied }: { positions
   }
 
 export function PositionsDashboard() {
-  const [positions, setPositions] = React.useState<Position[]>(mockPositions);
+  const [positions, setPositions] = useLocalStorage<Position[]>('positions', mockPositions);
 
   const handleSave = (positionToSave: Position) => {
     const exists = positions.some(p => p.positionId === positionToSave.positionId);

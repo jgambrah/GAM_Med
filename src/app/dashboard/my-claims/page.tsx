@@ -8,17 +8,18 @@ import { MyClaimsList } from './components/my-claims-list';
 import { StaffExpenseClaim } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { mockStaffClaims } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
-  const [myClaims, setMyClaims] = React.useState<StaffExpenseClaim[]>([]);
+  const [myClaims, setMyClaims] = useLocalStorage<StaffExpenseClaim[]>(`my_claims_${user?.uid}`, []);
 
   React.useEffect(() => {
-    if (user) {
-      // Initialize with mock data, but allow state to manage it from now on
+    if (user && localStorage.getItem(`my_claims_${user.uid}`) === null) {
       setMyClaims(mockStaffClaims.filter(c => c.staffId === user.uid));
     }
-  }, [user]);
+  }, [user, setMyClaims]);
+
 
   const handleClaimSubmitted = (newClaim: StaffExpenseClaim) => {
     setMyClaims(prevClaims => [newClaim, ...prevClaims]);

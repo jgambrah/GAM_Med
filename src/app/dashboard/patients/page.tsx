@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,23 +16,33 @@ import { Input } from '@/components/ui/input';
 import { Patient } from '@/lib/types';
 import { searchPatientsAction } from '@/lib/actions';
 import { allPatients } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [patients, setPatients] = React.useState<Patient[]>(allPatients);
+  const [storedPatients, setStoredPatients] = useLocalStorage<Patient[]>('patients', allPatients);
+  const [filteredPatients, setFilteredPatients] = React.useState<Patient[]>(storedPatients);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleSearch = useDebouncedCallback(async (query: string) => {
     setIsLoading(true);
     setError(null);
-    const result = await searchPatientsAction(query);
-    if (result.success) {
-      setPatients(result.data || []);
+    
+    // For local search, we filter the storedPatients array
+    if (!query) {
+      setFilteredPatients(storedPatients);
     } else {
-      setError(result.message || 'Failed to search for patients.');
-      setPatients([]);
+      const lowercasedQuery = query.toLowerCase();
+      const filtered = storedPatients.filter(
+        (patient) =>
+          patient.full_name.toLowerCase().includes(lowercasedQuery) ||
+          patient.patient_id.toLowerCase().includes(lowercasedQuery) ||
+          patient.contact.primaryPhone.includes(lowercasedQuery)
+      );
+      setFilteredPatients(filtered);
     }
+
     setIsLoading(false);
   }, 300);
 
@@ -41,22 +52,20 @@ export default function PatientsPage() {
     handleSearch(query);
   };
   
-  // Initial load effect
+  // Effect to update filtered list when storedPatients changes
   React.useEffect(() => {
-    // This could also be a call to fetch all patients initially
-    // For this prototype, we start with the full mock list.
-    setPatients(allPatients);
-  }, []);
+    setFilteredPatients(storedPatients);
+    handleSearch(searchQuery);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedPatients]);
   
-  const handlePatientUpdated = () => {
-    // This is a placeholder. In a real app with a database, you would re-fetch the data.
-    // For this prototype, we assume the mock data is mutated and just re-filter.
+  const handlePatientAdded = () => {
+    // The useLocalStorage hook handles the update, this just forces a re-filter
     handleSearch(searchQuery);
   }
 
   const handlePatientDeleted = (patientId: string) => {
-    // This is a placeholder for the prototype to simulate deletion from the list.
-    setPatients(prev => prev.filter(p => p.patient_id !== patientId));
+    setStoredPatients(prev => prev.filter(p => p.patient_id !== patientId));
   }
 
   return (
@@ -68,7 +77,7 @@ export default function PatientsPage() {
             Browse, register, and manage patient records.
           </p>
         </div>
-        <AddPatientDialog onPatientAdded={handlePatientUpdated} />
+        <AddPatientDialog onPatientAdded={handlePatientAdded} />
       </div>
       <Card>
         <CardHeader>
@@ -97,8 +106,8 @@ export default function PatientsPage() {
              </div>
            ) : (
              <PatientTable 
-                data={patients} 
-                onPatientUpdated={handlePatientUpdated} 
+                data={filteredPatients} 
+                onPatientUpdated={handlePatientAdded} 
                 onPatientDeleted={handlePatientDeleted}
              />
            )}

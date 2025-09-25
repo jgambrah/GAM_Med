@@ -13,9 +13,10 @@ import { SupplierTable } from './components/supplier-table';
 import { AddSupplierDialog } from './components/add-supplier-dialog';
 import { mockSuppliers } from '@/lib/data';
 import { Supplier } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function SuppliersPage() {
-    const [suppliers, setSuppliers] = React.useState<Supplier[]>(mockSuppliers);
+    const [suppliers, setSuppliers] = useLocalStorage<Supplier[]>('suppliers', mockSuppliers);
 
     const handleSupplierCreated = (newSupplier: Supplier) => {
         setSuppliers(prev => [...prev, newSupplier]);

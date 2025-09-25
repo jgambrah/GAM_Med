@@ -21,10 +21,10 @@ import { mockLedgerAccounts } from '@/lib/data';
 import { LedgerAccount } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-account-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function ChartOfAccountsPage() {
-    // In a real app, this data would be fetched.
-    const [accounts, setAccounts] = React.useState<LedgerAccount[]>(mockLedgerAccounts);
+    const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
     const organizedAccounts = React.useMemo(() => {
         const accountsMap = new Map<string, LedgerAccount & { children: LedgerAccount[] }>();

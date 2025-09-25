@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -29,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 
 function CreateOrEditAllowanceDialog({ 
@@ -46,11 +46,16 @@ function CreateOrEditAllowanceDialog({
   const isEditing = !!allowance;
 
   React.useEffect(() => {
-    if (isEditing && allowance) {
-      setName(allowance.name);
-      setIsTaxable(allowance.isTaxable);
+    if (open) {
+      if (isEditing && allowance) {
+        setName(allowance.name);
+        setIsTaxable(allowance.isTaxable);
+      } else {
+        setName('');
+        setIsTaxable(false);
+      }
     }
-  }, [allowance, isEditing]);
+  }, [open, allowance, isEditing]);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -68,10 +73,6 @@ function CreateOrEditAllowanceDialog({
     toast.success(`Allowance "${name}" has been successfully ${isEditing ? 'updated' : 'created'}.`);
 
     setOpen(false);
-    if (!isEditing) {
-      setName('');
-      setIsTaxable(false);
-    }
   };
 
   return (
@@ -115,8 +116,7 @@ function CreateOrEditAllowanceDialog({
 }
 
 export function PayrollAllowancesDashboard() {
-  const [allowances, setAllowances] = React.useState<Allowance[]>(mockAllowances);
-  const [allowanceToEdit, setAllowanceToEdit] = React.useState<Allowance | null>(null);
+  const [allowances, setAllowances] = useLocalStorage<Allowance[]>('allowances', mockAllowances);
 
   const handleSave = (allowanceToSave: Allowance) => {
     const exists = allowances.some(a => a.allowanceId === allowanceToSave.allowanceId);

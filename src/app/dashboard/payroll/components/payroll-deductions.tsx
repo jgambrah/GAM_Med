@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { mockDeductions } from '@/lib/data';
 import { Deduction } from '@/lib/types';
-import { Plus, CheckCircle, XCircle } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 function CreateOrEditDeductionDialog({ 
   deduction, 
@@ -101,7 +102,7 @@ function CreateOrEditDeductionDialog({
 }
 
 export function PayrollDeductionsDashboard() {
-  const [deductions, setDeductions] = React.useState<Deduction[]>(mockDeductions);
+  const [deductions, setDeductions] = useLocalStorage<Deduction[]>('deductions', mockDeductions);
 
   const handleSave = (deductionToSave: Deduction) => {
     const exists = deductions.some(d => d.id === deductionToSave.id);
