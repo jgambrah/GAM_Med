@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -19,33 +18,19 @@ import { logVitals, streamVitals } from '@/lib/actions';
 import { mockVitalsLog as allMockVitals } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { AlertTriangle, Info, Radio } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { VitalsLog } from '@/lib/types';
 
 interface VitalsTabProps {
     patientId: string;
 }
 
-/**
- * == Conceptual UI: Vitals Management Tab ==
- * This component is central to the nursing workflow, combining data display and data entry
- * for patient vital signs.
- *
- * It consists of two main parts:
- * 1.  **Vitals Entry Form:** A structured form for nurses to log new vital signs.
- *     - It uses `react-hook-form` and a Zod schema (`VitalsSchema`) for robust client-side
- *       validation, ensuring data quality before it's sent to the server.
- *     - On submission, it calls the `logVitals` server action, which would trigger the
- *       `logVitals` Cloud Function to securely write the data to the
- *       `/patients/{patientId}/vitals` sub-collection.
- *
- * 2.  **Vitals History Table:** A chronological log of all previously recorded vitals for
- *     the patient. This provides essential context and allows for trend analysis.
- *     - In a real app, this would be populated by a real-time Firestore listener on the
- *       vitals sub-collection.
- */
 export function VitalsTab({ patientId }: VitalsTabProps) {
     const { user } = useAuth();
-    const mockVitalsLog = allMockVitals.filter(v => v.patientId === patientId);
+    const [vitalsLog, setVitalsLog] = useLocalStorage<VitalsLog[]>('vitalsLog', allMockVitals);
     const [isStreaming, setIsStreaming] = React.useState(false);
+
+    const patientVitals = vitalsLog.filter(v => v.patientId === patientId);
 
     const form = useForm<z.infer<typeof VitalsSchema>>({
         resolver: zodResolver(VitalsSchema),
@@ -69,21 +54,31 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
     };
 
     const onSubmit = async (values: z.infer<typeof VitalsSchema>) => {
-        const result = await logVitals(patientId, values);
-        if (result.success) {
-            form.reset();
-            
-            // Check for any alerts returned from the server action
-            if (result.alerts && result.alerts.length > 0) {
-                result.alerts.forEach(alert => {
-                    toast.warning(`${alert.message} (Severity: ${alert.severity}). The attending doctor has been notified.`);
-                });
-            } else {
-                 toast.success("The patient's vital signs have been saved.");
-            }
+        if (!user) {
+            toast.error("You must be logged in.");
+            return;
+        }
 
+        const newVitalsEntry: VitalsLog = {
+            vitalId: `vtl-${Date.now()}`,
+            patientId,
+            ...values,
+            recordedByUserId: user.uid,
+            recordedAt: new Date().toISOString(),
+        };
+
+        setVitalsLog(prev => [newVitalsEntry, ...prev]);
+
+        form.reset();
+        
+        // Simulate checking for alerts
+        const [systolic, diastolic] = values.bloodPressure.split('/').map(Number);
+        if (systolic > 180 || diastolic > 110) {
+            toast.warning("Patient's blood pressure is critically high. Attending doctor has been notified.", {
+                icon: <AlertTriangle className="h-4 w-4" />,
+            });
         } else {
-            toast.error(result.message || 'An unexpected error occurred.');
+             toast.success("The patient's vital signs have been saved.");
         }
     }
 
@@ -215,8 +210,8 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {mockVitalsLog.length > 0 ? (
-                                    mockVitalsLog.map((log) => (
+                                {patientVitals.length > 0 ? (
+                                    patientVitals.map((log) => (
                                         <TableRow key={log.vitalId}>
                                             <TableCell>{format(new Date(log.recordedAt), 'PPP p')}</TableCell>
                                             <TableCell>{log.bloodPressure}</TableCell>

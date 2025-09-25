@@ -35,31 +35,13 @@ import { NewDiagnosisSchema } from '@/lib/schemas';
 import { addDiagnosis } from '@/lib/actions';
 import { useParams } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
+import { mockDiagnoses as allMockDiagnoses } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
-// In a real application, this data would come from a real-time listener
-// on the /patients/{patientId}/diagnoses sub-collection.
-const mockDiagnoses: Diagnosis[] = [
-    {
-        diagnosisId: 'diag-1',
-        icd10Code: 'I10',
-        diagnosisText: 'Essential (primary) hypertension',
-        isPrimary: true,
-        diagnosedByDoctorId: 'doc1',
-        diagnosedAt: new Date('2024-07-28T11:00:00Z').toISOString(),
-    },
-    {
-        diagnosisId: 'diag-2',
-        icd10Code: 'E78.5',
-        diagnosisText: 'Hyperlipidemia, unspecified',
-        isPrimary: false,
-        diagnosedByDoctorId: 'doc1',
-        diagnosedAt: new Date('2024-07-28T11:00:00Z').toISOString(),
-    }
-];
-
-function AddDiagnosisDialog() {
+function AddDiagnosisDialog({ onDiagnosisAdded }: { onDiagnosisAdded: (newDiagnosis: Diagnosis) => void }) {
     const params = useParams();
     const patientId = params.patientId as string;
+    const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
 
     const form = useForm<z.infer<typeof NewDiagnosisSchema>>({
@@ -72,14 +54,24 @@ function AddDiagnosisDialog() {
     });
 
     const onSubmit = async (values: z.infer<typeof NewDiagnosisSchema>) => {
-        const result = await addDiagnosis(patientId, values);
-        if(result.success) {
-            alert('Diagnosis added successfully (simulated).');
-            setOpen(false);
-            form.reset();
-        } else {
-            alert(`Error: ${result.message}`);
+        if (!user) {
+            toast.error("You must be logged in.");
+            return;
         }
+
+        const newDiagnosis: Diagnosis = {
+            diagnosisId: `diag-${Date.now()}`,
+            icd10Code: values.icd10Code,
+            diagnosisText: values.diagnosisText,
+            isPrimary: values.isPrimary,
+            diagnosedByDoctorId: user.uid,
+            diagnosedAt: new Date().toISOString(),
+        };
+
+        onDiagnosisAdded(newDiagnosis);
+        toast.success('Diagnosis added successfully.');
+        setOpen(false);
+        form.reset();
     }
 
     return (
@@ -160,6 +152,11 @@ function AddDiagnosisDialog() {
 export function DiagnosesTab() {
     const { user } = useAuth();
     const canAddDiagnosis = user?.role === 'doctor';
+    const [diagnoses, setDiagnoses] = useLocalStorage<Diagnosis[]>('diagnoses', allMockDiagnoses);
+
+    const handleDiagnosisAdded = (newDiagnosis: Diagnosis) => {
+        setDiagnoses(prev => [newDiagnosis, ...prev]);
+    }
 
     return (
         <Card>
@@ -168,7 +165,7 @@ export function DiagnosesTab() {
                     <CardTitle>Diagnoses</CardTitle>
                     <CardDescription>A record of all medical diagnoses for the patient.</CardDescription>
                 </div>
-                {canAddDiagnosis && <AddDiagnosisDialog />}
+                {canAddDiagnosis && <AddDiagnosisDialog onDiagnosisAdded={handleDiagnosisAdded} />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
@@ -182,8 +179,8 @@ export function DiagnosesTab() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {mockDiagnoses.length > 0 ? (
-                                mockDiagnoses.map((diagnosis) => (
+                            {diagnoses.length > 0 ? (
+                                diagnoses.map((diagnosis) => (
                                     <TableRow key={diagnosis.diagnosisId}>
                                         <TableCell>{format(new Date(diagnosis.diagnosedAt), 'PPP')}</TableCell>
                                         <TableCell>

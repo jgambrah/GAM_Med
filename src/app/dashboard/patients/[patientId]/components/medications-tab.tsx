@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -24,11 +23,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { useDebouncedCallback } from 'use-debounce';
-import { mockMedicationRecords } from '@/lib/data';
+import { mockMedicationRecords as allMockMedicationRecords } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
-
-// This would come from our central 'medications' formulary collection.
 const mockFormulary = [
     { value: 'amlodipine', label: 'Amlodipine' },
     { value: 'atorvastatin', label: 'Atorvastatin' },
@@ -47,7 +45,7 @@ const getStatusVariant = (status: MedicationRecord['status']): "default" | "seco
     }
 }
 
-function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+function NewPrescriptionDialog({ patientId, disabled, onPrescriptionAdded }: { patientId: string, disabled?: boolean, onPrescriptionAdded: (newMedication: MedicationRecord) => void }) {
     const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     const [isChecking, setIsChecking] = React.useState(false);
@@ -77,10 +75,8 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
         setIsChecking(true);
         setWarnings([]);
         
-        // Simulate a call to the performPrescriptionChecks Cloud Function
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Mocked response from the safety check
         const newWarnings: string[] = [];
         if (medicationName.toLowerCase().includes('penicillin')) {
             newWarnings.push('Potential Allergy: Patient has a known allergy to Penicillin.');
@@ -91,13 +87,12 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
 
         setIsChecking(false);
         setWarnings(newWarnings);
-    }, 750); // 750ms debounce delay
+    }, 750);
 
     React.useEffect(() => {
         performChecks(selectedMedication);
     }, [selectedMedication, performChecks]);
 
-    // Reset state when dialog closes
     React.useEffect(() => {
         if (!open) {
             form.reset();
@@ -108,15 +103,31 @@ function NewPrescriptionDialog({ patientId, disabled }: { patientId: string, dis
     }, [open, form]);
 
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
-        setIsSubmitting(true);
-        const result = await addPrescription(patientId, values);
-        if (result.success) {
-            alert('Prescription submitted successfully (simulated).');
-            setOpen(false);
-        } else {
-            alert(`Error: ${result.message}`);
+        if (!user) {
+            toast.error("You must be logged in.");
+            return;
         }
+
+        setIsSubmitting(true);
+        
+        const newMedication: MedicationRecord = {
+            prescriptionId: `med-${Date.now()}`,
+            patientId: patientId,
+            patientName: '', // This will be handled by parent component if needed
+            medicationName: values.medicationName,
+            dosage: values.dosage,
+            frequency: values.frequency,
+            instructions: values.instructions,
+            prescribedByDoctorId: user.uid,
+            prescribedByDoctorName: user.name,
+            prescribedAt: new Date().toISOString(),
+            status: 'Active'
+        };
+
+        onPrescriptionAdded(newMedication);
+        toast.success('Prescription submitted successfully.');
         setIsSubmitting(false);
+        setOpen(false);
     };
 
     return (
@@ -271,14 +282,13 @@ function AdministerMedicationDialog({ patientId, medication }: { patientId: stri
     
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        // This server action encapsulates the logic to log the administration event.
         const result = await logMedicationAdministration(patientId, medication.prescriptionId, notes);
         if (result.success) {
-            alert('Medication administration logged successfully (simulated).');
+            toast.success('Medication administration logged successfully.');
             setNotes('');
             setOpen(false);
         } else {
-            alert(`Error: ${result.message}`);
+            toast.error(`Error: ${result.message}`);
         }
         setIsSubmitting(false);
     }
@@ -329,11 +339,10 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
 
     const params = useParams();
     const resolvedPatientId = patientId || params.patientId as string;
+    
+    const [medicationRecords, setMedicationRecords] = useLocalStorage<MedicationRecord[]>('medicationRecords', allMockMedicationRecords);
 
-
-    // In a real application, this data would come from a real-time listener
-    // on the /patients/{patientId}/medication_history sub-collection.
-    const patientMedications = mockMedicationRecords.filter(med => med.patientId === resolvedPatientId);
+    const patientMedications = medicationRecords.filter(med => med.patientId === resolvedPatientId);
 
     const handleRequestRefill = async (prescriptionId: string) => {
         toast.info("Submitting refill request...");
@@ -345,6 +354,10 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
         }
     }
 
+    const handlePrescriptionAdded = (newMedication: MedicationRecord) => {
+        setMedicationRecords(prev => [newMedication, ...prev]);
+    }
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -352,7 +365,7 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
                     <CardTitle>Medications</CardTitle>
                     <CardDescription>A history of all prescribed medications for the patient.</CardDescription>
                 </div>
-                {isDoctor && <NewPrescriptionDialog patientId={resolvedPatientId} />}
+                {isDoctor && <NewPrescriptionDialog patientId={resolvedPatientId} onPrescriptionAdded={handlePrescriptionAdded} />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
