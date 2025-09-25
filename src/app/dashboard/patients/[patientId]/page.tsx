@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions, mockCarePlans, mockOtSessions } from '@/lib/data';
+import { allAdmissions, mockCarePlans, mockOtSessions, mockNotes } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -64,7 +64,7 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
   const carePlan = mockCarePlans.find(cp => cp.patientId === patientId);
-  const upcomingSurgery = mockOtSessions.find(s => s.patientName === patient?.full_name && (s.status === 'Scheduled' || s.status === 'Completed'));
+  const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
 
 
   if (!patient) {
