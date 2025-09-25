@@ -1,4 +1,5 @@
 
+
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -460,6 +461,7 @@ export const mockReferrals: Referral[] = [
     status: 'Assigned',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
+    notes: 'Please review recent ECG results.',
   },
    {
     referral_id: 'REF-003',
@@ -1272,6 +1274,25 @@ export const mockPayments: FinancialTransaction[] = [
             phone_number: '+23324xxxx567'
         }
     },
+];
+
+export const mockDiagnoses: Diagnosis[] = [
+    {
+        diagnosisId: 'diag-1',
+        icd10Code: 'I10',
+        diagnosisText: 'Essential (primary) hypertension',
+        isPrimary: true,
+        diagnosedByDoctorId: 'doc1',
+        diagnosedAt: new Date('2024-07-28T11:00:00Z').toISOString()
+    },
+    {
+        diagnosisId: 'diag-2',
+        icd10Code: 'E11.9',
+        diagnosisText: 'Type 2 diabetes mellitus without complications',
+        isPrimary: false,
+        diagnosedByDoctorId: 'doc1',
+        diagnosedAt: new Date('2024-07-28T11:00:00Z').toISOString()
+    }
 ];
 
 export const mockMedicationRecords: MedicationRecord[] = [
