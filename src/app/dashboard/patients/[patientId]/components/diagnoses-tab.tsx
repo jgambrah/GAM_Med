@@ -32,11 +32,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
 import { Diagnosis } from '@/lib/types';
 import { NewDiagnosisSchema } from '@/lib/schemas';
-import { addDiagnosis } from '@/lib/actions';
 import { useParams } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { mockDiagnoses as allMockDiagnoses } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { toast } from '@/hooks/use-toast';
 
 function AddDiagnosisDialog({ onDiagnosisAdded }: { onDiagnosisAdded: (newDiagnosis: Diagnosis) => void }) {
     const params = useParams();
