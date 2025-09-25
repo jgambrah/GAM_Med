@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -206,10 +207,10 @@ export function AddPatientDialog({
         contact: { ...values.contact, address: {...values.contact.address, country: 'Ghana' } },
         emergency_contact: values.emergencyContact,
         insurance: {
-          provider_name: values.insurance?.providerName || '',
-          policy_number: values.insurance?.policyNumber || '',
-          expiry_date: values.insurance?.expiryDate || '',
-          isActive: true,
+            provider_name: values.insurance?.providerName || '',
+            policy_number: values.insurance?.policyNumber || '',
+            expiry_date: values.insurance?.expiryDate || '',
+            isActive: true,
         },
         is_admitted: false,
         status: 'active',
@@ -616,3 +617,5 @@ export function AddPatientDialog({
     </Dialog>
   );
 }
+
+    
