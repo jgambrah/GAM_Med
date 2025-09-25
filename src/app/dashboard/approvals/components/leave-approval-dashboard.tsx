@@ -17,22 +17,29 @@ import { mockLeaveRequests } from '@/lib/data';
 import { Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { LeaveRequest } from '@/lib/types';
 
 export function LeaveApprovalDashboard() {
   const { user } = useAuth();
+  // Use the shared local storage key to see all leave requests
+  const [allLeaveRequests, setAllLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
+  
   // In a real app, this would be a Firestore query for leave requests where `hodId === user.uid` and status is 'Pending'
-  const pendingRequests = mockLeaveRequests.filter(c => c.hodId === user?.uid && c.status === 'Pending');
+  const pendingRequests = allLeaveRequests.filter(c => c.hodId === user?.uid && c.status === 'Pending');
 
   const handleApprove = async (requestId: string) => {
     toast.success('Leave Approved', {
         description: `Leave request ${requestId} has been approved.`,
     });
-    // Here you would call a server action to update the leave request status.
+    // Update local storage state
+    setAllLeaveRequests(prev => prev.map(req => req.leaveId === requestId ? { ...req, status: 'Approved' } : req));
   };
   
   const handleReject = async (requestId: string) => {
      toast.error(`Leave request ${requestId} has been rejected.`);
-    // Here you would call a server action to update the leave request status.
+    // Update local storage state
+    setAllLeaveRequests(prev => prev.map(req => req.leaveId === requestId ? { ...req, status: 'Rejected' } : req));
   };
 
   return (

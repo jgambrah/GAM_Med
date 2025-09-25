@@ -1,5 +1,4 @@
 
-
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -33,6 +32,7 @@ export const allUsers: User[] = [
     name: 'Dr. Kofi Asante',
     role: 'doctor',
     is_active: true,
+    hodId: 'doc1', // Dr. Mensah is HOD
     specialty: 'Neurology',
     department: 'Neurology',
     created_at: now.toISOString(),
@@ -56,6 +56,7 @@ export const allUsers: User[] = [
     name: 'Florence Agyepong',
     role: 'nurse',
     is_active: true,
+    hodId: 'doc1', // Dr. Mensah is HOD
     created_at: now.toISOString(),
     last_login: now.toISOString(),
   },

@@ -42,17 +42,16 @@ function LeaveBalances() {
 
 export default function MyLeavePage() {
   const { user } = useAuth();
-  const [myLeaveRequests, setMyLeaveRequests] = useLocalStorage<LeaveRequest[]>(`my_leave_requests_${user?.uid}`, []);
+  const [allLeaveRequests, setAllLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
 
-  React.useEffect(() => {
-    if (user && localStorage.getItem(`my_leave_requests_${user.uid}`) === null) {
-        setMyLeaveRequests(mockLeaveRequests.filter(c => c.staffId === user.uid));
-    }
-  }, [user, setMyLeaveRequests]);
+  const myLeaveRequests = React.useMemo(() => {
+    if (!user) return [];
+    return allLeaveRequests.filter(c => c.staffId === user.uid);
+  }, [user, allLeaveRequests]);
 
 
   const handleRequestSubmitted = (newRequest: LeaveRequest) => {
-    setMyLeaveRequests(prev => [newRequest, ...prev]);
+    setAllLeaveRequests(prev => [newRequest, ...prev]);
   };
 
   return (
