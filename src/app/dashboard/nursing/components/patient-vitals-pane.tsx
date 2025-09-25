@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Patient } from '@/lib/types';
+import { Patient, ClinicalNote } from '@/lib/types';
 import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
@@ -12,6 +12,7 @@ import { MedicationsTab } from '../../patients/[patientId]/components/medication
 import { mockNotes, mockCarePlans } from '@/lib/data';
 import { AddNoteDialog } from '../../patients/[patientId]/components/clinical-notes-tab';
 import { CarePlanTab } from '../../patients/[patientId]/components/care-plan-tab';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface PatientVitalsPaneProps {
   patient: Patient;
@@ -22,6 +23,11 @@ interface PatientVitalsPaneProps {
  */
 export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
   const carePlan = mockCarePlans.find(cp => cp.patientId === patient.patient_id);
+  const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
+
+  const handleNoteAdded = (newNote: ClinicalNote) => {
+    setClinicalNotes(prev => [newNote, ...prev]);
+  };
 
   return (
     <Card className="h-full flex flex-col">
@@ -31,7 +37,7 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
                 <CardTitle>{patient.full_name}</CardTitle>
                 <CardDescription>Patient ID: {patient.patient_id}</CardDescription>
             </div>
-            <AddNoteDialog patientId={patient.patient_id} />
+            <AddNoteDialog patientId={patient.patient_id} onNoteAdded={handleNoteAdded} />
         </div>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden">
