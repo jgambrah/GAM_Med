@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Patient } from '@/lib/types';
-import { searchPatientsAction } from '@/lib/actions';
 import { allPatients } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
@@ -25,7 +24,7 @@ export default function PatientsPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleSearch = useDebouncedCallback(async (query: string) => {
+  const handleSearch = useDebouncedCallback((query: string) => {
     setIsLoading(true);
     setError(null);
     
@@ -59,13 +58,18 @@ export default function PatientsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storedPatients]);
   
-  const handlePatientAdded = () => {
-    // The useLocalStorage hook handles the update, this just forces a re-filter
-    handleSearch(searchQuery);
+  const handlePatientAdded = (newPatient: Patient) => {
+    setStoredPatients(prev => [newPatient, ...prev]);
   }
 
   const handlePatientDeleted = (patientId: string) => {
     setStoredPatients(prev => prev.filter(p => p.patient_id !== patientId));
+  }
+  
+  const handlePatientUpdated = () => {
+    // This is primarily for edits, which we'll handle by re-reading from storage
+    const updatedPatients = JSON.parse(localStorage.getItem('patients') || '[]');
+    setStoredPatients(updatedPatients);
   }
 
   return (
@@ -107,7 +111,7 @@ export default function PatientsPage() {
            ) : (
              <PatientTable 
                 data={filteredPatients} 
-                onPatientUpdated={handlePatientAdded} 
+                onPatientUpdated={handlePatientUpdated} 
                 onPatientDeleted={handlePatientDeleted}
              />
            )}

@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PatientSchema } from '@/lib/schemas';
-import { addPatient } from '@/lib/actions';
+import { addPatient as addPatientAction } from '@/lib/actions';
 import { mockPricingTables } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Patient } from '@/lib/types';
@@ -42,13 +42,15 @@ import { Patient } from '@/lib/types';
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
     onOpenChange?: (isOpen: boolean) => void;
-    onPatientAdded?: () => void;
+    onPatientAdded?: (newPatient: Patient) => void;
+    onPatientUpdated?: () => void;
 }
 
 export function AddPatientDialog({
   patientToEdit,
   onOpenChange,
   onPatientAdded,
+  onPatientUpdated,
 }: AddPatientDialogProps) {
   const [open, setOpen] = React.useState(!!patientToEdit);
   const isEditing = !!patientToEdit;
@@ -180,18 +182,41 @@ export function AddPatientDialog({
       // In a real app, this would call an `updatePatient` server action
       console.log('Updating patient:', values);
       alert('Patient updated successfully (simulated).');
+      if (onPatientUpdated) onPatientUpdated();
     } else {
-      const result = await addPatient(values);
+      const result = await addPatientAction(values);
       if (!result.success) {
         alert(`Error: ${result.message || 'Failed to add patient.'}`);
         return;
       }
       alert('Patient registered successfully (simulated).');
+
+      // Create a patient object to pass back
+      const newPatient: Patient = {
+        patient_id: `P-${Date.now()}`,
+        title: values.title,
+        first_name: values.firstName,
+        last_name: values.lastName,
+        full_name: `${values.firstName} ${values.lastName}`,
+        ghanaCardId: values.ghanaCardId,
+        dob: values.dob,
+        gender: values.gender,
+        maritalStatus: values.maritalStatus,
+        occupation: values.occupation,
+        patientType: values.patientType,
+        contact: { ...values.contact, address: {...values.contact.address, country: 'Ghana' } },
+        emergency_contact: values.emergencyContact,
+        insurance: { ...values.insurance, isActive: true },
+        is_admitted: false,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      if (onPatientAdded) {
+        onPatientAdded(newPatient);
+      }
     }
 
-    if (onPatientAdded) {
-      onPatientAdded();
-    }
     handleOpenChange(false);
   };
 
@@ -587,5 +612,3 @@ export function AddPatientDialog({
     </Dialog>
   );
 }
-
-    
