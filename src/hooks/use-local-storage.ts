@@ -4,25 +4,38 @@
 import { useState, useEffect } from 'react';
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  // State to store our value
-  // Pass initial state function to useState so logic is only executed once
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  // State to store our value. Initialize with a function to avoid running on server.
+  const [storedValue, setStoredValue] = useState<T>(() => initialValue);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     // This code only runs on the client-side, after the component has mounted.
-    try {
-      const item = window.localStorage.getItem(key);
-      // Parse stored json or if none return initialValue
-      setStoredValue(item ? JSON.parse(item) : initialValue);
-    } catch (error) {
-      // If error also return initialValue
-      console.warn(`Error reading localStorage key “${key}”:`, error);
-      setStoredValue(initialValue);
+    if (isMounted) {
+        try {
+            const item = window.localStorage.getItem(key);
+            // Parse stored json or if none return initialValue
+            setStoredValue(item ? JSON.parse(item) : initialValue);
+        } catch (error) {
+            // If error also return initialValue
+            console.warn(`Error reading localStorage key “${key}”:`, error);
+            setStoredValue(initialValue);
+        }
     }
-  }, [key, initialValue]);
+  // The dependency array should be stable. We only re-run this if the key changes,
+  // which is a rare edge case but good practice.
+  }, [key, isMounted, initialValue]);
 
 
   const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
+    if (typeof window === 'undefined') {
+        console.warn(`Tried to set localStorage key “${key}” from the server.`);
+        return;
+    }
+
     try {
       // Allow value to be a function so we have same API as useState
       const valueToStore =
@@ -30,9 +43,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<Re
       // Save state
       setStoredValue(valueToStore);
       // Save to local storage
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
       console.warn(`Error setting localStorage key “${key}”:`, error);
     }
