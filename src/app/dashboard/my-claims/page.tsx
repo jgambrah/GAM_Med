@@ -12,17 +12,17 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
-  const [myClaims, setMyClaims] = useLocalStorage<StaffExpenseClaim[]>(`my_claims_${user?.uid}`, []);
+  // Use a shared key for all staff claims to make them visible on the approvals page
+  const [allClaims, setAllClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
 
-  React.useEffect(() => {
-    if (user && localStorage.getItem(`my_claims_${user.uid}`) === null) {
-      setMyClaims(mockStaffClaims.filter(c => c.staffId === user.uid));
-    }
-  }, [user, setMyClaims]);
+  const myClaims = React.useMemo(() => {
+    if (!user) return [];
+    return allClaims.filter(c => c.staffId === user.uid);
+  }, [user, allClaims]);
 
 
   const handleClaimSubmitted = (newClaim: StaffExpenseClaim) => {
-    setMyClaims(prevClaims => [newClaim, ...prevClaims]);
+    setAllClaims(prevClaims => [newClaim, ...prevClaims]);
   };
 
   return (
@@ -50,3 +50,4 @@ export default function MyClaimsPage() {
     </div>
   );
 }
+

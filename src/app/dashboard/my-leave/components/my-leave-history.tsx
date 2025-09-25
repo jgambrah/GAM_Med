@@ -13,8 +13,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { LeaveRequest } from '@/lib/types';
-import { useAuth } from '@/hooks/use-auth';
-import { mockLeaveRequests } from '@/lib/data';
 
 const getStatusVariant = (status: LeaveRequest['status']): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
@@ -31,17 +29,11 @@ const getStatusVariant = (status: LeaveRequest['status']): 'default' | 'secondar
   }
 };
 
+interface MyLeaveHistoryProps {
+    requests: LeaveRequest[];
+}
 
-export function MyLeaveHistory() {
-  const { user } = useAuth();
-  const [myRequests, setMyRequests] = React.useState<LeaveRequest[]>([]);
-
-  React.useEffect(() => {
-    if (user) {
-      const requests = mockLeaveRequests.filter(r => r.staffId === user.uid);
-      setMyRequests(requests);
-    }
-  }, [user]);
+export function MyLeaveHistory({ requests }: MyLeaveHistoryProps) {
 
   return (
     <div className="rounded-md border">
@@ -55,8 +47,8 @@ export function MyLeaveHistory() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {myRequests.length > 0 ? (
-            myRequests.map((request) => (
+          {requests.length > 0 ? (
+            requests.map((request) => (
               <TableRow key={request.leaveId}>
                 <TableCell>{format(new Date(request.startDate), 'PPP')}</TableCell>
                 <TableCell>{format(new Date(request.endDate), 'PPP')}</TableCell>

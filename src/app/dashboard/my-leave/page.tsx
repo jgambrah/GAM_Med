@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LeaveRequestDialog } from '../my-schedule/components/leave-request-dialog';
 import { MyLeaveHistory } from './components/my-leave-history';
 import { useAuth } from '@/hooks/use-auth';
-import { mockStaffProfiles } from '@/lib/data';
+import { mockStaffProfiles, mockLeaveRequests } from '@/lib/data';
+import { LeaveRequest } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 function LeaveBalances() {
     const { user } = useAuth();
@@ -39,12 +41,18 @@ function LeaveBalances() {
 
 
 export default function MyLeavePage() {
-  // This key is used to force a re-render of the MyLeaveHistory component
-  const [key, setKey] = React.useState(Date.now());
+  const { user } = useAuth();
+  const [myLeaveRequests, setMyLeaveRequests] = useLocalStorage<LeaveRequest[]>(`my_leave_requests_${user?.uid}`, []);
 
-  const handleRequestSubmitted = () => {
-    // Updating the key to a new unique value will trigger the re-render
-    setKey(Date.now());
+  React.useEffect(() => {
+    if (user && localStorage.getItem(`my_leave_requests_${user.uid}`) === null) {
+        setMyLeaveRequests(mockLeaveRequests.filter(c => c.staffId === user.uid));
+    }
+  }, [user, setMyLeaveRequests]);
+
+
+  const handleRequestSubmitted = (newRequest: LeaveRequest) => {
+    setMyLeaveRequests(prev => [newRequest, ...prev]);
   };
 
   return (
@@ -69,7 +77,7 @@ export default function MyLeavePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <MyLeaveHistory key={key} />
+          <MyLeaveHistory requests={myLeaveRequests} />
         </CardContent>
       </Card>
     </div>

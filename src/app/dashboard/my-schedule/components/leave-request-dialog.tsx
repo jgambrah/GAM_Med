@@ -31,9 +31,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LeaveRequestSchema } from '@/lib/schemas';
 import { submitLeaveRequest } from '@/lib/actions';
 import { toast } from '@/hooks/use-toast';
+import { LeaveRequest } from '@/lib/types';
 
 interface LeaveRequestDialogProps {
-    onLeaveSubmitted?: () => void;
+    onLeaveSubmitted?: (newRequest: LeaveRequest) => void;
 }
 
 export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps) {
@@ -62,7 +63,23 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
     const result = await submitLeaveRequest(values);
     if(result.success) {
       toast.success("Leave request submitted successfully.");
-      onLeaveSubmitted?.();
+      
+      if(onLeaveSubmitted && user) {
+          const newRequest: LeaveRequest = {
+            leaveId: `LR-${Date.now()}`,
+            staffId: user.uid,
+            staffName: user.name,
+            hodId: user.hodId,
+            leaveType: values.leaveType,
+            startDate: values.startDate,
+            endDate: values.endDate,
+            reason: values.reason,
+            status: 'Pending',
+            requestedAt: new Date().toISOString()
+          };
+          onLeaveSubmitted(newRequest);
+      }
+      
       setOpen(false);
       form.reset();
     } else {

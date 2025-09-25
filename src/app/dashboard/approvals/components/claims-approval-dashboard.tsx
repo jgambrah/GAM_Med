@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -18,17 +17,23 @@ import { mockStaffClaims } from '@/lib/data';
 import { Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { approveStaffClaim, rejectStaffClaim } from '@/lib/actions';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { StaffExpenseClaim } from '@/lib/types';
 
 export function ClaimsApprovalDashboard() {
   const { user } = useAuth();
-  // In a real app, this would be a Firestore query for claims where `hodId === user.uid` and status is 'Pending HOD'
-  const pendingClaims = mockStaffClaims.filter(c => c.hodId === user?.uid && c.approvalStatus === 'Pending HOD');
+  // Use the shared key to see all claims
+  const [allClaims, setAllClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
+
+  // Filter for claims that need this user's approval
+  const pendingClaims = allClaims.filter(c => c.hodId === user?.uid && c.approvalStatus === 'Pending HOD');
 
   const handleApprove = async (claimId: string) => {
     const result = await approveStaffClaim(claimId);
     if(result.success) {
         toast.success(`Claim ${claimId} has been approved and sent to accounts for payment.`);
-        // Here you would re-fetch the data to update the UI
+        // Update the local storage state
+        setAllClaims(prev => prev.map(c => c.claimId === claimId ? { ...c, approvalStatus: 'Approved' } : c));
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
     }
@@ -37,7 +42,9 @@ export function ClaimsApprovalDashboard() {
   const handleReject = async (claimId: string) => {
     const result = await rejectStaffClaim(claimId);
      if(result.success) {
-        toast.error(result.message || `Claim ${claimId} has been rejected.`);
+        toast.error(`Claim ${claimId} has been rejected.`);
+         // Update the local storage state
+        setAllClaims(prev => prev.map(c => c.claimId === claimId ? { ...c, approvalStatus: 'Rejected' } : c));
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
     }
