@@ -13,8 +13,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { StaffExpenseClaim } from '@/lib/types';
-import { useAuth } from '@/hooks/use-auth';
-import { mockStaffClaims } from '@/lib/data';
 
 const getStatusVariant = (status: StaffExpenseClaim['approvalStatus']): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
@@ -33,17 +31,11 @@ const getPaymentStatusVariant = (status: StaffExpenseClaim['paymentStatus']): 'd
     return status === 'Paid' ? 'secondary' : 'default';
 }
 
-export function MyClaimsList() {
-  const { user } = useAuth();
-  const [myClaims, setMyClaims] = React.useState<StaffExpenseClaim[]>([]);
+interface MyClaimsListProps {
+    claims: StaffExpenseClaim[];
+}
 
-  React.useEffect(() => {
-    if (user) {
-      const claims = mockStaffClaims.filter(c => c.staffId === user.uid);
-      setMyClaims(claims);
-    }
-  }, [user]);
-
+export function MyClaimsList({ claims }: MyClaimsListProps) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -58,8 +50,8 @@ export function MyClaimsList() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {myClaims.length > 0 ? (
-            myClaims.map((claim) => (
+          {claims.length > 0 ? (
+            claims.map((claim) => (
               <TableRow key={claim.claimId}>
                 <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
                 <TableCell>{claim.claimType}</TableCell>

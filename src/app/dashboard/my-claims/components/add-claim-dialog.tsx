@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -31,13 +30,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import { NewStaffClaimSchema } from '@/lib/schemas';
 import { submitStaffClaim } from '@/lib/actions';
+import { StaffExpenseClaim } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: () => void;
+  onClaimSubmitted: (newClaim: StaffExpenseClaim) => void;
 }
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const { user } = useAuth();
 
   const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
     resolver: zodResolver(NewStaffClaimSchema),
@@ -49,12 +51,31 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   });
 
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
+    if (!user) {
+        toast.error("You must be logged in to submit a claim.");
+        return;
+    }
     // In a real app, you would handle file upload here before calling the action.
-    // For example, upload to Firebase Storage and get a URL.
+    // For this prototype, the action simulates success and we manually create the new claim object.
     const result = await submitStaffClaim(values);
     if (result.success) {
       toast.success('Your expense claim has been submitted for HOD approval.');
-      onClaimSubmitted();
+      
+      const newClaim: StaffExpenseClaim = {
+        claimId: `SEC-${Date.now()}`,
+        staffId: user.uid,
+        staffName: user.name,
+        hodId: user.hodId, // Assuming hodId is on the user object
+        claimType: values.claimType,
+        amount: values.amount,
+        description: values.description,
+        submissionDate: new Date().toISOString(),
+        approvalStatus: 'Pending HOD',
+        paymentStatus: 'Unpaid',
+        attachmentUrl: values.attachment ? '/mock-receipt.pdf' : undefined,
+      };
+
+      onClaimSubmitted(newClaim);
       setOpen(false);
       form.reset();
     } else {

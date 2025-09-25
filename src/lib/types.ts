@@ -907,6 +907,7 @@ export interface User {
   availability?: Record<string, string[]>;
   isMfaEnabled?: boolean;
   failedLoginAttempts?: number;
+  hodId?: string;
   // For HR Module
   firstName?: string;
   lastName?: string;
@@ -1642,4 +1643,5 @@ export interface Diagnosis {
     
 
     
+
 

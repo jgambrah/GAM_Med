@@ -5,13 +5,23 @@ import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddClaimDialog } from './components/add-claim-dialog';
 import { MyClaimsList } from './components/my-claims-list';
+import { StaffExpenseClaim } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
+import { mockStaffClaims } from '@/lib/data';
 
 export default function MyClaimsPage() {
-  const [key, setKey] = React.useState(0); // Used to force re-render of the list
+  const { user } = useAuth();
+  const [myClaims, setMyClaims] = React.useState<StaffExpenseClaim[]>([]);
 
-  const handleClaimSubmitted = () => {
-    // Increment the key to trigger a re-render of MyClaimsList, simulating a refresh
-    setKey(prevKey => prevKey + 1);
+  React.useEffect(() => {
+    if (user) {
+      // Initialize with mock data, but allow state to manage it from now on
+      setMyClaims(mockStaffClaims.filter(c => c.staffId === user.uid));
+    }
+  }, [user]);
+
+  const handleClaimSubmitted = (newClaim: StaffExpenseClaim) => {
+    setMyClaims(prevClaims => [newClaim, ...prevClaims]);
   };
 
   return (
@@ -33,7 +43,7 @@ export default function MyClaimsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <MyClaimsList key={key} />
+          <MyClaimsList claims={myClaims} />
         </CardContent>
       </Card>
     </div>
