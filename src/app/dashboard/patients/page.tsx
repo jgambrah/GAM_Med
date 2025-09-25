@@ -45,12 +45,6 @@ export default function PatientsPage() {
     setIsLoading(false);
   }, 300);
 
-  const onSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    handleSearch(query);
-  };
-  
   // Effect to update filtered list when storedPatients changes
   React.useEffect(() => {
     setFilteredPatients(storedPatients);
