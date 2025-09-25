@@ -117,7 +117,7 @@ function NewPrescriptionDialog({ patientId, disabled, onPrescriptionAdded }: { p
             medicationName: values.medicationName,
             dosage: values.dosage,
             frequency: values.frequency,
-            instructions: values.instructions,
+            instructions: values.instructions || '',
             prescribedByDoctorId: user.uid,
             prescribedByDoctorName: user.name,
             prescribedAt: new Date().toISOString(),
@@ -416,3 +416,5 @@ export function MedicationsTab({ patientId }: { patientId?: string }) {
         </Card>
     );
 }
+
+    
