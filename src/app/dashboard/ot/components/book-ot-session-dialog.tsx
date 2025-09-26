@@ -104,7 +104,7 @@ export function BookOtSessionDialog() {
     form.reset();
   };
 
-  const patientOptions = allPatients.map(p => ({ value: p.patient_id, label: `${p.full_name} (${p.patient_id})` }));
+  const patientOptions = allPatients.filter(p => p.is_admitted).map(p => ({ value: p.patient_id, label: `${p.full_name} (${p.patient_id})` }));
   const surgeonOptions = allUsers.filter(u => u.role === 'doctor').map(d => ({ value: d.uid, label: d.name }));
 
   return (
@@ -129,14 +129,14 @@ export function BookOtSessionDialog() {
               name="patientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Patient</FormLabel>
+                  <FormLabel>Admitted Patient</FormLabel>
                   <Combobox
                     options={patientOptions}
                     value={field.value}
                     onChange={field.onChange}
-                    placeholder="Search for a patient..."
+                    placeholder="Search for an admitted patient..."
                     searchPlaceholder="Search patients..."
-                    notFoundText="No patient found."
+                    notFoundText="No admitted patient found."
                   />
                   <FormMessage />
                 </FormItem>
