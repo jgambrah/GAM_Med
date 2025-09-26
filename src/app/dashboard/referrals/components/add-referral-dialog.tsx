@@ -35,8 +35,14 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { ReferralSchema } from '@/lib/schemas';
 import { Plus } from 'lucide-react';
+import { Referral } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 
-export function AddReferralDialog() {
+interface AddReferralDialogProps {
+  onReferralAdded: (newReferral: Referral) => void;
+}
+
+export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
   const [open, setOpen] = React.useState(false);
   const form = useForm<z.infer<typeof ReferralSchema>>({
     resolver: zodResolver(ReferralSchema),
@@ -55,7 +61,27 @@ export function AddReferralDialog() {
   const onSubmit = async (values: z.infer<typeof ReferralSchema>) => {
     // In a real app, this would call a server action that invokes the `processIncomingReferral` Cloud Function.
     console.log('New Referral Data:', values);
-    alert('New referral has been submitted (simulated).');
+
+    const newReferral: Referral = {
+        referral_id: `REF-${Date.now()}`,
+        referringProvider: values.referringProvider,
+        referralDate: new Date().toISOString(),
+        patientDetails: {
+            name: values.patientName,
+            phone: values.patientPhone,
+            dob: values.patientDob,
+        },
+        reasonForReferral: values.reasonForReferral,
+        priority: values.priority,
+        assignedDepartment: values.assignedDepartment,
+        status: 'Pending Review',
+        notes: values.notes,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+    };
+    
+    onReferralAdded(newReferral);
+    toast.success('New referral has been submitted successfully.');
     setOpen(false);
     form.reset();
   };

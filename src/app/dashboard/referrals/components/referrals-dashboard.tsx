@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Referral } from '@/lib/types';
 import { format } from 'date-fns';
-import { mockReferrals } from '@/lib/data';
 import { useAuth } from '@/hooks/use-auth';
 import {
     Tooltip,
@@ -55,6 +54,11 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
     }
 }
 
+interface ReferralsDashboardProps {
+  allReferrals: Referral[];
+  setAllReferrals: React.Dispatch<React.SetStateAction<Referral[]>>;
+}
+
 /**
  * == Conceptual UI: Role-Based Referrals Dashboard ==
  * This component serves as a central hub for referral management, adapting its functionality
@@ -64,10 +68,10 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
  * For Admins/Triage: It's a dynamic work queue with filtering and assignment capabilities.
  * For Doctors: It's a streamlined list of their assigned referrals, with actions tailored to their workflow.
  */
-export function ReferralsDashboard() {
+export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsDashboardProps) {
   const { user } = useAuth();
   const [filter, setFilter] = React.useState<StatusFilter>('Pending Review');
-  const [referrals, setReferrals] = React.useState<Referral[]>(mockReferrals);
+  const [displayReferrals, setDisplayReferrals] = React.useState<Referral[]>([]);
   const [selectedReferral, setSelectedReferral] = React.useState<Referral | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [isAssignOpen, setIsAssignOpen] = React.useState(false);
@@ -106,19 +110,19 @@ export function ReferralsDashboard() {
    *   const [referrals, loading, error] = useCollection(q);
    */
    React.useEffect(() => {
-    let filteredList = mockReferrals;
+    let filteredList = allReferrals;
     if (isDoctor) {
-      filteredList = mockReferrals.filter(r => r.assignedDoctorId === user.uid);
+      filteredList = allReferrals.filter(r => r.assignedDoctorId === user.uid);
     } else {
       if (filter !== 'All') {
-        filteredList = mockReferrals.filter(r => r.status === filter);
+        filteredList = allReferrals.filter(r => r.status === filter);
       }
     }
-    setReferrals(filteredList);
-  }, [user, filter, isDoctor]);
+    setDisplayReferrals(filteredList);
+  }, [user, filter, isDoctor, allReferrals]);
 
   const handleReferralAssigned = (referralId: string, doctorId: string, doctorName: string) => {
-    setReferrals(prev => prev.map(ref => 
+    setAllReferrals(prev => prev.map(ref => 
         ref.referral_id === referralId 
             ? { ...ref, status: 'Assigned', assignedDoctorId: doctorId, assignedDoctorName: doctorName } 
             : ref
@@ -162,8 +166,8 @@ export function ReferralsDashboard() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {referrals.length > 0 ? (
-                referrals.map((referral) => (
+                {displayReferrals.length > 0 ? (
+                displayReferrals.map((referral) => (
                     <TableRow key={referral.referral_id}>
                     <TableCell className="font-medium">
                         {format(new Date(referral.referralDate), 'PPP')}
