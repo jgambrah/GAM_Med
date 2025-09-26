@@ -34,11 +34,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { BedAllocationSchema } from '@/lib/schemas';
-import { allPatients as initialPatients, allBeds, allUsers } from '@/lib/data';
+import { allPatients as initialPatients, allBeds as initialBeds, allUsers, allAdmissions as initialAdmissions } from '@/lib/data';
 import { allocateBed } from '@/lib/actions';
 import { Input } from '@/components/ui/input';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Patient } from '@/lib/types';
+import { Admission, Bed, Patient } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 
 interface AllocateBedDialogProps {
     patientId?: string;
@@ -53,7 +54,9 @@ interface AllocateBedDialogProps {
  */
 export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+  const [beds, setBeds] = useLocalStorage<Bed[]>('beds', initialBeds);
+  const [admissions, setAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
 
 
   const form = useForm<z.infer<typeof BedAllocationSchema>>({
@@ -74,33 +77,52 @@ export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProp
 
   const selectedPatient = allPatients.find(p => p.patient_id === form.watch('patientId'));
   const unadmittedPatients = allPatients.filter(p => !p.is_admitted);
-  const vacantBeds = allBeds.filter(b => b.status === 'vacant');
+  const vacantBeds = beds.filter(b => b.status === 'vacant');
   const doctors = allUsers.filter(u => u.role === 'doctor');
 
-  /**
-   * == FUNCTION TO HANDLE INPATIENT ADMISSION ==
-   *
-   * This `onSubmit` function orchestrates the admission process from the UI.
-   * It gathers the required data and passes it to a server action, which would then
-   * call the `handlePatientAdmission` Cloud Function.
-   *
-   * The data packet passed to the backend includes:
-   * - `patientId`: The unique identifier of the patient to be admitted.
-   * - `bedId`: The specific bed the patient will be assigned to.
-   * - `attendingDoctorId`: The doctor responsible for the patient's care.
-   * - `reasonForAdmission`: The clinical reason for the admission.
-   *
-   * This demonstrates the client's role in initiating the secure, atomic
-   * transaction that is managed entirely on the server-side.
-   */
   const onSubmit = async (values: z.infer<typeof BedAllocationSchema>) => {
     const result = await allocateBed(values);
     if (result.success) {
-      alert('Patient has been admitted successfully (simulated).');
+      toast.success('Patient has been admitted successfully.');
+
+      const newAdmissionId = `A-${Date.now()}`;
+      const now = new Date().toISOString();
+      
+      // Update patient status
+      setAllPatients(prev => prev.map(p => 
+        p.patient_id === values.patientId 
+          ? { ...p, is_admitted: true, current_admission_id: newAdmissionId } 
+          : p
+      ));
+
+      // Update bed status
+      setBeds(prev => prev.map(b => 
+        b.bed_id === values.bedId 
+          ? { ...b, status: 'occupied', current_patient_id: values.patientId, occupied_since: now, cleaningNeeded: false }
+          : b
+      ));
+      
+      // Create new admission record
+      const newAdmission: Admission = {
+        admission_id: newAdmissionId,
+        patient_id: values.patientId,
+        admission_date: now,
+        status: 'Admitted',
+        bed_id: values.bedId,
+        attending_doctor_id: values.attendingDoctorId,
+        ward: beds.find(b => b.bed_id === values.bedId)?.wardName || 'Unknown',
+        attending_doctor_name: doctors.find(d => d.uid === values.attendingDoctorId)?.name || 'Unknown',
+        reasonForVisit: values.reasonForAdmission,
+        type: 'Inpatient',
+        created_at: now,
+        updated_at: now,
+      };
+      setAdmissions(prev => [newAdmission, ...prev]);
+
       setOpen(false);
       form.reset();
     } else {
-      alert(`Error: ${result.message || 'Failed to allocate bed.'}`);
+      toast.error(`Error: ${result.message || 'Failed to allocate bed.'}`);
     }
   };
 

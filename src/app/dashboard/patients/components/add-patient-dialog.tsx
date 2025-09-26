@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -38,6 +37,7 @@ import { addPatient as addPatientAction } from '@/lib/actions';
 import { mockPricingTables } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Patient } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -181,15 +181,15 @@ export function AddPatientDialog({
     if (isEditing) {
       // In a real app, this would call an `updatePatient` server action
       console.log('Updating patient:', values);
-      alert('Patient updated successfully (simulated).');
+      toast.success('Patient updated successfully (simulated).');
       if (onPatientUpdated) onPatientUpdated();
     } else {
       const result = await addPatientAction(values);
       if (!result.success) {
-        alert(`Error: ${result.message || 'Failed to add patient.'}`);
+        toast.error(`Error: ${result.message || 'Failed to add patient.'}`);
         return;
       }
-      alert('Patient registered successfully (simulated).');
+      toast.success('Patient registered successfully.');
 
       // Create a patient object to pass back
       const newPatient: Patient = {
@@ -617,5 +617,3 @@ export function AddPatientDialog({
     </Dialog>
   );
 }
-
-    

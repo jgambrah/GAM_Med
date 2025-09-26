@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { Bed } from '@/lib/types';
+import { Admission, Bed, Patient } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { BedDouble, User, Wrench, SprayCan, Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -18,7 +17,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { allPatients, allAdmissions, allUsers } from '@/lib/data';
+import { allPatients as initialPatients, allAdmissions as initialAdmissions, allUsers } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface BedCardProps {
   bed: Bed;
@@ -53,6 +53,9 @@ const statusConfig = {
 };
 
 export function BedCard({ bed }: BedCardProps) {
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+  const [allAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
+
   const config = statusConfig[bed.status];
   const isOccupied = bed.status === 'occupied' && bed.current_patient_id;
 
@@ -115,5 +118,3 @@ export function BedCard({ bed }: BedCardProps) {
     <CardContentWrapper>{cardContent}</CardContentWrapper>
   );
 }
-
-    

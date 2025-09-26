@@ -166,8 +166,8 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
   const handleAddToWaitlist = () => {
     // In a real app, this would open the AddToWaitlistDialog,
     // pre-filled with the patient and service details.
-    setOpen(false); // Close the current dialog
-    alert("This would open the 'Add to Waitlist' dialog.");
+    setOpen(false);
+    toast.info("This would open the 'Add to Waitlist' dialog.");
   }
 
   const dialogContent = (
@@ -409,7 +409,7 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
       <Dialog open={open} onOpenChange={setOpen}>
         {dialogContent}
       </Dialog>
-    )
+    );
   }
 
   return (
@@ -424,4 +424,3 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
     </Dialog>
   );
 }
-
