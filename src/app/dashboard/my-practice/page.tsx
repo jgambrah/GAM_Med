@@ -4,12 +4,16 @@
 import * as React from 'react';
 import { AppointmentsList } from './components/appointments-list';
 import { PatientEHR } from './components/patient-ehr';
-import { Appointment } from '@/lib/types';
+import { Appointment, Referral } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReferralsDashboard } from '../referrals/components/referrals-dashboard';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { mockReferrals } from '@/lib/data';
 
 export default function MyPracticePage() {
   const [selectedAppointment, setSelectedAppointment] = React.useState<Appointment | null>(null);
+  const [referrals, setReferrals] = useLocalStorage<Referral[]>('referrals', mockReferrals);
+
 
   return (
     <div className="space-y-6">
@@ -36,7 +40,7 @@ export default function MyPracticePage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ReferralsDashboard />
+                        <ReferralsDashboard allReferrals={referrals} setAllReferrals={setReferrals} />
                     </CardContent>
                 </Card>
             )}
