@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -63,9 +62,12 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    onChange(currentValue === value ? "" : currentValue)
+                  value={option.label}
+                  onSelect={(currentLabel) => {
+                    const selectedOption = options.find(opt => opt.label.toLowerCase() === currentLabel.toLowerCase());
+                    if (selectedOption) {
+                      onChange(selectedOption.value === value ? "" : selectedOption.value)
+                    }
                     setOpen(false)
                   }}
                 >
