@@ -86,6 +86,12 @@ export const BedAllocationSchema = z.object({
     reasonForAdmission: z.string().min(5, { message: "Reason must be at least 5 characters."}),
 });
 
+export const NewBedSchema = z.object({
+  bedId: z.string().min(1, { message: 'Bed ID is required (e.g., WARD-101).' }),
+  wardName: z.string().min(3, { message: 'Ward name is required.' }),
+  roomNumber: z.string().min(1, { message: 'Room number is required.' }),
+});
+
 /**
  * Zod schema for validating the new referral form.
  */

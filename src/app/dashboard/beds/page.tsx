@@ -1,4 +1,7 @@
 
+'use client';
+
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -8,8 +11,18 @@ import {
 } from '@/components/ui/card';
 import { BedStatusGrid } from './components/bed-status-grid';
 import { AllocateBedDialog } from './components/allocate-bed-dialog';
+import { AddBedDialog } from './components/add-bed-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Bed } from '@/lib/types';
+import { allBeds } from '@/lib/data';
 
 export default function BedManagementPage() {
+  const [beds, setBeds] = useLocalStorage<Bed[]>('beds', allBeds);
+
+  const handleBedCreated = (newBed: Bed) => {
+    setBeds(prev => [...prev, newBed]);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -19,7 +32,10 @@ export default function BedManagementPage() {
             Real-time overview of hospital bed availability and status.
             </p>
         </div>
-        <AllocateBedDialog />
+        <div className="flex gap-2">
+            <AddBedDialog onBedCreated={handleBedCreated} />
+            <AllocateBedDialog />
+        </div>
       </div>
       <Card>
         <CardHeader>
