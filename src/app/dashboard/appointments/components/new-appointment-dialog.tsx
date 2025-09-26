@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { NewAppointmentSchema } from '@/lib/schemas';
-import { allPatients, allUsers } from '@/lib/data';
+import { allPatients as initialPatients, allUsers } from '@/lib/data';
 import { Plus, Clock } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
@@ -44,7 +44,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Appointment } from '@/lib/types';
+import { Appointment, Patient } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const mockDepartments = [
     { value: 'Cardiology', label: 'Cardiology' },
@@ -75,6 +76,7 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
   const { user } = useAuth();
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   
   const isEditing = !!appointmentToReschedule;
   const open = isOpen !== undefined ? isOpen : internalOpen;

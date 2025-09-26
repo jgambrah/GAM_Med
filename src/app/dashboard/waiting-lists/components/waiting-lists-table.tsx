@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { mockWaitingList, allPatients } from '@/lib/data';
-import { WaitingListEntry } from '@/lib/types';
+import { mockWaitingList, allPatients as initialPatients } from '@/lib/data';
+import { Patient, WaitingListEntry } from '@/lib/types';
 import { format } from 'date-fns';
 import { Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const getPriorityVariant = (priority: WaitingListEntry['priority']): "destructive" | "default" | "secondary" => {
     switch (priority) {
@@ -37,6 +38,7 @@ export function WaitingListsTable() {
   const [waitingList, setWaitingList] = React.useState<WaitingListEntry[]>(mockWaitingList);
   const [priorityFilter, setPriorityFilter] = React.useState('All');
   const [statusFilter, setStatusFilter] = React.useState('Active');
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   
   React.useEffect(() => {
     let filteredList = mockWaitingList;

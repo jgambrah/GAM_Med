@@ -6,14 +6,15 @@ import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
-import { mockInventory, mockPricingTables } from '@/lib/data';
+import { mockInventory as initialInventory, mockPricingTables } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { Invoice } from '@/lib/types';
+import { Invoice, InventoryItem } from '@/lib/types';
 import { PaymentDialog } from '@/app/dashboard/patients/[patientId]/components/payment-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface CartItem {
   itemId: string;
@@ -26,7 +27,7 @@ interface CartItem {
 // In a real app, this would be a more sophisticated lookup.
 // For now, we'll use the 'private' tier as the default for POS sales.
 const getPrice = (itemId: string): number => {
-    const item = mockInventory.find(i => i.itemId === itemId);
+    const item = initialInventory.find(i => i.itemId === itemId);
     const privateTier = mockPricingTables.find(t => t.pricingId === 'private');
     
     // A more robust check for billing code in the rate card
@@ -42,6 +43,7 @@ export function PointOfSaleDashboard() {
   const [cart, setCart] = React.useState<CartItem[]>([]);
   const [selectedItem, setSelectedItem] = React.useState<string | undefined>();
   const [finalizedInvoice, setFinalizedInvoice] = React.useState<Invoice | null>(null);
+  const [mockInventory] = useLocalStorage<InventoryItem[]>('inventory', initialInventory);
 
   const inventoryOptions = mockInventory.map(item => ({
     value: item.itemId,

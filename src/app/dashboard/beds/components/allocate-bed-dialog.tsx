@@ -34,9 +34,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { BedAllocationSchema } from '@/lib/schemas';
-import { allPatients, allBeds, allUsers } from '@/lib/data';
+import { allPatients as initialPatients, allBeds, allUsers } from '@/lib/data';
 import { allocateBed } from '@/lib/actions';
 import { Input } from '@/components/ui/input';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Patient } from '@/lib/types';
 
 interface AllocateBedDialogProps {
     patientId?: string;
@@ -51,6 +53,8 @@ interface AllocateBedDialogProps {
  */
 export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+
 
   const form = useForm<z.infer<typeof BedAllocationSchema>>({
     resolver: zodResolver(BedAllocationSchema),

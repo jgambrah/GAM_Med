@@ -38,8 +38,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { NewWaitingListSchema } from '@/lib/schemas';
-import { allPatients } from '@/lib/data';
+import { allPatients as initialPatients } from '@/lib/data';
 import { addToWaitingList } from '@/lib/actions';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Patient } from '@/lib/types';
 
 
 const mockServices = [
@@ -51,6 +53,7 @@ const mockServices = [
 
 export function AddToWaitlistDialog() {
   const [open, setOpen] = React.useState(false);
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
 
   const form = useForm<z.infer<typeof NewWaitingListSchema>>({
     resolver: zodResolver(NewWaitingListSchema),
