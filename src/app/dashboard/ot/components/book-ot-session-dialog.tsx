@@ -27,8 +27,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, Plus } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
-import { allPatients, allUsers } from '@/lib/data';
+import { allPatients as initialPatients, allUsers } from '@/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Patient } from '@/lib/types';
 
 const OtSessionSchema = z.object({
   patientId: z.string().min(1, 'A patient is required.'),
@@ -60,6 +62,7 @@ const mockPreOpChecklist = {
 export function BookOtSessionDialog() {
   const [open, setOpen] = React.useState(false);
   const [preOpWarnings, setPreOpWarnings] = React.useState<string[]>([]);
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   
   const form = useForm<z.infer<typeof OtSessionSchema>>({
     resolver: zodResolver(OtSessionSchema),
