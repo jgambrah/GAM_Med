@@ -14,20 +14,24 @@ import Link from 'next/link';
 import { mockRadiologyOrders, allPatients } from '@/lib/data';
 import { CreateReportDialog } from './create-report-dialog';
 import { RadiologyOrder } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export function ReportingQueueDashboard() {
-  const [orders, setOrders] = React.useState<RadiologyOrder[]>(
-    mockRadiologyOrders.filter(o => o.status === 'Awaiting Report')
+  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
+    'radiologyOrders',
+    mockRadiologyOrders
   );
+  
+  const awaitingReportOrders = orders.filter(o => o.status === 'Awaiting Report');
 
   const getPatientName = (patientId: string) => {
     return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
   };
 
-  const handleReportSubmitted = () => {
-    // In a real app with real-time data, this would update automatically.
-    // For the prototype, we just refilter the list to remove the completed one.
-    setOrders(prev => prev.filter(o => o.status !== 'Awaiting Report'));
+  const handleReportSubmitted = (orderId: string) => {
+    // In a real app, this would be handled by a real-time subscription.
+    // For the prototype, we manually update the status of the order.
+    setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, status: 'Completed', isReported: true } : o));
   };
 
   return (
@@ -42,8 +46,8 @@ export function ReportingQueueDashboard() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {orders.length > 0 ? (
-            orders.map(order => (
+          {awaitingReportOrders.length > 0 ? (
+            awaitingReportOrders.map(order => (
               <TableRow key={order.orderId}>
                 <TableCell className="font-medium">{format(new Date(order.scheduledDateTime!), 'PPP p')}</TableCell>
                 <TableCell>
@@ -53,7 +57,7 @@ export function ReportingQueueDashboard() {
                 </TableCell>
                 <TableCell>{order.studyIds.join(', ')}</TableCell>
                 <TableCell>
-                    <CreateReportDialog order={order} onReportSubmitted={handleReportSubmitted} />
+                    <CreateReportDialog order={order} onReportSubmitted={() => handleReportSubmitted(order.orderId)} />
                 </TableCell>
               </TableRow>
             ))

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -24,10 +23,12 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { toast } from '@/hooks/use-toast';
-import { RadiologyOrder } from '@/lib/types';
+import { RadiologyOrder, RadiologyReport } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 import { submitRadiologyReport } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { mockRadiologyReports } from '@/lib/data';
 
 const ReportSchema = z.object({
   impression: z.string().min(10, 'Impression must be at least 10 characters.'),
@@ -42,6 +43,7 @@ interface CreateReportDialogProps {
 export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
+  const [reports, setReports] = useLocalStorage<RadiologyReport[]>('radiologyReports', mockRadiologyReports);
   
   const form = useForm<z.infer<typeof ReportSchema>>({
     resolver: zodResolver(ReportSchema),
@@ -55,6 +57,24 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
       toast.success('Report Submitted', {
         description: `The report for order ${order.orderId} has been submitted.`,
       });
+      
+      const newReport: RadiologyReport = {
+        reportId: order.orderId,
+        orderId: order.orderId,
+        patientId: order.patientId,
+        radiologistId: user?.uid || 'rad1',
+        dateReported: new Date().toISOString(),
+        reportDetails: {
+          impression: values.impression,
+          findings: values.findings,
+        },
+        reportPdfUrl: '/mock-report.pdf',
+        pacsLink: '/mock-pacs-viewer.html',
+        isFinal: true,
+      };
+
+      setReports(prev => [newReport, ...prev]);
+      
       onReportSubmitted();
       setOpen(false);
       form.reset();

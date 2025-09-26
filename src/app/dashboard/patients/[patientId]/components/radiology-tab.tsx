@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -11,6 +10,7 @@ import { RadiologyOrder, RadiologyReport } from '@/lib/types';
 import { mockRadiologyOrders, mockRadiologyReports } from '@/lib/data';
 import { Download, ScanEye } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const getStatusVariant = (status: RadiologyOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -25,9 +25,17 @@ const getStatusVariant = (status: RadiologyOrder['status']): "default" | "second
 export function RadiologyTab({ patientId }: { patientId: string }) {
     const { user } = useAuth();
     
-    // In a real app, this would be a Firestore query.
-    const patientOrders = mockRadiologyOrders.filter(o => o.patientId === patientId);
-    const patientReports = mockRadiologyReports.filter(r => patientOrders.some(o => o.orderId === r.orderId));
+    // In a real app, these would be Firestore queries.
+    const [patientOrders] = useLocalStorage<RadiologyOrder[]>(
+        'radiologyOrders', 
+        mockRadiologyOrders
+    );
+    const [patientReports] = useLocalStorage<RadiologyReport[]>(
+        'radiologyReports', 
+        mockRadiologyReports
+    );
+
+    const ordersForPatient = patientOrders.filter(o => o.patientId === patientId);
 
     return (
          <Card>
@@ -47,8 +55,8 @@ export function RadiologyTab({ patientId }: { patientId: string }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {patientOrders.length > 0 ? (
-                                patientOrders.map((order) => {
+                            {ordersForPatient.length > 0 ? (
+                                ordersForPatient.map((order) => {
                                     const report = patientReports.find(r => r.orderId === order.orderId);
                                     return (
                                         <TableRow key={order.orderId}>
