@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions, mockCarePlans, mockOtSessions, mockNotes } from '@/lib/data';
+import { allAdmissions as initialAdmissions, mockCarePlans, mockOtSessions, mockNotes } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -37,7 +37,7 @@ import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Patient } from '@/lib/types';
+import { Patient, Admission, Bed } from '@/lib/types';
 
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
@@ -57,8 +57,10 @@ export default function PatientDetailPage() {
   const { user } = useAuth(); // Get the current user to tailor the UI
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Read the full patient list from local storage
-  const [allPatients] = useLocalStorage<Patient[]>('patients', []);
+  // Read all data from local storage to manage state
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', []);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
 
   const patient = allPatients.find((p) => p.patient_id === patientId);
@@ -87,6 +89,30 @@ export default function PatientDetailPage() {
     toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
     window.open(link, '_blank');
   }
+
+  const handleDischargeComplete = () => {
+    const now = new Date().toISOString();
+    // Update Patients
+    setAllPatients(prev => prev.map(p => 
+      p.patient_id === patientId 
+        ? { ...p, is_admitted: false, current_admission_id: null } 
+        : p
+    ));
+    // Update Beds
+    if (currentAdmission?.bed_id) {
+        setAllBeds(prev => prev.map(b => 
+            b.bed_id === currentAdmission.bed_id
+             ? { ...b, status: 'cleaning', cleaningNeeded: true, current_patient_id: null, occupied_since: null }
+             : b
+        ));
+    }
+    // Update Admission record
+    setAllAdmissions(prev => prev.map(a => 
+        a.admission_id === patient.current_admission_id
+         ? { ...a, status: 'Discharged', discharge_date: now }
+         : a
+    ));
+  };
 
   return (
     <div className="space-y-4">
@@ -143,6 +169,7 @@ export default function PatientDetailPage() {
                         patient={patient}
                         clinicalNotes={clinicalNotes.filter(note => note.patientId === patientId)}
                         disabled={isSubmitting || !patient.is_admitted}
+                        onDischargeComplete={handleDischargeComplete}
                     />
             </div>
         </>

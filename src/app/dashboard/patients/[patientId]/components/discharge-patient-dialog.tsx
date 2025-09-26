@@ -25,6 +25,7 @@ interface DischargePatientDialogProps {
   patient: Patient;
   clinicalNotes: ClinicalNote[];
   disabled?: boolean;
+  onDischargeComplete: () => void;
 }
 
 /**
@@ -34,7 +35,7 @@ interface DischargePatientDialogProps {
  * and finalize the medical portion of a patient's discharge. It's an interactive form where
  * AI provides a draft that the doctor can then edit and approve.
  */
-export function DischargePatientDialog({ patient, clinicalNotes, disabled }: DischargePatientDialogProps) {
+export function DischargePatientDialog({ patient, clinicalNotes, disabled, onDischargeComplete }: DischargePatientDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -101,6 +102,7 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
 
     if (result.success) {
         alert('Patient has been discharged successfully (simulated).');
+        onDischargeComplete(); // Notify parent component to update state
         handleOpenChange(false);
     } else {
         alert(`Error: ${result.message}`);
