@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { LogOut, Bot } from 'lucide-react';
+import { LogOut, Bot, PencilLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,8 +33,6 @@ interface DischargePatientDialogProps {
  * This component serves as the primary interface for clinical staff (doctors) to initiate
  * and finalize the medical portion of a patient's discharge. It's an interactive form where
  * AI provides a draft that the doctor can then edit and approve.
- *
- * It demonstrates state management for summary data and guides the user through the process.
  */
 export function DischargePatientDialog({ patient, clinicalNotes, disabled }: DischargePatientDialogProps) {
   const [open, setOpen] = React.useState(false);
@@ -73,6 +71,10 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
     } finally {
         setIsGenerating(false);
     }
+  }
+  
+  const handleManualEntry = () => {
+    setSummary({ clinicalSummary: '', patientInstructions: '' });
   }
 
   /**
@@ -129,21 +131,31 @@ export function DischargePatientDialog({ patient, clinicalNotes, disabled }: Dis
         <DialogHeader>
           <DialogTitle>Discharge Patient: {patient.full_name}</DialogTitle>
           <DialogDescription>
-            Generate and review the AI-powered discharge summary before finalizing.
+            Generate an AI-powered discharge summary or write one manually before finalizing.
           </DialogDescription>
         </DialogHeader>
         
         <div className="flex-grow overflow-y-auto space-y-4 pr-6">
             {!summary && !isGenerating && (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8 border-2 border-dashed rounded-lg">
-                    <Bot className="h-12 w-12 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mt-4">Generate Discharge Summary</h3>
-                    <p className="text-muted-foreground mt-1">
-                        Click the button below to use AI to generate a clinical summary and patient-friendly instructions based on the available clinical notes.
+                    <div className="flex items-center gap-4">
+                        <Bot className="h-12 w-12 text-muted-foreground" />
+                        <PencilLine className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mt-4">Create Discharge Summary</h3>
+                    <p className="text-muted-foreground mt-1 max-w-md">
+                        Use AI to generate a summary from clinical notes, or write one from scratch.
                     </p>
-                    <Button onClick={handleGenerateSummary} className="mt-4" disabled={isGenerating}>
-                        {isGenerating ? 'Generating...' : 'Generate Summary'}
-                    </Button>
+                    <div className="flex gap-4 mt-4">
+                         <Button onClick={handleManualEntry} variant="secondary">
+                            <PencilLine className="h-4 w-4 mr-2" />
+                            Write Manually
+                        </Button>
+                        <Button onClick={handleGenerateSummary} disabled={isGenerating}>
+                            <Bot className="h-4 w-4 mr-2" />
+                            {isGenerating ? 'Generating...' : 'Generate with AI'}
+                        </Button>
+                    </div>
                     {error && <p className="text-destructive mt-2">{error}</p>}
                 </div>
             )}
