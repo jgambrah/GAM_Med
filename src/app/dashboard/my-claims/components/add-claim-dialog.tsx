@@ -32,7 +32,7 @@ import { StaffExpenseClaim } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'claimId' | 'staffId' | 'staffName'>) => void;
+  onClaimSubmitted: (values: z.infer<typeof NewStaffClaimSchema>) => void;
 }
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
@@ -48,39 +48,13 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
     },
   });
 
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  }
-
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
     if (!user) {
         toast.error("You must be logged in to submit a claim.");
         return;
     }
-    
-    let attachmentUrl;
-    if (values.attachment && values.attachment.length > 0) {
-        const file = values.attachment[0];
-        attachmentUrl = await convertFileToBase64(file);
-    }
       
-      const newClaimData = {
-        hodId: user.hodId,
-        claimType: values.claimType,
-        amount: values.amount,
-        description: values.description,
-        submissionDate: new Date().toISOString(),
-        approvalStatus: 'Pending HOD' as const,
-        paymentStatus: 'Unpaid' as const,
-        attachmentUrl: attachmentUrl,
-      };
-
-      onClaimSubmitted(newClaimData);
+      onClaimSubmitted(values);
       toast.success('Your expense claim has been submitted for HOD approval.');
       setOpen(false);
       form.reset();
@@ -164,21 +138,27 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
             <FormField
               control={form.control}
               name="attachment"
-              render={({ field: { onChange, value, ...rest } }) => (
-                <FormItem>
-                  <FormLabel>Attach Receipt</FormLabel>
-                   <FormControl>
+              render={({ field: { onChange, value, ...rest } }) => {
+                const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    onChange(e.target.files[0]);
+                  } else {
+                    onChange(undefined);
+                  }
+                };
+                return (
+                  <FormItem>
+                    <FormLabel>Attach Receipt</FormLabel>
+                    <FormControl>
                       <Input 
-                          type="file" 
-                          onChange={(e) => {
-                            onChange(e.target.files);
-                          }}
-                          {...rest}
+                        type="file" 
+                        onChange={handleFileChange}
                       />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             <DialogFooter>

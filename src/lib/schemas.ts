@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -302,11 +301,10 @@ export const NewStaffClaimSchema = z.object({
   claimType: z.enum(['Travel', 'Per Diem', 'Medical Refund', 'Other']),
   amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than zero.' }),
   description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
-  attachment: z.any()
-    .refine((files) => !files || files?.length === 1, 'A single attachment is required.')
-    .refine((files) => !files || files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+  attachment: z.instanceof(File, { message: "Please upload a file." })
+    .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
-      (files) => !files || ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
+      (file) => ACCEPTED_FILE_TYPES.includes(file.type),
       ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
     )
     .optional(),

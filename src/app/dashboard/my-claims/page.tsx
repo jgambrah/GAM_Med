@@ -8,6 +8,18 @@ import { StaffExpenseClaim } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { mockStaffClaims } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { NewStaffClaimSchema } from '@/lib/schemas';
+import { z } from 'zod';
+
+const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+};
+
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
@@ -20,13 +32,26 @@ export default function MyClaimsPage() {
   }, [user, allClaims]);
 
 
-  const handleClaimSubmitted = (newClaimData: Omit<StaffExpenseClaim, 'claimId' | 'staffId' | 'staffName'>) => {
+  const handleClaimSubmitted = async (values: z.infer<typeof NewStaffClaimSchema>) => {
       if (!user) return;
+      
+      let attachmentUrl;
+      if (values.attachment) {
+        attachmentUrl = await convertFileToBase64(values.attachment);
+      }
+
       const newClaim: StaffExpenseClaim = {
-        ...newClaimData,
         claimId: `SEC-${Date.now()}`,
         staffId: user.uid,
         staffName: user.name,
+        hodId: user.hodId,
+        claimType: values.claimType,
+        amount: values.amount,
+        description: values.description,
+        submissionDate: new Date().toISOString(),
+        approvalStatus: 'Pending HOD' as const,
+        paymentStatus: 'Unpaid' as const,
+        attachmentUrl: attachmentUrl,
       };
       setAllClaims(prevClaims => [newClaim, ...prevClaims]);
   };
