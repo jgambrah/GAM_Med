@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -139,28 +140,18 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
             <FormField
               control={form.control}
               name="attachment"
-              render={({ field: { onChange, value, ...rest } }) => {
-                const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    onChange(e.target.files[0]);
-                  } else {
-                    onChange(undefined);
-                  }
-                };
-                return (
-                  <FormItem>
-                    <FormLabel>Attach Receipt</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="file"
-                        onChange={handleFileChange}
-                        {...rest}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )
-              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Attach Receipt</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="file"
+                      onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : undefined)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
             <DialogFooter>
