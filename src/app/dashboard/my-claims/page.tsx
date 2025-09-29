@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -20,13 +21,13 @@ export default function MyClaimsPage() {
     return allClaims.filter(c => c.staffId === user.uid).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [user, allClaims]);
   
-  const handleClaimSubmitted = (newClaim: StaffExpenseClaim) => {
+  const handleClaimSubmitted = (newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId'>) => {
       if (!user) {
         toast.error("You must be logged in to submit a claim.");
         return;
       }
       
-      const finalClaim = {
+      const finalClaim: StaffExpenseClaim = {
         ...newClaim,
         staffId: user.uid,
         staffName: user.name,

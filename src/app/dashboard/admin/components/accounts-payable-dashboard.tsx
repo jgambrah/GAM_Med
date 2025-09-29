@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -20,8 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns } from '@/lib/data';
-import { Bill, StaffExpenseClaim } from '@/lib/types';
+import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts } from '@/lib/data';
+import { Bill, StaffExpenseClaim, LedgerAccount } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -186,45 +187,27 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
     )
 }
 
-function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string) => void }) {
+function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void }) {
     const [open, setOpen] = React.useState(false);
-    const [whtRate, setWhtRate] = React.useState('0');
-    const [customWhtRate, setCustomWhtRate] = React.useState('');
-    const [vatOption, setVatOption] = React.useState('zero');
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
 
-    const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
-        let calculatedSubtotal = claim.amount;
-        if (vatOption === 'flat') {
-            calculatedSubtotal = claim.amount / 1.04;
-        } else if (vatOption === 'standard') {
-            calculatedSubtotal = claim.amount / 1.219;
-        }
-
-        const currentWhtRateValue = whtRate === 'custom' ? parseFloat(customWhtRate) / 100 : parseFloat(whtRate) / 100;
-        const calculatedWhtAmount = calculatedSubtotal * (isNaN(currentWhtRateValue) ? 0 : currentWhtRateValue);
-        const calculatedNetPayment = claim.amount - calculatedWhtAmount;
-        
-        return { subtotal: calculatedSubtotal, netPayment: calculatedNetPayment, whtAmount: calculatedWhtAmount };
-    }, [claim.amount, vatOption, whtRate, customWhtRate]);
-
+    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
 
     const handlePayClaim = () => {
         toast.success("Payment Logged", {
             description: `Payment for claim ${claim.claimId} has been logged.`
         });
-        const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
-        const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
-        onPaymentLogged(claim.claimId, netPayment, paymentDescription);
+        const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}`;
+        onPaymentLogged(claim.claimId, claim.amount, paymentDescription, expenseAccountId);
         setOpen(false);
     }
 
     React.useEffect(() => {
-        if (!open) {
-            setWhtRate('0');
-            setCustomWhtRate('');
-            setVatOption('zero');
+        if (open) {
+           setExpenseAccountId(claim.expenseAccountId);
         }
-    }, [open]);
+    }, [open, claim.expenseAccountId]);
 
 
     return (
@@ -242,74 +225,24 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label>Total Claim Amount (VAT Inclusive)</Label>
-                            <Input value={`₵${claim.amount.toFixed(2)}`} readOnly disabled />
-                        </div>
-                        <div>
-                           <Label>VAT Type on Invoice (If any)</Label>
-                             <Select value={vatOption} onValueChange={setVatOption}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select VAT type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="zero">Zero Rated VAT</SelectItem>
-                                    <SelectItem value="flat">Flat Rate (4%)</SelectItem>
-                                    <SelectItem value="standard">Standard Rate</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div>
+                        <Label>Total Claim Amount</Label>
+                        <Input value={`₵${claim.amount.toFixed(2)}`} readOnly disabled />
                     </div>
-
-                    <Separator />
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                           <Label>Withholding Tax Rate</Label>
-                             <Select value={whtRate} onValueChange={setWhtRate}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select tax rate" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="0">No WHT (0%)</SelectItem>
-                                    <SelectItem value="3">3%</SelectItem>
-                                    <SelectItem value="5">5%</SelectItem>
-                                    <SelectItem value="7.5">7.5%</SelectItem>
-                                    <SelectItem value="10">10%</SelectItem>
-                                    <SelectItem value="15">15%</SelectItem>
-                                    <SelectItem value="20">20%</SelectItem>
-                                    <SelectItem value="25">25%</SelectItem>
-                                    <SelectItem value="custom">Custom Rate</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                         {whtRate === 'custom' && (
-                            <div>
-                                <Label>Custom WHT Rate (%)</Label>
-                                <Input 
-                                    type="number"
-                                    placeholder="e.g., 8"
-                                    value={customWhtRate}
-                                    onChange={(e) => setCustomWhtRate(e.target.value)}
-                                />
-                            </div>
-                        )}
-                    </div>
-                   
-                    <div className="grid grid-cols-3 gap-4 rounded-md bg-muted p-4">
-                         <div>
-                            <Label>Subtotal (VAT-Ex.)</Label>
-                            <Input value={`₵${subtotal.toFixed(2)}`} readOnly disabled />
-                        </div>
-                         <div>
-                            <Label>WHT Amount</Label>
-                            <Input value={`₵${whtAmount.toFixed(2)}`} readOnly disabled />
-                        </div>
-                         <div>
-                            <Label className="font-bold">Net Payment Due</Label>
-                            <Input className="font-bold text-lg" value={`₵${netPayment.toFixed(2)}`} readOnly disabled />
-                        </div>
+                    <div>
+                        <Label>Expense Account</Label>
+                        <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select an expense account" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {expenseAccounts.map(acc => (
+                                     <SelectItem key={acc.accountId} value={acc.accountId}>
+                                        {acc.accountName} ({acc.accountCode})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
                 <DialogFooter>
@@ -365,7 +298,7 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged, allClaims }: { onPaymentLogged: (claimId: string, amount: number, description: string) => void, allClaims: StaffExpenseClaim[] }) {
+function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims }: { onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -415,7 +348,7 @@ function StaffClaimsTab({ onPaymentLogged, allClaims }: { onPaymentLogged: (clai
 
 
 export function AccountsPayableDashboard() {
-  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
+  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string } | null>(null);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
 
   const totalPayables = mockBills
@@ -427,16 +360,16 @@ export function AccountsPayableDashboard() {
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
   const handlePaymentLogged = (amount: number, description: string) => {
-    setPostingInfo({ amount, description });
+    setPostingInfo({ amount, description, debitAccountId: '2010' }); // Default to Accounts Payable for bills
   };
   
-  const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string) => {
+  const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string, expenseAccountId: string) => {
       setAllStaffClaims(prevClaims => 
           prevClaims.map(claim => 
               claim.claimId === claimId ? { ...claim, paymentStatus: 'Paid' } : claim
           )
       );
-      setPostingInfo({ amount, description });
+      setPostingInfo({ amount, description, debitAccountId: expenseAccountId });
   };
 
 
@@ -497,7 +430,7 @@ export function AccountsPayableDashboard() {
                         <VendorBillsTab onPaymentLogged={handlePaymentLogged} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
-                        <StaffClaimsTab allClaims={allStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} />
+                        <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} />
                     </TabsContent>
                 </CardContent>
             </Tabs>
@@ -513,7 +446,7 @@ export function AccountsPayableDashboard() {
             }}
             amount={postingInfo.amount}
             description={postingInfo.description}
-            defaultDebit="2010" // Accounts Payable
+            defaultDebit={postingInfo.debitAccountId}
             defaultCredit="1010" // Cash and Bank
         />
     )}

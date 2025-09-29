@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -27,11 +28,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NewStaffClaimSchema } from '@/lib/schemas';
-import { StaffExpenseClaim } from '@/lib/types';
+import { LedgerAccount, StaffExpenseClaim } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { mockLedgerAccounts } from '@/lib/data';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: (newClaim: StaffExpenseClaim) => void;
+  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId'>) => void;
 }
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -45,10 +48,9 @@ const fileToDataUrl = (file: File): Promise<string> => {
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
-  // Remove 'attachment' from the Zod schema for react-hook-form, as we'll handle it manually.
-  const formSchema = NewStaffClaimSchema.omit({ attachment: true });
+  const formSchema = NewStaffClaimSchema;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -56,23 +58,19 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
       claimType: 'Travel',
       amount: 0,
       description: '',
+      expenseAccountId: '',
     },
   });
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
+  
+  const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
       let attachmentUrl: string | undefined;
+      const file = values.attachment?.[0];
 
-      if (selectedFile) {
+      if (file) {
         try {
-          // Await the file conversion directly here.
-          attachmentUrl = await fileToDataUrl(selectedFile);
+          attachmentUrl = await fileToDataUrl(file);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");
@@ -80,23 +78,21 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         }
       }
       
-      const newClaim: StaffExpenseClaim = {
+      const newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId'> = {
         claimId: `SEC-${Date.now()}`,
-        staffId: '', // Will be filled in by parent component
-        staffName: '', // Will be filled in by parent component
         claimType: values.claimType,
         amount: values.amount,
         description: values.description,
+        expenseAccountId: values.expenseAccountId,
         submissionDate: new Date().toISOString(),
         approvalStatus: 'Pending HOD',
         paymentStatus: 'Unpaid',
-        attachmentUrl: attachmentUrl, // This will now be a valid Data URL
+        attachmentUrl: attachmentUrl,
       };
 
       onClaimSubmitted(newClaim);
       setOpen(false);
       form.reset();
-      setSelectedFile(null);
   };
   
   return (
@@ -169,17 +165,50 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 </FormItem>
               )}
             />
-            <FormItem>
-                <FormLabel>Attach Receipt</FormLabel>
-                <FormControl>
-                    <Input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={handleFileChange}
-                    />
-                </FormControl>
-                <FormMessage />
-            </FormItem>
+             <FormField
+                control={form.control}
+                name="expenseAccountId"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Expense Category</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an expense account..." />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {expenseAccounts.map(acc => (
+                                    <SelectItem key={acc.accountId} value={acc.accountId}>
+                                        {acc.accountName} ({acc.accountCode})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+            <FormField
+              control={form.control}
+              name="attachment"
+              render={({ field: { value, onChange, ...fieldProps } }) => (
+                <FormItem>
+                    <FormLabel>Attach Receipt</FormLabel>
+                    <FormControl>
+                        <Input
+                            {...fieldProps}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(event) => {
+                                onChange(event.target.files && event.target.files[0]);
+                            }}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
