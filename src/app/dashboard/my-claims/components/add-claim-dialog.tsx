@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -56,8 +55,8 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         return;
     }
       
+      // Pass the raw form values, including the File object, to the parent page for processing.
       onClaimSubmitted(values);
-      toast.success('Your expense claim has been submitted for HOD approval.');
       setOpen(false);
       form.reset();
   };

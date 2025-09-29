@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -11,15 +10,7 @@ import { mockStaffClaims } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { NewStaffClaimSchema } from '@/lib/schemas';
 import { z } from 'zod';
-
-const convertFileToDataURL = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
+import { toast } from '@/hooks/use-toast';
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
@@ -33,17 +24,32 @@ export default function MyClaimsPage() {
 
 
   const handleClaimSubmitted = async (values: z.infer<typeof NewStaffClaimSchema>) => {
-      if (!user) return;
+      if (!user) {
+        toast.error("You must be logged in to submit a claim.");
+        return;
+      }
       
-      let attachmentUrl;
+      let attachmentUrl: string | undefined;
+
       if (values.attachment) {
         try {
-          attachmentUrl = await convertFileToDataURL(values.attachment);
+          // Wrap the FileReader logic in a Promise to correctly await the result
+          attachmentUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(values.attachment as File);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+          });
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
-          // Handle the error appropriately, maybe show a toast
+          toast.error("Failed to process the attachment. Please try again.");
           return;
         }
+      }
+
+      if (values.attachment && !attachmentUrl) {
+         toast.error("There was an issue with the attachment. Please re-upload the file.");
+         return;
       }
 
       const newClaim: StaffExpenseClaim = {
@@ -59,7 +65,9 @@ export default function MyClaimsPage() {
         paymentStatus: 'Unpaid' as const,
         attachmentUrl: attachmentUrl,
       };
+
       setAllClaims(prevClaims => [newClaim, ...prevClaims]);
+      toast.success('Your expense claim has been submitted for HOD approval.');
   };
 
   return (
