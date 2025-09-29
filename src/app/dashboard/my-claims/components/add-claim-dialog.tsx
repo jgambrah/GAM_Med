@@ -2,8 +2,9 @@
 'use client';
 
 import * as React from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,20 +28,71 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NewStaffClaimSchema } from '@/lib/schemas';
+import { StaffExpenseClaim } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 
 interface AddClaimDialogProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  form: UseFormReturn<z.infer<typeof NewStaffClaimSchema>>;
-  onSubmit: (values: z.infer<typeof NewStaffClaimSchema>) => void;
+  onClaimSubmitted: (newClaim: StaffExpenseClaim) => void;
 }
 
-export function AddClaimDialog({ isOpen, onOpenChange, form, onSubmit }: AddClaimDialogProps) {
+const fileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
+  const [open, setOpen] = React.useState(false);
+  const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
+    resolver: zodResolver(NewStaffClaimSchema),
+    defaultValues: {
+      claimType: 'Travel',
+      amount: 0,
+      description: '',
+      attachment: undefined,
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
+      let attachmentUrl: string | undefined;
+
+      const file = values.attachment && values.attachment.length > 0 ? values.attachment[0] : null;
+
+      if (file) {
+        try {
+          attachmentUrl = await fileToDataUrl(file);
+        } catch (error) {
+          console.error("Error converting file to Data URL:", error);
+          toast.error("Failed to process the attachment. Please try again.");
+          return;
+        }
+      }
+      
+      const newClaim: StaffExpenseClaim = {
+        claimId: `SEC-${Date.now()}`,
+        staffId: '', // Will be filled in by parent component
+        staffName: '', // Will be filled in by parent component
+        claimType: values.claimType,
+        amount: values.amount,
+        description: values.description,
+        submissionDate: new Date().toISOString(),
+        approvalStatus: 'Pending HOD',
+        paymentStatus: 'Unpaid',
+        attachmentUrl: attachmentUrl,
+      };
+
+      onClaimSubmitted(newClaim);
+      setOpen(false);
+      form.reset();
+  };
   
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button onClick={() => onOpenChange(true)}>
+        <Button onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Submit New Claim
         </Button>
@@ -120,7 +172,7 @@ export function AddClaimDialog({ isOpen, onOpenChange, form, onSubmit }: AddClai
             </FormItem>
 
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
