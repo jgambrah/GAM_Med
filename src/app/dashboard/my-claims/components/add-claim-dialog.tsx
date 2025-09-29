@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -28,7 +27,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NewStaffClaimSchema } from '@/lib/schemas';
-import { toast } from '@/hooks/use-toast';
 
 interface AddClaimDialogProps {
   onClaimSubmitted: (values: z.infer<typeof NewStaffClaimSchema>) => void;
@@ -131,15 +129,18 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
              <Controller
                 control={form.control}
                 name="attachment"
-                render={({ field }) => (
+                render={({ field: { onChange, onBlur, name, ref } }) => (
                     <FormItem>
                     <FormLabel>Attach Receipt</FormLabel>
                     <FormControl>
                         <Input
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
+                            ref={ref}
+                            name={name}
+                            onBlur={onBlur}
                             onChange={(e) => {
-                                field.onChange(e.target.files ? e.target.files[0] : null);
+                                onChange(e.target.files ? e.target.files[0] : null);
                             }}
                         />
                     </FormControl>

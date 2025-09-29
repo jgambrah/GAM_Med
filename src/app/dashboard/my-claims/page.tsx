@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -44,6 +43,7 @@ export default function MyClaimsPage() {
 
       if (attachmentFile instanceof File) {
         try {
+          // This now correctly awaits the promise to ensure the Data URL is generated.
           attachmentUrl = await fileToDataUrl(attachmentFile);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
