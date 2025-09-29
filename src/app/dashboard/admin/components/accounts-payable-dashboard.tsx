@@ -186,7 +186,7 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
     )
 }
 
-function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (amount: number, description: string) => void }) {
+function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string) => void }) {
     const [open, setOpen] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
     const [customWhtRate, setCustomWhtRate] = React.useState('');
@@ -214,7 +214,7 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
         });
         const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
         const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
-        onPaymentLogged(netPayment, paymentDescription);
+        onPaymentLogged(claim.claimId, netPayment, paymentDescription);
         setOpen(false);
     }
 
@@ -365,7 +365,7 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string) => void }) {
+function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (claimId: string, amount: number, description: string) => void }) {
     const [allClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
@@ -417,6 +417,7 @@ function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
 
 export function AccountsPayableDashboard() {
   const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
+  const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
 
   const totalPayables = mockBills
     .filter(b => b.status === 'Pending' || b.status === 'Overdue')
@@ -429,6 +430,16 @@ export function AccountsPayableDashboard() {
   const handlePaymentLogged = (amount: number, description: string) => {
     setPostingInfo({ amount, description });
   };
+  
+  const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string) => {
+      setAllStaffClaims(prevClaims => 
+          prevClaims.map(claim => 
+              claim.claimId === claimId ? { ...claim, paymentStatus: 'Paid' } : claim
+          )
+      );
+      setPostingInfo({ amount, description });
+  };
+
 
   return (
     <>
@@ -487,11 +498,10 @@ export function AccountsPayableDashboard() {
                         <VendorBillsTab onPaymentLogged={handlePaymentLogged} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
-                        <StaffClaimsTab onPaymentLogged={handlePaymentLogged} />
+                        <StaffClaimsTab onPaymentLogged={handleStaffClaimPaymentLogged} />
                     </TabsContent>
                 </CardContent>
             </Tabs>
-        </Card>
     </div>
     {postingInfo && (
         <LedgerPostingDialog 
