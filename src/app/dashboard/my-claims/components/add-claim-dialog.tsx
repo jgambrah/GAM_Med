@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -46,24 +45,34 @@ const fileToDataUrl = (file: File): Promise<string> => {
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
-    resolver: zodResolver(NewStaffClaimSchema),
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+
+  // Remove 'attachment' from the Zod schema for react-hook-form, as we'll handle it manually.
+  const formSchema = NewStaffClaimSchema.omit({ attachment: true });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       claimType: 'Travel',
       amount: 0,
       description: '',
-      attachment: undefined,
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
       let attachmentUrl: string | undefined;
 
-      const file = values.attachment && values.attachment.length > 0 ? values.attachment[0] : null;
-
-      if (file) {
+      if (selectedFile) {
         try {
-          attachmentUrl = await fileToDataUrl(file);
+          // Await the file conversion directly here.
+          attachmentUrl = await fileToDataUrl(selectedFile);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");
@@ -81,12 +90,13 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         submissionDate: new Date().toISOString(),
         approvalStatus: 'Pending HOD',
         paymentStatus: 'Unpaid',
-        attachmentUrl: attachmentUrl,
+        attachmentUrl: attachmentUrl, // This will now be a valid Data URL
       };
 
       onClaimSubmitted(newClaim);
       setOpen(false);
       form.reset();
+      setSelectedFile(null);
   };
   
   return (
@@ -165,7 +175,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                     <Input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        {...form.register("attachment")}
+                        onChange={handleFileChange}
                     />
                 </FormControl>
                 <FormMessage />
