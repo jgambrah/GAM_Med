@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -11,6 +12,15 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { NewStaffClaimSchema } from '@/lib/schemas';
 import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
+
+const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
@@ -33,25 +43,14 @@ export default function MyClaimsPage() {
 
       if (values.attachment) {
         try {
-          // Wrap the FileReader logic in a Promise to correctly await the result
-          attachmentUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(values.attachment as File);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = error => reject(error);
-          });
+          attachmentUrl = await fileToDataUrl(values.attachment);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");
           return;
         }
       }
-
-      if (values.attachment && !attachmentUrl) {
-         toast.error("There was an issue with the attachment. Please re-upload the file.");
-         return;
-      }
-
+      
       const newClaim: StaffExpenseClaim = {
         claimId: `SEC-${Date.now()}`,
         staffId: user.uid,

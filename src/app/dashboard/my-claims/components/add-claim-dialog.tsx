@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -26,9 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/hooks/use-toast';
 import { NewStaffClaimSchema } from '@/lib/schemas';
-import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
   onClaimSubmitted: (values: z.infer<typeof NewStaffClaimSchema>) => void;
@@ -36,7 +35,6 @@ interface AddClaimDialogProps {
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const { user } = useAuth();
   
   const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
     resolver: zodResolver(NewStaffClaimSchema),
@@ -131,19 +129,26 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="attachment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Attach Receipt</FormLabel>
-                  <FormControl>
-                    <Input type="file" {...attachmentRef} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             <FormField
+                control={form.control}
+                name="attachment"
+                render={({ field: { value, onChange, ...fieldProps } }) => (
+                    <FormItem>
+                    <FormLabel>Attach Receipt</FormLabel>
+                    <FormControl>
+                        <Input
+                        {...fieldProps}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(event) => {
+                            onChange(event.target.files && event.target.files[0]);
+                        }}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
