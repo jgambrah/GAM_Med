@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -11,15 +12,14 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { NewStaffClaimSchema } from '@/lib/schemas';
 import { z } from 'zod';
 
-const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
+const convertFileToDataURL = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
 };
-
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
@@ -37,7 +37,13 @@ export default function MyClaimsPage() {
       
       let attachmentUrl;
       if (values.attachment) {
-        attachmentUrl = await convertFileToBase64(values.attachment);
+        try {
+          attachmentUrl = await convertFileToDataURL(values.attachment);
+        } catch (error) {
+          console.error("Error converting file to Data URL:", error);
+          // Handle the error appropriately, maybe show a toast
+          return;
+        }
       }
 
       const newClaim: StaffExpenseClaim = {

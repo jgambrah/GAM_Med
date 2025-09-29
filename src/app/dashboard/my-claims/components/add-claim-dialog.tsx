@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -45,6 +46,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
       claimType: 'Travel',
       amount: 0,
       description: '',
+      attachment: undefined,
     },
   });
 
@@ -151,8 +153,9 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                     <FormLabel>Attach Receipt</FormLabel>
                     <FormControl>
                       <Input 
-                        type="file" 
+                        type="file"
                         onChange={handleFileChange}
+                        {...rest}
                       />
                     </FormControl>
                     <FormMessage />
