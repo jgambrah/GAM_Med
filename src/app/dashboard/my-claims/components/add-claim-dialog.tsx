@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
+  const onSubmit = (values: z.infer<typeof NewStaffClaimSchema>) => {
       onClaimSubmitted(values);
       setOpen(false);
       form.reset();
@@ -102,11 +102,6 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                       type="number"
                       step="0.01"
                       {...field}
-                       onChange={(e) => {
-                        const value = e.target.value;
-                        field.onChange(value === '' ? undefined : parseFloat(value));
-                      }}
-                      value={field.value ?? ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -126,28 +121,23 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 </FormItem>
               )}
             />
-             <Controller
+             <FormField
                 control={form.control}
                 name="attachment"
-                render={({ field: { onChange, onBlur, name, ref } }) => (
+                render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Attach Receipt</FormLabel>
-                    <FormControl>
-                        <Input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            ref={ref}
-                            name={name}
-                            onBlur={onBlur}
-                            onChange={(e) => {
-                                onChange(e.target.files ? e.target.files[0] : null);
-                            }}
-                        />
-                    </FormControl>
-                    <FormMessage />
+                        <FormLabel>Attach Receipt</FormLabel>
+                        <FormControl>
+                            <Input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                {...form.register("attachment")}
+                            />
+                        </FormControl>
+                        <FormMessage />
                     </FormItem>
                 )}
-                />
+            />
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

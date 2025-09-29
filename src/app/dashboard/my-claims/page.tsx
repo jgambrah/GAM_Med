@@ -39,12 +39,12 @@ export default function MyClaimsPage() {
       }
       
       let attachmentUrl: string | undefined;
-      const attachmentFile = values.attachment;
+      const fileList = values.attachment as FileList;
 
-      if (attachmentFile instanceof File) {
+      if (fileList && fileList.length > 0) {
+        const file = fileList[0];
         try {
-          // This now correctly awaits the promise to ensure the Data URL is generated.
-          attachmentUrl = await fileToDataUrl(attachmentFile);
+          attachmentUrl = await fileToDataUrl(file);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");
