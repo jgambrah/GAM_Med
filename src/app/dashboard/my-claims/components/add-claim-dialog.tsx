@@ -34,11 +34,12 @@ import { StaffExpenseClaim } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: (newClaim: StaffExpenseClaim) => void;
+  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'claimId' | 'staffId' | 'staffName'>, attachmentFile?: File) => void;
 }
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
   const { user } = useAuth();
 
   const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
@@ -49,35 +50,39 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
       description: '',
     },
   });
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setAttachmentFile(file);
+    // Also update form state for validation
+    form.setValue('attachment', file);
+  }
 
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
     if (!user) {
         toast.error("You must be logged in to submit a claim.");
         return;
     }
-    // In a real app, you would handle file upload here before calling the action.
-    // For this prototype, the action simulates success and we manually create the new claim object.
+    
     const result = await submitStaffClaim(values);
     if (result.success) {
       toast.success('Your expense claim has been submitted for HOD approval.');
       
-      const newClaim: StaffExpenseClaim = {
-        claimId: `SEC-${Date.now()}`,
-        staffId: user.uid,
-        staffName: user.name,
-        hodId: user.hodId, // Correctly assign the HOD ID from the user object
+      const newClaimData = {
+        hodId: user.hodId,
         claimType: values.claimType,
         amount: values.amount,
         description: values.description,
         submissionDate: new Date().toISOString(),
-        approvalStatus: 'Pending HOD',
-        paymentStatus: 'Unpaid',
-        attachmentUrl: values.attachment ? '/mock-receipt.html' : undefined,
+        approvalStatus: 'Pending HOD' as const,
+        paymentStatus: 'Unpaid' as const,
+        attachmentUrl: attachmentFile ? URL.createObjectURL(attachmentFile) : undefined,
       };
 
-      onClaimSubmitted(newClaim);
+      onClaimSubmitted(newClaimData);
       setOpen(false);
       form.reset();
+      setAttachmentFile(null);
     } else {
       toast.error(result.message || 'An unexpected error occurred.');
     }
@@ -134,9 +139,9 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                       type="number"
                       step="0.01"
                       {...field}
-                      onChange={e => {
-                          const value = e.target.value;
-                          field.onChange(value === '' ? undefined : parseFloat(value));
+                       onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === '' ? undefined : parseFloat(value));
                       }}
                       value={field.value ?? ''}
                     />
@@ -167,7 +172,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                    <FormControl>
                       <Input 
                           type="file" 
-                          onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                          onChange={handleFileChange}
                       />
                   </FormControl>
                   <FormMessage />

@@ -21,8 +21,15 @@ export default function MyClaimsPage() {
   }, [user, allClaims]);
 
 
-  const handleClaimSubmitted = (newClaim: StaffExpenseClaim) => {
-    setAllClaims(prevClaims => [newClaim, ...prevClaims]);
+  const handleClaimSubmitted = (newClaimData: Omit<StaffExpenseClaim, 'claimId' | 'staffId' | 'staffName'>) => {
+      if (!user) return;
+      const newClaim: StaffExpenseClaim = {
+        ...newClaimData,
+        claimId: `SEC-${Date.now()}`,
+        staffId: user.uid,
+        staffName: user.name,
+      };
+      setAllClaims(prevClaims => [newClaim, ...prevClaims]);
   };
 
   return (
@@ -50,4 +57,3 @@ export default function MyClaimsPage() {
     </div>
   );
 }
-
