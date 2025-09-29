@@ -502,6 +502,7 @@ export function AccountsPayableDashboard() {
                     </TabsContent>
                 </CardContent>
             </Tabs>
+        </Card>
     </div>
     {postingInfo && (
         <LedgerPostingDialog 
@@ -520,5 +521,3 @@ export function AccountsPayableDashboard() {
     </>
   );
 }
-
-    
