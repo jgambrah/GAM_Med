@@ -300,7 +300,6 @@ export const LogPaymentSchema = z.object({
  * Zod schema for validating a new staff expense claim submission.
  */
 export const NewStaffClaimSchema = z.object({
-  claimType: z.enum(['Travel', 'Per Diem', 'Medical Refund', 'Other']),
   amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than zero.' }),
   description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
   expenseAccountId: z.string().min(1, { message: 'An expense account must be selected.' }),
@@ -378,4 +377,3 @@ export const LogTrainingSchema = z.object({
   completionDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid completion date is required.' }),
 });
     
-

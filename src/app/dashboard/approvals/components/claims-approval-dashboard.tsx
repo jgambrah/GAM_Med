@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -62,7 +63,6 @@ export function ClaimsApprovalDashboard() {
           <TableRow>
             <TableHead>Staff Member</TableHead>
             <TableHead>Date Submitted</TableHead>
-            <TableHead>Type</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Actions</TableHead>
@@ -74,7 +74,6 @@ export function ClaimsApprovalDashboard() {
               <TableRow key={claim.claimId}>
                 <TableCell className="font-medium">{claim.staffName}</TableCell>
                 <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
-                <TableCell>{claim.claimType}</TableCell>
                 <TableCell>{claim.description}</TableCell>
                 <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
                 <TableCell className="space-x-2">
@@ -89,7 +88,7 @@ export function ClaimsApprovalDashboard() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 You have no pending claims to approve.
               </TableCell>
             </TableRow>

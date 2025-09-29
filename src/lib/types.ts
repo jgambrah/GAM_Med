@@ -644,7 +644,6 @@ export interface StaffExpenseClaim {
   staffId: string;
   staffName: string;
   hodId?: string; // Head of Department ID for approval
-  claimType: 'Travel' | 'Per Diem' | 'Medical Refund' | 'Other';
   amount: number;
   description: string;
   expenseAccountId: string; // Link to the LedgerAccount
@@ -1645,6 +1644,7 @@ export interface Diagnosis {
     
 
     
+
 
 
 

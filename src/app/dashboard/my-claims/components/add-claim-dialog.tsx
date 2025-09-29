@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -34,7 +35,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { mockLedgerAccounts } from '@/lib/data';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId'>) => void;
+  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId' | 'claimType'>) => void;
 }
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -55,7 +56,6 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      claimType: 'Travel',
       amount: 0,
       description: '',
       expenseAccountId: '',
@@ -78,9 +78,8 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         }
       }
       
-      const newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId'> = {
+      const newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId' | 'claimType'> = {
         claimId: `SEC-${Date.now()}`,
-        claimType: values.claimType,
         amount: values.amount,
         description: values.description,
         expenseAccountId: values.expenseAccountId,
@@ -114,29 +113,6 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <FormField
               control={form.control}
-              name="claimType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Claim Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select claim type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Travel">Travel & Transport</SelectItem>
-                      <SelectItem value="Per Diem">Per Diem</SelectItem>
-                      <SelectItem value="Medical Refund">Medical Refund</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="amount"
               render={({ field }) => (
                 <FormItem>
@@ -157,7 +133,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Description of Expense</FormLabel>
                   <FormControl>
                     <Textarea placeholder="Provide a brief description of the expense..." {...field} />
                   </FormControl>

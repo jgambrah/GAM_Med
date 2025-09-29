@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -43,7 +44,6 @@ export function MyClaimsList({ claims }: MyClaimsListProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Submission Date</TableHead>
-            <TableHead>Type</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Approval Status</TableHead>
@@ -56,7 +56,6 @@ export function MyClaimsList({ claims }: MyClaimsListProps) {
             claims.map((claim) => (
               <TableRow key={claim.claimId}>
                 <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
-                <TableCell>{claim.claimType}</TableCell>
                 <TableCell>{claim.description}</TableCell>
                 <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
                 <TableCell>
@@ -78,7 +77,7 @@ export function MyClaimsList({ claims }: MyClaimsListProps) {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
+              <TableCell colSpan={6} className="h-24 text-center">
                 You have not submitted any claims.
               </TableCell>
             </TableRow>

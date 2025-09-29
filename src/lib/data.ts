@@ -1471,9 +1471,9 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         staffId: 'doc2',
         staffName: 'Dr. Kofi Asante',
         hodId: 'doc1', // Dr. Mensah is the HOD
-        claimType: 'Travel',
+        expenseAccountId: '5030',
         amount: 350.00,
-        description: 'T&amp;T for conference in Kumasi',
+        description: 'T&T for conference in Kumasi',
         submissionDate: new Date('2024-08-10T00:00:00Z').toISOString(),
         approvalStatus: 'Approved',
         hodApprovalDate: new Date('2024-08-11T00:00:00Z').toISOString(),
@@ -1485,7 +1485,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         staffId: 'nurse1',
         staffName: 'Florence Agyepong',
         hodId: 'doc1', // Dr. Mensah is the HOD
-        claimType: 'Medical Refund',
+        expenseAccountId: '5030',
         amount: 150.00,
         description: 'Refund for prescribed medication',
         submissionDate: new Date('2024-08-12T00:00:00Z').toISOString(),
@@ -1499,7 +1499,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         staffId: 'doc2',
         staffName: 'Dr. Kofi Asante',
         hodId: 'doc1', // Dr. Mensah is the HOD
-        claimType: 'Other',
+        expenseAccountId: '5030',
         amount: 200.00,
         description: 'Office supplies purchase',
         submissionDate: new Date('2024-08-14T00:00:00Z').toISOString(),
