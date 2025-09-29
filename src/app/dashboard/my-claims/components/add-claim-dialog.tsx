@@ -130,7 +130,16 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 <FormItem>
                   <FormLabel>Amount (₵)</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...field}
+                      onChange={e => {
+                          const value = e.target.value;
+                          field.onChange(value === '' ? undefined : parseFloat(value));
+                      }}
+                      value={field.value ?? ''}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
