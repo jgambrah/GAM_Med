@@ -467,6 +467,7 @@ export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>)
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     revalidatePath('/dashboard/admin/chart-of-accounts');
+    revalidatePath('/dashboard/admin/reports');
     
     return { success: true, message: 'Transaction posted to ledger successfully.' };
 }

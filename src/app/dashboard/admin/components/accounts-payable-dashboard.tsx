@@ -42,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { postToLedger } from '@/lib/actions';
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -189,18 +190,41 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
 
 function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void }) {
     const [open, setOpen] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
 
-    const handlePayClaim = () => {
-        toast.success("Payment Logged", {
-            description: `Payment for claim ${claim.claimId} has been logged.`
+    const handlePayClaim = async () => {
+        setIsSubmitting(true);
+        
+        // Step 1: Accrue the expense (Debit Expense, Credit Accounts Payable)
+        const accrualDescription = `Accrue expense for Staff Claim: ${claim.description}`;
+        const accrualResult = await postToLedger({
+            debitAccountId: expenseAccountId,
+            creditAccountId: '2010', // Accounts Payable
+            amount: claim.amount,
+            description: accrualDescription,
         });
-        const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}`;
-        onPaymentLogged(claim.claimId, claim.amount, paymentDescription, expenseAccountId);
-        setOpen(false);
+
+        if (accrualResult.success) {
+            toast.success("Expense Accrued", {
+                description: `Claim ${claim.claimId} posted to ledger.`
+            });
+            
+            // Step 2: Trigger the cash settlement dialog
+            const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}`;
+            onPaymentLogged(claim.claimId, claim.amount, paymentDescription, expenseAccountId);
+            
+            setOpen(false);
+        } else {
+            toast.error("Failed to post expense accrual.", {
+                description: accrualResult.message || 'An unknown error occurred.'
+            });
+        }
+        
+        setIsSubmitting(false);
     }
 
     React.useEffect(() => {
@@ -221,7 +245,7 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
                 <DialogHeader>
                     <DialogTitle>Log Payment for Staff Claim: {claim.claimId}</DialogTitle>
                     <DialogDescription>
-                        Confirm claim payment to staff member: {claim.staffName}
+                        Confirm claim payment to staff member: {claim.staffName}. This will first accrue the expense, then prompt for payment logging.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -247,7 +271,9 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handlePayClaim}>Confirm Payment & Post to Ledger</Button>
+                    <Button onClick={handlePayClaim} disabled={isSubmitting}>
+                        {isSubmitting ? 'Posting...' : 'Confirm & Post to Ledger'}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -348,7 +374,7 @@ function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims }: { onPaymen
 
 
 export function AccountsPayableDashboard() {
-  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string } | null>(null);
+  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string } | null>(null);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
 
   const totalPayables = mockBills
@@ -359,18 +385,35 @@ export function AccountsPayableDashboard() {
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
-  const handlePaymentLogged = (amount: number, description: string) => {
-    setPostingInfo({ amount, description, debitAccountId: '2010' }); // Default to Accounts Payable for bills
+  const handleBillPaymentLogged = (amount: number, description: string) => {
+    setPostingInfo({ amount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string, expenseAccountId: string) => {
-      setAllStaffClaims(prevClaims => 
-          prevClaims.map(claim => 
-              claim.claimId === claimId ? { ...claim, paymentStatus: 'Paid' } : claim
-          )
-      );
-      setPostingInfo({ amount, description, debitAccountId: expenseAccountId });
+      setPostingInfo({ 
+          amount, 
+          description, 
+          debitAccountId: '2010', // Debit Accounts Payable (to clear the liability)
+          creditAccountId: '1010', // Credit Cash/Bank
+          claimIdToUpdate: claimId,
+      });
   };
+  
+  const handleLedgerDialogClose = (isOpen: boolean, posted?: boolean) => {
+      if (!isOpen) {
+          if (posted && postingInfo?.claimIdToUpdate) {
+              setAllStaffClaims(prevClaims => 
+                  prevClaims.map(claim => 
+                      claim.claimId === postingInfo.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
+                  )
+              );
+              toast.success("Claim Paid", {
+                  description: `Payment for claim ${postingInfo.claimIdToUpdate} has been successfully logged.`
+              });
+          }
+          setPostingInfo(null);
+      }
+  }
 
 
   return (
@@ -427,7 +470,7 @@ export function AccountsPayableDashboard() {
                 </CardHeader>
                 <CardContent>
                      <TabsContent value="vendor-bills">
-                        <VendorBillsTab onPaymentLogged={handlePaymentLogged} />
+                        <VendorBillsTab onPaymentLogged={handleBillPaymentLogged} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
                         <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} />
@@ -439,15 +482,11 @@ export function AccountsPayableDashboard() {
     {postingInfo && (
         <LedgerPostingDialog 
             isOpen={!!postingInfo}
-            onOpenChange={(isOpen) => {
-                if (!isOpen) {
-                    setPostingInfo(null);
-                }
-            }}
+            onOpenChange={handleLedgerDialogClose}
             amount={postingInfo.amount}
             description={postingInfo.description}
             defaultDebit={postingInfo.debitAccountId}
-            defaultCredit="1010" // Cash and Bank
+            defaultCredit={postingInfo.creditAccountId}
         />
     )}
     </>
