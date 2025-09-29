@@ -32,20 +32,11 @@ interface AddClaimDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   form: UseFormReturn<z.infer<typeof NewStaffClaimSchema>>;
-  onFileSelect: (file: File | null) => void;
   onSubmit: (values: z.infer<typeof NewStaffClaimSchema>) => void;
 }
 
-export function AddClaimDialog({ isOpen, onOpenChange, form, onFileSelect, onSubmit }: AddClaimDialogProps) {
+export function AddClaimDialog({ isOpen, onOpenChange, form, onSubmit }: AddClaimDialogProps) {
   
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      onFileSelect(event.target.files[0]);
-    } else {
-      onFileSelect(null);
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
@@ -122,7 +113,7 @@ export function AddClaimDialog({ isOpen, onOpenChange, form, onFileSelect, onSub
                     <Input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={handleFileChange}
+                        {...form.register("attachment")}
                     />
                 </FormControl>
                 <FormMessage />

@@ -28,7 +28,6 @@ export default function MyClaimsPage() {
   const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [allClaims, setAllClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
 
   const myClaims = React.useMemo(() => {
     if (!user) return [];
@@ -41,6 +40,7 @@ export default function MyClaimsPage() {
       claimType: 'Travel',
       amount: 0,
       description: '',
+      attachment: undefined,
     },
   });
 
@@ -52,10 +52,13 @@ export default function MyClaimsPage() {
       
       let attachmentUrl: string | undefined;
 
-      if (selectedFile) {
+      // Critical Fix: Access the file from the FileList returned by the form
+      const file = values.attachment && values.attachment.length > 0 ? values.attachment[0] : null;
+
+      if (file) {
         try {
           // This promise ensures we wait for the file to be converted before proceeding.
-          attachmentUrl = await fileToDataUrl(selectedFile);
+          attachmentUrl = await fileToDataUrl(file);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");
@@ -81,7 +84,6 @@ export default function MyClaimsPage() {
       toast.success('Your expense claim has been submitted for HOD approval.');
       setIsDialogOpen(false);
       form.reset();
-      setSelectedFile(null);
   };
 
   return (
@@ -97,8 +99,7 @@ export default function MyClaimsPage() {
             isOpen={isDialogOpen}
             onOpenChange={setIsDialogOpen}
             form={form}
-            onFileSelect={setSelectedFile}
-            onSubmit={form.handleSubmit(handleClaimSubmitted)}
+            onSubmit={handleClaimSubmitted}
         />
       </div>
       <Card>
