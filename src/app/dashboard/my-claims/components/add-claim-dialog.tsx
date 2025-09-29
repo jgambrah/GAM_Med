@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,7 +28,6 @@ import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { NewStaffClaimSchema } from '@/lib/schemas';
-import { StaffExpenseClaim } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
@@ -39,7 +37,7 @@ interface AddClaimDialogProps {
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
   const { user } = useAuth();
-
+  
   const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
     resolver: zodResolver(NewStaffClaimSchema),
     defaultValues: {
@@ -50,13 +48,9 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
     },
   });
 
+  const attachmentRef = form.register("attachment");
+
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
-    if (!user) {
-        toast.error("You must be logged in to submit a claim.");
-        return;
-    }
-      
-      // Pass the raw form values, including the File object, to the parent page for processing.
       onClaimSubmitted(values);
       setOpen(false);
       form.reset();
@@ -144,10 +138,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 <FormItem>
                   <FormLabel>Attach Receipt</FormLabel>
                   <FormControl>
-                    <Input
-                      type="file"
-                      onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : undefined)}
-                    />
+                    <Input type="file" {...attachmentRef} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -301,13 +301,12 @@ export const NewStaffClaimSchema = z.object({
   claimType: z.enum(['Travel', 'Per Diem', 'Medical Refund', 'Other']),
   amount: z.coerce.number().min(0.01, { message: 'Amount must be greater than zero.' }),
   description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
-  attachment: z.instanceof(File, { message: "Please upload a file." })
-    .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+  attachment: z.instanceof(File).optional()
+    .refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
-      (file) => ACCEPTED_FILE_TYPES.includes(file.type),
+      (file) => !file || ACCEPTED_FILE_TYPES.includes(file.type),
       ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
-    )
-    .optional(),
+    ),
 });
 
 /**
