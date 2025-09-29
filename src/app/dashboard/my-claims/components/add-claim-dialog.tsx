@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,17 +28,15 @@ import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { NewStaffClaimSchema } from '@/lib/schemas';
-import { submitStaffClaim } from '@/lib/actions';
 import { StaffExpenseClaim } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'claimId' | 'staffId' | 'staffName'>, attachmentFile?: File) => void;
+  onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'claimId' | 'staffId' | 'staffName'>) => void;
 }
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
   const { user } = useAuth();
 
   const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
@@ -50,12 +47,14 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
       description: '',
     },
   });
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setAttachmentFile(file);
-    // Also update form state for validation
-    form.setValue('attachment', file);
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
   }
 
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
@@ -64,9 +63,11 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         return;
     }
     
-    const result = await submitStaffClaim(values);
-    if (result.success) {
-      toast.success('Your expense claim has been submitted for HOD approval.');
+    let attachmentUrl;
+    if (values.attachment && values.attachment.length > 0) {
+        const file = values.attachment[0];
+        attachmentUrl = await convertFileToBase64(file);
+    }
       
       const newClaimData = {
         hodId: user.hodId,
@@ -76,16 +77,13 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         submissionDate: new Date().toISOString(),
         approvalStatus: 'Pending HOD' as const,
         paymentStatus: 'Unpaid' as const,
-        attachmentUrl: attachmentFile ? URL.createObjectURL(attachmentFile) : undefined,
+        attachmentUrl: attachmentUrl,
       };
 
       onClaimSubmitted(newClaimData);
+      toast.success('Your expense claim has been submitted for HOD approval.');
       setOpen(false);
       form.reset();
-      setAttachmentFile(null);
-    } else {
-      toast.error(result.message || 'An unexpected error occurred.');
-    }
   };
 
   return (
@@ -166,13 +164,16 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
             <FormField
               control={form.control}
               name="attachment"
-              render={({ field }) => (
+              render={({ field: { onChange, value, ...rest } }) => (
                 <FormItem>
                   <FormLabel>Attach Receipt</FormLabel>
                    <FormControl>
                       <Input 
                           type="file" 
-                          onChange={handleFileChange}
+                          onChange={(e) => {
+                            onChange(e.target.files);
+                          }}
+                          {...rest}
                       />
                   </FormControl>
                   <FormMessage />

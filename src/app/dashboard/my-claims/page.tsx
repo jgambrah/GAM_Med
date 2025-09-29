@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -17,7 +16,7 @@ export default function MyClaimsPage() {
 
   const myClaims = React.useMemo(() => {
     if (!user) return [];
-    return allClaims.filter(c => c.staffId === user.uid);
+    return allClaims.filter(c => c.staffId === user.uid).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [user, allClaims]);
 
 

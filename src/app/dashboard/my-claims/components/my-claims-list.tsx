@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -13,6 +12,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { StaffExpenseClaim } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Paperclip } from 'lucide-react';
 
 const getStatusVariant = (status: StaffExpenseClaim['approvalStatus']): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
@@ -47,6 +48,7 @@ export function MyClaimsList({ claims }: MyClaimsListProps) {
             <TableHead>Amount</TableHead>
             <TableHead>Approval Status</TableHead>
             <TableHead>Payment Status</TableHead>
+            <TableHead>Attachment</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -63,11 +65,20 @@ export function MyClaimsList({ claims }: MyClaimsListProps) {
                 <TableCell>
                   <Badge variant={getPaymentStatusVariant(claim.paymentStatus)}>{claim.paymentStatus}</Badge>
                 </TableCell>
+                <TableCell>
+                  {claim.attachmentUrl && (
+                    <Button asChild variant="outline" size="icon">
+                      <a href={claim.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                        <Paperclip className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={7} className="h-24 text-center">
                 You have not submitted any claims.
               </TableCell>
             </TableRow>
