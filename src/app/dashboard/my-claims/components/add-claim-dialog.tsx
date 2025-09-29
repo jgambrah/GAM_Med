@@ -1,8 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,32 +29,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NewStaffClaimSchema } from '@/lib/schemas';
 
 interface AddClaimDialogProps {
-  onClaimSubmitted: (values: z.infer<typeof NewStaffClaimSchema>) => void;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  form: UseFormReturn<z.infer<typeof NewStaffClaimSchema>>;
+  onFileSelect: (file: File | null) => void;
+  onSubmit: (values: z.infer<typeof NewStaffClaimSchema>) => void;
 }
 
-export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
-  const [open, setOpen] = React.useState(false);
+export function AddClaimDialog({ isOpen, onOpenChange, form, onFileSelect, onSubmit }: AddClaimDialogProps) {
   
-  const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
-    resolver: zodResolver(NewStaffClaimSchema),
-    defaultValues: {
-      claimType: 'Travel',
-      amount: 0,
-      description: '',
-      attachment: undefined,
-    },
-  });
-
-  const onSubmit = (values: z.infer<typeof NewStaffClaimSchema>) => {
-      onClaimSubmitted(values);
-      setOpen(false);
-      form.reset();
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      onFileSelect(event.target.files[0]);
+    } else {
+      onFileSelect(null);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button onClick={() => onOpenChange(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Submit New Claim
         </Button>
@@ -121,26 +116,20 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 </FormItem>
               )}
             />
-             <FormField
-                control={form.control}
-                name="attachment"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Attach Receipt</FormLabel>
-                        <FormControl>
-                            <Input
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                {...form.register("attachment")}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
+            <FormItem>
+                <FormLabel>Attach Receipt</FormLabel>
+                <FormControl>
+                    <Input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={handleFileChange}
+                    />
+                </FormControl>
+                <FormMessage />
+            </FormItem>
 
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>

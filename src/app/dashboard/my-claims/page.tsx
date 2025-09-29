@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -11,6 +12,8 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { NewStaffClaimSchema } from '@/lib/schemas';
 import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -23,14 +26,23 @@ const fileToDataUrl = (file: File): Promise<string> => {
 
 export default function MyClaimsPage() {
   const { user } = useAuth();
-  // Use a shared key for all staff claims to make them visible on the approvals page
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [allClaims, setAllClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
 
   const myClaims = React.useMemo(() => {
     if (!user) return [];
     return allClaims.filter(c => c.staffId === user.uid).sort((a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime());
   }, [user, allClaims]);
-
+  
+  const form = useForm<z.infer<typeof NewStaffClaimSchema>>({
+    resolver: zodResolver(NewStaffClaimSchema),
+    defaultValues: {
+      claimType: 'Travel',
+      amount: 0,
+      description: '',
+    },
+  });
 
   const handleClaimSubmitted = async (values: z.infer<typeof NewStaffClaimSchema>) => {
       if (!user) {
@@ -39,12 +51,11 @@ export default function MyClaimsPage() {
       }
       
       let attachmentUrl: string | undefined;
-      const fileList = values.attachment as FileList;
 
-      if (fileList && fileList.length > 0) {
-        const file = fileList[0];
+      if (selectedFile) {
         try {
-          attachmentUrl = await fileToDataUrl(file);
+          // This promise ensures we wait for the file to be converted before proceeding.
+          attachmentUrl = await fileToDataUrl(selectedFile);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");
@@ -68,6 +79,9 @@ export default function MyClaimsPage() {
 
       setAllClaims(prevClaims => [newClaim, ...prevClaims]);
       toast.success('Your expense claim has been submitted for HOD approval.');
+      setIsDialogOpen(false);
+      form.reset();
+      setSelectedFile(null);
   };
 
   return (
@@ -79,7 +93,13 @@ export default function MyClaimsPage() {
             Submit and track your expense claims for reimbursement.
           </p>
         </div>
-        <AddClaimDialog onClaimSubmitted={handleClaimSubmitted} />
+        <AddClaimDialog 
+            isOpen={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
+            form={form}
+            onFileSelect={setSelectedFile}
+            onSubmit={form.handleSubmit(handleClaimSubmitted)}
+        />
       </div>
       <Card>
         <CardHeader>
