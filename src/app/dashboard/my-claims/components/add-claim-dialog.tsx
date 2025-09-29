@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -47,11 +47,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
     },
   });
 
-  const attachmentRef = form.register("attachment");
-
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
-      // The parent component (`my-claims/page.tsx`) will handle the file conversion and submission.
-      // This dialog is only responsible for collecting the data.
       onClaimSubmitted(values);
       setOpen(false);
       form.reset();
@@ -132,7 +128,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                 </FormItem>
               )}
             />
-             <FormField
+             <Controller
                 control={form.control}
                 name="attachment"
                 render={({ field }) => (
@@ -142,7 +138,9 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                         <Input
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
-                            {...attachmentRef}
+                            onChange={(e) => {
+                                field.onChange(e.target.files ? e.target.files[0] : null);
+                            }}
                         />
                     </FormControl>
                     <FormMessage />

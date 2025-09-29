@@ -40,8 +40,7 @@ export default function MyClaimsPage() {
       }
       
       let attachmentUrl: string | undefined;
-      const fileList = values.attachment as FileList | undefined;
-      const attachmentFile = fileList?.[0];
+      const attachmentFile = values.attachment;
 
       if (attachmentFile instanceof File) {
         try {
