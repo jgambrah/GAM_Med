@@ -4,6 +4,8 @@
 import * as React from 'react';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { mockLedgerAccounts } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { LedgerAccount } from '@/lib/types';
 
 interface ReportProps {
   period: string;
@@ -41,9 +43,11 @@ const TotalRow = ({ label, value }: { label: string, value: number }) => (
 
 
 export function BalanceSheet({ period }: ReportProps) {
-    const assets = mockLedgerAccounts.filter(acc => acc.accountType === 'Asset' && acc.isSubLedger);
-    const liabilities = mockLedgerAccounts.filter(acc => acc.accountType === 'Liability' && acc.isSubLedger);
-    const equity = mockLedgerAccounts.filter(acc => acc.accountType === 'Equity' && !acc.isSubLedger);
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    
+    const assets = accounts.filter(acc => acc.accountType === 'Asset' && acc.isSubLedger);
+    const liabilities = accounts.filter(acc => acc.accountType === 'Liability' && acc.isSubLedger);
+    const equity = accounts.filter(acc => acc.accountType === 'Equity' && !acc.isSubLedger);
 
     const totalAssets = assets.reduce((sum, acc) => sum + acc.balance, 0);
     const totalLiabilities = liabilities.reduce((sum, acc) => sum + acc.balance, 0);

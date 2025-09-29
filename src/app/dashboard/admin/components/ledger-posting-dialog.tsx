@@ -18,9 +18,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { NewLedgerEntrySchema } from '@/lib/schemas';
 import { toast } from '@/hooks/use-toast';
-import { postToLedger } from '@/lib/actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockLedgerAccounts } from '@/lib/data';
+import { mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { LedgerAccount, LedgerEntry } from '@/lib/types';
 
 interface LedgerPostingDialogProps {
     isOpen: boolean;
@@ -32,6 +33,9 @@ interface LedgerPostingDialogProps {
 }
 
 export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description, defaultDebit = '1010', defaultCredit = '4000' }: LedgerPostingDialogProps) {
+    const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
+    const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', initialEntries);
+
     const form = useForm<z.infer<typeof NewLedgerEntrySchema>>({
         resolver: zodResolver(NewLedgerEntrySchema),
         defaultValues: {
@@ -44,29 +48,59 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
 
     // When the component re-opens with new props, reset the form.
     React.useEffect(() => {
-        const debitAccount = mockLedgerAccounts.find(acc => acc.accountCode === defaultDebit)?.accountId;
-        const creditAccount = mockLedgerAccounts.find(acc => acc.accountCode === defaultCredit)?.accountId;
+        const debitAccount = accounts.find(acc => acc.accountCode === defaultDebit)?.accountId;
+        const creditAccount = accounts.find(acc => acc.accountCode === defaultCredit)?.accountId;
         form.reset({
             debitAccountId: debitAccount,
             creditAccountId: creditAccount,
             amount,
             description,
         })
-    }, [isOpen, amount, description, defaultDebit, defaultCredit, form])
+    }, [isOpen, amount, description, defaultDebit, defaultCredit, form, accounts])
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
-        const result = await postToLedger(values);
-        if (result.success) {
-            toast.success('Transaction Posted', {
-                description: 'The transaction has been successfully posted to the ledger.',
-            });
-            onOpenChange(false, true);
-        } else {
-             toast.error(result.message || 'An unexpected error occurred.');
-        }
+        // This simulates the postToLedger server action
+        const now = new Date().toISOString();
+        const { debitAccountId, creditAccountId, amount: transactionAmount, description: transactionDescription } = values;
+
+        const newDebitEntry: LedgerEntry = {
+            entryId: `entry-${Date.now()}-dr`,
+            accountId: debitAccountId,
+            date: now,
+            description: transactionDescription,
+            debit: transactionAmount
+        };
+        const newCreditEntry: LedgerEntry = {
+            entryId: `entry-${Date.now()}-cr`,
+            accountId: creditAccountId,
+            date: now,
+            description: transactionDescription,
+            credit: transactionAmount
+        };
+        
+        setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
+
+        // Update account balances
+        setAccounts(prev => prev.map(acc => {
+            if (acc.accountId === debitAccountId) {
+                 const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                 return { ...acc, balance: acc.balance + (isDebitType ? transactionAmount : -transactionAmount) };
+            }
+            if (acc.accountId === creditAccountId) {
+                 const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                 return { ...acc, balance: acc.balance + (isDebitType ? -transactionAmount : transactionAmount) };
+            }
+            return acc;
+        }));
+
+
+        toast.success('Transaction Posted', {
+            description: 'The transaction has been successfully posted to the ledger.',
+        });
+        onOpenChange(false, true);
     }
 
-    const accountOptions = mockLedgerAccounts.map(acc => ({
+    const accountOptions = accounts.map(acc => ({
         label: `${acc.accountName} (${acc.accountCode})`,
         value: acc.accountId
     }));

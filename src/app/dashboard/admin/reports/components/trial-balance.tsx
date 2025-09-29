@@ -4,6 +4,8 @@
 import * as React from 'react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { mockLedgerAccounts } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { LedgerAccount } from '@/lib/types';
 
 interface ReportProps {
   period: string;
@@ -14,17 +16,19 @@ const formatCurrency = (amount: number) => {
 };
 
 export function TrialBalance({ period }: ReportProps) {
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+
     const debitAccountTypes = ['Asset', 'Expense'];
     
     let totalDebits = 0;
     let totalCredits = 0;
 
-    const accounts = mockLedgerAccounts.map(acc => {
+    const accountEntries = accounts.map(acc => {
         const isDebit = debitAccountTypes.includes(acc.accountType);
         if (isDebit) {
             totalDebits += acc.balance;
         } else {
-            totalCredits += acc.balance;
+            totalCredits += Math.abs(acc.balance); // Credits are typically positive values representing liabilities/equity/revenue
         }
         return {
             ...acc,
@@ -45,7 +49,7 @@ export function TrialBalance({ period }: ReportProps) {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {accounts.map(account => (
+                {accountEntries.map(account => (
                     <TableRow key={account.accountId}>
                         <TableCell>{account.accountCode}</TableCell>
                         <TableCell>{account.accountName}</TableCell>

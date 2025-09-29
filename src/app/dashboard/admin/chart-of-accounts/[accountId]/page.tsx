@@ -23,14 +23,18 @@ import { ChevronLeft, Printer } from 'lucide-react';
 import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
 import { format } from 'date-fns';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function LedgerDetailPage() {
   const router = useRouter();
   const params = useParams();
   const accountId = params.accountId as string;
 
-  const account = mockLedgerAccounts.find((acc) => acc.accountId === accountId);
-  const entries = mockLedgerEntries
+  const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+  const [entries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
+
+  const account = accounts.find((acc) => acc.accountId === accountId);
+  const accountEntries = entries
     .filter((entry) => entry.accountId === accountId)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -42,11 +46,30 @@ export default function LedgerDetailPage() {
     window.print();
   };
 
-  let runningBalance = account.balance;
-  const entriesWithBalance = entries.map(entry => {
-    runningBalance += (entry.debit || 0) - (entry.credit || 0);
-    return { ...entry, balance: runningBalance };
-  }).reverse(); // Show most recent first
+  const getOpeningBalance = () => {
+        // This is a simplification. A real opening balance would be calculated
+        // based on transactions before the first one displayed.
+        const isDebitType = ['Asset', 'Expense'].includes(account.accountType);
+        const firstEntry = accountEntries[0];
+        if (!firstEntry) return account.balance;
+
+        const firstEntryChange = (firstEntry.debit || 0) - (firstEntry.credit || 0);
+        return isDebitType ? (account.balance - firstEntryChange) : (account.balance + firstEntryChange);
+  }
+
+  // A more accurate running balance calculation
+   const entriesWithBalance = accountEntries.reduce((acc, entry) => {
+    const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
+    const isDebitType = ['Asset', 'Expense'].includes(account.accountType);
+    const change = (entry.debit || 0) - (entry.credit || 0);
+    const newBalance = prevBalance + (isDebitType ? change : -change);
+
+    acc.push({ ...entry, balance: newBalance });
+    return acc;
+  }, [] as (LedgerEntry & { balance: number })[]).reverse(); // Show most recent first
+
+
+  const openingBalance = getOpeningBalance();
 
   return (
     <div className="space-y-6 print:space-y-2">
@@ -83,7 +106,7 @@ export default function LedgerDetailPage() {
         <CardHeader>
           <CardTitle>Transaction History</CardTitle>
           <CardDescription>
-            A log of all debits and credits for this account.
+            A log of all debits and credits for this account. Current balance: <strong>₵{account.balance.toFixed(2)}</strong>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -118,7 +141,7 @@ export default function LedgerDetailPage() {
                 )}
                  <TableRow className="font-bold bg-muted/50">
                     <TableCell colSpan={4} className="text-right">Opening Balance</TableCell>
-                    <TableCell className="text-right font-mono">₵{account.balance.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">₵{openingBalance.toFixed(2)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>

@@ -4,6 +4,8 @@
 import * as React from 'react';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { mockLedgerAccounts } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { LedgerAccount } from '@/lib/types';
 
 interface ReportProps {
   period: string;
@@ -37,8 +39,10 @@ const TotalRow = ({ label, value, isFinal = false }: { label: string, value: num
 
 
 export function IncomeStatement({ period }: ReportProps) {
-    const revenueAccounts = mockLedgerAccounts.filter(acc => acc.accountType === 'Revenue' && acc.isSubLedger);
-    const expenseAccounts = mockLedgerAccounts.filter(acc => acc.accountType === 'Expense' && acc.isSubLedger);
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+
+    const revenueAccounts = accounts.filter(acc => acc.accountType === 'Revenue' && acc.isSubLedger);
+    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense' && acc.isSubLedger);
 
     const totalRevenue = revenueAccounts.reduce((sum, acc) => sum + acc.balance, 0);
     const totalExpenses = expenseAccounts.reduce((sum, acc) => sum + acc.balance, 0);

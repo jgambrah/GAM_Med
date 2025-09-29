@@ -16,10 +16,11 @@ import { TrialBalance } from './components/trial-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { mockLedgerAccounts } from '@/lib/data';
 import { LedgerAccount } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 
 function LedgerAccountsList() {
-  const accounts = mockLedgerAccounts;
+  const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
   return (
      <Card>
