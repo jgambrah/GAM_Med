@@ -72,7 +72,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
         submissionDate: new Date().toISOString(),
         approvalStatus: 'Pending HOD',
         paymentStatus: 'Unpaid',
-        attachmentUrl: values.attachment ? '/mock-receipt.pdf' : undefined,
+        attachmentUrl: values.attachment ? '/mock-receipt.html' : undefined,
       };
 
       onClaimSubmitted(newClaim);

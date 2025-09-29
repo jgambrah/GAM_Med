@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Receipt</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .receipt-container {
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            background-color: #ffffff;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+        .item span {
+            font-weight: 500;
+        }
+        .total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.25rem;
+            font-weight: bold;
+            padding-top: 1rem;
+            margin-top: 1rem;
+            border-top: 2px solid #343a40;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <h1>Expense Receipt</h1>
+        <div class="details">
+            <div class="item">
+                <span>Date:</span>
+                <span>2024-08-14</span>
+            </div>
+            <div class="item">
+                <span>Vendor:</span>
+                <span>Office Supplies Co.</span>
+            </div>
+            <div class="item">
+                <span>Description:</span>
+                <span>Purchase of A4 paper and pens</span>
+            </div>
+            <div class="item">
+                <span>Claim Type:</span>
+                <span>Other (Office Supplies)</span>
+            </div>
+        </div>
+        <div class="total">
+            <span>Total Amount:</span>
+            <span>₵200.00</span>
+        </div>
+    </div>
+</body>
+</html>
