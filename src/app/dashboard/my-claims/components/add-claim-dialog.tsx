@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NewStaffClaimSchema } from '@/lib/schemas';
+import { toast } from '@/hooks/use-toast';
 
 interface AddClaimDialogProps {
   onClaimSubmitted: (values: z.infer<typeof NewStaffClaimSchema>) => void;
@@ -49,6 +50,8 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const attachmentRef = form.register("attachment");
 
   const onSubmit = async (values: z.infer<typeof NewStaffClaimSchema>) => {
+      // The parent component (`my-claims/page.tsx`) will handle the file conversion and submission.
+      // This dialog is only responsible for collecting the data.
       onClaimSubmitted(values);
       setOpen(false);
       form.reset();
