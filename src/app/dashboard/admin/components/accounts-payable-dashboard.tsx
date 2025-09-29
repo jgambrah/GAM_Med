@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
+import { mockBills as initialBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
 import { Bill, StaffExpenseClaim, LedgerAccount, LedgerEntry } from '@/lib/types';
 import {
   Dialog,
@@ -53,7 +53,7 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
     }
 }
 
-function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
+function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (billId: string, amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -97,7 +97,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
             
             const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
             const paymentDescription = `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}${taxDescription}`;
-            onPaymentLogged(netPayment, paymentDescription, expenseAccountId);
+            onPaymentLogged(bill.billId, netPayment, paymentDescription, expenseAccountId);
             
             setOpen(false);
         } else {
@@ -316,7 +316,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     )
 }
 
-function VendorBillsTab({ onPaymentLogged, onPostToLedger }: { onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bill[], onPaymentLogged: (billId: string, amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -331,7 +331,7 @@ function VendorBillsTab({ onPaymentLogged, onPostToLedger }: { onPaymentLogged: 
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {mockBills.map((bill) => (
+                    {bills.map((bill) => (
                         <TableRow key={bill.billId}>
                             <TableCell className="font-medium">{bill.billId}</TableCell>
                             <TableCell>
@@ -410,16 +410,17 @@ function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedg
 
 
 export function AccountsPayableDashboard() {
-  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string } | null>(null);
+  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string, billIdToUpdate?: string } | null>(null);
+  const [bills, setBills] = useLocalStorage<Bill[]>('bills', initialBills);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
   const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', initialEntries);
 
-  const totalPayables = mockBills
+  const totalPayables = bills
     .filter(b => b.status === 'Pending' || b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
-  const overduePayables = mockBills
+  const overduePayables = bills
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
@@ -465,8 +466,8 @@ export function AccountsPayableDashboard() {
   };
 
 
-  const handleBillPaymentLogged = (amount: number, description: string) => {
-    setPostingInfo({ amount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
+  const handleBillPaymentLogged = (billId: string, amount: number, description: string) => {
+    setPostingInfo({ billIdToUpdate: billId, amount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string, expenseAccountId: string) => {
@@ -481,15 +482,27 @@ export function AccountsPayableDashboard() {
   
   const handleLedgerDialogClose = (isOpen: boolean, posted?: boolean) => {
       if (!isOpen) {
-          if (posted && postingInfo?.claimIdToUpdate) {
-              setAllStaffClaims(prevClaims => 
-                  prevClaims.map(claim => 
-                      claim.claimId === postingInfo.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
-                  )
-              );
-              toast.success("Claim Paid", {
-                  description: `Payment for claim ${postingInfo.claimIdToUpdate} has been successfully logged.`
-              });
+          if (posted) {
+              if (postingInfo?.claimIdToUpdate) {
+                  setAllStaffClaims(prevClaims => 
+                      prevClaims.map(claim => 
+                          claim.claimId === postingInfo.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
+                      )
+                  );
+                  toast.success("Claim Paid", {
+                      description: `Payment for claim ${postingInfo.claimIdToUpdate} has been successfully logged.`
+                  });
+              }
+               if (postingInfo?.billIdToUpdate) {
+                  setBills(prevBills => 
+                      prevBills.map(bill => 
+                          bill.billId === postingInfo.billIdToUpdate ? { ...bill, status: 'Paid' } : bill
+                      )
+                  );
+                  toast.success("Bill Paid", {
+                      description: `Payment for bill ${postingInfo.billIdToUpdate} has been successfully logged.`
+                  });
+              }
           }
           setPostingInfo(null);
       }
@@ -550,7 +563,7 @@ export function AccountsPayableDashboard() {
                 </CardHeader>
                 <CardContent>
                      <TabsContent value="vendor-bills">
-                        <VendorBillsTab onPaymentLogged={handleBillPaymentLogged} onPostToLedger={handlePostToLedger} />
+                        <VendorBillsTab bills={bills} onPaymentLogged={handleBillPaymentLogged} onPostToLedger={handlePostToLedger} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
                         <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} onPostToLedger={handlePostToLedger}/>
