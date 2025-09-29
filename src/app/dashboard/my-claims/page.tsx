@@ -41,9 +41,11 @@ export default function MyClaimsPage() {
       
       let attachmentUrl: string | undefined;
 
-      if (values.attachment) {
+      const attachmentFile = values.attachment?.[0];
+
+      if (attachmentFile instanceof File) {
         try {
-          attachmentUrl = await fileToDataUrl(values.attachment);
+          attachmentUrl = await fileToDataUrl(attachmentFile);
         } catch (error) {
           console.error("Error converting file to Data URL:", error);
           toast.error("Failed to process the attachment. Please try again.");

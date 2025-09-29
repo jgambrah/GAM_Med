@@ -132,17 +132,14 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
              <FormField
                 control={form.control}
                 name="attachment"
-                render={({ field: { value, onChange, ...fieldProps } }) => (
+                render={({ field }) => (
                     <FormItem>
                     <FormLabel>Attach Receipt</FormLabel>
                     <FormControl>
                         <Input
-                        {...fieldProps}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(event) => {
-                            onChange(event.target.files && event.target.files[0]);
-                        }}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            {...attachmentRef}
                         />
                     </FormControl>
                     <FormMessage />
