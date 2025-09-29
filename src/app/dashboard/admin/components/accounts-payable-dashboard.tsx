@@ -365,8 +365,7 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged }: { onPaymentLogged: (claimId: string, amount: number, description: string) => void }) {
-    const [allClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
+function StaffClaimsTab({ onPaymentLogged, allClaims }: { onPaymentLogged: (claimId: string, amount: number, description: string) => void, allClaims: StaffExpenseClaim[] }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -498,7 +497,7 @@ export function AccountsPayableDashboard() {
                         <VendorBillsTab onPaymentLogged={handlePaymentLogged} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
-                        <StaffClaimsTab onPaymentLogged={handleStaffClaimPaymentLogged} />
+                        <StaffClaimsTab allClaims={allStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} />
                     </TabsContent>
                 </CardContent>
             </Tabs>
