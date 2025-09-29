@@ -53,11 +53,16 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
     }
 }
 
-function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string) => void }) {
+function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void }) {
     const [open, setOpen] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
     const [customWhtRate, setCustomWhtRate] = React.useState('');
     const [vatOption, setVatOption] = React.useState('zero');
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [expenseAccountId, setExpenseAccountId] = React.useState('');
+
+    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
 
     const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = bill.totalAmount;
@@ -75,14 +80,38 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
     }, [bill.totalAmount, vatOption, whtRate, customWhtRate]);
 
 
-    const handlePayBill = () => {
-        toast.success("Payment Logged", {
-            description: `Payment for bill ${bill.billId} has been logged.`
+    const handlePayBill = async () => {
+        if (!expenseAccountId) {
+            toast.error("Please select an expense account to charge the bill to.");
+            return;
+        }
+        setIsSubmitting(true);
+
+        const accrualDescription = `Accrue expense for Bill ${bill.billId} from ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}`;
+        const accrualResult = await postToLedger({
+            debitAccountId: expenseAccountId,
+            creditAccountId: '2010', // Accounts Payable
+            amount: subtotal, // Accrue the pre-tax amount
+            description: accrualDescription,
         });
-        const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
-        const paymentDescription = `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}${taxDescription}`;
-        onPaymentLogged(netPayment, paymentDescription);
-        setOpen(false);
+
+        if (accrualResult.success) {
+            toast.success("Expense Accrued", {
+                description: `Bill ${bill.billId} posted to the ledger.`
+            });
+            
+            const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
+            const paymentDescription = `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}${taxDescription}`;
+            onPaymentLogged(netPayment, paymentDescription, expenseAccountId);
+            
+            setOpen(false);
+        } else {
+             toast.error("Failed to post expense accrual.", {
+                description: accrualResult.message || 'An unknown error occurred.'
+            });
+        }
+        
+        setIsSubmitting(false);
     }
 
     React.useEffect(() => {
@@ -90,6 +119,7 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
             setWhtRate('0');
             setCustomWhtRate('');
             setVatOption('zero');
+            setExpenseAccountId('');
         }
     }, [open]);
 
@@ -109,6 +139,22 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                    <div>
+                        <Label>Expense Account</Label>
+                        <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select an expense account to charge" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {expenseAccounts.map(acc => (
+                                     <SelectItem key={acc.accountId} value={acc.accountId}>
+                                        {acc.accountName} ({acc.accountCode})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                      <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label>Total Bill Amount (VAT Inclusive)</Label>
@@ -181,7 +227,9 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handlePayBill}>Confirm Payment & Post to Ledger</Button>
+                    <Button onClick={handlePayBill} disabled={isSubmitting || !expenseAccountId}>
+                        {isSubmitting ? 'Processing...' : 'Confirm & Post to Ledger'}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -280,7 +328,7 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
     )
 }
 
-function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string) => void }) {
+function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -386,10 +434,12 @@ export function AccountsPayableDashboard() {
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
   const handleBillPaymentLogged = (amount: number, description: string) => {
+    // This now handles the CASH SETTLEMENT part of the bill payment
     setPostingInfo({ amount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string, expenseAccountId: string) => {
+      // This handles the CASH SETTLEMENT part of the staff claim
       setPostingInfo({ 
           amount, 
           description, 
