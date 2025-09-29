@@ -21,8 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts } from '@/lib/data';
-import { Bill, StaffExpenseClaim, LedgerAccount } from '@/lib/types';
+import { mockBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
+import { Bill, StaffExpenseClaim, LedgerAccount, LedgerEntry } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { postToLedger } from '@/lib/actions';
+
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -53,13 +53,13 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
     }
 }
 
-function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void }) {
+function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
     const [customWhtRate, setCustomWhtRate] = React.useState('');
     const [vatOption, setVatOption] = React.useState('zero');
-    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState('');
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
@@ -88,14 +88,9 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
         setIsSubmitting(true);
 
         const accrualDescription = `Accrue expense for Bill ${bill.billId} from ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}`;
-        const accrualResult = await postToLedger({
-            debitAccountId: expenseAccountId,
-            creditAccountId: '2010', // Accounts Payable
-            amount: subtotal, // Accrue the pre-tax amount
-            description: accrualDescription,
-        });
+        const accrualResult = await onPostToLedger(expenseAccountId, '2010', subtotal, accrualDescription);
 
-        if (accrualResult.success) {
+        if (accrualResult) {
             toast.success("Expense Accrued", {
                 description: `Bill ${bill.billId} posted to the ledger.`
             });
@@ -107,7 +102,7 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
             setOpen(false);
         } else {
              toast.error("Failed to post expense accrual.", {
-                description: accrualResult.message || 'An unknown error occurred.'
+                description: 'An unknown error occurred.'
             });
         }
         
@@ -236,10 +231,10 @@ function PayBillDialog({ bill, onPaymentLogged }: { bill: Bill, onPaymentLogged:
     )
 }
 
-function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void }) {
+function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
@@ -247,28 +242,21 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
     const handlePayClaim = async () => {
         setIsSubmitting(true);
         
-        // Step 1: Accrue the expense (Debit Expense, Credit Accounts Payable)
         const accrualDescription = `Accrue expense for Staff Claim: ${claim.description}`;
-        const accrualResult = await postToLedger({
-            debitAccountId: expenseAccountId,
-            creditAccountId: '2010', // Accounts Payable
-            amount: claim.amount,
-            description: accrualDescription,
-        });
+        const accrualResult = await onPostToLedger(expenseAccountId, '2010', claim.amount, accrualDescription);
 
-        if (accrualResult.success) {
+        if (accrualResult) {
             toast.success("Expense Accrued", {
                 description: `Claim ${claim.claimId} posted to ledger.`
             });
             
-            // Step 2: Trigger the cash settlement dialog
             const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}`;
             onPaymentLogged(claim.claimId, claim.amount, paymentDescription, expenseAccountId);
             
             setOpen(false);
         } else {
             toast.error("Failed to post expense accrual.", {
-                description: accrualResult.message || 'An unknown error occurred.'
+                description: 'An unknown error occurred.'
             });
         }
         
@@ -328,7 +316,7 @@ function PayClaimDialog({ claim, onPaymentLogged }: { claim: StaffExpenseClaim, 
     )
 }
 
-function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void }) {
+function VendorBillsTab({ onPaymentLogged, onPostToLedger }: { onPaymentLogged: (amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -362,7 +350,7 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
                                         </a>
                                     </Button>
                                 )}
-                                <PayBillDialog bill={bill} onPaymentLogged={onPaymentLogged} />
+                                <PayBillDialog bill={bill} onPaymentLogged={onPaymentLogged} onPostToLedger={onPostToLedger} />
                             </TableCell>
                         </TableRow>
                     ))}
@@ -372,7 +360,7 @@ function VendorBillsTab({ onPaymentLogged }: { onPaymentLogged: (amount: number,
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims }: { onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>> }) {
+function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -403,7 +391,7 @@ function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims }: { onPaymen
                                             </a>
                                         </Button>
                                     )}
-                                    <PayClaimDialog claim={claim} onPaymentLogged={onPaymentLogged} />
+                                    <PayClaimDialog claim={claim} onPaymentLogged={onPaymentLogged} onPostToLedger={onPostToLedger} />
                                 </TableCell>
                             </TableRow>
                         ))
@@ -424,6 +412,8 @@ function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims }: { onPaymen
 export function AccountsPayableDashboard() {
   const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string } | null>(null);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
+  const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
+  const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', initialEntries);
 
   const totalPayables = mockBills
     .filter(b => b.status === 'Pending' || b.status === 'Overdue')
@@ -433,13 +423,53 @@ export function AccountsPayableDashboard() {
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
+  const handlePostToLedger = async (debitAccountId: string, creditAccountId: string, amount: number, description: string): Promise<boolean> => {
+    // This simulates the postToLedger server action client-side
+    try {
+        const now = new Date().toISOString();
+        const { ...values } = {debitAccountId, creditAccountId, amount, description};
+
+        const newDebitEntry: LedgerEntry = {
+            entryId: `entry-${Date.now()}-dr`,
+            accountId: values.debitAccountId,
+            date: now,
+            description: values.description,
+            debit: values.amount
+        };
+        const newCreditEntry: LedgerEntry = {
+            entryId: `entry-${Date.now()}-cr`,
+            accountId: values.creditAccountId,
+            date: now,
+            description: values.description,
+            credit: values.amount
+        };
+        
+        setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
+
+        setAccounts(prev => prev.map(acc => {
+            if (acc.accountId === values.debitAccountId) {
+                 const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                 return { ...acc, balance: acc.balance + (isDebitType ? values.amount : -values.amount) };
+            }
+            if (acc.accountId === values.creditAccountId) {
+                 const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                 return { ...acc, balance: acc.balance + (isDebitType ? -values.amount : values.amount) };
+            }
+            return acc;
+        }));
+        return true;
+    } catch(e) {
+        console.error(e);
+        return false;
+    }
+  };
+
+
   const handleBillPaymentLogged = (amount: number, description: string) => {
-    // This now handles the CASH SETTLEMENT part of the bill payment
     setPostingInfo({ amount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string, expenseAccountId: string) => {
-      // This handles the CASH SETTLEMENT part of the staff claim
       setPostingInfo({ 
           amount, 
           description, 
@@ -520,10 +550,10 @@ export function AccountsPayableDashboard() {
                 </CardHeader>
                 <CardContent>
                      <TabsContent value="vendor-bills">
-                        <VendorBillsTab onPaymentLogged={handleBillPaymentLogged} />
+                        <VendorBillsTab onPaymentLogged={handleBillPaymentLogged} onPostToLedger={handlePostToLedger} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
-                        <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} />
+                        <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onPaymentLogged={handleStaffClaimPaymentLogged} onPostToLedger={handlePostToLedger}/>
                     </TabsContent>
                 </CardContent>
             </Tabs>

@@ -459,19 +459,6 @@ export async function logPayment(values: z.infer<typeof LogPaymentSchema>) {
     return { success: true, message: 'Payment logged successfully.' };
 }
 
-export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>) {
-    console.log('Server Action: Posting to ledger.');
-    // In a real app, this would create two new LedgerEntry documents in Firestore,
-    // one for the debit and one for the credit, and update the balances on the
-    // corresponding LedgerAccount documents within a transaction.
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    revalidatePath('/dashboard/admin/chart-of-accounts');
-    revalidatePath('/dashboard/admin/reports');
-    
-    return { success: true, message: 'Transaction posted to ledger successfully.' };
-}
-
 export async function submitStaffClaim(values: z.infer<typeof NewStaffClaimSchema>) {
     console.log('Server Action: Submitting new staff claim.');
     // In a real app, this would create a new StaffExpenseClaim document with 'Pending HOD' status
