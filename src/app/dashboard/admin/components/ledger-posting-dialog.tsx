@@ -18,10 +18,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { NewLedgerEntrySchema } from '@/lib/schemas';
 import { toast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
+import { Combobox } from '@/components/ui/combobox';
 
 interface LedgerPostingDialogProps {
     isOpen: boolean;
@@ -123,14 +123,14 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Debit Account (Increase)</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {accountOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                            options={accountOptions}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Search for an account..."
+                                            searchPlaceholder="Search accounts..."
+                                            notFoundText="No account found."
+                                        />
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -141,14 +141,14 @@ export function LedgerPostingDialog({ isOpen, onOpenChange, amount, description,
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Credit Account (Decrease)</FormLabel>
-                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {accountOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                            options={accountOptions}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Search for an account..."
+                                            searchPlaceholder="Search accounts..."
+                                            notFoundText="No account found."
+                                        />
                                         <FormMessage />
                                     </FormItem>
                                 )}
