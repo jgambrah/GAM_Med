@@ -18,16 +18,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { mockLedgerAccounts } from '@/lib/data';
-import { LedgerAccount } from '@/lib/types';
+import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
+import { LedgerAccount, LedgerEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-account-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { DeleteConfirmationDialog } from '@/app/dashboard/patients/components/delete-confirmation-dialog';
+
 
 export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader?: boolean }) {
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [entries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
+    const [accountToDelete, setAccountToDelete] = React.useState<LedgerAccount | null>(null);
 
     const organizedAccounts = React.useMemo(() => {
         const accountsMap = new Map<string, LedgerAccount & { children: LedgerAccount[] }>();
@@ -68,8 +74,42 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
   const handleAccountCreated = (newAccount: LedgerAccount) => {
     setAccounts(prev => [...prev, newAccount]);
   };
+  
+  const handleAttemptDelete = (accountToDelete: LedgerAccount) => {
+    // Safety checks
+    if (accountToDelete.balance !== 0) {
+      toast.error('Cannot delete account with a non-zero balance.');
+      return;
+    }
+
+    const hasTransactions = entries.some(e => e.accountId === accountToDelete.accountId);
+    if (hasTransactions) {
+      toast.error('Cannot delete account with existing transactions.');
+      return;
+    }
+    
+    // For control accounts, check if it has children
+    if (!accountToDelete.isSubLedger) {
+        const hasChildren = accounts.some(acc => acc.parentAccountId === accountToDelete.accountId);
+        if (hasChildren) {
+            toast.error('Cannot delete a control account that has sub-ledgers.');
+            return;
+        }
+    }
+
+    // If all checks pass, show confirmation dialog
+    setAccountToDelete(accountToDelete);
+  };
+  
+  const handleConfirmDelete = () => {
+    if (!accountToDelete) return;
+    setAccounts(prev => prev.filter(acc => acc.accountId !== accountToDelete.accountId));
+    toast.success(`Account "${accountToDelete.accountName}" has been deleted.`);
+    setAccountToDelete(null);
+  };
 
   return (
+    <>
     <div className="space-y-6">
       <Card>
         {!hideHeader && (
@@ -116,6 +156,9 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                                         </Button>
                                     }
                                 />
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAttemptDelete(account)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                             </TableCell>
                         </TableRow>
                         {account.children.map(child => (
@@ -129,7 +172,9 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                                 <TableCell>{child.accountType}</TableCell>
                                 <TableCell className="text-right font-mono">{child.balance.toFixed(2)}</TableCell>
                                  <TableCell className="text-right">
-                                    {/* Placeholder for future actions */}
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAttemptDelete(child)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -141,5 +186,14 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
         </CardContent>
       </Card>
     </div>
+    {accountToDelete && (
+        <DeleteConfirmationDialog 
+            isOpen={!!accountToDelete}
+            onOpenChange={() => setAccountToDelete(null)}
+            onConfirm={handleConfirmDelete}
+            itemName={`account ${accountToDelete.accountName} (${accountToDelete.accountCode})`}
+        />
+    )}
+    </>
   );
 }
