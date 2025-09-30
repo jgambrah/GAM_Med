@@ -89,12 +89,10 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
     }
     
     // For control accounts, check if it has children
-    if (!accountToDelete.isSubLedger) {
-        const hasChildren = accounts.some(acc => acc.parentAccountId === accountToDelete.accountId);
-        if (hasChildren) {
-            toast.error('Cannot delete a control account that has sub-ledgers.');
-            return;
-        }
+    const hasChildren = accounts.some(acc => acc.parentAccountId === accountToDelete.accountId);
+    if (hasChildren) {
+        toast.error('Cannot delete a control account that has sub-ledgers.');
+        return;
     }
 
     // If all checks pass, show confirmation dialog
@@ -135,7 +133,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
               </TableHeader>
               <TableBody>
                 {organizedAccounts.map((account) => (
-                    <React.Fragment key={account.accountId}>
+                    <React.Fragment key={`frag-${account.accountId}`}>
                         <TableRow className="bg-muted/50 font-semibold">
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
