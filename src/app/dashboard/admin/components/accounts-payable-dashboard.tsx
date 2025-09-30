@@ -234,24 +234,44 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
 function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [whtRate, setWhtRate] = React.useState('0');
+    const [customWhtRate, setCustomWhtRate] = React.useState('');
+    const [vatOption, setVatOption] = React.useState('zero');
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
+    
+     const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
+        let calculatedSubtotal = claim.amount;
+        if (vatOption === 'flat') {
+            calculatedSubtotal = claim.amount / 1.04;
+        } else if (vatOption === 'standard') {
+            calculatedSubtotal = claim.amount / 1.219;
+        }
+
+        const currentWhtRateValue = whtRate === 'custom' ? parseFloat(customWhtRate) / 100 : parseFloat(whtRate) / 100;
+        const calculatedWhtAmount = calculatedSubtotal * (isNaN(currentWhtRateValue) ? 0 : currentWhtRateValue);
+        const calculatedNetPayment = claim.amount - calculatedWhtAmount;
+        
+        return { subtotal: calculatedSubtotal, netPayment: calculatedNetPayment, whtAmount: calculatedWhtAmount };
+    }, [claim.amount, vatOption, whtRate, customWhtRate]);
+
 
     const handlePayClaim = async () => {
         setIsSubmitting(true);
         
         const accrualDescription = `Accrue expense for Staff Claim: ${claim.description}`;
-        const accrualResult = await onPostToLedger(expenseAccountId, '2010', claim.amount, accrualDescription);
+        const accrualResult = await onPostToLedger(expenseAccountId, '2010', subtotal, accrualDescription);
 
         if (accrualResult) {
             toast.success("Expense Accrued", {
                 description: `Claim ${claim.claimId} posted to ledger.`
             });
             
-            const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}`;
-            onPaymentLogged(claim.claimId, claim.amount, paymentDescription, expenseAccountId);
+            const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
+            const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
+            onPaymentLogged(claim.claimId, netPayment, paymentDescription, expenseAccountId);
             
             setOpen(false);
         } else {
@@ -266,6 +286,9 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     React.useEffect(() => {
         if (open) {
            setExpenseAccountId(claim.expenseAccountId);
+           setWhtRate('0');
+           setCustomWhtRate('');
+           setVatOption('zero');
         }
     }, [open, claim.expenseAccountId]);
 
@@ -281,16 +304,12 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
                 <DialogHeader>
                     <DialogTitle>Log Payment for Staff Claim: {claim.claimId}</DialogTitle>
                     <DialogDescription>
-                        Confirm claim payment to staff member: {claim.staffName}. This will first accrue the expense, then prompt for payment logging.
+                        Confirm claim payment to staff member: {claim.staffName}.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div>
-                        <Label>Total Claim Amount</Label>
-                        <Input value={`₵${claim.amount.toFixed(2)}`} readOnly disabled />
-                    </div>
-                    <div>
-                        <Label>Expense Account</Label>
+                        <Label>Original Expense Account</Label>
                         <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select an expense account" />
@@ -303,6 +322,76 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>Total Claim Amount (VAT Inclusive)</Label>
+                            <Input value={`₵${claim.amount.toFixed(2)}`} readOnly disabled />
+                        </div>
+                         <div>
+                           <Label>VAT Type on Invoice</Label>
+                             <Select value={vatOption} onValueChange={setVatOption}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select VAT type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="zero">Zero Rated VAT</SelectItem>
+                                    <SelectItem value="flat">Flat Rate (4%)</SelectItem>
+                                    <SelectItem value="standard">Standard Rate</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                           <Label>Withholding Tax Rate</Label>
+                             <Select value={whtRate} onValueChange={setWhtRate}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select tax rate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">No WHT (0%)</SelectItem>
+                                    <SelectItem value="3">3%</SelectItem>
+                                    <SelectItem value="5">5%</SelectItem>
+                                    <SelectItem value="7.5">7.5%</SelectItem>
+                                    <SelectItem value="10">10%</SelectItem>
+                                    <SelectItem value="15">15%</SelectItem>
+                                    <SelectItem value="20">20%</SelectItem>
+                                    <SelectItem value="25">25%</SelectItem>
+                                    <SelectItem value="custom">Custom Rate</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         {whtRate === 'custom' && (
+                            <div>
+                                <Label>Custom WHT Rate (%)</Label>
+                                <Input 
+                                    type="number"
+                                    placeholder="e.g., 8"
+                                    value={customWhtRate}
+                                    onChange={(e) => setCustomWhtRate(e.target.value)}
+                                />
+                            </div>
+                        )}
+                    </div>
+                   
+                    <div className="grid grid-cols-3 gap-4 rounded-md bg-muted p-4">
+                         <div>
+                            <Label>Subtotal (VAT-Ex.)</Label>
+                            <Input value={`₵${subtotal.toFixed(2)}`} readOnly disabled />
+                        </div>
+                         <div>
+                            <Label>WHT Amount</Label>
+                            <Input value={`₵${whtAmount.toFixed(2)}`} readOnly disabled />
+                        </div>
+                         <div>
+                            <Label className="font-bold">Net Payment Due</Label>
+                            <Input className="font-bold text-lg" value={`₵${netPayment.toFixed(2)}`} readOnly disabled />
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>
