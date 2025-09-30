@@ -75,28 +75,28 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
     setAccounts(prev => [...prev, newAccount]);
   };
   
-  const handleAttemptDelete = (accountToDelete: LedgerAccount) => {
+  const handleAttemptDelete = (account: LedgerAccount) => {
     // Safety checks
-    if (accountToDelete.balance !== 0) {
+    if (account.balance !== 0) {
       toast.error('Cannot delete account with a non-zero balance.');
       return;
     }
 
-    const hasTransactions = entries.some(e => e.accountId === accountToDelete.accountId);
+    const hasTransactions = entries.some(e => e.accountId === account.accountId);
     if (hasTransactions) {
       toast.error('Cannot delete account with existing transactions.');
       return;
     }
     
-    // For control accounts, check if it has children
-    const hasChildren = accounts.some(acc => acc.parentAccountId === accountToDelete.accountId);
+    // Check if it has children
+    const hasChildren = accounts.some(child => child.parentAccountId === account.accountId);
     if (hasChildren) {
         toast.error('Cannot delete a control account that has sub-ledgers.');
         return;
     }
 
     // If all checks pass, show confirmation dialog
-    setAccountToDelete(accountToDelete);
+    setAccountToDelete(account);
   };
   
   const handleConfirmDelete = () => {
@@ -133,7 +133,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
               </TableHeader>
               <TableBody>
                 {organizedAccounts.map((account) => (
-                    <React.Fragment key={`frag-${account.accountId}`}>
+                    <React.Fragment key={account.accountId}>
                         <TableRow className="bg-muted/50 font-semibold">
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
