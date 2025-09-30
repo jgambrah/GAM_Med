@@ -1,4 +1,5 @@
 
+
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -1439,10 +1440,10 @@ export const mockLedgerAccounts: LedgerAccount[] = [
     { accountId: '1020', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 100000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
     // Liabilities (2000 series)
     { accountId: '2000', accountName: 'Liabilities', accountCode: '2000', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
-    { accountId: '2010', accountName: 'Accounts Payable', accountCode: '2010', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
+    { accountId: '2010', accountName: 'Accounts Payable', accountCode: '2010', accountType: 'Liability', balance: 0, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '2011', accountName: 'Trade Payables', accountCode: '2011', accountType: 'Liability', balance: 65000, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
-    { accountId: '2012', accountName: 'Staff Payables', accountCode: '2012', accountType: 'Liability', balance: 15000, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
-    { accountId: '2020', accountName: 'Statutory Payables - WHT', accountCode: '2020', accountType: 'Liability', balance: 0, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
+    { accountId: '2040', accountName: 'WHT Payable', accountCode: '2040', accountType: 'Liability', balance: 0, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
+    { accountId: '2050', accountName: 'Staff Claim Account Payable', accountCode: '2050', accountType: 'Liability', balance: 15000, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
     // Equity (3000 series)
     { accountId: '3000', accountName: 'Equity', accountCode: '3000', accountType: 'Equity', balance: 70000, isSubLedger: false, createdAt: now.toISOString() },
     // Revenue (4000 series)

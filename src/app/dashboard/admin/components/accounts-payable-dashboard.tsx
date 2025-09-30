@@ -256,11 +256,12 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     const [vatOption, setVatOption] = React.useState('zero');
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
-    const [payableAccountId, setPayableAccountId] = React.useState('2012'); // Default to Staff Payables
+    
+    // Hardcode payable account for staff claims to 2050
+    const payableAccountId = '2050'; 
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
-    const apSubAccounts = accounts.filter(acc => acc.parentAccountId === '2010');
-
+    
      const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = claim.amount;
         if (vatOption === 'flat') {
@@ -305,7 +306,6 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
            setWhtRate('0');
            setCustomWhtRate('');
            setVatOption('zero');
-           setPayableAccountId('2012');
         }
     }, [open, claim.expenseAccountId]);
 
@@ -343,18 +343,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
                         </div>
                         <div>
                             <Label>Payable Account (to Credit)</Label>
-                             <Select value={payableAccountId} onValueChange={setPayableAccountId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a payable account..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {apSubAccounts.map(acc => (
-                                        <SelectItem key={acc.accountId} value={acc.accountId}>
-                                            {acc.accountName} ({acc.accountCode})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Input value="Staff Claim Account Payable (2050)" readOnly disabled />
                         </div>
                     </div>
 
@@ -590,22 +579,22 @@ export function AccountsPayableDashboard() {
 
   const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
     if (whtAmount > 0) {
-        // Debit AP sub-account, Credit WHT Payable (2020)
-        handlePostToLedger(payableAccountId, '2020', whtAmount, `WHT for Bill ${billId}`);
+        // Debit AP sub-account, Credit WHT Payable (2040)
+        handlePostToLedger(payableAccountId, '2040', whtAmount, `WHT for Bill ${billId}`);
     }
-    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: payableAccountId, creditAccountId: '1010' }); // Debit AP, Credit Cash
+    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: payableAccountId, creditAccountId: '1011' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
       if (whtAmount > 0) {
-        // Debit AP sub-account, Credit WHT Payable (2020)
-        handlePostToLedger(payableAccountId, '2020', whtAmount, `WHT for Claim ${claimId}`);
+        // Debit Staff Claim Payable, Credit WHT Payable (2040)
+        handlePostToLedger(payableAccountId, '2040', whtAmount, `WHT for Claim ${claimId}`);
       }
       setPostingInfo({ 
           amount: netAmount, 
           description, 
-          debitAccountId: payableAccountId, // Debit Staff Payables
-          creditAccountId: '1010', // Credit Cash/Bank
+          debitAccountId: payableAccountId, // Debit Staff Claim Payable (2050)
+          creditAccountId: '1011', // Credit Cash/Bank
           claimIdToUpdate: claimId,
       });
   };
