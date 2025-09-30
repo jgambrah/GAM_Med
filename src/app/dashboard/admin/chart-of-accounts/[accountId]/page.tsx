@@ -22,8 +22,10 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, Printer } from 'lucide-react';
 import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function LedgerDetailPage() {
   const router = useRouter();
@@ -32,11 +34,25 @@ export default function LedgerDetailPage() {
 
   const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
   const [entries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
+  
+  const [startDate, setStartDate] = React.useState('');
+  const [endDate, setEndDate] = React.useState('');
 
   const account = accounts.find((acc) => acc.accountId === accountId);
-  const accountEntries = entries
-    .filter((entry) => entry.accountId === accountId)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+  const filteredAccountEntries = React.useMemo(() => {
+    return entries
+        .filter((entry) => entry.accountId === accountId)
+        .filter((entry) => {
+            if (!startDate && !endDate) return true;
+            const entryDate = parseISO(entry.date);
+            if (startDate && entryDate < parseISO(startDate)) return false;
+            if (endDate && entryDate > parseISO(endDate)) return false;
+            return true;
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [entries, accountId, startDate, endDate]);
+
 
   if (!account) {
     notFound();
@@ -50,7 +66,7 @@ export default function LedgerDetailPage() {
         // This is a simplification. A real opening balance would be calculated
         // based on transactions before the first one displayed.
         const isDebitType = ['Asset', 'Expense'].includes(account.accountType);
-        const firstEntry = accountEntries[0];
+        const firstEntry = filteredAccountEntries[0];
         if (!firstEntry) return account.balance;
 
         const firstEntryChange = (firstEntry.debit || 0) - (firstEntry.credit || 0);
@@ -58,7 +74,7 @@ export default function LedgerDetailPage() {
   }
 
   // A more accurate running balance calculation
-   const entriesWithBalance = accountEntries.reduce((acc, entry) => {
+   const entriesWithBalance = filteredAccountEntries.reduce((acc, entry) => {
     const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
     const isDebitType = ['Asset', 'Expense'].includes(account.accountType);
     const change = (entry.debit || 0) - (entry.credit || 0);
@@ -96,10 +112,20 @@ export default function LedgerDetailPage() {
                 </p>
             </div>
         </div>
-        <Button onClick={handlePrint} variant="outline">
-          <Printer className="h-4 w-4 mr-2" />
-          Print Ledger
-        </Button>
+        <div className="flex items-end gap-4">
+            <div className="grid gap-2">
+                <Label htmlFor="start-date">Start Date</Label>
+                <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+             <div className="grid gap-2">
+                <Label htmlFor="end-date">End Date</Label>
+                <Input id="end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+            </div>
+            <Button onClick={handlePrint} variant="outline">
+            <Printer className="h-4 w-4 mr-2" />
+            Print Ledger
+            </Button>
+        </div>
       </div>
 
       <Card>
@@ -135,7 +161,7 @@ export default function LedgerDetailPage() {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">
-                            No transactions found for this account.
+                            No transactions found for this period.
                         </TableCell>
                     </TableRow>
                 )}
