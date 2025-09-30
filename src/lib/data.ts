@@ -1434,7 +1434,9 @@ export const mockBills: Bill[] = [
 export const mockLedgerAccounts: LedgerAccount[] = [
     // Assets (1000 series)
     { accountId: '1000', accountName: 'Assets', accountCode: '1000', accountType: 'Asset', balance: 150000, isSubLedger: false, createdAt: now.toISOString() },
-    { accountId: '1010', accountName: 'Cash and Bank', accountCode: '1010', accountType: 'Asset', balance: 50000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
+    { accountId: '1010', accountName: 'Cash and Bank', accountCode: '1010', accountType: 'Asset', balance: 50000, isSubLedger: false, createdAt: now.toISOString() },
+    { accountId: '1011', accountName: 'Fidelity Bank - Main', accountCode: '1011', accountType: 'Asset', balance: 45000, isSubLedger: true, parentAccountId: '1010', createdAt: now.toISOString() },
+    { accountId: '1012', accountName: 'MTN Mobile Money Wallet', accountCode: '1012', accountType: 'Asset', balance: 5000, isSubLedger: true, parentAccountId: '1010', createdAt: now.toISOString() },
     { accountId: '1020', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 100000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
     // Liabilities (2000 series)
     { accountId: '2000', accountName: 'Liabilities', accountCode: '2000', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
@@ -2357,4 +2359,5 @@ export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
+
 
