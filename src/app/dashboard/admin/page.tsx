@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BillingDashboard } from './components/billing-dashboard';
 import { AccountsPayableDashboard } from './components/accounts-payable-dashboard';
-import { FinancialReportsDashboard } from './financial-reports-dashboard';
+import { FinancialReportsDashboard } from './components/financial-reports-dashboard';
 import { RadiologyDashboard } from './components/radiology-dashboard';
 import { UserManagementDashboard } from './components/user-management-dashboard';
 import { SecurityDashboard } from './components/security-dashboard';
@@ -151,13 +151,13 @@ export default function AdminPage() {
                 <CardHeader>
                     <CardTitle>Chart of Accounts</CardTitle>
                     <CardDescription>
-                        View and manage your general ledger accounts. This is located inside Financial Reports.
+                        View and manage your general ledger accounts.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
                     <Button asChild className="mt-4">
-                        <Link href="/dashboard/admin/reports">
-                            Go to Financial Reports
+                        <Link href="/dashboard/admin/chart-of-accounts">
+                            Go to Chart of Accounts
                         </Link>
                     </Button>
                 </CardContent>

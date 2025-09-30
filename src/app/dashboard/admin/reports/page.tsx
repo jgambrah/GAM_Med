@@ -13,8 +13,6 @@ import { BalanceSheet } from './components/balance-sheet';
 import { IncomeStatement } from './components/income-statement';
 import { CashFlowStatement } from './components/cash-flow-statement';
 import { TrialBalance } from './components/trial-balance';
-import ChartOfAccountsPage from '../chart-of-accounts/page';
-
 
 export default function FinancialReportsPage() {
   const [endDate, setEndDate] = React.useState(new Date().toISOString().split('T')[0]);
@@ -51,7 +49,6 @@ export default function FinancialReportsPage() {
           <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
           <TabsTrigger value="cash-flow">Cash Flow Statement</TabsTrigger>
           <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
-          <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
         </TabsList>
         <TabsContent value="income-statement" className="mt-4">
             <Card>
@@ -96,9 +93,6 @@ export default function FinancialReportsPage() {
                     <TrialBalance period={endDate} />
                 </CardContent>
             </Card>
-        </TabsContent>
-         <TabsContent value="chart-of-accounts" className="mt-4">
-            <ChartOfAccountsPage />
         </TabsContent>
       </Tabs>
     </div>
