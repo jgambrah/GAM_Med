@@ -650,6 +650,7 @@ export interface StaffExpenseClaim {
   submissionDate: string; // ISO Timestamp
   approvalStatus: 'Pending HOD' | 'Approved' | 'Rejected';
   hodApprovalDate?: string; // ISO Timestamp
+  rejectionReason?: string; // Reason for rejection, added by HOD
   paymentStatus: 'Unpaid' | 'Paid';
   paidDate?: string; // ISO Timestamp
   attachmentUrl?: string; // URL to the receipt/document
@@ -1644,6 +1645,7 @@ export interface Diagnosis {
     
 
     
+
 
 
 

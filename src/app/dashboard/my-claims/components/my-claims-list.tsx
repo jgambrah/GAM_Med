@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { StaffExpenseClaim } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const getStatusVariant = (status: StaffExpenseClaim['approvalStatus']): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
@@ -59,7 +60,21 @@ export function MyClaimsList({ claims }: MyClaimsListProps) {
                 <TableCell>{claim.description}</TableCell>
                 <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
                 <TableCell>
-                  <Badge variant={getStatusVariant(claim.approvalStatus)}>{claim.approvalStatus}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getStatusVariant(claim.approvalStatus)}>{claim.approvalStatus}</Badge>
+                    {claim.approvalStatus === 'Rejected' && claim.rejectionReason && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="max-w-xs">{claim.rejectionReason}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge variant={getPaymentStatusVariant(claim.paymentStatus)}>{claim.paymentStatus}</Badge>

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -20,6 +19,61 @@ import { toast } from '@/hooks/use-toast';
 import { approveStaffClaim, rejectStaffClaim } from '@/lib/actions';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { StaffExpenseClaim } from '@/lib/types';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+
+function RejectClaimDialog({ claimId, onRejected }: { claimId: string, onRejected: (claimId: string, reason: string) => Promise<void> }) {
+  const [open, setOpen] = React.useState(false);
+  const [reason, setReason] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) {
+      toast.error('A reason for rejection is required.');
+      return;
+    }
+    setIsSubmitting(true);
+    await onRejected(claimId, reason);
+    setIsSubmitting(false);
+    setOpen(false);
+    setReason('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="destructive">
+          <X className="h-4 w-4 mr-2" /> Reject
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reject Expense Claim</DialogTitle>
+          <DialogDescription>
+            Please provide a reason for rejecting this claim. This will be visible to the staff member.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-2">
+          <Label htmlFor="rejection-reason">Rejection Reason</Label>
+          <Textarea
+            id="rejection-reason"
+            placeholder="e.g., Expense not covered by policy, missing receipt..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={handleSubmit} disabled={isSubmitting || !reason.trim()}>
+            {isSubmitting ? 'Rejecting...' : 'Confirm Rejection'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export function ClaimsApprovalDashboard() {
   const { user } = useAuth();
@@ -45,12 +99,12 @@ export function ClaimsApprovalDashboard() {
     }
   };
   
-  const handleReject = async (claimId: string) => {
-    const result = await rejectStaffClaim(claimId);
+  const handleReject = async (claimId: string, reason: string) => {
+    const result = await rejectStaffClaim(claimId, reason);
      if(result.success) {
         toast.error(`Claim ${claimId} has been rejected.`);
          // Update the local storage state
-        setAllClaims(prev => prev.map(c => c.claimId === claimId ? { ...c, approvalStatus: 'Rejected' } : c));
+        setAllClaims(prev => prev.map(c => c.claimId === claimId ? { ...c, approvalStatus: 'Rejected', rejectionReason: reason } : c));
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
     }
@@ -80,9 +134,7 @@ export function ClaimsApprovalDashboard() {
                   <Button size="sm" variant="outline" onClick={() => handleApprove(claim.claimId)}>
                     <Check className="h-4 w-4 mr-2 text-green-600" /> Approve
                   </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleReject(claim.claimId)}>
-                     <X className="h-4 w-4 mr-2" /> Reject
-                  </Button>
+                  <RejectClaimDialog claimId={claim.claimId} onRejected={handleReject} />
                 </TableCell>
               </TableRow>
             ))

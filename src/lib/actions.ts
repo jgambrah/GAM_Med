@@ -488,8 +488,8 @@ export async function approveStaffClaim(claimId: string) {
     return { success: true, message: 'Claim approved successfully.' };
 }
 
-export async function rejectStaffClaim(claimId: string) {
-    console.log(`Server Action: Rejecting staff claim ${claimId}.`);
+export async function rejectStaffClaim(claimId: string, reason: string) {
+    console.log(`Server Action: Rejecting staff claim ${claimId} for reason: ${reason}.`);
     // In a real app, this would update the claim document's status to 'Rejected'
     // and trigger a notification back to the submitting staff member.
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -572,4 +572,16 @@ export async function analyzeSample(testId: string): Promise<{ success: boolean,
     revalidatePath('/dashboard/lab');
 
     return { success: true, message: 'Analysis complete.' };
+}
+
+export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>) {
+    console.log(`Server Action: Posting transaction to ledger.`);
+    // This is a placeholder. In the latest version, this logic is handled on the client-side
+    // to correctly update the useLocalStorage state.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    
+    revalidatePath('/dashboard/admin/reports');
+    revalidatePath('/dashboard/admin/chart-of-accounts');
+    
+    return { success: true, message: 'Transaction posted to ledger.' };
 }
