@@ -86,11 +86,15 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
     }
     
     // Safety check 3: Can't delete a control account that has sub-ledgers.
-    const hasChildren = organizedAccounts.find(acc => acc.accountId === accountToDelete.accountId)?.children.length || 0 > 0;
-    if(hasChildren) {
-         toast.error('Deletion Failed', { description: 'Cannot delete a control account that has sub-ledgers. Please delete the sub-ledgers first.' });
-         return;
+    const isParent = !accountToDelete.isSubLedger;
+    if (isParent) {
+        const hasChildren = accounts.some(acc => acc.parentAccountId === accountToDelete.accountId);
+        if (hasChildren) {
+            toast.error('Deletion Failed', { description: 'Cannot delete a control account that has sub-ledgers. Please delete the sub-ledgers first.' });
+            return;
+        }
     }
+    
 
     // Confirmation dialog
     if (window.confirm(`Are you sure you want to permanently delete the account "${accountToDelete.accountName}"? This action cannot be undone.`)) {
