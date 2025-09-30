@@ -18,18 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
-import { LedgerAccount, LedgerEntry } from '@/lib/types';
+import { mockLedgerAccounts } from '@/lib/data';
+import { LedgerAccount } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-account-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader?: boolean }) {
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
-    const [entries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
 
     const organizedAccounts = React.useMemo(() => {
         const accountsMap = new Map<string, LedgerAccount & { children: LedgerAccount[] }>();
@@ -71,38 +69,6 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
     setAccounts(prev => [...prev, newAccount]);
   };
 
-  const handleDeleteAccount = (accountToDelete: LedgerAccount) => {
-    // Safety check 1: Can't delete account with a non-zero balance.
-    if (accountToDelete.balance !== 0) {
-      toast.error('Deletion Failed', { description: 'Cannot delete an account with a non-zero balance.' });
-      return;
-    }
-
-    // Safety check 2: Can't delete account with transactions.
-    const hasTransactions = entries.some(entry => entry.accountId === accountToDelete.accountId);
-    if (hasTransactions) {
-      toast.error('Deletion Failed', { description: 'Cannot delete an account that has transactions recorded against it.' });
-      return;
-    }
-    
-    // Safety check 3: Can't delete a control account that has sub-ledgers.
-    const isParent = !accountToDelete.isSubLedger;
-    if (isParent) {
-        const hasChildren = accounts.some(acc => acc.parentAccountId === accountToDelete.accountId);
-        if (hasChildren) {
-            toast.error('Deletion Failed', { description: 'Cannot delete a control account that has sub-ledgers. Please delete the sub-ledgers first.' });
-            return;
-        }
-    }
-    
-
-    // Confirmation dialog
-    if (window.confirm(`Are you sure you want to permanently delete the account "${accountToDelete.accountName}"? This action cannot be undone.`)) {
-      setAccounts(prev => prev.filter(acc => acc.accountId !== accountToDelete.accountId));
-      toast.success('Account Deleted', { description: `The account "${accountToDelete.accountName}" has been deleted.` });
-    }
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -133,20 +99,14 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                         <TableRow className="bg-muted/50 font-semibold">
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
-                                <span>{account.accountName}</span>
+                                <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`} className="hover:underline">
+                                    <span>{account.accountName}</span>
+                                </Link>
                                 <Badge variant="secondary">Control Account</Badge>
                             </TableCell>
                             <TableCell>{account.accountType}</TableCell>
                             <TableCell className="text-right font-mono">{account.balance.toFixed(2)}</TableCell>
                             <TableCell className="text-right space-x-2">
-                                <Button
-                                  variant="destructive"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => handleDeleteAccount(account)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
                                 <CreateLedgerAccountDialog 
                                     onAccountCreated={handleAccountCreated} 
                                     parentAccountId={account.accountId}
@@ -161,18 +121,15 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                         {account.children.map(child => (
                             <TableRow key={child.accountId}>
                                 <TableCell className="pl-8">{child.accountCode}</TableCell>
-                                <TableCell className="pl-8">{child.accountName}</TableCell>
+                                 <TableCell className="pl-8">
+                                    <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`} className="hover:underline">
+                                        {child.accountName}
+                                    </Link>
+                                </TableCell>
                                 <TableCell>{child.accountType}</TableCell>
                                 <TableCell className="text-right font-mono">{child.balance.toFixed(2)}</TableCell>
                                  <TableCell className="text-right">
-                                    <Button
-                                      variant="destructive"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleDeleteAccount(child)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    {/* Placeholder for future actions */}
                                 </TableCell>
                             </TableRow>
                         ))}
