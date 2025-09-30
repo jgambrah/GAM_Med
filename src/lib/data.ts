@@ -1440,8 +1440,7 @@ export const mockLedgerAccounts: LedgerAccount[] = [
     { accountId: '1020', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 100000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
     // Liabilities (2000 series)
     { accountId: '2000', accountName: 'Liabilities', accountCode: '2000', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
-    { accountId: '2010', accountName: 'Accounts Payable', accountCode: '2010', accountType: 'Liability', balance: 0, isSubLedger: false, createdAt: now.toISOString() },
-    { accountId: '2011', accountName: 'Trade Payables', accountCode: '2011', accountType: 'Liability', balance: 65000, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
+    { accountId: '2011', accountName: 'Trade Payables', accountCode: '2011', accountType: 'Liability', balance: 65000, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
     { accountId: '2040', accountName: 'WHT Payable', accountCode: '2040', accountType: 'Liability', balance: 0, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
     { accountId: '2050', accountName: 'Staff Claim Account Payable', accountCode: '2050', accountType: 'Liability', balance: 15000, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
     // Equity (3000 series)
@@ -2364,3 +2363,4 @@ export type Resource = Asset;
 
 
     
+

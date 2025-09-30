@@ -61,10 +61,10 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
     const [vatOption, setVatOption] = React.useState('zero');
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState('');
-    const [payableAccountId, setPayableAccountId] = React.useState('2011'); // Default to Trade Payables
+    const [payableAccountId, setPayableAccountId] = React.useState(''); // Default to Trade Payables
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
-    const apSubAccounts = accounts.filter(acc => acc.parentAccountId === '2010');
+    const apSubAccounts = accounts.filter(acc => acc.accountCode.startsWith('20'));
 
     const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = bill.totalAmount;
@@ -94,8 +94,8 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
 
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Bill ${bill.billId} posted to the ledger.` });
-
-            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
+            
+            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} to 2040 deducted)` : '';
             const paymentDescription = `Payment for Bill ${bill.billId}${taxDescription}`;
             
             onPaymentLogged(bill.billId, netPayment, whtAmount, paymentDescription, payableAccountId);
@@ -114,7 +114,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
             setCustomWhtRate('');
             setVatOption('zero');
             setExpenseAccountId('');
-            setPayableAccountId('2011');
+            setPayableAccountId('');
         }
     }, [open]);
 
@@ -287,7 +287,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Claim ${claim.claimId} posted to ledger.` });
             
-            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
+            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} to 2040 deducted)` : '';
             const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
             
             onPaymentLogged(claim.claimId, netPayment, whtAmount, paymentDescription, payableAccountId);
