@@ -1,5 +1,4 @@
 
-
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -1453,7 +1452,7 @@ export const mockLedgerAccounts: LedgerAccount[] = [
     { accountId: '5000', accountName: 'Expenses', accountCode: '5000', accountType: 'Expense', balance: 180000, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '5010', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 100000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
     { accountId: '5020', accountName: 'Medical Supplies', accountCode: '5020', accountType: 'Expense', balance: 80000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
-    { accountId: '5030', accountName: 'General &amp; Admin', accountCode: '5030', accountType: 'Expense', balance: 0, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
+    { accountId: '5030', accountName: 'General & Admin', accountCode: '5030', accountType: 'Expense', balance: 0, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
 ];
 
 export const mockLedgerEntries: LedgerEntry[] = [
@@ -1479,7 +1478,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         hodId: 'doc1', // Dr. Mensah is the HOD
         expenseAccountId: '5030',
         amount: 350.00,
-        description: 'T&amp;T for conference in Kumasi',
+        description: 'T&T for conference in Kumasi',
         submissionDate: new Date('2024-08-10T00:00:00Z').toISOString(),
         approvalStatus: 'Approved',
         hodApprovalDate: new Date('2024-08-11T00:00:00Z').toISOString(),
@@ -1599,7 +1598,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         employmentStatus: 'Active',
         positionId: 'pos-doc',
         leaveBalances: { 'Annual Leave': 15, 'Sick Leave': 10 },
-        recurringAllowances: [{ name: 'Book &amp; Research Allowance', amount: 500 }],
+        recurringAllowances: [{ name: 'Book & Research Allowance', amount: 500 }],
         recurringDeductions: [{ name: 'Welfare Dues', amount: 50 }],
         bankDetails: { bankName: 'Fidelity Bank', accountNumber: '123456789', branchName: 'Legon' },
         performanceReviews: [{ reviewId: 'rev-doc1-2023', date: '2023-12-15', reviewerId: 'admin1', overallRating: 'Exceeds Expectations' }],
@@ -1734,7 +1733,7 @@ export const mockStaffProfiles: StaffProfile[] = [
         positionId: 'pos-admin', // Placeholder
         recurringAllowances: [],
         recurringDeductions: [],
-        bankDetails: { bankName: 'Zenith Bank', accountNumber: '987321654', branchName: 'Spintex' }
+        bankDetails: { bankName: 'GT Bank', accountNumber: '147258369', branchName: 'Accra Mall' }
     },
     {
         staffId: 'reception1',
@@ -1854,7 +1853,7 @@ export const mockAllowances: Allowance[] = [
     },
     {
         allowanceId: 'BOOK_RESEARCH_ALLOWANCE',
-        name: 'Book &amp; Research Allowance',
+        name: 'Book & Research Allowance',
         isTaxable: false,
     }
 ];
@@ -2361,3 +2360,6 @@ export type PharmacyOrder = PurchaseOrder;
 export type Resource = Asset;
 
 
+
+
+    
