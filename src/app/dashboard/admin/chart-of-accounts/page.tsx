@@ -23,7 +23,6 @@ import { LedgerAccount } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-account-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader?: boolean }) {
@@ -105,11 +104,15 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                             <TableCell>{account.accountType}</TableCell>
                             <TableCell className="text-right font-mono">{account.balance.toFixed(2)}</TableCell>
                             <TableCell className="text-right">
-                                <Button asChild variant="outline" size="sm">
-                                    <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`}>
-                                        View Details
-                                    </Link>
-                                </Button>
+                                <CreateLedgerAccountDialog 
+                                    onAccountCreated={handleAccountCreated} 
+                                    parentAccountId={account.accountId}
+                                    trigger={
+                                        <Button variant="outline" size="sm">
+                                            Add Sub-Ledger
+                                        </Button>
+                                    }
+                                />
                             </TableCell>
                         </TableRow>
                         {account.children.map(child => (
@@ -119,11 +122,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                                 <TableCell>{child.accountType}</TableCell>
                                 <TableCell className="text-right font-mono">{child.balance.toFixed(2)}</TableCell>
                                  <TableCell className="text-right">
-                                    <Button asChild variant="outline" size="sm">
-                                        <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`}>
-                                            View Details
-                                        </Link>
-                                    </Button>
+                                    {/* Actions for sub-ledgers can go here if needed */}
                                 </TableCell>
                             </TableRow>
                         ))}

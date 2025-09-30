@@ -14,6 +14,7 @@ import { IncomeStatement } from './components/income-statement';
 import { CashFlowStatement } from './components/cash-flow-statement';
 import { TrialBalance } from './components/trial-balance';
 import ChartOfAccountsPage from '../../admin/chart-of-accounts/page';
+import { LedgerDetailTable } from './components/ledger-detail-table';
 
 export default function FinancialReportsPage() {
   const [endDate, setEndDate] = React.useState('');
@@ -59,7 +60,7 @@ export default function FinancialReportsPage() {
           <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
           <TabsTrigger value="cash-flow">Cash Flow Statement</TabsTrigger>
           <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
-          <TabsTrigger value="ledger">Ledger Accounts</TabsTrigger>
+          <TabsTrigger value="ledger">Ledger Details</TabsTrigger>
         </TabsList>
         <TabsContent value="income-statement" className="mt-4">
             <Card>
@@ -106,10 +107,9 @@ export default function FinancialReportsPage() {
             </Card>
         </TabsContent>
         <TabsContent value="ledger" className="mt-4">
-          <ChartOfAccountsPage hideHeader={true} />
+          <LedgerDetailTable />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-

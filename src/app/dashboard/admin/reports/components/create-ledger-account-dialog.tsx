@@ -35,9 +35,11 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface CreateLedgerAccountDialogProps {
   onAccountCreated: (newAccount: LedgerAccount) => void;
+  parentAccountId?: string;
+  trigger?: React.ReactNode;
 }
 
-export function CreateLedgerAccountDialog({ onAccountCreated }: CreateLedgerAccountDialogProps) {
+export function CreateLedgerAccountDialog({ onAccountCreated, parentAccountId, trigger }: CreateLedgerAccountDialogProps) {
     const [open, setOpen] = React.useState(false);
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
@@ -47,9 +49,21 @@ export function CreateLedgerAccountDialog({ onAccountCreated }: CreateLedgerAcco
             accountName: '',
             accountCode: '',
             accountType: 'Asset',
-            parentAccountId: null,
+            parentAccountId: parentAccountId || null,
         }
     });
+
+    React.useEffect(() => {
+        if (open) {
+            form.reset({
+                accountName: '',
+                accountCode: '',
+                accountType: 'Asset',
+                parentAccountId: parentAccountId || null,
+            });
+        }
+    }, [open, form, parentAccountId]);
+
 
     const parentAccountOptions = accounts
         .filter(acc => !acc.isSubLedger)
@@ -81,10 +95,12 @@ export function CreateLedgerAccountDialog({ onAccountCreated }: CreateLedgerAcco
     return (
          <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Ledger Account
-                </Button>
+                {trigger || (
+                    <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Ledger Account
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
@@ -152,6 +168,7 @@ export function CreateLedgerAccountDialog({ onAccountCreated }: CreateLedgerAcco
                                      <Select 
                                         onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
                                         value={field.value || 'none'}
+                                        disabled={!!parentAccountId}
                                     >
                                         <FormControl>
                                             <SelectTrigger><SelectValue placeholder="None (This is a main control account)" /></SelectTrigger>

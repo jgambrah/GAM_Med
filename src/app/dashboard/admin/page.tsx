@@ -17,8 +17,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BillingDashboard } from './components/billing-dashboard';
 import { AccountsPayableDashboard } from './components/accounts-payable-dashboard';
-import { FinancialReportsDashboard } from './components/financial-reports-dashboard';
-import { RadiologyDashboard } from './components/radiology-dashboard';
 import { UserManagementDashboard } from './components/user-management-dashboard';
 import { SecurityDashboard } from './components/security-dashboard';
 import { AuditLogDashboard } from './components/audit-log-dashboard';
@@ -110,7 +108,21 @@ export default function AdminPage() {
             </Card>
         </TabsContent>
         <TabsContent value="financial-reports" className="mt-4">
-            <FinancialReportsDashboard />
+             <Card>
+                <CardHeader>
+                    <CardTitle>Financial Reporting</CardTitle>
+                    <CardDescription>
+                        Generate key financial statements and reports.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/admin/reports">
+                            Go to Financial Reports
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
         </TabsContent>
          <TabsContent value="clinical-reports" className="mt-4">
             <Card>
