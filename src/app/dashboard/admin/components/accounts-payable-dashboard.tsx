@@ -88,7 +88,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
         setIsSubmitting(true);
 
         const accrualDescription = `Accrue expense for Bill ${bill.billId} from ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}`;
-        const accrualResult = await onPostToLedger(expenseAccountId, '2010', subtotal, accrualDescription);
+        const accrualResult = await onPostToLedger(expenseAccountId, '2011', subtotal, accrualDescription);
 
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Bill ${bill.billId} posted to the ledger.` });
@@ -259,7 +259,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
         setIsSubmitting(true);
         
         const accrualDescription = `Accrue expense for Staff Claim: ${claim.description}`;
-        const accrualResult = await onPostToLedger(expenseAccountId, '2010', subtotal, accrualDescription);
+        const accrualResult = await onPostToLedger(expenseAccountId, '2012', subtotal, accrualDescription);
 
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Claim ${claim.claimId} posted to ledger.` });
@@ -549,19 +549,21 @@ export function AccountsPayableDashboard() {
 
   const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string) => {
     if (whtAmount > 0) {
-        handlePostToLedger('2010', '2020', whtAmount, `WHT for Bill ${billId}`);
+        // Debit AP (2011), Credit WHT Payable (2020)
+        handlePostToLedger('2011', '2020', whtAmount, `WHT for Bill ${billId}`);
     }
-    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
+    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: '2011', creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string) => {
       if (whtAmount > 0) {
-        handlePostToLedger('2010', '2020', whtAmount, `WHT for Claim ${claimId}`);
+        // Debit Staff Payables (2012), Credit WHT Payable (2020)
+        handlePostToLedger('2012', '2020', whtAmount, `WHT for Claim ${claimId}`);
       }
       setPostingInfo({ 
           amount: netAmount, 
           description, 
-          debitAccountId: '2010', // Debit Accounts Payable (to clear the liability)
+          debitAccountId: '2012', // Debit Staff Payables
           creditAccountId: '1010', // Credit Cash/Bank
           claimIdToUpdate: claimId,
       });
@@ -672,5 +674,3 @@ export function AccountsPayableDashboard() {
     </>
   );
 }
-
-    
