@@ -1432,18 +1432,22 @@ export const mockBills: Bill[] = [
 ];
 
 export const mockLedgerAccounts: LedgerAccount[] = [
-    // Assets
+    // Assets (1000 series)
     { accountId: '1000', accountName: 'Assets', accountCode: '1000', accountType: 'Asset', balance: 150000, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '1010', accountName: 'Cash and Bank', accountCode: '1010', accountType: 'Asset', balance: 50000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
     { accountId: '1020', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 100000, isSubLedger: true, parentAccountId: '1000', createdAt: now.toISOString() },
-    // Liabilities
+    // Liabilities (2000 series)
     { accountId: '2000', accountName: 'Liabilities', accountCode: '2000', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
-    { accountId: '2010', accountName: 'Accounts Payable', accountCode: '2010', accountType: 'Liability', balance: 80000, isSubLedger: true, parentAccountId: '2000', createdAt: now.toISOString() },
-    // Equity
+    { accountId: '2010', accountName: 'Accounts Payable', accountCode: '2010', accountType: 'Liability', balance: 80000, isSubLedger: false, createdAt: now.toISOString() },
+    { accountId: '2011', accountName: 'Trade Payables', accountCode: '2011', accountType: 'Liability', balance: 65000, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
+    { accountId: '2012', accountName: 'Staff Payables', accountCode: '2012', accountType: 'Liability', balance: 15000, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
+    { accountId: '2020', accountName: 'Statutory Payables - WHT', accountCode: '2020', accountType: 'Liability', balance: 0, isSubLedger: true, parentAccountId: '2010', createdAt: now.toISOString() },
+    // Equity (3000 series)
     { accountId: '3000', accountName: 'Equity', accountCode: '3000', accountType: 'Equity', balance: 70000, isSubLedger: false, createdAt: now.toISOString() },
-    // Revenue
+    // Revenue (4000 series)
     { accountId: '4000', accountName: 'Revenue', accountCode: '4000', accountType: 'Revenue', balance: 250000, isSubLedger: false, createdAt: now.toISOString() },
-    // Expenses
+    { accountId: '4010', accountName: 'Service Revenue', accountCode: '4010', accountType: 'Revenue', balance: 250000, isSubLedger: true, parentAccountId: '4000', createdAt: now.toISOString() },
+    // Expenses (5000 series)
     { accountId: '5000', accountName: 'Expenses', accountCode: '5000', accountType: 'Expense', balance: 180000, isSubLedger: false, createdAt: now.toISOString() },
     { accountId: '5010', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 100000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
     { accountId: '5020', accountName: 'Medical Supplies', accountCode: '5020', accountType: 'Expense', balance: 80000, isSubLedger: true, parentAccountId: '5000', createdAt: now.toISOString() },
@@ -1453,7 +1457,7 @@ export const mockLedgerAccounts: LedgerAccount[] = [
 export const mockLedgerEntries: LedgerEntry[] = [
     { entryId: 'e-001', accountId: '1010', date: new Date('2024-08-01T00:00:00Z').toISOString(), description: 'Cash deposit from patient payment', debit: 5000.00 },
     { entryId: 'e-002', accountId: '1010', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Payment for medical supplies', credit: 2500.00 },
-    { entryId: 'e-003', accountId: '2010', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Invoice from PharmaSupply Ltd.', credit: 2500.00 },
+    { entryId: 'e-003', accountId: '2011', date: new Date('2024-08-02T00:00:00Z').toISOString(), description: 'Invoice from PharmaSupply Ltd.', credit: 2500.00 },
     { entryId: 'e-004', accountId: '1020', date: new Date('2024-08-03T00:00:00Z').toISOString(), description: 'Invoice INV-003 issued to patient', debit: 120.00 },
 ];
 
@@ -1473,7 +1477,7 @@ export const mockStaffClaims: StaffExpenseClaim[] = [
         hodId: 'doc1', // Dr. Mensah is the HOD
         expenseAccountId: '5030',
         amount: 350.00,
-        description: 'T&T for conference in Kumasi',
+        description: 'T&amp;T for conference in Kumasi',
         submissionDate: new Date('2024-08-10T00:00:00Z').toISOString(),
         approvalStatus: 'Approved',
         hodApprovalDate: new Date('2024-08-11T00:00:00Z').toISOString(),
@@ -2353,3 +2357,4 @@ export type PharmacyOrder = PurchaseOrder;
     
 // Deprecated type, use Asset instead
 export type Resource = Asset;
+

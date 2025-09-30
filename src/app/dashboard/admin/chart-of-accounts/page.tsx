@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -30,17 +31,22 @@ export default function ChartOfAccountsPage() {
         const accountsMap = new Map<string, LedgerAccount & { children: LedgerAccount[] }>();
         const rootAccounts: (LedgerAccount & { children: LedgerAccount[] })[] = [];
 
+        // Initialize all accounts in the map
         accounts.forEach(acc => {
             accountsMap.set(acc.accountId, { ...acc, children: [] });
         });
 
+        // Populate children arrays and identify root accounts
         accounts.forEach(acc => {
             if (acc.isSubLedger && acc.parentAccountId) {
                 const parent = accountsMap.get(acc.parentAccountId);
                 if (parent) {
                     parent.children.push(accountsMap.get(acc.accountId)!);
+                } else {
+                    // This sub-ledger has a missing parent, treat it as a root for now
+                    rootAccounts.push(accountsMap.get(acc.accountId)!);
                 }
-            } else {
+            } else if (!acc.isSubLedger) {
                  rootAccounts.push(accountsMap.get(acc.accountId)!);
             }
         });
@@ -80,7 +86,7 @@ export default function ChartOfAccountsPage() {
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
                                 <span>{account.accountName}</span>
-                                {account.children.length > 0 && <Badge variant="secondary">Control Account</Badge>}
+                                {!account.isSubLedger && <Badge variant="secondary">Control Account</Badge>}
                             </TableCell>
                             <TableCell>{account.accountType}</TableCell>
                         </TableRow>
@@ -101,3 +107,4 @@ export default function ChartOfAccountsPage() {
     </div>
   );
 }
+
