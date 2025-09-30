@@ -53,7 +53,7 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
     }
 }
 
-function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (billId: string, amount: number, whtAmount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
+function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (billId: string, amount: number, whtAmount: number, description: string, payableAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -61,8 +61,10 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
     const [vatOption, setVatOption] = React.useState('zero');
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState('');
+    const [payableAccountId, setPayableAccountId] = React.useState('2011'); // Default to Trade Payables
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
+    const apSubAccounts = accounts.filter(acc => acc.parentAccountId === '2010');
 
     const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = bill.totalAmount;
@@ -81,14 +83,14 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
 
 
     const handlePayBill = async () => {
-        if (!expenseAccountId) {
-            toast.error("Please select an expense account to charge the bill to.");
+        if (!expenseAccountId || !payableAccountId) {
+            toast.error("Please select an expense and a payable account.");
             return;
         }
         setIsSubmitting(true);
 
         const accrualDescription = `Accrue expense for Bill ${bill.billId} from ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}`;
-        const accrualResult = await onPostToLedger(expenseAccountId, '2011', subtotal, accrualDescription);
+        const accrualResult = await onPostToLedger(expenseAccountId, payableAccountId, subtotal, accrualDescription);
 
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Bill ${bill.billId} posted to the ledger.` });
@@ -96,7 +98,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
             const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
             const paymentDescription = `Payment for Bill ${bill.billId}${taxDescription}`;
             
-            onPaymentLogged(bill.billId, netPayment, whtAmount, paymentDescription, expenseAccountId);
+            onPaymentLogged(bill.billId, netPayment, whtAmount, paymentDescription, payableAccountId);
             
             setOpen(false);
         } else {
@@ -112,6 +114,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
             setCustomWhtRate('');
             setVatOption('zero');
             setExpenseAccountId('');
+            setPayableAccountId('2011');
         }
     }, [open]);
 
@@ -131,20 +134,37 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div>
-                        <Label>Expense Account</Label>
-                        <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select an expense account to charge" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {expenseAccounts.map(acc => (
-                                     <SelectItem key={acc.accountId} value={acc.accountId}>
-                                        {acc.accountName} ({acc.accountCode})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>Expense Account (to Debit)</Label>
+                            <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an expense account..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {expenseAccounts.map(acc => (
+                                        <SelectItem key={acc.accountId} value={acc.accountId}>
+                                            {acc.accountName} ({acc.accountCode})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label>Payable Account (to Credit)</Label>
+                            <Select value={payableAccountId} onValueChange={setPayableAccountId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a payable account..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {apSubAccounts.map(acc => (
+                                        <SelectItem key={acc.accountId} value={acc.accountId}>
+                                            {acc.accountName} ({acc.accountCode})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
 
                      <div className="grid grid-cols-2 gap-4">
@@ -228,7 +248,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
     )
 }
 
-function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, expenseAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, payableAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -236,9 +256,11 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     const [vatOption, setVatOption] = React.useState('zero');
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
+    const [payableAccountId, setPayableAccountId] = React.useState('2012'); // Default to Staff Payables
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
-    
+    const apSubAccounts = accounts.filter(acc => acc.parentAccountId === '2010');
+
      const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = claim.amount;
         if (vatOption === 'flat') {
@@ -259,7 +281,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
         setIsSubmitting(true);
         
         const accrualDescription = `Accrue expense for Staff Claim: ${claim.description}`;
-        const accrualResult = await onPostToLedger(expenseAccountId, '2012', subtotal, accrualDescription);
+        const accrualResult = await onPostToLedger(expenseAccountId, payableAccountId, subtotal, accrualDescription);
 
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Claim ${claim.claimId} posted to ledger.` });
@@ -267,7 +289,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
             const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
             const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
             
-            onPaymentLogged(claim.claimId, netPayment, whtAmount, paymentDescription, expenseAccountId);
+            onPaymentLogged(claim.claimId, netPayment, whtAmount, paymentDescription, payableAccountId);
             
             setOpen(false);
         } else {
@@ -283,6 +305,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
            setWhtRate('0');
            setCustomWhtRate('');
            setVatOption('zero');
+           setPayableAccountId('2012');
         }
     }, [open, claim.expenseAccountId]);
 
@@ -302,21 +325,39 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div>
-                        <Label>Original Expense Account</Label>
-                        <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select an expense account" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {expenseAccounts.map(acc => (
-                                     <SelectItem key={acc.accountId} value={acc.accountId}>
-                                        {acc.accountName} ({acc.accountCode})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>Expense Account (to Debit)</Label>
+                            <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an expense account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {expenseAccounts.map(acc => (
+                                        <SelectItem key={acc.accountId} value={acc.accountId}>
+                                            {acc.accountName} ({acc.accountCode})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Payable Account (to Credit)</Label>
+                             <Select value={payableAccountId} onValueChange={setPayableAccountId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a payable account..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {apSubAccounts.map(acc => (
+                                        <SelectItem key={acc.accountId} value={acc.accountId}>
+                                            {acc.accountName} ({acc.accountCode})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
+
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -399,7 +440,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     )
 }
 
-function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bill[], onPaymentLogged: (billId: string, amount: number, whtAmount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bill[], onPaymentLogged: (billId: string, amount: number, whtAmount: number, description: string, payableAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -443,7 +484,7 @@ function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bil
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, payableAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -547,23 +588,23 @@ export function AccountsPayableDashboard() {
     }
   };
 
-  const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string) => {
+  const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
     if (whtAmount > 0) {
-        // Debit AP (2011), Credit WHT Payable (2020)
-        handlePostToLedger('2011', '2020', whtAmount, `WHT for Bill ${billId}`);
+        // Debit AP sub-account, Credit WHT Payable (2020)
+        handlePostToLedger(payableAccountId, '2020', whtAmount, `WHT for Bill ${billId}`);
     }
-    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: '2011', creditAccountId: '1010' }); // Debit AP, Credit Cash
+    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: payableAccountId, creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
-  const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string) => {
+  const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
       if (whtAmount > 0) {
-        // Debit Staff Payables (2012), Credit WHT Payable (2020)
-        handlePostToLedger('2012', '2020', whtAmount, `WHT for Claim ${claimId}`);
+        // Debit AP sub-account, Credit WHT Payable (2020)
+        handlePostToLedger(payableAccountId, '2020', whtAmount, `WHT for Claim ${claimId}`);
       }
       setPostingInfo({ 
           amount: netAmount, 
           description, 
-          debitAccountId: '2012', // Debit Staff Payables
+          debitAccountId: payableAccountId, // Debit Staff Payables
           creditAccountId: '1010', // Credit Cash/Bank
           claimIdToUpdate: claimId,
       });
