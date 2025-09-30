@@ -73,6 +73,14 @@ export function CreateLedgerAccountDialog({ onAccountCreated, parentAccountId, t
         }));
 
     const onSubmit = async (values: z.infer<typeof LedgerAccountSchema>) => {
+        // Check for duplicate account code
+        if (accounts.some(acc => acc.accountCode === values.accountCode)) {
+            toast.error('Duplicate Account Code', {
+                description: `An account with the code "${values.accountCode}" already exists. Please use a unique code.`,
+            });
+            return;
+        }
+
         console.log('Creating new ledger account:', values);
         
         const newAccount: LedgerAccount = {
