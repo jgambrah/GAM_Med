@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockBills as initialBills, mockStaffClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
+import { mockBills as initialBills, mockStaffClaims as initialClaims, mockSuppliers, mockPayrollRuns, mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
 import { Bill, StaffExpenseClaim, LedgerAccount, LedgerEntry } from '@/lib/types';
 import {
   Dialog,
@@ -53,7 +53,7 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
     }
 }
 
-function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (billId: string, amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
+function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, onPaymentLogged: (billId: string, amount: number, whtAmount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean>}) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -91,19 +91,16 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
         const accrualResult = await onPostToLedger(expenseAccountId, '2010', subtotal, accrualDescription);
 
         if (accrualResult) {
-            toast.success("Expense Accrued", {
-                description: `Bill ${bill.billId} posted to the ledger.`
-            });
+            toast.success("Expense Accrued", { description: `Bill ${bill.billId} posted to the ledger.` });
+
+            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
+            const paymentDescription = `Payment for Bill ${bill.billId}${taxDescription}`;
             
-            const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
-            const paymentDescription = `Payment for Bill ${bill.billId} to ${mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown'}${taxDescription}`;
-            onPaymentLogged(bill.billId, netPayment, paymentDescription, expenseAccountId);
+            onPaymentLogged(bill.billId, netPayment, whtAmount, paymentDescription, expenseAccountId);
             
             setOpen(false);
         } else {
-             toast.error("Failed to post expense accrual.", {
-                description: 'An unknown error occurred.'
-            });
+             toast.error("Failed to post expense accrual.", { description: 'An unknown error occurred.' });
         }
         
         setIsSubmitting(false);
@@ -231,7 +228,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
     )
 }
 
-function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, expenseAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -265,19 +262,16 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
         const accrualResult = await onPostToLedger(expenseAccountId, '2010', subtotal, accrualDescription);
 
         if (accrualResult) {
-            toast.success("Expense Accrued", {
-                description: `Claim ${claim.claimId} posted to ledger.`
-            });
+            toast.success("Expense Accrued", { description: `Claim ${claim.claimId} posted to ledger.` });
             
-            const taxDescription = whtAmount > 0 ? ` (after WHT)` : '';
+            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
             const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
-            onPaymentLogged(claim.claimId, netPayment, paymentDescription, expenseAccountId);
+            
+            onPaymentLogged(claim.claimId, netPayment, whtAmount, paymentDescription, expenseAccountId);
             
             setOpen(false);
         } else {
-            toast.error("Failed to post expense accrual.", {
-                description: 'An unknown error occurred.'
-            });
+            toast.error("Failed to post expense accrual.", { description: 'An unknown error occurred.' });
         }
         
         setIsSubmitting(false);
@@ -405,7 +399,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     )
 }
 
-function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bill[], onPaymentLogged: (billId: string, amount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bill[], onPaymentLogged: (billId: string, amount: number, whtAmount: number, description: string, debitAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -449,7 +443,7 @@ function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bil
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, description: string, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -501,7 +495,7 @@ function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedg
 export function AccountsPayableDashboard() {
   const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string, billIdToUpdate?: string } | null>(null);
   const [bills, setBills] = useLocalStorage<Bill[]>('bills', initialBills);
-  const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
+  const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', initialClaims);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
   const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', initialEntries);
 
@@ -517,33 +511,32 @@ export function AccountsPayableDashboard() {
     // This simulates the postToLedger server action client-side
     try {
         const now = new Date().toISOString();
-        const { ...values } = {debitAccountId, creditAccountId, amount, description};
 
         const newDebitEntry: LedgerEntry = {
             entryId: `entry-${Date.now()}-dr`,
-            accountId: values.debitAccountId,
+            accountId: debitAccountId,
             date: now,
-            description: values.description,
-            debit: values.amount
+            description: description,
+            debit: amount
         };
         const newCreditEntry: LedgerEntry = {
             entryId: `entry-${Date.now()}-cr`,
-            accountId: values.creditAccountId,
+            accountId: creditAccountId,
             date: now,
-            description: values.description,
-            credit: values.amount
+            description: description,
+            credit: amount
         };
         
         setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 
         setAccounts(prev => prev.map(acc => {
-            if (acc.accountId === values.debitAccountId) {
+            if (acc.accountId === debitAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? values.amount : -values.amount) };
+                 return { ...acc, balance: acc.balance + (isDebitType ? amount : -amount) };
             }
-            if (acc.accountId === values.creditAccountId) {
+            if (acc.accountId === creditAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? -values.amount : values.amount) };
+                 return { ...acc, balance: acc.balance + (isDebitType ? -amount : amount) };
             }
             return acc;
         }));
@@ -554,14 +547,19 @@ export function AccountsPayableDashboard() {
     }
   };
 
-
-  const handleBillPaymentLogged = (billId: string, amount: number, description: string) => {
-    setPostingInfo({ billIdToUpdate: billId, amount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
+  const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string) => {
+    if (whtAmount > 0) {
+        handlePostToLedger('2010', '2020', whtAmount, `WHT for Bill ${billId}`);
+    }
+    setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: '2010', creditAccountId: '1010' }); // Debit AP, Credit Cash
   };
   
-  const handleStaffClaimPaymentLogged = (claimId: string, amount: number, description: string, expenseAccountId: string) => {
+  const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string) => {
+      if (whtAmount > 0) {
+        handlePostToLedger('2010', '2020', whtAmount, `WHT for Claim ${claimId}`);
+      }
       setPostingInfo({ 
-          amount, 
+          amount: netAmount, 
           description, 
           debitAccountId: '2010', // Debit Accounts Payable (to clear the liability)
           creditAccountId: '1010', // Credit Cash/Bank
@@ -674,3 +672,5 @@ export function AccountsPayableDashboard() {
     </>
   );
 }
+
+    
