@@ -26,7 +26,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default function ChartOfAccountsPage() {
+export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader?: boolean }) {
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
     const organizedAccounts = React.useMemo(() => {
@@ -72,14 +72,16 @@ export default function ChartOfAccountsPage() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row justify-between items-center">
-          <div>
-            <CardTitle>Chart of Accounts</CardTitle>
-            <CardDescription>A structural view of all financial accounts.</CardDescription>
-          </div>
-          <CreateLedgerAccountDialog onAccountCreated={handleAccountCreated} />
-        </CardHeader>
-        <CardContent>
+        {!hideHeader && (
+          <CardHeader className="flex flex-row justify-between items-center">
+            <div>
+              <CardTitle>Chart of Accounts</CardTitle>
+              <CardDescription>A structural view of all financial accounts.</CardDescription>
+            </div>
+            <CreateLedgerAccountDialog onAccountCreated={handleAccountCreated} />
+          </CardHeader>
+        )}
+        <CardContent className={hideHeader ? "pt-6" : ""}>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -135,4 +137,3 @@ export default function ChartOfAccountsPage() {
     </div>
   );
 }
-
