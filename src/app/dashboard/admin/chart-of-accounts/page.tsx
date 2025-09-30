@@ -23,6 +23,8 @@ import { LedgerAccount } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-account-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function ChartOfAccountsPage() {
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
@@ -50,6 +52,14 @@ export default function ChartOfAccountsPage() {
                  rootAccounts.push(accountsMap.get(acc.accountId)!);
             }
         });
+        
+        // Sort children within each parent account by account code
+        rootAccounts.forEach(parent => {
+            parent.children.sort((a, b) => a.accountCode.localeCompare(b.accountCode));
+        });
+
+        // Sort root accounts by account code
+        rootAccounts.sort((a, b) => a.accountCode.localeCompare(b.accountCode));
 
         return rootAccounts;
 
@@ -77,6 +87,8 @@ export default function ChartOfAccountsPage() {
                   <TableHead>Account Code</TableHead>
                   <TableHead>Account Name</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Balance (₵)</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -86,15 +98,31 @@ export default function ChartOfAccountsPage() {
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
                                 <span>{account.accountName}</span>
-                                {!account.isSubLedger && <Badge variant="secondary">Control Account</Badge>}
+                                <Badge variant="secondary">Control Account</Badge>
                             </TableCell>
                             <TableCell>{account.accountType}</TableCell>
+                            <TableCell className="text-right font-mono">{account.balance.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`}>
+                                        View Details
+                                    </Link>
+                                </Button>
+                            </TableCell>
                         </TableRow>
                         {account.children.map(child => (
                             <TableRow key={child.accountId}>
                                 <TableCell className="pl-8">{child.accountCode}</TableCell>
-                                <TableCell>{child.accountName}</TableCell>
+                                <TableCell className="pl-8">{child.accountName}</TableCell>
                                 <TableCell>{child.accountType}</TableCell>
+                                <TableCell className="text-right font-mono">{child.balance.toFixed(2)}</TableCell>
+                                 <TableCell className="text-right">
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`}>
+                                            View Details
+                                        </Link>
+                                    </Button>
+                                </TableCell>
                             </TableRow>
                         ))}
                     </React.Fragment>

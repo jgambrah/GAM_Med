@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BillingDashboard } from './components/billing-dashboard';
 import { AccountsPayableDashboard } from './components/accounts-payable-dashboard';
-import { FinancialReportsDashboard } from './components/financial-reports-dashboard';
+import { FinancialReportsDashboard } from './financial-reports-dashboard';
 import { RadiologyDashboard } from './components/radiology-dashboard';
 import { UserManagementDashboard } from './components/user-management-dashboard';
 import { SecurityDashboard } from './components/security-dashboard';

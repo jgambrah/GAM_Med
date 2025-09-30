@@ -31,6 +31,7 @@ import { LedgerAccount } from '@/lib/types';
 import { mockLedgerAccounts } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface CreateLedgerAccountDialogProps {
   onAccountCreated: (newAccount: LedgerAccount) => void;
@@ -38,6 +39,7 @@ interface CreateLedgerAccountDialogProps {
 
 export function CreateLedgerAccountDialog({ onAccountCreated }: CreateLedgerAccountDialogProps) {
     const [open, setOpen] = React.useState(false);
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
     const form = useForm<z.infer<typeof LedgerAccountSchema>>({
         resolver: zodResolver(LedgerAccountSchema),
@@ -49,7 +51,7 @@ export function CreateLedgerAccountDialog({ onAccountCreated }: CreateLedgerAcco
         }
     });
 
-    const parentAccountOptions = mockLedgerAccounts
+    const parentAccountOptions = accounts
         .filter(acc => !acc.isSubLedger)
         .map(acc => ({
             label: `${acc.accountName} (${acc.accountCode})`,
