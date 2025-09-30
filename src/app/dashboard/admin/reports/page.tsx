@@ -15,7 +15,16 @@ import { CashFlowStatement } from './components/cash-flow-statement';
 import { TrialBalance } from './components/trial-balance';
 
 export default function FinancialReportsPage() {
-  const [endDate, setEndDate] = React.useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = React.useState('');
+
+  React.useEffect(() => {
+    // Set initial date only on the client side to avoid hydration mismatch
+    setEndDate(new Date().toISOString().split('T')[0]);
+  }, []);
+
+  if (!endDate) {
+    return null; // Or a loading skeleton
+  }
 
   return (
     <div className="space-y-6">
