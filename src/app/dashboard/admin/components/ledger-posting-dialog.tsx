@@ -64,17 +64,19 @@ export function LedgerPostingDialog({
 
     React.useEffect(() => {
         if (open) {
-            const debitAccount = accounts.find(acc => acc.accountCode === defaultDebit)?.accountId;
-            const creditAccount = accounts.find(acc => acc.accountCode === defaultCredit)?.accountId;
+            // Find the full accountId from the accountCode if that's what's passed
+            const debitAccount = accounts.find(acc => acc.accountId === defaultDebit || acc.accountCode === defaultDebit)?.accountId;
+            const creditAccount = accounts.find(acc => acc.accountId === defaultCredit || acc.accountCode === defaultCredit)?.accountId;
+            
             form.reset({
-                debitAccountId: debitAccount,
-                creditAccountId: creditAccount,
+                debitAccountId: debitAccount || '',
+                creditAccountId: creditAccount || '',
                 amount: amount || 0,
                 description: description || '',
             })
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, amount, description, defaultDebit, defaultCredit, form, accounts])
+    }, [open, amount, description, defaultDebit, defaultCredit, form.reset, accounts])
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const now = new Date().toISOString();
@@ -104,7 +106,7 @@ export function LedgerPostingDialog({
             }
             if (acc.accountId === creditAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? -transactionAmount : amount) };
+                 return { ...acc, balance: acc.balance + (isDebitType ? -transactionAmount : transactionAmount) };
             }
             return acc;
         }));
@@ -189,7 +191,7 @@ export function LedgerPostingDialog({
                             <FormItem>
                                 <FormLabel>Amount</FormLabel>
                                 <FormControl>
-                                    <Input type="number" {...field} readOnly={!isManualEntry} />
+                                    <Input type="number" {...field} readOnly={!isManualEntry} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
