@@ -53,7 +53,7 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
     }
 }
 
-function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (billId: string, netPayment: number, whtAmount: number) => void }) {
+function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => void }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -88,7 +88,7 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
             return;
         }
         setIsSubmitting(true);
-        onBillAccrued(bill.billId, netPayment, whtAmount);
+        await onBillAccrued(bill.billId, expenseAccountId, payableAccountId, subtotal, whtAmount);
         setOpen(false);
         setIsSubmitting(false);
     }
@@ -233,7 +233,7 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
     )
 }
 
-function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, onClaimAccrued: (claimId: string, netAmount: number, description: string, subtotal: number, expenseAccountId: string, whtAmount: number) => void }) {
+function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, onClaimAccrued: (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => void }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -244,7 +244,7 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
     
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
     
-     const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
+     const { subtotal, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = claim.amount;
         if (vatOption === 'flat') {
             calculatedSubtotal = claim.amount / 1.04;
@@ -254,11 +254,11 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
 
         const currentWhtRateValue = whtRate === 'custom' ? parseFloat(customWhtRate) / 100 : parseFloat(whtRate) / 100;
         const calculatedWhtAmount = calculatedSubtotal * (isNaN(currentWhtRateValue) ? 0 : currentWhtRateValue);
-        const calculatedNetPayment = claim.amount - calculatedWhtAmount;
         
-        return { subtotal: calculatedSubtotal, netPayment: calculatedNetPayment, whtAmount: calculatedWhtAmount };
+        return { subtotal: calculatedSubtotal, whtAmount: calculatedWhtAmount };
     }, [claim.amount, vatOption, whtRate, customWhtRate]);
 
+    const netPayment = claim.amount - whtAmount;
 
     const handlePayClaim = async () => {
         if (!expenseAccountId) {
@@ -266,12 +266,7 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
             return;
         }
         setIsSubmitting(true);
-        
-        const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} to 2040 deducted)` : '';
-        const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
-        
-        onClaimAccrued(claim.claimId, netPayment, paymentDescription, subtotal, expenseAccountId, whtAmount);
-        
+        await onClaimAccrued(claim.claimId, expenseAccountId, subtotal, whtAmount);
         setIsSubmitting(false);
         setOpen(false);
     }
@@ -405,7 +400,7 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
     )
 }
 
-function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued: (billId: string, netPayment: number, whtAmount: number) => void }) {
+function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued: (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => void }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -449,7 +444,7 @@ function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued
     );
 }
 
-function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims }: { onClaimAccrued: (claimId: string, amount: number, description: string, subtotal: number, expenseAccountId: string, whtAmount: number) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>> }) {
+function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims }: { onClaimAccrued: (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -534,7 +529,7 @@ export function AccountsPayableDashboard() {
                 }
                 if (acc.accountId === creditAccountId) {
                     const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                    return { ...acc, balance: acc.balance + (isDebitType ? -amount : amount) };
+                    return { ...acc, balance: acc.balance - (isDebitType ? amount : -amount) };
                 }
                 return acc;
             }));
@@ -550,26 +545,45 @@ export function AccountsPayableDashboard() {
   }, [setAccounts, setEntries]);
 
 
-  const handleBillAccrued = (billId: string, netPayment: number, whtAmount: number) => {
-    // This logic is simplified. The accrual should happen first.
-    // For this prototype, we'll directly trigger the payment posting dialog.
+  const handleBillAccrued = async (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => {
     const bill = bills.find(b => b.billId === billId);
     if (!bill) return;
-    
-    // In a real scenario, we would first post the accrual here.
-    // For now, let's assume accrual is implicit and move to payment.
 
-    const apPayableAccount = accounts.find(acc => acc.accountCode === '2011'); // Trade Payables
-    
-    if (apPayableAccount) {
-        setPostingInfo({ billIdToUpdate: billId, amount: netPayment, description: `Payment for Bill ${billId}`, debitAccountId: apPayableAccount.accountId, creditAccountId: '1011' }); // Debit AP, Credit Cash
+    const accrualSuccess = await handlePostToLedger(expenseAccId, payableAccId, subtotal, `Accrue expense for Bill ${billId}`);
+    if (!accrualSuccess) {
+        toast.error("Failed to post bill accrual to ledger.");
+        return;
     }
+    
+    // Find the actual Cash/Bank account ID
+    const cashAccount = accounts.find(acc => acc.accountCode === '1011');
+    if (!cashAccount) {
+        toast.error("Cash/Bank Account (1011) not found.");
+        return;
+    }
+    
+    const netPayment = bill.totalAmount - whtAmount;
+    
+    setPostingInfo({ 
+        amount: netPayment, 
+        description: `Payment for Bill ${billId}`, 
+        debitAccountId: payableAccId,
+        creditAccountId: cashAccount.accountId,
+        billIdToUpdate: billId,
+        whtAmount: whtAmount,
+    });
   };
   
-  const handleClaimAccrued = async (claimId: string, netAmount: number, description: string, subtotal: number, expenseAccountId: string, whtAmount: number) => {
+  const handleClaimAccrued = async (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => {
       const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
       if (!staffPayableAccount) {
           toast.error("Staff Payable Account (2050) not found.");
+          return;
+      }
+      
+      const cashAccount = accounts.find(acc => acc.accountCode === '1011');
+      if (!cashAccount) {
+          toast.error("Cash/Bank Account (1011) not found.");
           return;
       }
 
@@ -578,32 +592,42 @@ export function AccountsPayableDashboard() {
 
       if (accrualSuccess) {
           // Step 2: Trigger the payment dialog for the cash transaction
+          const claim = allStaffClaims.find(c => c.claimId === claimId);
+          if (!claim) return;
+
+          const netPayment = claim.amount - whtAmount;
+          const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
+          const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
+
           setPostingInfo({ 
-              amount: netAmount, 
-              description, 
+              amount: netPayment, 
+              description: paymentDescription, 
               debitAccountId: staffPayableAccount.accountId, // Debit Staff Claim Payable (2050)
-              creditAccountId: '1011', // Credit Cash/Bank
+              creditAccountId: cashAccount.accountId, // Credit Cash/Bank
               claimIdToUpdate: claimId,
               whtAmount: whtAmount,
           });
       }
   };
   
-  const handleLedgerDialogClose = (isOpen: boolean, posted?: boolean) => {
+  const handleLedgerDialogClose = async (isOpen: boolean, posted?: boolean) => {
       if (!isOpen) {
           if (posted && postingInfo) {
-                // Post WHT entry if applicable, after the main payment
-                if (postingInfo.whtAmount && postingInfo.whtAmount > 0) {
-                    const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
-                    if (whtPayableAccount) {
-                        handlePostToLedger(
-                            postingInfo.debitAccountId, // Staff Claim Payable (2050)
-                            whtPayableAccount.accountId, // WHT Payable (2040)
-                            postingInfo.whtAmount,
-                            `WHT for claim ${postingInfo.claimIdToUpdate}`
-                        );
-                    }
-                }
+              // Post WHT entry if applicable, after the main payment
+              if (postingInfo.whtAmount && postingInfo.whtAmount > 0) {
+                  const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+                  const debitAccount = accounts.find(acc => acc.accountId === postingInfo.debitAccountId);
+
+                  if (whtPayableAccount && debitAccount) {
+                      await handlePostToLedger(
+                          debitAccount.accountId, // e.g., Staff Claim Payable (2050) or Trade Payables (2011)
+                          whtPayableAccount.accountId, // WHT Payable (2040)
+                          postingInfo.whtAmount,
+                          `WHT for ${postingInfo.claimIdToUpdate ? 'claim ' + postingInfo.claimIdToUpdate : 'bill ' + postingInfo.billIdToUpdate}`
+                      );
+                  }
+              }
+
               if (postingInfo?.claimIdToUpdate) {
                   setAllStaffClaims(prevClaims => 
                       prevClaims.map(claim => 
@@ -706,4 +730,3 @@ export function AccountsPayableDashboard() {
     </>
   );
 }
-

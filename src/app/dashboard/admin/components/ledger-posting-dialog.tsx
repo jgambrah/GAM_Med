@@ -64,22 +64,15 @@ export function LedgerPostingDialog({
 
     React.useEffect(() => {
         if (open) {
-            let finalCreditAccountId = defaultCredit;
-            // This is the critical fix. If defaultCredit is a code (like '1011'), find the actual ID.
-            const creditAccount = accounts.find(acc => acc.accountId === defaultCredit || acc.accountCode === defaultCredit);
-            if (creditAccount) {
-                finalCreditAccountId = creditAccount.accountId;
-            }
-
             form.reset({
                 debitAccountId: defaultDebit,
-                creditAccountId: finalCreditAccountId,
+                creditAccountId: defaultCredit,
                 amount: amount || 0,
                 description: description || '',
             })
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, amount, description, defaultDebit, defaultCredit, form.reset, accounts]);
+    }, [open, amount, description, defaultDebit, defaultCredit, form.reset]);
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const now = new Date().toISOString();
@@ -109,7 +102,7 @@ export function LedgerPostingDialog({
             }
             if (acc.accountId === creditAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? -transactionAmount : transactionAmount) };
+                 return { ...acc, balance: acc.balance - (isDebitType ? transactionAmount : -transactionAmount) };
             }
             return acc;
         }));
