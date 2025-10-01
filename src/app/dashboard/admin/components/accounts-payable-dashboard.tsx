@@ -528,8 +528,8 @@ export function AccountsPayableDashboard() {
                     return { ...acc, balance: acc.balance + (isDebitType ? amount : -amount) };
                 }
                 if (acc.accountId === creditAccountId) {
-                    const isCreditType = ['Liability', 'Equity', 'Revenue'].includes(acc.accountType);
-                    return { ...acc, balance: acc.balance + (isCreditType ? amount : -amount) };
+                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                    return { ...acc, balance: acc.balance + (isDebitType ? -amount : amount) };
                 }
                 return acc;
             }));
@@ -608,46 +608,48 @@ export function AccountsPayableDashboard() {
   };
   
   const handleLedgerDialogClose = async (posted?: boolean) => {
-      if (posted && postingInfo) {
-          // Post WHT entry if applicable, after the main payment
-          if (postingInfo.whtAmount && postingInfo.whtAmount > 0) {
-              const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
-              const debitAccount = accounts.find(acc => acc.accountId === postingInfo.debitAccountId);
-
-              if (whtPayableAccount && debitAccount) {
-                  // This is the crucial third entry for WHT
-                  await handlePostToLedger(
-                      debitAccount.accountId, // Debit: Staff Claim Payable (2050) or Trade Payables (2011)
-                      whtPayableAccount.accountId, // Credit: WHT Payable (2040)
-                      postingInfo.whtAmount,
-                      `Withholding Tax for ${postingInfo.claimIdToUpdate ? 'claim ' + postingInfo.claimIdToUpdate : 'bill ' + postingInfo.billIdToUpdate}`
-                  );
-              }
-          }
-
-          if (postingInfo?.claimIdToUpdate) {
-              setAllStaffClaims(prevClaims => 
-                  prevClaims.map(claim => 
-                      claim.claimId === postingInfo.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
-                  )
-              );
-              toast.success("Claim Paid", {
-                  description: `Payment for claim ${postingInfo.claimIdToUpdate} has been successfully logged.`
-              });
-          }
-           if (postingInfo?.billIdToUpdate) {
-              setBills(prevBills => 
-                  prevBills.map(bill => 
-                      bill.billId === postingInfo.billIdToUpdate ? { ...bill, status: 'Paid' } : bill
-                  )
-              );
-              toast.success("Bill Paid", {
-                  description: `Payment for bill ${postingInfo.billIdToUpdate} has been successfully logged.`
-              });
-          }
+    if (posted && postingInfo) {
+      const info = { ...postingInfo }; // Create a stable copy
+      
+      // Update claim/bill status immediately after main payment posting
+      if (info.claimIdToUpdate) {
+        setAllStaffClaims(prevClaims =>
+          prevClaims.map(claim =>
+            claim.claimId === info.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
+          )
+        );
+        toast.success("Claim Paid", {
+          description: `Payment for claim ${info.claimIdToUpdate} has been successfully logged.`,
+        });
       }
-      setPostingInfo(null);
-  }
+      if (info.billIdToUpdate) {
+        setBills(prevBills =>
+          prevBills.map(bill =>
+            bill.billId === info.billIdToUpdate ? { ...bill, status: 'Paid' } : bill
+          )
+        );
+        toast.success("Bill Paid", {
+          description: `Payment for bill ${info.billIdToUpdate} has been successfully logged.`,
+        });
+      }
+
+      // Post WHT entry if applicable
+      if (info.whtAmount && info.whtAmount > 0) {
+        const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+        const debitAccountForWHT = accounts.find(acc => acc.accountId === info.debitAccountId);
+
+        if (whtPayableAccount && debitAccountForWHT) {
+          await handlePostToLedger(
+            debitAccountForWHT.accountId,
+            whtPayableAccount.accountId,
+            info.whtAmount,
+            `Withholding Tax for ${info.claimIdToUpdate ? 'claim ' + info.claimIdToUpdate : 'bill ' + info.billIdToUpdate}`
+          );
+        }
+      }
+    }
+    setPostingInfo(null);
+  };
 
 
   return (
@@ -721,7 +723,7 @@ export function AccountsPayableDashboard() {
                     handleLedgerDialogClose(posted);
                 }
             }}
-            onPost={handlePostToLedger}
+            onPost={() => handlePostToLedger(postingInfo.debitAccountId, postingInfo.creditAccountId, postingInfo.amount, postingInfo.description)}
             amount={postingInfo.amount}
             description={postingInfo.description}
             defaultDebit={postingInfo.debitAccountId}

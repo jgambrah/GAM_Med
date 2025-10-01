@@ -27,7 +27,7 @@ import { Combobox } from '@/components/ui/combobox';
 interface LedgerPostingDialogProps {
     isOpen?: boolean;
     onOpenChange: (isOpen: boolean, posted?: boolean) => void;
-    onPost: (values: z.infer<typeof NewLedgerEntrySchema>) => Promise<void>;
+    onPost: () => Promise<void>; // Simplified onPost prop
     amount?: number;
     description?: string;
     defaultDebit?: string;
@@ -38,7 +38,7 @@ interface LedgerPostingDialogProps {
 export function LedgerPostingDialog({ 
     isOpen, 
     onOpenChange, 
-    onPost,
+    onPost, // Use the simplified onPost
     amount, 
     description, 
     defaultDebit = '', 
@@ -58,8 +58,9 @@ export function LedgerPostingDialog({
     };
     const isManualEntry = trigger !== undefined;
 
-    const form = useForm<z.infer<typeof NewLedgerEntrySchema>>({
-        resolver: zodResolver(NewLedgerEntrySchema),
+    // The form is now simpler and doesn't directly map to the schema,
+    // as the posting logic is handled by the parent.
+    const form = useForm({
         defaultValues: {
             debitAccountId: '',
             creditAccountId: '',
@@ -80,8 +81,8 @@ export function LedgerPostingDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, amount, description, defaultDebit, defaultCredit, form.reset]);
     
-    const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
-        await onPost(values);
+    const onSubmit = async () => {
+        await onPost();
         setOpen(false, true); // Indicate that posting was successful
     }
 
@@ -180,7 +181,7 @@ export function LedgerPostingDialog({
 
     if (trigger) {
         return (
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={(newOpen) => setOpen(newOpen, false)}>
                 <DialogTrigger asChild>
                     {trigger}
                 </DialogTrigger>
@@ -190,7 +191,7 @@ export function LedgerPostingDialog({
     }
     
     return (
-        <Dialog open={open} onOpenChange={(newOpen) => setOpen(newOpen)}>
+        <Dialog open={open} onOpenChange={(newOpen) => setOpen(newOpen, false)}>
             {dialogContent}
         </Dialog>
     )
