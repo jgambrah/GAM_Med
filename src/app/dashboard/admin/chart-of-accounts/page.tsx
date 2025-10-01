@@ -82,6 +82,12 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
       return;
     }
     
+    const hasTransactions = entries.some(entry => entry.accountId === account.accountId);
+    if (hasTransactions) {
+        toast.error('Cannot delete an account with existing transactions.');
+        return;
+    }
+
     // Check if it has children
     const hasChildren = accounts.some(child => child.parentAccountId === account.accountId);
     if (hasChildren) {
