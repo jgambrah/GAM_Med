@@ -26,7 +26,7 @@ import { Combobox } from '@/components/ui/combobox';
 
 interface LedgerPostingDialogProps {
     isOpen?: boolean;
-    onOpenChange: (isOpen: boolean) => void;
+    onOpenChange: (isOpen: boolean, posted?: boolean) => void;
     onPost: (values: z.infer<typeof NewLedgerEntrySchema>) => Promise<void>;
     amount?: number;
     description?: string;
@@ -49,7 +49,13 @@ export function LedgerPostingDialog({
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
 
     const open = isOpen !== undefined ? isOpen : internalOpen;
-    const setOpen = onOpenChange || setInternalOpen;
+    const setOpen = (newOpenState: boolean, posted = false) => {
+        if (onOpenChange) {
+            onOpenChange(newOpenState, posted);
+        } else {
+            setInternalOpen(newOpenState);
+        }
+    };
     const isManualEntry = trigger !== undefined;
 
     const form = useForm<z.infer<typeof NewLedgerEntrySchema>>({
@@ -76,7 +82,7 @@ export function LedgerPostingDialog({
     
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         await onPost(values);
-        setOpen(false);
+        setOpen(false, true); // Indicate that posting was successful
     }
 
 
@@ -184,7 +190,7 @@ export function LedgerPostingDialog({
     }
     
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(newOpen) => setOpen(newOpen)}>
             {dialogContent}
         </Dialog>
     )

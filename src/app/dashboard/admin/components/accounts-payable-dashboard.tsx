@@ -718,12 +718,9 @@ export function AccountsPayableDashboard() {
     {postingInfo && (
         <LedgerPostingDialog 
             isOpen={!!postingInfo}
-            onOpenChange={(isOpen) => handleLedgerDialogClose(!isOpen)}
+            onOpenChange={(isOpen, posted) => handleLedgerDialogClose(isOpen, posted)}
             onPost={async (values) => {
-                const success = await handlePostToLedger(values.debitAccountId, values.creditAccountId, values.amount, values.description);
-                if (success) {
-                    handleLedgerDialogClose(true);
-                }
+                await handlePostToLedger(values.debitAccountId, values.creditAccountId, values.amount, values.description);
             }}
             amount={postingInfo.amount}
             description={postingInfo.description}
