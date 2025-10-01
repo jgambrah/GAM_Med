@@ -61,7 +61,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
     const [vatOption, setVatOption] = React.useState('zero');
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState('');
-    const [payableAccountId, setPayableAccountId] = React.useState(''); // Default to Trade Payables
+    const [payableAccountId, setPayableAccountId] = React.useState(''); 
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
     const apSubAccounts = accounts.filter(acc => acc.accountCode.startsWith('20'));
@@ -239,7 +239,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handlePayBill} disabled={isSubmitting || !expenseAccountId}>
+                    <Button onClick={handlePayBill} disabled={isSubmitting || !expenseAccountId || !payableAccountId}>
                         {isSubmitting ? 'Processing...' : 'Confirm & Post to Ledger'}
                     </Button>
                 </DialogFooter>
@@ -258,7 +258,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
     
     // Hardcode payable account for staff claims to 2050
-    const payableAccountId = '2050'; 
+    const payableAccountId = accounts.find(acc => acc.accountCode === '2050')?.accountId || ''; 
 
     const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
     
@@ -578,17 +578,19 @@ export function AccountsPayableDashboard() {
   };
 
   const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
-    if (whtAmount > 0) {
+    const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+    if (whtAmount > 0 && whtPayableAccount) {
         // Debit AP sub-account, Credit WHT Payable (2040)
-        handlePostToLedger(payableAccountId, '2040', whtAmount, `WHT for Bill ${billId}`);
+        handlePostToLedger(payableAccountId, whtPayableAccount.accountId, whtAmount, `WHT for Bill ${billId}`);
     }
     setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: payableAccountId, creditAccountId: '1011' }); // Debit AP, Credit Cash
   };
   
   const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
-      if (whtAmount > 0) {
+      const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+      if (whtAmount > 0 && whtPayableAccount) {
         // Debit Staff Claim Payable, Credit WHT Payable (2040)
-        handlePostToLedger(payableAccountId, '2040', whtAmount, `WHT for Claim ${claimId}`);
+        handlePostToLedger(payableAccountId, whtPayableAccount.accountId, whtAmount, `WHT for Claim ${claimId}`);
       }
       setPostingInfo({ 
           amount: netAmount, 
