@@ -555,7 +555,6 @@ export function AccountsPayableDashboard() {
         return;
     }
     
-    // Find the actual Cash/Bank account ID
     const cashAccount = accounts.find(acc => acc.accountCode === '1010');
     if (!cashAccount) {
         toast.error("Cash and Bank Account (1010) not found.");
@@ -587,11 +586,9 @@ export function AccountsPayableDashboard() {
           return;
       }
 
-      // Step 1: Post the accrual
       const accrualSuccess = await handlePostToLedger(expenseAccountId, staffPayableAccount.accountId, subtotal, `Accrue expense for Staff Claim: ${claimId}`);
 
       if (accrualSuccess) {
-          // Step 2: Trigger the payment dialog for the cash transaction
           const claim = allStaffClaims.find(c => c.claimId === claimId);
           if (!claim) return;
 
@@ -602,8 +599,8 @@ export function AccountsPayableDashboard() {
           setPostingInfo({ 
               amount: netPayment, 
               description: paymentDescription, 
-              debitAccountId: staffPayableAccount.accountId, // Debit Staff Claim Payable (2050)
-              creditAccountId: cashAccount.accountId, // Credit Cash/Bank
+              debitAccountId: staffPayableAccount.accountId,
+              creditAccountId: cashAccount.accountId,
               claimIdToUpdate: claimId,
               whtAmount: whtAmount,
           });
@@ -618,11 +615,12 @@ export function AccountsPayableDashboard() {
               const debitAccount = accounts.find(acc => acc.accountId === postingInfo.debitAccountId);
 
               if (whtPayableAccount && debitAccount) {
+                  // This is the crucial third entry for WHT
                   await handlePostToLedger(
-                      debitAccount.accountId, // e.g., Staff Claim Payable (2050) or Trade Payables (2011)
-                      whtPayableAccount.accountId, // WHT Payable (2040)
+                      debitAccount.accountId, // Debit: Staff Claim Payable (2050) or Trade Payables (2011)
+                      whtPayableAccount.accountId, // Credit: WHT Payable (2040)
                       postingInfo.whtAmount,
-                      `WHT for ${postingInfo.claimIdToUpdate ? 'claim ' + postingInfo.claimIdToUpdate : 'bill ' + postingInfo.billIdToUpdate}`
+                      `Withholding Tax for ${postingInfo.claimIdToUpdate ? 'claim ' + postingInfo.claimIdToUpdate : 'bill ' + postingInfo.billIdToUpdate}`
                   );
               }
           }
@@ -716,12 +714,14 @@ export function AccountsPayableDashboard() {
         </Card>
     </div>
     {postingInfo && (
-        <LedgerPostingDialog 
+        <LedgerPostingDialog
             isOpen={!!postingInfo}
-            onOpenChange={(isOpen, posted) => handleLedgerDialogClose(isOpen, posted)}
-            onPost={async (values) => {
-                await handlePostToLedger(values.debitAccountId, values.creditAccountId, values.amount, values.description);
+            onOpenChange={(isOpen, posted) => {
+                if (!isOpen) {
+                    handleLedgerDialogClose(posted);
+                }
             }}
+            onPost={handlePostToLedger}
             amount={postingInfo.amount}
             description={postingInfo.description}
             defaultDebit={postingInfo.debitAccountId}
