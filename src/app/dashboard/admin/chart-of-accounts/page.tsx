@@ -133,7 +133,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
               </TableHeader>
               <TableBody>
                 {organizedAccounts.map((account) => (
-                    <React.Fragment key={account.accountId}>
+                    <React.Fragment key={`${account.accountId}-parent`}>
                         <TableRow className="bg-muted/50 font-semibold">
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
@@ -143,7 +143,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                                 <Badge variant="secondary">Control Account</Badge>
                             </TableCell>
                             <TableCell>{account.accountType}</TableCell>
-                            <TableCell className="text-right font-mono">{account.balance.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono">{typeof account.balance === 'number' ? account.balance.toFixed(2) : '0.00'}</TableCell>
                             <TableCell className="text-right space-x-2">
                                 <CreateLedgerAccountDialog 
                                     onAccountCreated={handleAccountCreated} 
@@ -168,7 +168,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
                                     </Link>
                                 </TableCell>
                                 <TableCell>{child.accountType}</TableCell>
-                                <TableCell className="text-right font-mono">{child.balance.toFixed(2)}</TableCell>
+                                <TableCell className="text-right font-mono">{typeof child.balance === 'number' ? child.balance.toFixed(2) : '0.00'}</TableCell>
                                  <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAttemptDelete(child)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
