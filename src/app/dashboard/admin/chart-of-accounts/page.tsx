@@ -77,7 +77,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
   
   const handleAttemptDelete = (account: LedgerAccount) => {
     // Safety checks
-    if (account.balance !== 0) {
+    if (Math.abs(account.balance) > 0.001) { // Use a tolerance for floating point issues
       toast.error('Cannot delete account with a non-zero balance.');
       return;
     }
@@ -133,7 +133,7 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
               </TableHeader>
               <TableBody>
                 {organizedAccounts.map((account) => (
-                    <React.Fragment key={`${account.accountId}-parent`}>
+                    <React.Fragment key={`${account.accountId}-fragment`}>
                         <TableRow className="bg-muted/50 font-semibold">
                             <TableCell>{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
