@@ -552,7 +552,7 @@ export function AccountsPayableDashboard() {
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
-  const handlePostToLedger = async (debitAccountId: string, creditAccountId: string, amount: number, description: string): Promise<boolean> => {
+  const handlePostToLedger = React.useCallback(async (debitAccountId: string, creditAccountId: string, amount: number, description: string): Promise<boolean> => {
     // This simulates the postToLedger server action client-side
     try {
         const now = new Date().toISOString();
@@ -581,7 +581,7 @@ export function AccountsPayableDashboard() {
             }
             if (acc.accountId === creditAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance - (isDebitType ? amount : -amount) };
+                 return { ...acc, balance: acc.balance + (isDebitType ? -amount : amount) };
             }
             return acc;
         }));
@@ -590,12 +590,11 @@ export function AccountsPayableDashboard() {
         console.error(e);
         return false;
     }
-  };
+  }, [setAccounts, setEntries]);
 
   const handleBillPaymentLogged = (billId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
     const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
     if (whtAmount > 0 && whtPayableAccount) {
-        // Debit AP sub-account, Credit WHT Payable (2040)
         handlePostToLedger(payableAccountId, whtPayableAccount.accountId, whtAmount, `WHT for Bill ${billId}`);
     }
     setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: payableAccountId, creditAccountId: '1011' }); // Debit AP, Credit Cash
