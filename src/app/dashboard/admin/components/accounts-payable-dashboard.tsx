@@ -610,47 +610,45 @@ export function AccountsPayableDashboard() {
       }
   };
   
-  const handleLedgerDialogClose = async (isOpen: boolean, posted?: boolean) => {
-      if (!isOpen) {
-          if (posted && postingInfo) {
-              // Post WHT entry if applicable, after the main payment
-              if (postingInfo.whtAmount && postingInfo.whtAmount > 0) {
-                  const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
-                  const debitAccount = accounts.find(acc => acc.accountId === postingInfo.debitAccountId);
+  const handleLedgerDialogClose = async (posted?: boolean) => {
+      if (posted && postingInfo) {
+          // Post WHT entry if applicable, after the main payment
+          if (postingInfo.whtAmount && postingInfo.whtAmount > 0) {
+              const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+              const debitAccount = accounts.find(acc => acc.accountId === postingInfo.debitAccountId);
 
-                  if (whtPayableAccount && debitAccount) {
-                      await handlePostToLedger(
-                          debitAccount.accountId, // e.g., Staff Claim Payable (2050) or Trade Payables (2011)
-                          whtPayableAccount.accountId, // WHT Payable (2040)
-                          postingInfo.whtAmount,
-                          `WHT for ${postingInfo.claimIdToUpdate ? 'claim ' + postingInfo.claimIdToUpdate : 'bill ' + postingInfo.billIdToUpdate}`
-                      );
-                  }
-              }
-
-              if (postingInfo?.claimIdToUpdate) {
-                  setAllStaffClaims(prevClaims => 
-                      prevClaims.map(claim => 
-                          claim.claimId === postingInfo.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
-                      )
+              if (whtPayableAccount && debitAccount) {
+                  await handlePostToLedger(
+                      debitAccount.accountId, // e.g., Staff Claim Payable (2050) or Trade Payables (2011)
+                      whtPayableAccount.accountId, // WHT Payable (2040)
+                      postingInfo.whtAmount,
+                      `WHT for ${postingInfo.claimIdToUpdate ? 'claim ' + postingInfo.claimIdToUpdate : 'bill ' + postingInfo.billIdToUpdate}`
                   );
-                  toast.success("Claim Paid", {
-                      description: `Payment for claim ${postingInfo.claimIdToUpdate} has been successfully logged.`
-                  });
-              }
-               if (postingInfo?.billIdToUpdate) {
-                  setBills(prevBills => 
-                      prevBills.map(bill => 
-                          bill.billId === postingInfo.billIdToUpdate ? { ...bill, status: 'Paid' } : bill
-                      )
-                  );
-                  toast.success("Bill Paid", {
-                      description: `Payment for bill ${postingInfo.billIdToUpdate} has been successfully logged.`
-                  });
               }
           }
-          setPostingInfo(null);
+
+          if (postingInfo?.claimIdToUpdate) {
+              setAllStaffClaims(prevClaims => 
+                  prevClaims.map(claim => 
+                      claim.claimId === postingInfo.claimIdToUpdate ? { ...claim, paymentStatus: 'Paid' } : claim
+                  )
+              );
+              toast.success("Claim Paid", {
+                  description: `Payment for claim ${postingInfo.claimIdToUpdate} has been successfully logged.`
+              });
+          }
+           if (postingInfo?.billIdToUpdate) {
+              setBills(prevBills => 
+                  prevBills.map(bill => 
+                      bill.billId === postingInfo.billIdToUpdate ? { ...bill, status: 'Paid' } : bill
+                  )
+              );
+              toast.success("Bill Paid", {
+                  description: `Payment for bill ${postingInfo.billIdToUpdate} has been successfully logged.`
+              });
+          }
       }
+      setPostingInfo(null);
   }
 
 
@@ -720,7 +718,13 @@ export function AccountsPayableDashboard() {
     {postingInfo && (
         <LedgerPostingDialog 
             isOpen={!!postingInfo}
-            onOpenChange={handleLedgerDialogClose}
+            onOpenChange={(isOpen) => handleLedgerDialogClose(!isOpen)}
+            onPost={async (values) => {
+                const success = await handlePostToLedger(values.debitAccountId, values.creditAccountId, values.amount, values.description);
+                if (success) {
+                    handleLedgerDialogClose(true);
+                }
+            }}
             amount={postingInfo.amount}
             description={postingInfo.description}
             defaultDebit={postingInfo.debitAccountId}

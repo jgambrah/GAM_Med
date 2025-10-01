@@ -19,16 +19,15 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { NewLedgerEntrySchema } from '@/lib/schemas';
-import { toast } from '@/hooks/use-toast';
-import { mockLedgerAccounts as initialAccounts, mockLedgerEntries as initialEntries } from '@/lib/data';
+import { mockLedgerAccounts as initialAccounts } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { LedgerAccount, LedgerEntry } from '@/lib/types';
+import { LedgerAccount } from '@/lib/types';
 import { Combobox } from '@/components/ui/combobox';
-import { Plus } from 'lucide-react';
 
 interface LedgerPostingDialogProps {
     isOpen?: boolean;
-    onOpenChange: (isOpen: boolean, posted?: boolean) => void;
+    onOpenChange: (isOpen: boolean) => void;
+    onPost: (values: z.infer<typeof NewLedgerEntrySchema>) => Promise<void>;
     amount?: number;
     description?: string;
     defaultDebit?: string;
@@ -39,6 +38,7 @@ interface LedgerPostingDialogProps {
 export function LedgerPostingDialog({ 
     isOpen, 
     onOpenChange, 
+    onPost,
     amount, 
     description, 
     defaultDebit = '', 
@@ -46,8 +46,7 @@ export function LedgerPostingDialog({
     trigger 
 }: LedgerPostingDialogProps) {
     const [internalOpen, setInternalOpen] = React.useState(false);
-    const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
-    const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', initialEntries);
+    const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
 
     const open = isOpen !== undefined ? isOpen : internalOpen;
     const setOpen = onOpenChange || setInternalOpen;
@@ -65,56 +64,21 @@ export function LedgerPostingDialog({
 
     React.useEffect(() => {
         if (open) {
-            const creditAccountId = accounts.find(acc => acc.accountCode === defaultCredit)?.accountId || defaultCredit;
-            
             form.reset({
                 debitAccountId: defaultDebit,
-                creditAccountId: creditAccountId,
+                creditAccountId: defaultCredit,
                 amount: amount || 0,
                 description: description || '',
             })
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, amount, description, defaultDebit, defaultCredit, form.reset, accounts]);
-
+    }, [open, amount, description, defaultDebit, defaultCredit, form.reset]);
+    
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
-        const now = new Date().toISOString();
-        const { debitAccountId, creditAccountId, amount: transactionAmount, description: transactionDescription } = values;
-
-        const newDebitEntry: LedgerEntry = {
-            entryId: `entry-${Date.now()}-dr`,
-            accountId: debitAccountId,
-            date: now,
-            description: transactionDescription,
-            debit: transactionAmount
-        };
-        const newCreditEntry: LedgerEntry = {
-            entryId: `entry-${Date.now()}-cr`,
-            accountId: creditAccountId,
-            date: now,
-            description: transactionDescription,
-            credit: transactionAmount
-        };
-        
-        setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
-
-        setAccounts(prev => prev.map(acc => {
-            if (acc.accountId === debitAccountId) {
-                 const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? transactionAmount : -transactionAmount) };
-            }
-            if (acc.accountId === creditAccountId) {
-                 const isCreditType = ['Liability', 'Equity', 'Revenue'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isCreditType ? transactionAmount : -transactionAmount) };
-            }
-            return acc;
-        }));
-
-        toast.success('Transaction Posted', {
-            description: 'The transaction has been successfully posted to the ledger.',
-        });
-        setOpen(false, true);
+        await onPost(values);
+        setOpen(false);
     }
+
 
     const accountOptions = accounts.map(acc => ({
         label: `${acc.accountName} (${acc.accountCode})`,
@@ -198,7 +162,7 @@ export function LedgerPostingDialog({
                     />
 
                      <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false, false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={form.formState.isSubmitting}>
                             {form.formState.isSubmitting ? 'Posting...' : 'Post Transaction'}
                         </Button>
@@ -210,7 +174,7 @@ export function LedgerPostingDialog({
 
     if (trigger) {
         return (
-            <Dialog open={open} onOpenChange={(val) => setOpen(val, false)}>
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                     {trigger}
                 </DialogTrigger>
@@ -220,7 +184,7 @@ export function LedgerPostingDialog({
     }
     
     return (
-        <Dialog open={open} onOpenChange={(val) => setOpen(val, false)}>
+        <Dialog open={open} onOpenChange={setOpen}>
             {dialogContent}
         </Dialog>
     )
