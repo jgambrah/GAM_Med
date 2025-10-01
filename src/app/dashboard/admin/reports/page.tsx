@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,9 +14,11 @@ import { CashFlowStatement } from './components/cash-flow-statement';
 import { TrialBalance } from './components/trial-balance';
 import ChartOfAccountsPage from '../../admin/chart-of-accounts/page';
 import { LedgerDetailTable } from './components/ledger-detail-table';
+import { LedgerPostingDialog } from '../components/ledger-posting-dialog';
 
 export default function FinancialReportsPage() {
   const [endDate, setEndDate] = React.useState('');
+  const [isJournalOpen, setIsJournalOpen] = React.useState(false);
 
   React.useEffect(() => {
     // Set initial date only on the client side to avoid hydration mismatch
@@ -29,6 +30,7 @@ export default function FinancialReportsPage() {
   }
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
@@ -48,10 +50,16 @@ export default function FinancialReportsPage() {
               className="w-full sm:w-[180px]"
             />
           </div>
-          <Button variant="outline" className="self-end">
-            <Download className="h-4 w-4 mr-2" />
-            Export All (PDF)
-          </Button>
+           <LedgerPostingDialog
+              isOpen={isJournalOpen}
+              onOpenChange={setIsJournalOpen}
+              trigger={
+                 <Button variant="outline" className="self-end">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Journal Entry
+                </Button>
+              }
+           />
         </div>
       </div>
       <Tabs defaultValue="income-statement">
@@ -111,5 +119,6 @@ export default function FinancialReportsPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </>
   );
 }
