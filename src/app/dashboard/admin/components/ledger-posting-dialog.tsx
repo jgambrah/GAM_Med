@@ -64,19 +64,15 @@ export function LedgerPostingDialog({
 
     React.useEffect(() => {
         if (open) {
-            // Find the full accountId from the accountCode if that's what's passed
-            const debitAccount = accounts.find(acc => acc.accountId === defaultDebit || acc.accountCode === defaultDebit)?.accountId;
-            const creditAccount = accounts.find(acc => acc.accountId === defaultCredit || acc.accountCode === defaultCredit)?.accountId;
-            
             form.reset({
-                debitAccountId: debitAccount || '',
-                creditAccountId: creditAccount || '',
+                debitAccountId: defaultDebit,
+                creditAccountId: defaultCredit,
                 amount: amount || 0,
                 description: description || '',
             })
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, amount, description, defaultDebit, defaultCredit, form.reset, accounts])
+    }, [open, amount, description, defaultDebit, defaultCredit, form.reset])
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const now = new Date().toISOString();
