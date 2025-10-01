@@ -139,7 +139,7 @@ export function LedgerDetailTable() {
             <CardHeader>
             <CardTitle>Transaction History: {account?.accountName || 'No Account Selected'}</CardTitle>
             <CardDescription>
-                A log of all debits and credits for this account. Current balance: <strong>₵{account?.balance.toFixed(2)}</strong>
+                A log of all debits and credits for this account. Current balance: <strong>₵{account ? account.balance.toFixed(2) : '0.00'}</strong>
             </CardDescription>
             </CardHeader>
             <CardContent>
@@ -185,4 +185,3 @@ export function LedgerDetailTable() {
     </div>
   );
 }
-
