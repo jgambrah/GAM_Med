@@ -556,9 +556,9 @@ export function AccountsPayableDashboard() {
     }
     
     // Find the actual Cash/Bank account ID
-    const cashAccount = accounts.find(acc => acc.accountCode === '1011');
+    const cashAccount = accounts.find(acc => acc.accountCode === '1010');
     if (!cashAccount) {
-        toast.error("Cash/Bank Account (1011) not found.");
+        toast.error("Cash and Bank Account (1010) not found.");
         return;
     }
     
@@ -581,9 +581,9 @@ export function AccountsPayableDashboard() {
           return;
       }
       
-      const cashAccount = accounts.find(acc => acc.accountCode === '1011');
+      const cashAccount = accounts.find(acc => acc.accountCode === '1010');
       if (!cashAccount) {
-          toast.error("Cash/Bank Account (1011) not found.");
+          toast.error("Cash and Bank Account (1010) not found.");
           return;
       }
 
