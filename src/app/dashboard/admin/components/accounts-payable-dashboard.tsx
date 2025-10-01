@@ -279,18 +279,23 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
 
 
     const handlePayClaim = async () => {
+        if (!expenseAccountId) {
+            toast.error("Please select an expense account.");
+            return;
+        }
         setIsSubmitting(true);
         
+        // Step 1: Accrue the expense (Debit Expense, Credit Staff Payable)
         const accrualDescription = `Accrue expense for Staff Claim: ${claim.description}`;
         const accrualResult = await onPostToLedger(expenseAccountId, payableAccountId, subtotal, accrualDescription);
 
         if (accrualResult) {
             toast.success("Expense Accrued", { description: `Claim ${claim.claimId} posted to ledger.` });
             
-            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} to 2040 deducted)` : '';
+            const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} deducted)` : '';
             const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
             
-            // If there's WHT, post that transaction first
+            // Step 2: If there's WHT, post that transaction (Debit Staff Payable, Credit WHT Payable)
             if (whtAmount > 0) {
                 const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
                 if (whtPayableAccount) {
@@ -298,7 +303,8 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
                 }
             }
             
-            // Now trigger the final payment posting flow
+            // Step 3: Trigger the final payment posting flow (Debit Staff Payable, Credit Cash)
+            // This will open the ledger posting dialog for the final step.
             onPaymentLogged(claim.claimId, netPayment, paymentDescription, payableAccountId);
             
             setOpen(false);
@@ -429,7 +435,7 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handlePayClaim} disabled={isSubmitting}>
+                    <Button onClick={handlePayClaim} disabled={isSubmitting || !expenseAccountId}>
                         {isSubmitting ? 'Posting...' : 'Confirm & Post to Ledger'}
                     </Button>
                 </DialogFooter>
