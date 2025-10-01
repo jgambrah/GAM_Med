@@ -233,7 +233,7 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
     )
 }
 
-function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, onClaimAccrued: (claimId: string, netAmount: number, description: string, subtotal: number, expenseAccountId: string) => void }) {
+function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, onClaimAccrued: (claimId: string, netAmount: number, description: string, subtotal: number, expenseAccountId: string, whtAmount: number) => void }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -270,7 +270,7 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
         const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} to 2040 deducted)` : '';
         const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
         
-        onClaimAccrued(claim.claimId, netPayment, paymentDescription, subtotal, expenseAccountId);
+        onClaimAccrued(claim.claimId, netPayment, paymentDescription, subtotal, expenseAccountId, whtAmount);
         
         setIsSubmitting(false);
         setOpen(false);
@@ -449,7 +449,7 @@ function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued
     );
 }
 
-function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims }: { onClaimAccrued: (claimId: string, amount: number, description: string, subtotal: number, expenseAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>> }) {
+function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims }: { onClaimAccrued: (claimId: string, amount: number, description: string, subtotal: number, expenseAccountId: string, whtAmount: number) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -499,7 +499,7 @@ function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims }: { onClaimAc
 
 
 export function AccountsPayableDashboard() {
-  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string, billIdToUpdate?: string } | null>(null);
+  const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; debitAccountId: string, creditAccountId: string, claimIdToUpdate?: string, billIdToUpdate?: string, whtAmount?: number } | null>(null);
   const [bills, setBills] = useLocalStorage<Bill[]>('bills', initialBills);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', initialClaims);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
@@ -515,6 +515,10 @@ export function AccountsPayableDashboard() {
 
   const handlePostToLedger = React.useCallback((debitAccountId: string, creditAccountId: string, amount: number, description: string): Promise<boolean> => {
     return new Promise((resolve) => {
+        if (amount === 0) {
+            resolve(true); // Don't post zero-amount transactions
+            return;
+        }
         try {
             const now = new Date().toISOString();
 
@@ -562,7 +566,7 @@ export function AccountsPayableDashboard() {
     }
   };
   
-  const handleClaimAccrued = async (claimId: string, netAmount: number, description: string, subtotal: number, expenseAccountId: string) => {
+  const handleClaimAccrued = async (claimId: string, netAmount: number, description: string, subtotal: number, expenseAccountId: string, whtAmount: number) => {
       const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
       if (!staffPayableAccount) {
           toast.error("Staff Payable Account (2050) not found.");
@@ -580,13 +584,26 @@ export function AccountsPayableDashboard() {
               debitAccountId: staffPayableAccount.accountId, // Debit Staff Claim Payable (2050)
               creditAccountId: '1011', // Credit Cash/Bank
               claimIdToUpdate: claimId,
+              whtAmount: whtAmount,
           });
       }
   };
   
   const handleLedgerDialogClose = (isOpen: boolean, posted?: boolean) => {
       if (!isOpen) {
-          if (posted) {
+          if (posted && postingInfo) {
+                // Post WHT entry if applicable, after the main payment
+                if (postingInfo.whtAmount && postingInfo.whtAmount > 0) {
+                    const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+                    if (whtPayableAccount) {
+                        handlePostToLedger(
+                            postingInfo.debitAccountId, // Staff Claim Payable (2050)
+                            whtPayableAccount.accountId, // WHT Payable (2040)
+                            postingInfo.whtAmount,
+                            `WHT for claim ${postingInfo.claimIdToUpdate}`
+                        );
+                    }
+                }
               if (postingInfo?.claimIdToUpdate) {
                   setAllStaffClaims(prevClaims => 
                       prevClaims.map(claim => 
@@ -689,3 +706,4 @@ export function AccountsPayableDashboard() {
     </>
   );
 }
+
