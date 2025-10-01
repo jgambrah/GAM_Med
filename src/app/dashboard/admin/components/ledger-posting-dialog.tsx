@@ -55,24 +55,31 @@ export function LedgerPostingDialog({
     const form = useForm<z.infer<typeof NewLedgerEntrySchema>>({
         resolver: zodResolver(NewLedgerEntrySchema),
         defaultValues: {
-            debitAccountId: defaultDebit,
-            creditAccountId: defaultCredit,
-            amount: amount || 0,
-            description: description || '',
+            debitAccountId: '',
+            creditAccountId: '',
+            amount: 0,
+            description: '',
         }
     });
 
     React.useEffect(() => {
         if (open) {
+            let finalCreditAccountId = defaultCredit;
+            // This is the critical fix. If defaultCredit is a code (like '1011'), find the actual ID.
+            const creditAccount = accounts.find(acc => acc.accountId === defaultCredit || acc.accountCode === defaultCredit);
+            if (creditAccount) {
+                finalCreditAccountId = creditAccount.accountId;
+            }
+
             form.reset({
                 debitAccountId: defaultDebit,
-                creditAccountId: defaultCredit,
+                creditAccountId: finalCreditAccountId,
                 amount: amount || 0,
                 description: description || '',
             })
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, amount, description, defaultDebit, defaultCredit, form.reset])
+    }, [open, amount, description, defaultDebit, defaultCredit, form.reset, accounts]);
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const now = new Date().toISOString();
