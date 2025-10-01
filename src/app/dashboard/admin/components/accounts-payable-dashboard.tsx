@@ -248,7 +248,7 @@ function PayBillDialog({ bill, onPaymentLogged, onPostToLedger }: { bill: Bill, 
     )
 }
 
-function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, payableAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: StaffExpenseClaim, onPaymentLogged: (claimId: string, netAmount: number, description: string, payableAccountId: string) => void, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -290,7 +290,16 @@ function PayClaimDialog({ claim, onPaymentLogged, onPostToLedger }: { claim: Sta
             const taxDescription = whtAmount > 0 ? ` (WHT of ₵${whtAmount.toFixed(2)} to 2040 deducted)` : '';
             const paymentDescription = `Staff Claim Payment: ${claim.description} for ${claim.staffName}${taxDescription}`;
             
-            onPaymentLogged(claim.claimId, netPayment, whtAmount, paymentDescription, payableAccountId);
+            // If there's WHT, post that transaction first
+            if (whtAmount > 0) {
+                const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+                if (whtPayableAccount) {
+                    await onPostToLedger(payableAccountId, whtPayableAccount.accountId, whtAmount, `WHT for Claim ${claim.claimId}`);
+                }
+            }
+            
+            // Now trigger the final payment posting flow
+            onPaymentLogged(claim.claimId, netPayment, paymentDescription, payableAccountId);
             
             setOpen(false);
         } else {
@@ -473,7 +482,7 @@ function VendorBillsTab({ bills, onPaymentLogged, onPostToLedger }: { bills: Bil
     );
 }
 
-function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, whtAmount: number, description: string, payableAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
+function StaffClaimsTab({ onPaymentLogged, allClaims, setAllClaims, onPostToLedger }: { onPaymentLogged: (claimId: string, amount: number, description: string, payableAccountId: string) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, onPostToLedger: (debitAccountId: string, creditAccountId: string, amount: number, description: string) => Promise<boolean> }) {
     const unpaidClaims = allClaims.filter(c => c.paymentStatus === 'Unpaid' && c.approvalStatus === 'Approved');
 
     return (
@@ -566,7 +575,7 @@ export function AccountsPayableDashboard() {
             }
             if (acc.accountId === creditAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? -amount : amount) };
+                 return { ...acc, balance: acc.balance - (isDebitType ? amount : -amount) };
             }
             return acc;
         }));
@@ -586,12 +595,7 @@ export function AccountsPayableDashboard() {
     setPostingInfo({ billIdToUpdate: billId, amount: netAmount, description, debitAccountId: payableAccountId, creditAccountId: '1011' }); // Debit AP, Credit Cash
   };
   
-  const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, whtAmount: number, description: string, payableAccountId: string) => {
-      const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
-      if (whtAmount > 0 && whtPayableAccount) {
-        // Debit Staff Claim Payable, Credit WHT Payable (2040)
-        handlePostToLedger(payableAccountId, whtPayableAccount.accountId, whtAmount, `WHT for Claim ${claimId}`);
-      }
+  const handleStaffClaimPaymentLogged = (claimId: string, netAmount: number, description: string, payableAccountId: string) => {
       setPostingInfo({ 
           amount: netAmount, 
           description, 
