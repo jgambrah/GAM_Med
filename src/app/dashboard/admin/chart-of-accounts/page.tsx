@@ -81,12 +81,6 @@ export default function ChartOfAccountsPage({ hideHeader = false }: { hideHeader
       toast.error('Cannot delete account with a non-zero balance.');
       return;
     }
-
-    const hasTransactions = entries.some(e => e.accountId === account.accountId);
-    if (hasTransactions) {
-      toast.error('Cannot delete account with existing transactions.');
-      return;
-    }
     
     // Check if it has children
     const hasChildren = accounts.some(child => child.parentAccountId === account.accountId);
