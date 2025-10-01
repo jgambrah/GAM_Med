@@ -528,8 +528,8 @@ export function AccountsPayableDashboard() {
                     return { ...acc, balance: acc.balance + (isDebitType ? amount : -amount) };
                 }
                 if (acc.accountId === creditAccountId) {
-                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                    return { ...acc, balance: acc.balance - (isDebitType ? amount : -amount) };
+                    const isCreditType = ['Liability', 'Equity', 'Revenue'].includes(acc.accountType);
+                    return { ...acc, balance: acc.balance + (isCreditType ? amount : -amount) };
                 }
                 return acc;
             }));

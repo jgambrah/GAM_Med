@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -64,15 +65,17 @@ export function LedgerPostingDialog({
 
     React.useEffect(() => {
         if (open) {
+            const creditAccountId = accounts.find(acc => acc.accountCode === defaultCredit)?.accountId || defaultCredit;
+            
             form.reset({
                 debitAccountId: defaultDebit,
-                creditAccountId: defaultCredit,
+                creditAccountId: creditAccountId,
                 amount: amount || 0,
                 description: description || '',
             })
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, amount, description, defaultDebit, defaultCredit, form.reset]);
+    }, [open, amount, description, defaultDebit, defaultCredit, form.reset, accounts]);
 
     const onSubmit = async (values: z.infer<typeof NewLedgerEntrySchema>) => {
         const now = new Date().toISOString();
@@ -101,8 +104,8 @@ export function LedgerPostingDialog({
                  return { ...acc, balance: acc.balance + (isDebitType ? transactionAmount : -transactionAmount) };
             }
             if (acc.accountId === creditAccountId) {
-                 const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance - (isDebitType ? transactionAmount : -transactionAmount) };
+                 const isCreditType = ['Liability', 'Equity', 'Revenue'].includes(acc.accountType);
+                 return { ...acc, balance: acc.balance + (isCreditType ? transactionAmount : -transactionAmount) };
             }
             return acc;
         }));
@@ -123,7 +126,7 @@ export function LedgerPostingDialog({
             <DialogHeader>
                 <DialogTitle>{isManualEntry ? 'Create Manual Journal Entry' : 'Post Transaction to Ledger'}</DialogTitle>
                 <DialogDescription>
-                    {isManualEntry ? 'Manually create a debit and credit entry in the general ledger.' : 'Select the appropriate debit and credit accounts for this transaction.'}
+                    {isManualEntry ? 'Manually create a debit and credit entry in the general ledger.' : 'Confirm the debit and credit accounts for this transaction.'}
                 </DialogDescription>
             </DialogHeader>
             <Form {...form}>
