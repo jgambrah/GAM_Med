@@ -104,7 +104,7 @@ export function LedgerPostingDialog({
             }
             if (acc.accountId === creditAccountId) {
                  const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                 return { ...acc, balance: acc.balance + (isDebitType ? -transactionAmount : transactionAmount) };
+                 return { ...acc, balance: acc.balance + (isDebitType ? -transactionAmount : amount) };
             }
             return acc;
         }));
@@ -140,7 +140,7 @@ export function LedgerPostingDialog({
                                     <Combobox
                                         options={accountOptions}
                                         value={field.value}
-                                        onChange={field.onChange}
+                                        onChange={(value) => field.onChange(value)}
                                         placeholder="Search for an account..."
                                         searchPlaceholder="Search accounts..."
                                         notFoundText="No account found."
@@ -158,7 +158,7 @@ export function LedgerPostingDialog({
                                     <Combobox
                                         options={accountOptions}
                                         value={field.value}
-                                        onChange={field.onChange}
+                                        onChange={(value) => field.onChange(value)}
                                         placeholder="Search for an account..."
                                         searchPlaceholder="Search accounts..."
                                         notFoundText="No account found."
