@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -42,6 +43,7 @@ import { Paperclip, WalletCards, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { PaymentVoucher } from './payment-voucher';
+import { z } from 'zod';
 
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -542,9 +544,18 @@ function VendorBillsTab({ bills, setBills, onBillAccrued, handlePostPayment }: {
     );
 }
 
+const PostingSchema = z.object({
+  debitAccountId: z.string().min(1, 'Debit account is required.'),
+  creditAccountId: z.string().min(1, 'Credit account is required.'),
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
+  description: z.string().min(3, 'Description is required.'),
+  paymentMethod: z.enum(['Cheque', 'Bank Transfer']),
+  chequeNumber: z.string().optional(),
+});
+
 
 export function AccountsPayableDashboard() {
-  const [postingInfo, setPostingInfo] = React.useState<{ debitAccountId: string, creditAccountId: string, amount: number; description: string; onPostComplete?: () => void } | null>(null);
+  const [postingInfo, setPostingInfo] = React.useState<{ debitAccountId: string, creditAccountId: string, amount: number; description: string; onPostComplete: () => void } | null>(null);
   const [bills, setBills] = useLocalStorage<Bill[]>('bills', initialBills);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', initialClaims);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
@@ -558,58 +569,70 @@ export function AccountsPayableDashboard() {
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
-  const handlePostToLedger = React.useCallback(async (debitAccountId: string, creditAccountId: string, amount: number, description: string): Promise<boolean> => {
-        if (amount <= 0) {
-            toast.success("Zero-amount transaction skipped.");
-            return true;
+ const handlePostToLedger = async (values: z.infer<typeof PostingSchema>) => {
+    const { debitAccountId, creditAccountId, amount, paymentMethod, chequeNumber } = values;
+
+    if (amount <= 0) {
+        toast.success("Zero-amount transaction skipped.");
+        return;
+    }
+
+    try {
+        const now = new Date().toISOString();
+
+        const debitAccount = accounts.find(a => a.accountId === debitAccountId);
+        const creditAccount = accounts.find(a => a.accountId === creditAccountId);
+
+        if (!debitAccount || !creditAccount) {
+            toast.error("One or more accounts not found for ledger posting.");
+            return;
         }
-        try {
-            const now = new Date().toISOString();
+        
+        let finalDescription = values.description;
+        if (paymentMethod === 'Cheque' && chequeNumber) {
+            finalDescription = `${finalDescription} (Cheque No: ${chequeNumber})`;
+        } else if (paymentMethod === 'Bank Transfer') {
+            finalDescription = `${finalDescription} (Bank Transfer)`;
+        }
 
-            const debitAccount = accounts.find(a => a.accountId === debitAccountId);
-            const creditAccount = accounts.find(a => a.accountId === creditAccountId);
+        const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        
+        setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 
-            if (!debitAccount || !creditAccount) {
-                toast.error("One or more accounts not found for ledger posting.");
-                return false;
+        setAccounts(prev => prev.map(acc => {
+            let balanceChange = 0;
+            if (acc.accountId === debitAccountId) {
+                const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                balanceChange = isDebitType ? amount : -amount;
+            } else if (acc.accountId === creditAccountId) {
+                const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                balanceChange = isDebitType ? -amount : amount;
             }
-
-            const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: description, debit: amount };
-            const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: description, credit: amount };
-            
-            setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
-
-            setAccounts(prev => prev.map(acc => {
-                if (acc.accountId === debitAccountId) {
-                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                    return { ...acc, balance: acc.balance + (isDebitType ? amount : -amount) };
-                }
-                if (acc.accountId === creditAccountId) {
-                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
-                    return { ...acc, balance: acc.balance + (isDebitType ? -amount : amount) };
-                }
-                return acc;
-            }));
-            
-            toast.success("Transaction Posted", { description: `${description} for ₵${amount.toFixed(2)}` });
-            return true;
-        } catch (e) {
-            console.error(e);
-            toast.error("Failed to post transaction.", { description: 'An unknown error occurred.' });
-            return false;
-        }
-  }, [accounts, setAccounts, setEntries]);
+            return balanceChange !== 0 ? { ...acc, balance: acc.balance + balanceChange } : acc;
+        }));
+        
+        toast.success("Transaction Posted", { description: `${finalDescription} for ₵${amount.toFixed(2)}` });
+    } catch (e) {
+        console.error(e);
+        toast.error("Failed to post transaction.", { description: 'An unknown error occurred.' });
+    }
+  };
 
 
   const handleBillAccrued = async (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => {
      const bill = bills.find(b => b.billId === billId);
     if (!bill) return;
 
-    const accrualSuccess = await handlePostToLedger(expenseAccId, payableAccId, subtotal, `Accrue expense for Bill ${billId}`);
+    await handlePostToLedger({
+      debitAccountId: expenseAccId,
+      creditAccountId: payableAccId,
+      amount: subtotal,
+      description: `Accrue expense for Bill ${billId}`,
+      paymentMethod: 'Bank Transfer', // Default for accrual
+    });
     
-    if (accrualSuccess) {
-       setBills(prev => prev.map(b => b.billId === billId ? { ...b, status: 'Accrued', whtAmount: whtAmount, netAmount: bill.totalAmount - (whtAmount || 0) } : b));
-    }
+    setBills(prev => prev.map(b => b.billId === billId ? { ...b, status: 'Accrued', whtAmount: whtAmount, netAmount: bill.totalAmount - (whtAmount || 0) } : b));
   };
   
   const handleClaimAccrued = async (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => {
@@ -619,20 +642,25 @@ export function AccountsPayableDashboard() {
           return;
       }
       
-      const accrualSuccess = await handlePostToLedger(expenseAccountId, staffPayableAccount.accountId, subtotal, `Accrue expense for Staff Claim: ${claimId}`);
+      await handlePostToLedger({
+          debitAccountId: expenseAccountId,
+          creditAccountId: staffPayableAccount.accountId,
+          amount: subtotal,
+          description: `Accrue expense for Staff Claim: ${claimId}`,
+          paymentMethod: 'Bank Transfer', // Default for accrual
+      });
 
-      if (accrualSuccess) {
-          setAllStaffClaims(prev => prev.map(c => 
-            c.claimId === claimId 
-            ? { ...c, paymentStatus: 'Accrued', whtAmount, netAmount: c.amount - (whtAmount || 0) } 
-            : c
-          ));
-          toast.success("Expense accrued. Ready to post payment.");
-      }
+      setAllStaffClaims(prev => prev.map(c => 
+        c.claimId === claimId 
+        ? { ...c, paymentStatus: 'Accrued', whtAmount, netAmount: c.amount - (whtAmount || 0) } 
+        : c
+      ));
+      toast.success("Expense accrued. Ready to post payment.");
   };
 
   const handlePostPayment = (item: StaffExpenseClaim | Bill, entryType: 'net' | 'wht') => {
     let debitAccountId: string;
+    let creditAccountId: string;
     let description: string;
     let amount: number;
     let onPostComplete: () => void;
@@ -656,12 +684,14 @@ export function AccountsPayableDashboard() {
         if (entryType === 'net') {
             description = `Net Payment for Claim ${item.claimId}`;
             amount = item.netAmount || item.amount;
+            creditAccountId = cashAccount.accountId;
             onPostComplete = () => {
                 setAllStaffClaims(prev => prev.map(c => c.claimId === item.claimId ? { ...c, isNetPaid: true, paymentStatus: (c.isWhtPosted || !(c.whtAmount && c.whtAmount > 0)) ? 'Paid' : 'Accrued' } : c));
             };
         } else { // WHT
             description = `WHT for Claim ${item.claimId}`;
             amount = item.whtAmount || 0;
+            creditAccountId = whtPayableAccount.accountId;
             onPostComplete = () => {
                  setAllStaffClaims(prev => prev.map(c => c.claimId === item.claimId ? { ...c, isWhtPosted: true, paymentStatus: c.isNetPaid ? 'Paid' : 'Accrued' } : c));
             };
@@ -676,12 +706,14 @@ export function AccountsPayableDashboard() {
         if (entryType === 'net') {
             description = `Net Payment for Bill ${item.billId}`;
             amount = item.netAmount || item.totalAmount;
+            creditAccountId = cashAccount.accountId;
             onPostComplete = () => {
                  setBills(prev => prev.map(b => b.billId === item.billId ? { ...b, isNetPaid: true, status: (b.isWhtPosted || !(b.whtAmount && b.whtAmount > 0)) ? 'Paid' : 'Accrued' } : b));
             };
         } else { // WHT
             description = `WHT for Bill ${item.billId}`;
             amount = item.whtAmount || 0;
+            creditAccountId = whtPayableAccount.accountId;
             onPostComplete = () => {
                 setBills(prev => prev.map(b => b.billId === item.billId ? { ...b, isWhtPosted: true, status: b.isNetPaid ? 'Paid' : 'Accrued' } : b));
             };
@@ -690,7 +722,7 @@ export function AccountsPayableDashboard() {
 
     setPostingInfo({
         debitAccountId: debitAccountId,
-        creditAccountId: entryType === 'net' ? cashAccount.accountId : whtPayableAccount.accountId,
+        creditAccountId: creditAccountId,
         amount: amount,
         description: description,
         onPostComplete: () => {
@@ -701,88 +733,86 @@ export function AccountsPayableDashboard() {
 };
   
   return (
-    <>
-      <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Vendor Payables</CardTitle>
-                      <span className="text-muted-foreground">₵</span>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="text-2xl font-bold">₵{totalPayables.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground">
-                          Total amount owed to suppliers.
-                      </p>
-                  </CardContent>
-              </Card>
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Overdue Vendor Payables</CardTitle>
-                       <span className="text-muted-foreground">₵</span>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="text-2xl font-bold text-destructive">₵{overduePayables.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground">
-                          Total amount past due date.
-                      </p>
-                  </CardContent>
-              </Card>
-               <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Last Payroll (Net)</CardTitle>
-                       <span className="text-muted-foreground">₵</span>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="text-2xl font-bold">₵{mockPayrollRuns[0]?.totalNetPay.toFixed(2) || '0.00'}</div>
-                      <p className="text-xs text-muted-foreground">
-                         Net pay for {mockPayrollRuns[0]?.payPeriod}.
-                      </p>
-                  </CardContent>
-              </Card>
-          </div>
-          <Card>
-              <Tabs defaultValue="staff-claims">
-                  <CardHeader>
-                      <TabsList className="h-auto flex-wrap justify-start">
-                          <TabsTrigger value="vendor-bills">Vendor Bills</TabsTrigger>
-                          <TabsTrigger value="staff-claims">Staff Claims</TabsTrigger>
-                          <TabsTrigger value="payroll">
-                              <Link href="/dashboard/payroll">Payroll</Link>
-                          </TabsTrigger>
-                      </TabsList>
-                  </CardHeader>
-                  <CardContent>
-                       <TabsContent value="vendor-bills">
-                          <VendorBillsTab bills={bills} setBills={setBills} onBillAccrued={handleBillAccrued} handlePostPayment={handlePostPayment} />
-                      </TabsContent>
-                      <TabsContent value="staff-claims">
-                          <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onClaimAccrued={handleClaimAccrued} handlePostPayment={handlePostPayment}/>
-                      </TabsContent>
-                  </CardContent>
-              </Tabs>
-          </Card>
-      </div>
-      {postingInfo && (
-          <LedgerPostingDialog
-              isOpen={!!postingInfo}
-              onPost={async () => {
-                  await handlePostToLedger(postingInfo.debitAccountId, postingInfo.creditAccountId, postingInfo.amount, postingInfo.description);
-              }}
-              onOpenChange={(isOpen) => {
-                  if (!isOpen) {
-                      if (postingInfo.onPostComplete) {
-                          postingInfo.onPostComplete();
-                      }
-                      setPostingInfo(null);
-                  }
-              }}
-              amount={postingInfo.amount}
-              description={postingInfo.description}
-              defaultDebit={postingInfo.debitAccountId}
-              defaultCredit={postingInfo.creditAccountId}
-          />
-      )}
-    </>
+    <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Vendor Payables</CardTitle>
+                    <span className="text-muted-foreground">₵</span>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">₵{totalPayables.toFixed(2)}</div>
+                    <p className="text-xs text-muted-foreground">
+                        Total amount owed to suppliers.
+                    </p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Overdue Vendor Payables</CardTitle>
+                     <span className="text-muted-foreground">₵</span>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-destructive">₵{overduePayables.toFixed(2)}</div>
+                    <p className="text-xs text-muted-foreground">
+                        Total amount past due date.
+                    </p>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Last Payroll (Net)</CardTitle>
+                     <span className="text-muted-foreground">₵</span>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">₵{mockPayrollRuns[0]?.totalNetPay.toFixed(2) || '0.00'}</div>
+                    <p className="text-xs text-muted-foreground">
+                       Net pay for {mockPayrollRuns[0]?.payPeriod}.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+        <Card>
+            <Tabs defaultValue="staff-claims">
+                <CardHeader>
+                    <TabsList className="h-auto flex-wrap justify-start">
+                        <TabsTrigger value="vendor-bills">Vendor Bills</TabsTrigger>
+                        <TabsTrigger value="staff-claims">Staff Claims</TabsTrigger>
+                        <TabsTrigger value="payroll">
+                            <Link href="/dashboard/payroll">Payroll</Link>
+                        </TabsTrigger>
+                    </TabsList>
+                </CardHeader>
+                <CardContent>
+                     <TabsContent value="vendor-bills">
+                        <VendorBillsTab bills={bills} setBills={setBills} onBillAccrued={handleBillAccrued} handlePostPayment={handlePostPayment} />
+                    </TabsContent>
+                    <TabsContent value="staff-claims">
+                        <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onClaimAccrued={handleClaimAccrued} handlePostPayment={handlePostPayment}/>
+                    </TabsContent>
+                </CardContent>
+            </Tabs>
+        </Card>
+        {postingInfo && (
+            <LedgerPostingDialog
+                isOpen={!!postingInfo}
+                onPost={async (values) => {
+                    await handlePostToLedger(values);
+                    if (postingInfo.onPostComplete) {
+                      postingInfo.onPostComplete();
+                    }
+                }}
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) {
+                        setPostingInfo(null);
+                    }
+                }}
+                amount={postingInfo.amount}
+                description={postingInfo.description}
+                defaultDebit={postingInfo.debitAccountId}
+                defaultCredit={postingInfo.creditAccountId}
+            />
+        )}
+    </div>
   );
 }
