@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -30,16 +31,15 @@ import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
 import { allPatients, mockLabTestCatalog, mockLabResults } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { LabResult } from '@/lib/types';
+import { LabResult, Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 
-export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+export function OrderTestDialog({ patient, disabled }: { patient: Patient, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
     const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
     const { user } = useAuth();
-    const patient = allPatients.find(p => p.patient_id === patientId);
-
+    
     const form = useForm<z.infer<typeof NewLabOrderSchema>>({
         resolver: zodResolver(NewLabOrderSchema),
         defaultValues: {
@@ -56,7 +56,7 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
         
         const newLabOrder: LabResult = {
             testId: `lab-${Date.now()}`,
-            patientId: patientId,
+            patientId: patient.patient_id,
             patientName: patient.full_name,
             testName: values.testName,
             status: 'Ordered',
