@@ -1,11 +1,10 @@
-
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions as initialAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients } from '@/lib/data';
+import { allAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -48,7 +47,7 @@ export default function PatientDetailPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
@@ -171,8 +170,8 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patient={patient} />
-            <OrderStudyDialog patient={patient} />
+            <OrderTestDialog patientId={patient.patient_id} />
+            <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}
 

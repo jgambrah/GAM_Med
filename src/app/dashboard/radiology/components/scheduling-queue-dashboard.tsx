@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -19,13 +18,15 @@ import { RadiologyOrder } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export function SchedulingQueueDashboard() {
-  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
+  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
+    'radiologyOrders',
+    mockRadiologyOrders
+  );
   
   const pendingSchedulingOrders = orders.filter(o => o.status === 'Pending Scheduling');
 
-  const getPatientName = (order: RadiologyOrder) => {
-    // Prefer the name stored on the order, fall back to a lookup.
-    return order.patientName || allPatients.find(p => p.patient_id === order.patientId)?.full_name || 'Unknown Patient';
+  const getPatientName = (patientId: string) => {
+    return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
   }
 
   const getDoctorName = (doctorId: string) => {
@@ -57,7 +58,7 @@ export function SchedulingQueueDashboard() {
                 <TableCell className="font-medium">{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
                 <TableCell>
                   <Link href={`/dashboard/patients/${order.patientId}`} className="hover:underline text-primary">
-                    {getPatientName(order)}
+                    {getPatientName(order.patientId)}
                   </Link>
                 </TableCell>
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
