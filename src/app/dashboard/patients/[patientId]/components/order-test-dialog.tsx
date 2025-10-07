@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -29,16 +28,10 @@ import { TestTube } from 'lucide-react';
 import { orderLabTest } from '@/lib/actions';
 import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
-import { allPatients, mockLabTestCatalog, mockLabResults } from '@/lib/data';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { LabResult, Patient } from '@/lib/types';
-import { toast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { mockLabTestCatalog } from '@/lib/data';
 
-export function OrderTestDialog({ patient, disabled }: { patient: Patient, disabled?: boolean }) {
+export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
     const [open, setOpen] = React.useState(false);
-    const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
-    const { user } = useAuth();
     
     const form = useForm<z.infer<typeof NewLabOrderSchema>>({
         resolver: zodResolver(NewLabOrderSchema),
@@ -49,27 +42,14 @@ export function OrderTestDialog({ patient, disabled }: { patient: Patient, disab
     });
 
     const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
-        if (!user || !patient) {
-            toast.error("User or patient not found.");
-            return;
+        const result = await orderLabTest(patientId, values);
+        if (result.success) {
+            alert('Lab test ordered successfully (simulated).');
+            setOpen(false);
+            form.reset();
+        } else {
+            alert(`Error: ${result.message}`);
         }
-        
-        const newLabOrder: LabResult = {
-            testId: `lab-${Date.now()}`,
-            patientId: patient.patient_id,
-            patientName: patient.full_name,
-            testName: values.testName,
-            status: 'Ordered',
-            orderedByDoctorId: user.uid,
-            orderedAt: new Date().toISOString(),
-            isBilled: false,
-        };
-        
-        setLabResults(prev => [newLabOrder, ...prev]);
-        toast.success(`Lab test "${values.testName}" ordered successfully.`);
-        
-        setOpen(false);
-        form.reset();
     }
     
     const labTestOptions = mockLabTestCatalog.map(test => ({

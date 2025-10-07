@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
+import { allAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients, allBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -38,7 +38,6 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -46,49 +45,24 @@ export default function PatientDetailPage() {
   const patientId = params.patientId as string;
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
-  const [isLoading, setIsLoading] = React.useState(true);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', allPatients);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', allBeds);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
-  React.useEffect(() => {
-    const foundPatient = allPatients.find((p) => p.patient_id === patientId);
-    setPatient(foundPatient);
-    setIsLoading(false);
-  }, [allPatients, patientId]);
-
-  if (isLoading) {
-     return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-4">
-                <Skeleton className="h-7 w-7" />
-                <div>
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-4 w-64 mt-1" />
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                <Skeleton className="h-6 w-24" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-96 w-full" />
-        </div>
-    );
-  }
-
-  if (!patient) {
-    notFound();
-  }
-
+  const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
   const carePlan = carePlans.find(cp => cp.patientId === patientId);
   const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
   
   const defaultTab = searchParams.get('tab') || 'vitals';
+
+  if (!patient) {
+    notFound();
+  }
+
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
@@ -197,7 +171,7 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
             <OrderTestDialog patient={patient} />
-            <OrderStudyDialog patient={patient} />
+            <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}
 
