@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -39,9 +38,10 @@ import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Paperclip, WalletCards } from 'lucide-react';
+import { Paperclip, WalletCards, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { PaymentVoucher } from './payment-voucher';
 
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -400,6 +400,82 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
     )
 }
 
+function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims, handlePostPayment }: { onClaimAccrued: (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, handlePostPayment: (claim: StaffExpenseClaim, entryType: 'net' | 'wht') => void }) {
+    const claimsToPay = allClaims.filter(c => c.approvalStatus === 'Approved');
+
+    return (
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Staff Name</TableHead>
+                        <TableHead>Submission Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {claimsToPay.length > 0 ? (
+                        claimsToPay.map((claim) => (
+                            <TableRow key={claim.claimId}>
+                                <TableCell className="font-medium">{claim.staffName}</TableCell>
+                                <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
+                                <TableCell>{claim.description}</TableCell>
+                                <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                    <Badge variant={claim.paymentStatus === 'Paid' ? 'secondary' : 'default'}>
+                                        {claim.paymentStatus}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="space-x-2 text-right">
+                                    {claim.attachmentUrl && (
+                                        <Button asChild variant="outline" size="icon">
+                                            <a href={claim.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                                <Paperclip className="h-4 w-4" />
+                                            </a>
+                                        </Button>
+                                    )}
+                                    {claim.paymentStatus === 'Unpaid' && (
+                                        <PayClaimDialog claim={claim} onClaimAccrued={onClaimAccrued} />
+                                    )}
+                                    {claim.paymentStatus === 'Accrued' && (
+                                        <>
+                                            <Button size="sm" variant="outline" onClick={() => handlePostPayment(claim, 'net')}>
+                                                <WalletCards className="h-4 w-4 mr-2"/>
+                                                Post Net Payment
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => handlePostPayment(claim, 'wht')}>
+                                                <WalletCards className="h-4 w-4 mr-2"/>
+                                                Post WHT
+                                            </Button>
+                                        </>
+                                    )}
+                                     {claim.paymentStatus === 'Paid' && (
+                                        <>
+                                            <PaymentVoucher claim={claim} voucherType="Net Payment" trigger={<Button size="sm" variant="outline"><Printer className="h-4 w-4 mr-2" /> Voucher (Net)</Button>} />
+                                            {claim.whtAmount && claim.whtAmount > 0 && (
+                                                <PaymentVoucher claim={claim} voucherType="WHT Payment" trigger={<Button size="sm" variant="outline"><Printer className="h-4 w-4 mr-2" /> Voucher (WHT)</Button>} />
+                                            )}
+                                        </>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                         <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                                No approved staff claims are pending payment.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
 function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued: (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => void }) {
     return (
         <div className="rounded-md border">
@@ -444,69 +520,6 @@ function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued
     );
 }
 
-function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims, handlePostPayment }: { onClaimAccrued: (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => void, allClaims: StaffExpenseClaim[], setAllClaims: React.Dispatch<React.SetStateAction<StaffExpenseClaim[]>>, handlePostPayment: (claim: StaffExpenseClaim) => void }) {
-    const claimsToPay = allClaims.filter(c => c.approvalStatus === 'Approved');
-
-    return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Staff Name</TableHead>
-                        <TableHead>Submission Date</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {claimsToPay.length > 0 ? (
-                        claimsToPay.map((claim) => (
-                            <TableRow key={claim.claimId}>
-                                <TableCell className="font-medium">{claim.staffName}</TableCell>
-                                <TableCell>{format(new Date(claim.submissionDate), 'PPP')}</TableCell>
-                                <TableCell>{claim.description}</TableCell>
-                                <TableCell>₵{claim.amount.toFixed(2)}</TableCell>
-                                <TableCell>
-                                    <Badge variant={claim.paymentStatus === 'Paid' ? 'secondary' : 'default'}>
-                                        {claim.paymentStatus}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="space-x-2 text-right">
-                                    {claim.attachmentUrl && (
-                                        <Button asChild variant="outline" size="icon">
-                                            <a href={claim.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                                                <Paperclip className="h-4 w-4" />
-                                            </a>
-                                        </Button>
-                                    )}
-                                    {claim.paymentStatus === 'Unpaid' ? (
-                                        <PayClaimDialog claim={claim} onClaimAccrued={onClaimAccrued} />
-                                    ) : claim.paymentStatus === 'Accrued' ? (
-                                        <Button size="sm" onClick={() => handlePostPayment(claim)}>
-                                            <WalletCards className="h-4 w-4 mr-2"/>
-                                            Post Payment
-                                        </Button>
-                                    ) : (
-                                        <span className="text-sm text-muted-foreground">Paid</span>
-                                    )}
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    ) : (
-                         <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center">
-                                No approved staff claims are pending payment.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
-        </div>
-    );
-}
-
 
 export function AccountsPayableDashboard() {
   const [postingInfo, setPostingInfo] = React.useState<{ debitAccountId: string, creditAccountId: string, amount: number; description: string; onPostComplete?: () => void } | null>(null);
@@ -524,7 +537,7 @@ export function AccountsPayableDashboard() {
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
   const handlePostToLedger = React.useCallback(async (debitAccountId: string, creditAccountId: string, amount: number, description: string): Promise<boolean> => {
-        if (amount === 0) {
+        if (amount <= 0) {
             toast.success("Zero-amount transaction skipped.");
             return true;
         }
@@ -567,14 +580,13 @@ export function AccountsPayableDashboard() {
 
 
   const handleBillAccrued = async (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => {
-    // This function logic remains largely the same, but the UI flow after is simplified
      const bill = bills.find(b => b.billId === billId);
     if (!bill) return;
 
     const accrualSuccess = await handlePostToLedger(expenseAccId, payableAccId, subtotal, `Accrue expense for Bill ${billId}`);
     
     if (accrualSuccess) {
-       setBills(prev => prev.map(b => b.billId === billId ? {...b, status: 'Paid'} : b)); // Simplified for demo
+       setBills(prev => prev.map(b => b.billId === billId ? {...b, status: 'Paid'} : b));
     }
   };
   
@@ -597,7 +609,7 @@ export function AccountsPayableDashboard() {
       }
   };
 
-  const handlePostPayment = (claim: StaffExpenseClaim) => {
+  const handlePostPayment = (claim: StaffExpenseClaim, entryType: 'net' | 'wht') => {
     const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
     const cashAccount = accounts.find(acc => acc.accountCode === '1010');
     const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
@@ -607,34 +619,40 @@ export function AccountsPayableDashboard() {
         return;
     }
     
-    // Step 1: Manual dialog for Net Pay
-     setPostingInfo({
-          debitAccountId: staffPayableAccount.accountId,
-          creditAccountId: cashAccount.accountId,
-          amount: claim.netAmount || claim.amount,
-          description: `Net Payment for Claim ${claim.claimId}`,
-          onPostComplete: () => {
-              // After net pay is posted, trigger the WHT posting dialog
-              if (claim.whtAmount && claim.whtAmount > 0) {
-                 setPostingInfo({
-                      debitAccountId: staffPayableAccount.accountId,
-                      creditAccountId: whtPayableAccount.accountId,
-                      amount: claim.whtAmount,
-                      description: `WHT for Claim ${claim.claimId}`,
-                      onPostComplete: () => {
-                          // Final step: update claim status
-                          setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, paymentStatus: 'Paid' } : c));
-                          toast.success(`Claim ${claim.claimId} fully paid and reconciled.`);
-                          setPostingInfo(null); // Close the dialog
-                      }
-                  });
-              } else {
-                 setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, paymentStatus: 'Paid' } : c));
-                 toast.success(`Claim ${claim.claimId} fully paid.`);
+    if (entryType === 'net') {
+        setPostingInfo({
+            debitAccountId: staffPayableAccount.accountId,
+            creditAccountId: cashAccount.accountId,
+            amount: claim.netAmount || claim.amount,
+            description: `Net Payment for Claim ${claim.claimId}`,
+            onPostComplete: () => {
+                const hasWht = claim.whtAmount && claim.whtAmount > 0;
+                // If there's no WHT, or if WHT was already posted, mark as paid
+                if (!hasWht || claim.isWhtPosted) {
+                    setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, paymentStatus: 'Paid', isNetPaid: true } : c));
+                } else {
+                    setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, isNetPaid: true } : c));
+                }
                  setPostingInfo(null);
-              }
-          }
-      });
+            }
+        });
+    } else if (entryType === 'wht') {
+        setPostingInfo({
+            debitAccountId: staffPayableAccount.accountId,
+            creditAccountId: whtPayableAccount.accountId,
+            amount: claim.whtAmount || 0,
+            description: `WHT for Claim ${claim.claimId}`,
+            onPostComplete: () => {
+                // If net amount was already paid, mark as fully paid
+                if (claim.isNetPaid) {
+                     setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, paymentStatus: 'Paid', isWhtPosted: true } : c));
+                } else {
+                     setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, isWhtPosted: true } : c));
+                }
+                setPostingInfo(null);
+            }
+        });
+    }
   };
   
   return (
@@ -703,16 +721,15 @@ export function AccountsPayableDashboard() {
     {postingInfo && (
         <LedgerPostingDialog
             isOpen={!!postingInfo}
-            onOpenChange={(isOpen, posted) => {
+            onPost={(values) => handlePostToLedger(values.debitAccountId, values.creditAccountId, values.amount, values.description)}
+            onOpenChange={(isOpen) => {
                 if (!isOpen) {
-                    if (posted && postingInfo.onPostComplete) {
+                    if (postingInfo.onPostComplete) {
                         postingInfo.onPostComplete();
-                    } else {
-                        setPostingInfo(null);
                     }
+                    setPostingInfo(null);
                 }
             }}
-            onPost={() => handlePostToLedger(postingInfo.debitAccountId, postingInfo.creditAccountId, postingInfo.amount, postingInfo.description)}
             amount={postingInfo.amount}
             description={postingInfo.description}
             defaultDebit={postingInfo.debitAccountId}
