@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients, allBeds as initialAllBeds } from '@/lib/data';
+import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -56,7 +56,29 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
 
   if (!patient) {
-    notFound();
+    // Still checking, or not found. We can show a skeleton or a not found message.
+    // To prevent flashing a 404, we can wait a bit or check loading state from useLocalStorage if it provides one.
+    // For now, let's assume if it's not found after initial load, it's a 404.
+    // A better approach would involve a loading state from the hook.
+    const isClient = typeof window !== 'undefined';
+    if(isClient && localStorage.getItem('patients')){
+        const storedPatients = JSON.parse(localStorage.getItem('patients')!);
+        if(!storedPatients.find((p: Patient) => p.patient_id === patientId)) {
+             notFound();
+        }
+    }
+     return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
