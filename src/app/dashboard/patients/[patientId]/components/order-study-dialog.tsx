@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -32,7 +33,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { RadiologyOrder } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
-export function OrderStudyDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+export function OrderStudyDialog({ patient, disabled }: { patient: { patient_id: string, full_name: string }, disabled?: boolean }) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
@@ -53,7 +54,8 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string, d
     // In a real app, this would call the 'createRadOrder' Cloud Function.
     const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
-        patientId: patientId,
+        patientId: patient.patient_id,
+        patientName: patient.full_name,
         doctorId: user.uid,
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
