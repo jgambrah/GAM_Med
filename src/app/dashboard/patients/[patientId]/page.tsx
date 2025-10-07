@@ -52,29 +52,8 @@ export default function PatientDetailPage() {
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
-
-  React.useEffect(() => {
-    if (allPatients.length > 0) {
-      const foundPatient = allPatients.find((p) => p.patient_id === patientId);
-      setPatient(foundPatient);
-      setIsLoading(false);
-    }
-  }, [allPatients, patientId]);
-
-  if (isLoading) {
-    return (
-        <div className="space-y-4">
-            <Skeleton className="h-12 w-1/2" />
-            <Skeleton className="h-8 w-1/3" />
-            <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        </div>
-    );
-  }
+  
+  const patient = allPatients.find((p) => p.patient_id === patientId);
 
   if (!patient) {
     notFound();
