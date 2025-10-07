@@ -107,7 +107,7 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={bill.status === 'Paid'}>
+                <Button variant="outline" size="sm" disabled={bill.status !== 'Pending' && bill.status !== 'Overdue'}>
                     Log Payment
                 </Button>
             </DialogTrigger>
@@ -476,7 +476,7 @@ function StaffClaimsTab({ onClaimAccrued, allClaims, setAllClaims, handlePostPay
     );
 }
 
-function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued: (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => void }) {
+function VendorBillsTab({ bills, setBills, onBillAccrued, handlePostPayment }: { bills: Bill[], setBills: React.Dispatch<React.SetStateAction<Bill[]>>, onBillAccrued: (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => void, handlePostPayment: (bill: Bill, entryType: 'net' | 'wht') => void }) {
     return (
         <div className="rounded-md border">
             <Table>
@@ -487,7 +487,7 @@ function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued
                         <TableHead>Due Date</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -502,7 +502,7 @@ function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued
                             <TableCell>
                                 <Badge variant={getBillStatusVariant(bill.status)}>{bill.status}</Badge>
                             </TableCell>
-                            <TableCell className="space-x-2">
+                            <TableCell className="space-x-2 text-right">
                                 {bill.attachmentUrl && (
                                     <Button asChild variant="outline" size="icon">
                                         <a href={bill.attachmentUrl} target="_blank" rel="noopener noreferrer">
@@ -510,7 +510,29 @@ function VendorBillsTab({ bills, onBillAccrued }: { bills: Bill[], onBillAccrued
                                         </a>
                                     </Button>
                                 )}
-                                <PayBillDialog bill={bill} onBillAccrued={onBillAccrued} />
+                                {bill.status === 'Accrued' && (
+                                    <>
+                                        <Button size="sm" variant="outline" onClick={() => handlePostPayment(bill, 'net')}>
+                                            <WalletCards className="h-4 w-4 mr-2"/>
+                                            Post Net Payment
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handlePostPayment(bill, 'wht')}>
+                                            <WalletCards className="h-4 w-4 mr-2"/>
+                                            Post WHT
+                                        </Button>
+                                    </>
+                                )}
+                                 {(bill.status === 'Pending' || bill.status === 'Overdue') && (
+                                    <PayBillDialog bill={bill} onBillAccrued={onBillAccrued} />
+                                )}
+                                 {bill.status === 'Paid' && (
+                                     <>
+                                        <PaymentVoucher bill={bill} voucherType="Net Payment" trigger={<Button size="sm" variant="outline"><Printer className="h-4 w-4 mr-2" /> Voucher (Net)</Button>} />
+                                        {bill.whtAmount && bill.whtAmount > 0 && (
+                                            <PaymentVoucher bill={bill} voucherType="WHT Payment" trigger={<Button size="sm" variant="outline"><Printer className="h-4 w-4 mr-2" /> Voucher (WHT)</Button>} />
+                                        )}
+                                    </>
+                                 )}
                             </TableCell>
                         </TableRow>
                     ))}
@@ -586,7 +608,7 @@ export function AccountsPayableDashboard() {
     const accrualSuccess = await handlePostToLedger(expenseAccId, payableAccId, subtotal, `Accrue expense for Bill ${billId}`);
     
     if (accrualSuccess) {
-       setBills(prev => prev.map(b => b.billId === billId ? {...b, status: 'Paid'} : b));
+       setBills(prev => prev.map(b => b.billId === billId ? { ...b, status: 'Accrued', whtAmount: whtAmount, netAmount: bill.totalAmount - (whtAmount || 0) } : b));
     }
   };
   
@@ -609,133 +631,158 @@ export function AccountsPayableDashboard() {
       }
   };
 
-  const handlePostPayment = (claim: StaffExpenseClaim, entryType: 'net' | 'wht') => {
-    const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
+  const handlePostPayment = (item: StaffExpenseClaim | Bill, entryType: 'net' | 'wht') => {
+    let debitAccountId: string;
+    let description: string;
+    let amount: number;
+    let onPostComplete: () => void;
+
     const cashAccount = accounts.find(acc => acc.accountCode === '1010');
     const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
 
-    if (!staffPayableAccount || !cashAccount || !whtPayableAccount) {
-        toast.error("A required ledger account is missing (Staff Payable, Cash, or WHT Payable).");
+    if (!cashAccount || !whtPayableAccount) {
+        toast.error("A required ledger account is missing (Cash or WHT Payable).");
         return;
     }
     
-    if (entryType === 'net') {
-        setPostingInfo({
-            debitAccountId: staffPayableAccount.accountId,
-            creditAccountId: cashAccount.accountId,
-            amount: claim.netAmount || claim.amount,
-            description: `Net Payment for Claim ${claim.claimId}`,
-            onPostComplete: () => {
-                const hasWht = claim.whtAmount && claim.whtAmount > 0;
-                // If there's no WHT, or if WHT was already posted, mark as paid
-                if (!hasWht || claim.isWhtPosted) {
-                    setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, paymentStatus: 'Paid', isNetPaid: true } : c));
-                } else {
-                    setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, isNetPaid: true } : c));
-                }
-                 setPostingInfo(null);
-            }
-        });
-    } else if (entryType === 'wht') {
-        setPostingInfo({
-            debitAccountId: staffPayableAccount.accountId,
-            creditAccountId: whtPayableAccount.accountId,
-            amount: claim.whtAmount || 0,
-            description: `WHT for Claim ${claim.claimId}`,
-            onPostComplete: () => {
-                // If net amount was already paid, mark as fully paid
-                if (claim.isNetPaid) {
-                     setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, paymentStatus: 'Paid', isWhtPosted: true } : c));
-                } else {
-                     setAllStaffClaims(prev => prev.map(c => c.claimId === claim.claimId ? { ...c, isWhtPosted: true } : c));
-                }
-                setPostingInfo(null);
-            }
-        });
+    if ('claimId' in item) { // It's a StaffExpenseClaim
+        const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
+        if (!staffPayableAccount) {
+            toast.error("Staff Payable Account (2050) not found.");
+            return;
+        }
+        debitAccountId = staffPayableAccount.accountId;
+        
+        if (entryType === 'net') {
+            description = `Net Payment for Claim ${item.claimId}`;
+            amount = item.netAmount || item.amount;
+            onPostComplete = () => {
+                setAllStaffClaims(prev => prev.map(c => c.claimId === item.claimId ? { ...c, isNetPaid: true, paymentStatus: (c.isWhtPosted || !(c.whtAmount && c.whtAmount > 0)) ? 'Paid' : 'Accrued' } : c));
+            };
+        } else { // WHT
+            description = `WHT for Claim ${item.claimId}`;
+            amount = item.whtAmount || 0;
+            onPostComplete = () => {
+                 setAllStaffClaims(prev => prev.map(c => c.claimId === item.claimId ? { ...c, isWhtPosted: true, paymentStatus: c.isNetPaid ? 'Paid' : 'Accrued' } : c));
+            };
+        }
+    } else { // It's a Bill
+        const supplierPayableAccount = accounts.find(acc => acc.accountCode === '2011');
+        if (!supplierPayableAccount) {
+            toast.error("Trade Payables Account (2011) not found.");
+            return;
+        }
+        debitAccountId = supplierPayableAccount.accountId;
+        if (entryType === 'net') {
+            description = `Net Payment for Bill ${item.billId}`;
+            amount = item.netAmount || item.totalAmount;
+            onPostComplete = () => {
+                 setBills(prev => prev.map(b => b.billId === item.billId ? { ...b, isNetPaid: true, status: (b.isWhtPosted || !(b.whtAmount && b.whtAmount > 0)) ? 'Paid' : 'Accrued' } : b));
+            };
+        } else { // WHT
+            description = `WHT for Bill ${item.billId}`;
+            amount = item.whtAmount || 0;
+            onPostComplete = () => {
+                setBills(prev => prev.map(b => b.billId === item.billId ? { ...b, isWhtPosted: true, status: b.isNetPaid ? 'Paid' : 'Accrued' } : b));
+            };
+        }
     }
-  };
+
+    setPostingInfo({
+        debitAccountId: debitAccountId,
+        creditAccountId: entryType === 'net' ? cashAccount.accountId : whtPayableAccount.accountId,
+        amount: amount,
+        description: description,
+        onPostComplete: () => {
+            onPostComplete();
+            setPostingInfo(null);
+        }
+    });
+};
   
   return (
     <>
-    <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Vendor Payables</CardTitle>
-                    <span className="text-muted-foreground">₵</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">₵{totalPayables.toFixed(2)}</div>
-                    <p className="text-xs text-muted-foreground">
-                        Total amount owed to suppliers.
-                    </p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Overdue Vendor Payables</CardTitle>
-                     <span className="text-muted-foreground">₵</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-destructive">₵{overduePayables.toFixed(2)}</div>
-                    <p className="text-xs text-muted-foreground">
-                        Total amount past due date.
-                    </p>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Last Payroll (Net)</CardTitle>
-                     <span className="text-muted-foreground">₵</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">₵{mockPayrollRuns[0]?.totalNetPay.toFixed(2) || '0.00'}</div>
-                    <p className="text-xs text-muted-foreground">
-                       Net pay for {mockPayrollRuns[0]?.payPeriod}.
-                    </p>
-                </CardContent>
-            </Card>
-        </div>
-        <Card>
-            <Tabs defaultValue="staff-claims">
-                <CardHeader>
-                    <TabsList className="h-auto flex-wrap justify-start">
-                        <TabsTrigger value="vendor-bills">Vendor Bills</TabsTrigger>
-                        <TabsTrigger value="staff-claims">Staff Claims</TabsTrigger>
-                        <TabsTrigger value="payroll">
-                            <Link href="/dashboard/payroll">Payroll</Link>
-                        </TabsTrigger>
-                    </TabsList>
-                </CardHeader>
-                <CardContent>
-                     <TabsContent value="vendor-bills">
-                        <VendorBillsTab bills={bills} onBillAccrued={handleBillAccrued} />
-                    </TabsContent>
-                    <TabsContent value="staff-claims">
-                        <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onClaimAccrued={handleClaimAccrued} handlePostPayment={handlePostPayment}/>
-                    </TabsContent>
-                </CardContent>
-            </Tabs>
-        </Card>
-    </div>
-    {postingInfo && (
-        <LedgerPostingDialog
-            isOpen={!!postingInfo}
-            onPost={(values) => handlePostToLedger(values.debitAccountId, values.creditAccountId, values.amount, values.description)}
-            onOpenChange={(isOpen) => {
-                if (!isOpen) {
-                    if (postingInfo.onPostComplete) {
-                        postingInfo.onPostComplete();
-                    }
-                    setPostingInfo(null);
-                }
-            }}
-            amount={postingInfo.amount}
-            description={postingInfo.description}
-            defaultDebit={postingInfo.debitAccountId}
-            defaultCredit={postingInfo.creditAccountId}
-        />
-    )}
+      <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Vendor Payables</CardTitle>
+                      <span className="text-muted-foreground">₵</span>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold">₵{totalPayables.toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground">
+                          Total amount owed to suppliers.
+                      </p>
+                  </CardContent>
+              </Card>
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Overdue Vendor Payables</CardTitle>
+                       <span className="text-muted-foreground">₵</span>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold text-destructive">₵{overduePayables.toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground">
+                          Total amount past due date.
+                      </p>
+                  </CardContent>
+              </Card>
+               <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Last Payroll (Net)</CardTitle>
+                       <span className="text-muted-foreground">₵</span>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold">₵{mockPayrollRuns[0]?.totalNetPay.toFixed(2) || '0.00'}</div>
+                      <p className="text-xs text-muted-foreground">
+                         Net pay for {mockPayrollRuns[0]?.payPeriod}.
+                      </p>
+                  </CardContent>
+              </Card>
+          </div>
+          <Card>
+              <Tabs defaultValue="staff-claims">
+                  <CardHeader>
+                      <TabsList className="h-auto flex-wrap justify-start">
+                          <TabsTrigger value="vendor-bills">Vendor Bills</TabsTrigger>
+                          <TabsTrigger value="staff-claims">Staff Claims</TabsTrigger>
+                          <TabsTrigger value="payroll">
+                              <Link href="/dashboard/payroll">Payroll</Link>
+                          </TabsTrigger>
+                      </TabsList>
+                  </CardHeader>
+                  <CardContent>
+                       <TabsContent value="vendor-bills">
+                          <VendorBillsTab bills={bills} setBills={setBills} onBillAccrued={handleBillAccrued} handlePostPayment={handlePostPayment} />
+                      </TabsContent>
+                      <TabsContent value="staff-claims">
+                          <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onClaimAccrued={handleClaimAccrued} handlePostPayment={handlePostPayment}/>
+                      </TabsContent>
+                  </CardContent>
+              </Tabs>
+          </Card>
+      </div>
+      {postingInfo && (
+          <LedgerPostingDialog
+              isOpen={!!postingInfo}
+              onPost={async () => {
+                  await handlePostToLedger(postingInfo.debitAccountId, postingInfo.creditAccountId, postingInfo.amount, postingInfo.description);
+              }}
+              onOpenChange={(isOpen) => {
+                  if (!isOpen) {
+                      if (postingInfo.onPostComplete) {
+                          postingInfo.onPostComplete();
+                      }
+                      setPostingInfo(null);
+                  }
+              }}
+              amount={postingInfo.amount}
+              description={postingInfo.description}
+              defaultDebit={postingInfo.debitAccountId}
+              defaultCredit={postingInfo.creditAccountId}
+          />
+      )}
     </>
   );
 }

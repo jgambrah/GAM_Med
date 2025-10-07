@@ -11,12 +11,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { StaffExpenseClaim } from '@/lib/types';
+import { StaffExpenseClaim, Bill } from '@/lib/types';
 import { format } from 'date-fns';
 import { Printer } from 'lucide-react';
+import { mockSuppliers } from '@/lib/data';
 
 interface PaymentVoucherProps {
-  claim: StaffExpenseClaim;
+  claim?: StaffExpenseClaim;
+  bill?: Bill;
   voucherType: 'Net Payment' | 'WHT Payment';
   trigger: React.ReactNode;
 }
@@ -40,15 +42,35 @@ function numberToWords(num: number): string {
 }
 
 
-export function PaymentVoucher({ claim, voucherType, trigger }: PaymentVoucherProps) {
+export function PaymentVoucher({ claim, bill, voucherType, trigger }: PaymentVoucherProps) {
     const [open, setOpen] = React.useState(false);
     
     const isNetPayment = voucherType === 'Net Payment';
-    const amount = isNetPayment ? claim.netAmount : claim.whtAmount;
-    const payee = isNetPayment ? claim.staffName : 'Ghana Revenue Authority (GRA)';
-    const description = isNetPayment 
-        ? `Net payment for expense claim: ${claim.description}`
-        : `Withholding tax remittance for claim: ${claim.claimId}`;
+
+    let amount: number | undefined;
+    let payee: string;
+    let description: string;
+    let referenceId: string;
+
+    if (claim) {
+        amount = isNetPayment ? claim.netAmount : claim.whtAmount;
+        payee = isNetPayment ? claim.staffName : 'Ghana Revenue Authority (GRA)';
+        description = isNetPayment 
+            ? `Net payment for expense claim: ${claim.description}`
+            : `Withholding tax remittance for claim: ${claim.claimId}`;
+        referenceId = claim.claimId;
+    } else if (bill) {
+        amount = isNetPayment ? bill.netAmount : bill.whtAmount;
+        const supplierName = mockSuppliers.find(s => s.supplierId === bill.supplierId)?.name || 'Unknown Supplier';
+        payee = isNetPayment ? supplierName : 'Ghana Revenue Authority (GRA)';
+        description = isNetPayment 
+            ? `Net payment for Bill ID: ${bill.billId}`
+            : `Withholding tax remittance for Bill ID: ${bill.billId}`;
+        referenceId = bill.billId;
+    } else {
+        return null; // Should not happen
+    }
+
 
     const handlePrint = () => {
         setTimeout(() => {
@@ -89,15 +111,15 @@ export function PaymentVoucher({ claim, voucherType, trigger }: PaymentVoucherPr
                 <div className="grid grid-cols-3 gap-4">
                     <div>
                         <p className="text-sm font-medium text-muted-foreground">Voucher No.</p>
-                        <p className="font-semibold">{`PV-${claim.claimId.split('-')[1]}-${isNetPayment ? 'NET' : 'WHT'}`}</p>
+                        <p className="font-semibold">{`PV-${referenceId.split('-')[1]}-${isNetPayment ? 'NET' : 'WHT'}`}</p>
                     </div>
                     <div>
                         <p className="text-sm font-medium text-muted-foreground">Payment Date</p>
                         <p className="font-semibold">{format(new Date(), 'PPP')}</p>
                     </div>
                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Claim ID</p>
-                        <p className="font-semibold">{claim.claimId}</p>
+                        <p className="text-sm font-medium text-muted-foreground">Reference ID</p>
+                        <p className="font-semibold">{referenceId}</p>
                     </div>
                 </div>
                 <div className="space-y-2">
@@ -106,7 +128,7 @@ export function PaymentVoucher({ claim, voucherType, trigger }: PaymentVoucherPr
                 </div>
                  <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">Amount in Figures</p>
-                    <p className="font-semibold text-2xl border-b pb-2">₵{amount?.toFixed(2)}</p>
+                    <p className="font-semibold text-2xl border-b pb-2">₵{amount?.toFixed(2) || '0.00'}</p>
                 </div>
                  <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">Amount in Words</p>
