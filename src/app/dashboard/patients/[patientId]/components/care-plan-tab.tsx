@@ -14,45 +14,80 @@ import { Textarea } from '@/components/ui/textarea';
 import { CarePlan } from '@/lib/types';
 import { CarePlanSchema } from '@/lib/schemas';
 import { updateCarePlan } from '@/lib/actions';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { format, parseISO } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
 
-function UpdateCarePlanDialog({ carePlan }: { carePlan: CarePlan }) {
+function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePlan?: CarePlan | null, patientId: string, onSave: (plan: CarePlan) => void }) {
     const [open, setOpen] = React.useState(false);
+    const { user } = useAuth();
+    const isEditing = !!carePlan;
     
     const form = useForm<z.infer<typeof CarePlanSchema>>({
         resolver: zodResolver(CarePlanSchema),
         defaultValues: {
-            goals: carePlan.goal,
-            interventions: carePlan.interventions.join('\n'),
-            status: carePlan.status,
+            goals: carePlan?.goal || '',
+            interventions: carePlan?.interventions.join('\n') || '',
+            status: carePlan?.status || 'Active',
         }
     });
+    
+    React.useEffect(() => {
+        if (open) {
+            form.reset({
+                goals: carePlan?.goal || '',
+                interventions: carePlan?.interventions.join('\n') || '',
+                status: carePlan?.status || 'Active',
+            })
+        }
+    }, [open, carePlan, form]);
+
 
     const onSubmit = async (values: z.infer<typeof CarePlanSchema>) => {
-        const result = await updateCarePlan(carePlan.patientId, carePlan.planId, values);
-        if (result.success) {
-            alert('Care plan updated successfully (simulated).');
-            setOpen(false);
-        } else {
-            alert(`Error: ${result.message}`);
+        if (!user) {
+            toast.error("You must be logged in to save a care plan.");
+            return;
         }
+
+        const planData: CarePlan = {
+            planId: carePlan?.planId || `plan-${Date.now()}`,
+            patientId: carePlan?.patientId || patientId,
+            title: carePlan?.title || `${values.status} Care Plan`,
+            goal: values.goals,
+            interventions: values.interventions.split('\n').filter(Boolean),
+            status: values.status,
+            createdBy: carePlan?.createdBy || user.uid,
+            createdAt: carePlan?.createdAt || new Date().toISOString(),
+            updatedBy: user.uid,
+            updatedAt: new Date().toISOString()
+        };
+
+        onSave(planData);
+        toast.success(`Care plan has been successfully ${isEditing ? 'updated' : 'created'}.`);
+        setOpen(false);
     }
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Update Plan
-                </Button>
+                {isEditing ? (
+                     <Button variant="outline" size="sm">
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Update Plan
+                    </Button>
+                ) : (
+                    <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Care Plan
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Update Care Plan</DialogTitle>
+                    <DialogTitle>{isEditing ? 'Update' : 'Create'} Care Plan</DialogTitle>
                     <DialogDescription>
-                        Modify the goals, interventions, or status of the care plan.
+                         {isEditing ? 'Modify the goals, interventions, or status of the care plan.' : 'Define the initial care plan for this patient.'}
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -64,7 +99,7 @@ function UpdateCarePlanDialog({ carePlan }: { carePlan: CarePlan }) {
                                 <FormItem>
                                     <FormLabel>Goals</FormLabel>
                                     <FormControl>
-                                        <Textarea rows={4} {...field} />
+                                        <Textarea placeholder="e.g., Maintain BP below 140/90, ensure medication adherence." rows={4} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -75,9 +110,9 @@ function UpdateCarePlanDialog({ carePlan }: { carePlan: CarePlan }) {
                             name="interventions"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Interventions</FormLabel>
+                                    <FormLabel>Interventions (one per line)</FormLabel>
                                     <FormControl>
-                                        <Textarea rows={4} {...field} />
+                                        <Textarea placeholder="e.g., Daily BP monitoring." rows={4} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -119,15 +154,16 @@ function UpdateCarePlanDialog({ carePlan }: { carePlan: CarePlan }) {
     )
 }
 
-export function CarePlanTab({ carePlan }: { carePlan?: CarePlan | null }) {
+export function CarePlanTab({ carePlan, onPlanSaved }: { carePlan?: CarePlan | null, onPlanSaved: (plan: CarePlan) => void }) {
     const { user } = useAuth();
     const canEdit = user?.role === 'nurse' || user?.role === 'doctor';
 
     if (!carePlan) {
         return (
             <Card>
-                <CardContent className="h-48 flex items-center justify-center">
-                    <p className="text-muted-foreground">No active care plan found for this patient.</p>
+                <CardContent className="h-48 flex flex-col items-center justify-center text-center">
+                    <p className="text-muted-foreground mb-4">No active care plan found for this patient.</p>
+                    {canEdit && <CreateOrUpdateCarePlanDialog patientId="PATIENT_ID_PLACEHOLDER" onSave={onPlanSaved} />}
                 </CardContent>
             </Card>
         );
@@ -142,7 +178,7 @@ export function CarePlanTab({ carePlan }: { carePlan?: CarePlan | null }) {
                         Last updated on {format(parseISO(carePlan.updatedAt), 'PPP p')}
                     </CardDescription>
                 </div>
-                {canEdit && <UpdateCarePlanDialog carePlan={carePlan} />}
+                {canEdit && <CreateOrUpdateCarePlanDialog carePlan={carePlan} patientId={carePlan.patientId} onSave={onPlanSaved} />}
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-2">

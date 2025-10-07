@@ -37,7 +37,7 @@ import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Patient, Admission, Bed } from '@/lib/types';
+import { Patient, Admission, Bed, CarePlan } from '@/lib/types';
 
 /**
  * == Conceptual UI: Patient-Centric EHR Dashboard ==
@@ -62,10 +62,12 @@ export default function PatientDetailPage() {
   const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
+  const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
+
 
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
-  const carePlan = mockCarePlans.find(cp => cp.patientId === patientId);
+  const carePlan = carePlans.find(cp => cp.patientId === patientId);
   const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
 
 
@@ -113,6 +115,18 @@ export default function PatientDetailPage() {
          : a
     ));
   };
+  
+  const handlePlanSaved = (newPlan: CarePlan) => {
+    setCarePlans(prev => {
+        const existingIndex = prev.findIndex(p => p.planId === newPlan.planId);
+        if (existingIndex > -1) {
+            const updatedPlans = [...prev];
+            updatedPlans[existingIndex] = newPlan;
+            return updatedPlans;
+        }
+        return [...prev, newPlan];
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -218,7 +232,7 @@ export default function PatientDetailPage() {
           <ClinicalNotesTab patientId={patient.patient_id} />
         </TabsContent>
         <TabsContent value="care-plan" className="mt-4">
-            <CarePlanTab carePlan={carePlan} />
+            <CarePlanTab carePlan={carePlan} onPlanSaved={handlePlanSaved} />
         </TabsContent>
          <TabsContent value="diagnoses" className="mt-4">
           <DiagnosesTab />
