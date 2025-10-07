@@ -154,7 +154,7 @@ function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePla
     )
 }
 
-export function CarePlanTab({ carePlan, onPlanSaved }: { carePlan?: CarePlan | null, onPlanSaved: (plan: CarePlan) => void }) {
+export function CarePlanTab({ carePlan, onPlanSaved, patientId }: { carePlan?: CarePlan | null, onPlanSaved: (plan: CarePlan) => void, patientId: string }) {
     const { user } = useAuth();
     const canEdit = user?.role === 'nurse' || user?.role === 'doctor';
 
@@ -163,7 +163,7 @@ export function CarePlanTab({ carePlan, onPlanSaved }: { carePlan?: CarePlan | n
             <Card>
                 <CardContent className="h-48 flex flex-col items-center justify-center text-center">
                     <p className="text-muted-foreground mb-4">No active care plan found for this patient.</p>
-                    {canEdit && <CreateOrUpdateCarePlanDialog patientId="PATIENT_ID_PLACEHOLDER" onSave={onPlanSaved} />}
+                    {canEdit && <CreateOrUpdateCarePlanDialog patientId={patientId} onSave={onPlanSaved} />}
                 </CardContent>
             </Card>
         );

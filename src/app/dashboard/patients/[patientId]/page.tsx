@@ -38,44 +38,53 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
-/**
- * == Conceptual UI: Patient-Centric EHR Dashboard ==
- *
- * This component acts as the central hub for a patient's Electronic Health Record (EHR).
- * It's designed as a patient-centric dashboard with multiple tabs, each dedicated to a
- * specific domain of the patient's record (e.g., Demographics, Clinical Notes, Billing).
- *
- * It heavily uses conditional rendering based on the logged-in user's role and the
- * patient's current status (admitted vs. outpatient) to create a tailored and intuitive
- * experience for different clinical and administrative staff.
- */
 export default function PatientDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const patientId = params.patientId as string;
-  const { user } = useAuth(); // Get the current user to tailor the UI
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Read all data from local storage to manage state
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
   const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
-  
-  const patient = allPatients.find((p) => p.patient_id === patientId);
-  const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
-  const carePlan = carePlans.find(cp => cp.patientId === patientId);
-  const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (allPatients.length > 0) {
+      const foundPatient = allPatients.find((p) => p.patient_id === patientId);
+      setPatient(foundPatient);
+      setIsLoading(false);
+    }
+  }, [allPatients, patientId]);
+
+  if (isLoading) {
+    return (
+        <div className="space-y-4">
+            <Skeleton className="h-12 w-1/2" />
+            <Skeleton className="h-8 w-1/3" />
+            <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-64 w-full" />
+            </div>
+        </div>
+    );
+  }
 
   if (!patient) {
-    // This check now happens after isLoading is false, ensuring allPatients has been loaded.
     notFound();
   }
 
+  const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
+  const carePlan = carePlans.find(cp => cp.patientId === patientId);
+  const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
+  
   const defaultTab = searchParams.get('tab') || 'vitals';
-
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
@@ -88,13 +97,11 @@ export default function PatientDetailPage() {
 
   const handleDischargeComplete = () => {
     const now = new Date().toISOString();
-    // Update Patients
     setAllPatients(prev => prev.map(p => 
       p.patient_id === patientId 
         ? { ...p, is_admitted: false, current_admission_id: null } 
         : p
     ));
-    // Update Beds
     if (currentAdmission?.bed_id) {
         setAllBeds(prev => prev.map(b => 
             b.bed_id === currentAdmission.bed_id
@@ -102,7 +109,6 @@ export default function PatientDetailPage() {
              : b
         ));
     }
-    // Update Admission record
     setAllAdmissions(prev => prev.map(a => 
         a.admission_id === patient.current_admission_id
          ? { ...a, status: 'Discharged', discharge_date: now }
@@ -226,7 +232,7 @@ export default function PatientDetailPage() {
           <ClinicalNotesTab patientId={patient.patient_id} />
         </TabsContent>
         <TabsContent value="care-plan" className="mt-4">
-            <CarePlanTab carePlan={carePlan} onPlanSaved={handlePlanSaved} />
+            <CarePlanTab carePlan={carePlan} onPlanSaved={handlePlanSaved} patientId={patient.patient_id}/>
         </TabsContent>
          <TabsContent value="diagnoses" className="mt-4">
           <DiagnosesTab />
@@ -250,5 +256,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-
-    
