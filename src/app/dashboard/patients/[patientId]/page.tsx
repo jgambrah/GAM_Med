@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients, allBeds } from '@/lib/data';
+import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -46,9 +46,9 @@ export default function PatientDetailPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', allPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', allBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
