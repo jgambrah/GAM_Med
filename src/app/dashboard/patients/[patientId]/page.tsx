@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
+import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients, allBeds as initialAllBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -53,26 +53,7 @@ export default function PatientDetailPage() {
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
-  const [isMounted, setIsMounted] = React.useState(false);
-  React.useEffect(() => setIsMounted(true), []);
-
-  const patient = React.useMemo(() => {
-    if (!isMounted) return null;
-    return allPatients.find((p) => p.patient_id === patientId);
-  }, [isMounted, allPatients, patientId]);
-
-  if (!isMounted) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-8 w-1/4" />
-        <div className="space-y-2 pt-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    );
-  }
+  const patient = allPatients.find((p) => p.patient_id === patientId);
 
   if (!patient) {
     notFound();
@@ -196,7 +177,7 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
             <OrderTestDialog patientId={patient.patient_id} />
-            <OrderStudyDialog patientId={patient.patient_id} patientName={patient.full_name}/>
+            <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}
 
@@ -259,5 +240,6 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+    
 
     
