@@ -84,6 +84,7 @@ export default function PatientDetailPage() {
   }
   
   if (!patient) {
+    // This check now happens after isLoading is false, ensuring allPatients has been loaded.
     notFound();
   }
 
@@ -263,3 +264,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    
