@@ -38,6 +38,7 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -52,16 +53,39 @@ export default function PatientDetailPage() {
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
-  const patient = allPatients.find((p) => p.patient_id === patientId);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (allPatients.length > 0) {
+      const foundPatient = allPatients.find((p) => p.patient_id === patientId);
+      setPatient(foundPatient);
+      setIsLoading(false);
+    }
+  }, [allPatients, patientId]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="space-y-2 pt-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!patient) {
+    notFound();
+  }
+
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
   const carePlan = carePlans.find(cp => cp.patientId === patientId);
   const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
   
   const defaultTab = searchParams.get('tab') || 'vitals';
-
-  if (!patient) {
-    notFound();
-  }
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
   
