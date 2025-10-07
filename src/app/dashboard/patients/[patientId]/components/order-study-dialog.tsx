@@ -29,12 +29,12 @@ import { NewRadOrderSchema } from '@/lib/schemas';
 import { orderImagingStudy } from '@/lib/actions';
 import { mockRadiologyStudies, mockRadiologyOrders } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadiologyOrder } from '@/lib/types';
+import { RadiologyOrder, Patient } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
-export function OrderStudyDialog({ patientId, disabled }: { patientId: string; disabled?: boolean }) {
+export function OrderStudyDialog({ patient, disabled }: { patient: Patient; disabled?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const { user } = useAuth();
   const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
@@ -54,12 +54,13 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string; d
     }
     
     // In a real app, this server action would create the record.
-    const result = await orderImagingStudy(patientId, values);
+    const result = await orderImagingStudy(patient.patient_id, values);
 
     if (result.success) {
       const newOrder: RadiologyOrder = {
           orderId: `RAD-${Date.now()}`,
-          patientId: patientId,
+          patientId: patient.patient_id,
+          patientName: patient.full_name, // Add patient name here
           doctorId: user.uid,
           studyIds: values.studyIds,
           dateOrdered: new Date().toISOString(),

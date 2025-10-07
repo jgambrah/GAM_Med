@@ -114,6 +114,7 @@ export interface RadiologyStudy {
 export interface RadiologyOrder {
   orderId: string; // Document ID
   patientId: string; // Reference to patients
+  patientName?: string; // Denormalized for display
   doctorId: string; // Reference to users
   studyIds: string[]; // Array of references to radiology_studies
   dateOrdered: string; // ISO Timestamp
@@ -208,7 +209,7 @@ export interface LabResult {
   orderId?: string; // Reference to lab_orders
   testId: string; // Document ID
   patientId: string; // Denormalized for easier querying
-  patientName?: string; // Denormalized
+  patientName: string; // Denormalized
   testName: string; // Denormalized
   status: 'Ordered' | 'In Progress' | 'Completed' | 'Cancelled' | 'Draft' | 'Validated' | 'Final';
   resultDetails?: Record<string, { value: string | number; unit: string; isAbnormal: boolean }>; // Key-value pairs for test results.
@@ -605,9 +606,12 @@ export interface Bill {
   issueDate: string; // ISO Timestamp
   dueDate: string; // ISO Timestamp
   totalAmount: number;
-  status: 'Pending' | 'Paid' | 'Partially Paid' | 'Overdue';
+  status: 'Pending' | 'Paid' | 'Partially Paid' | 'Overdue' | 'Accrued';
   billedItems: BillLineItem[];
-  withholdingTaxRate?: number; // Optional field for WHT rate
+  whtAmount?: number;
+  netAmount?: number;
+  isNetPaid?: boolean;
+  isWhtPosted?: boolean;
   attachmentUrl?: string; // URL to the scanned invoice PDF
 }
 
@@ -651,9 +655,13 @@ export interface StaffExpenseClaim {
   approvalStatus: 'Pending HOD' | 'Approved' | 'Rejected';
   hodApprovalDate?: string; // ISO Timestamp
   rejectionReason?: string; // Reason for rejection, added by HOD
-  paymentStatus: 'Unpaid' | 'Paid';
+  paymentStatus: 'Unpaid' | 'Paid' | 'Accrued';
   paidDate?: string; // ISO Timestamp
   attachmentUrl?: string; // URL to the receipt/document
+  netAmount?: number;
+  whtAmount?: number;
+  isNetPaid?: boolean;
+  isWhtPosted?: boolean;
 }
 
 /**
@@ -1645,6 +1653,7 @@ export interface Diagnosis {
     
 
     
+
 
 
 
