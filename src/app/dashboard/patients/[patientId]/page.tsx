@@ -54,15 +54,14 @@ export default function PatientDetailPage() {
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
   const [isLoading, setIsLoading] = React.useState(true);
-  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
+  const patient = allPatients.find((p) => p.patient_id === patientId);
 
   React.useEffect(() => {
+    // This effect helps manage the loading state based on when `allPatients` is hydrated
     if (allPatients.length > 0) {
-      const foundPatient = allPatients.find((p) => p.patient_id === patientId);
-      setPatient(foundPatient);
       setIsLoading(false);
     }
-  }, [allPatients, patientId]);
+  }, [allPatients]);
 
   if (isLoading) {
     return (
