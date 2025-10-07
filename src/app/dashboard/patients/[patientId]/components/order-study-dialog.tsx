@@ -27,11 +27,17 @@ import { Button } from '@/components/ui/button';
 import { Scan } from 'lucide-react';
 import { NewRadOrderSchema } from '@/lib/schemas';
 import { orderImagingStudy } from '@/lib/actions';
-import { mockRadiologyStudies } from '@/lib/data';
+import { mockRadiologyStudies, mockRadiologyOrders } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadiologyOrder } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export function OrderStudyDialog({ patientId, disabled }: { patientId: string; disabled?: boolean }) {
   const [open, setOpen] = React.useState(false);
+  const { user } = useAuth();
+  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
 
   const form = useForm<z.infer<typeof NewRadOrderSchema>>({
     resolver: zodResolver(NewRadOrderSchema),
@@ -42,13 +48,33 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string; d
   });
 
   const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
+    if (!user) {
+        toast.error("You must be logged in to order a study.");
+        return;
+    }
+    
+    // In a real app, this server action would create the record.
     const result = await orderImagingStudy(patientId, values);
+
     if (result.success) {
-      alert('Imaging study ordered successfully (simulated).');
+      const newOrder: RadiologyOrder = {
+          orderId: `RAD-${Date.now()}`,
+          patientId: patientId,
+          doctorId: user.uid,
+          studyIds: values.studyIds,
+          dateOrdered: new Date().toISOString(),
+          status: 'Pending Scheduling',
+          clinicalNotes: values.notes,
+          priority: 2, // Default priority
+      };
+      
+      setOrders(prev => [newOrder, ...prev]);
+      
+      toast.success('Imaging study ordered successfully.');
       setOpen(false);
       form.reset();
     } else {
-      alert(`Error: ${result.message}`);
+      toast.error(`Error: ${result.message}`);
     }
   };
 

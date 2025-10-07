@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,9 +16,12 @@ import { mockRadiologyOrders, allPatients, allUsers } from '@/lib/data';
 import Link from 'next/link';
 import { ScheduleStudyDialog } from './schedule-study-dialog';
 import { RadiologyOrder } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export function SchedulingQueueDashboard() {
-  const [orders, setOrders] = React.useState<RadiologyOrder[]>(mockRadiologyOrders.filter(o => o.status === 'Pending Scheduling'));
+  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
+  
+  const pendingSchedulingOrders = orders.filter(o => o.status === 'Pending Scheduling');
 
   const getPatientName = (patientId: string) => {
     return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
@@ -29,8 +33,8 @@ export function SchedulingQueueDashboard() {
 
   const handleScheduled = (orderId: string) => {
       // In a real app, this would be handled by a real-time subscription.
-      // For the prototype, we manually remove the scheduled item from this queue.
-      setOrders(prev => prev.filter(o => o.orderId !== orderId));
+      // For this prototype, we manually update the status.
+      setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, status: 'Scheduled' } : o));
   }
 
   return (
@@ -46,8 +50,8 @@ export function SchedulingQueueDashboard() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {orders.length > 0 ? (
-            orders.map(order => (
+          {pendingSchedulingOrders.length > 0 ? (
+            pendingSchedulingOrders.map(order => (
               <TableRow key={order.orderId}>
                 <TableCell className="font-medium">{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
                 <TableCell>
@@ -74,4 +78,3 @@ export function SchedulingQueueDashboard() {
     </div>
   );
 }
-
