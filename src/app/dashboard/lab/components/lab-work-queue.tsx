@@ -21,6 +21,7 @@ import { toast } from '@/hooks/use-toast';
 import { FulfillRequestDialog } from './fulfill-request-dialog';
 import { updateLabOrderStatus, analyzeSample } from '@/lib/actions';
 import { ValidateResultDialog } from './validate-result-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -128,7 +129,7 @@ function LabQueueTable({ requests, onStatusChange, userRole }: LabQueueTableProp
  * of all lab test requests, allowing technicians to manage their workflow efficiently.
  */
 export function LabWorkQueue() {
-  const [labRequests, setLabRequests] = React.useState<LabResult[]>(mockLabResults);
+  const [labRequests, setLabRequests] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
   const userRole = 'lab_supervisor'; // Mock role for demonstration
 
   const handleStatusChange = (testId: string, newStatus: LabResult['status']) => {

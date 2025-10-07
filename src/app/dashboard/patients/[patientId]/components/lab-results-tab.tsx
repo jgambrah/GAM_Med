@@ -11,6 +11,7 @@ import { LabResult } from '@/lib/types';
 import { useParams } from 'next/navigation';
 import { mockLabResults as allMockLabResults } from '@/lib/data';
 import { Download } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -28,7 +29,9 @@ export function LabResultsTab() {
     
     // In a real application, this data would come from a real-time listener
     // on the /patients/{patientId}/lab_results sub-collection.
-    const mockLabResults = allMockLabResults.filter(lr => lr.patientId === patientId);
+    const [mockLabResults] = useLocalStorage<LabResult[]>('labResults', allMockLabResults);
+    
+    const patientLabResults = mockLabResults.filter(lr => lr.patientId === patientId);
     
     return (
          <Card>
@@ -49,8 +52,8 @@ export function LabResultsTab() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {mockLabResults.length > 0 ? (
-                                mockLabResults.map((result) => (
+                            {patientLabResults.length > 0 ? (
+                                patientLabResults.map((result) => (
                                     <TableRow key={result.testId}>
                                         <TableCell className="font-medium">{result.testName}</TableCell>
                                         <TableCell>{format(new Date(result.orderedAt), 'PPP p')}</TableCell>
@@ -60,7 +63,7 @@ export function LabResultsTab() {
                                             <Button 
                                                 variant="outline" 
                                                 size="sm" 
-                                                disabled={result.status !== 'Completed' || !result.resultPdfUrl}
+                                                disabled={result.status !== 'Validated' || !result.resultPdfUrl}
                                                 asChild
                                             >
                                                 <a href={result.resultPdfUrl || '#'} target="_blank" rel="noopener noreferrer">
