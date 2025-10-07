@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -53,22 +52,19 @@ export default function PatientDetailPage() {
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
-  // This state will track if the initial load from localStorage is complete
-  const [isDataLoaded, setIsDataLoaded] = React.useState(false);
+  const patient = allPatients.find((p) => p.patient_id === patientId);
 
-  React.useEffect(() => {
-    // When the component mounts, useLocalStorage will start hydrating the state.
-    // We can consider the data "loaded" once the storedPatients array isn't empty,
-    // assuming there's always at least one patient.
-    if (allPatients.length > 0) {
-      setIsDataLoaded(true);
+  if (!patient) {
+    // This is a temporary measure. In a real app, you'd have a better loading state.
+    // Or you would fetch data server-side with Next.js and have a proper notFound() call.
+    if (typeof window !== 'undefined') {
+      // Avoid calling notFound on initial server render if data is in localStorage
+      const storedPatients = localStorage.getItem('patients');
+      if (!storedPatients || !JSON.parse(storedPatients).find((p: Patient) => p.patient_id === patientId)) {
+        notFound();
+      }
     }
-  }, [allPatients]);
-  
-  const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
-
-  if (!isDataLoaded) {
-    return (
+     return (
         <div className="space-y-4">
             <div className="flex items-center gap-4">
                 <Skeleton className="h-7 w-7" />
@@ -84,10 +80,6 @@ export default function PatientDetailPage() {
             <Skeleton className="h-96 w-full" />
         </div>
     );
-  }
-
-  if (!patient) {
-    notFound();
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
@@ -202,7 +194,7 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patient={patient} />
+            <OrderTestDialog patientId={patient.patient_id} />
             <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}

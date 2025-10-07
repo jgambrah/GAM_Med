@@ -25,13 +25,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Scan } from 'lucide-react';
 import { NewRadOrderSchema } from '@/lib/schemas';
-import { orderImagingStudy } from '@/lib/actions';
-import { mockRadiologyStudies } from '@/lib/data';
+import { mockRadiologyStudies, mockRadiologyOrders } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { RadiologyOrder } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export function OrderStudyDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
+  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
 
   const form = useForm<z.infer<typeof NewRadOrderSchema>>({
     resolver: zodResolver(NewRadOrderSchema),
@@ -42,15 +46,27 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string, d
   });
 
   const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
-    // In a real app, this would call the 'createRadOrder' Cloud Function.
-    const result = await orderImagingStudy(patientId, values);
-    if (result.success) {
-      toast.success('Imaging study ordered successfully.');
-      setOpen(false);
-      form.reset();
-    } else {
-      toast.error(`Error: ${result.message}`);
+    if (!user) {
+      toast.error('You must be logged in to order a study.');
+      return;
     }
+    // In a real app, this would call the 'createRadOrder' Cloud Function.
+    const newOrder: RadiologyOrder = {
+        orderId: `RAD-${Date.now()}`,
+        patientId: patientId,
+        doctorId: user.uid,
+        studyIds: values.studyIds,
+        dateOrdered: new Date().toISOString(),
+        status: 'Pending Scheduling',
+        clinicalNotes: values.notes,
+        priority: 2,
+    };
+    
+    setOrders(prev => [newOrder, ...prev]);
+
+    toast.success('Imaging study ordered successfully.');
+    setOpen(false);
+    form.reset();
   };
 
   return (
