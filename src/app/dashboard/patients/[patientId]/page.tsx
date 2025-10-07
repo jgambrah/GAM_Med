@@ -37,7 +37,7 @@ import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Patient, Admission, Bed, CarePlan } from '@/lib/types';
+import { Patient, Admission, Bed, CarePlan, ClinicalNote } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
@@ -50,20 +50,18 @@ export default function PatientDetailPage() {
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
   const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
-  const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
+  const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
-  const [isLoading, setIsLoading] = React.useState(true);
-  const patient = allPatients.find((p) => p.patient_id === patientId);
+  const [isMounted, setIsMounted] = React.useState(false);
+  React.useEffect(() => setIsMounted(true), []);
 
-  React.useEffect(() => {
-    // This effect helps manage the loading state based on when `allPatients` is hydrated
-    if (allPatients.length > 0) {
-      setIsLoading(false);
-    }
-  }, [allPatients]);
+  const patient = React.useMemo(() => {
+    if (!isMounted) return null;
+    return allPatients.find((p) => p.patient_id === patientId);
+  }, [isMounted, allPatients, patientId]);
 
-  if (isLoading) {
+  if (!isMounted) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-1/2" />
@@ -128,6 +126,10 @@ export default function PatientDetailPage() {
         return [...prev, newPlan];
     });
   }
+
+  const handleNoteAdded = (newNote: ClinicalNote) => {
+    setClinicalNotes(prev => [newNote, ...prev]);
+  };
 
   return (
     <div className="space-y-4">
@@ -194,7 +196,7 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
             <OrderTestDialog patientId={patient.patient_id} />
-            <OrderStudyDialog patientId={patient.patient_id} />
+            <OrderStudyDialog patientId={patient.patient_id} patientName={patient.full_name}/>
         </div>
        )}
 
@@ -257,3 +259,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    
