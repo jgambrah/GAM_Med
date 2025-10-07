@@ -1,10 +1,11 @@
+
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients } from '@/lib/data';
+import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -47,15 +48,43 @@ export default function PatientDetailPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
   const patient = allPatients.find((p) => p.patient_id === patientId);
 
+  // This hook now correctly finds the patient *after* allPatients has been loaded.
+  const [isLoading, setIsLoading] = React.useState(true);
+  React.useEffect(() => {
+    if (allPatients.length > 0) {
+      setIsLoading(false);
+    }
+  }, [allPatients]);
+
+
+  if (isLoading) {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-4">
+                <Skeleton className="h-7 w-7" />
+                <div>
+                    <Skeleton className="h-8 w-48" />
+                    <Skeleton className="h-4 w-64 mt-1" />
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <Skeleton className="h-6 w-24" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-96 w-full" />
+        </div>
+    );
+  }
+
   if (!patient) {
-    notFound();
+    return notFound();
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
@@ -170,7 +199,7 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patientId={patient.patient_id} />
+            <OrderTestDialog patient={patient} />
             <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}
