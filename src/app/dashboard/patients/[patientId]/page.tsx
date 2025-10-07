@@ -63,21 +63,28 @@ export default function PatientDetailPage() {
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', []);
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
+  const [isLoading, setIsLoading] = React.useState(true);
 
 
-  const patient = allPatients.find((p) => p.patient_id === patientId);
-  const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
-  const carePlan = carePlans.find(cp => cp.patientId === patientId);
-  const upcomingSurgery = mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed'));
-
-
-  if (!patient) {
-    // This will render a not found page if the patient isn't in local storage.
-    // Give it a moment for local storage to load.
+  const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
+  const admissions = React.useMemo(() => allAdmissions.filter((a) => a.patient_id === patientId), [allAdmissions, patientId]);
+  const carePlan = React.useMemo(() => carePlans.find(cp => cp.patientId === patientId), [carePlans, patientId]);
+  const upcomingSurgery = React.useMemo(() => mockOtSessions.find(s => s.patientId === patientId && (s.status === 'Scheduled' || s.status === 'Completed')), [patientId]);
+  
+  React.useEffect(() => {
+    // Only set loading to false once the patient data has been resolved (either found or not)
     if (allPatients.length > 0) {
-        notFound();
+      setIsLoading(false);
     }
+  }, [allPatients]);
+
+
+  if (isLoading) {
     return <div>Loading patient data...</div>;
+  }
+  
+  if (!patient) {
+    notFound();
   }
 
   const defaultTab = searchParams.get('tab') || 'vitals';
