@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
+import { initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -53,18 +53,21 @@ export default function PatientDetailPage() {
   const [clinicalNotes] = useLocalStorage('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   
-  const patient = allPatients.find((p) => p.patient_id === patientId);
+  // This state will track if the initial load from localStorage is complete
+  const [isDataLoaded, setIsDataLoaded] = React.useState(false);
 
-  // This hook now correctly finds the patient *after* allPatients has been loaded.
-  const [isLoading, setIsLoading] = React.useState(true);
   React.useEffect(() => {
+    // When the component mounts, useLocalStorage will start hydrating the state.
+    // We can consider the data "loaded" once the storedPatients array isn't empty,
+    // assuming there's always at least one patient.
     if (allPatients.length > 0) {
-      setIsLoading(false);
+      setIsDataLoaded(true);
     }
   }, [allPatients]);
+  
+  const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
 
-
-  if (isLoading) {
+  if (!isDataLoaded) {
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-4">
@@ -84,7 +87,7 @@ export default function PatientDetailPage() {
   }
 
   if (!patient) {
-    return notFound();
+    notFound();
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
