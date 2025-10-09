@@ -47,7 +47,6 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -56,38 +55,16 @@ export default function PatientDetailPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', allPatients);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', allBeds);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
 
-  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
-  const [isLoading, setIsLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    const foundPatient = allPatients.find((p) => p.patient_id === patientId);
-    setPatient(foundPatient);
-    setIsLoading(false);
-  }, [patientId, allPatients]);
-
-
-  if (isLoading) {
-      return (
-        <div className="space-y-4">
-            <Skeleton className="h-10 w-1/2" />
-            <Skeleton className="h-8 w-1/4" />
-            <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-8 w-32" />
-            </div>
-            <Skeleton className="h-96 w-full" />
-        </div>
-        );
-  }
+  const patient = allPatients.find((p) => p.patient_id === patientId);
 
   if (!patient) {
     notFound();
