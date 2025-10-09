@@ -54,6 +54,7 @@ export default function PatientDetailPage() {
   const searchParams = useSearchParams();
   const patientId = params.patientId as string;
   const { user } = useAuth();
+  
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -66,16 +67,15 @@ export default function PatientDetailPage() {
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
 
   React.useEffect(() => {
-    // This effect runs on the client after hydration from localStorage is complete.
-    // Setting isLoading to false here ensures the rest of the component
-    // logic doesn't run until `allPatients` has its real value.
-    if (allPatients) {
-      setIsLoading(false);
-    }
-  }, [allPatients]);
+    // This effect runs on the client after the component has mounted
+    // and useLocalStorage has had a chance to hydrate from the browser.
+    // We can now safely check for the patient and disable loading.
+    setIsLoading(false);
+  }, []);
 
   const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
   
+  // Render a skeleton UI while loading to prevent premature rendering and errors.
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -89,6 +89,7 @@ export default function PatientDetailPage() {
     );
   }
 
+  // Once loading is complete, check if the patient exists.
   if (!patient) {
       notFound();
   }
