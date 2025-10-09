@@ -66,15 +66,11 @@ export default function PatientDetailPage() {
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
 
-  const patient = allPatients.find((p) => p.patient_id === patientId);
-
   React.useEffect(() => {
-    // This effect ensures we don't try to check for a patient until the client-side
-    // `useLocalStorage` hook has had a chance to hydrate the state from the browser.
-    // A simple `isMounted` check is a robust way to handle this.
+    // This effect runs only on the client after initial mount.
+    // By this point, useLocalStorage has had a chance to read from the browser.
     setIsLoading(false);
   }, []);
-
 
   if (isLoading) {
     return (
@@ -89,8 +85,10 @@ export default function PatientDetailPage() {
     );
   }
   
+  const patient = allPatients.find((p) => p.patient_id === patientId);
+
   if (!patient) {
-    // This check will now only run after client-side hydration is complete.
+    // This check will now only run after the client-side data is loaded.
     notFound();
   }
 
@@ -275,5 +273,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-
-    
