@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -11,9 +10,9 @@ import {
     mockNotes, 
     mockRadiologyOrders, 
     mockLabResults, 
-    allPatients as initialAllPatients, 
-    allAdmissions as initialAllAdmissions, 
-    allBeds as initialAllBeds 
+    allPatients as initialAllPatientsData, 
+    allAdmissions as initialAllAdmissionsData, 
+    allBeds as initialAllBedsData 
 } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +46,7 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -54,21 +54,37 @@ export default function PatientDetailPage() {
   const patientId = params.patientId as string;
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isClient, setIsClient] = React.useState(false);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
 
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const patient = allPatients.find((p) => p.patient_id === patientId);
 
+  if (!isClient) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/2" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-6 w-24" />
+        </div>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
   if (!patient) {
-    // Temporary check to prevent error on initial load
-    const isPatientInData = initialAllPatients.some(p => p.patient_id === patientId);
+    const isPatientInData = initialAllPatientsData.some(p => p.patient_id === patientId);
     if (!isPatientInData) {
         notFound();
     }
