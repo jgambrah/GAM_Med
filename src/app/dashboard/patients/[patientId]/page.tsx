@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -8,9 +7,9 @@ import { ChevronLeft } from 'lucide-react';
 import { 
     mockCarePlans, 
     mockOtSessions, 
-    mockNotes, 
-    mockRadiologyOrders, 
-    mockLabResults, 
+    mockNotes as initialClinicalNotes,
+    mockRadiologyOrders as initialRadiologyOrders, 
+    mockLabResults as initialLabResults, 
     allPatients as initialAllPatientsData, 
     allAdmissions as initialAllAdmissionsData, 
     allBeds as initialAllBedsData 
@@ -47,6 +46,7 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -54,21 +54,41 @@ export default function PatientDetailPage() {
   const patientId = params.patientId as string;
   const { user } = useAuth();
   
+  const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
   const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
-  const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
+  const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', initialClinicalNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
-  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
-  const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
+  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
+  const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
 
   const patient = allPatients.find((p) => p.patient_id === patientId);
+
+  React.useEffect(() => {
+    // This effect helps ensure that we don't render the `notFound()` on the initial server render
+    // before the client-side `useLocalStorage` has a chance to hydrate the state.
+    if (allPatients.length > 0) {
+      setIsLoading(false);
+    }
+  }, [allPatients]);
+
+  if (isLoading) {
+    return (
+        <div className="space-y-4">
+            <Skeleton className="h-10 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+            <div className="space-y-2 pt-4">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-40 w-full" />
+            </div>
+        </div>
+    );
+  }
   
   if (!patient) {
-    // This check runs on the client-side. If the patient data hasn't loaded from localStorage yet,
-    // this could incorrectly trigger a 404. A loading state would be a more robust solution.
     notFound();
   }
 

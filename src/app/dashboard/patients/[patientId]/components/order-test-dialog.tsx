@@ -28,6 +28,7 @@ import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
 import { mockLabTestCatalog } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
+import { orderLabTest } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
 
 interface OrderTestDialogProps {
@@ -55,8 +56,12 @@ export function OrderTestDialog({ patientId, disabled }: OrderTestDialogProps) {
         
         // This is where the call to the server action would be.
         // For now, we'll just log it.
-        console.log('Ordering lab test:', { patientId, ...values });
-        toast.success('Lab test ordered successfully (simulated).');
+        const result = await orderLabTest(patientId, values);
+        if (result.success) {
+            toast.success('Lab test ordered successfully (simulated).');
+        } else {
+            toast.error('Failed to order lab test.');
+        }
         setOpen(false);
         form.reset();
     }

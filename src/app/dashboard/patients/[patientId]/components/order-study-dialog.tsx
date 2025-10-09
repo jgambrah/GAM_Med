@@ -28,9 +28,8 @@ import { NewRadOrderSchema } from '@/lib/schemas';
 import { mockRadiologyStudies } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
+import { orderImagingStudy } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { RadiologyOrder } from '@/lib/types';
 
 interface OrderStudyDialogProps {
   patientId: string;
@@ -40,10 +39,6 @@ interface OrderStudyDialogProps {
 export function OrderStudyDialog({ patientId, disabled }: OrderStudyDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>(
-    'radiologyOrders',
-    []
-  );
   
   const form = useForm<z.infer<typeof NewRadOrderSchema>>({
     resolver: zodResolver(NewRadOrderSchema),
@@ -54,27 +49,15 @@ export function OrderStudyDialog({ patientId, disabled }: OrderStudyDialogProps)
   });
 
   const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
-    if (!user) {
-        toast.error("You must be logged in to order a study.");
-        return;
+    // In a real app, this would call the 'createRadOrder' Cloud Function.
+    const result = await orderImagingStudy(patientId, values);
+    if (result.success) {
+      toast.success('Imaging study ordered successfully.');
+      setOpen(false);
+      form.reset();
+    } else {
+      toast.error('Failed to order study.');
     }
-    
-    const newOrder: RadiologyOrder = {
-        orderId: `RAD-${Date.now()}`,
-        patientId: patientId,
-        doctorId: user.uid,
-        studyIds: values.studyIds,
-        dateOrdered: new Date().toISOString(),
-        status: 'Pending Scheduling',
-        clinicalNotes: values.notes,
-        priority: 2, // Default priority
-    };
-
-    setRadiologyOrders(prev => [...prev, newOrder]);
-
-    toast.success('Imaging study ordered successfully.');
-    setOpen(false);
-    form.reset();
   };
 
   return (
