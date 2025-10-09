@@ -19,6 +19,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 const getStatusColor = (status: string) => {
     switch(status) {
         case 'Scheduled': return 'bg-blue-100 border-blue-300';
+        case 'Awaiting Report':
         case 'Completed': return 'bg-green-100 border-green-300';
         default: return 'bg-gray-100 border-gray-300';
     }
@@ -40,7 +41,11 @@ export function RadiologyScheduleDashboard() {
         mockRadiologyOrders
     );
     const radiologyEquipment = mockResources.filter(r => r.department === 'Radiology');
-    const scheduledOrders = orders.filter(o => o.status === 'Scheduled' || o.status === 'Awaiting Report');
+    
+    // Ensure we only try to render orders that have a scheduled date and time.
+    const scheduledOrders = orders.filter(
+        o => (o.status === 'Scheduled' || o.status === 'Awaiting Report' || o.status === 'Completed') && o.scheduledDateTime
+    );
 
 
     const calculateGridPosition = (startTimeStr: string, duration: number) => {
@@ -104,7 +109,7 @@ export function RadiologyScheduleDashboard() {
                                         <TooltipContent>
                                             <p className="font-semibold">{order.studyIds.join(', ')}</p>
                                             <p>Patient: {getPatientName(order.patientId)}</p>
-                                            <p>Time: {format(new Date(order.scheduledDateTime!), 'p')}</p>
+                                            {order.scheduledDateTime && <p>Time: {format(new Date(order.scheduledDateTime), 'p')}</p>}
                                             <p>Status: {order.status}</p>
                                         </TooltipContent>
                                     </Tooltip>
