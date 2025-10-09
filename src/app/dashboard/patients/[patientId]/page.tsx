@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -73,6 +74,11 @@ export default function PatientDetailPage() {
     if (allPatients.length > 0) {
       setIsLoading(false);
     }
+    // Set a timeout to handle cases where localStorage might be slow or empty
+    const timer = setTimeout(() => {
+        setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [allPatients]);
 
   if (isLoading) {
