@@ -56,7 +56,6 @@ export default function PatientDetailPage() {
   const { user } = useAuth();
   
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
   const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
@@ -65,7 +64,10 @@ export default function PatientDetailPage() {
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   
+  // This effect runs only on the client after the component mounts.
+  // It gives useLocalStorage hooks time to hydrate from the browser's storage.
   React.useEffect(() => {
     setIsLoading(false);
   }, []);
