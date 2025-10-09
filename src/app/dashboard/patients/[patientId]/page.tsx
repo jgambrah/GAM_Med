@@ -67,7 +67,6 @@ export default function PatientDetailPage() {
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
   
   React.useEffect(() => {
-    // This effect runs only on the client after hydration, ensuring localStorage is available.
     setIsLoading(false);
   }, []);
 
@@ -258,3 +257,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    
