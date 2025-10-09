@@ -26,17 +26,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Scan } from 'lucide-react';
 import { NewRadOrderSchema } from '@/lib/schemas';
-import { mockRadiologyStudies, mockRadiologyOrders } from '@/lib/data';
+import { mockRadiologyStudies } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { RadiologyOrder } from '@/lib/types';
+import { Patient, RadiologyOrder } from '@/lib/types';
 
-export function OrderStudyDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+interface OrderStudyDialogProps {
+    patient: Patient;
+    disabled?: boolean;
+    onOrderAdded: (order: RadiologyOrder) => void;
+}
+
+export function OrderStudyDialog({ patient, disabled, onOrderAdded }: OrderStudyDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
   
   const form = useForm<z.infer<typeof NewRadOrderSchema>>({
     resolver: zodResolver(NewRadOrderSchema),
@@ -54,7 +58,8 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string, d
     
     const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
-        patientId,
+        patientId: patient.patient_id,
+        patientName: patient.full_name, // Add patient name here
         doctorId: user.uid,
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
@@ -63,7 +68,7 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string, d
         priority: 2, // Default priority
     };
 
-    setRadiologyOrders(prevOrders => [newOrder, ...prevOrders]);
+    onOrderAdded(newOrder);
 
     toast.success('Imaging study ordered successfully.');
     setOpen(false);
@@ -81,7 +86,7 @@ export function OrderStudyDialog({ patientId, disabled }: { patientId: string, d
         <DialogHeader>
           <DialogTitle>Order New Imaging Study</DialogTitle>
           <DialogDescription>
-            Submit a new request to the radiology department.
+            Submit a new request to the radiology department for {patient.full_name}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

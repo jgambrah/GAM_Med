@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { allAdmissions as initialAllAdmissions, mockCarePlans, mockOtSessions, mockNotes, allPatients as initialAllPatients, allBeds as initialAllBeds } from '@/lib/data';
+import { mockCarePlans, mockOtSessions, mockNotes, mockRadiologyOrders, mockLabResults } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -37,8 +37,9 @@ import { PreOpChecklistTab } from './components/pre-op-checklist-tab';
 import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Patient, Admission, Bed, CarePlan, ClinicalNote } from '@/lib/types';
+import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { allPatients as initialAllPatients, allAdmissions as initialAllAdmissions, allBeds as initialAllBeds } from '@/lib/data';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -52,33 +53,36 @@ export default function PatientDetailPage() {
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
-  
-  const patient = allPatients.find((p) => p.patient_id === patientId);
+  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
+  const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
+
+  const [patient, setPatient] = React.useState<Patient | undefined>(undefined);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const foundPatient = allPatients.find((p) => p.patient_id === patientId);
+    setPatient(foundPatient);
+    setIsLoading(false);
+  }, [patientId, allPatients]);
+
+
+  if (isLoading) {
+      return (
+        <div className="space-y-4">
+            <Skeleton className="h-10 w-1/2" />
+            <Skeleton className="h-8 w-1/4" />
+            <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-32" />
+            </div>
+            <Skeleton className="h-96 w-full" />
+        </div>
+        );
+  }
 
   if (!patient) {
-    // Still checking, or not found. We can show a skeleton or a not found message.
-    // To prevent flashing a 404, we can wait a bit or check loading state from useLocalStorage if it provides one.
-    // For now, let's assume if it's not found after initial load, it's a 404.
-    // A better approach would involve a loading state from the hook.
-    const isClient = typeof window !== 'undefined';
-    if(isClient && localStorage.getItem('patients')){
-        const storedPatients = JSON.parse(localStorage.getItem('patients')!);
-        if(!storedPatients.find((p: Patient) => p.patient_id === patientId)) {
-             notFound();
-        }
-    }
-     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-8 w-1/4" />
-        <div className="flex items-center gap-2 border-t border-b py-2 flex-wrap">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-8 w-32" />
-        </div>
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
+    notFound();
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
@@ -132,6 +136,14 @@ export default function PatientDetailPage() {
 
   const handleNoteAdded = (newNote: ClinicalNote) => {
     setClinicalNotes(prev => [newNote, ...prev]);
+  };
+  
+  const handleRadOrderAdded = (newOrder: RadiologyOrder) => {
+    setRadiologyOrders(prev => [newOrder, ...prev]);
+  };
+
+  const handleLabOrderAdded = (newOrder: LabResult) => {
+    setLabResults(prev => [newOrder, ...prev]);
   };
 
   return (
@@ -198,8 +210,8 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patientId={patient.patient_id} />
-            <OrderStudyDialog patientId={patient.patient_id} />
+            <OrderTestDialog patientId={patient.patient_id} onLabOrderAdded={handleLabOrderAdded} />
+            <OrderStudyDialog patient={patient} onOrderAdded={handleRadOrderAdded} />
         </div>
        )}
 
@@ -262,6 +274,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-    
-
-    

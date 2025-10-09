@@ -25,12 +25,21 @@ import { z } from 'zod';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { TestTube } from 'lucide-react';
-import { orderLabTest } from '@/lib/actions';
 import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
-import { mockLabTestCatalog } from '@/lib/data';
+import { mockLabTestCatalog, allPatients } from '@/lib/data';
+import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { LabResult } from '@/lib/types';
 
-export function OrderTestDialog({ patientId, disabled }: { patientId: string, disabled?: boolean }) {
+interface OrderTestDialogProps {
+    patientId: string;
+    disabled?: boolean;
+    onLabOrderAdded: (newOrder: LabResult) => void;
+}
+
+export function OrderTestDialog({ patientId, disabled, onLabOrderAdded }: OrderTestDialogProps) {
+    const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     
     const form = useForm<z.infer<typeof NewLabOrderSchema>>({
@@ -42,14 +51,33 @@ export function OrderTestDialog({ patientId, disabled }: { patientId: string, di
     });
 
     const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
-        const result = await orderLabTest(patientId, values);
-        if (result.success) {
-            alert('Lab test ordered successfully (simulated).');
-            setOpen(false);
-            form.reset();
-        } else {
-            alert(`Error: ${result.message}`);
+        if (!user) {
+            toast.error("You must be logged in to order a test.");
+            return;
         }
+
+        const patient = allPatients.find(p => p.patient_id === patientId);
+        if (!patient) {
+            toast.error("Patient not found.");
+            return;
+        }
+        
+        const newOrder: LabResult = {
+            testId: `lab-${Date.now()}`,
+            patientId: patientId,
+            patientName: patient.full_name,
+            testName: values.testName,
+            status: 'Ordered',
+            orderedByDoctorId: user.uid,
+            orderedAt: new Date().toISOString(),
+            isBilled: false
+        };
+
+        onLabOrderAdded(newOrder);
+
+        toast.success('Lab test ordered successfully.');
+        setOpen(false);
+        form.reset();
     }
     
     const labTestOptions = mockLabTestCatalog.map(test => ({
