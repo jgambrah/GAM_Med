@@ -55,9 +55,9 @@ export default function PatientDetailPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', allPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', allBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
@@ -67,7 +67,12 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
 
   if (!patient) {
-    notFound();
+    // Temporary check to prevent error on initial load
+    const isPatientInData = initialAllPatients.some(p => p.patient_id === patientId);
+    if (!isPatientInData) {
+        notFound();
+    }
+    return <div>Loading patient data...</div>;
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
@@ -251,3 +256,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    
