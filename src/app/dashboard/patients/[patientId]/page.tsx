@@ -55,22 +55,16 @@ export default function PatientDetailPage() {
   const patientId = params.patientId as string;
   const { user } = useAuth();
   
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
-  const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', initialClinicalNotes);
-  const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
-  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
-  const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
+  const [allPatients, setAllPatients, isLoadingPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
+  const [allAdmissions, setAllAdmissions, isLoadingAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
+  const [allBeds, setAllBeds, isLoadingBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
+  const [clinicalNotes, setClinicalNotes, isLoadingNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', initialClinicalNotes);
+  const [carePlans, setCarePlans, isLoadingCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
+  const [radiologyOrders, setRadiologyOrders, isLoadingRadOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
+  const [labResults, setLabResults, isLoadingLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  
-  // This effect runs only on the client after the component mounts.
-  // It gives useLocalStorage hooks time to hydrate from the browser's storage.
-  React.useEffect(() => {
-    setIsLoading(false);
-  }, []);
+
+  const isLoading = isLoadingPatients || isLoadingAdmissions || isLoadingBeds || isLoadingNotes || isLoadingCarePlans || isLoadingRadOrders || isLoadingLabResults;
 
   if (isLoading) {
     return (
@@ -259,5 +253,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-
-    
