@@ -30,13 +30,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { orderImagingStudy } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
+import { RadiologyOrder } from '@/lib/types';
 
 interface OrderStudyDialogProps {
   patientId: string;
   disabled?: boolean;
+  onOrderCreated: (newOrder: RadiologyOrder) => void;
 }
 
-export function OrderStudyDialog({ patientId, disabled }: OrderStudyDialogProps) {
+export function OrderStudyDialog({ patientId, disabled, onOrderCreated }: OrderStudyDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   
@@ -53,6 +55,20 @@ export function OrderStudyDialog({ patientId, disabled }: OrderStudyDialogProps)
     const result = await orderImagingStudy(patientId, values);
     if (result.success) {
       toast.success('Imaging study ordered successfully.');
+
+      const newOrder: RadiologyOrder = {
+        orderId: `RAD-${Date.now()}`,
+        patientId,
+        doctorId: user?.uid || 'doc-unknown',
+        studyIds: values.studyIds,
+        dateOrdered: new Date().toISOString(),
+        status: 'Pending Scheduling',
+        clinicalNotes: values.notes,
+        priority: 2, // Default priority
+      };
+
+      onOrderCreated(newOrder);
+
       setOpen(false);
       form.reset();
     } else {

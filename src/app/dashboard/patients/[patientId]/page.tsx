@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -124,6 +123,10 @@ export default function PatientDetailPage() {
   const handleNoteAdded = (newNote: ClinicalNote) => {
     setClinicalNotes(prev => [newNote, ...prev]);
   };
+
+  const handleRadiologyOrderCreated = (newOrder: RadiologyOrder) => {
+    setRadiologyOrders(prev => [newOrder, ...prev]);
+  };
   
   return (
     <div className="space-y-4">
@@ -190,7 +193,7 @@ export default function PatientDetailPage() {
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
             <OrderTestDialog patientId={patient.patient_id} />
-            <OrderStudyDialog patientId={patient.patient_id} />
+            <OrderStudyDialog patientId={patient.patient_id} onOrderCreated={handleRadiologyOrderCreated} />
         </div>
        )}
 
