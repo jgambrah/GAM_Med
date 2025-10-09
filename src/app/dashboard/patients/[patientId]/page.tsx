@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -10,9 +11,9 @@ import {
     mockNotes, 
     mockRadiologyOrders, 
     mockLabResults, 
-    allPatients as initialAllPatients, 
-    allAdmissions as initialAllAdmissions, 
-    allBeds as initialAllBeds 
+    allPatients as initialAllPatientsData, 
+    allAdmissions as initialAllAdmissionsData, 
+    allBeds as initialAllBedsData 
 } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,23 +55,25 @@ export default function PatientDetailPage() {
   const patientId = params.patientId as string;
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isClient, setIsClient] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
 
   React.useEffect(() => {
-    setIsClient(true);
+    // This effect ensures that we don't try to render the page until
+    // the data has been hydrated from localStorage on the client.
+    setIsLoading(false);
   }, []);
 
   const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
-
-  if (!isClient) {
+  
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-1/2" />
@@ -268,3 +271,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    
