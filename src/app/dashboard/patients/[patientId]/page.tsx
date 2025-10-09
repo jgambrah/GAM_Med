@@ -66,14 +66,10 @@ export default function PatientDetailPage() {
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
   
-  const patient = allPatients.find((p) => p.patient_id === patientId);
-
   React.useEffect(() => {
-    // This effect runs on the client after hydration.
-    // We can now safely assume localStorage data is loaded.
+    // This effect runs only on the client after hydration, ensuring localStorage is available.
     setIsLoading(false);
   }, []);
-
 
   if (isLoading) {
     return (
@@ -89,6 +85,8 @@ export default function PatientDetailPage() {
       </div>
     );
   }
+
+  const patient = allPatients.find((p) => p.patient_id === patientId);
 
   if (!patient) {
     notFound();
