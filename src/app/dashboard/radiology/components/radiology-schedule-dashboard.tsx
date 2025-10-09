@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import { mockRadiologyOrders, allPatients, mockResources } from '@/lib/data';
 import { RadiologyOrder } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 
 const getStatusColor = (status: string) => {
@@ -34,8 +35,12 @@ export function RadiologyScheduleDashboard() {
         end: endOfWorkDay,
     });
     
+    const [orders] = useLocalStorage<RadiologyOrder[]>(
+        'radiologyOrders',
+        mockRadiologyOrders
+    );
     const radiologyEquipment = mockResources.filter(r => r.department === 'Radiology');
-    const scheduledOrders = mockRadiologyOrders.filter(o => o.status === 'Scheduled' || o.status === 'Awaiting Report');
+    const scheduledOrders = orders.filter(o => o.status === 'Scheduled' || o.status === 'Awaiting Report');
 
 
     const calculateGridPosition = (startTimeStr: string, duration: number) => {
