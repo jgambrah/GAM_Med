@@ -10,9 +10,9 @@ import {
     mockNotes, 
     mockRadiologyOrders, 
     mockLabResults, 
-    allPatients as initialAllPatientsData, 
-    allAdmissions as initialAllAdmissionsData, 
-    allBeds as initialAllBedsData 
+    allPatients as initialAllPatients, 
+    allAdmissions as initialAllAdmissions, 
+    allBeds as initialAllBeds 
 } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
@@ -56,9 +56,9 @@ export default function PatientDetailPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isClient, setIsClient] = React.useState(false);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
@@ -68,7 +68,7 @@ export default function PatientDetailPage() {
     setIsClient(true);
   }, []);
 
-  const patient = allPatients.find((p) => p.patient_id === patientId);
+  const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
 
   if (!isClient) {
     return (
@@ -84,11 +84,7 @@ export default function PatientDetailPage() {
   }
 
   if (!patient) {
-    const isPatientInData = initialAllPatientsData.some(p => p.patient_id === patientId);
-    if (!isPatientInData) {
-        notFound();
-    }
-    return <div>Loading patient data...</div>;
+      notFound();
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
@@ -272,5 +268,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-
-    
