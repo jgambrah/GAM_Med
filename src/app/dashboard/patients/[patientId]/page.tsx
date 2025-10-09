@@ -66,10 +66,13 @@ export default function PatientDetailPage() {
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
 
   React.useEffect(() => {
-    // This effect ensures that we don't try to render the page until
-    // the data has been hydrated from localStorage on the client.
-    setIsLoading(false);
-  }, []);
+    // This effect runs on the client after hydration from localStorage is complete.
+    // Setting isLoading to false here ensures the rest of the component
+    // logic doesn't run until `allPatients` has its real value.
+    if (allPatients) {
+      setIsLoading(false);
+    }
+  }, [allPatients]);
 
   const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
   
@@ -271,5 +274,3 @@ export default function PatientDetailPage() {
     </div>
   );
 }
-
-    
