@@ -47,7 +47,6 @@ import { PostOpCareTab } from './components/post-op-care-tab';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -56,7 +55,6 @@ export default function PatientDetailPage() {
   const { user } = useAuth();
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
 
   const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
   const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
@@ -66,32 +64,12 @@ export default function PatientDetailPage() {
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
 
-  React.useEffect(() => {
-    // This effect runs on the client after the component has mounted
-    // and useLocalStorage has had a chance to hydrate from the browser.
-    // We can now safely check for the patient and disable loading.
-    setIsLoading(false);
-  }, []);
-
-  const patient = React.useMemo(() => allPatients.find((p) => p.patient_id === patientId), [allPatients, patientId]);
+  const patient = allPatients.find((p) => p.patient_id === patientId);
   
-  // Render a skeleton UI while loading to prevent premature rendering and errors.
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-1/2" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-6 w-24" />
-        </div>
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  // Once loading is complete, check if the patient exists.
   if (!patient) {
-      notFound();
+    // This check runs on the client-side. If the patient data hasn't loaded from localStorage yet,
+    // this could incorrectly trigger a 404. A loading state would be a more robust solution.
+    notFound();
   }
 
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
