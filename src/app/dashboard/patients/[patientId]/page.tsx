@@ -69,17 +69,12 @@ export default function PatientDetailPage() {
   const patient = allPatients.find((p) => p.patient_id === patientId);
 
   React.useEffect(() => {
-    // This effect helps ensure that we don't render the `notFound()` on the initial server render
-    // before the client-side `useLocalStorage` has a chance to hydrate the state.
-    if (allPatients.length > 0) {
-      setIsLoading(false);
-    }
-    // Set a timeout to handle cases where localStorage might be slow or empty
-    const timer = setTimeout(() => {
-        setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [allPatients]);
+    // This effect ensures we don't try to check for a patient until the client-side
+    // `useLocalStorage` hook has had a chance to hydrate the state from the browser.
+    // A simple `isMounted` check is a robust way to handle this.
+    setIsLoading(false);
+  }, []);
+
 
   if (isLoading) {
     return (
@@ -95,6 +90,7 @@ export default function PatientDetailPage() {
   }
   
   if (!patient) {
+    // This check will now only run after client-side hydration is complete.
     notFound();
   }
 
@@ -279,3 +275,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    
