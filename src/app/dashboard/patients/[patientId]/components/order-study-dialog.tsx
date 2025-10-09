@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -30,17 +29,21 @@ import { mockRadiologyStudies } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Patient, RadiologyOrder } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { RadiologyOrder } from '@/lib/types';
 
 interface OrderStudyDialogProps {
-    patient: Patient;
-    disabled?: boolean;
-    onOrderAdded: (order: RadiologyOrder) => void;
+  patientId: string;
+  disabled?: boolean;
 }
 
-export function OrderStudyDialog({ patient, disabled, onOrderAdded }: OrderStudyDialogProps) {
+export function OrderStudyDialog({ patientId, disabled }: OrderStudyDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
+  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>(
+    'radiologyOrders',
+    []
+  );
   
   const form = useForm<z.infer<typeof NewRadOrderSchema>>({
     resolver: zodResolver(NewRadOrderSchema),
@@ -58,8 +61,7 @@ export function OrderStudyDialog({ patient, disabled, onOrderAdded }: OrderStudy
     
     const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
-        patientId: patient.patient_id,
-        patientName: patient.full_name, // Add patient name here
+        patientId: patientId,
         doctorId: user.uid,
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
@@ -68,7 +70,7 @@ export function OrderStudyDialog({ patient, disabled, onOrderAdded }: OrderStudy
         priority: 2, // Default priority
     };
 
-    onOrderAdded(newOrder);
+    setRadiologyOrders(prev => [...prev, newOrder]);
 
     toast.success('Imaging study ordered successfully.');
     setOpen(false);
@@ -86,7 +88,7 @@ export function OrderStudyDialog({ patient, disabled, onOrderAdded }: OrderStudy
         <DialogHeader>
           <DialogTitle>Order New Imaging Study</DialogTitle>
           <DialogDescription>
-            Submit a new request to the radiology department for {patient.full_name}.
+            Submit a new request to the radiology department.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

@@ -26,13 +26,8 @@ export function SchedulingQueueDashboard() {
   
   const pendingSchedulingOrders = orders.filter(o => o.status === 'Pending Scheduling');
 
-  const getPatientName = (order: RadiologyOrder) => {
-    // First, try to use the name on the order itself for robustness
-    if (order.patientName) {
-        return order.patientName;
-    }
-    // Fallback to looking up in the main patient list
-    return allPatients.find(p => p.patient_id === order.patientId)?.full_name || 'Unknown Patient';
+  const getPatientName = (patientId: string) => {
+    return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
   }
 
   const getDoctorName = (doctorId: string) => {
@@ -64,7 +59,7 @@ export function SchedulingQueueDashboard() {
                 <TableCell className="font-medium">{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
                 <TableCell>
                   <Link href={`/dashboard/patients/${order.patientId}`} className="hover:underline text-primary">
-                    {getPatientName(order)}
+                    {getPatientName(order.patientId)}
                   </Link>
                 </TableCell>
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>

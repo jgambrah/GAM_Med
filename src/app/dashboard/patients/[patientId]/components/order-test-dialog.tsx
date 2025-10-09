@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -27,18 +26,16 @@ import { Button } from '@/components/ui/button';
 import { TestTube } from 'lucide-react';
 import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
-import { mockLabTestCatalog, allPatients } from '@/lib/data';
+import { mockLabTestCatalog } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { LabResult } from '@/lib/types';
 
 interface OrderTestDialogProps {
     patientId: string;
     disabled?: boolean;
-    onLabOrderAdded: (newOrder: LabResult) => void;
 }
 
-export function OrderTestDialog({ patientId, disabled, onLabOrderAdded }: OrderTestDialogProps) {
+export function OrderTestDialog({ patientId, disabled }: OrderTestDialogProps) {
     const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     
@@ -55,27 +52,11 @@ export function OrderTestDialog({ patientId, disabled, onLabOrderAdded }: OrderT
             toast.error("You must be logged in to order a test.");
             return;
         }
-
-        const patient = allPatients.find(p => p.patient_id === patientId);
-        if (!patient) {
-            toast.error("Patient not found.");
-            return;
-        }
         
-        const newOrder: LabResult = {
-            testId: `lab-${Date.now()}`,
-            patientId: patientId,
-            patientName: patient.full_name,
-            testName: values.testName,
-            status: 'Ordered',
-            orderedByDoctorId: user.uid,
-            orderedAt: new Date().toISOString(),
-            isBilled: false
-        };
-
-        onLabOrderAdded(newOrder);
-
-        toast.success('Lab test ordered successfully.');
+        // This is where the call to the server action would be.
+        // For now, we'll just log it.
+        console.log('Ordering lab test:', { patientId, ...values });
+        toast.success('Lab test ordered successfully (simulated).');
         setOpen(false);
         form.reset();
     }

@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { mockCarePlans, mockOtSessions, mockNotes, mockRadiologyOrders, mockLabResults } from '@/lib/data';
+import { mockCarePlans, mockOtSessions, mockNotes, mockRadiologyOrders, mockLabResults, allPatients, allAdmissions, allBeds } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import {
   Tabs,
@@ -39,7 +39,6 @@ import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { allPatients as initialAllPatients, allAdmissions as initialAllAdmissions, allBeds as initialAllBeds } from '@/lib/data';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -48,9 +47,9 @@ export default function PatientDetailPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatients);
-  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissions);
-  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBeds);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', allPatients);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', allAdmissions);
+  const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', allBeds);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', mockRadiologyOrders);
@@ -138,14 +137,6 @@ export default function PatientDetailPage() {
     setClinicalNotes(prev => [newNote, ...prev]);
   };
   
-  const handleRadOrderAdded = (newOrder: RadiologyOrder) => {
-    setRadiologyOrders(prev => [newOrder, ...prev]);
-  };
-
-  const handleLabOrderAdded = (newOrder: LabResult) => {
-    setLabResults(prev => [newOrder, ...prev]);
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -210,8 +201,8 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patientId={patient.patient_id} onLabOrderAdded={handleLabOrderAdded} />
-            <OrderStudyDialog patient={patient} onOrderAdded={handleRadOrderAdded} />
+            <OrderTestDialog patientId={patient.patient_id} />
+            <OrderStudyDialog patientId={patient.patient_id} />
         </div>
        )}
 
