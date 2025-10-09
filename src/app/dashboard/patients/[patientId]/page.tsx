@@ -58,9 +58,8 @@ export default function PatientDetailPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Direct import to fix 404 issue
-  const allPatients = initialAllPatientsData;
-  const allAdmissions = initialAllAdmissionsData;
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
+  const [allAdmissions, setAllAdmissions] = useLocalStorage<Admission[]>('admissions', initialAllAdmissionsData);
   const [allBeds, setAllBeds] = useLocalStorage<Bed[]>('beds', initialAllBedsData);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', initialClinicalNotes);
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
@@ -68,6 +67,28 @@ export default function PatientDetailPage() {
   const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
   
   const patient = allPatients.find((p) => p.patient_id === patientId);
+
+  React.useEffect(() => {
+    // This effect runs on the client after hydration.
+    // We can now safely assume localStorage data is loaded.
+    setIsLoading(false);
+  }, []);
+
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="flex gap-2">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
 
   if (!patient) {
     notFound();
