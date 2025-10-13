@@ -35,7 +35,7 @@ import { RadiologyOrder } from '@/lib/types';
 
 interface OrderStudyDialogProps {
   patientId: string;
-  patientName: string; // Add patientName prop
+  patientName: string;
   disabled?: boolean;
   onOrderCreated: (newOrder: RadiologyOrder) => void;
 }
@@ -61,7 +61,7 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
       const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
         patientId,
-        patientName: patientName, // Use the passed-in patientName
+        patientName: patientName,
         doctorId: user?.uid || 'doc-unknown',
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),

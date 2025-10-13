@@ -35,7 +35,7 @@ import { LabResult } from '@/lib/types';
 
 interface OrderTestDialogProps {
     patientId: string;
-    patientName: string; // Add patientName prop
+    patientName: string; 
     disabled?: boolean;
     onOrderCreated: (newOrder: LabResult) => void;
 }
@@ -63,7 +63,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
             const newOrder: LabResult = {
                 testId: `lab-${Date.now()}`,
                 patientId,
-                patientName: patientName, // Use the passed-in patientName
+                patientName: patientName,
                 testName: values.testName,
                 status: 'Ordered',
                 orderedByDoctorId: user.uid,
