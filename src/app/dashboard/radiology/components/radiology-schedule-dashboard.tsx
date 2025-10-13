@@ -2,7 +2,6 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { format, eachHourOfInterval, startOfDay, endOfDay, addHours } from 'date-fns';
 import {
@@ -11,10 +10,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { mockRadiologyOrders, allPatients, mockResources } from '@/lib/data';
+import { allPatients, mockResources } from '@/lib/data';
 import { RadiologyOrder } from '@/lib/types';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-
 
 const getStatusColor = (status: string) => {
     switch(status) {
@@ -30,7 +27,6 @@ interface RadiologyScheduleDashboardProps {
 }
 
 export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboardProps) {
-    // In a real app, this would be the current date. It's fixed here for consistent demo data.
     const today = new Date('2024-08-16T10:15:00.000Z');
     const startOfWorkDay = addHours(startOfDay(today), 7);
     const endOfWorkDay = addHours(startOfDay(today), 19);
@@ -42,7 +38,6 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
     
     const radiologyEquipment = mockResources.filter(r => r.department === 'Radiology');
     
-    // Ensure we only try to render orders that have a scheduled date and time.
     const scheduledOrders = orders.filter(
         o => (o.status === 'Scheduled' || o.status === 'Awaiting Report' || o.status === 'Completed') && o.scheduledDateTime
     );
@@ -66,8 +61,7 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
     const getPatientName = (patientId: string) => allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
 
     const getEquipmentForOrder = (order: RadiologyOrder) => {
-        // This is a simplified mapping. A real app might store the assigned equipmentId on the order.
-        const studyType = order.studyIds[0].split('-')[0]; // e.g., 'CT' from 'CT-Chest'
+        const studyType = order.studyIds[0].split('-')[0];
         return radiologyEquipment.find(eq => eq.modality === studyType);
     }
     

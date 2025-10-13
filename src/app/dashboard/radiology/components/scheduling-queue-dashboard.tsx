@@ -12,11 +12,10 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockRadiologyOrders, allPatients, allUsers } from '@/lib/data';
+import { allPatients, allUsers } from '@/lib/data';
 import Link from 'next/link';
 import { ScheduleStudyDialog } from './schedule-study-dialog';
 import { RadiologyOrder } from '@/lib/types';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface SchedulingQueueDashboardProps {
   orders: RadiologyOrder[];
