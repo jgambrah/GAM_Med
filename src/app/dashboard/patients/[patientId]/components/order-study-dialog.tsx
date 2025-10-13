@@ -54,7 +54,7 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
 
   const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
     // In a real app, this would call the 'createRadOrder' Cloud Function.
-    const result = await orderImagingStudy(patientId, values);
+    const result = await orderImagingStudy(patientId, patientName, values);
     if (result.success) {
       toast.success('Imaging study ordered successfully.');
 

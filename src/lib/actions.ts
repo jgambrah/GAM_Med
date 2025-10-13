@@ -225,7 +225,7 @@ export async function addDiagnosis(patientId: string, values: z.infer<typeof New
     return { success: true, message: 'Diagnosis added successfully.' };
 }
 
-export async function orderLabTest(patientId: string, values: z.infer<typeof NewLabOrderSchema>) {
+export async function orderLabTest(patientId: string, patientName: string, values: z.infer<typeof NewLabOrderSchema>) {
     console.log(`Server Action: Ordering lab test for patient ${patientId}.`);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     revalidatePath(`/dashboard/patients/${patientId}`);
@@ -233,7 +233,7 @@ export async function orderLabTest(patientId: string, values: z.infer<typeof New
     return { success: true, message: 'Lab test ordered successfully.' };
 }
 
-export async function orderImagingStudy(patientId: string, values: z.infer<typeof NewRadOrderSchema>) {
+export async function orderImagingStudy(patientId: string, patientName: string, values: z.infer<typeof NewRadOrderSchema>) {
     console.log(`Server Action: Ordering imaging study for patient ${patientId}.`);
     // In a real app, this would call the 'createRadOrder' Cloud Function
     await new Promise((resolve) => setTimeout(resolve, 1000));

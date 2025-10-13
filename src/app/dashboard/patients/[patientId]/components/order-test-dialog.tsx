@@ -58,7 +58,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
             return;
         }
         
-        const result = await orderLabTest(patientId, values);
+        const result = await orderLabTest(patientId, patientName, values);
         if (result.success) {
             const newOrder: LabResult = {
                 testId: `lab-${Date.now()}`,
