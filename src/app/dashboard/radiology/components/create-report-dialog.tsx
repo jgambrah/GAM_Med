@@ -29,10 +29,12 @@ import { submitRadiologyReport } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { mockRadiologyReports } from '@/lib/data';
+import { Input } from '@/components/ui/input';
 
 const ReportSchema = z.object({
   impression: z.string().min(10, 'Impression must be at least 10 characters.'),
   findings: z.string().min(10, 'Findings must be at least 10 characters.'),
+  reportPdf: z.any().optional(),
 });
 
 interface CreateReportDialogProps {
@@ -52,7 +54,14 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
 
   const onSubmit = async (values: z.infer<typeof ReportSchema>) => {
     // In a real app, this would call the `processRadReport` Cloud Function.
-    const result = await submitRadiologyReport(order.orderId, values);
+    // The function would also handle the PDF upload to a secure storage bucket.
+    console.log("Uploaded file (conceptual):", values.reportPdf);
+    
+    const result = await submitRadiologyReport(order.orderId, {
+      impression: values.impression,
+      findings: values.findings,
+    });
+
     if (result.success) {
       toast.success('Report Submitted', {
         description: `The report for order ${order.orderId} has been submitted.`,
@@ -68,8 +77,8 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
           impression: values.impression,
           findings: values.findings,
         },
-        reportPdfUrl: '/mock-report.pdf',
-        pacsLink: '/mock-pacs-viewer.html',
+        reportPdfUrl: '/mock-report.pdf', // Link to the mock PDF for demonstration
+        pacsLink: '/mock-pacs-viewer.html', // Link to the mock PACS viewer
         isFinal: true,
       };
 
@@ -124,6 +133,23 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
                   <FormMessage />
                 </FormItem>
               )}
+            />
+             <FormField
+                control={form.control}
+                name="reportPdf"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Upload Report PDF</FormLabel>
+                        <FormControl>
+                            <Input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
             />
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
