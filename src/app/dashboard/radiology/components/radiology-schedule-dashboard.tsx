@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -12,8 +11,10 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { allPatients, mockResources } from '@/lib/data';
-import { RadiologyOrder } from '@/lib/types';
+import { RadiologyOrder, Asset } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 const getStatusColor = (status: string) => {
     switch(status) {
@@ -26,9 +27,10 @@ const getStatusColor = (status: string) => {
 
 interface RadiologyScheduleDashboardProps {
   orders: RadiologyOrder[];
+  setOrders: React.Dispatch<React.SetStateAction<RadiologyOrder[]>>;
 }
 
-export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboardProps) {
+export function RadiologyScheduleDashboard({ orders, setOrders }: RadiologyScheduleDashboardProps) {
     const today = new Date('2024-08-16T10:15:00.000Z');
     const startOfWorkDay = addHours(startOfDay(today), 7);
     const endOfWorkDay = addHours(startOfDay(today), 19);
@@ -66,13 +68,21 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
 
     const getEquipmentForOrder = (order: RadiologyOrder) => {
         const studyType = order.studyIds[0].split('-')[0]; // e.g., 'CT' from 'CT-Chest'
-        // This logic needs to be more robust.
         if (studyType === 'CT') return radiologyEquipment.find(eq => eq.modality === 'CT Scan');
         if (studyType === 'MRI') return radiologyEquipment.find(eq => eq.modality === 'MRI');
         if (studyType === 'XRay') return radiologyEquipment.find(eq => eq.modality === 'X-Ray');
         if (studyType === 'US') return radiologyEquipment.find(eq => eq.modality === 'Ultrasound');
         return undefined;
     }
+
+    const handleMarkAsPerformed = (orderId: string) => {
+        setOrders(prevOrders => prevOrders.map(o => 
+            o.orderId === orderId ? { ...o, status: 'Awaiting Report' } : o
+        ));
+        toast.success("Study Marked as Performed", {
+            description: "The order has been moved to the radiologist's reporting queue."
+        });
+    };
     
     return (
         <div className="border rounded-lg overflow-hidden select-none">
@@ -92,7 +102,7 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
                             <span className="text-xs text-muted-foreground">{equip.modality}</span>
                         </div>
                          {scheduledOrders
-                            .filter(order => getEquipmentForOrder(order)?.assetId === equip.assetId)
+                            .filter(order => order.scheduledDateTime && getEquipmentForOrder(order)?.assetId === equip.assetId)
                             .map(order => (
                                 <TooltipProvider key={order.orderId}>
                                     <Tooltip>
@@ -109,11 +119,16 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
                                                 <p className="text-muted-foreground truncate">Order: {order.orderId}</p>
                                             </div>
                                         </TooltipTrigger>
-                                        <TooltipContent>
+                                        <TooltipContent className="space-y-2">
                                             <p className="font-semibold">{order.studyIds.join(', ')}</p>
                                             <p>Patient: {getPatientName(order.patientId)}</p>
                                             {order.scheduledDateTime && <p>Time: {format(new Date(order.scheduledDateTime), 'p')}</p>}
                                             <p>Status: {order.status}</p>
+                                            {order.status === 'Scheduled' && (
+                                                <Button size="sm" className="w-full mt-2" onClick={() => handleMarkAsPerformed(order.orderId)}>
+                                                    Mark as Performed
+                                                </Button>
+                                            )}
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
