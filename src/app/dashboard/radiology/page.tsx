@@ -66,7 +66,7 @@ export default function RadiologyPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <RadiologyScheduleDashboard orders={orders} />
+                    <RadiologyScheduleDashboard orders={orders} setOrders={setOrders} />
                 </CardContent>
             </Card>
         </TabsContent>
