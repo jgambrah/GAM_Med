@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -21,7 +22,7 @@ import { allPatients } from '@/lib/data';
 
 interface ScheduleStudyDialogProps {
   order: RadiologyOrder;
-  onScheduled: () => void;
+  onScheduled: (orderId: string, scheduledDateTime: string) => void;
 }
 
 export function ScheduleStudyDialog({ order, onScheduled }: ScheduleStudyDialogProps) {
@@ -41,7 +42,7 @@ export function ScheduleStudyDialog({ order, onScheduled }: ScheduleStudyDialogP
     toast.success('Study Scheduled', {
       description: `The imaging study for ${patientName} has been scheduled for ${format(new Date(dateTime), 'PPP p')}.`,
     });
-    onScheduled();
+    onScheduled(order.orderId, dateTime);
     setOpen(false);
   };
 

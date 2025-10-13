@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -33,10 +34,13 @@ export function SchedulingQueueDashboard() {
     return allUsers.find(u => u.uid === doctorId)?.name || 'Unknown Doctor';
   }
 
-  const handleScheduled = (orderId: string) => {
-      // In a real app, this would be handled by a real-time subscription.
-      // For this prototype, we manually update the status.
-      setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, status: 'Scheduled' } : o));
+  const handleScheduled = (orderId: string, scheduledDateTime: string) => {
+      // This is now the source of truth for updating the order status and time.
+      setOrders(prev => prev.map(o => 
+          o.orderId === orderId 
+              ? { ...o, status: 'Scheduled', scheduledDateTime: new Date(scheduledDateTime).toISOString() } 
+              : o
+      ));
   }
 
   return (
@@ -64,7 +68,7 @@ export function SchedulingQueueDashboard() {
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
                 <TableCell>{order.studyIds.join(', ')}</TableCell>
                 <TableCell>
-                    <ScheduleStudyDialog order={order} onScheduled={() => handleScheduled(order.orderId)} />
+                    <ScheduleStudyDialog order={order} onScheduled={handleScheduled} />
                 </TableCell>
               </TableRow>
             ))
@@ -80,5 +84,3 @@ export function SchedulingQueueDashboard() {
     </div>
   );
 }
-
-    
