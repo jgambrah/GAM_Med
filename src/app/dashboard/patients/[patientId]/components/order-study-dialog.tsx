@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -91,7 +90,7 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
         <DialogHeader>
           <DialogTitle>Order New Imaging Study</DialogTitle>
           <DialogDescription>
-            Submit a new request to the radiology department.
+            Submit a new request to the radiology department for {patientName}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

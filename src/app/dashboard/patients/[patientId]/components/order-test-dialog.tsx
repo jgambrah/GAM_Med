@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -63,7 +62,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
         if (result.success) {
             const newOrder: LabResult = {
                 testId: `lab-${Date.now()}`,
-                patientId,
+                patientId: patientId,
                 patientName: patientName,
                 testName: values.testName,
                 status: 'Ordered',
@@ -97,7 +96,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
                 <DialogHeader>
                     <DialogTitle>Order New Lab Test</DialogTitle>
                     <DialogDescription>
-                        Submit a new request to the laboratory.
+                        Submit a new request to the laboratory for {patientName}.
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...form}>
