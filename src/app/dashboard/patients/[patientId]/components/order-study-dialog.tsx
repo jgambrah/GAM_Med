@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -34,11 +35,12 @@ import { RadiologyOrder } from '@/lib/types';
 
 interface OrderStudyDialogProps {
   patientId: string;
+  patientName: string; // Add patientName prop
   disabled?: boolean;
   onOrderCreated: (newOrder: RadiologyOrder) => void;
 }
 
-export function OrderStudyDialog({ patientId, disabled, onOrderCreated }: OrderStudyDialogProps) {
+export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCreated }: OrderStudyDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   
@@ -59,6 +61,7 @@ export function OrderStudyDialog({ patientId, disabled, onOrderCreated }: OrderS
       const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
         patientId,
+        patientName: patientName, // Use the passed-in patientName
         doctorId: user?.uid || 'doc-unknown',
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
