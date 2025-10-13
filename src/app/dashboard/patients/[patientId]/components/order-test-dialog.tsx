@@ -58,11 +58,10 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
             return;
         }
         
-        // Construct the new order object directly on the client side
         const newOrder: LabResult = {
             testId: `lab-${Date.now()}`,
             patientId: patientId,
-            patientName: patientName, // Directly use the prop
+            patientName: patientName, // Use the prop here
             testName: values.testName,
             status: 'Ordered',
             orderedByDoctorId: user.uid,
@@ -141,3 +140,5 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
         </Dialog>
     )
 }
+
+    

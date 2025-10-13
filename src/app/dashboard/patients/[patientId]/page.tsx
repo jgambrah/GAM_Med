@@ -197,8 +197,16 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patientId={patient.patient_id} patientName={patient.full_name} onOrderCreated={handleLabOrderCreated} />
-            <OrderStudyDialog patientId={patient.patient_id} patientName={patient.full_name} onOrderCreated={handleRadiologyOrderCreated} />
+            <OrderTestDialog 
+                patientId={patient.patient_id} 
+                patientName={patient.full_name} 
+                onOrderCreated={handleLabOrderCreated} 
+            />
+            <OrderStudyDialog 
+                patientId={patient.patient_id} 
+                patientName={patient.full_name} 
+                onOrderCreated={handleRadiologyOrderCreated} 
+            />
         </div>
        )}
 
@@ -261,3 +269,5 @@ export default function PatientDetailPage() {
     </div>
   );
 }
+
+    

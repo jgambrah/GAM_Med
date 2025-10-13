@@ -61,7 +61,7 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
     const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
         patientId,
-        patientName: patientName, // Directly use the prop
+        patientName: patientName, // Use the prop here
         doctorId: user.uid,
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
@@ -166,3 +166,5 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
     </Dialog>
   );
 }
+
+    
