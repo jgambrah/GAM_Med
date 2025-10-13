@@ -18,11 +18,12 @@ import { ScheduleStudyDialog } from './schedule-study-dialog';
 import { RadiologyOrder } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
-export function SchedulingQueueDashboard() {
-  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
-    'radiologyOrders',
-    mockRadiologyOrders
-  );
+interface SchedulingQueueDashboardProps {
+  orders: RadiologyOrder[];
+  setOrders: React.Dispatch<React.SetStateAction<RadiologyOrder[]>>;
+}
+
+export function SchedulingQueueDashboard({ orders, setOrders }: SchedulingQueueDashboardProps) {
   
   const pendingSchedulingOrders = orders.filter(o => o.status === 'Pending Scheduling');
 

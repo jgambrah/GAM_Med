@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -13,10 +14,19 @@ import { SchedulingQueueDashboard } from './components/scheduling-queue-dashboar
 import { ReportingQueueDashboard } from './components/reporting-queue-dashboard';
 import { RadiologyScheduleDashboard } from './components/radiology-schedule-dashboard';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { RadiologyOrder } from '@/lib/types';
+import { mockRadiologyOrders } from '@/lib/data';
 
 export default function RadiologyPage() {
   const { user } = useAuth();
   const isRadiologist = user?.role === 'radiologist';
+
+  // Centralize the state management for radiology orders here.
+  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
+    'radiologyOrders',
+    mockRadiologyOrders
+  );
 
   return (
     <div className="space-y-6">
@@ -43,7 +53,7 @@ export default function RadiologyPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <SchedulingQueueDashboard />
+                    <SchedulingQueueDashboard orders={orders} setOrders={setOrders} />
                 </CardContent>
             </Card>
         </TabsContent>
@@ -56,7 +66,7 @@ export default function RadiologyPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <RadiologyScheduleDashboard />
+                    <RadiologyScheduleDashboard orders={orders} />
                 </CardContent>
             </Card>
         </TabsContent>

@@ -25,7 +25,11 @@ const getStatusColor = (status: string) => {
     }
 }
 
-export function RadiologyScheduleDashboard() {
+interface RadiologyScheduleDashboardProps {
+  orders: RadiologyOrder[];
+}
+
+export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboardProps) {
     // In a real app, this would be the current date. It's fixed here for consistent demo data.
     const today = new Date('2024-08-16T10:15:00.000Z');
     const startOfWorkDay = addHours(startOfDay(today), 7);
@@ -36,10 +40,6 @@ export function RadiologyScheduleDashboard() {
         end: endOfWorkDay,
     });
     
-    const [orders] = useLocalStorage<RadiologyOrder[]>(
-        'radiologyOrders',
-        mockRadiologyOrders
-    );
     const radiologyEquipment = mockResources.filter(r => r.department === 'Radiology');
     
     // Ensure we only try to render orders that have a scheduled date and time.
