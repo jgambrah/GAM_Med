@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -26,17 +27,19 @@ import { Button } from '@/components/ui/button';
 import { TestTube } from 'lucide-react';
 import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
-import { mockLabTestCatalog } from '@/lib/data';
+import { mockLabTestCatalog, allPatients } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { orderLabTest } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
+import { LabResult } from '@/lib/types';
 
 interface OrderTestDialogProps {
     patientId: string;
     disabled?: boolean;
+    onOrderCreated: (newOrder: LabResult) => void;
 }
 
-export function OrderTestDialog({ patientId, disabled }: OrderTestDialogProps) {
+export function OrderTestDialog({ patientId, disabled, onOrderCreated }: OrderTestDialogProps) {
     const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     
@@ -54,11 +57,23 @@ export function OrderTestDialog({ patientId, disabled }: OrderTestDialogProps) {
             return;
         }
         
-        // This is where the call to the server action would be.
-        // For now, we'll just log it.
         const result = await orderLabTest(patientId, values);
         if (result.success) {
-            toast.success('Lab test ordered successfully (simulated).');
+            const patient = allPatients.find(p => p.patient_id === patientId);
+
+            const newOrder: LabResult = {
+                testId: `lab-${Date.now()}`,
+                patientId,
+                patientName: patient?.full_name || 'Unknown Patient',
+                testName: values.testName,
+                status: 'Ordered',
+                orderedByDoctorId: user.uid,
+                orderedAt: new Date().toISOString(),
+                isBilled: false,
+            };
+            
+            onOrderCreated(newOrder);
+            toast.success('Lab test ordered successfully.');
         } else {
             toast.error('Failed to order lab test.');
         }

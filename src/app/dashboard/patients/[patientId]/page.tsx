@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -128,6 +129,10 @@ export default function PatientDetailPage() {
     setRadiologyOrders(prev => [newOrder, ...prev]);
   };
   
+  const handleLabOrderCreated = (newOrder: LabResult) => {
+    setLabResults(prev => [newOrder, ...prev]);
+  };
+  
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -192,7 +197,7 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
-            <OrderTestDialog patientId={patient.patient_id} />
+            <OrderTestDialog patientId={patient.patient_id} onOrderCreated={handleLabOrderCreated} />
             <OrderStudyDialog patientId={patient.patient_id} onOrderCreated={handleRadiologyOrderCreated} />
         </div>
        )}
