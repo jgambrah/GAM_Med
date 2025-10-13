@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import { allPatients, mockResources } from '@/lib/data';
 import { RadiologyOrder } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const getStatusColor = (status: string) => {
     switch(status) {
@@ -30,13 +32,15 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
     const today = new Date('2024-08-16T10:15:00.000Z');
     const startOfWorkDay = addHours(startOfDay(today), 7);
     const endOfWorkDay = addHours(startOfDay(today), 19);
+    const [allMockResources] = useLocalStorage<Asset[]>('resources', mockResources);
+
 
     const timeSlots = eachHourOfInterval({
         start: startOfWorkDay,
         end: endOfWorkDay,
     });
     
-    const radiologyEquipment = mockResources.filter(r => r.department === 'Radiology');
+    const radiologyEquipment = allMockResources.filter(r => r.department === 'Radiology' && r.isBookable);
     
     const scheduledOrders = orders.filter(
         o => (o.status === 'Scheduled' || o.status === 'Awaiting Report' || o.status === 'Completed') && o.scheduledDateTime
@@ -61,8 +65,13 @@ export function RadiologyScheduleDashboard({ orders }: RadiologyScheduleDashboar
     const getPatientName = (patientId: string) => allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
 
     const getEquipmentForOrder = (order: RadiologyOrder) => {
-        const studyType = order.studyIds[0].split('-')[0];
-        return radiologyEquipment.find(eq => eq.modality === studyType);
+        const studyType = order.studyIds[0].split('-')[0]; // e.g., 'CT' from 'CT-Chest'
+        // This logic needs to be more robust.
+        if (studyType === 'CT') return radiologyEquipment.find(eq => eq.modality === 'CT Scan');
+        if (studyType === 'MRI') return radiologyEquipment.find(eq => eq.modality === 'MRI');
+        if (studyType === 'XRay') return radiologyEquipment.find(eq => eq.modality === 'X-Ray');
+        if (studyType === 'US') return radiologyEquipment.find(eq => eq.modality === 'Ultrasound');
+        return undefined;
     }
     
     return (

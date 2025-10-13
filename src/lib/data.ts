@@ -940,6 +940,36 @@ export const mockResources: Asset[] = [
     }]
   },
   {
+    assetId: 'xray-1',
+    name: 'X-Ray Machine 1',
+    modelNumber: 'Philips DigitalDiagnost',
+    serialNumber: 'SN-XRAY-001',
+    type: 'Medical Equipment',
+    department: 'Radiology',
+    location: 'Radiology Wing, Room 102',
+    isBookable: true,
+    status: 'Operational',
+    modality: 'X-Ray',
+    purchaseDate: '2021-03-10T00:00:00Z',
+    purchaseCost: 1500000,
+    currentBookValue: 1200000,
+  },
+  {
+    assetId: 'us-1',
+    name: 'Ultrasound Machine 1',
+    modelNumber: 'GE Logiq E10',
+    serialNumber: 'SN-US-001',
+    type: 'Medical Equipment',
+    department: 'Radiology',
+    location: 'Radiology Wing, Room 103',
+    isBookable: true,
+    status: 'Operational',
+    modality: 'Ultrasound',
+    purchaseDate: '2022-08-01T00:00:00Z',
+    purchaseCost: 950000,
+    currentBookValue: 850000,
+  },
+  {
     assetId: 'proc-room-1',
     name: 'Procedure Room 1',
     type: 'Room',
@@ -2366,3 +2396,5 @@ export type Resource = Asset;
 
     
 
+
+    
