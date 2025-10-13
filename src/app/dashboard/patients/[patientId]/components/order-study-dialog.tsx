@@ -53,30 +53,28 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
   });
 
   const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
-    // In a real app, this would call the 'createRadOrder' Cloud Function.
-    const result = await orderImagingStudy(patientId, patientName, values);
-    if (result.success) {
-      toast.success('Imaging study ordered successfully.');
+     if (!user) {
+        toast.error("You must be logged in to order a study.");
+        return;
+    }
 
-      const newOrder: RadiologyOrder = {
+    const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
         patientId,
-        patientName: patientName,
-        doctorId: user?.uid || 'doc-unknown',
+        patientName: patientName, // Directly use the prop
+        doctorId: user.uid,
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
         status: 'Pending Scheduling',
         clinicalNotes: values.notes,
         priority: 2, // Default priority
-      };
+    };
 
-      onOrderCreated(newOrder);
+    onOrderCreated(newOrder);
+    toast.success('Imaging study ordered successfully.');
 
-      setOpen(false);
-      form.reset();
-    } else {
-      toast.error('Failed to order study.');
-    }
+    setOpen(false);
+    form.reset();
   };
 
   return (

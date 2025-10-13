@@ -35,7 +35,7 @@ import { LabResult } from '@/lib/types';
 
 interface OrderTestDialogProps {
     patientId: string;
-    patientName: string; 
+    patientName: string;
     disabled?: boolean;
     onOrderCreated: (newOrder: LabResult) => void;
 }
@@ -58,24 +58,21 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
             return;
         }
         
-        const result = await orderLabTest(patientId, patientName, values);
-        if (result.success) {
-            const newOrder: LabResult = {
-                testId: `lab-${Date.now()}`,
-                patientId: patientId,
-                patientName: patientName,
-                testName: values.testName,
-                status: 'Ordered',
-                orderedByDoctorId: user.uid,
-                orderedAt: new Date().toISOString(),
-                isBilled: false,
-            };
-            
-            onOrderCreated(newOrder);
-            toast.success('Lab test ordered successfully.');
-        } else {
-            toast.error('Failed to order lab test.');
-        }
+        // Construct the new order object directly on the client side
+        const newOrder: LabResult = {
+            testId: `lab-${Date.now()}`,
+            patientId: patientId,
+            patientName: patientName, // Directly use the prop
+            testName: values.testName,
+            status: 'Ordered',
+            orderedByDoctorId: user.uid,
+            orderedAt: new Date().toISOString(),
+            isBilled: false,
+        };
+        
+        onOrderCreated(newOrder);
+        toast.success('Lab test ordered successfully.');
+        
         setOpen(false);
         form.reset();
     }
