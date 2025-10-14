@@ -15,8 +15,8 @@ import { ReportingQueueDashboard } from './components/reporting-queue-dashboard'
 import { RadiologyScheduleDashboard } from './components/radiology-schedule-dashboard';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { RadiologyOrder } from '@/lib/types';
-import { mockRadiologyOrders } from '@/lib/data';
+import { RadiologyOrder, Patient } from '@/lib/types';
+import { mockRadiologyOrders, allPatients as initialPatients } from '@/lib/data';
 
 export default function RadiologyPage() {
   const { user } = useAuth();
@@ -27,6 +27,8 @@ export default function RadiologyPage() {
     'radiologyOrders',
     mockRadiologyOrders
   );
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+
 
   return (
     <div className="space-y-6">
@@ -66,7 +68,7 @@ export default function RadiologyPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <RadiologyScheduleDashboard orders={orders} setOrders={setOrders} />
+                    <RadiologyScheduleDashboard orders={orders} setOrders={setOrders} allPatients={allPatients} />
                 </CardContent>
             </Card>
         </TabsContent>

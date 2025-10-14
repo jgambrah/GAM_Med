@@ -10,8 +10,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { allPatients, mockResources } from '@/lib/data';
-import { RadiologyOrder, Asset } from '@/lib/types';
+import { mockResources } from '@/lib/data';
+import { RadiologyOrder, Asset, Patient } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -28,9 +28,10 @@ const getStatusColor = (status: string) => {
 interface RadiologyScheduleDashboardProps {
   orders: RadiologyOrder[];
   setOrders: React.Dispatch<React.SetStateAction<RadiologyOrder[]>>;
+  allPatients: Patient[];
 }
 
-export function RadiologyScheduleDashboard({ orders, setOrders }: RadiologyScheduleDashboardProps) {
+export function RadiologyScheduleDashboard({ orders, setOrders, allPatients }: RadiologyScheduleDashboardProps) {
     const today = new Date('2024-08-16T10:15:00.000Z');
     const startOfWorkDay = addHours(startOfDay(today), 7);
     const endOfWorkDay = addHours(startOfDay(today), 19);
