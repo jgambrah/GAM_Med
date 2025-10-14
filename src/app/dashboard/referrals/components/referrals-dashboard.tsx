@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -171,6 +170,15 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
     toast.success("Patient registered. You can now book their appointment.");
   }
 
+  const handleAppointmentBooked = (appointmentId: string, patientId: string) => {
+    // Find the referral associated with this patient and update its status
+    const referralToUpdate = allReferrals.find(r => r.patientId === patientId && r.status === 'Assigned');
+    if (referralToUpdate) {
+        handleStatusUpdate(referralToUpdate.referral_id, 'Scheduled');
+    }
+    closeDialogs();
+  };
+
 
   return (
     <>
@@ -306,6 +314,7 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                         onOpenChange={closeDialogs}
                         patientId={selectedReferral.patientId}
                         doctorId={selectedReferral.assignedDoctorId}
+                        onAppointmentBooked={handleAppointmentBooked}
                     />
                 ) : (
                     <RegisterPatientFromReferralDialog

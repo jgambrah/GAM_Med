@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -71,6 +70,7 @@ interface NewAppointmentDialogProps {
   appointmentToReschedule?: Appointment | null;
   patientId?: string; // Prop to pre-select a patient
   doctorId?: string; // Prop to pre-select a doctor
+  onAppointmentBooked?: (appointmentId: string, patientId: string) => void; // Callback on success
 }
 
 export function NewAppointmentDialog({ 
@@ -79,6 +79,7 @@ export function NewAppointmentDialog({
   appointmentToReschedule,
   patientId,
   doctorId,
+  onAppointmentBooked,
 }: NewAppointmentDialogProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
@@ -186,6 +187,9 @@ export function NewAppointmentDialog({
     const result = await bookAppointment(values);
     if (result.success) {
       toast.success(isEditing ? 'The appointment has been successfully rescheduled.' : 'The appointment has been successfully scheduled.');
+      if (onAppointmentBooked) {
+        onAppointmentBooked(result.appointmentId, values.patientId);
+      }
       setOpen(false);
       form.reset();
     } else {
