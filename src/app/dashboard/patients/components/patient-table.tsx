@@ -68,7 +68,11 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
                 <TableCell className="font-medium">
                   {patient.patient_id}
                 </TableCell>
-                <TableCell>{patient.full_name}</TableCell>
+                <TableCell>
+                  <Link href={`/dashboard/patients/${patient.patient_id}`} className="hover:underline text-primary font-medium">
+                    {patient.full_name}
+                  </Link>
+                </TableCell>
                 <TableCell>{patient.gender}</TableCell>
                 <TableCell>{patient.dob}</TableCell>
                 <TableCell>{patient.contact.primaryPhone}</TableCell>
