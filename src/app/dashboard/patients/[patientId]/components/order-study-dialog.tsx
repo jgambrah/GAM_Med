@@ -29,7 +29,6 @@ import { NewRadOrderSchema } from '@/lib/schemas';
 import { mockRadiologyStudies } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { orderImagingStudy } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
 import { RadiologyOrder } from '@/lib/types';
 
@@ -61,7 +60,7 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
     const newOrder: RadiologyOrder = {
         orderId: `RAD-${Date.now()}`,
         patientId,
-        patientName: patientName, // Use the prop here
+        patientName: patientName, // Ensure the patient name is included here
         doctorId: user.uid,
         studyIds: values.studyIds,
         dateOrdered: new Date().toISOString(),
@@ -166,5 +165,3 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
     </Dialog>
   );
 }
-
-    

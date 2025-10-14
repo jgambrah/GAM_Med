@@ -29,7 +29,6 @@ import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
 import { mockLabTestCatalog } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
-import { orderLabTest } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
 import { LabResult } from '@/lib/types';
 
@@ -61,7 +60,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
         const newOrder: LabResult = {
             testId: `lab-${Date.now()}`,
             patientId: patientId,
-            patientName: patientName, // Use the prop here
+            patientName: patientName, // Ensure the patient name is included here
             testName: values.testName,
             status: 'Ordered',
             orderedByDoctorId: user.uid,
@@ -140,5 +139,3 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
         </Dialog>
     )
 }
-
-    
