@@ -13,6 +13,8 @@ import { mockReferrals, allAppointments as initialAppointments } from '@/lib/dat
 export default function MyPracticePage() {
   const [selectedAppointment, setSelectedAppointment] = React.useState<Appointment | null>(null);
   const [referrals, setReferrals] = useLocalStorage<Referral[]>('referrals', mockReferrals);
+  
+  // This is the key change: Fetch the live appointment data here at the top level.
   const [allAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
 
 
@@ -27,6 +29,7 @@ export default function MyPracticePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
         <div className="lg:col-span-1">
+          {/* Pass the live data down to the list component */}
           <AppointmentsList appointments={allAppointments} onAppointmentSelect={setSelectedAppointment} />
         </div>
         <div className="lg:col-span-2">
