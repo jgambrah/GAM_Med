@@ -33,8 +33,9 @@ interface AssignDoctorDialogProps {
 export function AssignDoctorDialog({ referral, isOpen, onOpenChange, onAssigned }: AssignDoctorDialogProps) {
   const [selectedDoctorId, setSelectedDoctorId] = React.useState('');
   
-  const doctorsInDepartment = allUsers.filter(
-    user => user.role === 'doctor' && user.department === referral.assignedDepartment
+  // Broaden the filter to include all doctors, not just those in the specific department.
+  const doctors = allUsers.filter(
+    user => user.role === 'doctor'
   );
 
   const handleAssign = () => {
@@ -42,7 +43,7 @@ export function AssignDoctorDialog({ referral, isOpen, onOpenChange, onAssigned 
         toast.error("Please select a doctor to assign.");
         return;
     }
-    const selectedDoctor = doctorsInDepartment.find(d => d.uid === selectedDoctorId);
+    const selectedDoctor = doctors.find(d => d.uid === selectedDoctorId);
     if (!selectedDoctor) {
         toast.error("Selected doctor not found.");
         return;
@@ -60,7 +61,7 @@ export function AssignDoctorDialog({ referral, isOpen, onOpenChange, onAssigned 
         <DialogHeader>
           <DialogTitle>Assign Referral to Doctor</DialogTitle>
           <DialogDescription>
-            Select a doctor from the {referral.assignedDepartment} department to handle this referral.
+            Select a doctor to handle this referral for the {referral.assignedDepartment} department.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -70,15 +71,15 @@ export function AssignDoctorDialog({ referral, isOpen, onOpenChange, onAssigned 
                     <SelectValue placeholder="Select a doctor..." />
                 </SelectTrigger>
                 <SelectContent>
-                    {doctorsInDepartment.length > 0 ? (
-                        doctorsInDepartment.map(doc => (
+                    {doctors.length > 0 ? (
+                        doctors.map(doc => (
                             <SelectItem key={doc.uid} value={doc.uid}>
-                                {doc.name}
+                                {doc.name} ({doc.department || 'General'})
                             </SelectItem>
                         ))
                     ) : (
                         <div className="p-4 text-sm text-muted-foreground text-center">
-                            No doctors found in the {referral.assignedDepartment} department.
+                            No doctors found in the system.
                         </div>
                     )}
                 </SelectContent>
