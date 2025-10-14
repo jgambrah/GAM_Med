@@ -37,6 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { RegisterPatientFromReferralDialog } from './register-patient-from-referral-dialog';
+import Link from 'next/link';
 
 
 type StatusFilter = 'All' | Referral['status'];
@@ -222,17 +223,23 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                         {format(new Date(referral.referralDate), 'PPP')}
                     </TableCell>
                      <TableCell>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className="font-medium underline-dotted cursor-help">
-                                    {referral.patientDetails.name}
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>DOB: {format(new Date(referral.patientDetails.dob), 'PPP')}</p>
-                                <p>Phone: {referral.patientDetails.phone}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        {referral.patientId ? (
+                            <Link href={`/dashboard/patients/${referral.patientId}`} className="font-medium underline text-primary">
+                                {referral.patientDetails.name}
+                            </Link>
+                        ) : (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="font-medium underline-dotted cursor-help">
+                                        {referral.patientDetails.name}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>DOB: {format(new Date(referral.patientDetails.dob), 'PPP')}</p>
+                                    <p>Phone: {referral.patientDetails.phone}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
                      </TableCell>
                     <TableCell>{referral.referringProvider}</TableCell>
                     <TableCell>{referral.assignedDepartment}</TableCell>

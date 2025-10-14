@@ -10,16 +10,15 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { allAppointments as initialAppointments } from '@/lib/data';
 import { Appointment } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Video } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface AppointmentsListProps {
+  appointments: Appointment[];
   onAppointmentSelect: (appointment: Appointment | null) => void;
 }
 
@@ -38,14 +37,13 @@ interface AppointmentsListProps {
 * patient. Instead, their entire day's schedule is presented as a simple, clickable list.
 * Selecting an item immediately loads the relevant context in the main pane.
  */
-export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps) {
+export function AppointmentsList({ appointments, onAppointmentSelect }: AppointmentsListProps) {
     const { user } = useAuth();
     const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<string | null>(null);
-    const [allAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
 
     const todaysAppointments = React.useMemo(() => {
         if (!user) return [];
-        return allAppointments
+        return appointments
             .filter(
             (appt) =>
                 appt.doctor_id === user?.uid &&
@@ -56,7 +54,7 @@ export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps)
                 new Date(a.appointment_date).getTime() -
                 new Date(b.appointment_date).getTime()
             );
-    }, [allAppointments, user]);
+    }, [appointments, user]);
     
     const handleSelect = (appointment: Appointment) => {
         setSelectedAppointmentId(appointment.appointment_id);
