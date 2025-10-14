@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -303,6 +304,7 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                      <NewAppointmentDialog
                         isOpen={true}
                         onOpenChange={closeDialogs}
+                        patientId={selectedReferral.patientId}
                     />
                 ) : (
                     <RegisterPatientFromReferralDialog

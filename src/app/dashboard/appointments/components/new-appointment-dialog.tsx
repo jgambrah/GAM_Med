@@ -69,9 +69,15 @@ interface NewAppointmentDialogProps {
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   appointmentToReschedule?: Appointment | null;
+  patientId?: string; // Prop to pre-select a patient
 }
 
-export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToReschedule }: NewAppointmentDialogProps) {
+export function NewAppointmentDialog({ 
+  isOpen, 
+  onOpenChange, 
+  appointmentToReschedule,
+  patientId
+}: NewAppointmentDialogProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
@@ -79,6 +85,7 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
   const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   
   const isEditing = !!appointmentToReschedule;
+  const isPrefilled = !!patientId;
   const open = isOpen !== undefined ? isOpen : internalOpen;
   const setOpen = onOpenChange !== undefined ? onOpenChange : setInternalOpen;
   
@@ -108,6 +115,11 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
           type: appointmentToReschedule.type,
           isVirtual: appointmentToReschedule.isVirtual,
         });
+      } else if (isPrefilled) {
+        form.reset({
+          ...form.getValues(),
+          patientId: patientId
+        });
       } else if (user?.role === 'patient' && user.patient_id) {
         form.reset({
           ...form.getValues(),
@@ -118,7 +130,7 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isEditing, appointmentToReschedule, user, form.reset]);
+  }, [open, isEditing, appointmentToReschedule, user, form.reset, isPrefilled, patientId]);
   
   const selectedDepartment = form.watch('department');
   const selectedDate = form.watch('appointmentDate');
@@ -150,6 +162,9 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
       value: p.patient_id,
       label: `${p.full_name} (${p.patient_id})`
   }));
+  
+  const prefilledPatientName = allPatients.find(p => p.patient_id === patientId)?.full_name;
+
 
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
     console.log("Booking appointment with values:", values);
@@ -186,6 +201,13 @@ export function NewAppointmentDialog({ isOpen, onOpenChange, appointmentToResche
                   <FormLabel>Patient</FormLabel>
                   <FormControl>
                     <Input value={user.name} readOnly disabled />
+                  </FormControl>
+                </FormItem>
+            ) : isPrefilled ? (
+                <FormItem>
+                  <FormLabel>Patient</FormLabel>
+                  <FormControl>
+                    <Input value={prefilledPatientName || patientId} readOnly disabled />
                   </FormControl>
                 </FormItem>
             ) : (
