@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -224,7 +225,7 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                     </TableCell>
                      <TableCell>
                         {referral.patientId ? (
-                            <Link href={`/dashboard/patients/${referral.patientId}`} className="font-medium underline text-primary">
+                            <Link href={`/dashboard/patients/${referral.patientId}`} className="font-medium underline text-primary hover:text-primary/80">
                                 {referral.patientDetails.name}
                             </Link>
                         ) : (
