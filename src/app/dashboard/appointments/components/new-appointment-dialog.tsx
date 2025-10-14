@@ -44,7 +44,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Appointment, Patient } from '@/lib/types';
+import { Appointment, Patient, User } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const mockDepartments = [
@@ -70,13 +70,15 @@ interface NewAppointmentDialogProps {
   onOpenChange?: (isOpen: boolean) => void;
   appointmentToReschedule?: Appointment | null;
   patientId?: string; // Prop to pre-select a patient
+  doctorId?: string; // Prop to pre-select a doctor
 }
 
 export function NewAppointmentDialog({ 
   isOpen, 
   onOpenChange, 
   appointmentToReschedule,
-  patientId
+  patientId,
+  doctorId,
 }: NewAppointmentDialogProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
@@ -105,32 +107,45 @@ export function NewAppointmentDialog({
 
   React.useEffect(() => {
      if (open) {
-      if (isEditing && appointmentToReschedule) {
-        form.reset({
-          patientId: appointmentToReschedule.patient_id,
-          department: appointmentToReschedule.department,
-          doctorId: appointmentToReschedule.doctor_id,
-          appointmentDate: format(new Date(appointmentToReschedule.appointment_date), 'yyyy-MM-dd'),
-          appointmentTime: format(new Date(appointmentToReschedule.appointment_date), 'HH:mm'),
-          type: appointmentToReschedule.type,
-          isVirtual: appointmentToReschedule.isVirtual,
-        });
-      } else if (isPrefilled) {
-        form.reset({
-          ...form.getValues(),
-          patientId: patientId
-        });
-      } else if (user?.role === 'patient' && user.patient_id) {
-        form.reset({
-          ...form.getValues(),
-          patientId: user.patient_id
-        });
-      } else {
-        form.reset();
-      }
+        let defaultValues: Partial<z.infer<typeof NewAppointmentSchema>> = {
+            patientId: user?.role === 'patient' ? user.patient_id : '',
+            department: '',
+            doctorId: 'any',
+            appointmentDate: '',
+            appointmentTime: '',
+            type: 'consultation',
+            isVirtual: false,
+        };
+
+        if (isEditing && appointmentToReschedule) {
+            defaultValues = {
+                ...defaultValues,
+                patientId: appointmentToReschedule.patient_id,
+                department: appointmentToReschedule.department,
+                doctorId: appointmentToReschedule.doctor_id,
+                appointmentDate: format(new Date(appointmentToReschedule.appointment_date), 'yyyy-MM-dd'),
+                appointmentTime: format(new Date(appointmentToReschedule.appointment_date), 'HH:mm'),
+                type: appointmentToReschedule.type,
+                isVirtual: appointmentToReschedule.isVirtual,
+            };
+        } else if (isPrefilled && patientId) {
+             defaultValues.patientId = patientId;
+        }
+
+        if (doctorId) {
+            const preselectedDoctor = allUsers.find(u => u.uid === doctorId);
+            if (preselectedDoctor) {
+                defaultValues.doctorId = preselectedDoctor.uid;
+                if (preselectedDoctor.department) {
+                    defaultValues.department = preselectedDoctor.department;
+                }
+            }
+        }
+        
+        form.reset(defaultValues as z.infer<typeof NewAppointmentSchema>);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isEditing, appointmentToReschedule, user, form.reset, isPrefilled, patientId]);
+  }, [open, isEditing, appointmentToReschedule, user, form.reset, isPrefilled, patientId, doctorId]);
   
   const selectedDepartment = form.watch('department');
   const selectedDate = form.watch('appointmentDate');

@@ -305,6 +305,7 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                         isOpen={true}
                         onOpenChange={closeDialogs}
                         patientId={selectedReferral.patientId}
+                        doctorId={selectedReferral.assignedDoctorId}
                     />
                 ) : (
                     <RegisterPatientFromReferralDialog
