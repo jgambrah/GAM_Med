@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { NewAppointmentSchema } from '@/lib/schemas';
-import { allPatients as initialPatients, allUsers } from '@/lib/data';
+import { allPatients as initialPatients, allUsers, allAppointments as initialAppointments } from '@/lib/data';
 import { Plus, Clock } from 'lucide-react';
 import { bookAppointment } from '@/lib/actions';
 import { Combobox } from '@/components/ui/combobox';
@@ -86,6 +86,7 @@ export function NewAppointmentDialog({
   const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
   const { user } = useAuth();
   const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+  const [allAppointments, setAllAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
   
   const isEditing = !!appointmentToReschedule;
   const isPrefilled = !!patientId;
@@ -179,14 +180,41 @@ export function NewAppointmentDialog({
       label: `${p.full_name} (${p.patient_id})`
   }));
   
-  const prefilledPatientName = allPatients.find(p => p.patient_id === patientId)?.full_name;
+  const prefilledPatient = allPatients.find(p => p.patient_id === patientId);
 
 
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
-    console.log("Booking appointment with values:", values);
-    const result = await bookAppointment(values);
+    const result = await bookAppointment(values); // This is a mock
+    
     if (result.success) {
       toast.success(isEditing ? 'The appointment has been successfully rescheduled.' : 'The appointment has been successfully scheduled.');
+      
+      const patient = allPatients.find(p => p.patient_id === values.patientId);
+      const doctor = allUsers.find(u => u.uid === values.doctorId);
+
+      const newAppointment: Appointment = {
+        appointment_id: `AP-${Date.now()}`,
+        patient_id: values.patientId,
+        patient_name: patient?.full_name || 'Unknown Patient',
+        doctor_id: values.doctorId,
+        doctor_name: doctor?.name || 'Any Doctor',
+        appointment_date: new Date(`${values.appointmentDate}T${values.appointmentTime}`).toISOString(),
+        end_time: new Date(new Date(`${values.appointmentDate}T${values.appointmentTime}`).getTime() + 30 * 60000).toISOString(),
+        duration: 30,
+        type: values.type,
+        department: values.department,
+        status: 'confirmed',
+        isBilled: false,
+        isConfirmed: true,
+        bookingMethod: 'Front Desk',
+        notes: '',
+        isVirtual: values.isVirtual,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setAllAppointments(prev => [newAppointment, ...prev]);
+
       if (onAppointmentBooked) {
         onAppointmentBooked(result.appointmentId, values.patientId);
       }
@@ -222,11 +250,11 @@ export function NewAppointmentDialog({
                     <Input value={user.name} readOnly disabled />
                   </FormControl>
                 </FormItem>
-            ) : isPrefilled ? (
+            ) : isPrefilled && prefilledPatient ? (
                 <FormItem>
                   <FormLabel>Patient</FormLabel>
                   <FormControl>
-                    <Input value={prefilledPatientName || patientId} readOnly disabled />
+                    <Input value={`${prefilledPatient.full_name} (${prefilledPatient.patient_id})`} readOnly disabled />
                   </FormControl>
                 </FormItem>
             ) : (
@@ -465,3 +493,4 @@ export function NewAppointmentDialog({
     </Dialog>
   );
 }
+
