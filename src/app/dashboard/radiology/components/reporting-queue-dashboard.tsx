@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -11,12 +12,16 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import { mockRadiologyOrders, allPatients } from '@/lib/data';
+import { mockRadiologyOrders } from '@/lib/data';
 import { CreateReportDialog } from './create-report-dialog';
-import { RadiologyOrder } from '@/lib/types';
+import { Patient, RadiologyOrder } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
-export function ReportingQueueDashboard() {
+interface ReportingQueueDashboardProps {
+  allPatients: Patient[];
+}
+
+export function ReportingQueueDashboard({ allPatients }: ReportingQueueDashboardProps) {
   const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
     'radiologyOrders',
     mockRadiologyOrders
@@ -52,7 +57,7 @@ export function ReportingQueueDashboard() {
                 <TableCell className="font-medium">{format(new Date(order.scheduledDateTime!), 'PPP p')}</TableCell>
                 <TableCell>
                   <Link href={`/dashboard/patients/${order.patientId}`} className="hover:underline text-primary">
-                    {getPatientName(order.patientId)}
+                    {order.patientName || getPatientName(order.patientId)}
                   </Link>
                 </TableCell>
                 <TableCell>{order.studyIds.join(', ')}</TableCell>

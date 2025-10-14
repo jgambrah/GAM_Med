@@ -86,7 +86,7 @@ export default function RadiologyPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ReportingQueueDashboard />
+                    <ReportingQueueDashboard allPatients={allPatients} />
                 </CardContent>
             </Card>
         </TabsContent>
