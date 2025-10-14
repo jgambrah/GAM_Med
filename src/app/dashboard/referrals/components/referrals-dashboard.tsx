@@ -31,6 +31,10 @@ import {
 } from '@/components/ui/tooltip';
 import { ReferralDetailDialog } from './referral-detail-dialog';
 import { AssignDoctorDialog } from './assign-doctor-dialog';
+import { NewAppointmentDialog } from '@/app/dashboard/appointments/components/new-appointment-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
 
 
 type StatusFilter = 'All' | Referral['status'];
@@ -54,6 +58,45 @@ const getPriorityVariant = (priority: Referral['priority']): "default" | "second
     }
 }
 
+function UpdateReferralStatusDialog({ referral, isOpen, onOpenChange, onStatusUpdate }: { referral: Referral, isOpen: boolean, onOpenChange: (isOpen: boolean) => void, onStatusUpdate: (referralId: string, newStatus: Referral['status']) => void }) {
+    const [newStatus, setNewStatus] = React.useState<Referral['status'] | ''>('');
+
+    const handleUpdate = () => {
+        if (!newStatus) {
+            toast.error("Please select a new status.");
+            return;
+        }
+        onStatusUpdate(referral.referral_id, newStatus);
+    }
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Update Referral Status</DialogTitle>
+                    <DialogDescription>Update the status for the referral for {referral.patientDetails.name}.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                     <Select onValueChange={(value) => setNewStatus(value as Referral['status'])}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a new status..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Scheduled">Appointment Scheduled</SelectItem>
+                            <SelectItem value="Completed">Action Completed</SelectItem>
+                            <SelectItem value="Pending Further Action">Pending Further Action</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleUpdate} disabled={!newStatus}>Update Status</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 interface ReferralsDashboardProps {
   allReferrals: Referral[];
   setAllReferrals: React.Dispatch<React.SetStateAction<Referral[]>>;
@@ -75,6 +118,8 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
   const [selectedReferral, setSelectedReferral] = React.useState<Referral | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [isAssignOpen, setIsAssignOpen] = React.useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = React.useState(false);
+  const [isStatusUpdateOpen, setIsStatusUpdateOpen] = React.useState(false);
   const isDoctor = user?.role === 'doctor';
 
   /**
@@ -130,6 +175,15 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
     setIsAssignOpen(false);
     setSelectedReferral(null);
   };
+
+  const handleStatusUpdate = (referralId: string, newStatus: Referral['status']) => {
+    setAllReferrals(prev => prev.map(ref => 
+        ref.referral_id === referralId ? { ...ref, status: newStatus } : ref
+    ));
+    toast.success(`Referral status updated to "${newStatus}".`);
+    setIsStatusUpdateOpen(false);
+    setSelectedReferral(null);
+  }
 
   return (
     <>
@@ -213,8 +267,8 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                             )}
                             {isDoctor && (
                                 <>
-                                <DropdownMenuItem>Update Status</DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => { setSelectedReferral(referral); setIsStatusUpdateOpen(true); }}>Update Status</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setIsScheduleOpen(true)}>
                                     Schedule Appointment
                                 </DropdownMenuItem>
                                 </>
@@ -252,8 +306,19 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
                 onOpenChange={setIsAssignOpen}
                 onAssigned={handleReferralAssigned}
             />
+            <UpdateReferralStatusDialog 
+                referral={selectedReferral}
+                isOpen={isStatusUpdateOpen}
+                onOpenChange={setIsStatusUpdateOpen}
+                onStatusUpdate={handleStatusUpdate}
+            />
         </>
     )}
+    {/* This is a general appointment dialog, not pre-filled yet */}
+    <NewAppointmentDialog
+        isOpen={isScheduleOpen}
+        onOpenChange={setIsScheduleOpen}
+    />
     </>
   );
 }
