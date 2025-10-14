@@ -10,13 +10,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { allAppointments } from '@/lib/data';
+import { allAppointments as initialAppointments } from '@/lib/data';
 import { Appointment } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Video } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface AppointmentsListProps {
   onAppointmentSelect: (appointment: Appointment | null) => void;
@@ -40,34 +41,22 @@ interface AppointmentsListProps {
 export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps) {
     const { user } = useAuth();
     const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<string | null>(null);
+    const [allAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
 
-    /**
-     * == DATA QUERY (PSEUDOCODE) ==
-     * In a production application, this would be a real-time Firestore query.
-     * The query is highly efficient and secure, filtered by the logged-in doctor's UID.
-     *
-     *   const today = new Date();
-     *   const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-     *   const endOfToday = new Date(today.setHours(23, 59, 59, 999));
-     *
-     *   const q = query(
-     *     collection(db, 'appointments'),
-     *     where('doctor_id', '==', user.uid), // *** Filters by logged-in doctor ***
-     *     where('appointment_date', '>=', startOfToday),
-     *     where('appointment_date', '<=', endOfToday),
-     *     orderBy('appointment_date', 'asc')
-     *   );
-     *
-     *   const [todaysAppointments, loading, error] = useCollection(q);
-     *
-     * This ensures a doctor can only ever see their own appointments, enforcing privacy
-     * and security at the database level.
-     */
-    const todaysAppointments = allAppointments.filter(
-      (appt) =>
-        appt.doctor_id === user?.uid &&
-        new Date(appt.appointment_date).toDateString() === new Date().toDateString()
-    ).sort((a,b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime());
+    const todaysAppointments = React.useMemo(() => {
+        if (!user) return [];
+        return allAppointments
+            .filter(
+            (appt) =>
+                appt.doctor_id === user?.uid &&
+                new Date(appt.appointment_date).toDateString() === new Date().toDateString()
+            )
+            .sort(
+            (a, b) =>
+                new Date(a.appointment_date).getTime() -
+                new Date(b.appointment_date).getTime()
+            );
+    }, [allAppointments, user]);
     
     const handleSelect = (appointment: Appointment) => {
         setSelectedAppointmentId(appointment.appointment_id);
