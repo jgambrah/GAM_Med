@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -40,6 +39,7 @@ export function RegisterPatientFromReferralDialog({ referral, isOpen, onOpenChan
         
         const newPatient: Patient = {
             patient_id: `P-${Date.now()}`,
+            title: '',
             first_name: referral.patientDetails.name.split(' ')[0],
             last_name: referral.patientDetails.name.split(' ').slice(1).join(' '),
             full_name: referral.patientDetails.name,
@@ -48,6 +48,7 @@ export function RegisterPatientFromReferralDialog({ referral, isOpen, onOpenChan
             patientType: 'private', // Default
             contact: {
                 primaryPhone: referral.patientDetails.phone,
+                email: '',
                 address: { street: '', city: '', region: '', country: 'Ghana' }
             },
             emergency_contact: { name: '', relationship: '', phone: '' },

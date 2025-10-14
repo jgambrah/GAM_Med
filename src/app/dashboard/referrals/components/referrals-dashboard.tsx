@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -38,6 +37,7 @@ import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { RegisterPatientFromReferralDialog } from './register-patient-from-referral-dialog';
 import Link from 'next/link';
+import { allPatients as initialPatients } from '@/lib/data';
 
 
 type StatusFilter = 'All' | Referral['status'];
@@ -120,7 +120,7 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
   const [displayReferrals, setDisplayReferrals] = React.useState<Referral[]>([]);
   const [selectedReferral, setSelectedReferral] = React.useState<Referral | null>(null);
   const [dialogState, setDialogState] = React.useState<'detail' | 'assign' | 'schedule' | 'statusUpdate' | null>(null);
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', []);
+  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   const isDoctor = user?.role === 'doctor';
 
   const openDialog = (referral: Referral, dialog: 'detail' | 'assign' | 'schedule' | 'statusUpdate') => {
