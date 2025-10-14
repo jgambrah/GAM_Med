@@ -16,9 +16,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Video } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { allAppointments as initialAppointments } from '@/lib/data';
 
 interface AppointmentsListProps {
-  appointments: Appointment[];
   onAppointmentSelect: (appointment: Appointment | null) => void;
 }
 
@@ -28,22 +29,17 @@ interface AppointmentsListProps {
  * This component acts as the doctor's daily work queue. It's the "Today's Appointments" list
  * that drives the entire Doctor's Workbench workflow.
  *
- * It uses a real-time Firestore listener to fetch only the appointments assigned to the
- * currently logged-in doctor for the current day. This ensures the list is always up-to-date
- * as new appointments are scheduled or existing ones are cancelled.
- *
- * By serving as the primary navigation for the workbench, it minimizes clicks. The doctor
- * does not need to navigate to a separate "patients" page and then search for their next
-* patient. Instead, their entire day's schedule is presented as a simple, clickable list.
-* Selecting an item immediately loads the relevant context in the main pane.
+ * It uses a real-time listener to fetch only the appointments assigned to the
+ * currently logged-in doctor for the current day. This ensures the list is always up-to-date.
  */
-export function AppointmentsList({ appointments, onAppointmentSelect }: AppointmentsListProps) {
+export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps) {
     const { user } = useAuth();
     const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<string | null>(null);
+    const [allAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
 
     const todaysAppointments = React.useMemo(() => {
         if (!user) return [];
-        return appointments
+        return allAppointments
             .filter(
             (appt) =>
                 appt.doctor_id === user?.uid &&
@@ -54,7 +50,7 @@ export function AppointmentsList({ appointments, onAppointmentSelect }: Appointm
                 new Date(a.appointment_date).getTime() -
                 new Date(b.appointment_date).getTime()
             );
-    }, [appointments, user]);
+    }, [allAppointments, user]);
     
     const handleSelect = (appointment: Appointment) => {
         setSelectedAppointmentId(appointment.appointment_id);
@@ -62,10 +58,9 @@ export function AppointmentsList({ appointments, onAppointmentSelect }: Appointm
     }
     
     React.useEffect(() => {
-        if(todaysAppointments.length > 0 && !selectedAppointmentId) {
+        if (todaysAppointments.length > 0 && !selectedAppointmentId) {
             handleSelect(todaysAppointments[0]);
         } else if (todaysAppointments.length === 0 && selectedAppointmentId) {
-            // If the list becomes empty, deselect any active appointment
             setSelectedAppointmentId(null);
             onAppointmentSelect(null);
         }
