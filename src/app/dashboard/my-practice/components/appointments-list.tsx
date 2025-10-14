@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -16,10 +15,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Video } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { allAppointments as initialAppointments } from '@/lib/data';
 
 interface AppointmentsListProps {
+  appointments: Appointment[]; // Receive appointments as a prop
   onAppointmentSelect: (appointment: Appointment | null) => void;
 }
 
@@ -32,14 +30,14 @@ interface AppointmentsListProps {
  * It uses a real-time listener to fetch only the appointments assigned to the
  * currently logged-in doctor for the current day. This ensures the list is always up-to-date.
  */
-export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps) {
+export function AppointmentsList({ appointments, onAppointmentSelect }: AppointmentsListProps) {
     const { user } = useAuth();
     const [selectedAppointmentId, setSelectedAppointmentId] = React.useState<string | null>(null);
-    const [allAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
-
+    
     const todaysAppointments = React.useMemo(() => {
         if (!user) return [];
-        return allAppointments
+        // Filter the appointments passed via props
+        return appointments
             .filter(
             (appt) =>
                 appt.doctor_id === user?.uid &&
@@ -50,7 +48,7 @@ export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps)
                 new Date(a.appointment_date).getTime() -
                 new Date(b.appointment_date).getTime()
             );
-    }, [allAppointments, user]);
+    }, [appointments, user]);
     
     const handleSelect = (appointment: Appointment) => {
         setSelectedAppointmentId(appointment.appointment_id);
