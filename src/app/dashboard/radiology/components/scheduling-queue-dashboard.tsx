@@ -62,7 +62,7 @@ export function SchedulingQueueDashboard({ orders, setOrders }: SchedulingQueueD
                 <TableCell className="font-medium">{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
                 <TableCell>
                   <Link href={`/dashboard/patients/${order.patientId}`} className="hover:underline text-primary">
-                    {getPatientName(order.patientId)}
+                    {order.patientName || getPatientName(order.patientId)}
                   </Link>
                 </TableCell>
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
