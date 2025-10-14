@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -25,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { PatientAppointmentCalendar } from './components/patient-appointment-calendar';
+import { format } from 'date-fns';
 
 const mockDepartments = [
     { value: 'all', label: 'All Departments' },
@@ -42,6 +42,7 @@ export default function AppointmentsPage() {
     const [appointments, setAppointments] = React.useState<Appointment[]>([]);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedDepartment, setSelectedDepartment] = React.useState('all');
+    const [selectedDate, setSelectedDate] = React.useState('');
 
     React.useEffect(() => {
         let baseAppointments = allAppointments;
@@ -59,8 +60,13 @@ export default function AppointmentsPage() {
             ? filteredBySearch
             : filteredBySearch.filter(appt => appt.department === selectedDepartment);
 
-        setAppointments(filteredByDept);
-    }, [searchQuery, user, selectedDepartment]);
+        const filteredByDate = !selectedDate
+            ? filteredByDept
+            : filteredByDept.filter(appt => format(new Date(appt.appointment_date), 'yyyy-MM-dd') === selectedDate);
+
+
+        setAppointments(filteredByDate);
+    }, [searchQuery, user, selectedDepartment, selectedDate]);
 
   return (
     <div className="space-y-6">
@@ -92,6 +98,7 @@ export default function AppointmentsPage() {
              </div>
              <div className="flex items-center gap-2">
                 {user?.role !== 'patient' && (
+                  <>
                     <div className="w-full sm:w-[200px]">
                         <Label htmlFor="department-filter" className="sr-only">Filter by Department</Label>
                          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
@@ -107,6 +114,17 @@ export default function AppointmentsPage() {
                             </SelectContent>
                         </Select>
                     </div>
+                     <div className="w-full sm:w-auto">
+                        <Label htmlFor="date-filter" className="sr-only">Filter by Date</Label>
+                        <Input
+                            id="date-filter"
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="max-w-sm"
+                        />
+                    </div>
+                  </>
                 )}
                 <div className="w-full sm:w-auto">
                     <Input
