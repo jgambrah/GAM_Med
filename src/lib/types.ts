@@ -929,26 +929,30 @@ export interface User {
     state: string;
     zipCode: string;
   };
-  qualifications?: {
-    degree: string;
-    institution: string;
-    graduationYear: number;
-  }[];
-  certifications?: {
-    name: string;
-    issuingBody: string;
-    issueDate: string;
-    expiryDate?: string;
-  }[];
-  licenses?: {
-    type: string;
-    licenseNumber: string;
-    expiryDate: string;
-  }[];
+  qualifications?: Qualification[];
+  certifications?: Certification[];
+  licenses?: License[];
   employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
   hireDate?: string;
   leaveBalances?: Record<string, number>;
   currentOnCallDuty?: boolean;
+}
+
+export interface Qualification {
+    degree: string;
+    institution: string;
+    graduationYear: number;
+}
+export interface Certification {
+    name: string;
+    issuingBody: string;
+    issueDate: string;
+    expiryDate?: string;
+}
+export interface License {
+    type: string;
+    licenseNumber: string;
+    expiryDate: string;
 }
 
 /**
@@ -1656,6 +1660,7 @@ export interface Diagnosis {
     
 
     
+
 
 
 

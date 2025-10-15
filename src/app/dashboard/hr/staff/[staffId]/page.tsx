@@ -7,7 +7,7 @@ import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockP
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
-import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal } from '@/lib/types';
+import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal, Qualification, Certification, License } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -36,6 +36,7 @@ import { InitiateReviewDialog } from './components/initiate-review-dialog';
 import { EnableMfaDialog } from './components/enable-mfa-dialog';
 import { LogTrainingDialog } from './components/log-training-dialog';
 import { AddGoalDialog } from './components/add-goal-dialog';
+import { AddCredentialDialog } from './components/add-credential-dialog';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -194,17 +195,29 @@ const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.Elemen
 );
 
 
-function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | null }) {
+function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: UserType | null, setStaff: React.Dispatch<React.SetStateAction<UserType | undefined>> }) {
     const staffPosition = mockPositions.find(p => p.title.toLowerCase() === staff.role.toLowerCase());
     const isSelf = staff.uid === user?.uid;
     const canEdit = user?.role === 'admin';
 
-    const getExpiryColor = (dateString: string) => {
+    const getExpiryColor = (dateString?: string) => {
+        if (!dateString) return '';
         const daysToExpiry = differenceInDays(parseISO(dateString), new Date());
         if (daysToExpiry < 0) return 'text-destructive font-semibold';
         if (daysToExpiry <= 60) return 'text-yellow-600 font-semibold';
         return '';
     };
+
+    const handleCredentialAdded = (type: 'qualifications' | 'certifications' | 'licenses', data: any) => {
+        setStaff(prev => {
+            if (!prev) return undefined;
+            const existingCredentials = prev[type] || [];
+            return {
+                ...prev,
+                [type]: [...existingCredentials, data],
+            }
+        });
+    }
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -235,7 +248,7 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Qualifications & Credentials</CardTitle>
-                        {canEdit && <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4" /> Add</Button>}
+                        {canEdit && <AddCredentialDialog onCredentialAdded={handleCredentialAdded} />}
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div>
@@ -252,7 +265,7 @@ function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | 
                              {staff.certifications?.length ? (
                                 <ul className="list-disc pl-5 space-y-1">
                                     {staff.certifications.map((c, i) => (
-                                         <li key={i}>{c.name} (Expires: <span className={getExpiryColor(c.expiryDate!)}>{format(parseISO(c.expiryDate!), 'PPP')}</span>)</li>
+                                         <li key={i}>{c.name} (Expires: <span className={getExpiryColor(c.expiryDate)}>{c.expiryDate ? format(parseISO(c.expiryDate), 'PPP') : 'N/A'}</span>)</li>
                                     ))}
                                 </ul>
                              ): <div className="text-sm text-muted-foreground">No certifications on file.</div>}
@@ -620,7 +633,7 @@ export default function StaffProfilePage() {
             {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
          <TabsContent value="profile" className="mt-4">
-            <ProfileDetailsTab staff={staff} user={user} />
+            <ProfileDetailsTab staff={staff} user={user} setStaff={setStaff} />
         </TabsContent>
          <TabsContent value="performance" className="mt-4">
             <PerformanceTab staff={staffProfile} setStaff={setStaffProfile as any} />
@@ -651,3 +664,4 @@ export default function StaffProfilePage() {
     </div>
   );
 }
+

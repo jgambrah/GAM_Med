@@ -376,4 +376,24 @@ export const LogTrainingSchema = z.object({
   courseId: z.string().min(1, 'A course must be selected.'),
   completionDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid completion date is required.' }),
 });
+
+export const QualificationSchema = z.object({
+    degree: z.string().min(2, 'Degree is required.'),
+    institution: z.string().min(3, 'Institution is required.'),
+    graduationYear: z.coerce.number().min(1950, 'Invalid year.').max(new Date().getFullYear(), 'Year cannot be in the future.'),
+});
+
+export const CertificationSchema = z.object({
+    name: z.string().min(2, 'Certification name is required.'),
+    issuingBody: z.string().min(2, 'Issuing body is required.'),
+    issueDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Issue date is required." }),
+    expiryDate: z.string().optional(),
+});
+
+export const LicenseSchema = z.object({
+    type: z.string().min(2, 'License type is required.'),
+    licenseNumber: z.string().min(3, 'License number is required.'),
+    expiryDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Expiry date is required." }),
+});
     
+
