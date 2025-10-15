@@ -11,19 +11,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
+import { format, differenceInBusinessDays } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-import { mockLeaveRequests } from '@/lib/data';
+import { mockLeaveRequests, mockStaffProfiles } from '@/lib/data';
 import { Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { LeaveRequest } from '@/lib/types';
+import { LeaveRequest, StaffProfile } from '@/lib/types';
 
 export function LeaveApprovalDashboard() {
   const { user } = useAuth();
   // Use the shared local storage key to see all leave requests
   const [allLeaveRequests, setAllLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
+  const [staffProfiles, setStaffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
   
   // Admins see all pending requests, HODs only see requests assigned to them.
   const pendingRequests = allLeaveRequests.filter(c => {
@@ -34,11 +35,39 @@ export function LeaveApprovalDashboard() {
   });
 
   const handleApprove = async (requestId: string) => {
+    const request = allLeaveRequests.find(req => req.leaveId === requestId);
+    if (!request) {
+        toast.error("Leave request not found.");
+        return;
+    }
+
+    // Calculate leave duration
+    const leaveDuration = differenceInBusinessDays(new Date(request.endDate), new Date(request.startDate)) + 1;
+
+    // Update staff profile
+    setStaffProfiles(prevProfiles => 
+        prevProfiles.map(profile => {
+            if (profile.staffId === request.staffId) {
+                const newBalances = { ...profile.leaveBalances };
+                if (newBalances && newBalances[request.leaveType] !== undefined) {
+                    newBalances[request.leaveType] -= leaveDuration;
+                }
+                return { ...profile, leaveBalances: newBalances };
+            }
+            return profile;
+        })
+    );
+
+    // Update leave request status
+    setAllLeaveRequests(prev => prev.map(req => 
+        req.leaveId === requestId 
+            ? { ...req, status: 'Approved', approvedByUserId: user?.uid, approvalDate: new Date().toISOString() } 
+            : req
+    ));
+
     toast.success('Leave Approved', {
-        description: `Leave request ${requestId} has been approved.`,
+        description: `Leave request ${requestId} has been approved and balance updated.`,
     });
-    // Update local storage state
-    setAllLeaveRequests(prev => prev.map(req => req.leaveId === requestId ? { ...req, status: 'Approved' } : req));
   };
   
   const handleReject = async (requestId: string) => {

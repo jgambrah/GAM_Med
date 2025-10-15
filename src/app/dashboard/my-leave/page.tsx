@@ -7,13 +7,15 @@ import { LeaveRequestDialog } from '../my-schedule/components/leave-request-dial
 import { MyLeaveHistory } from './components/my-leave-history';
 import { useAuth } from '@/hooks/use-auth';
 import { mockStaffProfiles, mockLeaveRequests } from '@/lib/data';
-import { LeaveRequest } from '@/lib/types';
+import { LeaveRequest, StaffProfile } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
 function LeaveBalances() {
     const { user } = useAuth();
-    // In a real app, this would come from the user's profile document.
-    const profile = mockStaffProfiles.find(p => p.staffId === user?.uid);
+    const [staffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
+    
+    // Find the specific profile from the potentially updated list in local storage
+    const profile = staffProfiles.find(p => p.staffId === user?.uid);
     
     // Mock balances if not found in profile for demo purposes
     const balances = profile?.leaveBalances || {
