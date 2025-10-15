@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Send } from 'lucide-react';
+import { Send, Paperclip } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -79,7 +79,15 @@ function MessageArea({ messages, onSendMessage }: { messages: Message[], onSendM
                                 </Avatar>
                              )}
                             <div className={cn("max-w-xs md:max-w-md p-3 rounded-lg", msg.senderId === user?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-                                <p className="text-sm">{msg.messageBody}</p>
+                                <p className="text-sm whitespace-pre-wrap">{msg.messageBody}</p>
+                                {msg.attachmentUrl && (
+                                    <Button asChild variant={msg.senderId === user?.uid ? 'secondary' : 'outline'} size="sm" className="mt-2">
+                                        <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                            <Paperclip className="h-4 w-4 mr-2" />
+                                            {msg.attachmentName || 'View Attachment'}
+                                        </a>
+                                    </Button>
+                                )}
                                 <p className="text-xs opacity-70 mt-1 text-right">{format(new Date(msg.timestamp), 'p')}</p>
                             </div>
                         </div>
@@ -171,7 +179,8 @@ export default function MessagesPage() {
     const displayedMessages = selectedConversation ? messages.filter(m => 
         (m.senderId === user?.uid && m.receiverId === selectedConversationId) ||
         (m.receiverId === user?.uid && m.senderId === selectedConversationId)
-    ) : [];
+    ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : [];
+
 
     return (
         <div className="space-y-6">

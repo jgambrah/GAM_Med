@@ -1252,6 +1252,7 @@ export interface Referral {
   notes?: string; // Optional internal notes
   created_at: string; // ISO 8601 format
   updated_at: string; // ISO 8601 format
+  patientId?: string; // Link to the patient record after registration
 }
 
 /**
@@ -1636,6 +1637,8 @@ export interface Message {
   messageBody: string;
   timestamp: string; // ISO Timestamp
   isRead: boolean;
+  attachmentUrl?: string; // Data URL for the file
+  attachmentName?: string; // Original name of the file
 }
 
 /**
@@ -1653,6 +1656,7 @@ export interface Diagnosis {
     
 
     
+
 
 
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -30,15 +31,26 @@ import { User, Message } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Combobox } from '@/components/ui/combobox';
 import { toast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 const NewMessageSchema = z.object({
   recipientId: z.string().min(1, 'A recipient is required.'),
   messageBody: z.string().min(1, 'Message cannot be empty.'),
+  attachment: z.any().optional(),
 });
 
 interface NewMessageDialogProps {
   onMessageSent: (newMessage: Message) => void;
 }
+
+const fileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 export function NewMessageDialog({ onMessageSent }: NewMessageDialogProps) {
   const [open, setOpen] = React.useState(false);
@@ -52,11 +64,27 @@ export function NewMessageDialog({ onMessageSent }: NewMessageDialogProps) {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof NewMessageSchema>) => {
+  const onSubmit = async (values: z.infer<typeof NewMessageSchema>) => {
     if (!user) {
       toast.error('You must be logged in to send a message.');
       return;
     }
+
+    let attachmentUrl: string | undefined;
+    let attachmentName: string | undefined;
+    const file = values.attachment?.[0];
+
+    if (file) {
+      try {
+        attachmentUrl = await fileToDataUrl(file);
+        attachmentName = file.name;
+      } catch (error) {
+        console.error("Error converting file to Data URL:", error);
+        toast.error("Failed to process the attachment. Please try again.");
+        return;
+      }
+    }
+
 
     const newMessage: Message = {
       messageId: `msg-${Date.now()}`,
@@ -66,6 +94,8 @@ export function NewMessageDialog({ onMessageSent }: NewMessageDialogProps) {
       messageBody: values.messageBody,
       timestamp: new Date().toISOString(),
       isRead: false,
+      attachmentUrl,
+      attachmentName,
     };
     
     onMessageSent(newMessage);
@@ -127,6 +157,25 @@ export function NewMessageDialog({ onMessageSent }: NewMessageDialogProps) {
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="attachment"
+              render={({ field: { value, onChange, ...fieldProps } }) => (
+                <FormItem>
+                    <FormLabel>Attach Document (Optional)</FormLabel>
+                    <FormControl>
+                        <Input
+                            {...fieldProps}
+                            type="file"
+                            onChange={(event) => {
+                                onChange(event.target.files);
+                            }}
+                        />
+                    </FormControl>
+                    <FormMessage />
                 </FormItem>
               )}
             />
