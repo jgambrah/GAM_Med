@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { AppointmentsDataTable } from './components/data-table';
-import { allAppointments } from '@/lib/data';
+import { allAppointments as initialAppointments } from '@/lib/data';
 import { NewAppointmentDialog } from './components/new-appointment-dialog';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
@@ -25,6 +25,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { PatientAppointmentCalendar } from './components/patient-appointment-calendar';
 import { format } from 'date-fns';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const mockDepartments = [
     { value: 'all', label: 'All Departments' },
@@ -39,6 +40,7 @@ const mockDepartments = [
 
 export default function AppointmentsPage() {
     const { user } = useAuth();
+    const [allAppointments, setAllAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
     const [appointments, setAppointments] = React.useState<Appointment[]>([]);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedDepartment, setSelectedDepartment] = React.useState('all');
@@ -66,7 +68,12 @@ export default function AppointmentsPage() {
 
 
         setAppointments(filteredByDate);
-    }, [searchQuery, user, selectedDepartment, selectedDate]);
+    }, [searchQuery, user, selectedDepartment, selectedDate, allAppointments]);
+
+    const handleAppointmentBooked = (newAppointment: Appointment) => {
+        // This function is now passed to the dialog to update the state here
+        setAllAppointments(prev => [newAppointment, ...prev]);
+    }
 
   return (
     <div className="space-y-6">
@@ -80,7 +87,7 @@ export default function AppointmentsPage() {
             }
           </p>
         </div>
-        <NewAppointmentDialog />
+        <NewAppointmentDialog onAppointmentBooked={handleAppointmentBooked} />
       </div>
       <Card>
         <CardHeader>

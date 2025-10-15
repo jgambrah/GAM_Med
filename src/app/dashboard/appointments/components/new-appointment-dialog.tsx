@@ -72,7 +72,7 @@ interface NewAppointmentDialogProps {
   appointmentToReschedule?: Appointment | null;
   patientId?: string; // Prop to pre-select a patient
   doctorId?: string; // Prop to pre-select a doctor
-  onAppointmentBooked?: (appointmentId: string, patientId: string) => void; // Callback on success
+  onAppointmentBooked?: (newAppointment: Appointment) => void;
 }
 
 export function NewAppointmentDialog({ 
@@ -218,7 +218,7 @@ export function NewAppointmentDialog({
       setAllAppointments(prev => [newAppointment, ...prev]);
 
       if (onAppointmentBooked) {
-        onAppointmentBooked(result.appointmentId, values.patientId);
+        onAppointmentBooked(newAppointment);
       }
       setOpen(false);
       form.reset();
@@ -465,15 +465,16 @@ export function NewAppointmentDialog({
                 />
 
 
-                <DialogFooter className="sticky bottom-0 bg-background py-4">
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
-                </Button>
-                </DialogFooter>
+                
             </form>
             </Form>
         </div>
+        <DialogFooter className="sticky bottom-0 bg-background py-4 pr-6">
+          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button type="submit" form="appointment-form" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
+          </Button>
+      </DialogFooter>
     </DialogContent>
   );
 
