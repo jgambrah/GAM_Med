@@ -2,11 +2,11 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, notFound, useRouter, useSearchParams } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews, mockLeaveRequests } from '@/lib/data';
+import { useParams, notFound, useRouter } from 'next/navigation';
+import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User as UserIcon, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
 import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal, Qualification, Certification, License, LeaveRequest } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -31,16 +31,15 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { NewGoalSchema, LogTrainingSchema } from '@/lib/schemas';
+import { NewGoalSchema } from '@/lib/schemas';
 import { InitiateReviewDialog } from './components/initiate-review-dialog';
 import { EnableMfaDialog } from './components/enable-mfa-dialog';
 import { LogTrainingDialog } from './components/log-training-dialog';
 import { AddGoalDialog } from './components/add-goal-dialog';
 import { AddCredentialDialog } from './components/add-credential-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { MyLeaveHistory } from '@/app/dashboard/my-leave/components/my-leave-history';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EditLeaveBalancesDialog } from './components/edit-leave-balances-dialog';
+import { LeaveTab } from './components/leave-tab';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -230,7 +229,7 @@ function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: U
                         <CardTitle>Personal & Contact</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <DetailItem icon={User} label="Name" value={staff.name} />
+                        <DetailItem icon={UserIcon} label="Name" value={staff.name} />
                         <DetailItem icon={Mail} label="Email" value={staff.email} />
                         <DetailItem icon={Phone} label="Phone" value={staff.phoneNumber} />
                         <DetailItem icon={CalendarDays} label="Date of Birth" value={staff.dateOfBirth ? format(parseISO(staff.dateOfBirth), 'PPP') : 'N/A'} />
@@ -242,7 +241,7 @@ function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: U
                     </CardHeader>
                      <CardContent className="space-y-4">
                         <DetailItem icon={Building} label="Department" value={staff.department} />
-                        <DetailItem icon={User} label="Role" value={staff.role} />
+                        <DetailItem icon={UserIcon} label="Role" value={staff.role} />
                         <DetailItem icon={CalendarDays} label="Hire Date" value={staff.hireDate ? format(parseISO(staff.hireDate), 'PPP') : 'N/A'} />
                      </CardContent>
                 </Card>
@@ -581,56 +580,6 @@ function SecurityTab({ isSelf, isMfaEnabled, onEnable }: { isSelf: boolean, isMf
         </Card>
     );
 }
-
-function LeaveTab({ staffProfile, setStaffProfile, user }: { staffProfile: StaffProfile; setStaffProfile: (profile: StaffProfile) => void; user: UserType | null; }) {
-  const [allLeaveRequests, setAllLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
-
-  const staffLeaveRequests = React.useMemo(() => {
-    return allLeaveRequests.filter(req => req.staffId === staffProfile.staffId);
-  }, [allLeaveRequests, staffProfile]);
-
-  const handleBalancesSaved = (newBalances: Record<string, number>) => {
-    setStaffProfile({ ...staffProfile, leaveBalances: newBalances });
-    toast.success("Leave balances have been updated.");
-  };
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Leave Balances</CardTitle>
-            <CardDescription>Current available leave days for this staff member.</CardDescription>
-          </div>
-          {user?.role === 'admin' && (
-            <EditLeaveBalancesDialog
-              balances={staffProfile.leaveBalances || {}}
-              onSave={handleBalancesSaved}
-            />
-          )}
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {staffProfile.leaveBalances && Object.entries(staffProfile.leaveBalances).map(([type, days]) => (
-            <div key={type}>
-              <p className="text-sm font-medium text-muted-foreground">{type}</p>
-              <p className="text-2xl font-bold">{days} <span className="text-lg font-normal">days</span></p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Leave History</CardTitle>
-          <CardDescription>A record of all leave requests for this staff member.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MyLeaveHistory requests={staffLeaveRequests} />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 
 export default function StaffProfilePage() {
   const router = useRouter();
