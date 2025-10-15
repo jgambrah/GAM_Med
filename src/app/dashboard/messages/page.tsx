@@ -15,6 +15,7 @@ import { Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { NewMessageDialog } from './components/new-message-dialog';
 
 function ConversationList({ conversations, onSelect, selectedConversationId }: { conversations: any[], onSelect: (id: string) => void, selectedConversationId?: string }) {
     const { user } = useAuth();
@@ -74,7 +75,7 @@ function MessageArea({ messages, onSendMessage }: { messages: Message[], onSendM
                              {msg.senderId !== user?.uid && (
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src={allUsers.find(u => u.uid === msg.senderId)?.photoURL} />
-                                    <AvatarFallback>{msg.senderName.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback>{allUsers.find(u => u.uid === msg.senderId)?.name.charAt(0) || 'U'}</AvatarFallback>
                                 </Avatar>
                              )}
                             <div className={cn("max-w-xs md:max-w-md p-3 rounded-lg", msg.senderId === user?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
@@ -145,6 +146,11 @@ export default function MessagesPage() {
         }
 
     }, [user, messages, selectedConversationId]);
+    
+    const handleNewMessage = (newMessage: Message) => {
+        setMessages(prev => [newMessage, ...prev]);
+        setSelectedConversationId(newMessage.receiverId);
+    }
 
     const handleSendMessage = (text: string) => {
         if (!user || !selectedConversationId) return;
@@ -169,11 +175,14 @@ export default function MessagesPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Secure Messaging</h1>
-                <p className="text-muted-foreground">
-                    Communicate directly with your care team or patients.
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold">Secure Messaging</h1>
+                    <p className="text-muted-foreground">
+                        Communicate directly with your care team or patients.
+                    </p>
+                </div>
+                <NewMessageDialog onMessageSent={handleNewMessage} />
             </div>
             <Card className="h-[75vh]">
                 <div className="grid grid-cols-1 md:grid-cols-3 h-full">
