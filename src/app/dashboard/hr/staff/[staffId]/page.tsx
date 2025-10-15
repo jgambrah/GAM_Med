@@ -40,6 +40,7 @@ import { AddCredentialDialog } from './components/add-credential-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { EditLeaveBalancesDialog } from './components/edit-leave-balances-dialog';
 import { MyLeaveHistory } from '@/app/dashboard/my-leave/components/my-leave-history';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -583,7 +584,7 @@ function SecurityTab({ isSelf, isMfaEnabled, onEnable }: { isSelf: boolean, isMf
 }
 
 function LeaveTab({ staffProfile, setStaffProfile, user }: { staffProfile: StaffProfile, setStaffProfile: (profile: StaffProfile) => void, user: UserType | null }) {
-  const allLeaveRequests = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests)[0];
+  const [allLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
   
   const staffLeaveRequests = React.useMemo(() => {
     if (!staffProfile) return [];
@@ -658,7 +659,18 @@ export default function StaffProfilePage() {
 
 
   if (!staff || !staffProfile) {
-    return <div>Loading staff profile...</div>;
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="flex gap-2">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
   }
 
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
