@@ -42,7 +42,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MyLeaveHistory } from '@/app/dashboard/my-leave/components/my-leave-history';
 import { EditLeaveBalancesDialog } from './components/edit-leave-balances-dialog';
 
-
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
   amount: z.coerce.number().min(1, 'Amount must be greater than zero.'),
@@ -100,6 +99,7 @@ function LeaveTab({ staffProfile, setStaffProfile, user }: { staffProfile: Staff
     </div>
   );
 }
+
 
 function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: UserType, itemType: 'Allowance' | 'Deduction', onAdded: (name: string, amount: number) => void }) {
   const [open, setOpen] = React.useState(false);
@@ -701,8 +701,8 @@ export default function StaffProfilePage() {
             <TabsTrigger value="profile">Profile Details</TabsTrigger>
             <TabsTrigger value="performance">Performance & Goals</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
-            <TabsTrigger value="leave">Leave Management</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
+            <TabsTrigger value="leave">Leave Management</TabsTrigger>
             {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
          <TabsContent value="profile" className="mt-4">
@@ -740,3 +740,5 @@ export default function StaffProfilePage() {
     </div>
   );
 }
+
+    
