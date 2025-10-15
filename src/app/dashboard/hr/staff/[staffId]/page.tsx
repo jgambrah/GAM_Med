@@ -295,7 +295,6 @@ function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: U
 function SalaryTab({ staff, user }: { staff: UserType, user: UserType | null }) {
     const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
     
-    // For prototype, we need to find the full staff profile to get allowances/deductions
     const fullProfile = mockStaffProfiles.find(p => p.staffId === staff.uid);
     const canEdit = user?.role === 'admin';
 
@@ -587,13 +586,16 @@ function LeaveTab({ staffProfile, setStaffProfile, user }: { staffProfile: Staff
   const allLeaveRequests = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests)[0];
   
   const staffLeaveRequests = React.useMemo(() => {
+    if (!staffProfile) return [];
     return allLeaveRequests.filter(req => req.staffId === staffProfile.staffId);
-  }, [allLeaveRequests, staffProfile.staffId]);
+  }, [allLeaveRequests, staffProfile]);
 
   const handleBalancesSaved = (newBalances: Record<string, number>) => {
     setStaffProfile({ ...staffProfile, leaveBalances: newBalances });
     toast.success("Leave balances have been updated.");
   };
+  
+  if (!staffProfile) return null;
 
   return (
     <div className="space-y-6">
@@ -656,7 +658,6 @@ export default function StaffProfilePage() {
 
 
   if (!staff || !staffProfile) {
-    // This can happen briefly on first load with useLocalStorage
     return <div>Loading staff profile...</div>;
   }
 
