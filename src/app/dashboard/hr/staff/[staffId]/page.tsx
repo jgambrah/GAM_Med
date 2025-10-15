@@ -701,7 +701,7 @@ export default function StaffProfilePage() {
             <TabsTrigger value="profile">Profile Details</TabsTrigger>
             <TabsTrigger value="performance">Performance & Goals</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
-            <TabsTrigger value="leave">Leave</TabsTrigger>
+            <TabsTrigger value="leave">Leave Management</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
             {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
@@ -740,5 +740,3 @@ export default function StaffProfilePage() {
     </div>
   );
 }
-
-    
