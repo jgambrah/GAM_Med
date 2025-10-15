@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { NewGoalSchema, LogTrainingSchema } from '@/lib/schemas';
+import { NewGoalSchema, LogTrainingSchema, QualificationSchema, CertificationSchema, LicenseSchema } from '@/lib/schemas';
 import { InitiateReviewDialog } from './components/initiate-review-dialog';
 import { EnableMfaDialog } from './components/enable-mfa-dialog';
 import { LogTrainingDialog } from './components/log-training-dialog';
@@ -211,10 +211,10 @@ function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: U
     const handleCredentialAdded = (type: 'qualifications' | 'certifications' | 'licenses', data: any) => {
         setStaff(prev => {
             if (!prev) return undefined;
-            const existingCredentials = prev[type] || [];
+            const existingCredentials = prev[type as keyof UserType] || [];
             return {
                 ...prev,
-                [type]: [...existingCredentials, data],
+                [type]: [...(existingCredentials as any[]), data],
             }
         });
     }
@@ -289,11 +289,12 @@ function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: U
 }
 
 
-function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispatch<React.SetStateAction<UserType | undefined>> }) {
+function SalaryTab({ staff, user }: { staff: UserType, user: UserType | null }) {
     const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
     
     // For prototype, we need to find the full staff profile to get allowances/deductions
     const fullProfile = mockStaffProfiles.find(p => p.staffId === staff.uid);
+    const canEdit = user?.role === 'admin';
 
     const handleAddAllowance = (name: string, amount: number) => {
         // This is a mock update. In a real app, you'd call a server action.
@@ -319,7 +320,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                     <CardTitle>Salary & Allowances</CardTitle>
                     <CardDescription>Manage recurring payments and benefits.</CardDescription>
                 </div>
-                <AddRecurringItemDialog staff={staff} itemType="Allowance" onAdded={handleAddAllowance} />
+                {canEdit && <AddRecurringItemDialog staff={staff} itemType="Allowance" onAdded={handleAddAllowance} />}
                 </CardHeader>
                 <CardContent>
                 <div className="rounded-md border">
@@ -328,7 +329,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableRow>
                         <TableHead>Item</TableHead>
                         <TableHead className="text-right">Monthly Amount (₵)</TableHead>
-                        <TableHead>Actions</TableHead>
+                        {canEdit && <TableHead>Actions</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -337,13 +338,13 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableCell className="text-right">
                             {((staffPosition?.baseAnnualSalary || 0) / 12).toFixed(2)}
                         </TableCell>
-                        <TableCell></TableCell>
+                        {canEdit && <TableCell></TableCell>}
                         </TableRow>
                         {fullProfile.recurringAllowances.map((allowance) => (
                         <TableRow key={allowance.name}>
                             <TableCell>{allowance.name}</TableCell>
                             <TableCell className="text-right">{allowance.amount.toFixed(2)}</TableCell>
-                            <TableCell>
+                            {canEdit && <TableCell>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -352,7 +353,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                             >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                            </TableCell>
+                            </TableCell>}
                         </TableRow>
                         ))}
                     </TableBody>
@@ -366,7 +367,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                     <CardTitle>Recurring Deductions</CardTitle>
                     <CardDescription>Manage recurring deductions from salary.</CardDescription>
                 </div>
-                <AddRecurringItemDialog staff={staff} itemType="Deduction" onAdded={handleAddDeduction} />
+                {canEdit && <AddRecurringItemDialog staff={staff} itemType="Deduction" onAdded={handleAddDeduction} />}
                 </CardHeader>
                 <CardContent>
                 <div className="rounded-md border">
@@ -375,7 +376,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableRow>
                         <TableHead>Item</TableHead>
                         <TableHead className="text-right">Monthly Amount (₵)</TableHead>
-                        <TableHead>Actions</TableHead>
+                        {canEdit && <TableHead>Actions</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -383,7 +384,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableRow key={deduction.name}>
                             <TableCell>{deduction.name}</TableCell>
                             <TableCell className="text-right">{deduction.amount.toFixed(2)}</TableCell>
-                            <TableCell>
+                            {canEdit && <TableCell>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -392,7 +393,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                             >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                            </TableCell>
+                            </TableCell>}
                         </TableRow>
                         ))}
                     </TableBody>
@@ -642,7 +643,7 @@ export default function StaffProfilePage() {
             <TrainingTab staff={staffProfile} setStaff={setStaffProfile as any} />
         </TabsContent>
         <TabsContent value="payroll" className="mt-4">
-            <SalaryTab staff={staff} setStaff={setStaff} />
+            <SalaryTab staff={staff} user={user} />
             <div className="mt-6">
                  <PayrollHistoryTab staffId={staff.uid} />
             </div>
@@ -664,4 +665,3 @@ export default function StaffProfilePage() {
     </div>
   );
 }
-
