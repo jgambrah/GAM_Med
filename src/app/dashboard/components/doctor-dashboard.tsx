@@ -21,12 +21,13 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
-import { allAppointments } from '@/lib/data';
+import { allAppointments as initialAppointments } from '@/lib/data';
 import { Appointment } from '@/lib/types';
 import { InpatientList } from './inpatient-list';
 import { Button } from '@/components/ui/button';
 import { Video } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 function getStatusVariant(status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" {
     switch (status) {
@@ -39,19 +40,24 @@ function getStatusVariant(status: Appointment['status']): "default" | "secondary
 
 export function DoctorDashboard() {
   const { user } = useAuth();
-  // In a real app, this would be a real-time query for appointments for the logged-in doctor.
-  const todaysAppointments = allAppointments
-    .filter(
-      (appt) =>
-        appt.doctor_id === user?.uid &&
-        new Date(appt.appointment_date).toDateString() ===
-          new Date().toDateString()
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.appointment_date).getTime() -
-        new Date(b.appointment_date).getTime()
-    );
+  const [allAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
+
+  const todaysAppointments = React.useMemo(() => {
+    if (!user) return [];
+    return allAppointments
+      .filter(
+        (appt) =>
+          appt.doctor_id === user?.uid &&
+          new Date(appt.appointment_date).toDateString() ===
+            new Date().toDateString()
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.appointment_date).getTime() -
+          new Date(b.appointment_date).getTime()
+      );
+  }, [allAppointments, user]);
+
 
   const handleJoinCall = (link: string) => {
     toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
