@@ -11,6 +11,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<Re
     // This effect runs only once on the client after mount
     try {
       const item = window.localStorage.getItem(key);
+      // If the item exists and is not an empty string, parse it. Otherwise, use the initial value.
       setStoredValue(item ? JSON.parse(item) : initialValue);
     } catch (error) {
       console.warn(`Error reading localStorage key “${key}”:`, error);
