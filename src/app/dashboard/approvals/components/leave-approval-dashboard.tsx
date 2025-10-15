@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { format, differenceInBusinessDays } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { mockLeaveRequests, mockStaffProfiles } from '@/lib/data';
-import { Check, X } from 'lucide-react';
+import { Check, X, Paperclip } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -83,8 +83,7 @@ export function LeaveApprovalDashboard() {
           <TableRow>
             <TableHead>Staff Member</TableHead>
             <TableHead>Leave Type</TableHead>
-            <TableHead>Start Date</TableHead>
-            <TableHead>End Date</TableHead>
+            <TableHead>Dates</TableHead>
             <TableHead>Reason</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
@@ -95,10 +94,18 @@ export function LeaveApprovalDashboard() {
               <TableRow key={request.leaveId}>
                 <TableCell className="font-medium">{request.staffName}</TableCell>
                 <TableCell><Badge variant="outline">{request.leaveType}</Badge></TableCell>
-                <TableCell>{format(new Date(request.startDate), 'PPP')}</TableCell>
-                <TableCell>{format(new Date(request.endDate), 'PPP')}</TableCell>
+                <TableCell>
+                  {format(new Date(request.startDate), 'PPP')} - {format(new Date(request.endDate), 'PPP')}
+                </TableCell>
                 <TableCell>{request.reason}</TableCell>
                 <TableCell className="space-x-2">
+                  {request.attachmentUrl && (
+                    <Button asChild variant="outline" size="sm">
+                        <a href={request.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                            <Paperclip className="h-4 w-4 mr-2" /> View Attachment
+                        </a>
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => handleApprove(request.leaveId)}>
                     <Check className="h-4 w-4 mr-2 text-green-600" /> Approve
                   </Button>
@@ -110,7 +117,7 @@ export function LeaveApprovalDashboard() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 You have no pending leave requests to approve.
               </TableCell>
             </TableRow>

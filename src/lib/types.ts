@@ -683,6 +683,7 @@ export interface LeaveRequest {
   submittedDate?: string;
   approvedByUserId?: string;
   approvalDate?: string;
+  attachmentUrl?: string;
 }
 
 // =========================================================================
@@ -1660,6 +1661,7 @@ export interface Diagnosis {
     
 
     
+
 
 
 

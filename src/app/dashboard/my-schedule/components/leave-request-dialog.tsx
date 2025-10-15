@@ -37,6 +37,15 @@ interface LeaveRequestDialogProps {
     onLeaveSubmitted?: (newRequest: LeaveRequest) => void;
 }
 
+const fileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps) {
   const [open, setOpen] = React.useState(false);
   const { user } = useAuth();
@@ -48,23 +57,36 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
       startDate: '',
       endDate: '',
       reason: '',
+      attachment: undefined,
     },
   });
 
   const onSubmit = async (values: z.infer<typeof LeaveRequestSchema>) => {
-    /**
-     * == Conceptual Invocation of Cloud Function ==
-     * This is where the UI would call the `handleLeaveRequest` Cloud Function.
-     * The function would then perform the complex backend logic of:
-     * 1. Updating the doctor's schedule for each day in the range.
-     * 2. Finding any conflicting appointments.
-     * 3. Notifying administrative staff to handle the rescheduling.
-     */
+    if (!user) {
+        toast.error("You must be logged in to submit a request.");
+        return;
+    }
+
+    let attachmentUrl: string | undefined;
+    const file = values.attachment?.[0];
+
+    if (file) {
+      try {
+        attachmentUrl = await fileToDataUrl(file);
+      } catch (error) {
+        console.error("Error converting file to Data URL:", error);
+        toast.error("Failed to process the attachment. Please try again.");
+        return;
+      }
+    }
+    
+    // This is a conceptual call. In a real app, the server action would handle the file.
     const result = await submitLeaveRequest(values);
+
     if(result.success) {
       toast.success("Leave request submitted successfully.");
       
-      if(onLeaveSubmitted && user) {
+      if(onLeaveSubmitted) {
           const newRequest: LeaveRequest = {
             leaveId: `LR-${Date.now()}`,
             staffId: user.uid,
@@ -75,7 +97,8 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
             endDate: values.endDate,
             reason: values.reason,
             status: 'Pending',
-            requestedAt: new Date().toISOString()
+            requestedAt: new Date().toISOString(),
+            attachmentUrl: attachmentUrl,
           };
           onLeaveSubmitted(newRequest);
       }
@@ -165,6 +188,26 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
                     <Textarea placeholder="e.g., Annual leave, conference attendance" {...field} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="attachment"
+              render={({ field: { value, onChange, ...fieldProps } }) => (
+                <FormItem>
+                    <FormLabel>Attach Document (Optional)</FormLabel>
+                    <FormControl>
+                        <Input
+                            {...fieldProps}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(event) => {
+                                onChange(event.target.files);
+                            }}
+                        />
+                    </FormControl>
+                    <FormMessage />
                 </FormItem>
               )}
             />

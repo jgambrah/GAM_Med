@@ -16,6 +16,7 @@ export const LeaveRequestSchema = z.object({
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
   endDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
   reason: z.string().min(10, { message: "Reason must be at least 10 characters." }),
+  attachment: z.any().optional(),
 }).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
     message: "End date cannot be before start date.",
     path: ["endDate"],
