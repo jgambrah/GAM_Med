@@ -68,3 +68,5 @@ export function LeaveTab({ staffProfile, setStaffProfile, user }: LeaveTabProps)
     </div>
   );
 }
+
+    
