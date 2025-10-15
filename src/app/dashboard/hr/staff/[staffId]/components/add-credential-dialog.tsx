@@ -54,6 +54,11 @@ interface AddCredentialDialogProps {
 function QualificationForm({ onSave }: { onSave: (data: Qualification) => void }) {
     const form = useForm<z.infer<typeof QualificationSchema>>({
         resolver: zodResolver(QualificationSchema),
+        defaultValues: {
+            degree: '',
+            institution: '',
+            graduationYear: new Date().getFullYear(),
+        }
     });
 
     const onSubmit = (values: z.infer<typeof QualificationSchema>) => {
@@ -95,6 +100,12 @@ function QualificationForm({ onSave }: { onSave: (data: Qualification) => void }
 function CertificationForm({ onSave }: { onSave: (data: Certification) => void }) {
     const form = useForm<z.infer<typeof CertificationSchema>>({
         resolver: zodResolver(CertificationSchema),
+        defaultValues: {
+            name: '',
+            issuingBody: '',
+            issueDate: '',
+            expiryDate: '',
+        }
     });
 
     const onSubmit = (values: z.infer<typeof CertificationSchema>) => {
@@ -145,6 +156,11 @@ function CertificationForm({ onSave }: { onSave: (data: Certification) => void }
 function LicenseForm({ onSave }: { onSave: (data: License) => void }) {
     const form = useForm<z.infer<typeof LicenseSchema>>({
         resolver: zodResolver(LicenseSchema),
+        defaultValues: {
+            type: '',
+            licenseNumber: '',
+            expiryDate: '',
+        }
     });
 
     const onSubmit = (values: z.infer<typeof LicenseSchema>) => {
