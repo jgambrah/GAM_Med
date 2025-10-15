@@ -242,7 +242,7 @@ export function NewAppointmentDialog({
             {isEditing ? 'Modify the details below to reschedule the appointment.' : 'Fill in the details below to schedule a new appointment.'}
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="pr-6 -mr-6">
+        <div className="flex-grow overflow-y-auto pr-6 -mr-6">
             <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 
@@ -465,7 +465,7 @@ export function NewAppointmentDialog({
                 />
 
 
-                <DialogFooter>
+                <DialogFooter className="sticky bottom-0 bg-background py-4">
                 <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
@@ -473,7 +473,7 @@ export function NewAppointmentDialog({
                 </DialogFooter>
             </form>
             </Form>
-        </ScrollArea>
+        </div>
     </DialogContent>
   );
 
