@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 function ConversationList({ conversations, onSelect, selectedConversationId }: { conversations: any[], onSelect: (id: string) => void, selectedConversationId?: string }) {
     const { user } = useAuth();
@@ -52,12 +53,17 @@ function ConversationList({ conversations, onSelect, selectedConversationId }: {
 function MessageArea({ messages, onSendMessage }: { messages: Message[], onSendMessage: (text: string) => void }) {
     const { user } = useAuth();
     const [newMessage, setNewMessage] = React.useState('');
+    const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
     const handleSend = () => {
         if (!newMessage.trim()) return;
         onSendMessage(newMessage);
         setNewMessage('');
     }
+
+     React.useEffect(() => {
+        inputRef.current?.focus();
+    }, [messages]);
 
     return (
         <div className="flex flex-col h-full">
@@ -81,6 +87,7 @@ function MessageArea({ messages, onSendMessage }: { messages: Message[], onSendM
             </ScrollArea>
             <div className="p-4 border-t flex items-center gap-2">
                 <Textarea 
+                    ref={inputRef}
                     placeholder="Type your message..." 
                     className="flex-grow" 
                     value={newMessage}
@@ -105,18 +112,21 @@ export default function MessagesPage() {
     const { user } = useAuth();
     const [conversations, setConversations] = React.useState<any[]>([]);
     const [selectedConversationId, setSelectedConversationId] = React.useState<string | undefined>();
-    const [messages, setMessages] = React.useState<Message[]>(mockMessages);
+    const [messages, setMessages] = useLocalStorage<Message[]>('messages', mockMessages);
     
     React.useEffect(() => {
         if (!user) return;
         
-        const myMessages = mockMessages.filter(m => m.senderId === user.uid || m.receiverId === user.uid);
+        const myMessages = messages.filter(m => m.senderId === user.uid || m.receiverId === user.uid);
         const convos = myMessages.reduce((acc, msg) => {
             const otherUserId = msg.senderId === user.uid ? msg.receiverId : msg.senderId;
             if (!acc[otherUserId]) {
+                const otherUser = allUsers.find(u => u.uid === otherUserId);
+                if (!otherUser) return acc; // Skip if other user not found
+
                 acc[otherUserId] = {
                     id: otherUserId,
-                    otherUser: allUsers.find(u => u.uid === otherUserId),
+                    otherUser: otherUser,
                     messages: []
                 };
             }
@@ -130,11 +140,11 @@ export default function MessagesPage() {
         })).sort((a,b) => new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime());
 
         setConversations(convosArray);
-        if (convosArray.length > 0) {
+        if (convosArray.length > 0 && !selectedConversationId) {
             setSelectedConversationId(convosArray[0].id);
         }
 
-    }, [user]);
+    }, [user, messages, selectedConversationId]);
 
     const handleSendMessage = (text: string) => {
         if (!user || !selectedConversationId) return;
