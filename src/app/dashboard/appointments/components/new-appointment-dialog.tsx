@@ -45,6 +45,8 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Appointment, Patient, User } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 const mockDepartments = [
     { value: 'Cardiology', label: 'Cardiology' },
@@ -233,244 +235,246 @@ export function NewAppointmentDialog({
   }
 
   const dialogContent = (
-    <DialogContent className="sm:max-w-lg">
+    <DialogContent className="sm:max-w-lg h-auto max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Reschedule Appointment' : 'Book New Appointment'}</DialogTitle>
           <DialogDescription>
             {isEditing ? 'Modify the details below to reschedule the appointment.' : 'Fill in the details below to schedule a new appointment.'}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            
-            {user?.role === 'patient' ? (
-                <FormItem>
-                  <FormLabel>Patient</FormLabel>
-                  <FormControl>
-                    <Input value={user.name} readOnly disabled />
-                  </FormControl>
-                </FormItem>
-            ) : isPrefilled && prefilledPatient ? (
-                <FormItem>
-                  <FormLabel>Patient</FormLabel>
-                  <FormControl>
-                    <Input value={`${prefilledPatient.full_name} (${prefilledPatient.patient_id})`} readOnly disabled />
-                  </FormControl>
-                </FormItem>
-            ) : (
-                <FormField
-                control={form.control}
-                name="patientId"
-                render={({ field }) => (
+        <ScrollArea className="pr-6 -mr-6">
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                
+                {user?.role === 'patient' ? (
                     <FormItem>
                     <FormLabel>Patient</FormLabel>
-                    <Combobox
-                        options={patientOptions}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Search for a patient..."
-                        searchPlaceholder='Search patients...'
-                        notFoundText='No patient found.'
+                    <FormControl>
+                        <Input value={user.name} readOnly disabled />
+                    </FormControl>
+                    </FormItem>
+                ) : isPrefilled && prefilledPatient ? (
+                    <FormItem>
+                    <FormLabel>Patient</FormLabel>
+                    <FormControl>
+                        <Input value={`${prefilledPatient.full_name} (${prefilledPatient.patient_id})`} readOnly disabled />
+                    </FormControl>
+                    </FormItem>
+                ) : (
+                    <FormField
+                    control={form.control}
+                    name="patientId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Patient</FormLabel>
+                        <Combobox
+                            options={patientOptions}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Search for a patient..."
+                            searchPlaceholder='Search patients...'
+                            notFoundText='No patient found.'
+                        />
+                        <FormMessage />
+                        </FormItem>
+                    )}
                     />
+                )}
+                
+                <FormField
+                control={form.control}
+                name="department"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Department</FormLabel>
+                    <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('doctorId', 'any');
+                    }} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {mockDepartments.map((d) => (
+                            <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
-            )}
-            
-            <FormField
-              control={form.control}
-              name="department"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Department</FormLabel>
-                  <Select onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('doctorId', 'any');
-                  }} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a department" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {mockDepartments.map((d) => (
-                        <SelectItem key={d.value} value={d.value}>
-                          {d.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="doctorId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Doctor (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedDepartment}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={selectedDepartment ? "Any available doctor" : "Select a department first"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="any">Any available doctor</SelectItem>
-                      {filteredDoctors.map((d) => (
-                        <SelectItem key={d.uid} value={d.uid}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
+                
+                <FormField
                 control={form.control}
-                name="appointmentDate"
+                name="doctorId"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Date</FormLabel>
+                    <FormLabel>Doctor (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedDepartment}>
                         <FormControl>
-                            <Input type="date" {...field} min={new Date().toISOString().split('T')[0]} />
+                        <SelectTrigger>
+                            <SelectValue placeholder={selectedDepartment ? "Any available doctor" : "Select a department first"} />
+                        </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
+                        <SelectContent>
+                        <SelectItem value="any">Any available doctor</SelectItem>
+                        {filteredDoctors.map((d) => (
+                            <SelectItem key={d.uid} value={d.uid}>
+                            {d.name}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
                     </FormItem>
                 )}
-            />
-            {selectedDate && (
+                />
+
                 <FormField
                     control={form.control}
-                    name="appointmentTime"
+                    name="appointmentDate"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Available Time Slots</FormLabel>
-                             <FormControl>
-                                <div className="grid grid-cols-4 gap-2">
-                                     {isLoadingSlots ? (
-                                        <p className="text-sm text-muted-foreground col-span-4">Loading slots...</p>
-                                    ) : availableSlots.length > 0 ? (
-                                        availableSlots.map(slot => (
-                                            <Button
-                                                key={slot}
-                                                type="button"
-                                                variant={field.value === slot ? 'default' : 'outline'}
-                                                onClick={() => field.onChange(slot)}
-                                                className="w-full"
-                                            >
-                                                {slot}
-                                            </Button>
-                                        ))
-                                    ) : (
-                                        <div className="col-span-4 text-center p-4 border-2 border-dashed rounded-lg">
-                                            <p className="text-sm text-muted-foreground">No available slots on this date.</p>
-                                            <Button 
-                                                type="button" 
-                                                variant="secondary" 
-                                                className="mt-2"
-                                                onClick={handleAddToWaitlist}
-                                                disabled={!form.getValues('patientId')}
-                                            >
-                                                <Clock className="h-4 w-4 mr-2" />
-                                                Add to Waiting List
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
+                            <FormLabel>Date</FormLabel>
+                            <FormControl>
+                                <Input type="date" {...field} min={new Date().toISOString().split('T')[0]} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-            )}
-             <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Appointment Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="consultation">Consultation</SelectItem>
-                      <SelectItem value="follow-up">Follow-up</SelectItem>
-                      <SelectItem value="procedure">Procedure</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {appointmentType === 'procedure' && (
-                <FormField
-                    control={form.control}
-                    name="resourceId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Book Procedure Room</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a procedure room" />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {mockProcedureRooms.map((room) => (
-                                <SelectItem key={room.value} value={room.value}>
-                                {room.label}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            )}
-            
-            <FormField
-              control={form.control}
-              name="isVirtual"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Virtual Consultation</FormLabel>
-                    <FormDescription>
-                        This appointment will be a video call.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
+                {selectedDate && (
+                    <FormField
+                        control={form.control}
+                        name="appointmentTime"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Available Time Slots</FormLabel>
+                                <FormControl>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {isLoadingSlots ? (
+                                            <p className="text-sm text-muted-foreground col-span-4">Loading slots...</p>
+                                        ) : availableSlots.length > 0 ? (
+                                            availableSlots.map(slot => (
+                                                <Button
+                                                    key={slot}
+                                                    type="button"
+                                                    variant={field.value === slot ? 'default' : 'outline'}
+                                                    onClick={() => field.onChange(slot)}
+                                                    className="w-full"
+                                                >
+                                                    {slot}
+                                                </Button>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-4 text-center p-4 border-2 border-dashed rounded-lg">
+                                                <p className="text-sm text-muted-foreground">No available slots on this date.</p>
+                                                <Button 
+                                                    type="button" 
+                                                    variant="secondary" 
+                                                    className="mt-2"
+                                                    onClick={handleAddToWaitlist}
+                                                    disabled={!form.getValues('patientId')}
+                                                >
+                                                    <Clock className="h-4 w-4 mr-2" />
+                                                    Add to Waiting List
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
                     />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+                )}
+                <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Appointment Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a type" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        <SelectItem value="consultation">Consultation</SelectItem>
+                        <SelectItem value="follow-up">Follow-up</SelectItem>
+                        <SelectItem value="procedure">Procedure</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                {appointmentType === 'procedure' && (
+                    <FormField
+                        control={form.control}
+                        name="resourceId"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Book Procedure Room</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a procedure room" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                {mockProcedureRooms.map((room) => (
+                                    <SelectItem key={room.value} value={room.value}>
+                                    {room.label}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+                
+                <FormField
+                control={form.control}
+                name="isVirtual"
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                        <FormLabel>Virtual Consultation</FormLabel>
+                        <FormDescription>
+                            This appointment will be a video call.
+                        </FormDescription>
+                    </div>
+                    <FormControl>
+                        <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        />
+                    </FormControl>
+                    </FormItem>
+                )}
+                />
 
 
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
+                <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
+                </Button>
+                </DialogFooter>
+            </form>
+            </Form>
+        </ScrollArea>
+    </DialogContent>
   );
 
   if (isEditing) {
@@ -493,4 +497,3 @@ export function NewAppointmentDialog({
     </Dialog>
   );
 }
-
