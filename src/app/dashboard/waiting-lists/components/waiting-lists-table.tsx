@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { mockWaitingList, allPatients as initialPatients } from '@/lib/data';
 import { Patient, WaitingListEntry } from '@/lib/types';
 import { format } from 'date-fns';
 import { Clock } from 'lucide-react';
@@ -24,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const getPriorityVariant = (priority: WaitingListEntry['priority']): "destructive" | "default" | "secondary" => {
     switch (priority) {
@@ -34,14 +32,18 @@ const getPriorityVariant = (priority: WaitingListEntry['priority']): "destructiv
     }
 }
 
-export function WaitingListsTable() {
-  const [waitingList, setWaitingList] = React.useState<WaitingListEntry[]>(mockWaitingList);
+interface WaitingListsTableProps {
+  waitingList: WaitingListEntry[];
+  allPatients: Patient[];
+}
+
+export function WaitingListsTable({ waitingList, allPatients }: WaitingListsTableProps) {
+  const [displayList, setDisplayList] = React.useState<WaitingListEntry[]>(waitingList);
   const [priorityFilter, setPriorityFilter] = React.useState('All');
   const [statusFilter, setStatusFilter] = React.useState('Active');
-  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   
   React.useEffect(() => {
-    let filteredList = mockWaitingList;
+    let filteredList = waitingList;
 
     if (priorityFilter !== 'All') {
         filteredList = filteredList.filter(item => item.priority === priorityFilter);
@@ -50,9 +52,9 @@ export function WaitingListsTable() {
         filteredList = filteredList.filter(item => item.status === statusFilter);
     }
 
-    setWaitingList(filteredList);
+    setDisplayList(filteredList);
 
-  }, [priorityFilter, statusFilter]);
+  }, [priorityFilter, statusFilter, waitingList]);
 
   const handleSchedule = (waitingListId: string) => {
     // In a real application, this would open a scheduling dialog (like NewAppointmentDialog)
@@ -107,8 +109,8 @@ export function WaitingListsTable() {
             </TableRow>
             </TableHeader>
             <TableBody>
-            {waitingList.length > 0 ? (
-                waitingList.map((item) => (
+            {displayList.length > 0 ? (
+                displayList.map((item) => (
                 <TableRow key={item.waitinglistId}>
                     <TableCell className="font-medium">
                     {format(new Date(item.dateAdded), 'PPP')}

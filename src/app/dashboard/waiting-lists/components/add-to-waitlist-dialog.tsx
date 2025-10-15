@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -35,13 +34,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { NewWaitingListSchema } from '@/lib/schemas';
 import { allPatients as initialPatients } from '@/lib/data';
-import { addToWaitingList } from '@/lib/actions';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Patient } from '@/lib/types';
+import { Patient, WaitingListEntry } from '@/lib/types';
 
 
 const mockServices = [
@@ -51,7 +48,11 @@ const mockServices = [
     { value: 'Dermatology Follow-up', label: 'Dermatology Follow-up' },
 ];
 
-export function AddToWaitlistDialog() {
+interface AddToWaitlistDialogProps {
+    onPatientAdded: (newEntry: Omit<WaitingListEntry, 'waitinglistId' | 'dateAdded' | 'status'>) => void;
+}
+
+export function AddToWaitlistDialog({ onPatientAdded }: AddToWaitlistDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
 
@@ -71,14 +72,9 @@ export function AddToWaitlistDialog() {
   }));
 
   const onSubmit = async (values: z.infer<typeof NewWaitingListSchema>) => {
-    const result = await addToWaitingList(values);
-    if (result.success) {
-      toast.success('The patient has been successfully added to the waiting list.');
-      setOpen(false);
-      form.reset();
-    } else {
-      toast.error(result.message || 'An unexpected error occurred.');
-    }
+    onPatientAdded(values);
+    setOpen(false);
+    form.reset();
   };
 
   return (
