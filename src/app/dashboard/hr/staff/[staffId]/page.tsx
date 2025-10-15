@@ -3,11 +3,11 @@
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews } from '@/lib/data';
+import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews, mockLeaveRequests } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
-import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal, Qualification, Certification, License } from '@/lib/types';
+import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal, Qualification, Certification, License, LeaveRequest } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -37,6 +37,9 @@ import { EnableMfaDialog } from './components/enable-mfa-dialog';
 import { LogTrainingDialog } from './components/log-training-dialog';
 import { AddGoalDialog } from './components/add-goal-dialog';
 import { AddCredentialDialog } from './components/add-credential-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { EditLeaveBalancesDialog } from './components/edit-leave-balances-dialog';
+import { MyLeaveHistory } from '@/app/dashboard/my-leave/components/my-leave-history';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -580,33 +583,87 @@ function SecurityTab({ isSelf, isMfaEnabled, onEnable }: { isSelf: boolean, isMf
     );
 }
 
+function LeaveTab({ staffProfile, setStaffProfile, user }: { staffProfile: StaffProfile, setStaffProfile: (profile: StaffProfile) => void, user: UserType | null }) {
+  const allLeaveRequests = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests)[0];
+  
+  const staffLeaveRequests = React.useMemo(() => {
+    return allLeaveRequests.filter(req => req.staffId === staffProfile.staffId);
+  }, [allLeaveRequests, staffProfile.staffId]);
+
+  const handleBalancesSaved = (newBalances: Record<string, number>) => {
+    setStaffProfile({ ...staffProfile, leaveBalances: newBalances });
+    toast.success("Leave balances have been updated.");
+  };
+
+  return (
+    <div className="space-y-6">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Leave Balances</CardTitle>
+                    <CardDescription>Current available leave days for this staff member.</CardDescription>
+                </div>
+                {user?.role === 'admin' && (
+                    <EditLeaveBalancesDialog 
+                        balances={staffProfile.leaveBalances || {}}
+                        onSave={handleBalancesSaved}
+                    />
+                )}
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {staffProfile.leaveBalances && Object.entries(staffProfile.leaveBalances).map(([type, days]) => (
+                     <div key={type}>
+                        <p className="text-sm font-medium text-muted-foreground">{type}</p>
+                        <p className="text-2xl font-bold">{days} <span className="text-lg font-normal">days</span></p>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle>Leave History</CardTitle>
+                <CardDescription>A record of all leave requests for this staff member.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <MyLeaveHistory requests={staffLeaveRequests} />
+            </CardContent>
+        </Card>
+    </div>
+  );
+}
+
 export default function StaffProfilePage() {
   const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
   const staffId = params.staffId as string;
-
-  const [staff, setStaff] = React.useState<UserType | undefined>(
-    allUsers.find((p) => p.uid === staffId)
-  );
   
+  const [allUsersData, setAllUsers] = useLocalStorage<UserType[]>('allUsers', allUsers);
+  const [staffProfiles, setStaffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
+
+  const staff = allUsersData.find((p) => p.uid === staffId);
+  const staffProfile = staffProfiles.find(p => p.staffId === staffId);
+
   const [isMfaDialogOpen, setIsMfaDialogOpen] = React.useState(false);
-
-
-  const [staffProfile, setStaffProfile] = React.useState<StaffProfile | undefined>(
-      mockStaffProfiles.find(p => p.staffId === staffId)
-  );
+  
+  const setStaff = (updater: React.SetStateAction<UserType | undefined>) => {
+    setAllUsers(prev => prev.map(u => u.uid === staffId ? (typeof updater === 'function' ? updater(u) : updater) as UserType : u));
+  };
+  
+  const setStaffProfileState = (updater: React.SetStateAction<StaffProfile | undefined>) => {
+     setStaffProfiles(prev => prev.map(p => p.staffId === staffId ? (typeof updater === 'function' ? updater(p) : updater) as StaffProfile : p));
+  }
 
 
   if (!staff || !staffProfile) {
-    notFound();
+    // This can happen briefly on first load with useLocalStorage
+    return <div>Loading staff profile...</div>;
   }
 
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
   const isSelf = staff.uid === user?.uid;
 
   const handleMfaEnabled = () => {
-      // In a real app, this would re-fetch the user data or update the state.
       setStaff(prev => prev ? { ...prev, isMfaEnabled: true } : undefined);
   }
 
@@ -630,6 +687,7 @@ export default function StaffProfilePage() {
             <TabsTrigger value="profile">Profile Details</TabsTrigger>
             <TabsTrigger value="performance">Performance & Goals</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
+            <TabsTrigger value="leave">Leave</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
             {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
@@ -637,10 +695,13 @@ export default function StaffProfilePage() {
             <ProfileDetailsTab staff={staff} user={user} setStaff={setStaff} />
         </TabsContent>
          <TabsContent value="performance" className="mt-4">
-            <PerformanceTab staff={staffProfile} setStaff={setStaffProfile as any} />
+            <PerformanceTab staff={staffProfile} setStaff={setStaffProfileState as any} />
         </TabsContent>
          <TabsContent value="training" className="mt-4">
-            <TrainingTab staff={staffProfile} setStaff={setStaffProfile as any} />
+            <TrainingTab staff={staffProfile} setStaff={setStaffProfileState as any} />
+        </TabsContent>
+        <TabsContent value="leave" className="mt-4">
+            <LeaveTab staffProfile={staffProfile} setStaffProfile={setStaffProfileState as any} user={user} />
         </TabsContent>
         <TabsContent value="payroll" className="mt-4">
             <SalaryTab staff={staff} user={user} />
