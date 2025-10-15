@@ -92,7 +92,7 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: UserType,
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{itemType} Type</FormLabel>
+                  <FormLabel>{itemType}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -739,3 +739,5 @@ export default function StaffProfilePage() {
     </div>
   );
 }
+
+    
