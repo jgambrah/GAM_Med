@@ -740,5 +740,3 @@ export default function StaffProfilePage() {
     </div>
   );
 }
-
-    
