@@ -11,7 +11,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -54,8 +53,8 @@ function AddQuoteForm({ rfq, onQuoteAdded }: { rfq: RequestForQuotation, onQuote
     const supplier = suppliers.find(s => s.supplierId === values.supplierId);
     if (!supplier) return;
 
-    const totalAmount = values.items.reduce((acc, item) => {
-        const rfqItem = rfq.items.find(i => i.itemId === item.itemId);
+    const totalAmount = values.items.reduce((acc, item, index) => {
+        const rfqItem = rfq.items[index];
         return acc + (item.unitPrice * (rfqItem?.quantity || 0));
     }, 0);
 
@@ -65,11 +64,19 @@ function AddQuoteForm({ rfq, onQuoteAdded }: { rfq: RequestForQuotation, onQuote
       supplierName: supplier.name,
       dateSubmitted: new Date().toISOString(),
       totalAmount,
-      items: values.items,
+      items: values.items.map((item, index) => ({
+        itemId: rfq.items[index].itemId,
+        unitPrice: item.unitPrice,
+        notes: `Quoted for ${rfq.items[index].name} (Qty: ${rfq.items[index].quantity})`
+      })),
       status: 'Submitted',
     };
     onQuoteAdded(newQuote);
-    form.reset();
+    toast.success(`Quote from ${supplier.name} has been added.`);
+    form.reset({
+        supplierId: '',
+        items: rfq.items.map(item => ({ itemId: item.itemId, unitPrice: 0 })),
+    });
   };
 
   return (
@@ -104,7 +111,7 @@ function AddQuoteForm({ rfq, onQuoteAdded }: { rfq: RequestForQuotation, onQuote
                   control={form.control}
                   name={`items.${index}.unitPrice`}
                   render={({ field }) => (
-                    <FormItem><FormControl><Input type="number" placeholder="Unit Price" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormControl><Input type="number" step="0.01" placeholder="Unit Price" {...field} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
               </div>

@@ -68,7 +68,7 @@ export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardP
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rfqs && rfqs.map((rfq) => (
+                {(rfqs || []).map((rfq) => (
                   <TableRow key={rfq.rfqId}>
                     <TableCell className="font-medium">{rfq.rfqId}</TableCell>
                     <TableCell>{rfq.title}</TableCell>
