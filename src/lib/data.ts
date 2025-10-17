@@ -1,5 +1,4 @@
 
-
 import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis, RequestForQuotation } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -2039,6 +2038,13 @@ export const mockRfqs: RequestForQuotation[] = [
                     { itemId: 'SYRINGE10', unitPrice: 3.75 }
                 ]
             }
+        ],
+        activityLog: [
+            { timestamp: '2024-08-01T00:00:00Z', activity: 'RFQ Created' },
+            { timestamp: '2024-08-01T00:01:00Z', activity: 'Supplier notifications sent' },
+            { timestamp: '2024-08-10T00:00:00Z', activity: 'Quote received from MedEquip Ghana' },
+            { timestamp: '2024-08-12T00:00:00Z', activity: 'Quote received from General Medical Supplies' },
+            { timestamp: '2024-08-14T00:00:00Z', activity: 'Quote from MedEquip Ghana awarded' },
         ]
     }
 ];
@@ -2438,15 +2444,4 @@ export type PharmacyOrder = PurchaseOrder;
 // Deprecated type, use Asset instead
 export type Resource = Asset;
 
-
-
-
     
-
-    
-
-
-    
-
-
-```
