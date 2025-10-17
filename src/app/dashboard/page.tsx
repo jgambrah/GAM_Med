@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const isPatient = user?.role === 'patient';
   const isNurse = user?.role === 'nurse';
   const isAdmin = user?.role === 'admin';
+  const isSupplier = user?.role === 'supplier';
 
   const handleCustomizeClick = () => {
     toast.info("Dashboard Customization", {
@@ -58,7 +60,19 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!isDoctor && !isPatient && !isNurse && !isAdmin && (
+      {isSupplier && (
+        <div className="p-8 border-2 border-dashed rounded-lg text-center">
+            <h3 className="text-xl font-semibold">Supplier Portal</h3>
+            <p className="text-muted-foreground mt-2">
+                View open Requests for Quotation (RFQs) and submit your bids here.
+            </p>
+            <Button asChild className="mt-4">
+                <Link href="/dashboard/supplier">Go to Supplier Dashboard</Link>
+            </Button>
+        </div>
+      )}
+
+      {!isDoctor && !isPatient && !isNurse && !isAdmin && !isSupplier && (
         <div className="p-8 border-2 border-dashed rounded-lg text-center">
           <p className="text-muted-foreground">Your role-specific dashboard will appear here.</p>
         </div>
@@ -67,3 +81,5 @@ export default function DashboardPage() {
   );
 }
 
+
+```

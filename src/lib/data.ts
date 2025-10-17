@@ -71,6 +71,15 @@ export const allUsers: User[] = [
     last_login: now.toISOString(),
   },
   {
+    uid: 'supplier1',
+    email: 'sales@pharmasupply.com.gh',
+    name: 'PharmaSupply Ltd.',
+    role: 'supplier',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+  },
+  {
     uid: 'labtech1',
     email: 'l.technician@gammed.com',
     name: 'Lab Technician',
@@ -2439,3 +2448,5 @@ export type Resource = Asset;
 
     
 
+
+```
