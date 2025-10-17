@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -34,6 +35,7 @@ import Link from 'next/link';
 import { EditLeaveBalancesDialog } from '../staff/[staffId]/components/edit-leave-balances-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { toast } from '@/hooks/use-toast';
+import { BulkEditLeaveDialog } from './bulk-edit-leave-dialog';
 
 export function StaffDirectoryDashboard() {
   const [users, setUsers] = React.useState<User[]>(allUsers);
@@ -81,6 +83,19 @@ export function StaffDirectoryDashboard() {
     toast.success("Leave balances have been updated successfully.");
     setUserToEditLeave(null);
   };
+  
+  const handleBulkBalancesSaved = (targetRole: string, newBalances: Record<string, number>) => {
+      setStaffProfiles(prevProfiles =>
+          prevProfiles.map(profile => {
+              const userForProfile = allUsers.find(u => u.uid === profile.staffId);
+              if (targetRole === 'All Staff' || (userForProfile && userForProfile.role === targetRole)) {
+                  return { ...profile, leaveBalances: newBalances };
+              }
+              return profile;
+          })
+      );
+      toast.success(`Leave balances have been updated for ${targetRole}.`);
+  };
 
   return (
     <>
@@ -92,7 +107,10 @@ export function StaffDirectoryDashboard() {
             A comprehensive list of all hospital staff.
           </CardDescription>
         </div>
-        <AddUserDialog onUserCreated={handleUserCreated}/>
+        <div className="flex gap-2">
+            <BulkEditLeaveDialog roles={roles as User['role'][]} onSave={handleBulkBalancesSaved} />
+            <AddUserDialog onUserCreated={handleUserCreated}/>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col sm:flex-row gap-4 mb-4">
