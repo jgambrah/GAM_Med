@@ -16,11 +16,10 @@ import { Input } from '@/components/ui/input';
 import { ProcurementDashboard } from './procurement/components/procurement-dashboard';
 import { useAuth } from '@/hooks/use-auth';
 import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
-import ControlledSubstancesPage from './controlled-substances/page';
-import SuppliersPage from './suppliers/page';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { PurchaseOrder, RequestForQuotation } from '@/lib/types';
 import { mockPurchaseOrders, mockRfqs } from '@/lib/data';
+import { RfqDashboard } from './procurement/components/rfq-dashboard';
 
 export default function PharmacyPage() {
   const { user } = useAuth();
@@ -28,6 +27,7 @@ export default function PharmacyPage() {
   const [key, setKey] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', mockPurchaseOrders);
+  const [rfqs, setRfqs] = useLocalStorage<RequestForQuotation[]>('rfqs', mockRfqs);
   
   const handleDispense = () => {
     setKey(prev => prev + 1);
@@ -53,9 +53,8 @@ export default function PharmacyPage() {
             {canViewWorkQueue && <TabsTrigger value="work-queue">Prescription Work Queue</TabsTrigger>}
             {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
             {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="rfq">Requests for Quotation</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="procurement">Purchase Orders</TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="controlled-substances">Controlled Substances</TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="suppliers">Suppliers</TabsTrigger>}
         </TabsList>
         
         {canViewWorkQueue && (
@@ -109,6 +108,15 @@ export default function PharmacyPage() {
         )}
         
         {canViewProcurement && (
+            <TabsContent value="rfq" className="mt-4">
+                <RfqDashboard 
+                    rfqs={rfqs}
+                    setRfqs={setRfqs}
+                    setPurchaseOrders={setPurchaseOrders}
+                />
+            </TabsContent>
+        )}
+        {canViewProcurement && (
             <TabsContent value="procurement" className="mt-4">
                 <ProcurementDashboard 
                     orders={purchaseOrders}
@@ -117,17 +125,6 @@ export default function PharmacyPage() {
             </TabsContent>
         )}
 
-        {canViewProcurement && (
-            <TabsContent value="controlled-substances" className="mt-4">
-                <ControlledSubstancesPage />
-            </TabsContent>
-        )}
-
-        {canViewProcurement && (
-             <TabsContent value="suppliers" className="mt-4">
-                <SuppliersPage />
-            </TabsContent>
-        )}
       </Tabs>
     </div>
   );
