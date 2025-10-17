@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { RequestForQuotation, PurchaseOrder } from '@/lib/types';
 import { CreateRfqDialog } from './create-rfq-dialog';
 import { ManageQuotesDialog } from './manage-quotes-dialog';
+import { RfqDetailDialog } from './rfq-detail-dialog'; // Import the new component
 
 interface RfqDashboardProps {
   rfqs: RequestForQuotation[];
@@ -26,6 +27,8 @@ interface RfqDashboardProps {
 
 export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardProps) {
   const [selectedRfq, setSelectedRfq] = React.useState<RequestForQuotation | null>(null);
+  const [dialogType, setDialogType] = React.useState<'manage' | 'detail' | null>(null);
+
 
   const handleRfqCreated = (newRfq: RequestForQuotation) => {
     setRfqs(prev => [newRfq, ...prev]);
@@ -35,11 +38,22 @@ export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardP
     setPurchaseOrders(prev => [po, ...prev]);
     setRfqs(prev => prev.map(r => r.rfqId === rfqId ? { ...r, status: 'Closed' } : r));
     setSelectedRfq(null);
+    setDialogType(null);
   }
 
   const handleUpdateQuotes = (rfqId: string, updatedQuotes: RequestForQuotation['quotes']) => {
       setRfqs(prev => prev.map(r => r.rfqId === rfqId ? {...r, quotes: updatedQuotes} : r));
   };
+  
+  const openDialog = (rfq: RequestForQuotation, type: 'manage' | 'detail') => {
+    setSelectedRfq(rfq);
+    setDialogType(type);
+  }
+
+  const closeDialogs = () => {
+    setSelectedRfq(null);
+    setDialogType(null);
+  }
 
 
   return (
@@ -75,8 +89,11 @@ export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardP
                     <TableCell>{format(new Date(rfq.deadline), 'PPP')}</TableCell>
                     <TableCell>{rfq.quotes?.length || 0}</TableCell>
                     <TableCell><Badge variant={rfq.status === 'Open for Bids' ? 'default' : 'secondary'}>{rfq.status}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => setSelectedRfq(rfq)}>
+                    <TableCell className="text-right space-x-2">
+                       <Button variant="outline" size="sm" onClick={() => openDialog(rfq, 'detail')}>
+                          View RFQ
+                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => openDialog(rfq, 'manage')}>
                         Manage Quotes
                       </Button>
                     </TableCell>
@@ -88,13 +105,20 @@ export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardP
         </CardContent>
       </Card>
       {selectedRfq && (
-        <ManageQuotesDialog
-          rfq={selectedRfq}
-          isOpen={!!selectedRfq}
-          onOpenChange={() => setSelectedRfq(null)}
-          onQuoteUpdate={handleUpdateQuotes}
-          onQuoteAwarded={handleQuoteAwarded}
-        />
+        <>
+            <ManageQuotesDialog
+            rfq={selectedRfq}
+            isOpen={dialogType === 'manage'}
+            onOpenChange={closeDialogs}
+            onQuoteUpdate={handleUpdateQuotes}
+            onQuoteAwarded={handleQuoteAwarded}
+            />
+            <RfqDetailDialog
+                rfq={selectedRfq}
+                isOpen={dialogType === 'detail'}
+                onOpenChange={closeDialogs}
+            />
+        </>
       )}
     </>
   );
