@@ -20,8 +20,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { mockSuppliers, mockInventory } from '@/lib/data';
-import { PurchaseOrder } from '@/lib/types';
+import { mockSuppliers as initialSuppliers, mockInventory } from '@/lib/data';
+import { PurchaseOrder, Supplier } from '@/lib/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 const OrderItemSchema = z.object({
   itemId: z.string().min(1, 'Item is required.'),
@@ -41,6 +42,7 @@ interface CreateOrderDialogProps {
 
 export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [suppliers] = useLocalStorage<Supplier[]>('suppliers', initialSuppliers);
 
   const form = useForm<z.infer<typeof NewOrderSchema>>({
     resolver: zodResolver(NewOrderSchema),
@@ -112,7 +114,7 @@ export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockSuppliers.map(supplier => (
+                      {suppliers.map(supplier => (
                         <SelectItem key={supplier.supplierId} value={supplier.supplierId}>
                           {supplier.name}
                         </SelectItem>
