@@ -72,6 +72,20 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
     };
     onRfqCreated(newRfq);
     toast.success(`Request for Quotation "${values.title}" has been created.`);
+    
+    // Simulate the automated email notification process
+    const promise = () => new Promise((resolve) => setTimeout(() => {
+        resolve({ name: 'Notification Sent' });
+    }, 2000));
+
+    toast.promise(promise, {
+        loading: 'Notifying all registered suppliers...',
+        success: (data: any) => {
+            return `✓ Notifications sent successfully.`;
+        },
+        error: 'Failed to send notifications.',
+    });
+
     setOpen(false);
     form.reset();
   };
