@@ -33,12 +33,13 @@ const LeaveBalanceSchema = z.object({
 });
 
 interface EditLeaveBalancesDialogProps {
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
   balances: Record<string, number>;
   onSave: (newBalances: Record<string, number>) => void;
 }
 
-export function EditLeaveBalancesDialog({ balances, onSave }: EditLeaveBalancesDialogProps) {
-  const [open, setOpen] = React.useState(false);
+export function EditLeaveBalancesDialog({ isOpen, onOpenChange, balances, onSave }: EditLeaveBalancesDialogProps) {
   const form = useForm<z.infer<typeof LeaveBalanceSchema>>({
     resolver: zodResolver(LeaveBalanceSchema),
     defaultValues: {
@@ -49,27 +50,21 @@ export function EditLeaveBalancesDialog({ balances, onSave }: EditLeaveBalancesD
   });
 
   React.useEffect(() => {
-    if (open) {
+    if (isOpen) {
         form.reset({
             'Annual Leave': balances['Annual Leave'] || 0,
             'Sick Leave': balances['Sick Leave'] || 0,
             'Specialist Leave': balances['Specialist Leave'] || 0,
         });
     }
-  }, [open, balances, form]);
+  }, [isOpen, balances, form]);
 
   const onSubmit = (values: z.infer<typeof LeaveBalanceSchema>) => {
     onSave(values);
-    setOpen(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Edit className="mr-2 h-4 w-4" /> Edit Balances
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Leave Balances</DialogTitle>
@@ -98,7 +93,7 @@ export function EditLeaveBalancesDialog({ balances, onSave }: EditLeaveBalancesD
                     ))}
                 </div>
                  <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button type="submit">Save Changes</Button>
                 </DialogFooter>
             </form>

@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { allUsers } from '@/lib/data';
-import { User } from '@/lib/types';
+import { allUsers, mockStaffProfiles } from '@/lib/data';
+import { User, StaffProfile } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { useDebouncedCallback } from 'use-debounce';
 import {
@@ -31,12 +31,17 @@ import {
 } from '@/components/ui/select';
 import { AddUserDialog } from './add-user-dialog';
 import Link from 'next/link';
+import { EditLeaveBalancesDialog } from '../staff/[staffId]/components/edit-leave-balances-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { toast } from '@/hooks/use-toast';
 
 export function StaffDirectoryDashboard() {
   const [users, setUsers] = React.useState<User[]>(allUsers);
+  const [staffProfiles, setStaffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [roleFilter, setRoleFilter] = React.useState('All');
   const [departmentFilter, setDepartmentFilter] = React.useState('All');
+  const [userToEditLeave, setUserToEditLeave] = React.useState<StaffProfile | null>(null);
 
   const departments = [...new Set(allUsers.map(u => u.department).filter(Boolean))];
   const roles = [...new Set(allUsers.map(u => u.role))];
@@ -69,7 +74,16 @@ export function StaffDirectoryDashboard() {
     setUsers(prev => [newUser, ...prev]);
   }
 
+  const handleBalancesSaved = (staffId: string, newBalances: Record<string, number>) => {
+    setStaffProfiles(prevProfiles => prevProfiles.map(p => 
+      p.staffId === staffId ? { ...p, leaveBalances: newBalances } : p
+    ));
+    toast.success("Leave balances have been updated successfully.");
+    setUserToEditLeave(null);
+  };
+
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
@@ -114,39 +128,51 @@ export function StaffDirectoryDashboard() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Leave Actions</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.uid}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell className="capitalize">{user.role.replace('_', ' ')}</TableCell>
-                  <TableCell>{user.department || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.is_active ? 'secondary' : 'outline'}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                     <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/hr/${user.uid}`}>
-                          View Details
-                        </Link>
-                      </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((user) => {
+                const profile = staffProfiles.find(p => p.staffId === user.uid);
+                return (
+                    <TableRow key={user.uid}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="capitalize">{user.role.replace('_', ' ')}</TableCell>
+                    <TableCell>{user.department || 'N/A'}</TableCell>
+                    <TableCell>
+                        {profile && (
+                            <Button variant="outline" size="sm" onClick={() => setUserToEditLeave(profile)}>
+                                Edit Leave
+                            </Button>
+                        )}
+                    </TableCell>
+                    <TableCell>
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/dashboard/hr/staff/${user.uid}`}>
+                            View Details
+                            </Link>
+                        </Button>
+                    </TableCell>
+                    </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       </CardContent>
     </Card>
+    {userToEditLeave && (
+        <EditLeaveBalancesDialog
+            isOpen={!!userToEditLeave}
+            onOpenChange={(isOpen) => !isOpen && setUserToEditLeave(null)}
+            balances={userToEditLeave.leaveBalances || {}}
+            onSave={(newBalances) => handleBalancesSaved(userToEditLeave.staffId, newBalances)}
+        />
+    )}
+    </>
   );
 }
 
