@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -126,6 +125,11 @@ export default function PharmacyPage() {
         )}
 
         {canViewProcurement && (
-            <TabsContent value="suppliers" className="mt-4">
+             <TabsContent value="suppliers" className="mt-4">
                 <SuppliersPage />
-            </TabsContent
+            </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}
