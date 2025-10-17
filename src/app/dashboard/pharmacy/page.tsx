@@ -18,7 +18,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
 import ControlledSubstancesPage from './controlled-substances/page';
 import SuppliersPage from './suppliers/page';
-import { RfqDashboard } from './procurement/components/rfq-dashboard';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { PurchaseOrder, RequestForQuotation } from '@/lib/types';
 import { mockPurchaseOrders, mockRfqs } from '@/lib/data';
@@ -29,8 +28,7 @@ export default function PharmacyPage() {
   const [key, setKey] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', mockPurchaseOrders);
-  const [rfqs, setRfqs] = useLocalStorage<RequestForQuotation[]>('rfqs', mockRfqs);
-
+  
   const handleDispense = () => {
     setKey(prev => prev + 1);
   };
@@ -56,7 +54,6 @@ export default function PharmacyPage() {
             {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
             {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="procurement">Purchase Orders</TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="rfq">Requests for Quotation</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="controlled-substances">Controlled Substances</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="suppliers">Suppliers</TabsTrigger>}
         </TabsList>
@@ -116,16 +113,6 @@ export default function PharmacyPage() {
                 <ProcurementDashboard 
                     orders={purchaseOrders}
                     setOrders={setPurchaseOrders}
-                />
-            </TabsContent>
-        )}
-
-        {canViewProcurement && (
-            <TabsContent value="rfq" className="mt-4">
-                <RfqDashboard 
-                    rfqs={rfqs} 
-                    setRfqs={setRfqs} 
-                    setPurchaseOrders={setPurchaseOrders}
                 />
             </TabsContent>
         )}
