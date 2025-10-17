@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -21,6 +22,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { mockInventory } from '@/lib/data';
 import { RequestForQuotation } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const RfqItemSchema = z.object({
   itemId: z.string().min(1, 'Item is required.'),
@@ -81,94 +83,100 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
           <Plus className="h-4 w-4 mr-2" /> Create RFQ
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create New Request for Quotation</DialogTitle>
           <DialogDescription>
             Define the items and deadline for the new RFQ. This will be visible to suppliers you invite.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>RFQ Title</FormLabel>
-                   <FormControl>
-                        <Input placeholder="e.g., Quarterly Resupply of Antibiotics" {...field} />
-                    </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="deadline"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Submission Deadline</FormLabel>
-                   <FormControl>
-                        <Input type="date" {...field} />
-                    </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>RFQ Title</FormLabel>
+                    <FormControl>
+                            <Input placeholder="e.g., Quarterly Resupply of Antibiotics" {...field} />
+                        </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="deadline"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Submission Deadline</FormLabel>
+                    <FormControl>
+                            <Input type="date" {...field} />
+                        </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
 
-            <div className="space-y-2">
-                <FormLabel>Items to Quote</FormLabel>
-                {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-end gap-2 p-2 border rounded-md">
-                        <FormField
-                            control={form.control}
-                            name={`items.${index}.itemId`}
-                            render={({ field }) => (
-                                <FormItem className="flex-grow">
-                                    <Select 
-                                      onValueChange={(value) => {
-                                        const selectedItem = mockInventory.find(item => item.itemId === value);
-                                        field.onChange(value);
-                                        form.setValue(`items.${index}.name`, selectedItem?.name || '');
-                                      }} 
-                                      defaultValue={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Select item..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {mockInventory.map(item => <SelectItem key={item.itemId} value={item.itemId}>{item.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name={`items.${index}.quantity`}
-                            render={({ field }) => (
-                                <FormItem><FormControl><Input type="number" className="w-24" placeholder="Qty" {...field} /></FormControl></FormItem>
-                            )}
-                        />
-                         <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: '', name: '', quantity: 1 })}>
-                    <Plus className="h-4 w-4 mr-2" /> Add Item
-                </Button>
-            </div>
-            
-            <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? 'Creating...' : 'Create RFQ'}
-                </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <div className="space-y-2">
+                    <FormLabel>Items to Quote</FormLabel>
+                     <ScrollArea className="h-48 w-full rounded-md border p-4">
+                        <div className="space-y-2">
+                            {fields.map((field, index) => (
+                                <div key={field.id} className="flex items-end gap-2 pr-1">
+                                    <FormField
+                                        control={form.control}
+                                        name={`items.${index}.itemId`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex-grow">
+                                                <Select 
+                                                onValueChange={(value) => {
+                                                    const selectedItem = mockInventory.find(item => item.itemId === value);
+                                                    field.onChange(value);
+                                                    form.setValue(`items.${index}.name`, selectedItem?.name || '');
+                                                }} 
+                                                defaultValue={field.value}
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger><SelectValue placeholder="Select item..." /></SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {mockInventory.map(item => <SelectItem key={item.itemId} value={item.itemId}>{item.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`items.${index}.quantity`}
+                                        render={({ field }) => (
+                                            <FormItem><FormControl><Input type="number" className="w-24" placeholder="Qty" {...field} /></FormControl></FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: '', name: '', quantity: 1 })}>
+                        <Plus className="h-4 w-4 mr-2" /> Add Item
+                    </Button>
+                </div>
+                
+                 <DialogFooter className="sticky bottom-0 bg-background py-4">
+                    <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting ? 'Creating...' : 'Create RFQ'}
+                    </Button>
+                </DialogFooter>
+            </form>
+            </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
