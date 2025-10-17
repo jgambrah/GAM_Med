@@ -1,6 +1,6 @@
 
 
-import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis } from './types';
+import { User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, Role, AuditLog, Diagnosis, RequestForQuotation } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
@@ -1994,6 +1994,46 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     }
 ];
 
+export const mockRfqs: RequestForQuotation[] = [
+    {
+        rfqId: 'RFQ-001',
+        title: 'Q3 Medical Supplies',
+        dateCreated: '2024-08-01T00:00:00Z',
+        deadline: '2024-08-15T23:59:59Z',
+        status: 'Closed',
+        items: [
+            { itemId: 'GAUZE', name: 'Sterile Gauze', quantity: 100 },
+            { itemId: 'SYRINGE10', name: 'Syringe 10ml', quantity: 200 }
+        ],
+        quotes: [
+            {
+                quoteId: 'Q-001-1',
+                supplierId: 'SUP-002',
+                supplierName: 'MedEquip Ghana',
+                dateSubmitted: '2024-08-10T00:00:00Z',
+                totalAmount: 1250,
+                status: 'Awarded',
+                items: [
+                    { itemId: 'GAUZE', unitPrice: 5.00 },
+                    { itemId: 'SYRINGE10', unitPrice: 3.75 }
+                ]
+            },
+            {
+                quoteId: 'Q-001-2',
+                supplierId: 'SUP-003',
+                supplierName: 'General Medical Supplies',
+                dateSubmitted: '2024-08-12T00:00:00Z',
+                totalAmount: 1300,
+                status: 'Not Awarded',
+                items: [
+                    { itemId: 'GAUZE', unitPrice: 5.50 },
+                    { itemId: 'SYRINGE10', unitPrice: 3.75 }
+                ]
+            }
+        ]
+    }
+];
+
 export const mockControlledSubstances: ControlledSubstance[] = [
     {
         substanceId: 'FENT100MCG',
@@ -2398,3 +2438,4 @@ export type Resource = Asset;
 
 
     
+
