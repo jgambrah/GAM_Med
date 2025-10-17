@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RequestForQuotation, PurchaseOrder } from '@/lib/types';
+import { RequestForQuotation, PurchaseOrder, Quote } from '@/lib/types';
 import { format } from 'date-fns';
 import { CreateRfqDialog } from './create-rfq-dialog';
 import { ManageQuotesDialog } from './manage-quotes-dialog';
@@ -102,7 +103,7 @@ export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardP
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rfqs.map((rfq) => (
+              {rfqs && rfqs.map((rfq) => (
                 <TableRow key={rfq.rfqId}>
                   <TableCell className="font-medium">{rfq.rfqId}</TableCell>
                   <TableCell>{rfq.title}</TableCell>
