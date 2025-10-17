@@ -353,6 +353,45 @@ export interface PurchaseOrder {
 }
 
 /**
+ * Represents a single quotation received from a supplier for an RFQ.
+ */
+export interface Quote {
+    quoteId: string;
+    supplierId: string;
+    supplierName: string; // Denormalized for display
+    dateSubmitted: string; // ISO Timestamp
+    totalAmount: number;
+    status: 'Submitted' | 'Awarded' | 'Not Awarded';
+    items?: {
+        itemId: string;
+        unitPrice: number;
+        notes?: string;
+    }[];
+    attachmentUrl?: string; // URL to the supplier's quote document
+}
+
+
+/**
+ * Represents a Request for Quotation sent to suppliers.
+ * Path: /rfqs/{rfqId}
+ */
+export interface RequestForQuotation {
+  rfqId: string; // Document ID
+  title: string;
+  dateCreated: string; // ISO Timestamp
+  deadline: string; // ISO Timestamp for quote submissions
+  status: 'Draft' | 'Open for Bids' | 'Evaluating' | 'Closed' | 'Canceled';
+  items: {
+      itemId: string;
+      name: string; // Denormalized for display
+      quantity: number;
+  }[];
+  invitedSuppliers?: string[]; // Array of supplier IDs
+  quotes?: Quote[]; // Sub-collection or array of quote objects
+}
+
+
+/**
  * Represents a request for new stock, which can be manual or automated.
  * Path: /reorder_requests/{requestId}
  */
@@ -1660,7 +1699,6 @@ export interface Diagnosis {
 }
     
 
-    
 
 
 
@@ -1670,3 +1708,14 @@ export interface Diagnosis {
 
 
 
+```
+- src/lib/utils.ts
+```ts
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+```

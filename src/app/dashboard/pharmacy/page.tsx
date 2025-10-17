@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
 import ControlledSubstancesPage from './controlled-substances/page';
 import SuppliersPage from './suppliers/page';
+import { RfqDashboard } from './procurement/components/rfq-dashboard';
 
 export default function PharmacyPage() {
   const { user } = useAuth();
@@ -50,7 +51,8 @@ export default function PharmacyPage() {
             {canViewWorkQueue && <TabsTrigger value="work-queue">Prescription Work Queue</TabsTrigger>}
             {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
             {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="procurement">Purchase Orders</TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="rfq">Requests for Quotation</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="controlled-substances">Controlled Substances</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="suppliers">Suppliers</TabsTrigger>}
         </TabsList>
@@ -112,6 +114,12 @@ export default function PharmacyPage() {
         )}
 
         {canViewProcurement && (
+            <TabsContent value="rfq" className="mt-4">
+                <RfqDashboard />
+            </TabsContent>
+        )}
+
+        {canViewProcurement && (
             <TabsContent value="controlled-substances" className="mt-4">
                 <ControlledSubstancesPage />
             </TabsContent>
@@ -120,10 +128,4 @@ export default function PharmacyPage() {
         {canViewProcurement && (
             <TabsContent value="suppliers" className="mt-4">
                 <SuppliersPage />
-            </TabsContent>
-        )}
-
-      </Tabs>
-    </div>
-  );
-}
+            </TabsContent
