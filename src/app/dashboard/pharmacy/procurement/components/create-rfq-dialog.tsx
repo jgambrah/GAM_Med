@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
@@ -20,7 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import { mockInventory } from '@/lib/data';
-import { RequestForQuotation } from '@/lib/types';
+import { RequestForQuotation, RfqActivityLogEntry } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const RfqItemSchema = z.object({
@@ -57,10 +57,17 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
   });
 
   const onSubmit = (values: z.infer<typeof NewRfqSchema>) => {
+    const now = new Date().toISOString();
+    
+    const initialActivity: RfqActivityLogEntry[] = [
+        { timestamp: now, activity: 'RFQ Created' },
+        { timestamp: new Date(Date.now() + 1000).toISOString(), activity: 'Supplier notifications sent' }, // Simulate slight delay
+    ];
+    
     const newRfq: RequestForQuotation = {
       rfqId: `RFQ-${Date.now()}`,
       title: values.title,
-      dateCreated: new Date().toISOString(),
+      dateCreated: now,
       deadline: values.deadline,
       status: 'Open for Bids',
       items: values.items.map(item => ({
@@ -69,6 +76,7 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
         quantity: item.quantity,
       })),
       quotes: [],
+      activityLog: initialActivity,
     };
     onRfqCreated(newRfq);
     toast.success(`Request for Quotation "${values.title}" has been created.`);

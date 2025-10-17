@@ -14,7 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { RequestForQuotation } from '@/lib/types';
 import { format } from 'date-fns';
-import { Printer } from 'lucide-react';
+import { Printer, History } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 interface RfqDetailDialogProps {
   rfq: RequestForQuotation;
@@ -95,6 +96,18 @@ export function RfqDetailDialog({ rfq, isOpen, onOpenChange }: RfqDetailDialogPr
                         </TableBody>
                     </Table>
                 </div>
+
+                <div className="pt-4">
+                    <h4 className="font-semibold flex items-center gap-2"><History className="h-4 w-4" /> Activity Log</h4>
+                    <div className="mt-2 space-y-2 text-sm text-muted-foreground border-l-2 pl-4 ml-2">
+                        {rfq.activityLog?.map((log, index) => (
+                            <div key={index}>
+                                <p><span className="font-semibold">{format(new Date(log.timestamp), 'PPP p')}:</span> {log.activity}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                
                  <div className="pt-6 text-sm text-muted-foreground">
                     <p>Please submit your quotation for the items listed above to the procurement office before the specified deadline.</p>
                 </div>
