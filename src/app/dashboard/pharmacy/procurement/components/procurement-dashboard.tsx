@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,8 +17,7 @@ import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { CreateOrderDialog } from './create-order-dialog';
 import { ReceiveOrderDialog } from './receive-order-dialog';
-import { mockPurchaseOrders, mockSuppliers } from '@/lib/data';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { mockSuppliers } from '@/lib/data';
 
 const getStatusVariant = (status: PurchaseOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -29,8 +27,12 @@ const getStatusVariant = (status: PurchaseOrder['status']): "default" | "seconda
     }
 };
 
-export function ProcurementDashboard() {
-  const [orders, setOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', mockPurchaseOrders);
+interface ProcurementDashboardProps {
+    orders: PurchaseOrder[];
+    setOrders: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
+}
+
+export function ProcurementDashboard({ orders, setOrders }: ProcurementDashboardProps) {
 
   const handleOrderCreated = (newOrder: PurchaseOrder) => {
     setOrders(prev => [newOrder, ...prev]);

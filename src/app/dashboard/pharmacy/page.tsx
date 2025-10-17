@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -19,12 +18,17 @@ import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
 import ControlledSubstancesPage from './controlled-substances/page';
 import SuppliersPage from './suppliers/page';
 import { RfqDashboard } from './procurement/components/rfq-dashboard';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { PurchaseOrder, RequestForQuotation } from '@/lib/types';
+import { mockPurchaseOrders, mockRfqs } from '@/lib/data';
 
 export default function PharmacyPage() {
   const { user } = useAuth();
   // Add a key to force re-render when a prescription is dispensed.
   const [key, setKey] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', mockPurchaseOrders);
+  const [rfqs, setRfqs] = useLocalStorage<RequestForQuotation[]>('rfqs', mockRfqs);
 
   const handleDispense = () => {
     setKey(prev => prev + 1);
@@ -108,13 +112,20 @@ export default function PharmacyPage() {
         
         {canViewProcurement && (
             <TabsContent value="procurement" className="mt-4">
-                <ProcurementDashboard />
+                <ProcurementDashboard 
+                    orders={purchaseOrders}
+                    setOrders={setPurchaseOrders}
+                />
             </TabsContent>
         )}
 
         {canViewProcurement && (
             <TabsContent value="rfq" className="mt-4">
-                <RfqDashboard />
+                <RfqDashboard 
+                    rfqs={rfqs} 
+                    setRfqs={setRfqs} 
+                    setPurchaseOrders={setPurchaseOrders}
+                />
             </TabsContent>
         )}
 

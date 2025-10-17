@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -15,25 +14,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RequestForQuotation, Quote } from '@/lib/types';
 import { format } from 'date-fns';
-import { toast } from '@/hooks/use-toast';
 import { Crown } from 'lucide-react';
 
 interface ManageQuotesDialogProps {
   rfq: RequestForQuotation;
   isOpen: boolean;
   onOpenChange: () => void;
+  onAward: (rfqId: string, quoteId: string) => void;
 }
 
-export function ManageQuotesDialog({ rfq, isOpen, onOpenChange }: ManageQuotesDialogProps) {
+export function ManageQuotesDialog({ rfq, isOpen, onOpenChange, onAward }: ManageQuotesDialogProps) {
 
   const handleAward = (quote: Quote) => {
-    // In a real app, this would trigger a series of actions:
-    // 1. Update the RFQ status to 'Closed'.
-    // 2. Update this quote status to 'Awarded'.
-    // 3. Update other quotes to 'Not Awarded'.
-    // 4. Automatically generate a Purchase Order from this quote's details.
-    toast.success(`Quote from ${quote.supplierName} has been awarded!`);
-    onOpenChange(); // Close the dialog
+    onAward(rfq.rfqId, quote.quoteId);
   }
 
   const sortedQuotes = React.useMemo(() => {
@@ -68,7 +61,7 @@ export function ManageQuotesDialog({ rfq, isOpen, onOpenChange }: ManageQuotesDi
                     <TableCell>{format(new Date(quote.dateSubmitted), 'PPP')}</TableCell>
                     <TableCell className="text-right font-mono">₵{quote.totalAmount.toFixed(2)}</TableCell>
                     <TableCell className="text-right">
-                        <Button size="sm" onClick={() => handleAward(quote)}>
+                        <Button size="sm" onClick={() => handleAward(quote)} disabled={rfq.status !== 'Evaluating'}>
                             <Crown className="h-4 w-4 mr-2" />
                             Award
                         </Button>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -13,40 +12,11 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RequestForQuotation } from '@/lib/types';
+import { RequestForQuotation, PurchaseOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { CreateRfqDialog } from './create-rfq-dialog';
 import { ManageQuotesDialog } from './manage-quotes-dialog';
-
-// Mock data for RFQs
-const mockRfqs: RequestForQuotation[] = [
-    {
-        rfqId: 'RFQ-001',
-        title: 'Quarterly Resupply of Painkillers',
-        dateCreated: new Date('2024-08-10T00:00:00Z').toISOString(),
-        deadline: new Date('2024-08-25T00:00:00Z').toISOString(),
-        status: 'Evaluating',
-        items: [
-            { itemId: 'PARA1G', name: 'Paracetamol 1g', quantity: 200 },
-        ],
-        quotes: [
-            { quoteId: 'Q-001A', supplierId: 'SUP-001', supplierName: 'PharmaSupply Ltd.', totalAmount: 3800.00, status: 'Submitted', dateSubmitted: new Date('2024-08-15T00:00:00Z').toISOString() },
-            { quoteId: 'Q-001B', supplierId: 'SUP-003', supplierName: 'General Medical Supplies', totalAmount: 3650.00, status: 'Submitted', dateSubmitted: new Date('2024-08-16T00:00:00Z').toISOString() }
-        ]
-    },
-    {
-        rfqId: 'RFQ-002',
-        title: 'Urgent Need for Antibiotics',
-        dateCreated: new Date('2024-08-15T00:00:00Z').toISOString(),
-        deadline: new Date('2024-08-20T00:00:00Z').toISOString(),
-        status: 'Open for Bids',
-        items: [
-            { itemId: 'AMX500', name: 'Amoxicillin 500mg', quantity: 500 },
-        ],
-        quotes: []
-    }
-];
-
+import { toast } from '@/hooks/use-toast';
 
 const getStatusVariant = (status: RequestForQuotation['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -57,12 +27,53 @@ const getStatusVariant = (status: RequestForQuotation['status']): "default" | "s
     }
 };
 
-export function RfqDashboard() {
-  const [rfqs, setRfqs] = React.useState<RequestForQuotation[]>(mockRfqs);
+interface RfqDashboardProps {
+  rfqs: RequestForQuotation[];
+  setRfqs: React.Dispatch<React.SetStateAction<RequestForQuotation[]>>;
+  setPurchaseOrders: React.Dispatch<React.SetStateAction<PurchaseOrder[]>>;
+}
+
+export function RfqDashboard({ rfqs, setRfqs, setPurchaseOrders }: RfqDashboardProps) {
   const [selectedRfq, setSelectedRfq] = React.useState<RequestForQuotation | null>(null);
 
   const handleRfqCreated = (newRfq: RequestForQuotation) => {
     setRfqs(prev => [newRfq, ...prev]);
+  };
+
+  const handleAward = (rfqId: string, quoteId: string) => {
+    const rfq = rfqs.find(r => r.rfqId === rfqId);
+    const quote = rfq?.quotes?.find(q => q.quoteId === quoteId);
+
+    if (!rfq || !quote) {
+      toast.error('Could not find RFQ or Quote to award.');
+      return;
+    }
+
+    // 1. Update the RFQ status
+    setRfqs(prevRfqs => prevRfqs.map(r => 
+      r.rfqId === rfqId ? { ...r, status: 'Closed' } : r
+    ));
+
+    // 2. Generate a Purchase Order
+    const newOrder: PurchaseOrder = {
+        poId: `PO-${Date.now()}`,
+        dateOrdered: new Date().toISOString(),
+        status: 'Submitted',
+        orderedByUserId: 'pharma1', // Mocked user
+        supplierId: quote.supplierId,
+        orderedItems: (quote.items || rfq.items).map(item => ({
+            itemId: item.itemId,
+            name: item.name || '',
+            quantity: item.quantity,
+            unit_cost: item.unitPrice || 0,
+        })),
+        totalAmount: quote.totalAmount,
+    };
+    
+    setPurchaseOrders(prevOrders => [newOrder, ...prevOrders]);
+
+    toast.success(`Quote from ${quote.supplierName} awarded! Purchase Order ${newOrder.poId} created.`);
+    setSelectedRfq(null); // Close the dialog
   };
   
   return (
@@ -115,6 +126,7 @@ export function RfqDashboard() {
             rfq={selectedRfq}
             isOpen={!!selectedRfq}
             onOpenChange={() => setSelectedRfq(null)}
+            onAward={handleAward}
         />
     )}
     </>
