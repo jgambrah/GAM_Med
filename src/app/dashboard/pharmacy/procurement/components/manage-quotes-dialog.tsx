@@ -86,4 +86,9 @@ export function ManageQuotesDialog({ rfq, isOpen, onOpenChange }: ManageQuotesDi
           </Table>
         </div>
         <DialogFooter>
-            <Button variant="
+            <Button variant="outline" onClick={onOpenChange}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
