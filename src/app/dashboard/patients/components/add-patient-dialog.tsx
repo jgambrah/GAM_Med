@@ -101,7 +101,7 @@ export function AddPatientDialog({
       gender: undefined,
       maritalStatus: undefined,
       occupation: '',
-      patientType: 'private',
+      patientType: "private",
       contact: {
         primaryPhone: '',
         alternatePhone: '',
@@ -195,7 +195,7 @@ export function AddPatientDialog({
       // Create a patient object to pass back
       const newPatient: Patient = {
         patient_id: `P-${Date.now()}`,
-        title: values.title ?? '',
+        title: values.title ?? "",
         first_name: values.firstName,
         last_name: values.lastName,
         full_name: `${values.firstName} ${values.lastName}`,
@@ -205,7 +205,14 @@ export function AddPatientDialog({
         maritalStatus: values.maritalStatus,
         occupation: values.occupation,
         patientType: values.patientType,
-        contact: { ...values.contact, address: {...values.contact.address, country: 'Ghana' } },
+        contact: {
+          ...values.contact,
+          email: values.contact.email ?? "",
+          address: {
+            ...values.contact.address,
+            country: 'Ghana'
+          }
+        },
         emergency_contact: values.emergencyContact,
         insurance: {
             provider_name: values.insurance?.providerName || '',
