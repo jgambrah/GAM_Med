@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -12,7 +11,7 @@ import { BalanceSheet } from './components/balance-sheet';
 import { IncomeStatement } from './components/income-statement';
 import { CashFlowStatement } from './components/cash-flow-statement';
 import { TrialBalance } from './components/trial-balance';
-import ChartOfAccountsPage from '../../admin/chart-of-accounts/page';
+import { ChartOfAccountsTable } from '../components/chart-of-accounts-table';
 import { LedgerDetailTable } from './components/ledger-detail-table';
 import { LedgerPostingDialog } from '../components/ledger-posting-dialog';
 
@@ -68,6 +67,7 @@ export default function FinancialReportsPage() {
           <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
           <TabsTrigger value="cash-flow">Cash Flow Statement</TabsTrigger>
           <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
+          <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
           <TabsTrigger value="ledger">Ledger Details</TabsTrigger>
         </TabsList>
         <TabsContent value="income-statement" className="mt-4">
@@ -113,6 +113,9 @@ export default function FinancialReportsPage() {
                     <TrialBalance period={endDate} />
                 </CardContent>
             </Card>
+        </TabsContent>
+        <TabsContent value="chart-of-accounts" className="mt-4">
+          <ChartOfAccountsTable hideHeader={true} />
         </TabsContent>
         <TabsContent value="ledger" className="mt-4">
           <LedgerDetailTable />
