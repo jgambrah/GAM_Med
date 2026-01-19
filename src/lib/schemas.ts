@@ -55,7 +55,7 @@ export const PatientSchema = z.object({
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Gender must be selected." }),
   maritalStatus: z.enum(['Single', 'Married', 'Divorced', 'Widowed']).optional(),
   occupation: z.string().optional(),
-  patientType: z.string().min(1, { message: "A patient type must be selected." }),
+  patientType: z.enum(['private', 'corporate', 'public'], { required_error: "A patient type must be selected." }),
   contact: z.object({
     primaryPhone: z.string().min(10, { message: "A valid phone number is required." }),
     alternatePhone: z.string().optional(),
@@ -397,4 +397,5 @@ export const LicenseSchema = z.object({
     expiryDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Expiry date is required." }),
 });
     
+
 
