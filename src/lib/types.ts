@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Each type corresponds to a data model for a Firestore collection, serving as the single source of truth for the application's data architecture.
@@ -76,6 +77,33 @@ export interface Bed {
     created_at: string; // ISO 8601 format
     updated_at: string; // ISO 8601 format
 }
+
+/**
+ * Represents a scheduled appointment in the 'appointments' collection.
+ * This is the central document for managing patient and resource scheduling.
+ */
+export interface Appointment {
+  appointment_id: string; // Document ID
+  patient_id: string; // Reference to 'patients' collection
+  patient_name: string; // Denormalized for quick display
+  doctor_id: string; // Reference to 'users' collection
+  doctor_name: string; // Denormalized for quick display
+  department: string; // e.g., 'Cardiology', 'Pediatrics'
+  appointment_date: string; // ISO 8601 Timestamp for the start of the appointment
+  end_time: string; // ISO 8601 Timestamp for the end
+  duration: number; // in minutes
+  type: 'consultation' | 'follow-up' | 'procedure';
+  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+  isBilled: boolean;
+  isConfirmed: boolean;
+  bookingMethod: 'Online Portal' | 'Front Desk' | 'Referral';
+  notes?: string;
+  isVirtual?: boolean; // Flag for telemedicine appointments
+  telemedicineLink?: string; // URL for the virtual meeting
+  created_at: string; // ISO 8601 Timestamp
+  updated_at: string; // ISO 8601 Timestamp
+}
+
 
 /**
  * Represents an operating theatre in the 'operating_theatres' collection.
@@ -1153,15 +1181,510 @@ export interface Diagnosis {
   diagnosedByDoctorId: string;
   diagnosedAt: string; // ISO Timestamp
 }
+
+/**
+ * Represents a patient record in the 'patients' collection.
+ * This is the central document for all patient demographic and summary information.
+ */
+export interface Patient {
+    patient_id: string; // Unique Patient Identifier, e.g., P-240808-0001
+    title: string;
+    first_name: string;
+    last_name: string;
+    full_name: string; // Concatenation for easy searching
+    otherNames?: string;
+    ghanaCardId?: string;
+    dob: string; // ISO 8601 format date
+    gender: 'Male' | 'Female' | 'Other';
+    maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
+    occupation?: string;
+    patientType: 'private' | 'corporate' | 'public';
+    contact: {
+      primaryPhone: string;
+      alternatePhone?: string;
+      email: string;
+      address: {
+        street: string;
+        city: string;
+        region: string;
+        country: string;
+      };
+    };
+    emergency_contact: {
+      name: string;
+      relationship: string;
+      phone: string;
+    };
+    insurance?: {
+      provider_name: string;
+      policy_number: string;
+      isActive: boolean;
+      expiry_date: string; // ISO 8601 format
+    };
+    allergies?: string[];
+    medicalHistory?: {
+        allergies: string[];
+        preExistingConditions: string[];
+    };
+    is_admitted: boolean;
+    current_admission_id?: string | null;
+    status: 'active' | 'inactive' | 'deceased';
+    lastVisitDate?: string;
+    created_at: string; // ISO 8601 format
+    updated_at: string; // ISO 8601 format
+  }
+
+/**
+ * Represents a patient's admission history.
+ * This would typically be a sub-collection under a patient's document.
+ * Path: /patients/{patientId}/admissions/{admissionId}
+ */
+export interface Admission {
+  admission_id: string; // Document ID
+  patient_id: string;
+  type: 'Inpatient' | 'Outpatient' | 'Emergency';
+  admission_date: string; // ISO 8601 Timestamp
+  discharge_date?: string | null; // ISO 8601 Timestamp
+  reasonForVisit: string;
+  ward: string; // e.g., 'Cardiology', 'Maternity'
+  bed_id: string; // e.g., 'C-101'
+  attending_doctor_id: string;
+  attending_doctor_name: string;
+  status: 'Admitted' | 'Discharged' | 'Pending Discharge' | 'Cancelled';
+  dischargeSummary?: {
+    clinicalSummary: string;
+    patientInstructions: string;
+  };
+  dischargeByDoctorId?: string;
+  summary_pdf_url?: string;
+  created_at: string; // ISO 8601 Timestamp
+  updated_at: string; // ISO 8601 Timestamp
+}
+  
+
+/**
+ * Represents a clinical note in a patient's EHR.
+ * Path: /patients/{patientId}/clinical_notes/{noteId}
+ */
+export interface ClinicalNote {
+  noteId: string;
+  patientId: string;
+  noteType: 'Consultation' | 'Nursing Note' | 'Progress Note';
+  recordedByUserId: string; // The UID of the user who wrote the note
+  noteText: string;
+  recordedAt: string; // ISO 8601 Timestamp
+}
+  
+
+/**
+ * Represents a log of a patient's vital signs at a specific time.
+ * Path: /patients/{patientId}/vitals/{vitalId}
+ */
+export interface VitalsLog {
+  vitalId: string;
+  patientId: string;
+  bloodPressure: string; // e.g., '120/80'
+  heartRate: string; // e.g., '75'
+  temperature: string; // e.g., '37.5'
+  respiratoryRate: string; // e.g., '18'
+  oxygenSaturation: string; // e.g., '98'
+  painScore?: string; // e.g. '3'
+  notes?: string;
+  recordedByUserId: string;
+  recordedAt: string; // ISO Timestamp
+}
+  
+/**
+ * Represents a patient's care plan.
+ * Path: /patients/{patientId}/care_plans/{planId}
+ */
+export interface CarePlan {
+  planId: string;
+  patientId: string;
+  title: string;
+  goal: string;
+  interventions: string[];
+  status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
+  createdBy: string; // User ID
+  createdAt: string; // ISO Timestamp
+  updatedBy: string; // User ID
+  updatedAt: string; // ISO Timestamp
+}
+  
+
+/**
+ * Represents a medication entry in a patient's history.
+ * Path: /patients/{patientId}/medication_history/{prescriptionId}
+ */
+export interface MedicationRecord {
+  prescriptionId: string;
+  patientId: string;
+  patientName: string;
+  medicationName: string;
+  dosage: string;
+  frequency: string;
+  instructions: string;
+  prescribedByDoctorId: string;
+  prescribedByDoctorName: string;
+  prescribedAt: string; // ISO Timestamp
+  status: 'Active' | 'Discontinued' | 'Completed' | 'Filled';
+}
+  
+/**
+ * Represents an entry in a log for when medication was administered.
+ * Path: /patients/{patientId}/medication_administration_logs/{logId}
+ */
+export interface MedicationAdministrationLog {
+  logId: string;
+  prescriptionId: string; // Reference to the original prescription
+  administeredAt: string; // ISO Timestamp
+  administeredByUserId: string; // Nurse's UID
+  notes?: string;
+}
+
+/**
+ * Represents a single immunization record for a patient.
+ * Path: /patients/{patientId}/immunizations/{immunizationId}
+ */
+export interface ImmunizationRecord {
+  immunizationId: string;
+  patientId: string;
+  vaccineName: string;
+  doseNumber: number;
+  administeredAt: string; // ISO Timestamp
+  nextDueDate?: string | null; // ISO Timestamp
+  administeredByUserId: string;
+  notes?: string;
+}
+
+/**
+ * Represents a type of vaccine available in the hospital.
+ * Path: /vaccine_catalog/{vaccineId}
+ */
+export interface Vaccine {
+    vaccineId: string;
+    name: string;
+    schedule: { dose: number; intervalMonths?: number, intervalYears?: number }[];
+    brandNames: string[];
+}
     
+/**
+ * Represents a single bookable resource.
+ * Path: /resources/{assetId}
+ */
+export interface Asset {
+  assetId: string;
+  name: string;
+  type: 'Medical Equipment' | 'Room' | 'IT Equipment' | 'Furniture' | 'Building Component';
+  department: string;
+  location: string;
+  status: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned';
+  isBookable: boolean;
+  operatingHours?: Record<string, string>; // e.g., { 'Mon-Fri': '09:00-17:00' }
+  modality?: 'CT Scan' | 'MRI' | 'X-Ray' | 'Ultrasound'; // For medical equipment
+  purchaseDate?: string;
+  purchaseCost?: number;
+  currentBookValue?: number;
+  warrantyEndDate?: string;
+  serialNumber?: string;
+  modelNumber?: string;
+  maintenanceSchedule?: {
+      type: 'Preventive' | 'Corrective';
+      frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Annually';
+      lastServiceDate: string;
+      nextServiceDate: string;
+  }[];
+}
+
+/**
+ * Represents a single booking for a resource.
+ * Path: /resource_bookings/{bookingId}
+ */
+export interface ResourceBooking {
+  bookingId: string;
+  resourceId: string; // Reference to 'resources'
+  bookedByUserId: string;
+  startTime: string; // ISO Timestamp
+  endTime: string; // ISO Timestamp
+  status: 'Confirmed' | 'Canceled';
+  reason: string;
+  relatedAppointmentId?: string;
+}
+
+/**
+ * Represents a patient on a waiting list for a specific service.
+ * Path: /waiting_lists/{waitinglistId}
+ */
+export interface WaitingListEntry {
+  waitinglistId: string;
+  patientId: string;
+  requestedService: string; // e.g., 'Cardiology Consultation'
+  requestedServiceId?: string; // Optional: ID of the specific service/clinic
+  priority: 'Routine' | 'Urgent' | 'Elective';
+  dateAdded: string; // ISO Timestamp
+  status: 'Active' | 'Scheduled' | 'Canceled';
+  notes?: string;
+  appointmentId?: string; // Set when an appointment is booked
+}
+
+/**
+ * Represents an individual prescribed medication within a larger prescription.
+ */
+export interface PrescribedMedication {
+    itemId: string; // Reference to the inventory item
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration: number; // in days
+    quantity_to_dispense: number;
+}
+/**
+ * Represents a single prescription document, which can contain multiple medications.
+ * This is the document that goes to the pharmacy.
+ */
+export interface Prescription {
+    prescriptionId: string;
+    patientId: string;
+    patientName: string; // Denormalized for display
+    doctorId: string;
+    datePrescribed: string; // ISO Timestamp
+    status: 'Pending' | 'Dispensed' | 'Canceled';
+    isDispensed: boolean; // Flag to indicate if the medication has been given to the patient
+    medications: PrescribedMedication[];
+    filledAt?: string; // ISO Timestamp when dispensed
+    filledByPharmacistId?: string; // UID of the pharmacist
+}
+    
+/**
+ * Represents an entry in a facility zone.
+ * Path: /facility_zones/{zoneId}
+ */
+export interface FacilityZone {
+    zoneId: string;
+    name: string; // e.g., 'Surgical Wing', 'Outpatient Lobby'
+    managerId?: string; // User ID of the zone manager
+    maintenanceRequests: number; // A count of open maintenance requests
+}
+
+/**
+ * Represents a maintenance or repair request.
+ * Path: /work_orders/{workOrderId}
+ */
+export interface WorkOrder {
+    workOrderId: string;
+    assetId?: string; // Optional: Link to a specific asset
+    facilityIssue?: string; // Optional: General area if not asset-specific
+    description: string;
+    priority: 'High' | 'Medium' | 'Low';
+    status: 'Open' | 'Assigned' | 'In Progress' | 'Resolved' | 'Closed';
+    reportedByUserId: string;
+    assignedToUserId?: string;
+    dateReported: string;
+    dateResolved?: string;
+}
+
+/**
+ * Represents a single spare part in the maintenance inventory.
+ * Path: /spare_parts/{partId}
+ */
+export interface SparePart {
+    partId: string;
+    name: string;
+    partNumber: string;
+    compatibleWith: string[]; // Array of asset IDs
+    currentQuantity: number;
+    reorderLevel: number;
+    supplierId: string;
+    location: string; // e.g., 'Maintenance Depot A, Shelf 1'
+}
+
+/**
+ * Represents a single transaction in the spare parts log.
+ * Path: /spare_parts_log/{logId}
+ */
+export interface SparePartLog {
+    logId: string;
+    partId: string;
+    transactionType: 'Usage' | 'Restock' | 'Adjustment';
+    quantityChange: number; // Negative for usage
+    date: string;
+    userId: string;
+    workOrderId?: string;
+    purchaseOrderId?: string;
+    notes?: string;
+}
+
+/**
+ * Represents a utility meter.
+ * Path: /meters/{meterId}
+ */
+export interface Meter {
+    meterId: string;
+    type: 'Electricity' | 'Water' | 'Gas';
+    location: string;
+    unit: 'kWh' | 'm³';
+}
+
+/**
+ * Represents a single reading from a utility meter.
+ * Path: /utility_consumption/{logId}
+ */
+export interface UtilityConsumption {
+    logId: string;
+    date: string; // YYYY-MM-DD
+    meterId: string;
+    type: 'Electricity' | 'Water' | 'Gas';
+    reading: number;
+    consumption: number; // The amount consumed since the last reading
+}
+
+/**
+ * Represents a security incident log.
+ * Path: /security_incidents/{incidentId}
+ */
+export interface SecurityIncident {
+    incidentId: string;
+    timestamp: string;
+    type: 'Unauthorized Access' | 'Theft' | 'Dispute' | 'Violence' | 'Other';
+    location: string;
+    reportedByUserId: string;
+    details: string;
+    status: 'Under Investigation' | 'Resolved';
+    resolutionNotes?: string;
+}
+
+/**
+ * Represents a housekeeping task.
+ * Path: /housekeeping_tasks/{taskId}
+ */
+export interface HousekeepingTask {
+  taskId: string;
+  type: 'Room Cleaning' | 'Waste Disposal' | 'Linen Change';
+  location: string; // e.g., Room C-102, OR-B
+  status: 'Pending' | 'In Progress' | 'Completed';
+  dateCreated: string;
+  assignedToUserId?: string;
+  notes?: string;
+}
+
+/**
+ * Represents a single, immutable depreciation record for an asset.
+ * Path: /depreciation_records/{recordId}
+ */
+export interface DepreciationRecord {
+    recordId: string; // e.g., `ASSETID-YYYY`
+    assetId: string;
+    dateCalculated: string; // ISO Timestamp
+    period: 'Annually' | 'Monthly';
+    depreciationAmount: number;
+    accumulatedDepreciation: number;
+    bookValue: number; // The value of the asset after this depreciation
+}
+
+/**
+ * Represents an aggregated report on hospital-acquired infections.
+ * Path: /reports/infection_control/{reportId}
+ */
+export interface InfectionReport {
+    reportId: string; // e.g., '2024-07'
+    month: string;
+    totalPatientDays: number;
+    infectionCount: number;
+    ratePer1000Days: number;
+    breakdownByWard: Record<string, number>; // e.g., { "Surgical": 4, "Medical": 3 }
+}
+
+/**
+ * Represents an aggregated report on the efficacy of a treatment plan.
+ * Path: /reports/efficacy/{reportId}
+ */
+export interface EfficacyReport {
+    reportId: string;
+    treatmentPlanTitle: string;
+    averageEfficacy: number; // e.g., 4.5 out of 5
+    totalCases: number;
+}
+
+/**
+ * Represents a secure message between two users.
+ * Path: /messages/{messageId} (or could be a sub-collection)
+ */
+export interface Message {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  messageBody: string;
+  timestamp: string;
+  isRead: boolean;
+  attachmentUrl?: string; // For images or documents
+  attachmentName?: string;
+}
 
 
+// Deprecated types. Use their replacements.
+export type PharmacyOrder = PurchaseOrder;
+export type Resource = Asset;
+    
+// =========================================================================
+// == Surgical Case Data Models (OT Module)
+// =========================================================================
+
+/**
+ * Represents a single surgical case or session in the Operating Theatre.
+ * This is the central document for tracking a surgery from scheduling to post-op.
+ * Path: /surgical_cases/{caseId} or /ot_sessions/{sessionId}
+ */
+export interface OTSession {
+  sessionId: string; // Document ID
+  patientId: string; // Reference to patients
+  patientName: string; // Denormalized for display
+  procedureName: string; // e.g., 'Appendectomy'
+  otRoomId: string; // Reference to operating_theatres
+  leadSurgeonId: string; // Reference to users
+  leadSurgeonName: string; // Denormalized
+  teamIds?: string[]; // Array of other team members' user IDs
+  requiredEquipmentIds?: string[]; // Array of resource IDs for special equipment
+  startTime: Date; // ISO Timestamp
+  endTime: Date; // ISO Timestamp
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Post-Op' | 'Canceled';
+  postOpNotes?: string; // Notes from the surgeon after the procedure
+  completedAt?: string; // Timestamp when status is set to 'Completed'
+  recoveryRoomEntryTime?: string; // Timestamp when patient enters PACU
+  dischargeFromRecoveryTime?: string; // Timestamp when patient leaves PACU
+  recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged'; // Status within the recovery room
+  isReminderSent?: boolean;
+}
 
 
+// =========================================================================
+// == Dietary & Meal Management
+// =========================================================================
 
+/**
+ * Represents a patient's dietary profile.
+ * Path: /dietary_profiles/{patientId}
+ */
+export interface DietaryProfile {
+    profileId: string; // Should be the same as patientId
+    patientId: string;
+    allergies?: string[];
+    restrictions?: string[]; // e.g., 'Low Sodium', 'Diabetic', 'Vegetarian'
+    preferences?: string[];
+}
 
-
-
-
-
-```
+/**
+ * Represents a single meal order for a patient.
+ * Path: /meal_orders/{mealOrderId}
+ */
+export interface MealOrder {
+    mealOrderId: string;
+    patientId: string;
+    orderDateTime: string; // ISO Timestamp
+    mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+    dietaryPlan: string; // e.g., 'Low Sodium', 'Diabetic'
+    mealItems: string[];
+    status: 'Ordered' | 'Preparing' | 'Delivered' | 'Canceled';
+    deliveredByUserId?: string; // UID of the dietary aide who delivered it
+    deliveryTimestamp?: string;
+}
