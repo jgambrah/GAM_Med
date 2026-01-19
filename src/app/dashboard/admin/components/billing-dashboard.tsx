@@ -18,8 +18,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { mockInvoices, mockClaims, mockPayments, mockLedgerAccounts } from '@/lib/data';
-import { Invoice, Claim, FinancialTransaction } from '@/lib/types';
+import { mockInvoices, mockClaims, mockPayments, mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
+import { Invoice, Claim, FinancialTransaction, LedgerAccount, LedgerEntry } from '@/lib/types';
 import Link from 'next/link';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { ClaimDetailDialog } from './claim-detail-dialog';
@@ -31,6 +31,8 @@ import { LogPaymentSchema } from '@/lib/schemas';
 import { toast } from '@/hooks/use-toast';
 import { logPayment } from '@/lib/actions';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -200,8 +202,25 @@ function ClaimsTrackingTab() {
     );
 }
 
+const PostingSchema = z.object({
+  debitAccountId: z.string().min(1, 'Debit account is required.'),
+  creditAccountId: z.string().min(1, 'Credit account is required.'),
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
+  description: z.string().min(3, 'Description is required.'),
+  paymentMethod: z.enum(['Cheque', 'Bank Transfer']),
+  chequeNumber: z.string().optional(),
+}).refine(data => {
+    return data.paymentMethod !== 'Cheque' || (data.chequeNumber && data.chequeNumber.length > 0);
+}, {
+    message: "Cheque number is required for this payment method.",
+    path: ["chequeNumber"],
+});
+
 function PaymentReconciliationTab() {
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
+    const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
+
     const form = useForm<z.infer<typeof LogPaymentSchema>>({
         resolver: zodResolver(LogPaymentSchema),
         defaultValues: {
@@ -228,6 +247,56 @@ function PaymentReconciliationTab() {
             }
         }
     }, [selectedInvoiceId, form]);
+
+    const handlePostToLedger = async (values: z.infer<typeof PostingSchema>) => {
+        const { debitAccountId, creditAccountId, amount, paymentMethod, chequeNumber } = values;
+
+        if (amount <= 0) {
+            toast.success("Zero-amount transaction skipped.");
+            return;
+        }
+
+        try {
+            const now = new Date().toISOString();
+
+            const debitAccount = accounts.find(a => a.accountId === debitAccountId);
+            const creditAccount = accounts.find(a => a.accountId === creditAccountId);
+
+            if (!debitAccount || !creditAccount) {
+                toast.error("One or more accounts not found for ledger posting.");
+                return;
+            }
+            
+            let finalDescription = values.description;
+            if (paymentMethod === 'Cheque' && chequeNumber) {
+                finalDescription = `${finalDescription} (Cheque No: ${chequeNumber})`;
+            } else if (paymentMethod === 'Bank Transfer') {
+                finalDescription = `${finalDescription} (Bank Transfer)`;
+            }
+
+            const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+            const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+            
+            setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
+
+            setAccounts(prev => prev.map(acc => {
+                let balanceChange = 0;
+                if (acc.accountId === debitAccountId) {
+                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                    balanceChange = isDebitType ? amount : -amount;
+                } else if (acc.accountId === creditAccountId) {
+                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                    balanceChange = isDebitType ? -amount : amount;
+                }
+                return balanceChange !== 0 ? { ...acc, balance: acc.balance + balanceChange } : acc;
+            }));
+            
+            toast.success("Transaction Posted", { description: `${finalDescription} for ₵${amount.toFixed(2)}` });
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to post transaction.", { description: 'An unknown error occurred.' });
+        }
+    };
 
     const onSubmit = async (values: z.infer<typeof LogPaymentSchema>) => {
         const result = await logPayment(values);
@@ -353,6 +422,7 @@ function PaymentReconciliationTab() {
         {postingInfo && (
             <LedgerPostingDialog 
                 isOpen={!!postingInfo}
+                onPost={handlePostToLedger}
                 onOpenChange={(isOpen) => {
                     if (!isOpen) {
                         setPostingInfo(null);
