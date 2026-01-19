@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Patient, ClinicalNote } from '@/lib/types';
+import { Patient, ClinicalNote, CarePlan } from '@/lib/types';
 import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClinicalNotesTab } from '../../patients/[patientId]/components/clinical-notes-tab';
@@ -22,12 +22,25 @@ interface PatientVitalsPaneProps {
  * @deprecated This component is deprecated in favor of the new task-oriented dashboard.
  */
 export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
-  const carePlan = mockCarePlans.find(cp => cp.patientId === patient.patient_id);
+  const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
+  const carePlan = carePlans.find(cp => cp.patientId === patient.patient_id);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
 
   const handleNoteAdded = (newNote: ClinicalNote) => {
     setClinicalNotes(prev => [newNote, ...prev]);
   };
+
+  const handlePlanSaved = (newPlan: CarePlan) => {
+    setCarePlans(prev => {
+        const existingIndex = prev.findIndex(p => p.planId === newPlan.planId);
+        if (existingIndex > -1) {
+            const updatedPlans = [...prev];
+            updatedPlans[existingIndex] = newPlan;
+            return updatedPlans;
+        }
+        return [...prev, newPlan];
+    });
+  }
 
   return (
     <Card className="h-full flex flex-col">
@@ -56,7 +69,7 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
               <MedicationsTab patientId={patient.patient_id} />
             </TabsContent>
             <TabsContent value="care-plan">
-              <CarePlanTab carePlan={carePlan} />
+              <CarePlanTab carePlan={carePlan} onPlanSaved={handlePlanSaved} patientId={patient.patient_id} />
             </TabsContent>
             <TabsContent value="notes">
               <ClinicalNotesTab patientId={patient.patient_id} />
