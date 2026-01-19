@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { allPatients, allAdmissions, mockNotes } from '@/lib/data';
+import { allPatients, allAdmissions, mockNotes, mockLabResults as initialLabResults, mockRadiologyOrders as initialRadiologyOrders } from '@/lib/data';
 import {
   Tabs,
   TabsContent,
@@ -23,7 +23,8 @@ import { PatientAlerts } from '../../patients/[patientId]/components/patient-ale
 import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { OrderTestDialog } from '../../patients/[patientId]/components/order-test-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { ClinicalNote } from '@/lib/types';
+import { ClinicalNote, LabResult, RadiologyOrder } from '@/lib/types';
+import { OrderStudyDialog } from '../../patients/[patientId]/components/order-study-dialog';
 
 
 interface PatientEHRProps {
@@ -36,6 +37,8 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
   const patient = allPatients.find((p) => p.patient_id === patientId);
   const admissions = allAdmissions.filter((a) => a.patient_id === patientId);
   const [clinicalNotes, setClinicalNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', mockNotes);
+  const [labResults, setLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
+  const [radiologyOrders, setRadiologyOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
   
   if (!patient) {
     return (
@@ -47,6 +50,14 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
 
   const handleNoteAdded = (newNote: ClinicalNote) => {
     setClinicalNotes(prev => [newNote, ...prev]);
+  };
+  
+  const handleLabOrderCreated = (newOrder: LabResult) => {
+    setLabResults(prev => [newOrder, ...prev]);
+  };
+  
+  const handleRadiologyOrderCreated = (newOrder: RadiologyOrder) => {
+    setRadiologyOrders(prev => [newOrder, ...prev]);
   };
 
   const currentAdmission = admissions.find(a => a.admission_id === patient.current_admission_id);
@@ -69,7 +80,16 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
                  <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
                     <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
                     <AddNoteDialog patientId={patient.patient_id} onNoteAdded={handleNoteAdded} />
-                    <OrderTestDialog patientId={patient.patient_id} />
+                    <OrderTestDialog 
+                        patientId={patient.patient_id} 
+                        patientName={patient.full_name}
+                        onOrderCreated={handleLabOrderCreated}
+                    />
+                     <OrderStudyDialog 
+                        patientId={patient.patient_id}
+                        patientName={patient.full_name}
+                        onOrderCreated={handleRadiologyOrderCreated}
+                     />
                 </div>
 
                 <Tabs defaultValue="notes" className="w-full">
@@ -114,4 +134,3 @@ export function PatientEHR({ patientId }: PatientEHRProps) {
     </Card>
   );
 }
-

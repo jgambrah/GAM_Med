@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -24,7 +25,7 @@ import {
 } from '@/components/ui/tabs';
 import { DemographicsTab } from './components/demographics-tab';
 import { AdmissionsHistoryTab } from './components/admissions-history-tab';
-import { ClinicalNotesTab } from './components/clinical-notes-tab';
+import { ClinicalNotesTab, AddNoteDialog } from './components/clinical-notes-tab';
 import { BillingTab } from './components/billing-tab';
 import { Badge } from '@/components/ui/badge';
 import { TransferPatientDialog } from './components/transfer-patient-dialog';
@@ -197,6 +198,7 @@ export default function PatientDetailPage() {
        {isDoctor && (
         <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
             <h3 className="text-sm font-semibold mr-4">Clinical Actions</h3>
+            <AddNoteDialog patientId={patient.patient_id} onNoteAdded={handleNoteAdded} />
             <OrderTestDialog 
                 patientId={patient.patient_id} 
                 patientName={patient.full_name} 
