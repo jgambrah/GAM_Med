@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,6 +8,8 @@ import { EditLeaveBalancesDialog } from './edit-leave-balances-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { LeaveRequest, StaffProfile, User } from '@/lib/types';
 import { mockLeaveRequests } from '@/lib/data';
+import { Button } from '@/components/ui/button';
+import { Edit } from 'lucide-react';
 
 interface LeaveTabProps {
   staffProfile: StaffProfile;
@@ -18,6 +19,7 @@ interface LeaveTabProps {
 
 export function LeaveTab({ staffProfile, setStaffProfile, user }: LeaveTabProps) {
   const [allLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
 
   const staffLeaveRequests = React.useMemo(() => {
     return allLeaveRequests.filter(req => req.staffId === staffProfile.staffId);
@@ -26,6 +28,7 @@ export function LeaveTab({ staffProfile, setStaffProfile, user }: LeaveTabProps)
   const handleBalancesSaved = (newBalances: Record<string, number>) => {
     setStaffProfile({ ...staffProfile, leaveBalances: newBalances });
     toast.success("Leave balances have been updated.");
+    setIsEditDialogOpen(false);
   };
 
   return (
@@ -37,10 +40,9 @@ export function LeaveTab({ staffProfile, setStaffProfile, user }: LeaveTabProps)
             <CardDescription>Current available leave days for this staff member.</CardDescription>
           </div>
           {user?.role === 'admin' && (
-            <EditLeaveBalancesDialog
-              balances={staffProfile.leaveBalances || {}}
-              onSave={handleBalancesSaved}
-            />
+            <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
+                <Edit className="h-4 w-4 mr-2" /> Edit Balances
+            </Button>
           )}
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -65,8 +67,15 @@ export function LeaveTab({ staffProfile, setStaffProfile, user }: LeaveTabProps)
           <MyLeaveHistory requests={staffLeaveRequests} />
         </CardContent>
       </Card>
+
+      {isEditDialogOpen && (
+        <EditLeaveBalancesDialog
+            isOpen={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            balances={staffProfile.leaveBalances || {}}
+            onSave={handleBalancesSaved}
+        />
+      )}
     </div>
   );
 }
-
-    
