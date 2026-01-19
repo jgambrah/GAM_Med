@@ -1,4 +1,3 @@
-
 {
   "name": "gammed",
   "version": "0.1.0",
@@ -33,7 +32,7 @@
     "firebase": "^10.12.3",
     "genkit": "^1.0.0",
     "lucide-react": "^0.417.0",
-    "next": "15.3.3",
+    "next": "15.3.8",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.52.1",
