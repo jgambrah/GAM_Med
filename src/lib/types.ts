@@ -117,6 +117,32 @@ export interface OperatingTheater {
   specialty?: 'Orthopedic' | 'Cardiothoracic' | 'General' | 'Neurosurgery';
 }
 
+/**
+ * Represents a patient referral from an external provider.
+ * Path: /referrals/{referralId}
+ */
+export interface Referral {
+  referral_id: string; // Document ID
+  referringProvider: string; // e.g., 'Korle Bu Polyclinic'
+  referralDate: string; // ISO Timestamp
+  patientDetails: {
+    name: string;
+    phone: string;
+    dob: string; // YYYY-MM-DD
+  };
+  reasonForReferral: string;
+  priority: 'Routine' | 'Urgent' | 'Emergency';
+  assignedDepartment: string; // e.g., 'Cardiology'
+  status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed';
+  notes?: string; // Internal notes for triage
+  patientId?: string; // Link to the created patient record
+  assignedDoctorId?: string; // UID of the doctor assigned
+  assignedDoctorName?: string; // Denormalized for display
+  appointmentId?: string; // Link to the scheduled appointment
+  created_at: string; // ISO Timestamp
+  updated_at: string; // ISO Timestamp
+}
+
 // =========================================================================
 // == Radiology Information System (RIS)
 // =========================================================================
