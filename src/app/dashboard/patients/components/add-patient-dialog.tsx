@@ -101,7 +101,7 @@ export function AddPatientDialog({
       gender: undefined,
       maritalStatus: undefined,
       occupation: '',
-      patientType: '',
+      patientType: 'private',
       contact: {
         primaryPhone: '',
         alternatePhone: '',
@@ -618,3 +618,5 @@ export function AddPatientDialog({
     </Dialog>
   );
 }
+
+    
