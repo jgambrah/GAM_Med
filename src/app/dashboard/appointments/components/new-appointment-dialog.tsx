@@ -198,7 +198,7 @@ export function NewAppointmentDialog({
         appointment_id: `AP-${Date.now()}`,
         patient_id: values.patientId,
         patient_name: patient?.full_name || 'Unknown Patient',
-        doctor_id: values.doctorId,
+        doctor_id: values.doctorId ?? 'any',
         doctor_name: doctor?.name || 'Any Doctor',
         appointment_date: new Date(`${values.appointmentDate}T${values.appointmentTime}`).toISOString(),
         end_time: new Date(new Date(`${values.appointmentDate}T${values.appointmentTime}`).getTime() + 30 * 60000).toISOString(),
