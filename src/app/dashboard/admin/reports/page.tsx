@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,15 +15,87 @@ import { TrialBalance } from './components/trial-balance';
 import { ChartOfAccountsTable } from '../components/chart-of-accounts-table';
 import { LedgerDetailTable } from './components/ledger-detail-table';
 import { LedgerPostingDialog } from '../components/ledger-posting-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
+import { LedgerAccount, LedgerEntry } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const PostingSchema = z.object({
+  debitAccountId: z.string().min(1, 'Debit account is required.'),
+  creditAccountId: z.string().min(1, 'Credit account is required.'),
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
+  description: z.string().min(3, 'Description is required.'),
+  paymentMethod: z.enum(['Cheque', 'Bank Transfer']),
+  chequeNumber: z.string().optional(),
+}).refine(data => {
+    return data.paymentMethod !== 'Cheque' || (data.chequeNumber && data.chequeNumber.length > 0);
+}, {
+    message: "Cheque number is required for this payment method.",
+    path: ["chequeNumber"],
+});
+
 
 export default function FinancialReportsPage() {
   const [endDate, setEndDate] = React.useState('');
   const [isJournalOpen, setIsJournalOpen] = React.useState(false);
+  const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+  const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
 
   React.useEffect(() => {
     // Set initial date only on the client side to avoid hydration mismatch
     setEndDate(new Date().toISOString().split('T')[0]);
   }, []);
+
+  const handlePostToLedger = async (values: z.infer<typeof PostingSchema>) => {
+    const { debitAccountId, creditAccountId, amount, paymentMethod, chequeNumber } = values;
+
+    if (amount <= 0) {
+        toast.success("Zero-amount transaction skipped.");
+        return;
+    }
+
+    try {
+        const now = new Date().toISOString();
+
+        const debitAccount = accounts.find(a => a.accountId === debitAccountId);
+        const creditAccount = accounts.find(a => a.accountId === creditAccountId);
+
+        if (!debitAccount || !creditAccount) {
+            toast.error("One or more accounts not found for ledger posting.");
+            return;
+        }
+        
+        let finalDescription = values.description;
+        if (paymentMethod === 'Cheque' && chequeNumber) {
+            finalDescription = `${finalDescription} (Cheque No: ${chequeNumber})`;
+        } else if (paymentMethod === 'Bank Transfer') {
+            finalDescription = `${finalDescription} (Bank Transfer)`;
+        }
+
+        const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        
+        setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
+
+        setAccounts(prev => prev.map(acc => {
+            let balanceChange = 0;
+            if (acc.accountId === debitAccountId) {
+                const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                balanceChange = isDebitType ? amount : -amount;
+            } else if (acc.accountId === creditAccountId) {
+                const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                balanceChange = isDebitType ? -amount : amount;
+            }
+            return balanceChange !== 0 ? { ...acc, balance: acc.balance + balanceChange } : acc;
+        }));
+        
+        toast.success("Transaction Posted", { description: `${finalDescription} for ₵${amount.toFixed(2)}` });
+    } catch (e) {
+        console.error(e);
+        toast.error("Failed to post transaction.", { description: 'An unknown error occurred.' });
+    }
+  };
 
   if (!endDate) {
     return null; // Or a loading skeleton
@@ -52,6 +125,7 @@ export default function FinancialReportsPage() {
            <LedgerPostingDialog
               isOpen={isJournalOpen}
               onOpenChange={setIsJournalOpen}
+              onPost={handlePostToLedger}
               trigger={
                  <Button variant="outline" className="self-end">
                     <Plus className="h-4 w-4 mr-2" />
