@@ -9,8 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@genkit-ai/googleai": "^1.0.0",
+    "@genkit-ai/firebase": "^1.27.0",
+    "@genkit-ai/googleai": "^1.27.0",
     "@hookform/resolvers": "^3.9.0",
+    "@opentelemetry/exporter-jaeger": "^1.25.1",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -29,8 +31,8 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
-    "firebase": "^10.12.3",
-    "genkit": "^1.0.0",
+    "firebase": "^12.8.0",
+    "genkit": "^1.27.0",
     "lucide-react": "^0.417.0",
     "next": "15.3.8",
     "react": "^18",

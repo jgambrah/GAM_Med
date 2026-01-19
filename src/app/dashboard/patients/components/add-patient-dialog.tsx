@@ -195,7 +195,7 @@ export function AddPatientDialog({
       // Create a patient object to pass back
       const newPatient: Patient = {
         patient_id: `P-${Date.now()}`,
-        title: values.title,
+        title: values.title ?? '',
         first_name: values.firstName,
         last_name: values.lastName,
         full_name: `${values.firstName} ${values.lastName}`,
