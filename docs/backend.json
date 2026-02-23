@@ -1,304 +1,629 @@
-
 {
   "entities": {
     "Hospital": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Hospital",
       "type": "object",
-      "description": "Represents a tenant (hospital) in the GamMed multi-tenant system.",
+      "description": "Represents a healthcare facility within the system, serving as the multi-tenancy anchor for all other data.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the hospital."
+          "description": "Unique identifier for the Hospital entity. This ID is used as 'hospitalId' in other entities for multi-tenancy."
         },
         "name": {
           "type": "string",
-          "description": "The name of the hospital."
+          "description": "The official name of the hospital."
         },
-        "subdomain": {
+        "address": {
           "type": "string",
-          "description": "The unique subdomain for the hospital (e.g., city-general)."
+          "description": "The physical address of the hospital."
         },
-        "apiKey": {
+        "contactNumber": {
           "type": "string",
-          "description": "A unique API key for external integrations."
+          "description": "The primary contact phone number for the hospital."
         },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates if the hospital's account is currently active."
+        "email": {
+          "type": "string",
+          "description": "The general email address for the hospital.",
+          "format": "email"
+        },
+        "website": {
+          "type": "string",
+          "description": "The official website URL for the hospital.",
+          "format": "uri"
+        },
+        "licenceNumber": {
+          "type": "string",
+          "description": "The official operating license number issued to the hospital, relevant for Ghanaian regulations."
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time",
-          "description": "Timestamp when the hospital was registered."
+          "description": "Timestamp indicating when the hospital record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the hospital record was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "name",
-        "isActive"
+        "address",
+        "contactNumber",
+        "email",
+        "createdAt",
+        "updatedAt"
       ]
     },
-    "User": {
+    "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
+      "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user of the MedFlow GH system.",
+      "description": "Represents a user account in the system, linked to Firebase Authentication, and defines their role and basic profile information.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user entity."
+          "description": "Unique identifier for the UserProfile entity, typically corresponding to Firebase Authentication's 'uid'."
         },
         "hospitalId": {
           "type": "string",
-          "description": "Reference to the Hospital this user belongs to."
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N UserProfile)"
         },
         "email": {
           "type": "string",
-          "description": "User's email address.",
+          "description": "The user's email address, used for login and communication.",
           "format": "email"
         },
         "phoneNumber": {
           "type": "string",
-          "description": "User's phone number."
+          "description": "The user's phone number, used for communication, multi-factor authentication, and SMS reminders."
         },
-        "displayName": {
+        "firstName": {
           "type": "string",
-          "description": "User's display name."
+          "description": "The user's first name."
         },
-        "photoURL": {
+        "lastName": {
           "type": "string",
-          "description": "URL of the user's profile photo.",
-          "format": "uri"
+          "description": "The user's last name."
         },
         "role": {
           "type": "string",
-          "description": "User's role in the system (e.g., Patient, Doctor, Nurse, Pharmacist, Admin)."
+          "description": "The role of the user, determining their access permissions within the system.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
         },
-        "patientId": {
+        "gender": {
           "type": "string",
-          "description": "Reference to Patient. (Relationship: User 1:1 Patient).  Only populated if the user is a patient."
+          "description": "The user's gender.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
         },
-        "employeeId": {
+        "dateOfBirth": {
           "type": "string",
-          "description": "Reference to Employee. (Relationship: User 1:1 Employee). Only populated if the user is an employee (Doctor, Nurse, Pharmacist, Admin)."
+          "description": "The user's date of birth.",
+          "format": "date-time"
         },
-        "emailVerified": {
+        "address": {
+          "type": "string",
+          "description": "The user's residential address."
+        },
+        "isActive": {
           "type": "boolean",
-          "description": "Indicates whether the user's email address has been verified."
+          "description": "A flag indicating whether the user account is currently active.",
+          "format": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user profile was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user profile was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "hospitalId",
         "email",
-        "role"
+        "phoneNumber",
+        "firstName",
+        "lastName",
+        "role",
+        "isActive",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "Patient": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Patient",
       "type": "object",
-      "description": "Represents a patient in the MedFlow GH system.",
+      "description": "Stores comprehensive demographic and administrative information for a patient, optimized for search.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the patient entity."
+          "description": "Unique identifier for the Patient entity (Unique Patient ID)."
         },
         "hospitalId": {
           "type": "string",
-          "description": "Reference to the Hospital this patient belongs to."
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N Patient)"
         },
-        "uniquePatientId": {
+        "userProfileId": {
           "type": "string",
-          "description": "Unique patient identifier assigned by the hospital."
+          "description": "Optional reference to UserProfile if the patient also has a system login. (Relationship: UserProfile 0:1 Patient)"
         },
         "firstName": {
           "type": "string",
-          "description": "Patient's first name."
+          "description": "The patient's first name."
         },
         "lastName": {
           "type": "string",
-          "description": "Patient's last name."
+          "description": "The patient's last name."
         },
         "dateOfBirth": {
           "type": "string",
-          "description": "Patient's date of birth.",
+          "description": "The patient's date of birth.",
           "format": "date-time"
         },
         "gender": {
           "type": "string",
-          "description": "Patient's gender."
+          "description": "The patient's gender.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
         },
-        "address": {
+        "bloodGroup": {
           "type": "string",
-          "description": "Patient's address."
+          "description": "The patient's blood group.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
         },
-        "phoneNumber": {
+        "contactNumber": {
           "type": "string",
-          "description": "Patient's phone number."
+          "description": "The patient's primary contact phone number."
         },
         "emergencyContactName": {
           "type": "string",
-          "description": "Name of the patient's emergency contact."
+          "description": "The name of the patient's emergency contact person."
         },
-        "emergencyContactPhone": {
+        "emergencyContactNumber": {
           "type": "string",
-          "description": "Phone number of the patient's emergency contact."
+          "description": "The phone number of the patient's emergency contact person."
         },
-        "medicalHistoryIds": {
+        "address": {
+          "type": "string",
+          "description": "The patient's residential address."
+        },
+        "nationality": {
+          "type": "string",
+          "description": "The patient's nationality."
+        },
+        "ghanaCardId": {
+          "type": "string",
+          "description": "The patient's Ghana Card ID number, for local identification and compliance."
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "The date and time when the patient was first registered in the system.",
+          "format": "date-time"
+        },
+        "allergies": {
           "type": "array",
-          "description": "References to MedicalHistories. (Relationship: Patient 1:N MedicalHistory)",
+          "description": "A list of known allergies the patient has.",
           "items": {
             "type": "string"
           }
+        },
+        "currentMedications": {
+          "type": "array",
+          "description": "A list of medications the patient is currently taking.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "medicalHistory": {
+          "type": "string",
+          "description": "A summary or general overview of the patient's medical history."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the patient record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the patient record was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "hospitalId",
-        "uniquePatientId",
         "firstName",
         "lastName",
         "dateOfBirth",
-        "gender"
+        "gender",
+        "contactNumber",
+        "emergencyContactName",
+        "emergencyContactNumber",
+        "address",
+        "nationality",
+        "registrationDate",
+        "createdAt",
+        "updatedAt"
       ]
     },
-    "Employee": {
+    "Department": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Employee",
+      "title": "Department",
       "type": "object",
-      "description": "Represents an employee of the hospital (Doctor, Nurse, Pharmacist, Admin).",
+      "description": "Defines a medical or administrative department within a hospital.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the employee entity."
+          "description": "Unique identifier for the Department entity."
         },
         "hospitalId": {
           "type": "string",
-          "description": "Reference to the Hospital this employee belongs to."
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N Department)"
         },
-        "firstName": {
+        "name": {
           "type": "string",
-          "description": "Employee's first name."
+          "description": "The name of the department (e.g., 'Cardiology', 'Pediatrics')."
         },
-        "lastName": {
+        "headOfDepartmentId": {
           "type": "string",
-          "description": "Employee's last name."
+          "description": "Optional reference to the UserProfile of the staff member (e.g., Doctor, Admin) who heads this department. (Relationship: UserProfile 0:1 Department)"
         },
-        "employeeId": {
+        "description": {
           "type": "string",
-          "description": "Employee ID assigned by the hospital."
+          "description": "A brief description of the department's function."
         },
-        "role": {
+        "contactNumber": {
           "type": "string",
-          "description": "Employee's role (Doctor, Nurse, Pharmacist, Admin)."
+          "description": "The direct contact phone number for the department."
         },
-        "departmentId": {
+        "location": {
           "type": "string",
-          "description": "Reference to Department. (Relationship: Employee 1:N Department)"
+          "description": "The physical location of the department within the hospital (e.g., 'Ground Floor, West Wing')."
         },
-        "specialization": {
+        "createdAt": {
           "type": "string",
-          "description": "Employee's specialization (e.g., Cardiology, Pediatrics)."
+          "description": "Timestamp indicating when the department record was created.",
+          "format": "date-time"
         },
-        "scheduleIds": {
-          "type": "array",
-          "description": "References to Schedules. (Relationship: Employee 1:N Schedule)",
-          "items": {
-            "type": "string"
-          }
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the department record was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "hospitalId",
-        "firstName",
-        "lastName",
-        "employeeId",
-        "role",
-        "departmentId"
+        "name",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "Appointment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Appointment",
       "type": "object",
-      "description": "Represents an appointment scheduled in the MedFlow GH system.",
+      "description": "Records details of a scheduled patient appointment with a staff member or department.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the appointment entity."
+          "description": "Unique identifier for the Appointment entity."
         },
         "hospitalId": {
           "type": "string",
-          "description": "Reference to the Hospital this appointment belongs to."
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N Appointment)"
         },
         "patientId": {
           "type": "string",
-          "description": "Reference to Patient. (Relationship: Patient 1:N Appointment)"
+          "description": "Reference to the Patient attending this appointment. (Relationship: Patient 1:N Appointment)"
         },
-        "doctorId": {
+        "assignedStaffId": {
           "type": "string",
-          "description": "Reference to Employee (Doctor). (Relationship: Employee 1:N Appointment)"
+          "description": "Reference to the UserProfile of the staff member (e.g., Doctor, Nurse) assigned to this appointment. (Relationship: UserProfile 1:N Appointment)"
         },
-        "scheduleId": {
+        "departmentId": {
           "type": "string",
-          "description": "Reference to Schedule. (Relationship: Schedule 1:N Appointment)"
+          "description": "Optional reference to the Department where the appointment is taking place. (Relationship: Department 1:N Appointment)"
         },
-        "startTime": {
+        "appointmentDateTime": {
           "type": "string",
-          "description": "Start time of the appointment.",
+          "description": "The exact date and time when the appointment is scheduled to begin.",
           "format": "date-time"
         },
-        "endTime": {
-          "type": "string",
-          "description": "End time of the appointment.",
-          "format": "date-time"
+        "durationMinutes": {
+          "type": "number",
+          "description": "The planned duration of the appointment in minutes."
         },
-        "notes": {
+        "type": {
           "type": "string",
-          "description": "Notes about the appointment."
+          "description": "The type of appointment (e.g., 'Consultation', 'Follow-up', 'Emergency', 'Procedure', 'Diagnostic').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
         },
         "status": {
           "type": "string",
-          "description": "Status of the appointment (e.g., Scheduled, Confirmed, Cancelled, Completed)."
+          "description": "The current status of the appointment (e.g., 'Scheduled', 'Confirmed', 'Completed', 'Canceled', 'No Show').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reasonForVisit": {
+          "type": "string",
+          "description": "The patient's stated reason or complaint for the visit."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any internal notes or specific instructions related to the appointment."
+        },
+        "reminderSent": {
+          "type": "boolean",
+          "description": "A flag indicating whether an automated reminder has been sent for this appointment.",
+          "format": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the appointment record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the appointment record was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "hospitalId",
         "patientId",
-        "doctorId",
-        "scheduleId",
-        "startTime",
-        "endTime",
-        "status"
+        "assignedStaffId",
+        "appointmentDateTime",
+        "durationMinutes",
+        "type",
+        "status",
+        "reminderSent",
+        "createdAt",
+        "updatedAt"
       ]
     },
-    "Admission": {
-      "title": "Admission",
+    "StaffSchedule": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StaffSchedule",
       "type": "object",
+      "description": "Defines the recurring availability or work schedule for a specific staff member.",
       "properties": {
-        "id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "bedId": { "type": "string" },
-        "admissionDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["Admitted", "Discharged", "Pending Discharge"] }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StaffSchedule entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N StaffSchedule)"
+        },
+        "staffId": {
+          "type": "string",
+          "description": "Reference to the UserProfile of the staff member whose schedule this is. (Relationship: UserProfile 1:N StaffSchedule)"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "description": "The day of the week for which this schedule applies (e.g., 'Monday', 'Tuesday').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The start time of the availability slot on the specified day (e.g., '09:00:00').",
+          "format": "time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The end time of the availability slot on the specified day (e.g., '17:00:00').",
+          "format": "time"
+        },
+        "isAvailable": {
+          "type": "boolean",
+          "description": "A flag indicating if the staff member is generally available during this slot.",
+          "format": "boolean"
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Optional reference to the Department where the staff member is scheduled to work during this time. (Relationship: Department 1:N StaffSchedule)"
+        },
+        "validFrom": {
+          "type": "string",
+          "description": "The date from which this schedule entry becomes valid. Useful for managing changing schedules.",
+          "format": "date-time"
+        },
+        "validTo": {
+          "type": "string",
+          "description": "The date until which this schedule entry is valid. Useful for managing changing schedules.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the staff schedule record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the staff schedule record was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["id", "hospitalId", "patientId", "bedId", "status"]
+      "required": [
+        "id",
+        "hospitalId",
+        "staffId",
+        "dayOfWeek",
+        "startTime",
+        "endTime",
+        "isAvailable",
+        "createdAt",
+        "updatedAt"
+      ]
     },
-    "Bed": {
-      "title": "Bed",
+    "HospitalResource": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HospitalResource",
       "type": "object",
+      "description": "Represents a bookable resource within a hospital, such as an operating theater or diagnostic equipment.",
       "properties": {
-        "id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "wardName": { "type": "string" },
-        "status": { "type": "string", "enum": ["vacant", "occupied", "cleaning", "maintenance"] }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the HospitalResource entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N HospitalResource)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the resource (e.g., 'Operating Theater 1', 'MRI Scanner')."
+        },
+        "type": {
+          "type": "string",
+          "description": "The category or type of the resource (e.g., 'Operating Theater', 'Diagnostic Equipment', 'Consultation Room', 'Lab Equipment', 'Ward Bed').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the resource, including capabilities or specifications."
+        },
+        "location": {
+          "type": "string",
+          "description": "The physical location of the resource within the hospital."
+        },
+        "isBookable": {
+          "type": "boolean",
+          "description": "A flag indicating whether this resource can be scheduled or booked.",
+          "format": "boolean"
+        },
+        "capacity": {
+          "type": "number",
+          "description": "The capacity of the resource, if applicable (e.g., number of beds in a ward, max occupants for a room)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the resource record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the resource record was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["id", "hospitalId", "wardName", "status"]
+      "required": [
+        "id",
+        "hospitalId",
+        "name",
+        "type",
+        "location",
+        "isBookable",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ResourceBooking": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ResourceBooking",
+      "type": "object",
+      "description": "Records a specific booking for a hospital resource over a period of time.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ResourceBooking entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to Hospital. (Relationship: Hospital 1:N ResourceBooking)"
+        },
+        "resourceId": {
+          "type": "string",
+          "description": "Reference to the HospitalResource being booked. (Relationship: HospitalResource 1:N ResourceBooking)"
+        },
+        "bookingStartDateTime": {
+          "type": "string",
+          "description": "The date and time when the resource booking officially starts.",
+          "format": "date-time"
+        },
+        "bookingEndDateTime": {
+          "type": "string",
+          "description": "The date and time when the resource booking officially ends.",
+          "format": "date-time"
+        },
+        "bookedById": {
+          "type": "string",
+          "description": "Reference to the UserProfile of the staff member who made this booking. (Relationship: UserProfile 1:N ResourceBooking)"
+        },
+        "patientId": {
+          "type": "string",
+          "description": "Optional reference to the Patient for whom this resource is being booked (e.g., for a surgery). (Relationship: Patient 1:N ResourceBooking)"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "The purpose or reason for booking the resource (e.g., 'Emergency Surgery', 'MRI Scan', 'Routine Consultation')."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the resource booking (e.g., 'Confirmed', 'Pending', 'Canceled', 'Completed').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any additional notes or specific requirements for the resource booking."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the resource booking record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the resource booking record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "hospitalId",
+        "resourceId",
+        "bookingStartDateTime",
+        "bookingEndDateTime",
+        "bookedById",
+        "purpose",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "auth": {
@@ -313,50 +638,159 @@
         "path": "/hospitals/{hospitalId}",
         "definition": {
           "entityName": "Hospital",
-          "schema": { "$ref": "#/backend/entities/Hospital" },
-          "description": "Stores master data for each hospital (tenant)."
+          "schema": {
+            "$ref": "#/backend/entities/Hospital"
+          },
+          "description": "Top-level collection for each hospital instance. The '{hospitalId}' parameter acts as the multi-tenancy key for all nested data. Includes denormalized 'id' as 'hospitalId'.",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier for the hospital, serving as the multi-tenancy anchor."
+            }
+          ]
         }
       },
       {
-        "path": "/users/{userId}",
+        "path": "/hospitals/{hospitalId}/userProfiles/{userId}",
         "definition": {
-          "entityName": "User",
-          "schema": { "$ref": "#/backend/entities/User" },
-          "description": "Stores user authentication data. Isolated by hospitalId."
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Subcollection containing user profiles for staff and patients within a specific hospital. 'userId' corresponds to Firebase Auth UID. Includes denormalized 'hospitalId' (from path) and 'role' for RBAC.",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital this user profile belongs to."
+            },
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user profile, matching the Firebase Authentication UID."
+            }
+          ]
         }
       },
       {
-        "path": "/patients/{patientId}",
+        "path": "/hospitals/{hospitalId}/patients/{patientId}",
         "definition": {
           "entityName": "Patient",
-          "schema": { "$ref": "#/backend/entities/Patient" },
-          "description": "Stores patient-specific data partitioned by hospitalId."
+          "schema": {
+            "$ref": "#/backend/entities/Patient"
+          },
+          "description": "Subcollection storing comprehensive patient demographic and administrative information for a specific hospital. Includes denormalized 'hospitalId' (from path).",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital the patient is registered with."
+            },
+            {
+              "name": "patientId",
+              "description": "Unique identifier for the patient record."
+            }
+          ]
         }
       },
       {
-        "path": "/appointments/{appointmentId}",
+        "path": "/hospitals/{hospitalId}/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Subcollection defining medical or administrative departments within a specific hospital. Includes denormalized 'hospitalId' (from path).",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital the department belongs to."
+            },
+            {
+              "name": "departmentId",
+              "description": "Unique identifier for the department."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/appointments/{appointmentId}",
         "definition": {
           "entityName": "Appointment",
-          "schema": { "$ref": "#/backend/entities/Appointment" },
-          "description": "Appointment data partitioned by hospitalId."
+          "schema": {
+            "$ref": "#/backend/entities/Appointment"
+          },
+          "description": "Subcollection recording scheduled patient appointments within a specific hospital. Includes denormalized 'hospitalId' (from path), 'patientId', and 'assignedStaffId' for access control.",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital where the appointment is scheduled."
+            },
+            {
+              "name": "appointmentId",
+              "description": "Unique identifier for the appointment record."
+            }
+          ]
         }
       },
       {
-        "path": "/beds/{bedId}",
+        "path": "/hospitals/{hospitalId}/staffSchedules/{scheduleId}",
         "definition": {
-          "entityName": "Bed",
-          "schema": { "$ref": "#/backend/entities/Bed" },
-          "description": "Hospital bed inventory partitioned by hospitalId."
+          "entityName": "StaffSchedule",
+          "schema": {
+            "$ref": "#/backend/entities/StaffSchedule"
+          },
+          "description": "Subcollection defining recurring availability or work schedules for staff members within a specific hospital. Includes denormalized 'hospitalId' (from path) and 'staffId' for ownership.",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital the staff schedule belongs to."
+            },
+            {
+              "name": "scheduleId",
+              "description": "Unique identifier for the staff schedule entry."
+            }
+          ]
         }
       },
       {
-        "path": "/admissions/{admissionId}",
+        "path": "/hospitals/{hospitalId}/hospitalResources/{resourceId}",
         "definition": {
-          "entityName": "Admission",
-          "schema": { "$ref": "#/backend/entities/Admission" },
-          "description": "Inpatient admission records partitioned by hospitalId."
+          "entityName": "HospitalResource",
+          "schema": {
+            "$ref": "#/backend/entities/HospitalResource"
+          },
+          "description": "Subcollection representing bookable resources (e.g., operating theaters, equipment) within a specific hospital. Includes denormalized 'hospitalId' (from path).",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital the resource belongs to."
+            },
+            {
+              "name": "resourceId",
+              "description": "Unique identifier for the hospital resource."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/resourceBookings/{bookingId}",
+        "definition": {
+          "entityName": "ResourceBooking",
+          "schema": {
+            "$ref": "#/backend/entities/ResourceBooking"
+          },
+          "description": "Subcollection recording bookings for hospital resources within a specific hospital. Includes denormalized 'hospitalId' (from path) and 'bookedById' for ownership.",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "Unique identifier of the hospital where the resource is booked."
+            },
+            {
+              "name": "bookingId",
+              "description": "Unique identifier for the resource booking record."
+            }
+          ]
         }
       }
-    ]
+    ],
+    "reasoning": "The recommended Firestore data structure implements a robust multi-tenancy model by nesting all tenant-specific data under a top-level `/hospitals/{hospitalId}/` collection. This design strategy directly addresses the 'Authorization Independence' and 'QAPs (Rules are not Filters)' mandates, while adhering to the principle of 'DBAC (No Custom Claims)'.\n\n**Authorization Independence via Denormalization:**\n\n1.  **Path-Based Multi-Tenancy:** By structuring all collections as subcollections of `/hospitals/{hospitalId}/`, the `hospitalId` (the multi-tenancy anchor) becomes an explicit path parameter (`{hospitalId}`). This means for any operation on documents within a specific hospital, the `hospitalId` is directly available in the security rules context (`hospitalId` wildcard). This eliminates the need to perform a `get()` operation on a parent `Hospital` document to determine its attributes, thus ensuring authorization independence at the entity level.\n\n2.  **Denormalized `hospitalId` Field:** Although the `hospitalId` is present in the path, every document within a hospital's scope (e.g., `userProfiles`, `patients`, `appointments`) will also explicitly include a `hospitalId` field. This denormalization enhances data integrity, allows for more flexible querying (e.g., if a flat collection structure were ever needed for specific use cases), and explicitly fulfills the user's requirement to include `hospitalId` in every document.\n\n3.  **User Profile for Role-Based Access:** Each user's profile is stored at `/hospitals/{hospitalId}/userProfiles/{userId}`, where `userId` is the Firebase Authentication `uid`. This `UserProfile` document contains the user's `role` and confirms their association with a specific `hospitalId`. To authorize access to any other document, security rules will perform a single `get()` operation on the *requesting user's own `UserProfile`* (e.g., `get(/hospitals/$(hospitalId)/userProfiles/$(request.auth.uid))`). This lookup retrieves the user's `hospitalId` (implicitly from the path) and `role` *for that specific hospital*. This `get()` for the current user's identity/role is a standard and acceptable practice in Firestore security rules for RBAC, and it does not violate the spirit of 'Authorization Independence' which primarily targets avoiding `get()` on *other entity documents' attributes* to secure subcollections.\n\n**QAPs (Rules are not Filters):**\n\n1.  **Implicit Filtering by Path:** The `/hospitals/{hospitalId}/` structure intrinsically enforces Query Against Path segments (QAPs) for multi-tenancy. When a client queries `/hospitals/hosp_abc_123/patients`, the security rules can easily ensure that `request.path.segments[1]` (which is `hosp_abc_123`) matches the `hospitalId` of the current authenticated user's profile. This means users cannot accidentally or maliciously list documents from other hospitals because their query must specify the `hospitalId` they belong to, and the rules will validate this.\n\n2.  **Role-Based Filtering for Operations:** Once `hospitalId` is validated, the `UserProfile.role` (retrieved via the single `get()` on the user's own profile) enables granular access control for `list`, `get`, `create`, `update`, and `delete` operations. For example, a Doctor might be able to `list` and `get` `Patient` records, but only an Admin might be able to `create`, `update`, or `delete` them, all strictly within their validated `hospitalId`. Patients can only read their own appointments by checking `resource.data.patientId` against their linked patient ID in their `UserProfile`. This ensures that `list` queries are not used as a backdoor to bypass security rules, as the rules enforce necessary filters based on both `hospitalId` and user role *before* any data is returned.\n\nThis architecture provides a scalable, secure, and debuggable foundation for the MedFlow GH system, accommodating multi-tenancy and robust RBAC while adhering to the specified design principles."
   }
 }

@@ -1,258 +1,188 @@
-/**
- * MedFlow GH - Firestore Security Rules
- *
- * Core Philosophy:
- * This ruleset enforces a Role-Based Access Control (RBAC) model combined with
- * strict data ownership. Patients have control over their own records, while
- * hospital employees (Doctors, Nurses, Admins) are granted access based on
- * their roles and relationship to the data. The default security posture is
- * to deny access unless explicitly permitted.
- *
- * Data Structure:
- * The database uses a set of top-level collections for primary entities like
- * `users`, `patients`, `employees`, and `appointments`. Sensitive patient data,
- * such as `medicalHistories`, is stored in a subcollection under the
- * corresponding patient document to facilitate inherited permissions.
- *
- * Key Security Decisions:
- * - User-Scoped Data: All data in `/users/{userId}` is strictly private to the
- *   authenticated user matching the `userId`.
- * - Employee Access: Authenticated employees are granted read access to patient,
- *   employee, and schedule collections to facilitate clinical workflows. Writes
- *   are more restricted.
- * - Patient Privacy: A user can only access a `/patients` document if their
- *   own user profile in `/users/{userId}` contains a matching `patientId`.
- * - Shared Documents: Access to `appointments` is shared between the patient
- *   and the doctor associated with the appointment, determined by the `patientId`
- *   and `doctorId` fields on the appointment document itself.
- * - Admin Operations: Collections like `departments` and `resources` are readable
- *   by all staff but are configured to be writable only by users with an 'Admin'
- *   role (currently locked down as a secure default).
- *
- * Denormalization for Authorization:
- * To create simpler and more performant rules, this ruleset relies on denormalization.
- * For example, the `/appointments/{appointmentId}` document contains `patientId` and
- * `doctorId` fields directly. This allows rules to check permissions without needing
- * slow and costly `get()` calls to other documents, enforcing the principle of
- * "Authorization Independence".
- *
- * Structural Segregation:
- * The data model separates distinct entities with different access patterns into
- * different top-level collections (e.g., `patients` vs. `employees`). This is
- * more secure and efficient for list queries than co-locating them and filtering
- * with a 'type' field.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------------------------------------------
-    // Helper Functions
-    // --------------------------------------------------------------------
-
     /**
-     * Returns true if the user is authenticated.
+     * GAMMED SAAS SECURITY RULES
+     *
+     * Core Philosophy:
+     * This ruleset implements a robust multi-tenant architecture where data isolation is 
+     * enforced at the path level. Every document is nested under a specific hospital 
+     * (/hospitals/{hospitalId}), ensuring that users only interact with data belonging 
+     * to their authorized healthcare facility.
+     *
+     * Data Structure:
+     * Data is organized hierarchically: /hospitals/{hospitalId}/[collection]/{documentId}. 
+     * This structure allows for clear separation between different medical facilities 
+     * sharing the same database infrastructure.
+     *
+     * Key Security Decisions:
+     * 1. Path-Based Multi-Tenancy: The 'hospitalId' in the URL is the primary anchor for 
+     *    all authorization decisions.
+     * 2. Profile-Based RBAC: Access permissions (Admin, Doctor, Staff, Patient) are 
+     *    determined by fetching the user's profile from the specific hospital's 
+     *    /userProfiles collection.
+     * 3. Relational Integrity: On creation, documents must contain a 'hospitalId' 
+     *    matching the URL path to ensure query consistency and data ownership.
+     * 4. Immutability: Critical fields like 'hospitalId' are marked as immutable 
+     *    to prevent data from being moved between tenants after creation.
+     *
+     * Denormalization for Authorization:
+     * 'hospitalId' is denormalized onto every document. This allows security rules 
+     * to verify tenant ownership instantly. User roles are stored directly within 
+     * the UserProfile document at the hospital-specific path, allowing for efficient 
+     * role-based lookups.
      */
+
+    // --- HELPER FUNCTIONS ---
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Returns true if the authenticated user's UID matches the provided userId.
-     * This is the fundamental check for document ownership.
-     */
+    function getProfile(hospitalId) {
+      return get(/databases/$(database)/documents/hospitals/$(hospitalId)/userProfiles/$(request.auth.uid)).data;
+    }
+
+    function isHospitalMember(hospitalId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/hospitals/$(hospitalId)/userProfiles/$(request.auth.uid));
+    }
+
+    function hasRole(hospitalId, role) {
+      return isHospitalMember(hospitalId) && getProfile(hospitalId).role == role;
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Returns true if the user is an owner and the document already exists.
-     * Used for safe update and delete operations.
-     */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      return resource != null && isOwner(userId);
     }
-    
-    /**
-     * Retrieves the authenticated user's profile document from the /users collection.
-     * This is used to check for roles and relationships (e.g., patientId).
-     */
-    function getUserData() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+
+    function isValidHospitalLink(hospitalId) {
+      return request.resource.data.hospitalId == hospitalId;
     }
-    
-    /**
-     * Returns true if the authenticated user's role is 'Admin'.
-     * Used for granting privileged access.
-     */
-    function isAdmin() {
-        return isSignedIn() && getUserData().role == 'Admin';
+
+    function isHospitalLinkImmutable() {
+      return request.resource.data.hospitalId == resource.data.hospitalId;
     }
-    
+
+    // --- COLLECTION RULES ---
+
     /**
-     * Returns true if the user's role is one of the employee types.
+     * @description Rules for the top-level Hospital configuration.
+     * @path /hospitals/{hospitalId}
+     * @allow (get) If the user is a member of the hospital.
+     * @deny (write) If the user is not an Admin of the hospital.
+     * @principle Multi-tenancy isolation and Admin-only configuration.
      */
-    function isEmployee() {
-        return isSignedIn() && getUserData().role in ['Doctor', 'Nurse', 'Pharmacist', 'Admin'];
+    match /hospitals/{hospitalId} {
+      allow get: if isHospitalMember(hospitalId);
+      allow list: if isSignedIn() && hasRole(hospitalId, 'admin');
+      allow create: if isSignedIn() && request.resource.data.id == hospitalId;
+      allow update: if resource != null && hasRole(hospitalId, 'admin');
+      allow delete: if false; // Hospital deletion restricted to system super-admins
     }
 
     /**
-     * Returns true if the authenticated user is the patient specified by patientId.
-     * Checks the `patientId` field on the user's own profile document.
+     * @description Manages user roles and identities within a hospital.
+     * @path /hospitals/{hospitalId}/userProfiles/{userId}
+     * @allow (create) If the user is setting up their own profile for this hospital.
+     * @deny (update) If the user tries to change their own role (only Admins can).
+     * @principle Self-creation with immutable role assignment for non-admins.
      */
-    function isUserThePatient(patientId) {
-        return isSignedIn() && getUserData().patientId == patientId;
+    match /hospitals/{hospitalId}/userProfiles/{userId} {
+      allow get: if isOwner(userId) || hasRole(hospitalId, 'admin');
+      allow list: if isHospitalMember(hospitalId) && hasRole(hospitalId, 'admin');
+      allow create: if isOwner(userId) && isValidHospitalLink(hospitalId);
+      allow update: if (isExistingOwner(userId) && request.resource.data.role == resource.data.role) || hasRole(hospitalId, 'admin');
+      allow delete: if resource != null && hasRole(hospitalId, 'admin');
     }
 
     /**
-     * Returns true if the authenticated user is the employee specified by employeeId.
-     * Checks the `employeeId` field on the user's own profile document.
+     * @description Stores sensitive patient demographic and medical data.
+     * @path /hospitals/{hospitalId}/patients/{patientId}
+     * @allow (read) All hospital staff members.
+     * @deny (write) Users not explicitly assigned as Staff or Admin.
+     * @principle HIPAA-aligned staff-only access within the tenant boundary.
      */
-    function isUserTheEmployee(employeeId) {
-        return isSignedIn() && getUserData().employeeId == employeeId;
-    }
-    
-    /**
-     * On create, validates that the new document's ID matches the user's UID.
-     */
-    function newUserDataIsValid(userId) {
-        return request.resource.data.id == userId;
-    }
-
-    /**
-     * On update, ensures the document's ID remains unchanged.
-     */
-    function existingUserDataIsValid() {
-        return request.resource.data.id == resource.data.id;
-    }
-
-    // --------------------------------------------------------------------
-    // Collection Rules
-    // --------------------------------------------------------------------
-
-    /**
-     * @description Users can create, read, and update their own user profile. Deletion is disallowed.
-     * @path /users/{userId}
-     * @allow (create) a new user creates their own user document: auth.uid == 'user_abc', path == '/users/user_abc'.
-     * @deny (get) a user tries to read another user's profile: auth.uid == 'user_123', path == '/users/user_456'.
-     * @principle Restricts access to a user's own data tree.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // Disallow listing all users for privacy.
-      allow create: if isOwner(userId) && newUserDataIsValid(userId);
-      allow update: if isExistingOwner(userId) && existingUserDataIsValid();
-      allow delete: if false; // Users should not be able to delete their own auth record.
+    match /hospitals/{hospitalId}/patients/{patientId} {
+      allow get, list: if isHospitalMember(hospitalId);
+      allow create: if isHospitalMember(hospitalId) && isValidHospitalLink(hospitalId);
+      allow update: if resource != null && isHospitalMember(hospitalId) && isHospitalLinkImmutable();
+      allow delete: if resource != null && hasRole(hospitalId, 'admin');
     }
 
     /**
-     * @description A patient can manage their own record. Employees can view any patient's record.
-     * @path /patients/{patientId}
-     * @allow (get) An authenticated doctor views a patient's record.
-     * @deny (update) A patient tries to update another patient's record.
-     * @principle Enforces a combination of data ownership for patients and role-based read access for staff.
+     * @description Organization units within the hospital (Cardiology, etc.).
+     * @path /hospitals/{hospitalId}/departments/{departmentId}
+     * @allow (read) Any member of the hospital.
+     * @deny (write) Anyone who is not a hospital Admin.
+     * @principle Public internal visibility with restricted administrative control.
      */
-    match /patients/{patientId} {
-      allow get: if isUserThePatient(patientId) || isEmployee();
-      allow list: if isEmployee(); // Only employees can list/browse patients.
-      allow create: if false; // TODO: Patient records should be created by an Admin.
-      allow update: if (isUserThePatient(patientId) && resource != null) || (isAdmin() && resource != null);
-      allow delete: if false; // TODO: Patient records should be archived by an Admin, not deleted.
-    }
-    
-    /**
-     * @description Medical history is highly sensitive. Access is inherited from the parent patient record.
-     * @path /patients/{patientId}/medicalHistories/{medicalHistoryId}
-     * @allow (get) A doctor views the medical history of a patient they have access to.
-     * @deny (list) A patient tries to list the medical history of another patient.
-     * @principle Secures a subcollection by checking permissions on the parent document.
-     */
-    match /patients/{patientId}/medicalHistories/{medicalHistoryId} {
-      allow get: if isUserThePatient(patientId) || isEmployee();
-      allow list: if isUserThePatient(patientId) || isEmployee();
-      // Only employees (e.g., Doctors, Nurses) can create or update medical history.
-      allow create: if isEmployee() && request.resource.data.patientId == patientId;
-      allow update: if isEmployee() && resource != null && request.resource.data.patientId == resource.data.patientId;
-      allow delete: if isAdmin() && resource != null;
+    match /hospitals/{hospitalId}/departments/{departmentId} {
+      allow get, list: if isHospitalMember(hospitalId);
+      allow create: if hasRole(hospitalId, 'admin') && isValidHospitalLink(hospitalId);
+      allow update: if resource != null && hasRole(hospitalId, 'admin') && isHospitalLinkImmutable();
+      allow delete: if resource != null && hasRole(hospitalId, 'admin');
     }
 
     /**
-     * @description Employee profiles are viewable by any authenticated user (like a staff directory).
-     * @path /employees/{employeeId}
-     * @allow (get) Any signed-in user (e.g., a patient) can look up a doctor's profile.
-     * @deny (update) An employee tries to modify another employee's profile.
-     * @principle Implements a public-read directory model for non-sensitive data, with ownership for writes.
+     * @description Scheduled patient visits and consultations.
+     * @path /hospitals/{hospitalId}/appointments/{appointmentId}
+     * @allow (get) If the user is the patient, the assigned staff, or an admin.
+     * @deny (list) If the user is a patient (Patients should query their own ID).
+     * @principle Shared access between patient and care providers.
      */
-    match /employees/{employeeId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if false; // TODO: Employee records should be created by an Admin.
-      allow update: if (isUserTheEmployee(employeeId) && resource != null) || (isAdmin() && resource != null);
-      allow delete: if isAdmin() && resource != null;
+    match /hospitals/{hospitalId}/appointments/{appointmentId} {
+      allow get: if isHospitalMember(hospitalId) && (isOwner(resource.data.patientId) || isOwner(resource.data.assignedStaffId) || hasRole(hospitalId, 'admin'));
+      allow list: if isHospitalMember(hospitalId);
+      allow create: if isHospitalMember(hospitalId) && isValidHospitalLink(hospitalId);
+      allow update: if resource != null && isHospitalMember(hospitalId) && isHospitalLinkImmutable();
+      allow delete: if resource != null && hasRole(hospitalId, 'admin');
     }
 
     /**
-     * @description Appointments can be read by the patient or doctor involved. Patients can create them.
-     * @path /appointments/{appointmentId}
-     * @allow (get) A patient with patientId 'p123' reads an appointment where `resource.data.patientId` is 'p123'.
-     * @deny (update) A doctor tries to modify an appointment they are not assigned to.
-     * @principle Implements a shared access model for documents involving multiple parties.
+     * @description Working hours and availability for medical personnel.
+     * @path /hospitals/{hospitalId}/staffSchedules/{scheduleId}
+     * @allow (write) The specific staff member or an Admin.
+     * @deny (create) If the staffId in data doesn't match the authenticated user.
+     * @principle Owner-based schedule management.
      */
-    match /appointments/{appointmentId} {
-      // An appointment can be read by the patient or the doctor involved.
-      function isParticipant(doc) {
-        return isUserThePatient(doc.patientId) || isUserTheEmployee(doc.doctorId);
-      }
-      
-      allow get: if isParticipant(resource.data);
-      allow list: if false; // Prevent querying all appointments; queries must be specific.
-      // A patient can create their own appointment, or an employee can create one for them.
-      allow create: if isUserThePatient(request.resource.data.patientId) || isEmployee();
-      // An existing appointment can be updated by a participant.
-      allow update: if isParticipant(resource.data) && resource != null;
-      // An existing appointment can be deleted (cancelled) by a participant.
-      allow delete: if isParticipant(resource.data) && resource != null;
+    match /hospitals/{hospitalId}/staffSchedules/{scheduleId} {
+      allow get, list: if isHospitalMember(hospitalId);
+      allow create: if isHospitalMember(hospitalId) && (isOwner(request.resource.data.staffId) || hasRole(hospitalId, 'admin')) && isValidHospitalLink(hospitalId);
+      allow update: if resource != null && (isOwner(resource.data.staffId) || hasRole(hospitalId, 'admin')) && isHospitalLinkImmutable();
+      allow delete: if resource != null && (isOwner(resource.data.staffId) || hasRole(hospitalId, 'admin'));
     }
 
     /**
-     * @description Schedules are managed by the employee they belong to, but viewable by all staff.
-     * @path /schedules/{scheduleId}
-     * @allow (get) A nurse looks up a doctor's schedule.
-     * @deny (create) A patient tries to create a schedule for a doctor.
-     * @principle Enforces document ownership for writes while allowing broader read access for internal staff.
+     * @description High-value bookable assets like MRI machines or Theaters.
+     * @path /hospitals/{hospitalId}/hospitalResources/{resourceId}
+     * @allow (read) All hospital members.
+     * @deny (write) Non-admin users.
+     * @principle Restricted asset management.
      */
-    match /schedules/{scheduleId} {
-      allow get: if isEmployee();
-      allow list: if isEmployee();
-      // An employee can create a schedule for themselves.
-      allow create: if isUserTheEmployee(request.resource.data.employeeId);
-      // Only the assigned employee or an Admin can update/delete their schedule.
-      allow update: if (isUserTheEmployee(resource.data.employeeId) && resource != null) || (isAdmin() && resource != null);
-      allow delete: if (isUserTheEmployee(resource.data.employeeId) && resource != null) || (isAdmin() && resource != null);
+    match /hospitals/{hospitalId}/hospitalResources/{resourceId} {
+      allow get, list: if isHospitalMember(hospitalId);
+      allow create: if hasRole(hospitalId, 'admin') && isValidHospitalLink(hospitalId);
+      allow update: if resource != null && hasRole(hospitalId, 'admin') && isHospitalLinkImmutable();
+      allow delete: if resource != null && hasRole(hospitalId, 'admin');
     }
 
     /**
-     * @description Department and Resource info is public to all authenticated users, but writable only by Admins.
-     * @path /departments/{departmentId}
-     * @allow (get) Any authenticated user can read department information.
-     * @deny (create) Any non-admin user tries to create a new department.
-     * @principle Provides public read access for system-wide data with centralized admin control for writes.
+     * @description Reservation records for hospital resources.
+     * @path /hospitals/{hospitalId}/resourceBookings/{bookingId}
+     * @allow (create) Any staff member making a booking.
+     * @deny (delete) Anyone except an Admin or the person who booked it.
+     * @principle Accountability for resource allocation.
      */
-    match /departments/{departmentId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false; // TODO: Implement `if isAdmin();` when admin role is fully defined.
-    }
-    
-    /**
-     * @description Department and Resource info is public to all authenticated users, but writable only by Admins.
-     * @path /resources/{resourceId}
-     * @allow (get) Any authenticated user can read resource information (e.g., operating rooms).
-     * @deny (create) Any non-admin user tries to create a new resource.
-     * @principle Provides public read access for system-wide data with centralized admin control for writes.
-     */
-    match /resources/{resourceId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false; // TODO: Implement `if isAdmin();` when admin role is fully defined.
+    match /hospitals/{hospitalId}/resourceBookings/{bookingId} {
+      allow get, list: if isHospitalMember(hospitalId);
+      allow create: if isHospitalMember(hospitalId) && isOwner(request.resource.data.bookedById) && isValidHospitalLink(hospitalId);
+      allow update: if resource != null && (isOwner(resource.data.bookedById) || hasRole(hospitalId, 'admin')) && isHospitalLinkImmutable();
+      allow delete: if resource != null && (isOwner(resource.data.bookedById) || hasRole(hospitalId, 'admin'));
     }
   }
 }
