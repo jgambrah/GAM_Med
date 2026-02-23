@@ -47,10 +47,13 @@ export default function AppointmentsPage() {
     const [selectedDate, setSelectedDate] = React.useState('');
 
     React.useEffect(() => {
-        let baseAppointments = allAppointments;
+        if (!user) return;
 
-        if (user?.role === 'patient') {
-            baseAppointments = allAppointments.filter(appt => appt.patient_id === user.patient_id);
+        // SaaS LOGIC: Always filter by hospitalId first
+        let baseAppointments = allAppointments.filter(appt => appt.hospitalId === user.hospitalId);
+
+        if (user.role === 'patient') {
+            baseAppointments = baseAppointments.filter(appt => appt.patient_id === user.patient_id);
         }
 
         const filteredBySearch = baseAppointments.filter(appt => 
@@ -71,7 +74,6 @@ export default function AppointmentsPage() {
     }, [searchQuery, user, selectedDepartment, selectedDate, allAppointments]);
 
     const handleAppointmentBooked = (newAppointment: Appointment) => {
-        // This function is now passed to the dialog to update the state here
         setAllAppointments(prev => [newAppointment, ...prev]);
     }
 

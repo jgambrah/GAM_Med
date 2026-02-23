@@ -15,13 +15,18 @@ import { AddBedDialog } from './components/add-bed-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Bed } from '@/lib/types';
 import { allBeds } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function BedManagementPage() {
-  const [beds, setBeds] = useLocalStorage<Bed[]>('beds', allBeds);
+  const { user } = useAuth();
+  const [storedBeds, setStoredBeds] = useLocalStorage<Bed[]>('beds', allBeds);
 
   const handleBedCreated = (newBed: Bed) => {
-    setBeds(prev => [...prev, newBed]);
+    setStoredBeds(prev => [...prev, newBed]);
   }
+
+  // SaaS LOGIC: Filter by hospitalId
+  const hospitalBeds = storedBeds.filter(b => b.hospitalId === user?.hospitalId);
 
   return (
     <div className="space-y-6">
@@ -41,11 +46,11 @@ export default function BedManagementPage() {
         <CardHeader>
           <CardTitle>Bed Status Dashboard</CardTitle>
           <CardDescription>
-            A visual grid of all beds, organized by ward.
+            A visual grid of all beds for your hospital, organized by ward.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <BedStatusGrid />
+          <BedStatusGrid beds={hospitalBeds} />
         </CardContent>
       </Card>
     </div>

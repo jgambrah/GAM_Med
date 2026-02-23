@@ -22,6 +22,7 @@ import { FulfillRequestDialog } from './fulfill-request-dialog';
 import { updateLabOrderStatus, analyzeSample } from '@/lib/actions';
 import { ValidateResultDialog } from './validate-result-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 const getStatusVariant = (status: LabResult['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -37,7 +38,7 @@ const getStatusVariant = (status: LabResult['status']): "default" | "secondary" 
 interface LabQueueTableProps {
   requests: LabResult[];
   onStatusChange: (testId: string, newStatus: LabResult['status']) => void;
-  userRole: 'lab_technician' | 'lab_supervisor' | 'doctor';
+  userRole: string;
 }
 
 function LabQueueTable({ requests, onStatusChange, userRole }: LabQueueTableProps) {
@@ -123,23 +124,22 @@ function LabQueueTable({ requests, onStatusChange, userRole }: LabQueueTableProp
 }
 
 
-/**
- * == Conceptual UI: Lab Technician's Work Queue ==
- * This component is the primary interface for lab staff. It provides a centralized view
- * of all lab test requests, allowing technicians to manage their workflow efficiently.
- */
 export function LabWorkQueue() {
+  const { user } = useAuth();
   const [labRequests, setLabRequests] = useLocalStorage<LabResult[]>('labResults', mockLabResults);
-  const userRole = 'lab_supervisor'; // Mock role for demonstration
+  const userRole = 'lab_supervisor'; 
 
   const handleStatusChange = (testId: string, newStatus: LabResult['status']) => {
       setLabRequests(prev => prev.map(req => req.testId === testId ? { ...req, status: newStatus } : req));
   }
   
-  const orderedRequests = labRequests.filter(lr => lr.status === 'Ordered');
-  const inProgressRequests = labRequests.filter(lr => lr.status === 'In Progress');
-  const draftRequests = labRequests.filter(lr => lr.status === 'Draft');
-  const completedRequests = labRequests.filter(lr => lr.status === 'Completed' || lr.status === 'Validated');
+  // SaaS LOGIC: Filter by hospitalId
+  const hospitalRequests = labRequests.filter(lr => lr.hospitalId === user?.hospitalId);
+
+  const orderedRequests = hospitalRequests.filter(lr => lr.status === 'Ordered');
+  const inProgressRequests = hospitalRequests.filter(lr => lr.status === 'In Progress');
+  const draftRequests = hospitalRequests.filter(lr => lr.status === 'Draft');
+  const completedRequests = hospitalRequests.filter(lr => lr.status === 'Completed' || lr.status === 'Validated');
 
   return (
     <Tabs defaultValue="new-requests">

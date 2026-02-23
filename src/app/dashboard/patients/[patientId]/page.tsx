@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -63,7 +62,6 @@ export default function PatientDetailPage() {
   const [carePlans, setCarePlans, isLoadingCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const [radiologyOrders, setRadiologyOrders, isLoadingRadOrders] = useLocalStorage<RadiologyOrder[]>('radiologyOrders', initialRadiologyOrders);
   const [labResults, setLabResults, isLoadingLabResults] = useLocalStorage<LabResult[]>('labResults', initialLabResults);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const isLoading = isLoadingPatients || isLoadingAdmissions || isLoadingBeds || isLoadingNotes || isLoadingCarePlans || isLoadingRadOrders || isLoadingLabResults;
 
@@ -84,7 +82,8 @@ export default function PatientDetailPage() {
 
   const patient = allPatients.find((p) => p.patient_id === patientId);
 
-  if (!patient) {
+  // SaaS LOGIC: Prevent cross-tenant access
+  if (!patient || (user && patient.hospitalId !== user.hospitalId)) {
     notFound();
   }
 
@@ -99,14 +98,7 @@ export default function PatientDetailPage() {
   const hasClinicalPrivileges = user && (user.role === 'admin' || user.role === 'doctor' || user.role === 'nurse');
   const isDoctor = user && user.role === 'doctor';
 
-  const handleJoinCall = (link: string) => {
-    toast.info("Joining virtual call...", { description: `Redirecting to ${link}`});
-    window.open(link, '_blank');
-  }
-
   const handleDischargeComplete = () => {
-    const now = new Date().toISOString();
-    // This is a simulation. A real app would update a central state store or re-fetch.
     toast.info("Simulating patient discharge...");
   };
   
@@ -178,17 +170,17 @@ export default function PatientDetailPage() {
                     <h3 className="text-sm font-semibold mr-4">Management</h3>
                     <AllocateBedDialog 
                         patientId={patient.patient_id}
-                        disabled={patient.is_admitted || isSubmitting} 
+                        disabled={patient.is_admitted} 
                     />
                     <TransferPatientDialog 
                         patient={patient} 
                         currentBedId={currentAdmission?.bed_id}
-                        disabled={isSubmitting || !patient.is_admitted} 
+                        disabled={!patient.is_admitted} 
                     />
                     <DischargePatientDialog 
                         patient={patient}
                         clinicalNotes={clinicalNotes.filter(note => note.patientId === patientId)}
-                        disabled={isSubmitting || !patient.is_admitted}
+                        disabled={!patient.is_admitted}
                         onDischargeComplete={handleDischargeComplete}
                     />
             </div>

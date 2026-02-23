@@ -62,7 +62,6 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
     const [selectedBatchNumber, setSelectedBatchNumber] = React.useState<string | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    // New state for safety checks
     const [isChecking, setIsChecking] = React.useState(true);
     const [alerts, setAlerts] = React.useState<Alert[]>([]);
     const [isAcknowledged, setIsAcknowledged] = React.useState(false);
@@ -83,7 +82,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
 
             setIsChecking(true);
             setAlerts([]);
-            setIsAcknowledged(false); // Reset acknowledgment on open
+            setIsAcknowledged(false);
             
             const result = await checkPrescriptionSafety(prescription.patientId, medication.name);
             if (result.success && result.alerts) {
@@ -112,8 +111,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
             setInventoryItem(null);
             setSelectedBatchNumber(undefined);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, prescription]);
+    }, [open, prescription, medication.name]);
     
     const selectedBatch = usableBatches.find(b => b.batchNumber === selectedBatchNumber);
     const hasEnoughStock = selectedBatch ? selectedBatch.currentQuantity >= dispensedQuantity : false;
@@ -126,6 +124,7 @@ function DispenseDialog({ prescription, onDispense }: DispenseDialogProps) {
         setIsSubmitting(true);
         
         await updateInventory({
+            hospitalId: user.hospitalId,
             itemId: inventoryItem.itemId,
             quantityChange: -dispensedQuantity,
             type: 'Dispense',
@@ -281,9 +280,11 @@ const getStatusVariant = (status: Prescription['status']): "default" | "secondar
 
 export function PharmacyWorkQueue({ onDispense }: { onDispense: () => void }) {
   const { user } = useAuth();
-  // In a real app, this would be a real-time Firestore query on the top-level 'prescriptions' collection
-  // where status is 'Pending Pharmacy' or similar.
-  const pendingPrescriptions = mockPrescriptions.filter(p => p.status === 'Pending');
+  
+  // SaaS LOGIC: Filter by hospitalId
+  const pendingPrescriptions = mockPrescriptions.filter(p => 
+    p.status === 'Pending' && p.hospitalId === user?.hospitalId
+  );
 
   const isPharmacist = user?.role === 'pharmacist';
 

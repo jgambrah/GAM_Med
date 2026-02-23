@@ -1,16 +1,11 @@
 
 'use client';
 
-import { allBeds as initialBeds } from '@/lib/data';
 import { Bed } from '@/lib/types';
 import { BedCard } from './bed-card';
 import { useMemo } from 'react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 
-
-export function BedStatusGrid() {
-  const [beds] = useLocalStorage<Bed[]>('beds', initialBeds);
-
+export function BedStatusGrid({ beds }: { beds: Bed[] }) {
   const bedsByWard = useMemo(() => {
     return beds.reduce((acc, bed) => {
       const ward = bed.wardName;

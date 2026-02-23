@@ -16,24 +16,30 @@ import { Input } from '@/components/ui/input';
 import { Patient } from '@/lib/types';
 import { allPatients } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function PatientsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [storedPatients, setStoredPatients] = useLocalStorage<Patient[]>('patients', allPatients);
-  const [filteredPatients, setFilteredPatients] = React.useState<Patient[]>(storedPatients);
+  const [filteredPatients, setFilteredPatients] = React.useState<Patient[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleSearch = useDebouncedCallback((query: string) => {
+    if (!user) return;
+    
     setIsLoading(true);
     setError(null);
     
-    // For local search, we filter the storedPatients array
+    // SaaS LOGIC: Always filter by hospitalId first
+    const hospitalPatients = storedPatients.filter(p => p.hospitalId === user.hospitalId);
+    
     if (!query) {
-      setFilteredPatients(storedPatients);
+      setFilteredPatients(hospitalPatients);
     } else {
       const lowercasedQuery = query.toLowerCase();
-      const filtered = storedPatients.filter(
+      const filtered = hospitalPatients.filter(
         (patient) =>
           patient.full_name.toLowerCase().includes(lowercasedQuery) ||
           patient.patient_id.toLowerCase().includes(lowercasedQuery) ||
@@ -50,12 +56,13 @@ export default function PatientsPage() {
     handleSearch(e.target.value);
   };
 
-  // Effect to update filtered list when storedPatients changes
+  // Effect to update filtered list when storedPatients or user changes
   React.useEffect(() => {
-    setFilteredPatients(storedPatients);
-    handleSearch(searchQuery);
+    if (user) {
+        handleSearch(searchQuery);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storedPatients]);
+  }, [storedPatients, user]);
   
   const handlePatientAdded = (newPatient: Patient) => {
     setStoredPatients(prev => [newPatient, ...prev]);
@@ -66,7 +73,6 @@ export default function PatientsPage() {
   }
   
   const handlePatientUpdated = () => {
-    // This is primarily for edits, which we'll handle by re-reading from storage
     const updatedPatients = JSON.parse(localStorage.getItem('patients') || '[]');
     setStoredPatients(updatedPatients);
   }
