@@ -23,6 +23,11 @@ export const PatientSchema = z.object({
     relationship: z.string().min(2),
     phone: z.string().min(10),
   }),
+  insurance: z.object({
+    providerName: z.string().optional(),
+    policyNumber: z.string().optional(),
+    expiryDate: z.string().optional(),
+  }).optional(),
   consent: z.boolean().refine(val => val === true, {
     message: "Consent is required.",
   }),
@@ -54,6 +59,7 @@ export const NewPrescriptionSchema = z.object({
   frequency: z.string().min(2),
   route: z.string().min(2),
   quantity: z.coerce.number().min(1),
+  instructions: z.string().optional(),
 });
 
 export const NewDiagnosisSchema = z.object({
@@ -66,11 +72,13 @@ export const NewDiagnosisSchema = z.object({
 export const NewLabOrderSchema = z.object({
   hospitalId: z.string().min(1),
   testName: z.string().min(3),
+  notes: z.string().optional(),
 });
 
 export const NewRadOrderSchema = z.object({
   hospitalId: z.string().min(1),
   studyIds: z.array(z.string()).min(1),
+  notes: z.string().optional(),
 });
 
 export const LogImmunizationSchema = z.object({
@@ -78,6 +86,7 @@ export const LogImmunizationSchema = z.object({
   vaccineId: z.string().min(1),
   doseNumber: z.coerce.number().min(1),
   administeredAt: z.string(),
+  notes: z.string().optional(),
 });
 
 export const LeaveRequestSchema = z.object({
@@ -86,6 +95,7 @@ export const LeaveRequestSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   reason: z.string().min(10),
+  attachment: z.any().optional(),
 });
 
 export const NewLedgerEntrySchema = z.object({
@@ -94,6 +104,8 @@ export const NewLedgerEntrySchema = z.object({
   creditAccountId: z.string().min(1),
   amount: z.coerce.number().min(0.01),
   description: z.string().min(3),
+  paymentMethod: z.enum(['Cheque', 'Bank Transfer']),
+  chequeNumber: z.string().optional(),
 });
 
 export const NewStaffClaimSchema = z.object({
@@ -101,6 +113,7 @@ export const NewStaffClaimSchema = z.object({
   amount: z.coerce.number().min(0.01),
   description: z.string().min(10),
   expenseAccountId: z.string().min(1),
+  attachment: z.any().optional(),
 });
 
 export const NewAssetSchema = z.object({
@@ -110,6 +123,11 @@ export const NewAssetSchema = z.object({
   department: z.string().min(1),
   location: z.string().min(1),
   status: z.enum(['Operational', 'Under Maintenance', 'Needs Repair', 'Decommissioned']),
+  modelNumber: z.string().optional(),
+  serialNumber: z.string().optional(),
+  purchaseDate: z.string().optional(),
+  purchaseCost: z.coerce.number().optional(),
+  warrantyEndDate: z.string().optional(),
 });
 
 export const UpdateInventorySchema = z.object({
@@ -117,6 +135,10 @@ export const UpdateInventorySchema = z.object({
   itemId: z.string().min(1),
   quantityChange: z.number(),
   type: z.enum(['Dispense', 'Restock', 'Waste', 'Adjustment']),
+  userId: z.string(),
+  reason: z.string(),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
 });
 
 export const NewSupplierSchema = z.object({
@@ -152,6 +174,7 @@ export const LedgerAccountSchema = z.object({
   accountName: z.string(),
   accountCode: z.string(),
   accountType: z.enum(['Asset', 'Liability', 'Equity', 'Revenue', 'Expense']),
+  parentAccountId: z.string().nullable(),
 });
 
 export const RadiologyReportSchema = z.object({
@@ -163,6 +186,7 @@ export const RadiologyReportSchema = z.object({
 export const FulfillLabRequestSchema = z.object({
     hospitalId: z.string().min(1),
     result: z.string().min(5),
+    attachment: z.any().optional(),
 });
 
 export const ValidateLabResultSchema = z.object({
@@ -177,6 +201,8 @@ export const VitalsSchema = z.object({
     temperature: z.string().min(1),
     respiratoryRate: z.string().min(1),
     oxygenSaturation: z.string().min(1),
+    painScore: z.string().optional(),
+    notes: z.string().optional(),
 });
 
 export const CarePlanSchema = z.object({
@@ -191,12 +217,22 @@ export const NewWaitingListSchema = z.object({
   patientId: z.string().min(1),
   requestedService: z.string().min(3),
   priority: z.enum(['Routine', 'Urgent', 'Elective']),
+  notes: z.string().optional(),
 });
 
 export const PaymentSchema = z.object({
   hospitalId: z.string().min(1),
   amount: z.number(),
   paymentMethod: z.enum(['Mobile Money', 'Credit Card']),
+  mobileMoneyDetails: z.object({
+    provider: z.string(),
+    phone: z.string(),
+  }).optional(),
+  cardDetails: z.object({
+    number: z.string(),
+    expiry: z.string(),
+    cvc: z.string(),
+  }).optional(),
 });
 
 export const ControlledSubstanceTransactionSchema = z.object({
@@ -204,6 +240,8 @@ export const ControlledSubstanceTransactionSchema = z.object({
     transactionType: z.enum(['Dispense', 'Restock', 'Waste', 'Adjustment']),
     quantity: z.number(),
     reason: z.string().min(5),
+    patientId: z.string().optional(),
+    witnessId: z.string().optional(),
 });
 
 export const NewGoalSchema = z.object({
@@ -230,6 +268,7 @@ export const CertificationSchema = z.object({
     name: z.string(),
     issuingBody: z.string(),
     issueDate: z.string(),
+    expiryDate: z.string().optional(),
 });
 
 export const LicenseSchema = z.object({

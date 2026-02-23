@@ -90,7 +90,23 @@ service cloud.firestore {
     }
 
     /**
-     * @description Generic rule for other shared collections (beds, schedules, etc.)
+     * @description Beds are isolated by hospitalId.
+     */
+    match /beds/{bedId} {
+      allow read: if isEmployee() && isSameHospital(resource.data);
+      allow write: if isEmployee() && isSameHospital(request.resource.data);
+    }
+
+    /**
+     * @description Admissions are isolated by hospitalId.
+     */
+    match /admissions/{admissionId} {
+      allow read: if isEmployee() && isSameHospital(resource.data);
+      allow write: if isEmployee() && isSameHospital(request.resource.data);
+    }
+
+    /**
+     * @description Generic rule for other shared collections (schedules, etc.)
      */
     match /{collection}/{docId} {
       allow read, write: if isEmployee() && 

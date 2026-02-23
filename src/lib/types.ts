@@ -164,7 +164,6 @@ export interface Referral {
   updated_at: string;
 }
 
-// ... Additional types would also have hospitalId appended ...
 export interface LabResult {
   testId: string;
   hospitalId: string; // Tenant ID
@@ -231,9 +230,17 @@ export interface Invoice {
   dueDate: string;
   billedItems: any[];
   subtotal: number;
+  vatOption: string;
+  vat: number;
+  nhia: number;
+  getfund: number;
+  covidLevy: number;
+  totalTax: number;
   grandTotal: number;
   amountDue: number;
   status: string;
+  invoicePdfUrl?: string;
+  receipts?: Receipt[];
 }
 
 export interface AuditLog {
@@ -248,6 +255,7 @@ export interface AuditLog {
 export interface Qualification { degree: string; institution: string; graduationYear: number; }
 export interface Certification { name: string; issuingBody: string; issueDate: string; expiryDate?: string; }
 export interface License { type: string; licenseNumber: string; expiryDate: string; }
+
 export interface Asset {
   assetId: string;
   hospitalId: string;
@@ -255,38 +263,342 @@ export interface Asset {
   type: string;
   department: string;
   location: string;
-  status: string;
+  status: 'Operational' | 'Under Maintenance' | 'Needs Repair' | 'Decommissioned';
   isBookable: boolean;
   modality?: string;
+  modelNumber?: string;
+  serialNumber?: string;
   purchaseDate?: string;
   purchaseCost?: number;
   currentBookValue?: number;
   warrantyEndDate?: string;
-  maintenanceSchedule?: any[];
+  maintenanceSchedule?: {
+    type: string;
+    frequency: 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Annually';
+    lastServiceDate: string;
+    nextServiceDate: string;
+  }[];
 }
+
+export interface ResourceBooking {
+  bookingId: string;
+  hospitalId: string;
+  resourceId: string;
+  bookedByUserId: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
+  status: string;
+  relatedAppointmentId?: string;
+}
+
 export interface WaitingListEntry {
   waitinglistId: string;
   hospitalId: string;
   patientId: string;
   requestedService: string;
-  priority: string;
+  priority: 'Routine' | 'Urgent' | 'Elective';
   dateAdded: string;
-  status: string;
+  status: 'Active' | 'Scheduled' | 'Canceled';
   notes?: string;
 }
+
 export interface StaffExpenseClaim {
   claimId: string;
   hospitalId: string;
   staffId: string;
   staffName: string;
+  hodId?: string;
   amount: number;
+  netAmount?: number;
+  whtAmount?: number;
   description: string;
   expenseAccountId: string;
   submissionDate: string;
-  approvalStatus: string;
-  paymentStatus: string;
+  approvalStatus: 'Pending HOD' | 'Approved' | 'Rejected';
+  paymentStatus: 'Unpaid' | 'Accrued' | 'Paid';
+  attachmentUrl?: string;
+  rejectionReason?: string;
+  isNetPaid?: boolean;
+  isWhtPosted?: boolean;
+}
+
+export interface LeaveRequest {
+  leaveId: string;
+  hospitalId: string;
+  staffId: string;
+  staffName: string;
+  hodId?: string;
+  leaveType: 'Annual Leave' | 'Sick Leave' | 'Specialist Leave' | 'On-Call Duty';
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+  requestedAt: string;
+  approvedByUserId?: string;
+  approvalDate?: string;
   attachmentUrl?: string;
 }
+
+export interface PayrollRun {
+  runId: string;
+  hospitalId: string;
+  payPeriod: string;
+  payDate: string;
+  status: 'Processing' | 'Review' | 'Completed' | 'Posted';
+  totalGrossPay: number;
+  totalDeductions: number;
+  totalNetPay: number;
+  totalTaxes: number;
+  totalEmployees: number;
+  initiatedByUserId: string;
+  createdAt: string;
+  finalizedByUserId?: string;
+  finalizedAt?: string;
+  postedAt?: string;
+  deductionTotals?: Record<string, number>;
+}
+
+export interface PayrollRecord {
+  recordId: string;
+  hospitalId: string;
+  staffId: string;
+  staffName: string;
+  grossPay: number;
+  netPay: number;
+  taxAmount: number;
+  deductions: Record<string, number>;
+  allowances: Record<string, number>;
+  payslipUrl: string;
+}
+
+export interface StaffProfile {
+  staffId: string;
+  hospitalId: string;
+  firstName: string;
+  lastName: string;
+  positionId: string;
+  department: string;
+  employmentStatus: 'Active' | 'Inactive' | 'On Leave';
+  recurringAllowances: { name: string; amount: number }[];
+  recurringDeductions: { name: string; amount: number }[];
+  leaveBalances?: Record<string, number>;
+  trainingRecords?: { trainingId: string; courseName: string; completionDate: string; provider: string }[];
+  developmentGoals?: DevelopmentGoal[];
+}
+
+export interface DevelopmentGoal {
+  goalId: string;
+  description: string;
+  targetDate: string;
+  status: 'Not Started' | 'In Progress' | 'Completed';
+}
+
+export interface PayrollConfiguration {
+  ssnitEmployeeContribution: number;
+  ssnitEmployerContribution: number;
+  tier2EmployerContribution: number;
+  ssnitCeiling: number;
+  taxBands: { limit: number; rate: number }[];
+}
+
+export interface Allowance {
+  allowanceId: string;
+  hospitalId: string;
+  name: string;
+  isTaxable: boolean;
+}
+
+export interface Deduction {
+  id: string;
+  hospitalId: string;
+  name: string;
+}
+
+export interface Position {
+  positionId: string;
+  hospitalId: string;
+  title: string;
+  baseAnnualSalary: number;
+}
+
+export interface InventoryItem {
+  itemId: string;
+  hospitalId: string;
+  name: string;
+  type: string;
+  reorderLevel: number;
+  currentQuantity: number;
+  batches?: { batchNumber: string; expiryDate: string; currentQuantity: number; dateReceived: string }[];
+}
+
+export interface PurchaseOrder {
+  poId: string;
+  hospitalId: string;
+  dateOrdered: string;
+  status: 'Submitted' | 'Received';
+  orderedByUserId: string;
+  supplierId: string;
+  orderedItems: { itemId: string; name: string; quantity: number; unit_cost: number }[];
+  totalAmount: number;
+}
+
+export interface RequestForQuotation {
+  rfqId: string;
+  hospitalId: string;
+  title: string;
+  dateCreated: string;
+  deadline: string;
+  status: 'Open for Bids' | 'Closed';
+  items: { itemId: string; name: string; quantity: number }[];
+  quotes?: Quote[];
+  activityLog?: { timestamp: string; activity: string }[];
+}
+
+export interface Quote {
+  quoteId: string;
+  supplierId: string;
+  supplierName: string;
+  dateSubmitted: string;
+  totalAmount: number;
+  items?: { itemId: string; unitPrice: number; notes: string }[];
+  status: 'Submitted' | 'Awarded' | 'Not Awarded';
+}
+
+export interface Supplier {
+  supplierId: string;
+  hospitalId: string;
+  name: string;
+  contactInfo: { person: string; email: string; phone: string; address: string };
+  paymentTerms: 'Net 30' | 'Net 60' | 'Cash on Delivery';
+  contractDetails?: { contractNumber: string; startDate: string; endDate: string };
+}
+
+export interface Prescription {
+  prescriptionId: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  datePrescribed: string;
+  status: 'Pending' | 'Dispensed' | 'Canceled';
+  medications: PrescribedMedication[];
+}
+
+export interface PrescribedMedication {
+  medicationId: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  quantity_to_dispense: number;
+}
+
+export interface ControlledSubstance {
+  substanceId: string;
+  hospitalId: string;
+  name: string;
+  strength: string;
+  form: string;
+  totalQuantity: number;
+  unit: string;
+}
+
+export interface ControlledSubstanceLog {
+  logId: string;
+  hospitalId: string;
+  substanceId: string;
+  date: string;
+  transactionType: 'Dispense' | 'Restock' | 'Audit' | 'Waste' | 'Adjustment';
+  quantityChange: number;
+  currentQuantity: number;
+  userId: string;
+  patientId?: string;
+  witnessId?: string;
+  reason: string;
+}
+
+export interface LabTest {
+  testId: string;
+  hospitalId: string;
+  name: string;
+}
+
+export interface SampleAudit {
+  auditId: string;
+  timestamp: string;
+  action: string;
+  location: string;
+  userId: string;
+}
+
+export interface EquipmentLog {
+  logId: string;
+  hospitalId: string;
+  equipmentId: string;
+  timestamp: string;
+  barcodeScanned: string;
+  isProcessed: boolean;
+  error?: string;
+}
+
+export interface LabReport {
+  reportId: string;
+  hospitalId: string;
+  month: string;
+  testVolumes: { testName: string; volume: number }[];
+  turnaroundTimes: { testName: string; avgTAT: number }[];
+  abnormalResultTrends: { testName: string; abnormalPercentage: number }[];
+}
+
+export interface RadiologyStudy {
+  studyId: string;
+  hospitalId: string;
+  name: string;
+}
+
+export interface RadiologyOrder {
+  orderId: string;
+  hospitalId: string;
+  patientId: string;
+  patientName?: string;
+  doctorId: string;
+  dateOrdered: string;
+  studyIds: string[];
+  status: 'Pending Scheduling' | 'Scheduled' | 'Awaiting Report' | 'Completed';
+  scheduledDateTime?: string;
+  clinicalNotes?: string;
+  priority: number;
+  isReported?: boolean;
+}
+
+export interface RadiologyReport {
+  reportId: string;
+  hospitalId: string;
+  orderId: string;
+  patientId: string;
+  radiologistId: string;
+  dateReported: string;
+  reportDetails: { impression: string; findings: string };
+  pacsLink?: string;
+  reportPdfUrl?: string;
+  isFinal: boolean;
+}
+
+export interface OTSession {
+  sessionId: string;
+  hospitalId: string;
+  patientId: string;
+  otRoomId: string;
+  procedureName: string;
+  leadSurgeonName: string;
+  startTime: string;
+  endTime: string;
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Post-Op' | 'Canceled';
+  recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
+  recoveryRoomEntryTime?: string;
+  dischargeFromRecoveryTime?: string;
+}
+
 export interface DietaryProfile {
   profileId: string;
   hospitalId: string;
@@ -295,6 +607,7 @@ export interface DietaryProfile {
   restrictions?: string[];
   preferences?: string[];
 }
+
 export interface MealOrder {
   mealOrderId: string;
   hospitalId: string;
@@ -302,9 +615,9 @@ export interface MealOrder {
   orderDateTime: string;
   mealType: string;
   dietaryPlan: string;
-  mealItems: string[];
-  status: string;
+  status: 'Ordered' | 'Preparing' | 'Delivered' | 'Canceled';
 }
+
 export interface PerformanceReview {
   reviewId: string;
   hospitalId: string;
@@ -314,50 +627,220 @@ export interface PerformanceReview {
   ratingPeriodStart: string;
   ratingPeriodEnd: string;
   overallRating: string;
+  strengths?: string;
+  areasForDevelopment?: string;
+  goalsAchieved?: string[];
+  trainingRecommendations?: string;
+  nextReviewDate?: string;
 }
+
 export interface TrainingCourse {
   courseId: string;
   hospitalId: string;
   courseName: string;
   provider: string;
 }
+
 export interface FacilityZone {
   zoneId: string;
   hospitalId: string;
   name: string;
   managerId?: string;
 }
+
 export interface WorkOrder {
   workOrderId: string;
   hospitalId: string;
   assetId?: string;
+  facilityIssue?: string;
   description: string;
-  priority: string;
-  status: string;
+  priority: 'High' | 'Medium' | 'Low';
+  status: 'Open' | 'Assigned' | 'In Progress' | 'Resolved' | 'Closed';
   dateReported: string;
+  reportedByUserId: string;
 }
+
 export interface SparePart {
   partId: string;
   hospitalId: string;
   name: string;
+  partNumber: string;
   currentQuantity: number;
   reorderLevel: number;
+  location: string;
 }
+
 export interface SparePartLog {
   logId: string;
   hospitalId: string;
   partId: string;
-  transactionType: string;
-  quantityChange: number;
   date: string;
+  transactionType: 'Usage' | 'Restock' | 'Adjustment';
+  quantityChange: number;
+  userId: string;
+  workOrderId?: string;
+  purchaseOrderId?: string;
+  notes: string;
 }
-export interface Meter { meterId: string; hospitalId: string; type: string; unit: string; }
-export interface UtilityConsumption { logId: string; hospitalId: string; date: string; consumption: number; type: string; }
-export interface SecurityIncident { incidentId: string; hospitalId: string; timestamp: string; type: string; status: string; details: string; }
-export interface HousekeepingTask { taskId: string; hospitalId: string; type: string; location: string; status: string; dateCreated: string; }
-export interface DepreciationRecord { recordId: string; hospitalId: string; assetId: string; dateCalculated: string; bookValue: number; }
-export interface InfectionReport { reportId: string; hospitalId: string; month: string; ratePer1000Days: number; }
-export interface EfficacyReport { reportId: string; hospitalId: string; treatmentPlanTitle: string; averageEfficacy: number; }
-export interface Message { messageId: string; hospitalId: string; senderId: string; receiverId: string; messageBody: string; timestamp: string; isRead: boolean; }
-export interface Reminder { reminderId: string; hospitalId: string; patientId: string; type: string; scheduledDateTime: string; message: string; isSent: boolean; }
-export interface Diagnosis { diagnosisId: string; hospitalId: string; patientId: string; diagnosisText: string; icd10Code: string; diagnosedAt: string; }
+
+export interface Meter {
+  meterId: string;
+  hospitalId: string;
+  type: 'Water' | 'Electricity' | 'Gas';
+  unit: string;
+  location: string;
+}
+
+export interface UtilityConsumption {
+  logId: string;
+  hospitalId: string;
+  meterId: string;
+  date: string;
+  consumption: number;
+  type: string;
+}
+
+export interface SecurityIncident {
+  incidentId: string;
+  hospitalId: string;
+  timestamp: string;
+  type: 'Unauthorized Access' | 'Theft' | 'Dispute' | 'Violence' | 'Other';
+  status: 'Under Investigation' | 'Resolved' | 'Escalated';
+  details: string;
+  location: string;
+  reportedByUserId: string;
+}
+
+export interface HousekeepingTask {
+  taskId: string;
+  hospitalId: string;
+  type: 'Room Cleaning' | 'Disinfection' | 'Laundry' | 'Waste Removal';
+  location: string;
+  status: 'Pending' | 'In Progress' | 'Completed';
+  dateCreated: string;
+  notes?: string;
+}
+
+export interface DepreciationRecord {
+  recordId: string;
+  hospitalId: string;
+  assetId: string;
+  dateCalculated: string;
+  depreciationAmount: number;
+  bookValue: number;
+  period: string;
+}
+
+export interface InfectionReport {
+  reportId: string;
+  hospitalId: string;
+  month: string;
+  infectionCount: number;
+  ratePer1000Days: number;
+  breakdownByWard: Record<string, number>;
+}
+
+export interface EfficacyReport {
+  reportId: string;
+  hospitalId: string;
+  treatmentPlanTitle: string;
+  averageEfficacy: number;
+}
+
+export interface SavedReport {
+  reportId: string;
+  hospitalId: string;
+  userId: string;
+  reportName: string;
+  description: string;
+  queryDetails: any;
+}
+
+export interface Message {
+  messageId: string;
+  hospitalId: string;
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  messageBody: string;
+  timestamp: string;
+  isRead: boolean;
+  attachmentUrl?: string;
+  attachmentName?: string;
+}
+
+export interface Reminder {
+  reminderId: string;
+  hospitalId: string;
+  patientId: string;
+  type: 'Appointment' | 'Medication' | 'Follow-up';
+  scheduledDateTime: string;
+  message: string;
+  isSent: boolean;
+  relatedDocId?: string;
+}
+
+export interface Diagnosis {
+  diagnosisId: string;
+  hospitalId: string;
+  patientId: string;
+  diagnosisText: string;
+  icd10Code: string;
+  diagnosedAt: string;
+  diagnosedByDoctorId: string;
+  isPrimary: boolean;
+}
+
+export interface Role {
+  roleId: string;
+  name: string;
+  permissions: Record<string, { read: boolean; write: boolean; delete: boolean }>;
+}
+
+export interface AuditLog {
+  logId: string;
+  hospitalId: string;
+  timestamp: string;
+  userId: string;
+  action: string;
+  details: {
+    targetCollection: string;
+    targetDocId: string;
+    changes?: any;
+  };
+}
+
+export interface FinancialTransaction {
+  transactionId: string;
+  hospitalId: string;
+  invoiceId: string;
+  amount: number;
+  paymentMethod: 'Cash' | 'Credit Card' | 'Mobile Money' | 'Insurance Payout';
+  paymentDate: string;
+  paymentId?: string;
+}
+
+export interface Receipt {
+  receiptId: string;
+  paymentId: string;
+  invoiceId: string;
+  amountPaid: number;
+  dateIssued: string;
+  documentLink: string;
+}
+
+export interface Bill {
+  billId: string;
+  hospitalId: string;
+  supplierId: string;
+  issueDate: string;
+  dueDate: string;
+  totalAmount: number;
+  amountPaid?: number;
+  status: 'Pending' | 'Partially Paid' | 'Paid' | 'Overdue' | 'Accrued';
+  attachmentUrl?: string;
+  whtAmount?: number;
+  netAmount?: number;
+  isNetPaid?: boolean;
+  isWhtPosted?: boolean;
+}

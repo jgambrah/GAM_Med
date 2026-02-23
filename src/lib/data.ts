@@ -143,7 +143,6 @@ export const allPatients: Patient[] = [
   }
 ];
 
-// Updated Admission data with hospitalId
 export const allAdmissions: Admission[] = [
   {
     admission_id: 'A-001',
@@ -157,12 +156,12 @@ export const allAdmissions: Admission[] = [
     attending_doctor_id: 'doc1',
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Admitted',
+    readmissionFlag: true,
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
   }
 ];
 
-// Updated Bed data with hospitalId
 export const allBeds: Bed[] = [
     {
         bed_id: 'C-101',
@@ -178,7 +177,6 @@ export const allBeds: Bed[] = [
     }
 ];
 
-// Updated Appointments with hospitalId
 export const allAppointments: Appointment[] = [
   {
     appointment_id: 'AP-001',
@@ -201,7 +199,6 @@ export const allAppointments: Appointment[] = [
   }
 ];
 
-// Mock data remains for other entities but would ideally have hospitalId appended.
 export const mockReferrals: Referral[] = [];
 export const mockLabResults: LabResult[] = [];
 export const mockMedicationRecords: MedicationRecord[] = [];
@@ -254,3 +251,79 @@ export const mockRfqs: RequestForQuotation[] = [];
 export const mockControlledSubstances: ControlledSubstance[] = [];
 export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [];
 export const mockLabReports: LabReport[] = [];
+export const mockResourceBookings: ResourceBooking[] = [];
+export const mockUtilityConsumptionLogs: UtilityConsumption[] = [];
+export const mockInfectionReportsLogs: InfectionReport[] = [];
+export const mockEfficacyReportsLogs: EfficacyReport[] = [];
+export const mockSavedReportsLogs: SavedReport[] = [];
+export const mockMessagesLogs: Message[] = [];
+export const mockRemindersLogs: Reminder[] = [];
+export const mockHealthContentLogs: HealthContent[] = [];
+export const mockAuditLogsLogs: AuditLog[] = [];
+export const mockVaccineCatalogLogs: Vaccine[] = [];
+export const mockImmunizationRecordsLogs: ImmunizationRecord[] = [];
+export const mockLabTestCatalogLogs: LabTest[] = [];
+export const mockRadiologyStudiesLogs: RadiologyStudy[] = [];
+export const mockRadiologyOrdersLogs: RadiologyOrder[] = [];
+export const mockRadiologyReportsLogs: RadiologyReport[] = [];
+export const mockPricingTablesLogs: PricingTable[] = [];
+export const mockBillsLogs: Bill[] = [];
+export const mockPaymentsLogs: FinancialTransaction[] = [];
+export const mockPayrollConfigLogs: PayrollConfiguration = { ssnitEmployeeContribution: 0, ssnitEmployerContribution: 0, tier2EmployerContribution: 0, ssnitCeiling: 0, taxBands: [] };
+export const mockPositionsLogs: Position[] = [];
+export const mockPurchaseOrdersLogs: PurchaseOrder[] = [];
+export const mockRfqsLogs: RequestForQuotation[] = [];
+export const mockControlledSubstancesLogs: ControlledSubstance[] = [];
+export const mockControlledSubstanceLogLogs: ControlledSubstanceLog[] = [];
+export const mockLabReportsLogs: LabReport[] = [];
+export const mockResources: Asset[] = [
+  {
+    assetId: 'MRI-001',
+    hospitalId: 'hosp-1',
+    name: 'MRI Scanner - Ward A',
+    type: 'Medical Equipment',
+    department: 'Radiology',
+    location: 'Building 1, Room 102',
+    status: 'Operational',
+    isBookable: true,
+    modality: 'MRI',
+    purchaseDate: '2022-01-15T00:00:00Z',
+    purchaseCost: 1500000,
+    currentBookValue: 1200000,
+    warrantyEndDate: '2025-01-15T00:00:00Z',
+    maintenanceSchedule: [{
+        type: 'Preventive',
+        frequency: 'Quarterly',
+        lastServiceDate: '2024-06-20T00:00:00Z',
+        nextServiceDate: '2024-09-20T00:00:00Z',
+    }]
+  }
+];
+export const mockWorkOrders: WorkOrder[] = [];
+export const mockSpareParts: SparePart[] = [];
+export const mockSparePartsLog: SparePartLog[] = [];
+export const mockUtilityMeters: Meter[] = [];
+export const mockSecurityIncidents: SecurityIncident[] = [];
+export const mockHousekeepingTasks: HousekeepingTask[] = [];
+export const mockDepreciationRecords: DepreciationRecord[] = [];
+export const mockSavedReportsData: SavedReport[] = [];
+export const mockMessagesData: Message[] = [];
+export const mockRemindersData: Reminder[] = [];
+export const mockHealthContentData: HealthContent[] = [];
+export const mockAuditLogsData: AuditLog[] = [];
+export const mockVaccineCatalogData: Vaccine[] = [];
+export const mockImmunizationRecordsData: ImmunizationRecord[] = [];
+export const mockLabTestCatalogData: LabTest[] = [];
+export const mockRadiologyStudiesData: RadiologyStudy[] = [];
+export const mockRadiologyOrdersData: RadiologyOrder[] = [];
+export const mockRadiologyReportsData: RadiologyReport[] = [];
+export const mockPricingTablesData: PricingTable[] = [];
+export const mockBillsData: Bill[] = [];
+export const mockPaymentsData: FinancialTransaction[] = [];
+export const mockPayrollConfigData: PayrollConfiguration = { ssnitEmployeeContribution: 0, ssnitEmployerContribution: 0, tier2EmployerContribution: 0, ssnitCeiling: 0, taxBands: [] };
+export const mockPositionsData: Position[] = [];
+export const mockPurchaseOrdersData: PurchaseOrder[] = [];
+export const mockRfqsData: RequestForQuotation[] = [];
+export const mockControlledSubstancesData: ControlledSubstance[] = [];
+export const mockControlledSubstanceLogData: ControlledSubstanceLog[] = [];
+export const mockLabReportsData: LabReport[] = [];
