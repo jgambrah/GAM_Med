@@ -73,7 +73,8 @@ service cloud.firestore {
     match /patients/{patientId} {
       allow read: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
       
-      // Enforce the Golden Pattern: {hospitalId}_MRN{mrn}
+      // Enforce the Gold Standard pattern: {hospitalId}_MRN{mrn}
+      // This rule mandates that the document ID matches the hospital and MRN provided in the data.
       allow create: if isEmployee() && 
                     isSameHospital(request.resource.data) && 
                     patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn;

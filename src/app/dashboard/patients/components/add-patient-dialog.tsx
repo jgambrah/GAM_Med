@@ -35,11 +35,12 @@ import {
 } from '@/components/ui/select';
 import { PatientSchema } from '@/lib/schemas';
 import { addPatient as addPatientAction } from '@/lib/actions';
-import { mockPricingTables } from '@/lib/data';
+import { mockPricingTables, allPatients as initialPatients } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -56,6 +57,7 @@ export function AddPatientDialog({
 }: AddPatientDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(!!patientToEdit);
+  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
   const isEditing = !!patientToEdit;
 
   const form = useForm<z.infer<typeof PatientSchema>>({
@@ -189,28 +191,43 @@ export function AddPatientDialog({
   };
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    // GENERATE COMPOSITE ID: {hospitalId}_MRN{mrn}
-    const customPatientId = `${values.hospitalId}_MRN${values.mrn}`;
+    // 1. NORMALIZE ID: Trim and Upper Case for consistency
+    const normalizedMrn = values.mrn.trim().toUpperCase();
+    
+    // 2. CONSTRUCT COMPOSITE DOCUMENT ID
+    const customPatientId = `${values.hospitalId}_MRN${normalizedMrn}`;
 
     if (isEditing) {
       console.log('Updating patient:', values);
       toast.success('Patient updated successfully (simulated).');
       if (onPatientUpdated) onPatientUpdated();
     } else {
-      // In a real app, we check if customPatientId exists first
-      const result = await addPatientAction(values);
+      // 3. ATOMIC UNIQUENESS CHECK (Simulating a Firestore Transaction)
+      const existingPatient = allPatients.find(p => p.patient_id === customPatientId);
+      
+      if (existingPatient) {
+          toast.error("Duplicate Record", {
+              description: `A patient with MRN ${normalizedMrn} is already registered at this hospital.`
+          });
+          return;
+      }
+
+      // 4. CALL SERVER ACTION
+      const result = await addPatientAction({ ...values, mrn: normalizedMrn });
+      
       if (!result.success) {
         toast.error(`Error: ${result.message || 'Failed to add patient.'}`);
         return;
       }
+
       toast.success('Patient registered successfully.', {
-          description: `Assigned Record ID: ${customPatientId}`
+          description: `Generated Record ID: ${customPatientId}`
       });
 
       const newPatient: Patient = {
         patient_id: customPatientId,
         hospitalId: values.hospitalId,
-        mrn: values.mrn,
+        mrn: normalizedMrn,
         title: values.title ?? "",
         first_name: values.firstName,
         last_name: values.lastName,

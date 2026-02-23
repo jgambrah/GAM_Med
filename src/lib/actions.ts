@@ -9,9 +9,17 @@ import { allPatients, mockMedicationRecords } from './data';
 
 /**
  * Server Action to register a new patient.
+ * Uses the composite ID pattern: {hospitalId}_MRN{mrn}
  */
 export async function addPatient(values: z.infer<typeof PatientSchema>) {
-  console.log(`Server Action: Registering new patient for hospital ${values.hospitalId}.`);
+  const customId = `${values.hospitalId}_MRN${values.mrn.trim().toUpperCase()}`;
+  console.log(`Server Action: Registering new patient with custom ID ${customId} for hospital ${values.hospitalId}.`);
+
+  // In a real implementation, this would be wrapped in a transaction:
+  // 1. const patientRef = doc(db, 'patients', customId);
+  // 2. const docSnap = await getDoc(patientRef);
+  // 3. if (docSnap.exists()) throw new Error("MRN already exists");
+  // 4. await setDoc(patientRef, { ...data });
 
   await new Promise((resolve) => setTimeout(resolve, 1000));
   
