@@ -71,29 +71,7 @@ export const allUsers: User[] = [
     department: 'OPD',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
-  },
-  {
-    uid: 'nurse1',
-    hospitalId: 'hosp-1',
-    email: 'f.agyepong@gammed.com',
-    name: 'Florence Agyepong',
-    role: 'nurse',
-    is_active: true,
-    hodId: 'doc1',
-    created_at: now.toISOString(),
-    last_login: now.toISOString(),
-  },
-  {
-    uid: 'patient1',
-    hospitalId: 'hosp-1',
-    email: 'k.owusu@email.com',
-    name: 'Kwame Owusu',
-    role: 'patient',
-    is_active: true,
-    patient_id: 'P-123456',
-    created_at: now.toISOString(),
-    last_login: now.toISOString(),
-  },
+  }
 ];
 
 // Mock Patient Data with hospitalId
@@ -156,7 +134,6 @@ export const allAdmissions: Admission[] = [
     attending_doctor_id: 'doc1',
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Admitted',
-    readmissionFlag: true,
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
   }
@@ -250,31 +227,7 @@ export const mockControlledSubstances: ControlledSubstance[] = [];
 export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [];
 export const mockLabReports: LabReport[] = [];
 export const mockResourceBookings: ResourceBooking[] = [];
-
-export const mockResources: Asset[] = [
-  {
-    assetId: 'MRI-001',
-    hospitalId: 'hosp-1',
-    name: 'MRI Scanner - Ward A',
-    type: 'Medical Equipment',
-    department: 'Radiology',
-    location: 'Building 1, Room 102',
-    status: 'Operational',
-    isBookable: true,
-    modality: 'MRI',
-    purchaseDate: '2022-01-15T00:00:00Z',
-    purchaseCost: 1500000,
-    currentBookValue: 1200000,
-    warrantyEndDate: '2025-01-15T00:00:00Z',
-    maintenanceSchedule: [{
-        type: 'Preventive',
-        frequency: 'Quarterly',
-        lastServiceDate: '2024-06-20T00:00:00Z',
-        nextServiceDate: '2024-09-20T00:00:00Z',
-    }]
-  }
-];
-
+export const mockResources: Asset[] = [];
 export const mockInfectionReports: InfectionReport[] = [];
 export const mockEfficacyReports: EfficacyReport[] = [];
 export const mockNotes: ClinicalNote[] = [];

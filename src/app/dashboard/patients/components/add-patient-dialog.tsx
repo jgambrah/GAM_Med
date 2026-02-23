@@ -39,6 +39,7 @@ import { mockPricingTables } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -53,13 +54,14 @@ export function AddPatientDialog({
   onPatientAdded,
   onPatientUpdated,
 }: AddPatientDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(!!patientToEdit);
   const isEditing = !!patientToEdit;
 
   const form = useForm<z.infer<typeof PatientSchema>>({
     resolver: zodResolver(PatientSchema),
     defaultValues: isEditing && patientToEdit ? {
-        // Manually map fields to match the schema
+        hospitalId: patientToEdit.hospitalId,
         title: patientToEdit.title,
         firstName: patientToEdit.first_name,
         lastName: patientToEdit.last_name,
@@ -90,8 +92,9 @@ export function AddPatientDialog({
             policyNumber: patientToEdit.insurance?.policy_number,
             expiryDate: patientToEdit.insurance?.expiry_date,
         },
-        consent: true, // Assume consent was given if editing
+        consent: true,
     } : {
+      hospitalId: user?.hospitalId || '',
       title: '',
       firstName: '',
       lastName: '',
@@ -130,6 +133,7 @@ export function AddPatientDialog({
     if (patientToEdit) {
       setOpen(true);
       form.reset({
+        hospitalId: patientToEdit.hospitalId,
         title: patientToEdit.title,
         firstName: patientToEdit.first_name,
         lastName: patientToEdit.last_name,
@@ -164,8 +168,11 @@ export function AddPatientDialog({
       });
     } else {
         setOpen(false);
+        if (user) {
+            form.setValue('hospitalId', user.hospitalId);
+        }
     }
-  }, [patientToEdit, form]);
+  }, [patientToEdit, form, user]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (onOpenChange) {
@@ -180,7 +187,6 @@ export function AddPatientDialog({
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
     if (isEditing) {
-      // In a real app, this would call an `updatePatient` server action
       console.log('Updating patient:', values);
       toast.success('Patient updated successfully (simulated).');
       if (onPatientUpdated) onPatientUpdated();
@@ -192,9 +198,9 @@ export function AddPatientDialog({
       }
       toast.success('Patient registered successfully.');
 
-      // Create a patient object to pass back
       const newPatient: Patient = {
         patient_id: `P-${Date.now()}`,
+        hospitalId: values.hospitalId,
         title: values.title ?? "",
         first_name: values.firstName,
         last_name: values.lastName,
@@ -625,5 +631,3 @@ export function AddPatientDialog({
     </Dialog>
   );
 }
-
-    

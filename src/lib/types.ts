@@ -180,7 +180,9 @@ export interface LabResult {
     sampleStatus: string;
     collectionDate: string;
     collectedByUserId: string;
+    auditLog?: SampleAudit[];
   };
+  resultDetails?: any;
 }
 
 export interface MedicationRecord {
@@ -225,12 +227,12 @@ export interface Invoice {
   hospitalId: string; // Tenant ID
   patientId: string;
   patientName: string;
-  patientType: string;
+  patientType: 'private' | 'corporate' | 'public';
   issueDate: string;
   dueDate: string;
-  billedItems: any[];
+  billedItems: InvoiceLineItem[];
   subtotal: number;
-  vatOption: string;
+  vatOption: 'zero' | 'flat' | 'standard';
   vat: number;
   nhia: number;
   getfund: number;
@@ -238,9 +240,16 @@ export interface Invoice {
   totalTax: number;
   grandTotal: number;
   amountDue: number;
-  status: string;
+  status: 'Pending Payment' | 'Paid' | 'Overdue' | 'Partially Paid' | 'Draft';
   invoicePdfUrl?: string;
   receipts?: Receipt[];
+}
+
+export interface InvoiceLineItem {
+  serviceType: string;
+  linkedServiceId: string;
+  billingCode: string;
+  price: number;
 }
 
 export interface AuditLog {
@@ -249,7 +258,11 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   action: string;
-  details: any;
+  details: {
+    targetCollection: string;
+    targetDocId: string;
+    changes?: any;
+  };
 }
 
 export interface Qualification { degree: string; institution: string; graduationYear: number; }
@@ -288,7 +301,7 @@ export interface ResourceBooking {
   startTime: string;
   endTime: string;
   reason: string;
-  status: string;
+  status: 'Confirmed' | 'Pending' | 'Canceled' | 'Completed';
   relatedAppointmentId?: string;
 }
 
@@ -791,25 +804,6 @@ export interface Diagnosis {
   isPrimary: boolean;
 }
 
-export interface Role {
-  roleId: string;
-  name: string;
-  permissions: Record<string, { read: boolean; write: boolean; delete: boolean }>;
-}
-
-export interface AuditLog {
-  logId: string;
-  hospitalId: string;
-  timestamp: string;
-  userId: string;
-  action: string;
-  details: {
-    targetCollection: string;
-    targetDocId: string;
-    changes?: any;
-  };
-}
-
 export interface FinancialTransaction {
   transactionId: string;
   hospitalId: string;
@@ -822,6 +816,7 @@ export interface FinancialTransaction {
 
 export interface Receipt {
   receiptId: string;
+  hospitalId: string;
   paymentId: string;
   invoiceId: string;
   amountPaid: number;
@@ -843,4 +838,78 @@ export interface Bill {
   netAmount?: number;
   isNetPaid?: boolean;
   isWhtPosted?: boolean;
+}
+
+export interface ClinicalNote {
+  noteId: string;
+  hospitalId: string;
+  patientId: string;
+  noteType: string;
+  recordedByUserId: string;
+  noteText: string;
+  recordedAt: string;
+}
+
+export interface VitalsLog {
+  vitalId: string;
+  hospitalId: string;
+  patientId: string;
+  bloodPressure: string;
+  heartRate: string;
+  temperature: string;
+  respiratoryRate: string;
+  oxygenSaturation: string;
+  painScore?: string;
+  notes?: string;
+  recordedByUserId: string;
+  recordedAt: string;
+}
+
+export interface CarePlan {
+  planId: string;
+  hospitalId: string;
+  patientId: string;
+  title: string;
+  goal: string;
+  interventions: string[];
+  status: 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface PatientAlert {
+  alertId: string;
+  hospitalId: string;
+  patientId: string;
+  severity: 'Critical' | 'Warning' | 'Information';
+  alert_message: string;
+  triggeredAt: string;
+  isAcknowledged: boolean;
+}
+
+export interface ImmunizationRecord {
+  immunizationId: string;
+  hospitalId: string;
+  patientId: string;
+  vaccineName: string;
+  doseNumber: number;
+  administeredAt: string;
+  nextDueDate?: string;
+  administeredByUserId: string;
+  notes?: string;
+}
+
+export interface Vaccine {
+  vaccineId: string;
+  hospitalId: string;
+  name: string;
+}
+
+export interface PricingTable {
+  pricingId: 'private' | 'corporate' | 'public';
+  hospitalId: string;
+  description: string;
+  rate_card: Record<string, number>;
 }

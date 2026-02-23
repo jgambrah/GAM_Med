@@ -11,6 +11,7 @@ export const PatientSchema = z.object({
   patientType: z.enum(['private', 'corporate', 'public']),
   contact: z.object({
     primaryPhone: z.string().min(10),
+    alternatePhone: z.string().optional(),
     email: z.string().email().optional().or(z.literal('')),
     address: z.object({
       street: z.string().min(1),
@@ -42,6 +43,7 @@ export const NewAppointmentSchema = z.object({
   appointmentTime: z.string(),
   type: z.enum(['consultation', 'follow-up', 'procedure']),
   isVirtual: z.boolean().default(false),
+  resourceId: z.string().optional(),
 });
 
 export const BedAllocationSchema = z.object({
