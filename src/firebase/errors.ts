@@ -1,3 +1,4 @@
+
 'use client';
 import { getAuth, type User } from 'firebase/auth';
 
@@ -14,6 +15,8 @@ interface FirebaseAuthToken {
   phone_number: string | null;
   sub: string;
   hospitalId?: string; // Simulated Custom Claim for SaaS Multi-tenancy
+  role?: string;       // Simulated Custom Claim for RBAC
+  patient_id?: string; // Simulated Custom Claim for Patient Portal
   firebase: {
     identities: Record<string, string[]>;
     sign_in_provider: string;
@@ -45,11 +48,11 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
     return null;
   }
 
-  // In a real multi-tenant app, hospitalId would be set via Custom Claims:
-  // admin.auth().setCustomUserClaims(uid, { hospitalId: 'hosp_123' });
-  // We simulate this here by looking for a hospitalId in the user's display name or email 
-  // for the purpose of the prototype's error simulation.
+  // In a real multi-tenant app, these fields would be set via Custom Claims:
+  // admin.auth().setCustomUserClaims(uid, { hospitalId: 'hosp-1', role: 'doctor' });
+  // We simulate this here based on the mock data patterns.
   const simulatedHospitalId = currentUser.email?.includes('stmary') ? 'hosp-2' : 'hosp-1';
+  const simulatedRole = currentUser.email?.includes('admin') ? 'admin' : (currentUser.email?.includes('doc') ? 'doctor' : 'nurse');
 
   const token: FirebaseAuthToken = {
     name: currentUser.displayName,
@@ -58,6 +61,7 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
     phone_number: currentUser.phoneNumber,
     sub: currentUser.uid,
     hospitalId: simulatedHospitalId, 
+    role: simulatedRole,
     firebase: {
       identities: currentUser.providerData.reduce((acc, p) => {
         if (p.providerId) {

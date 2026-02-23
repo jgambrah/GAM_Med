@@ -15,99 +15,72 @@ service cloud.firestore {
     }
 
     /**
-     * Retrieves the authenticated user's profile document.
-     * In a multi-tenant setup, this document MUST contain the 'hospitalId'.
+     * Enforces logical isolation using Custom Claims.
+     * Ensures the user's hospitalId matches the document's hospitalId.
      */
-    function getUserData() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function isSameHospital(docData) {
+      return isSignedIn() && docData.hospitalId == request.auth.token.hospitalId;
     }
 
     /**
-     * Enforces logical isolation. 
-     * Ensures the request data's hospitalId matches the user's hospitalId.
+     * Checks if the user has an authorized employee role via claims.
      */
-    function isSameHospital(docData) {
-        return docData.hospitalId == getUserData().hospitalId;
-    }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isEmployee() {
+      return isSignedIn() && request.auth.token.role in [
+        'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 
+        'lab_technician', 'radiologist', 'dietitian', 'receptionist'
+      ];
     }
 
+    /**
+     * Checks if the user is a hospital administrator via claims.
+     */
     function isAdmin() {
-        return isSignedIn() && getUserData().role == 'admin';
+      return isSignedIn() && request.auth.token.role == 'admin';
     }
-    
-    function isEmployee() {
-        return isSignedIn() && getUserData().role in ['doctor', 'nurse', 'pharmacist', 'admin', 'lab_technician', 'radiologist', 'billing_clerk'];
+
+    /**
+     * Checks if the authenticated user is the owner of the document.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     // --------------------------------------------------------------------
     // Collection Rules
     // --------------------------------------------------------------------
 
-    /**
-     * @description Hospital master records are read-only for their own employees.
-     */
+    // Hospitals (Tenant Masters)
     match /hospitals/{hospitalId} {
-      allow get: if isSignedIn() && getUserData().hospitalId == hospitalId;
-      allow list: if false; // List only via admin tools if needed
-      allow write: if false; // Tenant provisioning is an external admin task
+      allow get: if isSignedIn() && request.auth.token.hospitalId == hospitalId;
+      allow write: if false; // Provisioning is handled via system admin tools
     }
 
-    /**
-     * @description Users can manage their own profile within their hospital.
-     */
+    // Users & Staff Profiles
     match /users/{userId} {
       allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
+      allow list: if isEmployee() && isAdmin(); 
       allow create: if isOwner(userId) && isSameHospital(request.resource.data);
-      allow update: if isOwner(userId) && isSameHospital(request.resource.data) && isSameHospital(resource.data);
-      allow list: if isEmployee() && getUserData().role == 'admin';
+      allow update: if (isOwner(userId) || isAdmin()) && isSameHospital(request.resource.data);
     }
 
-    /**
-     * @description Patients are isolated by hospitalId.
-     */
+    // Patients
     match /patients/{patientId} {
-      allow get: if (isSignedIn() && getUserData().patientId == patientId) || (isEmployee() && isSameHospital(resource.data));
-      allow list: if isEmployee(); // Queries must filter by hospitalId
+      allow read: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
       allow create: if isEmployee() && isSameHospital(request.resource.data);
       allow update: if isEmployee() && isSameHospital(resource.data) && isSameHospital(request.resource.data);
-      
-      // Medical History sub-collection
-      match /medicalHistories/{historyId} {
-        allow read, write: if isEmployee() && isSameHospital(get(/databases/$(database)/documents/patients/$(patientId)).data);
-      }
+      allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
-    /**
-     * @description Appointments are isolated by hospitalId.
-     */
+    // Appointments
     match /appointments/{appointmentId} {
-      allow read: if (isSignedIn() && getUserData().patientId == resource.data.patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow read: if (isSignedIn() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
       allow create: if isSignedIn() && isSameHospital(request.resource.data);
-      allow update, delete: if isEmployee() && isSameHospital(resource.data);
+      allow update: if isEmployee() && isSameHospital(resource.data);
+      allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
-    /**
-     * @description Beds are isolated by hospitalId.
-     */
-    match /beds/{bedId} {
-      allow read: if isEmployee() && isSameHospital(resource.data);
-      allow write: if isEmployee() && isSameHospital(request.resource.data);
-    }
-
-    /**
-     * @description Admissions are isolated by hospitalId.
-     */
-    match /admissions/{admissionId} {
-      allow read: if isEmployee() && isSameHospital(resource.data);
-      allow write: if isEmployee() && isSameHospital(request.resource.data);
-    }
-
-    /**
-     * @description Generic rule for other shared collections (schedules, etc.)
-     */
+    // Admissions, Beds, Invoices, Lab Results, etc.
     match /{collection}/{docId} {
       allow read, write: if isEmployee() && 
         (resource == null || isSameHospital(resource.data)) && 
