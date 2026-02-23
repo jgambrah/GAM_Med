@@ -26,9 +26,11 @@ function TaskDashboard() {
     React.useEffect(() => {
         if (!user) return;
 
+        // SaaS LOGIC: Always filter by hospitalId first.
         // In a real app, this would be a Firestore query for care plans
         // where a task's `assignedToUserId` matches the logged-in nurse's UID.
         const myCarePlans = mockCarePlans.filter(plan =>
+            plan.hospitalId === user.hospitalId &&
             plan.interventions.some(i => i.includes('Daily BP monitoring') || i.includes('Administer'))
         );
 

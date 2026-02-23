@@ -31,10 +31,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddUserDialog } from '../../hr/components/add-user-dialog';
 import { ChangeRoleDialog } from './change-role-dialog';
+import { useAuth } from '@/hooks/use-auth';
 
 export function UserManagementDashboard() {
-  const [users, setUsers] = React.useState<User[]>(allUsers);
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = React.useState<User[]>([]);
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+
+  // SaaS LOGIC: Always filter staff by the current hospitalId.
+  React.useEffect(() => {
+    if (currentUser) {
+        setUsers(allUsers.filter(u => u.hospitalId === currentUser.hospitalId));
+    }
+  }, [currentUser]);
 
   const handleUserCreated = (newUser: User) => {
     setUsers(prev => [newUser, ...prev]);
@@ -52,7 +61,7 @@ export function UserManagementDashboard() {
         <div>
           <CardTitle>User Management</CardTitle>
           <CardDescription>
-            A list of all users in the system and their assigned roles.
+            Staff members belonging to your hospital and their assigned roles.
           </CardDescription>
         </div>
         <AddUserDialog onUserCreated={handleUserCreated} />

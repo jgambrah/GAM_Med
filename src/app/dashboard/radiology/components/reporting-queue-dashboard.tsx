@@ -16,27 +16,31 @@ import { mockRadiologyOrders } from '@/lib/data';
 import { CreateReportDialog } from './create-report-dialog';
 import { Patient, RadiologyOrder } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ReportingQueueDashboardProps {
   allPatients: Patient[];
 }
 
 export function ReportingQueueDashboard({ allPatients }: ReportingQueueDashboardProps) {
-  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
+  const { user } = useAuth();
+  const [storedOrders, setStoredOrders] = useLocalStorage<RadiologyOrder[]>(
     'radiologyOrders',
     mockRadiologyOrders
   );
   
-  const awaitingReportOrders = orders.filter(o => o.status === 'Awaiting Report');
+  // SaaS LOGIC: filter by hospitalId first.
+  const awaitingReportOrders = React.useMemo(() => {
+    if (!user) return [];
+    return storedOrders.filter(o => o.hospitalId === user.hospitalId && o.status === 'Awaiting Report');
+  }, [storedOrders, user]);
 
   const getPatientName = (patientId: string) => {
     return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
   };
 
   const handleReportSubmitted = (orderId: string) => {
-    // In a real app, this would be handled by a real-time subscription.
-    // For the prototype, we manually update the status of the order.
-    setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, status: 'Completed', isReported: true } : o));
+    setStoredOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, status: 'Completed', isReported: true } : o));
   };
 
   return (

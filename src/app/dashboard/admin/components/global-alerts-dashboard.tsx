@@ -19,6 +19,7 @@ import { acknowledgeAlert } from '@/lib/actions';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PatientAlert } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 const getSeverityVariant = (severity: PatientAlert['severity']): "destructive" | "default" | "secondary" => {
     switch (severity) {
@@ -31,31 +32,23 @@ const getSeverityVariant = (severity: PatientAlert['severity']): "destructive" |
 /**
  * == Conceptual UI: Global Alerts Dashboard ==
  * This component provides a centralized, hospital-wide view of all high-priority,
- * unacknowledged alerts. It's designed for administrators or a rapid response team
- * to monitor patient safety issues across all wards.
+ * unacknowledged alerts for the current tenant.
  */
 export function GlobalAlertsDashboard() {
+  const { user } = useAuth();
   
   /**
-   * == DATA QUERY (PSEUDOCODE) ==
-   * This is where the component would perform a powerful Collection Group Query.
-   * This type of query can search across all sub-collections with a specific name (e.g., 'alerts')
-   * throughout the entire database, which is perfect for this kind of hospital-wide dashboard.
-   *
-   *   const q = query(
-   *     collectionGroup(db, 'alerts'), // Query all 'alerts' sub-collections
-   *     where('isAcknowledged', '==', false),
-   *     where('severity', 'in', ['Critical', 'Warning']),
-   *     orderBy('triggeredAt', 'desc')
-   *   );
-   *
-   *   // This hook would provide a real-time list of all urgent alerts.
-   *   const [urgentAlerts, loading, error] = useCollection(q);
-   *
+   * == SaaS DATA QUERY ==
+   * This is where the component would perform a Collection Group Query filtered by hospitalId.
    */
-  const unacknowledgedAlerts = mockAlerts.filter(a => 
-    !a.isAcknowledged && (a.severity === 'Critical' || a.severity === 'Warning')
-  );
+  const unacknowledgedAlerts = React.useMemo(() => {
+    if (!user) return [];
+    return mockAlerts.filter(a => 
+        a.hospitalId === user.hospitalId &&
+        !a.isAcknowledged && 
+        (a.severity === 'Critical' || a.severity === 'Warning')
+    );
+  }, [user]);
 
   const getPatientName = (patientId: string) => {
     return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';

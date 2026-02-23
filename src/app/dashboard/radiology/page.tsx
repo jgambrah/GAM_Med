@@ -22,20 +22,25 @@ export default function RadiologyPage() {
   const { user } = useAuth();
   const isRadiologist = user?.role === 'radiologist';
 
-  // Centralize the state management for radiology orders here.
-  const [orders, setOrders] = useLocalStorage<RadiologyOrder[]>(
+  // Centralize state management for orders
+  const [storedOrders, setStoredOrders] = useLocalStorage<RadiologyOrder[]>(
     'radiologyOrders',
     mockRadiologyOrders
   );
   const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
 
+  // SaaS LOGIC: Always filter by hospitalId first to enforce logical isolation.
+  const hospitalOrders = React.useMemo(() => {
+    if (!user) return [];
+    return storedOrders.filter(order => order.hospitalId === user.hospitalId);
+  }, [storedOrders, user]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Radiology Dashboard</h1>
         <p className="text-muted-foreground">
-          Manage imaging orders, scheduling, and reporting.
+          Manage imaging orders, scheduling, and reporting for your facility.
         </p>
       </div>
       <Tabs defaultValue="scheduling-queue">
@@ -51,11 +56,11 @@ export default function RadiologyPage() {
                 <CardHeader>
                     <CardTitle>Radiology Scheduling Queue</CardTitle>
                     <CardDescription>
-                        A real-time list of all imaging orders awaiting scheduling.
+                        All imaging orders awaiting scheduling.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <SchedulingQueueDashboard orders={orders} setOrders={setOrders} />
+                    <SchedulingQueueDashboard orders={hospitalOrders} setOrders={setStoredOrders} />
                 </CardContent>
             </Card>
         </TabsContent>
@@ -64,11 +69,11 @@ export default function RadiologyPage() {
                 <CardHeader>
                     <CardTitle>Radiology Schedule</CardTitle>
                     <CardDescription>
-                        A timeline of all scheduled studies for today.
+                        Today's timeline of scheduled studies.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <RadiologyScheduleDashboard orders={orders} setOrders={setOrders} allPatients={allPatients} />
+                    <RadiologyScheduleDashboard orders={hospitalOrders} setOrders={setStoredOrders} allPatients={allPatients} />
                 </CardContent>
             </Card>
         </TabsContent>
@@ -80,8 +85,8 @@ export default function RadiologyPage() {
                     </CardTitle>
                     <CardDescription>
                       {isRadiologist
-                        ? "A list of all studies assigned to you that are awaiting a report."
-                        : "A list of all studies that have been performed and are awaiting a report."
+                        ? "Studies assigned to you awaiting a report."
+                        : "Performed studies awaiting a radiologist's report."
                       }
                     </CardDescription>
                 </CardHeader>
