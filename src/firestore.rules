@@ -8,8 +8,15 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     /**
+     * Helper: Check if the user is the Platform Owner (Super Admin).
+     * This role has a global bypass for maintenance and debugging.
+     */
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.role == 'super_admin';
+    }
+
+    /**
      * Helper: Check if the user is authenticated and has a hospitalId claim.
-     * This is the foundation of our secure multi-tenancy.
      */
     function isAuthenticated() {
       return request.auth != null && request.auth.token.hospitalId != null;
@@ -35,17 +42,17 @@ service cloud.firestore {
      */
     function isEmployee() {
       return isAuthenticated() && request.auth.token.role in [
-        'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 
+        'director', 'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 
         'lab_technician', 'radiologist', 'dietitian', 'receptionist',
         'ot_coordinator', 'housekeeping', 'space_manager'
       ];
     }
 
     /**
-     * Checks if the user is a hospital administrator via claims.
+     * Checks if the user is a hospital administrator or director via claims.
      */
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'admin';
+      return isAuthenticated() && request.auth.token.role in ['admin', 'director'];
     }
 
     /**
@@ -56,7 +63,15 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------------
-    // Collection Rules
+    // Global Bypass for Super Admin (God Mode)
+    // --------------------------------------------------------------------
+    match /{document=**} {
+      // Platform owners can see and do everything across all tenants.
+      allow read, write: if isSuperAdmin();
+    }
+
+    // --------------------------------------------------------------------
+    // Tenant-Specific Collection Rules
     // --------------------------------------------------------------------
 
     // Hospitals (Tenant Master Settings)
@@ -64,7 +79,7 @@ service cloud.firestore {
       // Logic: You can only read your own hospital's settings
       allow read: if isAuthenticated() && request.auth.token.hospitalId == hospId;
       // Logic: Only admins can manage hospital-wide configuration
-      allow write: if isAuthenticated() && request.auth.token.role == 'admin' && request.auth.token.hospitalId == hospId;
+      allow write: if isAuthenticated() && isAdmin() && request.auth.token.hospitalId == hospId;
     }
 
     // Users & Staff Profiles
@@ -102,7 +117,7 @@ service cloud.firestore {
       allow list: if (isEmployee() && isQueryScoped()) || (isAuthenticated() && request.query.filters.patient_id == request.auth.token.patient_id);
       allow get: if (isAuthenticated() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
       allow create: if isAuthenticated() && isSameHospital(request.resource.data);
-      allow update: if isEmployee() && isSameHospital(resource.data);
+      allow update: if isEmployee() && isSameHospital(request.resource.data);
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 

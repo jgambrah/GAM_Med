@@ -53,8 +53,19 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 
   // In a real multi-tenant app, these fields are set via Cloud Function syncUserClaims.
   // We simulate them here to align with the "SaaS Wall" logic in firestore.rules.
-  const simulatedHospitalId = currentUser.email?.includes('stmary') ? 'hosp-2' : 'hosp-1';
-  const simulatedRole = currentUser.email?.includes('admin') ? 'admin' : (currentUser.email?.includes('doc') ? 'doctor' : 'nurse');
+  let simulatedHospitalId = 'hosp-1';
+  let simulatedRole = 'nurse';
+
+  if (currentUser.email?.includes('superadmin')) {
+      simulatedHospitalId = 'GAMMED_INTERNAL';
+      simulatedRole = 'super_admin';
+  } else if (currentUser.email?.includes('director')) {
+      simulatedRole = 'director';
+  } else if (currentUser.email?.includes('admin')) {
+      simulatedRole = 'admin';
+  } else if (currentUser.email?.includes('doc')) {
+      simulatedRole = 'doctor';
+  }
 
   const token: FirebaseAuthToken = {
     name: currentUser.displayName,
@@ -114,7 +125,8 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
  * Builds the final, formatted error message for the LLM.
  */
 function buildErrorMessage(requestObject: SecurityRuleRequest): string {
-  return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules (SaaS Wall Enforced):
+  const isSuper = requestObject.auth?.token.role === 'super_admin';
+  return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules ${isSuper ? '(God Mode Active)' : '(SaaS Wall Enforced)'}:
 ${JSON.stringify(requestObject, null, 2)}`;
 }
 
