@@ -918,3 +918,12 @@ export interface PricingTable {
   description: string;
   rate_card: Record<string, number>;
 }
+
+export interface HealthContent {
+  contentId: string;
+  hospitalId: string; // Tenant ID
+  title: string;
+  body: string;
+  keywords: string[];
+  fileUrl?: string;
+}

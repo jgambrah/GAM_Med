@@ -11,17 +11,24 @@ import { SecurityIncident } from '@/lib/types';
 import { AddSecurityIncidentDialog } from './add-security-incident-dialog';
 import { useDebouncedCallback } from 'use-debounce';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/use-auth';
 
 export function SecurityDashboard() {
-  const [incidents, setIncidents] = React.useState<SecurityIncident[]>(mockSecurityIncidents);
+  const { user } = useAuth();
+  const [incidents, setIncidents] = React.useState<SecurityIncident[]>([]);
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const filterIncidents = useDebouncedCallback((query: string) => {
+    if (!user) return;
+
+    // SaaS LOGIC: Always filter by hospitalId first
+    const hospitalIncidents = mockSecurityIncidents.filter(i => i.hospitalId === user.hospitalId);
+
     if (!query) {
-      setIncidents(mockSecurityIncidents);
+      setIncidents(hospitalIncidents);
     } else {
       const lowercasedQuery = query.toLowerCase();
-      const filtered = mockSecurityIncidents.filter(incident =>
+      const filtered = hospitalIncidents.filter(incident =>
         incident.details.toLowerCase().includes(lowercasedQuery) ||
         incident.location.toLowerCase().includes(lowercasedQuery) ||
         incident.type.toLowerCase().includes(lowercasedQuery)
@@ -32,7 +39,7 @@ export function SecurityDashboard() {
 
   React.useEffect(() => {
     filterIncidents(searchQuery);
-  }, [searchQuery, filterIncidents]);
+  }, [searchQuery, filterIncidents, user]);
   
   const getUserName = (userId: string) => allUsers.find(u => u.uid === userId)?.name || 'Unknown';
 

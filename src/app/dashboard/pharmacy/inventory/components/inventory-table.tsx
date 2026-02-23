@@ -25,6 +25,7 @@ import { InventoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { useDebouncedCallback } from 'use-debounce';
+import { useAuth } from '@/hooks/use-auth';
 
 interface BatchDetailsDialogProps {
   item: InventoryItem;
@@ -94,14 +95,20 @@ interface InventoryTableProps {
 }
 
 export function InventoryTable({ searchQuery }: InventoryTableProps) {
-  const [filteredItems, setFilteredItems] = React.useState<InventoryItem[]>(mockInventory);
+  const { user } = useAuth();
+  const [filteredItems, setFilteredItems] = React.useState<InventoryItem[]>([]);
 
   const filterItems = useDebouncedCallback((query: string) => {
+    if (!user) return;
+
+    // SaaS LOGIC: Always filter by hospitalId first
+    const hospitalInventory = mockInventory.filter(item => item.hospitalId === user.hospitalId);
+
     if (!query) {
-      setFilteredItems(mockInventory);
+      setFilteredItems(hospitalInventory);
     } else {
       const lowercasedQuery = query.toLowerCase();
-      const filtered = mockInventory.filter(item =>
+      const filtered = hospitalInventory.filter(item =>
         item.name.toLowerCase().includes(lowercasedQuery)
       );
       setFilteredItems(filtered);
@@ -110,7 +117,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
 
   React.useEffect(() => {
     filterItems(searchQuery);
-  }, [searchQuery, filterItems]);
+  }, [searchQuery, filterItems, user]);
 
   const getRowClass = (totalQuantity: number, reorderLevel: number, nearestExpiry?: string) => {
     const isLowStock = totalQuantity <= reorderLevel;

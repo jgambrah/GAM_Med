@@ -9,17 +9,24 @@ import { Input } from '@/components/ui/input';
 import { allUsers, mockAuditLogs } from '@/lib/data';
 import { AuditLog } from '@/lib/types';
 import { format } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 
 export function AuditLogDashboard() {
-  const [logs, setLogs] = React.useState<AuditLog[]>(mockAuditLogs);
+  const { user } = useAuth();
+  const [logs, setLogs] = React.useState<AuditLog[]>([]);
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const filterLogs = useDebouncedCallback((query: string) => {
+    if (!user) return;
+
+    // SaaS LOGIC: Always filter by hospitalId first
+    const hospitalLogs = mockAuditLogs.filter(log => log.hospitalId === user.hospitalId);
+
     if (!query) {
-      setLogs(mockAuditLogs);
+      setLogs(hospitalLogs);
     } else {
       const lowercasedQuery = query.toLowerCase();
-      const filtered = mockAuditLogs.filter(log =>
+      const filtered = hospitalLogs.filter(log =>
         log.action.toLowerCase().includes(lowercasedQuery) ||
         log.userId.toLowerCase().includes(lowercasedQuery) ||
         (getUserName(log.userId).toLowerCase().includes(lowercasedQuery)) ||
@@ -31,7 +38,7 @@ export function AuditLogDashboard() {
 
   React.useEffect(() => {
     filterLogs(searchQuery);
-  }, [searchQuery, filterLogs]);
+  }, [searchQuery, filterLogs, user]);
   
   const getUserName = (userId: string) => allUsers.find(u => u.uid === userId)?.name || 'Unknown User';
 

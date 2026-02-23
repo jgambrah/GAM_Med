@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -11,17 +10,24 @@ import { HealthContent } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { FileText, Newspaper } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function HealthLibraryPage() {
+    const { user } = useAuth();
     const [searchQuery, setSearchQuery] = React.useState('');
-    const [filteredContent, setFilteredContent] = React.useState<HealthContent[]>(mockHealthContent);
+    const [filteredContent, setFilteredContent] = React.useState<HealthContent[]>([]);
 
     const filterContent = useDebouncedCallback((query: string) => {
+        if (!user) return;
+
+        // SaaS LOGIC: Always filter by hospitalId first
+        const hospitalContent = mockHealthContent.filter(c => c.hospitalId === user.hospitalId);
+
         if (!query) {
-            setFilteredContent(mockHealthContent);
+            setFilteredContent(hospitalContent);
         } else {
             const lowercasedQuery = query.toLowerCase();
-            const filtered = mockHealthContent.filter(content =>
+            const filtered = hospitalContent.filter(content =>
                 content.title.toLowerCase().includes(lowercasedQuery) ||
                 content.body.toLowerCase().includes(lowercasedQuery) ||
                 content.keywords.some(kw => kw.toLowerCase().includes(lowercasedQuery))
@@ -32,7 +38,7 @@ export default function HealthLibraryPage() {
     
     React.useEffect(() => {
         filterContent(searchQuery);
-    }, [searchQuery, filterContent]);
+    }, [searchQuery, filterContent, user]);
 
     return (
         <div className="space-y-6">

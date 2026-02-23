@@ -8,11 +8,20 @@ import { Button } from '@/components/ui/button';
 import { mockHealthContent } from '@/lib/data';
 import { HealthContent } from '@/lib/types';
 import { AddEditContentDialog } from './components/add-edit-content-dialog';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function HealthContentPage() {
-  const [content, setContent] = React.useState<HealthContent[]>(mockHealthContent);
+  const { user } = useAuth();
+  const [content, setContent] = React.useState<HealthContent[]>([]);
   const [selectedContent, setSelectedContent] = React.useState<HealthContent | null>(null);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+        // SaaS LOGIC: Always filter by hospitalId first
+        setContent(mockHealthContent.filter(c => c.hospitalId === user.hospitalId));
+    }
+  }, [user]);
 
   const handleSave = (newContent: HealthContent) => {
     if (content.some(c => c.contentId === newContent.contentId)) {

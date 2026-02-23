@@ -26,25 +26,39 @@ export default function PatientsPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  /**
+   * == SAAS GOLDEN RULE: DOUBLE-FILTER PATTERN ==
+   * This implementation ensures that search results are ALWAYS scoped to the 
+   * current hospital first, before any search terms are applied.
+   */
   const handleSearch = useDebouncedCallback((query: string) => {
     if (!user) return;
     
     setIsLoading(true);
     setError(null);
     
-    // SaaS LOGIC: Always filter by hospitalId first
+    // 1. THE TENANT WALL: Always filter by hospitalId first
     const hospitalPatients = storedPatients.filter(p => p.hospitalId === user.hospitalId);
     
     if (!query) {
       setFilteredPatients(hospitalPatients);
     } else {
       const lowercasedQuery = query.toLowerCase();
-      const filtered = hospitalPatients.filter(
-        (patient) =>
-          patient.full_name.toLowerCase().includes(lowercasedQuery) ||
-          patient.patient_id.toLowerCase().includes(lowercasedQuery) ||
-          patient.contact.primaryPhone.includes(lowercasedQuery)
-      );
+      // 2. SEARCH TERM FILTERING
+      // Normalize search inputs like phone numbers
+      const cleanPhoneQuery = query.replace(/\D/g, '');
+
+      const filtered = hospitalPatients.filter((patient) => {
+          // Check for MRN/ID match
+          const matchesId = patient.patient_id.toLowerCase().includes(lowercasedQuery);
+          // Check for Name match
+          const matchesName = patient.full_name.toLowerCase().includes(lowercasedQuery);
+          // Check for Phone match (Normalized)
+          const patientPhone = patient.contact.primaryPhone.replace(/\D/g, '');
+          const matchesPhone = cleanPhoneQuery !== '' && patientPhone.includes(cleanPhoneQuery);
+
+          return matchesId || matchesName || matchesPhone;
+      });
       setFilteredPatients(filtered);
     }
 
