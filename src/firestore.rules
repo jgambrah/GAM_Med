@@ -1,106 +1,101 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get the user's role from the 'users' collection.
-    // This is used repeatedly in the security rules to check for permissions.
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // --------------------------------------------------------------------
+    // Helper Functions for Multi-Tenant Isolation
+    // --------------------------------------------------------------------
+
+    /**
+     * Returns true if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // =====================================================================
-    // Users Collection
-    // =====================================================================
-    // Allow users to read their own data.
-    // Only admins can create, update, or delete user records.
+    /**
+     * Retrieves the authenticated user's profile document.
+     * In a multi-tenant setup, this document MUST contain the 'hospitalId'.
+     */
+    function getUserData() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /**
+     * Enforces logical isolation. 
+     * Ensures the request data's hospitalId matches the user's hospitalId.
+     */
+    function isSameHospital(docData) {
+        return docData.hospitalId == getUserData().hospitalId;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+        return isSignedIn() && getUserData().role == 'admin';
+    }
+    
+    function isEmployee() {
+        return isSignedIn() && getUserData().role in ['doctor', 'nurse', 'pharmacist', 'admin', 'lab_technician', 'radiologist', 'billing_clerk'];
+    }
+
+    // --------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------
+
+    /**
+     * @description Hospital master records are read-only for their own employees.
+     */
+    match /hospitals/{hospitalId} {
+      allow get: if isSignedIn() && getUserData().hospitalId == hospitalId;
+      allow list: if false; // List only via admin tools if needed
+      allow write: if false; // Tenant provisioning is an external admin task
+    }
+
+    /**
+     * @description Users can manage their own profile within their hospital.
+     */
     match /users/{userId} {
-      allow read: if request.auth.uid == userId;
-      allow write: if getUserRole() == 'admin';
+      allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
+      allow create: if isOwner(userId) && isSameHospital(request.resource.data);
+      allow update: if isOwner(userId) && isSameHospital(request.resource.data) && isSameHospital(resource.data);
+      allow list: if isEmployee() && getUserData().role == 'admin';
     }
 
-    // =====================================================================
-    // Patients Collection & EHR Sub-collections
-    // =====================================================================
-    // Rules for the main patient document and its nested sub-collections.
+    /**
+     * @description Patients are isolated by hospitalId.
+     */
     match /patients/{patientId} {
-      // Allow read access to clinical staff and the patient themselves.
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'] || request.auth.uid == get(/databases/$(database)/documents/patients/$(patientId)).data.auth_uid;
+      allow get: if (isSignedIn() && getUserData().patientId == patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow list: if isEmployee(); // Queries must filter by hospitalId
+      allow create: if isEmployee() && isSameHospital(request.resource.data);
+      allow update: if isEmployee() && isSameHospital(resource.data) && isSameHospital(request.resource.data);
       
-      // Allow creation/updates only by authorized staff.
-      allow write: if getUserRole() in ['admin', 'doctor', 'nurse'];
-
-      // --- Clinical Notes Sub-collection ---
-      // Only doctors can write notes. Nurses and admins can read them.
-      match /clinical_notes/{noteId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow write: if getUserRole() == 'doctor';
+      // Medical History sub-collection
+      match /medicalHistories/{historyId} {
+        allow read, write: if isEmployee() && isSameHospital(get(/databases/$(database)/documents/patients/$(patientId)).data);
       }
-
-      // --- Diagnoses Sub-collection ---
-      // Only doctors can create, update, or delete diagnoses.
-      match /diagnoses/{diagnosisId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow write: if getUserRole() == 'doctor';
-      }
-
-      // --- Vitals Sub-collection ---
-      // Nurses are the primary users who record vitals. Doctors can also read them.
-      match /vitals/{vitalId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow create, update: if getUserRole() == 'nurse' || getUserRole() == 'doctor';
-      }
-
-      // --- Care Plans Sub-collection ---
-      // Nurses create and manage care plans.
-      match /care_plans/{planId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-        allow create, update: if getUserRole() == 'nurse';
-      }
-
-      // --- Medication Administration Logs ---
-      // Nurses create logs when they administer medication. This is a write-once operation.
-      match /medication_administration_logs/{logId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'];
-        allow create: if getUserRole() == 'nurse';
-        allow update, delete: if false; // Logs should be immutable
-      }
-
-       // --- Medication History (Prescriptions) ---
-      match /medication_history/{medId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'pharmacist'];
-        allow write: if getUserRole() == 'doctor';
-      }
-
-       // --- Lab Results ---
-      match /lab_results/{labId} {
-        allow read: if getUserRole() in ['admin', 'doctor', 'nurse', 'lab_technician'];
-        allow create: if getUserRole() == 'doctor'; // Doctors order tests
-        allow update: if getUserRole() == 'lab_technician'; // Lab techs fulfill them
-      }
-
-      // Add other sub-collection rules (e.g., admissions, billing) here...
     }
 
-    // =====================================================================
-    // Beds Collection
-    // =====================================================================
-    // Beds can be read by all clinical staff, but only updated by admins/nurses.
-    match /beds/{bedId} {
-      allow read: if getUserRole() in ['admin', 'doctor', 'nurse'];
-      allow write: if getUserRole() in ['admin', 'nurse'];
-    }
-
-    // =====================================================================
-    // Appointments Collection
-    // =====================================================================
-    // Appointments contain sensitive patient info, so access is restricted.
+    /**
+     * @description Appointments are isolated by hospitalId.
+     */
     match /appointments/{appointmentId} {
-      // Allow read if you are the assigned doctor or an admin.
-      allow read: if getUserRole() == 'admin' || request.auth.uid == resource.data.doctor_id;
-      // Allow write for admins (scheduling) or the assigned doctor (updating status).
-      allow write: if getUserRole() == 'admin' || request.auth.uid == resource.data.doctor_id;
+      allow read: if (isSignedIn() && getUserData().patientId == resource.data.patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow create: if isSignedIn() && isSameHospital(request.resource.data);
+      allow update, delete: if isEmployee() && isSameHospital(resource.data);
+    }
+
+    /**
+     * @description Generic rule for other shared collections (beds, schedules, etc.)
+     */
+    match /{collection}/{docId} {
+      allow read, write: if isEmployee() && 
+        (resource == null || isSameHospital(resource.data)) && 
+        (request.resource == null || isSameHospital(request.resource.data));
     }
   }
 }

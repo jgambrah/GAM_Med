@@ -1,5 +1,44 @@
+
 {
   "entities": {
+    "Hospital": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Hospital",
+      "type": "object",
+      "description": "Represents a tenant (hospital) in the GamMed multi-tenant system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the hospital."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the hospital."
+        },
+        "subdomain": {
+          "type": "string",
+          "description": "The unique subdomain for the hospital (e.g., city-general)."
+        },
+        "apiKey": {
+          "type": "string",
+          "description": "A unique API key for external integrations."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the hospital's account is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the hospital was registered."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "isActive"
+      ]
+    },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
@@ -9,6 +48,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the user entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this user belongs to."
         },
         "email": {
           "type": "string",
@@ -47,6 +90,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "email",
         "role"
       ]
@@ -60,6 +104,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the patient entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this patient belongs to."
         },
         "uniquePatientId": {
           "type": "string",
@@ -108,6 +156,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "uniquePatientId",
         "firstName",
         "lastName",
@@ -124,6 +173,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the employee entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this employee belongs to."
         },
         "firstName": {
           "type": "string",
@@ -159,6 +212,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "firstName",
         "lastName",
         "employeeId",
@@ -175,6 +229,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the appointment entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this appointment belongs to."
         },
         "patientId": {
           "type": "string",
@@ -209,6 +267,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "patientId",
         "doctorId",
         "scheduleId",
@@ -226,6 +285,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the schedule entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this schedule belongs to."
         },
         "employeeId": {
           "type": "string",
@@ -256,6 +319,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "employeeId",
         "startTime",
         "endTime",
@@ -273,6 +337,10 @@
           "type": "string",
           "description": "Unique identifier for the department entity."
         },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this department belongs to."
+        },
         "name": {
           "type": "string",
           "description": "Name of the department."
@@ -284,6 +352,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "name"
       ]
     },
@@ -296,6 +365,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the resource entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this resource belongs to."
         },
         "name": {
           "type": "string",
@@ -312,6 +385,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "name",
         "type"
       ]
@@ -325,6 +399,10 @@
         "id": {
           "type": "string",
           "description": "Unique identifier for the medical history entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this history entry belongs to."
         },
         "patientId": {
           "type": "string",
@@ -346,6 +424,7 @@
       },
       "required": [
         "id",
+        "hospitalId",
         "patientId",
         "date",
         "description",
@@ -362,13 +441,29 @@
   "firestore": {
     "structure": [
       {
+        "path": "/hospitals/{hospitalId}",
+        "definition": {
+          "entityName": "Hospital",
+          "schema": {
+            "$ref": "#/backend/entities/Hospital"
+          },
+          "description": "Stores master data for each hospital (tenant).",
+          "params": [
+            {
+              "name": "hospitalId",
+              "description": "The unique ID of the hospital."
+            }
+          ]
+        }
+      },
+      {
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user authentication data. Access is controlled based on the user's UID. Includes standard profile information and role details. No denormalized authorization fields are required because access is based on path-based ownership.",
+          "description": "Stores user authentication data. Access is controlled based on the user's UID and hospitalId membership.",
           "params": [
             {
               "name": "userId",
@@ -384,7 +479,7 @@
           "schema": {
             "$ref": "#/backend/entities/Patient"
           },
-          "description": "Stores patient-specific data.  Includes core demographic and contact information.",
+          "description": "Stores patient-specific data partitioned by hospitalId.",
           "params": [
             {
               "name": "patientId",
@@ -400,7 +495,7 @@
           "schema": {
             "$ref": "#/backend/entities/Employee"
           },
-          "description": "Contains employee data (Doctors, Nurses, Pharmacists, Admins).",
+          "description": "Contains employee data partitioned by hospitalId.",
           "params": [
             {
               "name": "employeeId",
@@ -416,7 +511,7 @@
           "schema": {
             "$ref": "#/backend/entities/Schedule"
           },
-          "description": "Stores schedules for doctors and resources.",
+          "description": "Stores schedules partitioned by hospitalId.",
           "params": [
             {
               "name": "scheduleId",
@@ -432,7 +527,7 @@
           "schema": {
             "$ref": "#/backend/entities/Department"
           },
-          "description": "Stores department information.",
+          "description": "Stores department information partitioned by hospitalId.",
           "params": [
             {
               "name": "departmentId",
@@ -448,7 +543,7 @@
           "schema": {
             "$ref": "#/backend/entities/Resource"
           },
-          "description": "Stores information about hospital resources.",
+          "description": "Stores information about hospital resources partitioned by hospitalId.",
           "params": [
             {
               "name": "resourceId",
@@ -464,7 +559,7 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Appointment data. Includes denormalized `patientId` and `doctorId` for authorization independence.",
+          "description": "Appointment data partitioned by hospitalId.",
           "params": [
             {
               "name": "appointmentId",
@@ -480,7 +575,7 @@
           "schema": {
             "$ref": "#/backend/entities/MedicalHistory"
           },
-          "description": "Stores medical history entries for a patient.  Authorization is inherited from the parent patient document.",
+          "description": "Stores medical history entries for a patient. Inherits hospitalId from parent.",
           "params": [
             {
               "name": "patientId",
@@ -494,6 +589,6 @@
         }
       }
     ],
-    "reasoning": "This Firestore structure is designed to support the MedFlow GH system, emphasizing secure authentication, role-based access control (RBAC), patient data management, and appointment scheduling, while adhering to the principle of Authorization Independence. The structure leverages path-based ownership for user-related data and membership maps for collaborative access, ensuring clear authorization intent and debuggability.\n\n*   **Users Collection:** Stores user authentication data. Access is controlled based on the user's `uid` from Firebase Authentication. The `role` field determines authorization within the application.\n*   **Patients Collection:** Stores patient-specific data. Access is restricted based on user roles (Admin, Doctor, Nurse) and the `patientId` field, which corresponds to the user's associated patient record.\n*   **Employees Collection:** Contains employee data (Doctors, Nurses, Pharmacists, Admins). Access is role-based and tied to the employee's `employeeId`.\n*   **Schedules Collection:** Stores schedules for doctors and resources. Access is controlled based on the `employeeId` and department membership.\n*   **Departments Collection:** Stores department information.\n*   **Resources Collection:** Stores information about hospital resources.\n*   **Appointments Collection:** Appointment data, owned by the patient. Includes denormalized data such as `patientId` and `doctorId` to ensure authorization independence.\n\n\n**Authorization Independence (Denormalization):**\nTo achieve Authorization Independence, key authorization data is denormalized across collections. For example:\n\n*   In the `Appointments` collection, both `patientId` and `doctorId` are stored directly in the document. This eliminates the need for `get()` calls to the `Users` or `Patients` collections to determine access, enabling atomic operations and simplifying security rules.\n\n**QAPs (Rules are not Filters):**\nThe structure supports secure `list` operations (QAPs) through:\n\n*   **Structural Segregation:** Different data types with varying access requirements are stored in separate collections (e.g., `Users`, `Patients`, `Employees`).\n*   **Path-Based Ownership:** Using hierarchical paths like `/users/{userId}/...` allows for straightforward rules based on the user's `uid`.\n\nThis design ensures that security rules are simple, robust, and easily debuggable, fulfilling the core design principles."
+    "reasoning": "Transitioned to a Multi-Tenant architecture using Logical Isolation. A 'Hospital' entity serves as the root for each tenant. All other entities now include a mandatory 'hospitalId' field. This allows for clear data partitioning at the query level and robust enforcement via Firestore Security Rules. Access is restricted such that users (Doctors, Nurses, Admins) can only interact with data matching their own 'hospitalId', ensuring strict tenant isolation."
   }
 }
