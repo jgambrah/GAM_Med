@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // --------------------------------------------------------------------
-    // Helper Functions for Multi-Tenant Isolation
+    // Helper Functions for Multi-Tenant Isolation (SaaS Safety Net)
     // --------------------------------------------------------------------
 
     /**
@@ -15,11 +15,19 @@ service cloud.firestore {
     }
 
     /**
-     * Enforces logical isolation using Custom Claims.
+     * Enforces logical isolation for direct document access (get/write).
      * Ensures the user's hospitalId matches the document's hospitalId.
      */
     function isSameHospital(docData) {
       return isSignedIn() && docData.hospitalId == request.auth.token.hospitalId;
+    }
+
+    /**
+     * THE SAFETY NET: Enforces logical isolation for queries (list).
+     * Mandates that the query MUST include a filter for the user's hospitalId.
+     */
+    function isQueryScoped() {
+      return isSignedIn() && request.query.filters.hospitalId == request.auth.token.hospitalId;
     }
 
     /**
@@ -58,8 +66,8 @@ service cloud.firestore {
 
     // Users & Staff Profiles
     match /users/{userId} {
+      allow list: if isEmployee() && isAdmin() && isQueryScoped();
       allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
-      allow list: if isEmployee() && isAdmin(); 
       
       // Enforce the Multi-tenant Unique Constraint pattern: {hospitalId}_{email}
       allow create: if isOwner(userId) && 
@@ -71,10 +79,13 @@ service cloud.firestore {
 
     // Patients
     match /patients/{patientId} {
-      allow read: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
+      // The Ultimate Protection: Queries must be scoped and limited
+      allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
+      
+      // Direct access protection
+      allow get: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
       
       // Enforce the Gold Standard pattern: {hospitalId}_MRN{mrn}
-      // This rule mandates that the document ID matches the hospital and MRN provided in the data.
       allow create: if isEmployee() && 
                     isSameHospital(request.resource.data) && 
                     patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn;
@@ -85,17 +96,18 @@ service cloud.firestore {
 
     // Appointments
     match /appointments/{appointmentId} {
-      allow read: if (isSignedIn() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
+      allow list: if (isEmployee() && isQueryScoped()) || (isSignedIn() && request.query.filters.patient_id == request.auth.token.patient_id);
+      allow get: if (isSignedIn() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
       allow create: if isSignedIn() && isSameHospital(request.resource.data);
       allow update: if isEmployee() && isSameHospital(resource.data);
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
-    // Admissions, Beds, Invoices, Lab Results, etc.
+    // Generic Safety Net for all other tenant-scoped documents
     match /{collection}/{docId} {
-      allow read, write: if isEmployee() && 
-        (resource == null || isSameHospital(resource.data)) && 
-        (request.resource == null || isSameHospital(request.resource.data));
+      allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
+      allow get: if isEmployee() && isSameHospital(resource.data);
+      allow write: if isEmployee() && (request.resource == null || isSameHospital(request.resource.data));
     }
   }
 }

@@ -33,6 +33,10 @@ interface SecurityRuleRequest {
   auth: FirebaseAuthObject | null;
   method: string;
   path: string;
+  query?: {
+    limit?: number;
+    filters?: Record<string, any>;
+  };
   resource?: {
     data: any;
   };
@@ -48,9 +52,8 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
     return null;
   }
 
-  // In a real multi-tenant app, these fields would be set via Custom Claims:
-  // admin.auth().setCustomUserClaims(uid, { hospitalId: 'hosp-1', role: 'doctor' });
-  // We simulate this here based on the mock data patterns.
+  // In a real multi-tenant app, these fields would be set via Custom Claims.
+  // We simulate them here based on the email domain and local storage context.
   const simulatedHospitalId = currentUser.email?.includes('stmary') ? 'hosp-2' : 'hosp-1';
   const simulatedRole = currentUser.email?.includes('admin') ? 'admin' : (currentUser.email?.includes('doc') ? 'doctor' : 'nurse');
 
@@ -82,9 +85,6 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 
 /**
  * Builds the complete, simulated request object for the error message.
- * It safely tries to get the current authenticated user.
- * @param context The context of the failed Firestore operation.
- * @returns A structured request object.
  */
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
@@ -102,14 +102,17 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
     auth: authObject,
     method: context.operation,
     path: `/databases/(default)/documents/${context.path}`,
+    // For 'list' operations, we simulate the query filter that rules expect
+    query: context.operation === 'list' ? {
+        limit: 50,
+        filters: { hospitalId: authObject?.token.hospitalId }
+    } : undefined,
     resource: context.requestResourceData ? { data: context.requestResourceData } : undefined,
   };
 }
 
 /**
  * Builds the final, formatted error message for the LLM.
- * @param requestObject The simulated request object.
- * @returns A string containing the error message and the JSON payload.
  */
 function buildErrorMessage(requestObject: SecurityRuleRequest): string {
   return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules:
