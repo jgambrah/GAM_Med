@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from "next/link";
@@ -22,7 +21,6 @@ import { toast } from "@/hooks/use-toast";
  * 2. Tenant-First Verification: Checks membership via {hospitalId}_{email} ID pattern.
  * 3. Secure Auth: Performs Firebase Auth sign-in.
  * 4. Token Refresh: Forces a refresh to fetch the latest Custom Claims (hospitalId, role).
- * 5. Context Sync: Updates global state with hospitalId for tenant isolation.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -40,23 +38,17 @@ export default function LoginPage() {
     React.useEffect(() => {
         const fetchHospitals = async () => {
             try {
-                // Fetch active tenants + the internal platform tenant
-                // The rules now allow public listing of 'active' hospitals
                 const q = query(collection(db, "hospitals"), where("status", "==", "active"));
                 const querySnapshot = await getDocs(q);
                 const docs = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     name: doc.data().name
                 }));
-                
-                // Ensure internal tenant is at the top if it exists
                 const sortedDocs = docs.sort((a, b) => a.id === 'GAMMED_INTERNAL' ? -1 : 1);
-                
                 setHospitals(sortedDocs);
                 if (sortedDocs.length > 0) setSelectedHospitalId(sortedDocs[0].id);
             } catch (error) {
                 console.error("Error fetching hospitals:", error);
-                // Fallback for demo if collection is empty or rules haven't deployed yet
                 setHospitals([
                     { id: 'GAMMED_INTERNAL', name: 'GamMed Platform Operations' },
                     { id: 'hosp-1', name: 'City General Hospital' }
@@ -73,14 +65,10 @@ export default function LoginPage() {
         
         setIsLoading(true);
         const normalizedEmail = email.toLowerCase().trim();
-        
-        // 2. CONSTRUCT THE MULTI-TENANT DOCUMENT ID
-        // Pattern: {hospitalId}_{normalizedEmail}
         const userDocId = `${selectedHospitalId}_${normalizedEmail}`;
 
         try {
-            // 3. STEP A: VERIFY TENANT MEMBERSHIP
-            // We check if this user exists specifically for THIS hospital
+            // 2. STEP A: VERIFY TENANT MEMBERSHIP
             const userRef = doc(db, 'users', userDocId);
             const userSnap = await getDoc(userRef);
 
@@ -89,18 +77,17 @@ export default function LoginPage() {
             }
 
             const userData = userSnap.data();
-            
             if (!userData.is_active) {
                 throw new Error("Your account is disabled. Contact your administrator.");
             }
 
-            // 4. STEP B: AUTHENTICATE CREDENTIALS
+            // 3. STEP B: AUTHENTICATE
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
-            // 5. STEP C: FORCE REFRESH TOKEN to get Custom Claims (hospitalId, role) immediately
+            // 4. STEP C: FORCE REFRESH TOKEN to get Custom Claims immediately
             await userCredential.user.getIdTokenResult(true);
             
-            // 6. STEP D: SYNC GLOBAL STATE
+            // 5. STEP D: SYNC GLOBAL STATE
             setUser({
                 uid: userCredential.user.uid,
                 ...userData
@@ -110,7 +97,7 @@ export default function LoginPage() {
                 description: `Welcome back to ${hospitals.find(h => h.id === selectedHospitalId)?.name || 'GamMed'}`
             });
 
-            // 7. ROLE-BASED REDIRECTION
+            // 6. ROLE-BASED REDIRECTION
             const routes = {
                 super_admin: '/dashboard/super-admin',
                 director: '/dashboard/admin', 
@@ -133,8 +120,8 @@ export default function LoginPage() {
     }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <Card className="mx-auto max-w-sm w-full shadow-lg">
+    <div className="flex items-center justify-center min-h-screen bg-muted/50 p-4">
+        <Card className="mx-auto max-w-sm w-full shadow-lg border-t-4 border-t-primary">
             <CardHeader className="space-y-1">
                 <CardTitle className="text-2xl text-center font-bold">GamMed SaaS</CardTitle>
                 <CardDescription className="text-center">
@@ -172,7 +159,7 @@ export default function LoginPage() {
                     <div className="grid gap-2">
                         <div className="flex items-center justify-between">
                             <Label htmlFor="password">Password</Label>
-                            <Link href="#" className="text-sm text-primary underline">Forgot?</Link>
+                            <Link href="#" className="text-sm text-primary hover:underline">Forgot?</Link>
                         </div>
                         <Input 
                             id="password" 
@@ -182,7 +169,7 @@ export default function LoginPage() {
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading || hospitals.length === 0}>
+                    <Button type="submit" className="w-full mt-2" disabled={isLoading || hospitals.length === 0}>
                         {isLoading ? "Verifying..." : "Secure Login"}
                     </Button>
                 </form>

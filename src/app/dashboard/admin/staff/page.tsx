@@ -12,8 +12,14 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import AddStaffModal from './AddStaffModal';
 
+/**
+ * == Hospital Director's Control Center ==
+ * 
+ * This page allows the Director to manage their facility's staff.
+ * It strictly filters data by the Director's own hospitalId.
+ */
 export default function StaffManagement() {
-    const { user } = useAuth(); // The logged-in Director
+    const { user } = useAuth(); // The logged-in Director/Admin
     const db = useFirestore();
     const [staff, setStaff] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -21,7 +27,7 @@ export default function StaffManagement() {
     useEffect(() => {
         if (!user?.hospitalId) return;
 
-        // 1. QUERY ONLY THIS HOSPITAL'S STAFF (The SaaS Wall)
+        // 1. THE SAAS WALL: Only query users belonging to this specific hospital
         const q = query(
             collection(db, "users"),
             where("hospitalId", "==", user.hospitalId)
@@ -40,6 +46,7 @@ export default function StaffManagement() {
     }, [user?.hospitalId, db]);
 
     // 2. TOGGLE USER ACCESS (The Kill-Switch)
+    // This updates the 'is_active' flag which is checked on every login attempt.
     const toggleAccess = async (staffMember: any) => {
         try {
             const userRef = doc(db, 'users', staffMember.id);
@@ -51,7 +58,8 @@ export default function StaffManagement() {
                 description: `${staffMember.name}'s status has been updated.`
             });
         } catch (error) {
-            toast.error("Update failed", { description: "You don't have permission." });
+            console.error("Update failed:", error);
+            toast.error("Update failed", { description: "You don't have permission to modify this user." });
         }
     };
 
@@ -63,27 +71,29 @@ export default function StaffManagement() {
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold">Staff Directory</h1>
-                    <p className="text-muted-foreground">Manage doctors, nurses, and admins for {user?.hospitalId}</p>
+                    <h1 className="text-3xl font-bold">Staff Directory</h1>
+                    <p className="text-muted-foreground">
+                        Manage clinical and administrative staff for <strong>{user?.hospitalId}</strong>
+                    </p>
                 </div>
                 <AddStaffModal /> 
             </div>
 
-            <div className="border rounded-lg bg-white overflow-hidden">
+            <div className="border rounded-lg bg-card shadow-sm overflow-hidden">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead>Name</TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead>Access</TableHead>
+                            <TableHead className="w-[100px]">Access</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {staff.length > 0 ? (
                             staff.map((member) => (
-                                <TableRow key={member.id}>
+                                <TableRow key={member.id} className="hover:bg-muted/50 transition-colors">
                                     <TableCell className="font-medium">{member.name}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className="capitalize">
@@ -93,12 +103,12 @@ export default function StaffManagement() {
                                     <TableCell>{member.email}</TableCell>
                                     <TableCell>
                                         {member.is_active ? 
-                                            <Badge className="bg-green-500 text-white">Active</Badge> : 
+                                            <Badge className="bg-green-500 hover:bg-green-600 text-white">Active</Badge> : 
                                             <Badge variant="destructive">Suspended</Badge>
                                         }
                                     </TableCell>
                                     <TableCell>
-                                        {/* Don't let the director disable themselves */}
+                                        {/* Security: Prevent Directors from disabling their own account */}
                                         {member.email !== user?.email && (
                                             <Switch 
                                                 checked={member.is_active} 
@@ -110,8 +120,8 @@ export default function StaffManagement() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                    No staff members registered.
+                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                                    No staff members registered for this facility.
                                 </TableCell>
                             </TableRow>
                         )}

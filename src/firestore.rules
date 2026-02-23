@@ -9,7 +9,6 @@ service cloud.firestore {
 
     /**
      * Helper: Check if the user is the Platform Owner (Super Admin).
-     * This role has a global bypass for maintenance and debugging.
      */
     function isSuperAdmin() {
       return request.auth != null && 
@@ -28,6 +27,7 @@ service cloud.firestore {
 
     /**
      * Logic: The token's hospitalId MUST match the data's hospitalId.
+     * This is the primary mechanism for airtight logical isolation.
      */
     function isSameHospital(docData) {
       return isAuthenticated() && docData.hospitalId == request.auth.token.hospitalId;
@@ -70,7 +70,6 @@ service cloud.firestore {
     // Global Bypass for Super Admin (God Mode)
     // --------------------------------------------------------------------
     match /{document=**} {
-      // Platform owners can see and do everything across all tenants.
       allow read, write: if isSuperAdmin();
     }
 
@@ -80,38 +79,32 @@ service cloud.firestore {
 
     // Hospitals (Tenant Masters)
     match /hospitals/{hospId} {
-      // Allow public discovery of active hospitals for the login page dropdown
-      // Discovery is restricted to a list of active tenants with a safety limit
+      // Public list allows login page dropdown to populate
       allow list: if request.query.limit <= 50 && (resource == null || resource.data.status == 'active');
-      
-      // Accessing full hospital settings/metadata requires being a member or Super Admin
-      allow get: if isSuperAdmin() || (isAuthenticated() && request.auth.token.hospitalId == hospId);
-      
-      // Management is handled via Super Admin God Mode
+      allow get: if isAuthenticated() && request.auth.token.hospitalId == hospId;
     }
 
     // Users & Staff Profiles
     match /users/{userId} {
+      // Queries MUST be scoped to the user's hospital
       allow list: if isEmployee() && isAdmin() && isQueryScoped();
+      
       allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
       
-      // Enforce the Multi-tenant Unique Constraint pattern: {hospitalId}_{email}
+      // Enforce: hospitalId_email pattern + Token matching
       allow create: if isOwner(userId) && 
                     isSameHospital(request.resource.data) && 
                     userId == request.resource.data.hospitalId + "_" + request.resource.data.email;
       
-      allow update: if (isOwner(userId) || isAdmin()) && isSameHospital(request.resource.data);
+      // Update is restricted to self or admins within the same hospital
+      allow update: if (isOwner(userId) || (isAdmin() && isSameHospital(resource.data))) && isSameHospital(request.resource.data);
     }
 
     // Patients
     match /patients/{patientId} {
-      // Queries must be scoped to the tenant and limited for performance
       allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
-      
-      // Direct access check
       allow get: if (isAuthenticated() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
       
-      // Enforce: Must tag new patients with your own hospitalId + follow MRN pattern
       allow create: if isEmployee() && 
                     isSameHospital(request.resource.data) && 
                     patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn;
@@ -120,16 +113,7 @@ service cloud.firestore {
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
-    // Appointments
-    match /appointments/{appointmentId} {
-      allow list: if (isEmployee() && isQueryScoped()) || (isAuthenticated() && request.query.filters.patient_id == request.auth.token.patient_id);
-      allow get: if (isAuthenticated() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
-      allow create: if isAuthenticated() && isSameHospital(request.resource.data);
-      allow update: if isEmployee() && isSameHospital(request.resource.data);
-      allow delete: if isAdmin() && isSameHospital(resource.data);
-    }
-
-    // Generic Safety Net for all other tenant-scoped documents (Admissions, Invoices, Lab Results, etc.)
+    // Generic Safety Net for all other tenant-scoped documents
     match /{collection}/{docId} {
       allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
       allow get: if isEmployee() && isSameHospital(resource.data);
