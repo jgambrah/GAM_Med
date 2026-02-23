@@ -43,7 +43,7 @@ const NewUserWithHospitalSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
   email: z.string().email('A valid email is required'),
-  role: z.enum(['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'housekeeping', 'space_manager', 'supplier']),
+  role: z.enum(['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician', 'receptionist', 'housekeeping', 'billing_clerk']),
   department: z.string().optional(),
 });
 
@@ -58,6 +58,7 @@ interface AddUserDialogProps {
  * 
  * This component implements the custom Document ID pattern: {hospitalId}_{email}.
  * This ensures that a staff email is unique within a specific hospital tenant.
+ * The hospitalId is automatically locked to the current Director's context.
  */
 export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDialogProps) {
   const { user } = useAuth();
@@ -75,6 +76,7 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
     },
   });
 
+  // Sync hospitalId if context changes
   React.useEffect(() => {
     if (open && user) {
         form.setValue('hospitalId', user.hospitalId);
@@ -85,20 +87,15 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
     // 1. Normalize the email address (Essential for reliable indexing and uniqueness)
     const normalizedEmail = values.email.toLowerCase().trim();
     
-    // 2. Generate the composite Document ID
+    // 2. Generate the composite Document ID: {tenant}_{email}
     const customDocId = `${values.hospitalId}_${normalizedEmail}`;
 
-    // 3. CONCEPTUAL CHECK: Verify uniqueness before "set"
-    // In a production environment with Firestore SDK:
-    // const userRef = doc(db, 'users', customDocId);
-    // const userSnap = await getDoc(userRef);
-    // if (userSnap.exists()) { ... }
-    
+    // 3. UNIQUENESS CHECK
     const isDuplicate = existingUsers.some(u => u.uid === customDocId);
     
     if (isDuplicate) {
         toast.error("Duplicate Entry", {
-            description: `A staff member with the email ${normalizedEmail} is already registered at this hospital.`
+            description: `A staff member with the email ${normalizedEmail} is already registered at this facility.`
         });
         return;
     }
@@ -118,8 +115,8 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
     // 4. Record creation (using .doc(id).set() pattern)
     onUserCreated(newUser);
     
-    toast.success('User Created', {
-        description: `Staff member added with unique ID: ${customDocId}`
+    toast.success('Staff Member Added', {
+        description: `Profile created with unique ID: ${customDocId}`
     });
     
     setOpen(false);
@@ -131,14 +128,14 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
       <DialogTrigger asChild>
         <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Add New User
+            Add New Staff
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create New User Profile</DialogTitle>
+          <DialogTitle>Add New Staff Member</DialogTitle>
           <DialogDescription>
-            Enter the details for the new staff member. The email must be unique within your hospital.
+            Enter the details for the new employee. Access is strictly scoped to {user?.hospitalId}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -150,7 +147,7 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>First Name</FormLabel>
-                            <FormControl><Input {...field} /></FormControl>
+                            <FormControl><Input placeholder="John" {...field} /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -161,7 +158,7 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Last Name</FormLabel>
-                            <FormControl><Input {...field} /></FormControl>
+                            <FormControl><Input placeholder="Smith" {...field} /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -172,9 +169,9 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
                 name="email"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl><Input type="email" {...field} /></FormControl>
-                        <FormDescription>This will be combined with your Hospital ID to ensure a unique record.</FormDescription>
+                        <FormLabel>Work Email</FormLabel>
+                        <FormControl><Input type="email" placeholder="john.smith@hospital.com" {...field} /></FormControl>
+                        <FormDescription>This email must be unique within your hospital tenant.</FormDescription>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -194,7 +191,7 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
                                     <SelectItem value="pharmacist">Pharmacist</SelectItem>
                                     <SelectItem value="lab_technician">Lab Technician</SelectItem>
                                     <SelectItem value="receptionist">Receptionist</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="admin">Admin Staff</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormMessage />
@@ -226,7 +223,7 @@ export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDial
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Creating...' : 'Create User'}
+                {form.formState.isSubmitting ? 'Provisioning...' : 'Create Staff Profile'}
               </Button>
             </DialogFooter>
           </form>

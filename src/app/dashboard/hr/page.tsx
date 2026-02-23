@@ -20,29 +20,31 @@ export default function HumanResourcesPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  // Redirect non-admins who land here to their own profile page.
+  // Redirect users who land here but don't have management privileges.
+  // Both 'admin' and 'director' are allowed.
   React.useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (user && user.role !== 'admin' && user.role !== 'director') {
       router.replace(`/dashboard/hr/staff/${user.uid}`);
     }
   }, [user, router]);
 
-  // Render content only for admins
-  if (user?.role !== 'admin') {
+  if (!user || (user.role !== 'admin' && user.role !== 'director')) {
     return (
         <div className="flex items-center justify-center h-full">
-            <p>Loading your profile...</p>
+            <p>Loading management workbench...</p>
         </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Human Resources</h1>
-        <p className="text-muted-foreground">
-          Manage staff profiles, positions, and other HR-related configurations.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Human Resources</h1>
+          <p className="text-muted-foreground">
+            Manage staff profiles, roles, and facility headcounts for <strong>{user.hospitalId}</strong>.
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="staff">
