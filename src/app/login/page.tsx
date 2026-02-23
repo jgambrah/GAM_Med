@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from "next/link";
@@ -40,6 +41,7 @@ export default function LoginPage() {
         const fetchHospitals = async () => {
             try {
                 // Fetch active tenants + the internal platform tenant
+                // The rules now allow public listing of 'active' hospitals
                 const q = query(collection(db, "hospitals"), where("status", "==", "active"));
                 const querySnapshot = await getDocs(q);
                 const docs = querySnapshot.docs.map(doc => ({

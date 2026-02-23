@@ -12,14 +12,18 @@ service cloud.firestore {
      * This role has a global bypass for maintenance and debugging.
      */
     function isSuperAdmin() {
-      return request.auth != null && request.auth.token.role == 'super_admin';
+      return request.auth != null && 
+             request.auth.token != null && 
+             request.auth.token.role == 'super_admin';
     }
 
     /**
      * Helper: Check if the user is authenticated and has a hospitalId claim.
      */
     function isAuthenticated() {
-      return request.auth != null && request.auth.token.hospitalId != null;
+      return request.auth != null && 
+             request.auth.token != null && 
+             request.auth.token.hospitalId != null;
     }
 
     /**
@@ -74,12 +78,16 @@ service cloud.firestore {
     // Tenant-Specific Collection Rules
     // --------------------------------------------------------------------
 
-    // Hospitals (Tenant Master Settings)
+    // Hospitals (Tenant Masters)
     match /hospitals/{hospId} {
-      // Logic: You can only read your own hospital's settings
-      allow read: if isAuthenticated() && request.auth.token.hospitalId == hospId;
-      // Logic: Only admins can manage hospital-wide configuration
-      allow write: if isAuthenticated() && isAdmin() && request.auth.token.hospitalId == hospId;
+      // Allow public discovery of active hospitals for the login page dropdown
+      // Discovery is restricted to a list of active tenants with a safety limit
+      allow list: if request.query.limit <= 50 && (resource == null || resource.data.status == 'active');
+      
+      // Accessing full hospital settings/metadata requires being a member or Super Admin
+      allow get: if isSuperAdmin() || (isAuthenticated() && request.auth.token.hospitalId == hospId);
+      
+      // Management is handled via Super Admin God Mode
     }
 
     // Users & Staff Profiles

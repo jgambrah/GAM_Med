@@ -44,15 +44,13 @@ interface SecurityRuleRequest {
 
 /**
  * Builds a security-rule-compliant auth object from the Firebase User.
- * This helper mocks the Custom Claims that are synced via Cloud Functions.
  */
 function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   if (!currentUser) {
     return null;
   }
 
-  // In a real multi-tenant app, these fields are set via Cloud Function syncUserClaims.
-  // We simulate them here to align with the "SaaS Wall" logic in firestore.rules.
+  // Simulations for developer feedback
   let simulatedHospitalId = 'hosp-1';
   let simulatedRole = 'nurse';
 
@@ -112,10 +110,10 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
     auth: authObject,
     method: context.operation,
     path: `/databases/(default)/documents/${context.path}`,
-    // For 'list' operations, we simulate the query filter that rules now mandate
     query: context.operation === 'list' ? {
         limit: 50,
-        filters: { hospitalId: authObject?.token.hospitalId }
+        // Only show simulated filters if the user is authenticated
+        filters: authObject ? { hospitalId: authObject.token.hospitalId } : {}
     } : undefined,
     resource: context.requestResourceData ? { data: context.requestResourceData } : undefined,
   };
@@ -125,8 +123,8 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
  * Builds the final, formatted error message for the LLM.
  */
 function buildErrorMessage(requestObject: SecurityRuleRequest): string {
-  const isSuper = requestObject.auth?.token.role === 'super_admin';
-  return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules ${isSuper ? '(God Mode Active)' : '(SaaS Wall Enforced)'}:
+  const authStatus = requestObject.auth ? `Authenticated as ${requestObject.auth.token.role} @ ${requestObject.auth.token.hospitalId}` : 'Unauthenticated';
+  return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules (${authStatus}):
 ${JSON.stringify(requestObject, null, 2)}`;
 }
 

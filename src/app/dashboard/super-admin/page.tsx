@@ -21,10 +21,11 @@ export default function SuperAdminPage() {
     redirect('/dashboard');
   }
 
-  // Fetch metrics
+  // Fetch metrics - Conditional query to prevent permission error before auth is ready
   const hospitalsQuery = useMemoFirebase(() => {
+    if (!user || user.role !== 'super_admin') return null;
     return query(collection(db, 'hospitals'));
-  }, [db]);
+  }, [db, user]);
 
   const { data: hospitals } = useCollection<Hospital>(hospitalsQuery);
 
@@ -32,7 +33,6 @@ export default function SuperAdminPage() {
   const activeHospitals = hospitals?.filter(h => h.status === 'active').length || 0;
   
   // Conceptual Monthly Revenue calculation (Mocked for prototype)
-  // In a real app, this would query a 'subscriptions' collection or link to Paystack/Stripe
   const monthlyRevenue = activeHospitals * 2500; 
 
   return (

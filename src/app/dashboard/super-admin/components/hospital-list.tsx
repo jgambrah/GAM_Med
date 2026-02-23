@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -23,13 +24,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/hooks/use-auth';
 
 export function HospitalList() {
   const db = useFirestore();
+  const { user } = useAuth();
 
+  // Conditional query to prevent permission errors before auth is established
   const hospitalsQuery = useMemoFirebase(() => {
+    if (!user || user.role !== 'super_admin') return null;
     return query(collection(db, 'hospitals'), orderBy('createdAt', 'desc'));
-  }, [db]);
+  }, [db, user]);
 
   const { data: hospitals, isLoading } = useCollection<Hospital>(hospitalsQuery);
 
