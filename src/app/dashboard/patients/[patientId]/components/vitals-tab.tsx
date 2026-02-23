@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { VitalsSchema } from '@/lib/schemas';
 import { logVitals, streamVitals } from '@/lib/actions';
-import { mockVitalsLog as allMockVitals } from '@/lib/data';
+import { mockVitalsLog as allMockVitals, allUsers } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { AlertTriangle, Info, Radio } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -81,6 +81,10 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
              toast.success("The patient's vital signs have been saved.");
         }
     }
+
+    const getStaffName = (userId: string) => {
+        return allUsers.find(u => u.uid === userId)?.name || 'Staff';
+    };
 
     return (
         <div className="space-y-6">
@@ -220,7 +224,7 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                             <TableCell>{log.respiratoryRate}</TableCell>
                                             <TableCell>{log.oxygenSaturation}%</TableCell>
                                             <TableCell>{log.painScore || 'N/A'}</TableCell>
-                                            <TableCell>{log.recordedByUserId === 'nurse1' ? 'F. Agyepong' : 'Staff'}</TableCell>
+                                            <TableCell>{getStaffName(log.recordedByUserId)}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (

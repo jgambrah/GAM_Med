@@ -17,7 +17,7 @@
     },
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Represents a user account linked to a specific hospital.",
+      "description": "Represents a user account linked to a specific hospital. Document ID pattern: {hospitalId}_{email}",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -125,7 +125,7 @@
     },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "User profiles with hospitalId field for logical isolation."
+      "description": "User profiles with hospitalId field for logical isolation. userId follows {hospitalId}_{email} pattern."
     },
     "/patients/{patientId}": {
       "schema": { "$ref": "#/entities/Patient" },

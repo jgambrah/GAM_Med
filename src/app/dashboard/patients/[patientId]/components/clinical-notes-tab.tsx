@@ -5,7 +5,7 @@ import * as React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { ClinicalNote } from '@/lib/types';
-import { mockNotes as allMockNotes } from '@/lib/data';
+import { mockNotes as allMockNotes, allUsers } from '@/lib/data';
 import { useParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId:
 
         const newNoteObject: ClinicalNote = {
             noteId: `note-${Date.now()}`,
+            hospitalId: user.hospitalId,
             patientId: patientId,
             noteType: 'Consultation',
             recordedByUserId: user.uid,
@@ -93,6 +94,10 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
         setNotes(prev => [newNote, ...prev]);
     }
 
+    const getStaffName = (userId: string) => {
+        return allUsers.find(u => u.uid === userId)?.name || 'Staff';
+    };
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -108,7 +113,7 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
                         patientNotes.map((note) => (
                         <div key={note.noteId} className="border-l-4 border-primary pl-4 py-2">
                            <p className="text-sm text-muted-foreground">
-                             {format(new Date(note.recordedAt), 'PPP p')} by <span className="font-semibold">{note.recordedByUserId === 'doc1' ? 'Dr. Evelyn Mensah' : 'F. Agyepong'}</span>
+                             {format(new Date(note.recordedAt), 'PPP p')} by <span className="font-semibold">{getStaffName(note.recordedByUserId)}</span>
                            </p>
                            <p className="mt-1 whitespace-pre-wrap">{note.noteText}</p>
                         </div>

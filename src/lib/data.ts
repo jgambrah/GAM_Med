@@ -32,7 +32,7 @@ export const mockHospitals: Hospital[] = [
 
 export const allUsers: User[] = [
   {
-    uid: 'admin1',
+    uid: 'hosp-1_admin@gammed.com',
     hospitalId: 'hosp-1',
     email: 'admin@gammed.com',
     name: 'Admin User',
@@ -43,7 +43,7 @@ export const allUsers: User[] = [
     photoURL: 'https://picsum.photos/seed/admin1/200',
   },
   {
-    uid: 'doc1',
+    uid: 'hosp-1_e.mensah@gammed.com',
     hospitalId: 'hosp-1',
     email: 'e.mensah@gammed.com',
     name: 'Dr. Evelyn Mensah',
@@ -51,14 +51,14 @@ export const allUsers: User[] = [
     is_active: true,
     specialty: 'Cardiology',
     department: 'Cardiology',
-    hodId: 'admin1',
+    hodId: 'hosp-1_admin@gammed.com',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
     availability: { '2024-08-16': ['09:00', '10:00', '11:00', '14:00', '15:00'] },
     photoURL: 'https://picsum.photos/seed/doc1/200',
   },
   {
-    uid: 'nurse1',
+    uid: 'hosp-1_f.agyepong@gammed.com',
     hospitalId: 'hosp-1',
     email: 'f.agyepong@gammed.com',
     name: 'F. Agyepong',
@@ -70,7 +70,7 @@ export const allUsers: User[] = [
     photoURL: 'https://picsum.photos/seed/nurse1/200',
   },
   {
-    uid: 'doc-h2-1',
+    uid: 'hosp-2_doctor@stmary.com',
     hospitalId: 'hosp-2',
     email: 'doctor@stmary.com',
     name: 'Dr. Samuel Boateng',
@@ -86,7 +86,7 @@ export const allUsers: User[] = [
 
 export const mockStaffProfiles: StaffProfile[] = [
   {
-    staffId: 'doc1',
+    staffId: 'hosp-1_e.mensah@gammed.com',
     hospitalId: 'hosp-1',
     firstName: 'Evelyn',
     lastName: 'Mensah',
@@ -98,7 +98,7 @@ export const mockStaffProfiles: StaffProfile[] = [
     leaveBalances: { 'Annual Leave': 15, 'Sick Leave': 10 },
   },
   {
-    staffId: 'nurse1',
+    staffId: 'hosp-1_f.agyepong@gammed.com',
     hospitalId: 'hosp-1',
     firstName: 'Felicia',
     lastName: 'Agyepong',
@@ -159,27 +159,6 @@ export const allPatients: Patient[] = [
     status: 'active',
     created_at: new Date('2024-01-10T11:00:00Z').toISOString(),
     updated_at: now.toISOString(),
-  },
-  {
-    patient_id: 'P-H2-001',
-    hospitalId: 'hosp-2',
-    title: 'Mrs',
-    first_name: 'Sarah',
-    last_name: 'Boateng',
-    full_name: 'Sarah Boateng',
-    dob: '1970-08-12',
-    gender: 'Female',
-    patientType: 'public',
-    contact: {
-      primaryPhone: '+233200000001',
-      email: 's.boateng@email.com',
-      address: { street: 'Main Road', city: 'Kumasi', region: 'Ashanti', country: 'Ghana' },
-    },
-    emergency_contact: { name: 'John Boateng', relationship: 'Spouse', phone: '+233200000002' },
-    is_admitted: false,
-    status: 'active',
-    created_at: now.toISOString(),
-    updated_at: now.toISOString(),
   }
 ];
 
@@ -193,7 +172,7 @@ export const allAdmissions: Admission[] = [
     reasonForVisit: 'Severe chest pain and elevated BP',
     ward: 'Cardiology',
     bed_id: 'C-101',
-    attending_doctor_id: 'doc1',
+    attending_doctor_id: 'hosp-1_e.mensah@gammed.com',
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Admitted',
     created_at: now.toISOString(),
@@ -210,7 +189,7 @@ export const allAdmissions: Admission[] = [
     reasonForVisit: 'Hypertension monitoring',
     ward: 'Cardiology',
     bed_id: 'C-105',
-    attending_doctor_id: 'doc1',
+    attending_doctor_id: 'hosp-1_e.mensah@gammed.com',
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Discharged',
     summary_pdf_url: '/mock-summary.pdf',
@@ -226,7 +205,7 @@ export const allAppointments: Appointment[] = [
     hospitalId: 'hosp-1',
     patient_id: 'P-123456',
     patient_name: 'Kwame Owusu',
-    doctor_id: 'doc1',
+    doctor_id: 'hosp-1_e.mensah@gammed.com',
     doctor_name: 'Dr. Evelyn Mensah',
     appointment_date: new Date('2024-08-16T10:30:00.000Z').toISOString(),
     end_time: new Date('2024-08-16T11:00:00.000Z').toISOString(),
@@ -248,7 +227,7 @@ export const mockNotes: ClinicalNote[] = [
     hospitalId: 'hosp-1',
     patientId: 'P-123456',
     noteType: 'Consultation',
-    recordedByUserId: 'doc1',
+    recordedByUserId: 'hosp-1_e.mensah@gammed.com',
     noteText: 'Patient presented with stable BP. Advised to continue current medication and reduce sodium intake.',
     recordedAt: new Date('2024-08-16T10:45:00Z').toISOString(),
   },
@@ -257,7 +236,7 @@ export const mockNotes: ClinicalNote[] = [
     hospitalId: 'hosp-1',
     patientId: 'P-123456',
     noteType: 'Nursing Note',
-    recordedByUserId: 'nurse1',
+    recordedByUserId: 'hosp-1_f.agyepong@gammed.com',
     noteText: 'Vitals stable. Patient compliant with dietary restrictions.',
     recordedAt: new Date('2024-08-16T11:30:00Z').toISOString(),
   }
@@ -273,7 +252,7 @@ export const mockVitalsLog: VitalsLog[] = [
     temperature: '36.8',
     respiratoryRate: '16',
     oxygenSaturation: '98',
-    recordedByUserId: 'nurse1',
+    recordedByUserId: 'hosp-1_f.agyepong@gammed.com',
     recordedAt: now.toISOString(),
   }
 ];
@@ -286,7 +265,7 @@ export const mockDiagnoses: Diagnosis[] = [
     diagnosisText: 'Essential Hypertension',
     icd10Code: 'I10',
     diagnosedAt: new Date('2023-10-15T10:00:00Z').toISOString(),
-    diagnosedByDoctorId: 'doc1',
+    diagnosedByDoctorId: 'hosp-1_e.mensah@gammed.com',
     isPrimary: true,
   }
 ];
@@ -300,9 +279,9 @@ export const mockCarePlans: CarePlan[] = [
     goal: 'Maintain BP below 130/80 mmHg',
     interventions: ['Daily BP monitoring', 'Low sodium diet', 'Administer Amlodipine 5mg daily'],
     status: 'Active',
-    createdBy: 'doc1',
+    createdBy: 'hosp-1_e.mensah@gammed.com',
     createdAt: new Date('2023-10-15T10:30:00Z').toISOString(),
-    updatedBy: 'doc1',
+    updatedBy: 'hosp-1_e.mensah@gammed.com',
     updatedAt: now.toISOString(),
   }
 ];
@@ -323,17 +302,6 @@ export const mockInventory: InventoryItem[] = [
       { batchNumber: 'B-101', expiryDate: '2025-12-31T00:00:00Z', currentQuantity: 200, dateReceived: '2024-01-10T00:00:00Z' },
       { batchNumber: 'B-102', expiryDate: '2026-06-30T00:00:00Z', currentQuantity: 250, dateReceived: '2024-05-15T00:00:00Z' }
     ]
-  },
-  {
-    itemId: 'SUP-001',
-    hospitalId: 'hosp-1',
-    name: 'Disposable Syringe 5ml',
-    type: 'Supply',
-    reorderLevel: 500,
-    currentQuantity: 1200,
-    batches: [
-      { batchNumber: 'S-201', expiryDate: '2027-01-01T00:00:00Z', currentQuantity: 1200, dateReceived: '2024-03-20T00:00:00Z' }
-    ]
   }
 ];
 
@@ -343,7 +311,7 @@ export const mockPrescriptions: Prescription[] = [
     hospitalId: 'hosp-1',
     patientId: 'P-123456',
     patientName: 'Kwame Owusu',
-    doctorId: 'doc1',
+    doctorId: 'hosp-1_e.mensah@gammed.com',
     datePrescribed: now.toISOString(),
     status: 'Pending',
     medications: [{ medicationId: 'MED-001', name: 'Amlodipine', dosage: '5mg', frequency: 'Daily', quantity_to_dispense: 30 }]
@@ -360,7 +328,7 @@ export const mockMedicationRecords: MedicationRecord[] = [
     dosage: '5mg',
     frequency: 'Daily',
     instructions: 'Take one tablet every morning.',
-    prescribedByDoctorId: 'doc1',
+    prescribedByDoctorId: 'hosp-1_e.mensah@gammed.com',
     prescribedByDoctorName: 'Dr. Evelyn Mensah',
     prescribedAt: now.toISOString(),
     status: 'Active'
@@ -383,24 +351,10 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     hospitalId: 'hosp-1',
     dateOrdered: now.toISOString(),
     status: 'Submitted',
-    orderedByUserId: 'admin1',
+    orderedByUserId: 'hosp-1_admin@gammed.com',
     supplierId: 'V-001',
     orderedItems: [{ itemId: 'MED-001', name: 'Amlodipine 5mg', quantity: 500, unit_cost: 0.50 }],
     totalAmount: 250.00
-  }
-];
-
-export const mockRfqs: RequestForQuotation[] = [
-  {
-    rfqId: 'RFQ-001',
-    hospitalId: 'hosp-1',
-    title: 'Quarterly Pharmaceutical Stock',
-    dateCreated: now.toISOString(),
-    deadline: '2024-09-01T00:00:00Z',
-    status: 'Open for Bids',
-    items: [{ itemId: 'MED-001', name: 'Amlodipine 5mg', quantity: 1000 }],
-    quotes: [],
-    activityLog: [{ timestamp: now.toISOString(), activity: 'RFQ Created' }]
   }
 ];
 
@@ -424,8 +378,8 @@ export const mockLabResults: LabResult[] = [
       barcode: 'SAMPLE-001',
       sampleStatus: 'Received in Lab',
       collectionDate: new Date('2024-08-15T10:00:00Z').toISOString(),
-      collectedByUserId: 'nurse1',
-      auditLog: [{ auditId: 'A-1', hospitalId: 'hosp-1', timestamp: now.toISOString(), action: 'Sample Received', location: 'Main Lab', userId: 'tech1' }]
+      collectedByUserId: 'hosp-1_f.agyepong@gammed.com',
+      auditLog: [{ auditId: 'A-1', hospitalId: 'hosp-1', timestamp: now.toISOString(), action: 'Sample Received', location: 'Main Lab', userId: 'hosp-1_admin@gammed.com' }]
     },
     resultDetails: { WBC: '7.5', RBC: '5.2', HGB: '14.5' }
   }
@@ -437,7 +391,7 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
     hospitalId: 'hosp-1',
     patientId: 'P-123456',
     patientName: 'Kwame Owusu',
-    doctorId: 'doc1',
+    doctorId: 'hosp-1_e.mensah@gammed.com',
     dateOrdered: now.toISOString(),
     studyIds: ['Chest X-Ray'],
     status: 'Pending Scheduling',
@@ -445,17 +399,13 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
   }
 ];
 
-export const mockRadiologyReports: RadiologyReport[] = [];
-
 // --------------------------------------------------------------------
 // == FINANCIALS & BILLING ==
 // --------------------------------------------------------------------
 
 export const mockLedgerAccounts: LedgerAccount[] = [
   { accountId: '1010', hospitalId: 'hosp-1', accountName: 'Cash at Bank', accountCode: '1010', accountType: 'Asset', balance: 50000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' },
-  { accountId: '1020', hospitalId: 'hosp-1', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 15000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' },
-  { accountId: '4010', hospitalId: 'hosp-1', accountName: 'Patient Service Revenue', accountCode: '4010', accountType: 'Revenue', balance: 120000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' },
-  { accountId: '5010', hospitalId: 'hosp-1', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 45000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' }
+  { accountId: '1020', hospitalId: 'hosp-1', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 15000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' }
 ];
 
 export const mockLedgerEntries: LedgerEntry[] = [
@@ -481,13 +431,6 @@ export const mockInvoices: Invoice[] = [
   }
 ];
 
-export const mockPayments: FinancialTransaction[] = [];
-
-export const mockPricingTables: PricingTable[] = [
-  { pricingId: 'private', hospitalId: 'hosp-1', description: 'Standard Private Patient Pricing', rate_card: { 'A001': 150, 'L001': 80 } },
-  { pricingId: 'corporate', hospitalId: 'hosp-1', description: 'Insurance/Corporate Partner Pricing', rate_card: { 'A001': 120, 'L001': 65 } }
-];
-
 // --------------------------------------------------------------------
 // == FACILITIES & SPACE ==
 // --------------------------------------------------------------------
@@ -502,13 +445,7 @@ export const mockResources: Asset[] = [
     location: 'Imaging Suite A',
     status: 'Operational',
     isBookable: true,
-    modality: 'CT Scan',
-    maintenanceSchedule: [{
-        type: 'Preventive',
-        frequency: 'Quarterly',
-        lastServiceDate: '2024-06-20T00:00:00Z',
-        nextServiceDate: '2024-09-20T00:00:00Z',
-    }]
+    modality: 'CT Scan'
   }
 ];
 
@@ -518,7 +455,7 @@ export const allBeds: Bed[] = [
 ];
 
 export const mockFacilityZones: FacilityZone[] = [
-  { zoneId: 'ZONE-1', hospitalId: 'hosp-1', name: 'West Wing - Level 1', managerId: 'admin1' }
+  { zoneId: 'ZONE-1', hospitalId: 'hosp-1', name: 'West Wing - Level 1', managerId: 'hosp-1_admin@gammed.com' }
 ];
 
 export const mockWorkOrders: WorkOrder[] = [
@@ -530,7 +467,7 @@ export const mockWorkOrders: WorkOrder[] = [
     priority: 'Medium',
     status: 'Open',
     dateReported: now.toISOString(),
-    reportedByUserId: 'nurse1'
+    reportedByUserId: 'hosp-1_f.agyepong@gammed.com'
   }
 ];
 
@@ -555,14 +492,14 @@ export const mockAuditLogs: AuditLog[] = [
     logId: 'LOG-001',
     hospitalId: 'hosp-1',
     timestamp: now.toISOString(),
-    userId: 'admin1',
+    userId: 'hosp-1_admin@gammed.com',
     action: 'USER_LOGIN',
-    details: { targetCollection: 'users', targetDocId: 'admin1' }
+    details: { targetCollection: 'users', targetDocId: 'hosp-1_admin@gammed.com' }
   }
 ];
 
 // --------------------------------------------------------------------
-// == OTHER / DEPRECATED / PLACEHOLDERS ==
+// == EMPTY PLACEHOLDERS ==
 // --------------------------------------------------------------------
 
 export const mockReferrals: Referral[] = [];
@@ -595,6 +532,7 @@ export const mockLabReports: LabReport[] = [];
 export const mockResourceBookings: ResourceBooking[] = [];
 export const mockInfectionReports: InfectionReport[] = [];
 export const mockEfficacyReports: EfficacyReport[] = [];
+export const mockRfqs: RequestForQuotation[] = [];
 
 export const mockPayrollConfig: PayrollConfiguration = {
   ssnitEmployeeContribution: 0.055,
@@ -615,4 +553,9 @@ export const mockPayrollConfig: PayrollConfiguration = {
 export const mockPositions: Position[] = [
   { positionId: 'POS-1', hospitalId: 'hosp-1', title: 'Senior Consultant Physician', baseAnnualSalary: 120000 },
   { positionId: 'POS-2', hospitalId: 'hosp-1', title: 'Registered Nurse', baseAnnualSalary: 48000 }
+];
+
+export const mockPricingTables: PricingTable[] = [
+  { pricingId: 'private', hospitalId: 'hosp-1', description: 'Standard Private Patient Pricing', rate_card: { 'A001': 150, 'L001': 80 } },
+  { pricingId: 'corporate', hospitalId: 'hosp-1', description: 'Insurance/Corporate Partner Pricing', rate_card: { 'A001': 120, 'L001': 65 } }
 ];

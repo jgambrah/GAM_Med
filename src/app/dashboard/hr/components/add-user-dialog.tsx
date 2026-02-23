@@ -42,7 +42,7 @@ const NewUserWithHospitalSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
   email: z.string().email('A valid email is required'),
-  role: z.enum(['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian']),
+  role: z.enum(['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'housekeeping', 'space_manager', 'supplier']),
   department: z.string().optional(),
 });
 
@@ -74,10 +74,14 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
   }, [open, user, form]);
 
   const onSubmit = (values: z.infer<typeof NewUserWithHospitalSchema>) => {
+    // Implement hospitalId_emailAddress pattern for unique Document ID
+    const normalizedEmail = values.email.toLowerCase().trim();
+    const customUid = `${values.hospitalId}_${normalizedEmail}`;
+
     const newUser: User = {
-        uid: `new-${Date.now()}`,
+        uid: customUid,
         hospitalId: values.hospitalId,
-        email: values.email,
+        email: normalizedEmail,
         name: `${values.firstName} ${values.lastName}`,
         role: values.role,
         department: values.department,
@@ -88,7 +92,7 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
 
     onUserCreated(newUser);
     toast.success('User Created', {
-        description: `${values.firstName} ${values.lastName} has been added to the system.`
+        description: `${values.firstName} ${values.lastName} has been added to the system with unique ID: ${customUid}`
     });
     setOpen(false);
     form.reset();
@@ -106,7 +110,7 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
         <DialogHeader>
           <DialogTitle>Create New User Profile</DialogTitle>
           <DialogDescription>
-            Enter the details for the new staff member. An onboarding email will be sent to them.
+            Enter the details for the new staff member. The Document ID will be generated as hospitalId_email to ensure uniqueness within your facility.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -142,6 +146,7 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
                     <FormItem>
                         <FormLabel>Email Address</FormLabel>
                         <FormControl><Input type="email" {...field} /></FormControl>
+                        <FormDescription>This will be used to generate the unique Document ID.</FormDescription>
                         <FormMessage />
                     </FormItem>
                 )}
