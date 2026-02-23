@@ -10,6 +10,7 @@ export interface Hospital {
   status: 'active' | 'suspended';
   subscriptionTier: 'basic' | 'premium';
   createdAt: string;
+  isInternal?: boolean; // Flag for platform-owned tenants (like GAMMED_HQ)
 }
 
 export interface User {
