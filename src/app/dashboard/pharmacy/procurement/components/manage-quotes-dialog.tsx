@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -111,8 +112,8 @@ function AddQuoteForm({ rfq, onQuoteAdded }: { rfq: RequestForQuotation, onQuote
                 <FormField
                   control={form.control}
                   name={`items.${index}.unitPrice`}
-                  render={({ field }) => (
-                    <FormItem><FormControl><Input type="number" step="0.01" placeholder="Unit Price" {...field} /></FormControl><FormMessage /></FormItem>
+                  render={({ field: unitPriceField }) => (
+                    <FormItem><FormControl><Input type="number" step="0.01" placeholder="Unit Price" {...unitPriceField} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
               </div>
