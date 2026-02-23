@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from "next/link";
@@ -44,16 +45,16 @@ export default function LoginPage() {
                     id: doc.id,
                     name: doc.data().name
                 }));
-                const sortedDocs = docs.sort((a, b) => a.id === 'GAMMED_INTERNAL' ? -1 : 1);
+                const sortedDocs = docs.sort((a, b) => a.id === 'GAMMED_HQ' ? -1 : 1);
                 setHospitals(sortedDocs);
                 if (sortedDocs.length > 0) setSelectedHospitalId(sortedDocs[0].id);
             } catch (error) {
                 console.error("Error fetching hospitals:", error);
                 setHospitals([
-                    { id: 'GAMMED_INTERNAL', name: 'GamMed Platform Operations' },
+                    { id: 'GAMMED_HQ', name: 'GamMed Platform Operations' },
                     { id: 'hosp-1', name: 'City General Hospital' }
                 ]);
-                setSelectedHospitalId('GAMMED_INTERNAL');
+                setSelectedHospitalId('GAMMED_HQ');
             }
         };
         fetchHospitals();
@@ -173,6 +174,11 @@ export default function LoginPage() {
                         {isLoading ? "Verifying..." : "Secure Login"}
                     </Button>
                 </form>
+                <div className="mt-4 text-center text-xs">
+                    <Link href="/register-platform-owner" className="text-muted-foreground hover:text-primary">
+                        Platform Partner? Register Facility
+                    </Link>
+                </div>
             </CardContent>
         </Card>
     </div>
