@@ -41,6 +41,7 @@ import { Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { AlertCircle } from 'lucide-react';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -96,6 +97,7 @@ export function AddPatientDialog({
             expiryDate: patientToEdit.insurance?.expiry_date,
         },
         consent: true,
+        isTemporary: patientToEdit.isTemporary || false,
     } : {
       hospitalId: user?.hospitalId || '',
       mrn: '',
@@ -130,8 +132,11 @@ export function AddPatientDialog({
         expiryDate: '',
       },
       consent: false,
+      isTemporary: false,
     },
   });
+
+  const isTemporary = form.watch('isTemporary');
 
    React.useEffect(() => {
     if (patientToEdit) {
@@ -170,6 +175,7 @@ export function AddPatientDialog({
             expiryDate: patientToEdit.insurance?.expiry_date,
         },
         consent: true,
+        isTemporary: patientToEdit.isTemporary || false,
       });
     } else {
         setOpen(false);
@@ -191,43 +197,53 @@ export function AddPatientDialog({
   };
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    // 1. NORMALIZE ID: Trim and Upper Case for consistency
-    const normalizedMrn = values.mrn.trim().toUpperCase();
+    // 1. Handle Temporary ID generation if MRN is missing
+    let finalMrn = values.mrn?.trim().toUpperCase() || '';
+    if (values.isTemporary && !finalMrn) {
+        const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
+        finalMrn = `TEMP_${dateStr}_${randomStr}`;
+    }
+
+    if (!finalMrn) {
+        toast.error("Validation Error", { description: "Medical Record Number (MRN) is required unless this is an emergency registration." });
+        return;
+    }
     
     // 2. CONSTRUCT COMPOSITE DOCUMENT ID
-    const customPatientId = `${values.hospitalId}_MRN${normalizedMrn}`;
+    const customPatientId = `${values.hospitalId}_MRN${finalMrn}`;
 
     if (isEditing) {
       console.log('Updating patient:', values);
       toast.success('Patient updated successfully (simulated).');
       if (onPatientUpdated) onPatientUpdated();
     } else {
-      // 3. ATOMIC UNIQUENESS CHECK (Simulating a Firestore Transaction)
+      // 3. ATOMIC UNIQUENESS CHECK
       const existingPatient = allPatients.find(p => p.patient_id === customPatientId);
       
       if (existingPatient) {
           toast.error("Duplicate Record", {
-              description: `A patient with MRN ${normalizedMrn} is already registered at this hospital.`
+              description: `A patient with MRN ${finalMrn} is already registered at this hospital.`
           });
           return;
       }
 
       // 4. CALL SERVER ACTION
-      const result = await addPatientAction({ ...values, mrn: normalizedMrn });
+      const result = await addPatientAction({ ...values, mrn: finalMrn });
       
       if (!result.success) {
         toast.error(`Error: ${result.message || 'Failed to add patient.'}`);
         return;
       }
 
-      toast.success('Patient registered successfully.', {
+      toast.success(values.isTemporary ? 'Emergency record created.' : 'Patient registered successfully.', {
           description: `Generated Record ID: ${customPatientId}`
       });
 
       const newPatient: Patient = {
         patient_id: customPatientId,
         hospitalId: values.hospitalId,
-        mrn: normalizedMrn,
+        mrn: finalMrn,
         title: values.title ?? "",
         first_name: values.firstName,
         last_name: values.lastName,
@@ -257,6 +273,7 @@ export function AddPatientDialog({
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        isTemporary: values.isTemporary,
       };
       if (onPatientAdded) {
         onPatientAdded(newPatient);
@@ -271,7 +288,7 @@ export function AddPatientDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Patient Details' : 'Register New Patient'}</DialogTitle>
           <DialogDescription>
-            {isEditing ? `Editing record for ${patientToEdit?.full_name}` : 'Fill in the details below to add a new patient to the system. All files are unique within your hospital.'}
+            {isEditing ? `Editing record for ${patientToEdit?.full_name}` : 'Fill in the details below to add a new patient. The record will be unique to your facility.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -285,7 +302,7 @@ export function AddPatientDialog({
                     <FormItem>
                       <FormLabel>Medical Record Number (MRN)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 58229" {...field} />
+                        <Input placeholder="e.g., 58229" {...field} disabled={isTemporary} />
                       </FormControl>
                       <FormDescription>Must be unique within your hospital.</FormDescription>
                       <FormMessage />
@@ -293,15 +310,26 @@ export function AddPatientDialog({
                   )}
                 />
                  <FormField
-                  control={form.control}
-                  name="ghanaCardId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ghana Card ID (Optional)</FormLabel>
-                      <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
-                      <FormMessage />
+                    control={form.control}
+                    name="isTemporary"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-yellow-50 border-yellow-200">
+                        <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                        <FormLabel className="text-yellow-800">
+                            No MRN available (Emergency)
+                        </FormLabel>
+                        <FormDescription className="text-yellow-700/80">
+                            A temporary ID will be generated. You must reconcile this later.
+                        </FormDescription>
+                        </div>
                     </FormItem>
-                  )}
+                    )}
                 />
               </div>
 

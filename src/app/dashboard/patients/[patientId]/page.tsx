@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, AlertTriangle } from 'lucide-react';
 import { 
     mockCarePlans, 
     mockOtSessions, 
@@ -48,6 +48,7 @@ import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, Admission, Bed, CarePlan, ClinicalNote, RadiologyOrder, LabResult } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -162,6 +163,22 @@ export default function PatientDetailPage() {
             </Badge>
         </div>
       </div>
+
+      {patient.isTemporary && (
+          <Card className="bg-yellow-50 border-yellow-200">
+              <CardHeader className="py-3 px-4">
+                  <div className="flex items-center gap-3">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      <div>
+                          <CardTitle className="text-base text-yellow-800">Temporary Medical Record</CardTitle>
+                          <CardDescription className="text-yellow-700">
+                              This patient was registered without an MRN (Emergency). Please reconcile with a permanent identifier as soon as possible.
+                          </CardDescription>
+                      </div>
+                  </div>
+              </CardHeader>
+          </Card>
+      )}
       
        {hasClinicalPrivileges && (
         <>

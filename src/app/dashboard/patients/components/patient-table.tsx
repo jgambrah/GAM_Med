@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, AlertTriangle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,7 +66,15 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
             data.map((patient) => (
               <TableRow key={patient.patient_id}>
                 <TableCell className="font-medium">
-                  {patient.patient_id}
+                  <div className="flex flex-col">
+                    <span>{patient.patient_id}</span>
+                    {patient.isTemporary && (
+                        <Badge variant="outline" className="w-fit mt-1 border-yellow-500 text-yellow-700 bg-yellow-50 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Temporary
+                        </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Link href={`/dashboard/patients/${patient.patient_id}`} className="hover:underline text-primary font-medium">

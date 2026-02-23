@@ -86,6 +86,7 @@ export interface Patient {
   lastVisitDate?: string;
   created_at: string;
   updated_at: string;
+  isTemporary?: boolean; // Flag for emergency registration
 }
 
 export interface Appointment {
