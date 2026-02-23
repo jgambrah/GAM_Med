@@ -1,41 +1,27 @@
 
 'use client';
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useAuth as useGlobalAuth } from "@/hooks/use-auth"
-import { useRouter } from "next/navigation"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
 import * as React from 'react';
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
-} from "@/components/ui/select";
-import { doc, getDoc } from "firebase/firestore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
-import { mockHospitals } from "@/lib/data";
 
 /**
- * == Multi-Tenant Role-Based Login ==
+ * == SaaS-Ready Role-Based Login ==
  * 
- * 1. The user selects their Hospital (Tenant).
- * 2. We use the pattern {hospitalId}_{email} to perform an O(1) lookup.
- * 3. We verify the role and status from the document.
- * 4. We sign in via Firebase Auth.
- * 5. We redirect based on the role.
+ * 1. Dynamic Discovery: Fetches active hospital tenants from Firestore.
+ * 2. Tenant-First Verification: Checks membership via {hospitalId}_{email} ID pattern.
+ * 3. Secure Auth: Performs Firebase Auth sign-in.
+ * 4. Context Sync: Updates global state with hospitalId for tenant isolation.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -43,79 +29,91 @@ export default function LoginPage() {
     const db = useFirestore();
     const auth = useAuth();
 
-    const [selectedHospitalId, setSelectedHospitalId] = React.useState('hosp-1');
-    const [email, setEmail] = React.useState('admin@gammed.com'); 
-    const [password, setPassword] = React.useState('password'); 
+    const [hospitals, setHospitals] = React.useState<{id: string, name: string}[]>([]);
+    const [selectedHospitalId, setSelectedHospitalId] = React.useState('');
+    const [email, setEmail] = React.useState(''); 
+    const [password, setPassword] = React.useState(''); 
     const [isLoading, setIsLoading] = React.useState(false);
+
+    // 1. FETCH ACTIVE HOSPITALS (SaaS Discovery)
+    React.useEffect(() => {
+        const fetchHospitals = async () => {
+            try {
+                const q = query(collection(db, "hospitals"), where("status", "==", "active"));
+                const querySnapshot = await getDocs(q);
+                const docs = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    name: doc.data().name
+                }));
+                setHospitals(docs);
+                if (docs.length > 0) setSelectedHospitalId(docs[0].id);
+            } catch (error) {
+                console.error("Error fetching hospitals:", error);
+                // Fallback for demo if collection is empty
+                setHospitals([{ id: 'hosp-1', name: 'City General Hospital' }]);
+                setSelectedHospitalId('hosp-1');
+            }
+        };
+        fetchHospitals();
+    }, [db]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!selectedHospitalId) return toast.error("Please select a hospital");
+        
         setIsLoading(true);
-
         const normalizedEmail = email.toLowerCase().trim();
         
-        // 1. CONSTRUCT THE MULTI-TENANT DOCUMENT ID
+        // 2. CONSTRUCT THE MULTI-TENANT DOCUMENT ID
+        // Pattern: {hospitalId}_{normalizedEmail}
         const userDocId = `${selectedHospitalId}_${normalizedEmail}`;
 
         try {
-            // 2. O(1) DIRECT LOOKUP: Fetch user profile directly by ID
-            // This ensures the user belongs to the selected hospital tenant.
+            // 3. STEP A: VERIFY TENANT MEMBERSHIP
+            // We check if this user exists specifically for THIS hospital
             const userRef = doc(db, 'users', userDocId);
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {
-                toast.error("User not found", {
-                    description: "This email is not registered at the selected hospital."
-                });
-                setIsLoading(false);
-                return;
+                throw new Error("You do not have an account at this hospital branch.");
             }
 
             const userData = userSnap.data();
             
             if (!userData.is_active) {
-                toast.error("Account Disabled", {
-                    description: "Please contact your system administrator."
-                });
-                setIsLoading(false);
-                return;
+                throw new Error("Your account is disabled. Contact your administrator.");
             }
 
-            // 3. AUTHENTICATE via Firebase Auth
-            // In this MVP, we use signInWithEmailAndPassword
-            // await signInWithEmailAndPassword(auth, normalizedEmail, password);
+            // 4. STEP B: AUTHENTICATE CREDENTIALS
+            // Use Firebase Auth to verify the password against the normalized email
+            const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
-            // For Prototype/Demo: Simulate the success
-            console.log(`Authenticated ${normalizedEmail} at ${selectedHospitalId} with role ${userData.role}`);
-            setUser(userData as any);
+            // 5. STEP C: SYNC GLOBAL STATE
+            // Pass the userData (which includes hospitalId) to your Global Context
+            // This hospitalId is used by components to scope all subsequent queries.
+            setUser({
+                uid: userCredential.user.uid,
+                ...userData
+            } as any);
 
-            // 4. ROLE-BASED REDIRECTION
             toast.success("Login Successful", {
-                description: `Welcome back, ${userData.name}.`
+                description: `Welcome to ${hospitals.find(h => h.id === selectedHospitalId)?.name || 'GamMed'}`
             });
 
-            // Route based on assigned role
-            switch (userData.role) {
-                case 'admin':
-                    router.push('/dashboard/admin');
-                    break;
-                case 'doctor':
-                    router.push('/dashboard/my-practice');
-                    break;
-                case 'nurse':
-                    router.push('/dashboard/nursing');
-                    break;
-                case 'patient':
-                    router.push('/dashboard/my-records');
-                    break;
-                default:
-                    router.push('/dashboard');
-            }
+            // 6. ROLE-BASED REDIRECTION
+            const routes = {
+                admin: '/dashboard/admin',
+                doctor: '/dashboard/my-practice',
+                nurse: '/dashboard/nursing',
+                patient: '/dashboard/my-records'
+            };
+            
+            router.push(routes[userData.role as keyof typeof routes] || '/dashboard');
 
         } catch (error: any) {
             console.error("Login error:", error);
-            toast.error("Login Failed", {
-                description: "Invalid credentials or server error."
+            toast.error("Access Denied", {
+                description: error.message || "Invalid email or password."
             });
         } finally {
             setIsLoading(false);
@@ -124,47 +122,45 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <Card className="mx-auto max-w-sm w-full">
-            <CardHeader>
-                <CardTitle className="text-2xl text-center">GamMed Sign In</CardTitle>
+        <Card className="mx-auto max-w-sm w-full shadow-lg">
+            <CardHeader className="space-y-1">
+                <CardTitle className="text-2xl text-center font-bold">GamMed SaaS</CardTitle>
                 <CardDescription className="text-center">
-                    Select your hospital and enter your credentials.
+                    Secure Hospital Management Portal
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleLogin} className="grid gap-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="hospital">Hospital / Facility</Label>
+                        <Label htmlFor="hospital">Facility / Branch</Label>
                         <Select value={selectedHospitalId} onValueChange={setSelectedHospitalId}>
                             <SelectTrigger id="hospital">
-                                <SelectValue placeholder="Select hospital" />
+                                <SelectValue placeholder="Select your hospital" />
                             </SelectTrigger>
                             <SelectContent>
-                                {mockHospitals.map(h => (
-                                    <SelectItem key={h.hospitalId} value={h.hospitalId}>
-                                        {h.name}
-                                    </SelectItem>
-                                ))}
+                                {hospitals.length > 0 ? hospitals.map(h => (
+                                    <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                                )) : (
+                                    <SelectItem value="loading" disabled>Loading facilities...</SelectItem>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">Work Email</Label>
                         <Input
                             id="email"
                             type="email"
-                            placeholder="m@example.com"
+                            placeholder="name@hospital.com"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
                     </div>
                     <div className="grid gap-2">
-                        <div className="flex items-center">
+                        <div className="flex items-center justify-between">
                             <Label htmlFor="password">Password</Label>
-                            <Link href="#" className="ml-auto inline-block text-sm underline">
-                                Forgot password?
-                            </Link>
+                            <Link href="#" className="text-sm text-primary underline">Forgot?</Link>
                         </div>
                         <Input 
                             id="password" 
@@ -174,12 +170,12 @@ export default function LoginPage() {
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? "Signing in..." : "Sign In"}
+                    <Button type="submit" className="w-full" disabled={isLoading || hospitals.length === 0}>
+                        {isLoading ? "Verifying..." : "Secure Login"}
                     </Button>
                 </form>
             </CardContent>
         </Card>
     </div>
-  )
+  );
 }
