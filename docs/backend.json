@@ -32,7 +32,7 @@
     },
     "Patient": {
       "title": "Patient",
-      "description": "Stores demographic and clinical information for a patient within a hospital. Document ID pattern: {hospitalId}_MRN{mrn}. This ensures that a patient record is unique to a hospital and prevents duplicate files.",
+      "description": "Stores demographic and clinical information for a patient within a hospital. Document ID pattern: {hospitalId}_MRN{mrn}. This is the Gold Standard for SaaS isolation, ensuring that a patient record is unique to a hospital, prevents duplicate files, and is secured via strict Firestore rules.",
       "type": "object",
       "properties": {
         "patient_id": { "type": "string" },
