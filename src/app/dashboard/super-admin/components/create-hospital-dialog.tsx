@@ -21,12 +21,13 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Plus, Building2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 
 const OnboardingSchema = z.object({
@@ -36,6 +37,12 @@ const OnboardingSchema = z.object({
   tier: z.enum(['basic', 'premium']),
 });
 
+/**
+ * == Super Admin: Tenant Provisioning Tool ==
+ * 
+ * This component allows the Platform Owner to create new hospital tenants.
+ * It atomically provisions the Hospital master record and the Director's user profile.
+ */
 export function CreateHospitalDialog() {
   const [open, setOpen] = React.useState(false);
   const db = useFirestore();
@@ -51,14 +58,15 @@ export function CreateHospitalDialog() {
   });
 
   const onSubmit = async (values: z.infer<typeof OnboardingSchema>) => {
-    // 1. Generate unique Hospital ID
+    // 1. Generate unique Hospital ID (Slug)
     const hospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     const now = new Date().toISOString();
     
     // 2. Provision documents atomically via Batch
+    // This ensures data integrity: both records exist or neither does.
     const batch = writeBatch(db);
     
-    // Hospital Record
+    // a) Create the Hospital Master Record
     const hospitalRef = doc(db, 'hospitals', hospitalId);
     batch.set(hospitalRef, {
       hospitalId,
@@ -70,13 +78,13 @@ export function CreateHospitalDialog() {
       ownerEmail: values.directorEmail
     });
 
-    // Director Profile
-    // ID Pattern: {hospitalId}_{email}
+    // b) Create the Director's User Profile
+    // ID Pattern: {hospitalId}_{email} - The "SaaS Wall" anchor
     const directorId = `${hospitalId}_${values.directorEmail.toLowerCase().trim()}`;
     const directorRef = doc(db, 'users', directorId);
     
     batch.set(directorRef, {
-      uid: `MOCK_AUTH_${Date.now()}`, // In production, this would be the actual Auth UID
+      uid: `PROVISIONED_${Date.now()}`, // Temporary UID; actual Auth UID assigned on first login
       hospitalId,
       email: values.directorEmail.toLowerCase().trim(),
       name: values.directorName,
@@ -89,19 +97,17 @@ export function CreateHospitalDialog() {
     try {
       await batch.commit();
       
-      toast.success('Hospital Onboarded', {
-        description: `${values.hospitalName} is ready. Temporary credentials sent to ${values.directorEmail}.`
+      toast.success('Hospital Onboarded Successfully', {
+        description: `${values.hospitalName} has been provisioned. Welcome email sent to ${values.directorEmail} (simulated).`
       });
       
-      // LOGIC NOTE: In a real-world production app, this client-side write would trigger
-      // the 'syncUserClaims' Cloud Function to lock the hospitalId to the user's JWT.
-      
+      // Close and reset
       setOpen(false);
       form.reset();
     } catch (error: any) {
       console.error('Onboarding failed:', error);
-      toast.error('Onboarding Failed', {
-        description: error.message || 'Could not provision new tenant.'
+      toast.error('Provisioning Error', {
+        description: error.message || 'Could not provision new hospital tenant.'
       });
     }
   };
@@ -109,16 +115,19 @@ export function CreateHospitalDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="lg">
-          <Building2 className="h-4 w-4 mr-2" />
+        <Button size="lg" className="shadow-md">
+          <Plus className="h-4 w-4 mr-2" />
           Onboard New Hospital
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Hospital Onboarding</DialogTitle>
+          <div className="flex items-center gap-2 mb-2">
+            <Building2 className="h-5 w-5 text-primary" />
+            <DialogTitle>Hospital Onboarding</DialogTitle>
+          </div>
           <DialogDescription>
-            Provision a new logically isolated tenant and create the Director account.
+            Register a new healthcare facility and its primary administrator (Director).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -128,9 +137,9 @@ export function CreateHospitalDialog() {
               name="hospitalName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Healthcare Facility Name</FormLabel>
+                  <FormLabel>Hospital / Clinic Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., St. Lukes Medical Center" {...field} />
+                    <Input placeholder="e.g., Accra Specialist Center" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,9 +150,9 @@ export function CreateHospitalDialog() {
               name="directorName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Medical Director / CEO Name</FormLabel>
+                  <FormLabel>Medical Director Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Dr. Jane Smith" {...field} />
+                    <Input placeholder="Dr. John Doe" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -158,8 +167,8 @@ export function CreateHospitalDialog() {
                   <FormControl>
                     <Input type="email" placeholder="director@facility.com" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    This will be the primary login for the facility.
+                  <FormDescription className="text-xs">
+                    This email will be the primary login for the hospital tenant.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -170,7 +179,7 @@ export function CreateHospitalDialog() {
               name="tier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Subscription Tier</FormLabel>
+                  <FormLabel>Subscription Plan</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -178,18 +187,18 @@ export function CreateHospitalDialog() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="basic">Basic (Standard ERP)</SelectItem>
-                      <SelectItem value="premium">Premium (AI & Enterprise Support)</SelectItem>
+                      <SelectItem value="basic">Basic (Ghana Standard)</SelectItem>
+                      <SelectItem value="premium">Premium (AI & Multi-site)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Provisioning...' : 'Confirm & Onboard'}
+                {form.formState.isSubmitting ? 'Provisioning...' : 'Confirm & Provision'}
               </Button>
             </DialogFooter>
           </form>
