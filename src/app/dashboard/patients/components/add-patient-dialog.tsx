@@ -240,6 +240,7 @@ export function AddPatientDialog({
           description: `Generated Record ID: ${customPatientId}`
       });
 
+      const fullName = `${values.firstName} ${values.lastName}`;
       const newPatient: Patient = {
         patient_id: customPatientId,
         hospitalId: values.hospitalId,
@@ -247,7 +248,8 @@ export function AddPatientDialog({
         title: values.title ?? "",
         first_name: values.firstName,
         last_name: values.lastName,
-        full_name: `${values.firstName} ${values.lastName}`,
+        full_name: fullName,
+        full_name_lowercase: fullName.toLowerCase(), // Normalized key for optimized NoSQL prefix search
         ghanaCardId: values.ghanaCardId,
         dob: values.dob,
         gender: values.gender,

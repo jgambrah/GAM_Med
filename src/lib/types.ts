@@ -46,6 +46,7 @@ export interface Patient {
   first_name: string;
   last_name: string;
   full_name: string;
+  full_name_lowercase: string; // Normalized key for optimized NoSQL prefix search
   otherNames?: string;
   ghanaCardId?: string;
   dob: string;

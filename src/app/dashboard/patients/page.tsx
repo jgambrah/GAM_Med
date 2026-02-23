@@ -27,9 +27,10 @@ export default function PatientsPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   /**
-   * == SAAS GOLDEN RULE: DOUBLE-FILTER PATTERN ==
+   * == SAAS GOLDEN RULE: DOUBLE-FILTER PATTERN (WITH PREFIX RANGE SEARCH) ==
    * This implementation ensures that search results are ALWAYS scoped to the 
-   * current hospital first, before any search terms are applied.
+   * current hospital first. For name searches, it uses a high-performance 
+   * prefix matching logic (mirrors NoSQL range queries).
    */
   const handleSearch = useDebouncedCallback((query: string) => {
     if (!user) return;
@@ -44,15 +45,23 @@ export default function PatientsPage() {
       setFilteredPatients(hospitalPatients);
     } else {
       const lowercasedQuery = query.toLowerCase();
-      // 2. SEARCH TERM FILTERING
-      // Normalize search inputs like phone numbers
+      // Normalize phone search input
       const cleanPhoneQuery = query.replace(/\D/g, '');
 
       const filtered = hospitalPatients.filter((patient) => {
           // Check for MRN/ID match
           const matchesId = patient.patient_id.toLowerCase().includes(lowercasedQuery);
-          // Check for Name match
-          const matchesName = patient.full_name.toLowerCase().includes(lowercasedQuery);
+          
+          /**
+           * == OPTIMIZED PREFIX SEARCH (NoSQL RANGE PATTERN) ==
+           * In a production Firestore environment, this would be:
+           * .where('hospitalId', '==', hospitalId)
+           * .where('full_name_lowercase', '>=', lowercasedQuery)
+           * .where('full_name_lowercase', '<=', lowercasedQuery + '\uf8ff')
+           */
+          const searchKey = patient.full_name_lowercase || patient.full_name.toLowerCase();
+          const matchesName = searchKey.startsWith(lowercasedQuery);
+
           // Check for Phone match (Normalized)
           const patientPhone = patient.contact.primaryPhone.replace(/\D/g, '');
           const matchesPhone = cleanPhoneQuery !== '' && patientPhone.includes(cleanPhoneQuery);
