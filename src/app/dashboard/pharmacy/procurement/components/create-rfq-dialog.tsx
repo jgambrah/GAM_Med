@@ -22,6 +22,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { mockInventory } from '@/lib/data';
 import { RequestForQuotation, RfqActivityLogEntry } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/hooks/use-auth';
 
 const RfqItemSchema = z.object({
   itemId: z.string().min(1, 'Item is required.'),
@@ -30,6 +31,7 @@ const RfqItemSchema = z.object({
 });
 
 const NewRfqSchema = z.object({
+  hospitalId: z.string().min(1),
   title: z.string().min(5, 'A title is required.'),
   deadline: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid deadline is required." }),
   items: z.array(RfqItemSchema).min(1, 'At least one item is required.'),
@@ -40,16 +42,24 @@ interface CreateRfqDialogProps {
 }
 
 export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
   const form = useForm<z.infer<typeof NewRfqSchema>>({
     resolver: zodResolver(NewRfqSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       title: '',
       deadline: '',
       items: [{ itemId: '', name: '', quantity: 1 }],
     },
   });
+
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -61,11 +71,12 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
     
     const initialActivity: RfqActivityLogEntry[] = [
         { timestamp: now, activity: 'RFQ Created' },
-        { timestamp: new Date(Date.now() + 1000).toISOString(), activity: 'Supplier notifications sent' }, // Simulate slight delay
+        { timestamp: new Date(Date.now() + 1000).toISOString(), activity: 'Supplier notifications sent' },
     ];
     
     const newRfq: RequestForQuotation = {
       rfqId: `RFQ-${Date.now()}`,
+      hospitalId: values.hospitalId,
       title: values.title,
       dateCreated: now,
       deadline: values.deadline,
@@ -81,19 +92,6 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
     onRfqCreated(newRfq);
     toast.success(`Request for Quotation "${values.title}" has been created.`);
     
-    // Simulate the automated email notification process
-    const promise = () => new Promise((resolve) => setTimeout(() => {
-        resolve({ name: 'Notification Sent' });
-    }, 2000));
-
-    toast.promise(promise, {
-        loading: 'Notifying all registered suppliers...',
-        success: (data: any) => {
-            return `✓ Notifications sent successfully.`;
-        },
-        error: 'Failed to send notifications.',
-    });
-
     setOpen(false);
     form.reset();
   };

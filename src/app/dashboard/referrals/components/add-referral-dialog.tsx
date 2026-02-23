@@ -37,16 +37,19 @@ import { ReferralSchema } from '@/lib/schemas';
 import { Plus } from 'lucide-react';
 import { Referral } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddReferralDialogProps {
   onReferralAdded: (newReferral: Referral) => void;
 }
 
 export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const form = useForm<z.infer<typeof ReferralSchema>>({
     resolver: zodResolver(ReferralSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       referringProvider: '',
       patientName: '',
       patientPhone: '',
@@ -58,12 +61,16 @@ export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof ReferralSchema>) => {
-    // In a real app, this would call a server action that invokes the `processIncomingReferral` Cloud Function.
-    console.log('New Referral Data:', values);
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
 
+  const onSubmit = async (values: z.infer<typeof ReferralSchema>) => {
     const newReferral: Referral = {
         referral_id: `REF-${Date.now()}`,
+        hospitalId: values.hospitalId,
         referringProvider: values.referringProvider,
         referralDate: new Date().toISOString(),
         patientDetails: {
@@ -225,11 +232,6 @@ export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
                             </FormItem>
                         )}
                     />
-                     <FormItem>
-                        <FormLabel>Scanned Document (Optional)</FormLabel>
-                        <Input type="file" />
-                        <FormMessage />
-                    </FormItem>
                 </div>
             </div>
 

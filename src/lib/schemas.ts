@@ -279,3 +279,15 @@ export const LicenseSchema = z.object({
     licenseNumber: z.string(),
     expiryDate: z.string(),
 });
+
+export const ReferralSchema = z.object({
+  hospitalId: z.string().min(1),
+  referringProvider: z.string().min(3),
+  patientName: z.string().min(3),
+  patientDob: z.string(),
+  patientPhone: z.string().min(10),
+  reasonForReferral: z.string().min(10),
+  priority: z.enum(['Routine', 'Urgent', 'Emergency']),
+  assignedDepartment: z.string().min(1),
+  notes: z.string().optional(),
+});

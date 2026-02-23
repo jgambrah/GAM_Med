@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -34,8 +35,10 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { User } from '@/lib/types';
 import { Plus } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
-const NewUserSchema = z.object({
+const NewUserWithHospitalSchema = z.object({
+  hospitalId: z.string().min(1),
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
   email: z.string().email('A valid email is required'),
@@ -49,11 +52,13 @@ interface AddUserDialogProps {
 }
 
 export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
-  const form = useForm<z.infer<typeof NewUserSchema>>({
-    resolver: zodResolver(NewUserSchema),
+  const form = useForm<z.infer<typeof NewUserWithHospitalSchema>>({
+    resolver: zodResolver(NewUserWithHospitalSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       firstName: '',
       lastName: '',
       email: '',
@@ -62,12 +67,20 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof NewUserSchema>) => {
-    // In a real app, this would call the onboardNewEmployee Cloud Function
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
+
+  const onSubmit = (values: z.infer<typeof NewUserWithHospitalSchema>) => {
     const newUser: User = {
         uid: `new-${Date.now()}`,
-        ...values,
+        hospitalId: values.hospitalId,
+        email: values.email,
         name: `${values.firstName} ${values.lastName}`,
+        role: values.role,
+        department: values.department,
         is_active: true,
         created_at: new Date().toISOString(),
         last_login: new Date().toISOString(),

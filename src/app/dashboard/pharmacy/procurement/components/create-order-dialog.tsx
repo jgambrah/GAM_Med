@@ -23,15 +23,17 @@ import { Plus, Trash2 } from 'lucide-react';
 import { mockSuppliers as initialSuppliers, mockInventory } from '@/lib/data';
 import { PurchaseOrder, Supplier } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 const OrderItemSchema = z.object({
   itemId: z.string().min(1, 'Item is required.'),
-  name: z.string(), // We'll add this to the object when an item is selected.
+  name: z.string(),
   quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
   unit_cost: z.coerce.number().min(0.01, 'Cost must be greater than 0.'),
 });
 
 const NewOrderSchema = z.object({
+  hospitalId: z.string().min(1),
   supplierId: z.string().min(1, 'A supplier must be selected.'),
   items: z.array(OrderItemSchema).min(1, 'At least one item is required.'),
 });
@@ -41,16 +43,24 @@ interface CreateOrderDialogProps {
 }
 
 export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [suppliers] = useLocalStorage<Supplier[]>('suppliers', initialSuppliers);
 
   const form = useForm<z.infer<typeof NewOrderSchema>>({
     resolver: zodResolver(NewOrderSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       supplierId: '',
       items: [{ itemId: '', name: '', quantity: 1, unit_cost: 0 }],
     },
   });
+
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -64,12 +74,12 @@ export function CreateOrderDialog({ onOrderCreated }: CreateOrderDialogProps) {
   }, [watchedItems]);
 
   const onSubmit = (values: z.infer<typeof NewOrderSchema>) => {
-    // In a real app, this would call the `generatePurchaseOrder` Cloud Function
     const newOrder: PurchaseOrder = {
         poId: `PO-${Date.now()}`,
+        hospitalId: values.hospitalId,
         dateOrdered: new Date().toISOString(),
         status: 'Submitted',
-        orderedByUserId: 'pharma1', // Mocked user
+        orderedByUserId: user?.uid || 'pharma1',
         supplierId: values.supplierId,
         orderedItems: values.items.map(item => ({
             itemId: item.itemId,

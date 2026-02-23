@@ -21,26 +21,40 @@ import { Input } from '@/components/ui/input';
 import { Bed } from '@/lib/types';
 import { NewBedSchema } from '@/lib/schemas';
 import { Plus } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddBedDialogProps {
   onBedCreated: (newBed: Bed) => void;
 }
 
+const NewBedWithHospitalSchema = NewBedSchema.extend({
+    hospitalId: z.string().min(1),
+});
+
 export function AddBedDialog({ onBedCreated }: AddBedDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
-  const form = useForm<z.infer<typeof NewBedSchema>>({
-    resolver: zodResolver(NewBedSchema),
+  const form = useForm<z.infer<typeof NewBedWithHospitalSchema>>({
+    resolver: zodResolver(NewBedWithHospitalSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       bedId: '',
       wardName: '',
       roomNumber: '',
     },
   });
 
-  const onSubmit = (values: z.infer<typeof NewBedSchema>) => {
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
+
+  const onSubmit = (values: z.infer<typeof NewBedWithHospitalSchema>) => {
     const newBed: Bed = {
       bed_id: values.bedId,
+      hospitalId: values.hospitalId,
       wardName: values.wardName,
       room_number: values.roomNumber,
       status: 'vacant',
