@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from "next/link";
@@ -55,7 +54,7 @@ export default function LoginPage() {
                 if (sortedDocs.length > 0) setSelectedHospitalId(sortedDocs[0].id);
             } catch (error) {
                 console.error("Error fetching hospitals:", error);
-                // Fallback for demo if collection is empty
+                // Fallback for demo if collection is empty or rules haven't deployed yet
                 setHospitals([
                     { id: 'GAMMED_INTERNAL', name: 'GamMed Platform Operations' },
                     { id: 'hosp-1', name: 'City General Hospital' }
@@ -64,7 +63,7 @@ export default function LoginPage() {
             }
         };
         fetchHospitals();
-    } [db]);
+    }, [db]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,8 +96,7 @@ export default function LoginPage() {
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
             // 5. STEP C: FORCE REFRESH TOKEN to get Custom Claims (hospitalId, role) immediately
-            const idTokenResult = await userCredential.user.getIdTokenResult(true);
-            console.log("Verified Hospital ID from Claims:", idTokenResult.claims.hospitalId);
+            await userCredential.user.getIdTokenResult(true);
             
             // 6. STEP D: SYNC GLOBAL STATE
             setUser({
@@ -113,7 +111,7 @@ export default function LoginPage() {
             // 7. ROLE-BASED REDIRECTION
             const routes = {
                 super_admin: '/dashboard/super-admin',
-                director: '/dashboard/admin', // Directors land on the Admin Panel
+                director: '/dashboard/admin', 
                 admin: '/dashboard/admin',
                 doctor: '/dashboard/my-practice',
                 nurse: '/dashboard/nursing',
