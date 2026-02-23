@@ -1,9 +1,8 @@
-
 {
   "entities": {
     "Hospital": {
       "title": "Hospital",
-      "description": "Represents a healthcare facility (Tenant) in the system.",
+      "description": "Represents a healthcare facility (Tenant) in the system. The 'hospitalId' serves as the logical isolation key for all tenant-specific data.",
       "type": "object",
       "properties": {
         "hospitalId": { "type": "string" },
@@ -17,14 +16,14 @@
     },
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Represents a user account. Document ID pattern: {hospitalId}_{email}. This enforces atomic uniqueness within a tenant and allows for O(1) direct lookups. Note: Changing an email requires re-keying the document (Copy-and-Delete pattern). Custom Claims (hospitalId, role) are synced from this entity to Firebase Auth for non-bypassable security.",
+      "description": "Represents a user account. Document ID pattern: {hospitalId}_{email}. This enforces atomic uniqueness within a tenant and allows for O(1) direct lookups. Internal Platform Owner (Super Admin) users belong to the 'GAMMED_INTERNAL' tenant.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "hospitalId": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "name": { "type": "string" },
-        "role": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "director", "admin", "doctor", "nurse", "pharmacist", "patient", "billing_clerk"] },
         "is_active": { "type": "boolean" },
         "created_at": { "type": "string", "format": "date-time" }
       },
@@ -121,8 +120,8 @@
   "auth": {
     "providers": ["password"],
     "customClaims": {
-      "hospitalId": { "type": "string", "description": "The tenant ID for logical data isolation." },
-      "role": { "type": "string", "description": "The RBAC role for permission control." }
+      "hospitalId": { "type": "string", "description": "The tenant ID for logical data isolation. Super Admins use 'GAMMED_INTERNAL'." },
+      "role": { "type": "string", "description": "The RBAC role for permission control (super_admin, director, admin, etc)." }
     }
   },
   "firestore": {

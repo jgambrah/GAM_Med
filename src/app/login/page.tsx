@@ -40,23 +40,31 @@ export default function LoginPage() {
     React.useEffect(() => {
         const fetchHospitals = async () => {
             try {
+                // Fetch active tenants + the internal platform tenant
                 const q = query(collection(db, "hospitals"), where("status", "==", "active"));
                 const querySnapshot = await getDocs(q);
                 const docs = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     name: doc.data().name
                 }));
-                setHospitals(docs);
-                if (docs.length > 0) setSelectedHospitalId(docs[0].id);
+                
+                // Ensure internal tenant is at the top if it exists
+                const sortedDocs = docs.sort((a, b) => a.id === 'GAMMED_INTERNAL' ? -1 : 1);
+                
+                setHospitals(sortedDocs);
+                if (sortedDocs.length > 0) setSelectedHospitalId(sortedDocs[0].id);
             } catch (error) {
                 console.error("Error fetching hospitals:", error);
                 // Fallback for demo if collection is empty
-                setHospitals([{ id: 'hosp-1', name: 'City General Hospital' }]);
-                setSelectedHospitalId('hosp-1');
+                setHospitals([
+                    { id: 'GAMMED_INTERNAL', name: 'GamMed Platform Operations' },
+                    { id: 'hosp-1', name: 'City General Hospital' }
+                ]);
+                setSelectedHospitalId('GAMMED_INTERNAL');
             }
         };
         fetchHospitals();
-    }, [db]);
+    } [db]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -76,7 +84,7 @@ export default function LoginPage() {
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {
-                throw new Error("You do not have an account at this hospital branch.");
+                throw new Error("You do not have an account at this facility.");
             }
 
             const userData = userSnap.data();
@@ -86,29 +94,26 @@ export default function LoginPage() {
             }
 
             // 4. STEP B: AUTHENTICATE CREDENTIALS
-            // Use Firebase Auth to verify the password against the normalized email
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
-            // 5. STEP C: FORCE REFRESH TOKEN
-            // Custom claims (hospitalId, role) are added to the token when it's issued.
-            // Forcing a refresh ensures we have the latest claims immediately.
+            // 5. STEP C: FORCE REFRESH TOKEN to get Custom Claims (hospitalId, role) immediately
             const idTokenResult = await userCredential.user.getIdTokenResult(true);
             console.log("Verified Hospital ID from Claims:", idTokenResult.claims.hospitalId);
             
             // 6. STEP D: SYNC GLOBAL STATE
-            // Pass the userData (which includes hospitalId) to your Global Context
-            // This hospitalId is used by components to scope all subsequent queries.
             setUser({
                 uid: userCredential.user.uid,
                 ...userData
             } as any);
 
             toast.success("Login Successful", {
-                description: `Welcome to ${hospitals.find(h => h.id === selectedHospitalId)?.name || 'GamMed'}`
+                description: `Welcome back to ${hospitals.find(h => h.id === selectedHospitalId)?.name || 'GamMed'}`
             });
 
             // 7. ROLE-BASED REDIRECTION
             const routes = {
+                super_admin: '/dashboard/super-admin',
+                director: '/dashboard/admin', // Directors land on the Admin Panel
                 admin: '/dashboard/admin',
                 doctor: '/dashboard/my-practice',
                 nurse: '/dashboard/nursing',
@@ -142,7 +147,7 @@ export default function LoginPage() {
                         <Label htmlFor="hospital">Facility / Branch</Label>
                         <Select value={selectedHospitalId} onValueChange={setSelectedHospitalId}>
                             <SelectTrigger id="hospital">
-                                <SelectValue placeholder="Select your hospital" />
+                                <SelectValue placeholder="Select your facility" />
                             </SelectTrigger>
                             <SelectContent>
                                 {hospitals.length > 0 ? hospitals.map(h => (

@@ -1,4 +1,3 @@
-
 import { Hospital, User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, AuditLog, Diagnosis, RequestForQuotation } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -8,6 +7,14 @@ const now = new Date('2024-08-16T10:15:00.000Z');
 // --------------------------------------------------------------------
 
 export const mockHospitals: Hospital[] = [
+  {
+    hospitalId: 'GAMMED_INTERNAL',
+    name: 'GamMed Platform Operations',
+    slug: 'gammed-internal',
+    status: 'active',
+    subscriptionTier: 'premium',
+    createdAt: new Date('2020-01-01').toISOString(),
+  },
   {
     hospitalId: 'hosp-1',
     name: 'City General Hospital',
@@ -31,6 +38,28 @@ export const mockHospitals: Hospital[] = [
 // --------------------------------------------------------------------
 
 export const allUsers: User[] = [
+  {
+    uid: 'GAMMED_INTERNAL_superadmin@gammed.com',
+    hospitalId: 'GAMMED_INTERNAL',
+    email: 'superadmin@gammed.com',
+    name: 'Platform Owner',
+    role: 'super_admin',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+    photoURL: 'https://picsum.photos/seed/superadmin/200',
+  },
+  {
+    uid: 'hosp-1_director@cityhosp.com',
+    hospitalId: 'hosp-1',
+    email: 'director@cityhosp.com',
+    name: 'Dr. Samuel Mensah',
+    role: 'director',
+    is_active: true,
+    created_at: now.toISOString(),
+    last_login: now.toISOString(),
+    photoURL: 'https://picsum.photos/seed/director1/200',
+  },
   {
     uid: 'hosp-1_admin@gammed.com',
     hospitalId: 'hosp-1',
@@ -183,7 +212,7 @@ export const allAdmissions: Admission[] = [
     status: 'Admitted',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
-    readmissionFlag: false,
+    readmission_flag: false,
   },
   {
     admission_id: 'A-002',
@@ -201,7 +230,7 @@ export const allAdmissions: Admission[] = [
     summary_pdf_url: '/mock-summary.pdf',
     created_at: new Date('2024-06-15T09:00:00Z').toISOString(),
     updated_at: now.toISOString(),
-    readmissionFlag: true,
+    readmission_flag: true,
   }
 ];
 

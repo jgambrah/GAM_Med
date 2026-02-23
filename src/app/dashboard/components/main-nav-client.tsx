@@ -36,13 +36,18 @@ import {
     Apple,
     Briefcase,
     Receipt,
-    CalendarOff
+    CalendarOff,
+    MessageSquare,
+    FileText,
+    Building,
+    BookHeart,
+    Globe
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 
-const allRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
-const staffRoles: User['role'][] = ['admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian'];
+const allRoles: User['role'][] = ['super_admin', 'director', 'admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'space_manager', 'supplier'];
+const staffRoles: User['role'][] = ['director', 'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'space_manager'];
 
 
 export function MainNavClient() {
@@ -50,7 +55,6 @@ export function MainNavClient() {
   const { user } = useAuth();
 
   // In a real application, this would be a highly optimized, real-time query.
-  // It would fetch unacknowledged 'Critical' alerts for patients assigned to this doctor.
   const criticalAlertCount = React.useMemo(() => {
     if (!user || user.role !== 'doctor') return 0;
     
@@ -76,6 +80,12 @@ export function MainNavClient() {
       roles: allRoles,
     },
     {
+      href: '/dashboard/super-admin',
+      label: 'Platform Operations',
+      icon: Globe,
+      roles: ['super_admin'],
+    },
+    {
       href: '/dashboard/nursing',
       label: 'Nursing Station',
       icon: ClipboardCheck,
@@ -85,19 +95,37 @@ export function MainNavClient() {
       href: '/dashboard/patients',
       label: 'Patients',
       icon: Users,
-      roles: ['admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'],
+      roles: ['director', 'admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'],
     },
     {
       href: '/dashboard/beds',
       label: 'Beds',
       icon: BedDouble,
-      roles: ['admin', 'doctor', 'nurse'],
+      roles: ['director', 'admin', 'doctor', 'nurse'],
     },
     {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
-      roles: ['admin', 'doctor', 'billing_clerk', 'patient', 'receptionist'],
+      roles: ['director', 'admin', 'doctor', 'billing_clerk', 'patient', 'receptionist'],
+    },
+    {
+        href: '/dashboard/messages',
+        label: 'Messages',
+        icon: MessageSquare,
+        roles: allRoles
+    },
+    {
+        href: '/dashboard/my-records',
+        label: 'My Records',
+        icon: FileText,
+        roles: ['patient']
+    },
+    {
+        href: '/dashboard/my-records/health-library',
+        label: 'Health Library',
+        icon: BookHeart,
+        roles: ['patient']
     },
     {
         href: '/dashboard/my-billing',
@@ -127,31 +155,31 @@ export function MainNavClient() {
       href: '/dashboard/approvals',
       label: 'Approvals',
       icon: CheckSquare,
-      roles: ['admin', 'doctor'], // HOD roles
+      roles: ['director', 'admin', 'doctor'], // HOD and Director roles
     },
     {
         href: '/dashboard/ot',
         label: 'OT Schedule',
         icon: Scissors,
-        roles: ['admin', 'doctor', 'ot_coordinator'],
+        roles: ['director', 'admin', 'doctor', 'ot_coordinator'],
     },
      {
         href: '/dashboard/waiting-lists',
         label: 'Waiting Lists',
         icon: Clock,
-        roles: ['admin', 'receptionist'],
+        roles: ['director', 'admin', 'receptionist'],
     },
     {
         href: '/dashboard/referrals',
         label: 'Referrals',
         icon: Send,
-        roles: ['admin', 'doctor'],
+        roles: ['director', 'admin', 'doctor'],
     },
     {
         href: '/dashboard/radiology',
         label: 'Radiology',
         icon: Scan,
-        roles: ['admin', 'doctor', 'receptionist', 'radiologist'],
+        roles: ['director', 'admin', 'doctor', 'receptionist', 'radiologist'],
     },
     {
         href: '/dashboard/lab',
@@ -163,37 +191,43 @@ export function MainNavClient() {
         href: '/dashboard/lab/reports',
         label: 'Lab Reports',
         icon: BarChart,
-        roles: ['admin', 'lab_technician', 'doctor'],
+        roles: ['director', 'admin', 'lab_technician', 'doctor'],
     },
     {
         href: '/dashboard/dietary',
         label: 'Dietary',
         icon: Apple,
-        roles: ['admin', 'dietitian', 'nurse', 'doctor'],
+        roles: ['director', 'admin', 'dietitian', 'nurse', 'doctor'],
     },
     {
       href: '/dashboard/pharmacy',
       label: 'Pharmacy',
       icon: Pill,
-      roles: ['admin', 'doctor', 'pharmacist', 'nurse', 'billing_clerk'],
+      roles: ['director', 'admin', 'doctor', 'pharmacist', 'nurse', 'billing_clerk'],
     },
     {
         href: '/dashboard/pharmacy/suppliers',
         label: 'Suppliers',
         icon: Truck,
-        roles: ['admin', 'pharmacist'],
+        roles: ['director', 'admin', 'pharmacist'],
     },
     {
         href: '/dashboard/pharmacy/controlled-substances',
         label: 'Controlled Substances',
         icon: ShieldCheck,
-        roles: ['admin', 'pharmacist'],
+        roles: ['director', 'admin', 'pharmacist'],
     },
     {
         href: '/dashboard/payroll',
         label: 'Payroll',
         icon: Wallet,
-        roles: ['admin'],
+        roles: ['director', 'admin'],
+    },
+     {
+        href: '/dashboard/space-management',
+        label: 'Space Management',
+        icon: Building,
+        roles: ['director', 'admin'],
     },
     {
       href: '/dashboard/my-practice',
@@ -212,18 +246,24 @@ export function MainNavClient() {
       href: '/dashboard/hr',
       label: 'Human Resources',
       icon: Briefcase,
-      roles: ['admin'],
+      roles: ['director', 'admin'],
     },
     {
       href: '/dashboard/admin',
       label: 'Admin Panel',
       icon: LayoutDashboard,
-      roles: ['admin'],
+      roles: ['director', 'admin'],
+    },
+     {
+      href: '/dashboard/supplier',
+      label: 'Supplier Dashboard',
+      icon: Truck,
+      roles: ['supplier'],
     },
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/super-admin', '/dashboard/supplier', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 

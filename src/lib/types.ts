@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Updated for Multi-Tenant SaaS architecture using Logical Isolation.
@@ -18,7 +17,7 @@ export interface User {
   hospitalId: string; // Tenant ID
   email: string;
   name: string;
-  role: 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier';
+  role: 'super_admin' | 'director' | 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier';
   is_active: boolean;
   department?: string;
   specialty?: string;
@@ -131,6 +130,7 @@ export interface Admission {
   summary_pdf_url?: string;
   created_at: string;
   updated_at: string;
+  readmission_flag?: boolean;
 }
 
 export interface Bed {
