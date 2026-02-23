@@ -13,6 +13,7 @@ interface FirebaseAuthToken {
   email_verified: boolean;
   phone_number: string | null;
   sub: string;
+  hospitalId?: string; // Simulated Custom Claim for SaaS Multi-tenancy
   firebase: {
     identities: Record<string, string[]>;
     sign_in_provider: string;
@@ -44,12 +45,19 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
     return null;
   }
 
+  // In a real multi-tenant app, hospitalId would be set via Custom Claims:
+  // admin.auth().setCustomUserClaims(uid, { hospitalId: 'hosp_123' });
+  // We simulate this here by looking for a hospitalId in the user's display name or email 
+  // for the purpose of the prototype's error simulation.
+  const simulatedHospitalId = currentUser.email?.includes('stmary') ? 'hosp-2' : 'hosp-1';
+
   const token: FirebaseAuthToken = {
     name: currentUser.displayName,
     email: currentUser.email,
     email_verified: currentUser.emailVerified,
     phone_number: currentUser.phoneNumber,
     sub: currentUser.uid,
+    hospitalId: simulatedHospitalId, 
     firebase: {
       identities: currentUser.providerData.reduce((acc, p) => {
         if (p.providerId) {
@@ -77,15 +85,13 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    // Safely attempt to get the current user.
     const firebaseAuth = getAuth();
     const currentUser = firebaseAuth.currentUser;
     if (currentUser) {
       authObject = buildAuthObject(currentUser);
     }
   } catch {
-    // This will catch errors if the Firebase app is not yet initialized.
-    // In this case, we'll proceed without auth information.
+    // Firebase app not yet initialized
   }
 
   return {
@@ -108,8 +114,6 @@ ${JSON.stringify(requestObject, null, 2)}`;
 
 /**
  * A custom error class designed to be consumed by an LLM for debugging.
- * It structures the error information to mimic the request object
- * available in Firestore Security Rules.
  */
 export class FirestorePermissionError extends Error {
   public readonly request: SecurityRuleRequest;
