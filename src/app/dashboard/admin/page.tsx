@@ -1,5 +1,7 @@
 
+'use client';
 
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -21,8 +23,34 @@ import { UserManagementDashboard } from './components/user-management-dashboard'
 import { SecurityDashboard } from './components/security-dashboard';
 import { AuditLogDashboard } from './components/audit-log-dashboard';
 import { BackupDashboard } from './components/backup-dashboard';
+import { runSaaSDataMigration } from '@/lib/saas-migration';
+import { useFirestore } from '@/firebase';
+import { toast } from '@/hooks/use-toast';
+import { Database } from 'lucide-react';
 
 export default function AdminPage() {
+  const firestore = useFirestore();
+  const [isMigrating, setIsMigrating] = React.useState(false);
+
+  const handleMigration = async () => {
+    if (!confirm("This will tag all legacy data with the 'hosp-1' ID. This should only be run once. Proceed?")) return;
+    
+    setIsMigrating(true);
+    try {
+        const result = await runSaaSDataMigration(firestore);
+        toast.success("Migration Successful", {
+            description: `Tagged ${result.updatedCount} legacy documents with tenant ID.`
+        });
+    } catch (e) {
+        console.error(e);
+        toast.error("Migration Failed", {
+            description: "An error occurred during data migration."
+        });
+    } finally {
+        setIsMigrating(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -57,6 +85,7 @@ export default function AdminPage() {
           <TabsTrigger value="data-backup">Data Backup</TabsTrigger>
           <TabsTrigger value="assets">Asset Management</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
+          <TabsTrigger value="migration">System Migration</TabsTrigger>
         </TabsList>
          <TabsContent value="inpatient-admissions" className="mt-4">
             <InpatientAdmissionDashboard />
@@ -264,6 +293,28 @@ export default function AdminPage() {
                             </Link>
                         </Button>
                     </div>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="migration" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>One-Time SaaS Data Migration</CardTitle>
+                    <CardDescription>
+                        Use this utility to transition legacy single-tenant data to the new multi-tenant structure. 
+                        This will tag all un-tagged documents with the 'hosp-1' hospital ID.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-destructive/50 rounded-lg bg-destructive/5">
+                    <Database className="h-12 w-12 text-destructive mb-4" />
+                    <Button 
+                        variant="destructive" 
+                        onClick={handleMigration} 
+                        disabled={isMigrating}
+                    >
+                        {isMigrating ? "Migrating Data..." : "Run SaaS Migration"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-4">WARNING: This operation modifies database records and cannot be undone.</p>
                 </CardContent>
             </Card>
         </TabsContent>
