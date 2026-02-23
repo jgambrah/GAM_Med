@@ -11,15 +11,17 @@ export const mockHospitals: Hospital[] = [
   {
     hospitalId: 'hosp-1',
     name: 'City General Hospital',
-    subdomain: 'city-general',
-    isActive: true,
+    slug: 'city-general',
+    status: 'active',
+    subscriptionTier: 'premium',
     createdAt: new Date('2020-01-01').toISOString(),
   },
   {
     hospitalId: 'hosp-2',
     name: 'St. Mary Specialized Clinic',
-    subdomain: 'st-mary',
-    isActive: true,
+    slug: 'st-mary',
+    status: 'active',
+    subscriptionTier: 'basic',
     createdAt: new Date('2021-06-15').toISOString(),
   }
 ];

@@ -7,9 +7,9 @@
 export interface Hospital {
   hospitalId: string;
   name: string;
-  subdomain?: string;
-  apiKey?: string;
-  isActive: boolean;
+  slug: string; // e.g., 'city-general'
+  status: 'active' | 'suspended';
+  subscriptionTier: 'basic' | 'premium';
   createdAt: string;
 }
 

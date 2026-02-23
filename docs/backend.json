@@ -8,11 +8,12 @@
       "properties": {
         "hospitalId": { "type": "string" },
         "name": { "type": "string" },
-        "subdomain": { "type": "string" },
-        "isActive": { "type": "boolean" },
+        "slug": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "subscriptionTier": { "type": "string", "enum": ["basic", "premium"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["hospitalId", "name", "isActive", "createdAt"]
+      "required": ["hospitalId", "name", "slug", "status", "subscriptionTier", "createdAt"]
     },
     "UserProfile": {
       "title": "UserProfile",
