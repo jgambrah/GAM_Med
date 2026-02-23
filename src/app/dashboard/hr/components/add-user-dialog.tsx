@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -49,9 +50,16 @@ const NewUserWithHospitalSchema = z.object({
 
 interface AddUserDialogProps {
     onUserCreated: (newUser: User) => void;
+    existingUsers?: User[];
 }
 
-export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
+/**
+ * == Conceptual UI: Multi-Tenant Staff Registration ==
+ * 
+ * This component implements the custom Document ID pattern: {hospitalId}_{email}.
+ * This ensures that a staff email is unique within a specific hospital tenant.
+ */
+export function AddUserDialog({ onUserCreated, existingUsers = [] }: AddUserDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
@@ -74,12 +82,29 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
   }, [open, user, form]);
 
   const onSubmit = (values: z.infer<typeof NewUserWithHospitalSchema>) => {
-    // Implement hospitalId_emailAddress pattern for unique Document ID
+    // 1. Normalize the email address (Essential for reliable indexing and uniqueness)
     const normalizedEmail = values.email.toLowerCase().trim();
-    const customUid = `${values.hospitalId}_${normalizedEmail}`;
+    
+    // 2. Generate the composite Document ID
+    const customDocId = `${values.hospitalId}_${normalizedEmail}`;
+
+    // 3. CONCEPTUAL CHECK: Verify uniqueness before "set"
+    // In a production environment with Firestore SDK:
+    // const userRef = doc(db, 'users', customDocId);
+    // const userSnap = await getDoc(userRef);
+    // if (userSnap.exists()) { ... }
+    
+    const isDuplicate = existingUsers.some(u => u.uid === customDocId);
+    
+    if (isDuplicate) {
+        toast.error("Duplicate Entry", {
+            description: `A staff member with the email ${normalizedEmail} is already registered at this hospital.`
+        });
+        return;
+    }
 
     const newUser: User = {
-        uid: customUid,
+        uid: customDocId,
         hospitalId: values.hospitalId,
         email: normalizedEmail,
         name: `${values.firstName} ${values.lastName}`,
@@ -90,10 +115,13 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
         last_login: new Date().toISOString(),
     };
 
+    // 4. Record creation (using .doc(id).set() pattern)
     onUserCreated(newUser);
+    
     toast.success('User Created', {
-        description: `${values.firstName} ${values.lastName} has been added to the system with unique ID: ${customUid}`
+        description: `Staff member added with unique ID: ${customDocId}`
     });
+    
     setOpen(false);
     form.reset();
   };
@@ -110,7 +138,7 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
         <DialogHeader>
           <DialogTitle>Create New User Profile</DialogTitle>
           <DialogDescription>
-            Enter the details for the new staff member. The Document ID will be generated as hospitalId_email to ensure uniqueness within your facility.
+            Enter the details for the new staff member. The email must be unique within your hospital.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -146,7 +174,7 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
                     <FormItem>
                         <FormLabel>Email Address</FormLabel>
                         <FormControl><Input type="email" {...field} /></FormControl>
-                        <FormDescription>This will be used to generate the unique Document ID.</FormDescription>
+                        <FormDescription>This will be combined with your Hospital ID to ensure a unique record.</FormDescription>
                         <FormMessage />
                     </FormItem>
                 )}

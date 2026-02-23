@@ -64,7 +64,7 @@ export function UserManagementDashboard() {
             Staff members belonging to your hospital and their assigned roles.
           </CardDescription>
         </div>
-        <AddUserDialog onUserCreated={handleUserCreated} />
+        <AddUserDialog onUserCreated={handleUserCreated} existingUsers={users} />
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">

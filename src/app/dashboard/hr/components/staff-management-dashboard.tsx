@@ -72,7 +72,6 @@ export function StaffDirectoryDashboard() {
   }, [searchQuery, roleFilter, departmentFilter, filterUsers]);
   
   const handleUserCreated = (newUser: User) => {
-    // In a real app, we would re-fetch or simply update the state
     setUsers(prev => [newUser, ...prev]);
   }
 
@@ -109,7 +108,7 @@ export function StaffDirectoryDashboard() {
         </div>
         <div className="flex gap-2">
             <BulkEditLeaveDialog roles={roles as User['role'][]} onSave={handleBulkBalancesSaved} />
-            <AddUserDialog onUserCreated={handleUserCreated}/>
+            <AddUserDialog onUserCreated={handleUserCreated} existingUsers={users} />
         </div>
       </CardHeader>
       <CardContent>
