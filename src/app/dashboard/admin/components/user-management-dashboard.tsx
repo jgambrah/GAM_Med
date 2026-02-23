@@ -31,12 +31,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddUserDialog } from '../../hr/components/add-user-dialog';
 import { ChangeRoleDialog } from './change-role-dialog';
+import { ChangeEmailDialog } from './change-email-dialog';
 import { useAuth } from '@/hooks/use-auth';
 
 export function UserManagementDashboard() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = React.useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+  const [selectedUserForRole, setSelectedUserForRole] = React.useState<User | null>(null);
+  const [selectedUserForEmail, setSelectedUserForEmail] = React.useState<User | null>(null);
 
   // SaaS LOGIC: Always filter staff by the current hospitalId.
   React.useEffect(() => {
@@ -51,8 +53,17 @@ export function UserManagementDashboard() {
   
   const handleRoleChanged = (userId: string, newRole: User['role']) => {
     setUsers(prev => prev.map(u => u.uid === userId ? { ...u, role: newRole } : u));
-    setSelectedUser(null);
+    setSelectedUserForRole(null);
   };
+
+  const handleEmailChanged = (oldId: string, newUser: User) => {
+    setUsers(prev => {
+        // Remove old document entry and add new document entry
+        const filtered = prev.filter(u => u.uid !== oldId);
+        return [newUser, ...filtered];
+    });
+    setSelectedUserForEmail(null);
+  }
 
   return (
     <>
@@ -99,8 +110,11 @@ export function UserManagementDashboard() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => setSelectedUser(user)}>
+                        <DropdownMenuItem onClick={() => setSelectedUserForRole(user)}>
                           Change Role
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedUserForEmail(user)}>
+                          Change Email
                         </DropdownMenuItem>
                         <DropdownMenuItem>
                           {user.is_active ? 'Deactivate User' : 'Activate User'}
@@ -115,13 +129,24 @@ export function UserManagementDashboard() {
         </div>
       </CardContent>
     </Card>
-    {selectedUser && (
+    {selectedUserForRole && (
         <ChangeRoleDialog
-            user={selectedUser}
+            user={selectedUserForRole}
             onRoleChanged={handleRoleChanged}
             onOpenChange={(isOpen) => {
                 if (!isOpen) {
-                    setSelectedUser(null);
+                    setSelectedUserForRole(null);
+                }
+            }}
+        />
+    )}
+    {selectedUserForEmail && (
+        <ChangeEmailDialog 
+            user={selectedUserForEmail}
+            onEmailChanged={handleEmailChanged}
+            onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                    setSelectedUserForEmail(null);
                 }
             }}
         />

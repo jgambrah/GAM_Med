@@ -17,7 +17,7 @@
     },
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Represents a user account linked to a specific hospital. Document ID pattern: {hospitalId}_{email}",
+      "description": "Represents a user account. Document ID pattern: {hospitalId}_{email}. This enforces atomic uniqueness within a tenant and allows for O(1) direct lookups. Note: Changing an email requires re-keying the document (Copy-and-Delete pattern).",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -125,7 +125,7 @@
     },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "User profiles with hospitalId field for logical isolation. userId follows {hospitalId}_{email} pattern."
+      "description": "User profiles. userId follows {hospitalId}_{email} pattern for atomic uniqueness and direct lookups."
     },
     "/patients/{patientId}": {
       "schema": { "$ref": "#/entities/Patient" },
