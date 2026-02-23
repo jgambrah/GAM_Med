@@ -248,6 +248,7 @@ export const allAdmissions: Admission[] = [
     attending_doctor_id: 'doc1',
     attending_doctor_name: 'Dr. Evelyn Mensah',
     status: 'Discharged',
+    readmissionFlag: true,
     created_at: new Date('2024-07-28T10:30:00Z').toISOString(),
     updated_at: new Date('2024-07-28T10:30:00Z').toISOString(),
   },
