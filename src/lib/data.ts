@@ -3,7 +3,10 @@ import { Hospital, User, Patient, Appointment, Admission, Bed, Referral, LabResu
 
 const now = new Date('2024-08-16T10:15:00.000Z');
 
-// Multi-tenant master data
+// --------------------------------------------------------------------
+// == TENANT MASTER DATA ==
+// --------------------------------------------------------------------
+
 export const mockHospitals: Hospital[] = [
   {
     hospitalId: 'hosp-1',
@@ -21,7 +24,10 @@ export const mockHospitals: Hospital[] = [
   }
 ];
 
-// Mock Users with hospitalId
+// --------------------------------------------------------------------
+// == USER & STAFF PROFILES ==
+// --------------------------------------------------------------------
+
 export const allUsers: User[] = [
   {
     uid: 'admin1',
@@ -32,6 +38,7 @@ export const allUsers: User[] = [
     is_active: true,
     created_at: now.toISOString(),
     last_login: now.toISOString(),
+    photoURL: 'https://picsum.photos/seed/admin1/200',
   },
   {
     uid: 'doc1',
@@ -42,23 +49,23 @@ export const allUsers: User[] = [
     is_active: true,
     specialty: 'Cardiology',
     department: 'Cardiology',
+    hodId: 'admin1',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
     availability: { '2024-08-16': ['09:00', '10:00', '11:00', '14:00', '15:00'] },
+    photoURL: 'https://picsum.photos/seed/doc1/200',
   },
   {
-    uid: 'doc2',
+    uid: 'nurse1',
     hospitalId: 'hosp-1',
-    email: 'k.asante@gammed.com',
-    name: 'Dr. Kofi Asante',
-    role: 'doctor',
+    email: 'f.agyepong@gammed.com',
+    name: 'F. Agyepong',
+    role: 'nurse',
     is_active: true,
-    hodId: 'doc1',
-    specialty: 'Neurology',
-    department: 'Neurology',
+    department: 'Nursing',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
-    availability: { '2024-08-16': ['09:30', '10:30', '11:30', '13:00', '14:30'] },
+    photoURL: 'https://picsum.photos/seed/nurse1/200',
   },
   {
     uid: 'doc-h2-1',
@@ -71,10 +78,41 @@ export const allUsers: User[] = [
     department: 'OPD',
     created_at: now.toISOString(),
     last_login: now.toISOString(),
+    photoURL: 'https://picsum.photos/seed/doch21/200',
   }
 ];
 
-// Mock Patient Data with hospitalId
+export const mockStaffProfiles: StaffProfile[] = [
+  {
+    staffId: 'doc1',
+    hospitalId: 'hosp-1',
+    firstName: 'Evelyn',
+    lastName: 'Mensah',
+    positionId: 'POS-1',
+    department: 'Cardiology',
+    employmentStatus: 'Active',
+    recurringAllowances: [{ name: 'Housing', amount: 500 }, { name: 'Transport', amount: 200 }],
+    recurringDeductions: [{ name: 'Staff Welfare', amount: 50 }],
+    leaveBalances: { 'Annual Leave': 15, 'Sick Leave': 10 },
+  },
+  {
+    staffId: 'nurse1',
+    hospitalId: 'hosp-1',
+    firstName: 'Felicia',
+    lastName: 'Agyepong',
+    positionId: 'POS-2',
+    department: 'Nursing',
+    employmentStatus: 'Active',
+    recurringAllowances: [{ name: 'Transport', amount: 150 }],
+    recurringDeductions: [],
+    leaveBalances: { 'Annual Leave': 20, 'Sick Leave': 12 },
+  }
+];
+
+// --------------------------------------------------------------------
+// == PATIENTS & CLINICAL DATA ==
+// --------------------------------------------------------------------
+
 export const allPatients: Patient[] = [
   {
     patient_id: 'P-123456',
@@ -97,23 +135,45 @@ export const allPatients: Patient[] = [
     status: 'active',
     created_at: new Date('2023-10-15T09:00:00Z').toISOString(),
     updated_at: now.toISOString(),
+    allergies: ['Penicillin'],
+  },
+  {
+    patient_id: 'P-654321',
+    hospitalId: 'hosp-1',
+    title: 'Mrs',
+    first_name: 'Abena',
+    last_name: 'Mensah',
+    full_name: 'Abena Mensah',
+    dob: '1992-11-05',
+    gender: 'Female',
+    patientType: 'corporate',
+    contact: {
+      primaryPhone: '+233241999888',
+      email: 'a.mensah@email.com',
+      address: { street: '45 Ring Road', city: 'Accra', region: 'Greater Accra', country: 'Ghana' },
+    },
+    emergency_contact: { name: 'Kofi Mensah', relationship: 'Father', phone: '+233201112223' },
+    is_admitted: false,
+    status: 'active',
+    created_at: new Date('2024-01-10T11:00:00Z').toISOString(),
+    updated_at: now.toISOString(),
   },
   {
     patient_id: 'P-H2-001',
     hospitalId: 'hosp-2',
     title: 'Mrs',
     first_name: 'Sarah',
-    last_name: 'Mensah',
-    full_name: 'Sarah Mensah',
+    last_name: 'Boateng',
+    full_name: 'Sarah Boateng',
     dob: '1970-08-12',
     gender: 'Female',
     patientType: 'public',
     contact: {
       primaryPhone: '+233200000001',
-      email: 's.mensah@email.com',
+      email: 's.boateng@email.com',
       address: { street: 'Main Road', city: 'Kumasi', region: 'Ashanti', country: 'Ghana' },
     },
-    emergency_contact: { name: 'John Mensah', relationship: 'Spouse', phone: '+233200000002' },
+    emergency_contact: { name: 'John Boateng', relationship: 'Spouse', phone: '+233200000002' },
     is_admitted: false,
     status: 'active',
     created_at: now.toISOString(),
@@ -128,7 +188,7 @@ export const allAdmissions: Admission[] = [
     patient_id: 'P-123456',
     type: 'Inpatient',
     admission_date: new Date('2024-07-28T10:30:00Z').toISOString(),
-    reasonForVisit: 'Follow-up on hypertension',
+    reasonForVisit: 'Severe chest pain and elevated BP',
     ward: 'Cardiology',
     bed_id: 'C-101',
     attending_doctor_id: 'doc1',
@@ -136,22 +196,26 @@ export const allAdmissions: Admission[] = [
     status: 'Admitted',
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
+    readmissionFlag: false,
+  },
+  {
+    admission_id: 'A-002',
+    hospitalId: 'hosp-1',
+    patient_id: 'P-123456',
+    type: 'Inpatient',
+    admission_date: new Date('2024-06-15T09:00:00Z').toISOString(),
+    discharge_date: new Date('2024-06-20T14:00:00Z').toISOString(),
+    reasonForVisit: 'Hypertension monitoring',
+    ward: 'Cardiology',
+    bed_id: 'C-105',
+    attending_doctor_id: 'doc1',
+    attending_doctor_name: 'Dr. Evelyn Mensah',
+    status: 'Discharged',
+    summary_pdf_url: '/mock-summary.pdf',
+    created_at: new Date('2024-06-15T09:00:00Z').toISOString(),
+    updated_at: now.toISOString(),
+    readmissionFlag: true,
   }
-];
-
-export const allBeds: Bed[] = [
-    {
-        bed_id: 'C-101',
-        hospitalId: 'hosp-1',
-        wardName: 'Cardiology',
-        room_number: '10',
-        status: 'occupied',
-        current_patient_id: 'P-123456',
-        occupied_since: new Date('2024-07-28T10:30:00Z').toISOString(),
-        cleaningNeeded: false,
-        created_at: now.toISOString(),
-        updated_at: now.toISOString(),
-    }
 ];
 
 export const allAppointments: Appointment[] = [
@@ -176,19 +240,333 @@ export const allAppointments: Appointment[] = [
   }
 ];
 
+export const mockNotes: ClinicalNote[] = [
+  {
+    noteId: 'N-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    noteType: 'Consultation',
+    recordedByUserId: 'doc1',
+    noteText: 'Patient presented with stable BP. Advised to continue current medication and reduce sodium intake.',
+    recordedAt: new Date('2024-08-16T10:45:00Z').toISOString(),
+  },
+  {
+    noteId: 'N-002',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    noteType: 'Nursing Note',
+    recordedByUserId: 'nurse1',
+    noteText: 'Vitals stable. Patient compliant with dietary restrictions.',
+    recordedAt: new Date('2024-08-16T11:30:00Z').toISOString(),
+  }
+];
+
+export const mockVitalsLog: VitalsLog[] = [
+  {
+    vitalId: 'V-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    bloodPressure: '130/85',
+    heartRate: '72',
+    temperature: '36.8',
+    respiratoryRate: '16',
+    oxygenSaturation: '98',
+    recordedByUserId: 'nurse1',
+    recordedAt: now.toISOString(),
+  }
+];
+
+export const mockDiagnoses: Diagnosis[] = [
+  {
+    diagnosisId: 'D-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    diagnosisText: 'Essential Hypertension',
+    icd10Code: 'I10',
+    diagnosedAt: new Date('2023-10-15T10:00:00Z').toISOString(),
+    diagnosedByDoctorId: 'doc1',
+    isPrimary: true,
+  }
+];
+
+export const mockCarePlans: CarePlan[] = [
+  {
+    planId: 'CP-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    title: 'Hypertension Management Plan',
+    goal: 'Maintain BP below 130/80 mmHg',
+    interventions: ['Daily BP monitoring', 'Low sodium diet', 'Administer Amlodipine 5mg daily'],
+    status: 'Active',
+    createdBy: 'doc1',
+    createdAt: new Date('2023-10-15T10:30:00Z').toISOString(),
+    updatedBy: 'doc1',
+    updatedAt: now.toISOString(),
+  }
+];
+
+// --------------------------------------------------------------------
+// == PHARMACY & INVENTORY ==
+// --------------------------------------------------------------------
+
+export const mockInventory: InventoryItem[] = [
+  {
+    itemId: 'MED-001',
+    hospitalId: 'hosp-1',
+    name: 'Amlodipine 5mg',
+    type: 'Medication',
+    reorderLevel: 100,
+    currentQuantity: 450,
+    batches: [
+      { batchNumber: 'B-101', expiryDate: '2025-12-31T00:00:00Z', currentQuantity: 200, dateReceived: '2024-01-10T00:00:00Z' },
+      { batchNumber: 'B-102', expiryDate: '2026-06-30T00:00:00Z', currentQuantity: 250, dateReceived: '2024-05-15T00:00:00Z' }
+    ]
+  },
+  {
+    itemId: 'SUP-001',
+    hospitalId: 'hosp-1',
+    name: 'Disposable Syringe 5ml',
+    type: 'Supply',
+    reorderLevel: 500,
+    currentQuantity: 1200,
+    batches: [
+      { batchNumber: 'S-201', expiryDate: '2027-01-01T00:00:00Z', currentQuantity: 1200, dateReceived: '2024-03-20T00:00:00Z' }
+    ]
+  }
+];
+
+export const mockPrescriptions: Prescription[] = [
+  {
+    prescriptionId: 'RX-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    patientName: 'Kwame Owusu',
+    doctorId: 'doc1',
+    datePrescribed: now.toISOString(),
+    status: 'Pending',
+    medications: [{ medicationId: 'MED-001', name: 'Amlodipine', dosage: '5mg', frequency: 'Daily', quantity_to_dispense: 30 }]
+  }
+];
+
+export const mockMedicationRecords: MedicationRecord[] = [
+  {
+    prescriptionId: 'RX-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    patientName: 'Kwame Owusu',
+    medicationName: 'Amlodipine',
+    dosage: '5mg',
+    frequency: 'Daily',
+    instructions: 'Take one tablet every morning.',
+    prescribedByDoctorId: 'doc1',
+    prescribedByDoctorName: 'Dr. Evelyn Mensah',
+    prescribedAt: now.toISOString(),
+    status: 'Active'
+  }
+];
+
+export const mockSuppliers: Supplier[] = [
+  {
+    supplierId: 'V-001',
+    hospitalId: 'hosp-1',
+    name: 'Ghana Medical Supplies Ltd',
+    contactInfo: { person: 'John K. Frimpong', email: 'john@ghanameds.com', phone: '+233240000001', address: 'Accra Industrial Area' },
+    paymentTerms: 'Net 30',
+  }
+];
+
+export const mockPurchaseOrders: PurchaseOrder[] = [
+  {
+    poId: 'PO-001',
+    hospitalId: 'hosp-1',
+    dateOrdered: now.toISOString(),
+    status: 'Submitted',
+    orderedByUserId: 'admin1',
+    supplierId: 'V-001',
+    orderedItems: [{ itemId: 'MED-001', name: 'Amlodipine 5mg', quantity: 500, unit_cost: 0.50 }],
+    totalAmount: 250.00
+  }
+];
+
+export const mockRfqs: RequestForQuotation[] = [
+  {
+    rfqId: 'RFQ-001',
+    hospitalId: 'hosp-1',
+    title: 'Quarterly Pharmaceutical Stock',
+    dateCreated: now.toISOString(),
+    deadline: '2024-09-01T00:00:00Z',
+    status: 'Open for Bids',
+    items: [{ itemId: 'MED-001', name: 'Amlodipine 5mg', quantity: 1000 }],
+    quotes: [],
+    activityLog: [{ timestamp: now.toISOString(), activity: 'RFQ Created' }]
+  }
+];
+
+// --------------------------------------------------------------------
+// == LAB & RADIOLOGY ==
+// --------------------------------------------------------------------
+
+export const mockLabResults: LabResult[] = [
+  {
+    testId: 'L-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    patientName: 'Kwame Owusu',
+    testName: 'Full Blood Count (FBC)',
+    status: 'Validated',
+    orderedAt: new Date('2024-08-15T09:00:00Z').toISOString(),
+    completedAt: now.toISOString(),
+    isBilled: true,
+    resultPdfUrl: '/mock-lab-result.pdf',
+    sampleDetails: {
+      barcode: 'SAMPLE-001',
+      sampleStatus: 'Received in Lab',
+      collectionDate: new Date('2024-08-15T10:00:00Z').toISOString(),
+      collectedByUserId: 'nurse1',
+      auditLog: [{ auditId: 'A-1', hospitalId: 'hosp-1', timestamp: now.toISOString(), action: 'Sample Received', location: 'Main Lab', userId: 'tech1' }]
+    },
+    resultDetails: { WBC: '7.5', RBC: '5.2', HGB: '14.5' }
+  }
+];
+
+export const mockRadiologyOrders: RadiologyOrder[] = [
+  {
+    orderId: 'RAD-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    patientName: 'Kwame Owusu',
+    doctorId: 'doc1',
+    dateOrdered: now.toISOString(),
+    studyIds: ['Chest X-Ray'],
+    status: 'Pending Scheduling',
+    priority: 2,
+  }
+];
+
+export const mockRadiologyReports: RadiologyReport[] = [];
+
+// --------------------------------------------------------------------
+// == FINANCIALS & BILLING ==
+// --------------------------------------------------------------------
+
+export const mockLedgerAccounts: LedgerAccount[] = [
+  { accountId: '1010', hospitalId: 'hosp-1', accountName: 'Cash at Bank', accountCode: '1010', accountType: 'Asset', balance: 50000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' },
+  { accountId: '1020', hospitalId: 'hosp-1', accountName: 'Accounts Receivable', accountCode: '1020', accountType: 'Asset', balance: 15000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' },
+  { accountId: '4010', hospitalId: 'hosp-1', accountName: 'Patient Service Revenue', accountCode: '4010', accountType: 'Revenue', balance: 120000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' },
+  { accountId: '5010', hospitalId: 'hosp-1', accountName: 'Salaries and Wages', accountCode: '5010', accountType: 'Expense', balance: 45000, isSubLedger: false, createdAt: '2024-01-01T00:00:00Z' }
+];
+
+export const mockLedgerEntries: LedgerEntry[] = [
+  { entryId: 'E-001', hospitalId: 'hosp-1', accountId: '1010', date: now.toISOString(), description: 'Opening Balance Migration', debit: 50000 }
+];
+
+export const mockInvoices: Invoice[] = [
+  {
+    invoiceId: 'INV-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    patientName: 'Kwame Owusu',
+    patientType: 'private',
+    issueDate: new Date('2024-08-01T09:00:00Z').toISOString(),
+    dueDate: new Date('2024-08-31T09:00:00Z').toISOString(),
+    billedItems: [{ serviceType: 'Consultation', linkedServiceId: 'AP-001', billingCode: 'A001', price: 150 }],
+    subtotal: 150,
+    vatOption: 'zero',
+    vat: 0, nhia: 0, getfund: 0, covidLevy: 0, totalTax: 0,
+    grandTotal: 150,
+    amountDue: 150,
+    status: 'Pending Payment'
+  }
+];
+
+export const mockPayments: FinancialTransaction[] = [];
+
+export const mockPricingTables: PricingTable[] = [
+  { pricingId: 'private', hospitalId: 'hosp-1', description: 'Standard Private Patient Pricing', rate_card: { 'A001': 150, 'L001': 80 } },
+  { pricingId: 'corporate', hospitalId: 'hosp-1', description: 'Insurance/Corporate Partner Pricing', rate_card: { 'A001': 120, 'L001': 65 } }
+];
+
+// --------------------------------------------------------------------
+// == FACILITIES & SPACE ==
+// --------------------------------------------------------------------
+
+export const mockResources: Asset[] = [
+  {
+    assetId: 'EQUIP-001',
+    hospitalId: 'hosp-1',
+    name: 'Siemens CT Scanner',
+    type: 'Medical Equipment',
+    department: 'Radiology',
+    location: 'Imaging Suite A',
+    status: 'Operational',
+    isBookable: true,
+    modality: 'CT Scan',
+    maintenanceSchedule: [{
+        type: 'Preventive',
+        frequency: 'Quarterly',
+        lastServiceDate: '2024-06-20T00:00:00Z',
+        nextServiceDate: '2024-09-20T00:00:00Z',
+    }]
+  }
+];
+
+export const allBeds: Bed[] = [
+  { bed_id: 'C-101', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'occupied', current_patient_id: 'P-123456', occupied_since: '2024-07-28T10:30:00Z', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() },
+  { bed_id: 'C-102', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'vacant', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() }
+];
+
+export const mockFacilityZones: FacilityZone[] = [
+  { zoneId: 'ZONE-1', hospitalId: 'hosp-1', name: 'West Wing - Level 1', managerId: 'admin1' }
+];
+
+export const mockWorkOrders: WorkOrder[] = [
+  {
+    workOrderId: 'WO-001',
+    hospitalId: 'hosp-1',
+    assetId: 'EQUIP-001',
+    description: 'Minor calibration drift noted.',
+    priority: 'Medium',
+    status: 'Open',
+    dateReported: now.toISOString(),
+    reportedByUserId: 'nurse1'
+  }
+];
+
+// --------------------------------------------------------------------
+// == ADMINISTRATIVE LOGS ==
+// --------------------------------------------------------------------
+
+export const mockAlerts: PatientAlert[] = [
+  {
+    alertId: 'AL-001',
+    hospitalId: 'hosp-1',
+    patientId: 'P-123456',
+    severity: 'Critical',
+    alert_message: 'Patient BP critically high: 185/115',
+    triggeredAt: now.toISOString(),
+    isAcknowledged: false
+  }
+];
+
+export const mockAuditLogs: AuditLog[] = [
+  {
+    logId: 'LOG-001',
+    hospitalId: 'hosp-1',
+    timestamp: now.toISOString(),
+    userId: 'admin1',
+    action: 'USER_LOGIN',
+    details: { targetCollection: 'users', targetDocId: 'admin1' }
+  }
+];
+
+// --------------------------------------------------------------------
+// == OTHER / DEPRECATED / PLACEHOLDERS ==
+// --------------------------------------------------------------------
+
 export const mockReferrals: Referral[] = [];
-export const mockLabResults: LabResult[] = [];
-export const mockMedicationRecords: MedicationRecord[] = [];
-export const mockAlerts: PatientAlert[] = [];
-export const mockDiagnoses: Diagnosis[] = [];
-export const mockInventory: InventoryItem[] = [];
-export const mockSuppliers: Supplier[] = [];
-export const mockLedgerAccounts: LedgerAccount[] = [];
-export const mockLedgerEntries: LedgerEntry[] = [];
-export const mockInvoices: Invoice[] = [];
-export const mockStaffProfiles: StaffProfile[] = [];
-export const mockLeaveRequests: LeaveRequest[] = [];
+export const mockBills: Bill[] = [];
 export const mockStaffClaims: StaffExpenseClaim[] = [];
+export const mockLeaveRequests: LeaveRequest[] = [];
 export const mockPayrollRuns: PayrollRun[] = [];
 export const mockPayrollRecords: PayrollRecord[] = [];
 export const mockOtSessions: OTSession[] = [];
@@ -196,8 +574,6 @@ export const mockDietaryProfiles: DietaryProfile[] = [];
 export const mockMealOrders: MealOrder[] = [];
 export const mockPerformanceReviews: PerformanceReview[] = [];
 export const mockTrainingCourses: TrainingCourse[] = [];
-export const mockFacilityZones: FacilityZone[] = [];
-export const mockWorkOrders: WorkOrder[] = [];
 export const mockSpareParts: SparePart[] = [];
 export const mockSparePartsLog: SparePartLog[] = [];
 export const mockUtilityMeters: Meter[] = [];
@@ -209,26 +585,32 @@ export const mockSavedReports: SavedReport[] = [];
 export const mockMessages: Message[] = [];
 export const mockReminders: Reminder[] = [];
 export const mockHealthContent: HealthContent[] = [];
-export const mockAuditLogs: AuditLog[] = [];
 export const mockVaccineCatalog: Vaccine[] = [];
 export const mockImmunizationRecords: ImmunizationRecord[] = [];
 export const mockLabTestCatalog: LabTest[] = [];
 export const mockRadiologyStudies: RadiologyStudy[] = [];
-export const mockRadiologyOrders: RadiologyOrder[] = [];
-export const mockRadiologyReports: RadiologyReport[] = [];
-export const mockPricingTables: PricingTable[] = [];
-export const mockBills: Bill[] = [];
-export const mockPayments: FinancialTransaction[] = [];
-export const mockPayrollConfig: PayrollConfiguration = { ssnitEmployeeContribution: 0, ssnitEmployerContribution: 0, tier2EmployerContribution: 0, ssnitCeiling: 0, taxBands: [] };
-export const mockPositions: Position[] = [];
-export const mockPurchaseOrders: PurchaseOrder[] = [];
-export const mockRfqs: RequestForQuotation[] = [];
-export const mockControlledSubstances: ControlledSubstance[] = [];
-export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [];
 export const mockLabReports: LabReport[] = [];
 export const mockResourceBookings: ResourceBooking[] = [];
-export const mockResources: Asset[] = [];
 export const mockInfectionReports: InfectionReport[] = [];
 export const mockEfficacyReports: EfficacyReport[] = [];
-export const mockNotes: ClinicalNote[] = [];
-export const mockVitalsLog: VitalsLog[] = [];
+
+export const mockPayrollConfig: PayrollConfiguration = {
+  ssnitEmployeeContribution: 0.055,
+  ssnitEmployerContribution: 0.13,
+  tier2EmployerContribution: 0.05,
+  ssnitCeiling: 35000,
+  taxBands: [
+    { limit: 4824, rate: 0 },
+    { limit: 6144, rate: 0.05 },
+    { limit: 7704, rate: 0.10 },
+    { limit: 43704, rate: 0.175 },
+    { limit: 240000, rate: 0.25 },
+    { limit: 600000, rate: 0.30 },
+    { limit: Infinity, rate: 0.35 }
+  ]
+};
+
+export const mockPositions: Position[] = [
+  { positionId: 'POS-1', hospitalId: 'hosp-1', title: 'Senior Consultant Physician', baseAnnualSalary: 120000 },
+  { positionId: 'POS-2', hospitalId: 'hosp-1', title: 'Registered Nurse', baseAnnualSalary: 48000 }
+];
