@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 export const PatientSchema = z.object({
   hospitalId: z.string().min(1, "Hospital ID is required"),
+  mrn: z.string().min(1, "Medical Record Number is required"),
   title: z.string().optional(),
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
   lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),

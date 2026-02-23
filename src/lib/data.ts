@@ -117,8 +117,9 @@ export const mockStaffProfiles: StaffProfile[] = [
 
 export const allPatients: Patient[] = [
   {
-    patient_id: 'P-123456',
+    patient_id: 'hosp-1_MRN123456',
     hospitalId: 'hosp-1',
+    mrn: '123456',
     title: 'Mr',
     first_name: 'Kwame',
     last_name: 'Owusu',
@@ -140,8 +141,9 @@ export const allPatients: Patient[] = [
     allergies: ['Penicillin'],
   },
   {
-    patient_id: 'P-654321',
+    patient_id: 'hosp-1_MRN654321',
     hospitalId: 'hosp-1',
+    mrn: '654321',
     title: 'Mrs',
     first_name: 'Abena',
     last_name: 'Mensah',
@@ -166,7 +168,7 @@ export const allAdmissions: Admission[] = [
   {
     admission_id: 'A-001',
     hospitalId: 'hosp-1',
-    patient_id: 'P-123456',
+    patient_id: 'hosp-1_MRN123456',
     type: 'Inpatient',
     admission_date: new Date('2024-07-28T10:30:00Z').toISOString(),
     reasonForVisit: 'Severe chest pain and elevated BP',
@@ -182,7 +184,7 @@ export const allAdmissions: Admission[] = [
   {
     admission_id: 'A-002',
     hospitalId: 'hosp-1',
-    patient_id: 'P-123456',
+    patient_id: 'hosp-1_MRN123456',
     type: 'Inpatient',
     admission_date: new Date('2024-06-15T09:00:00Z').toISOString(),
     discharge_date: new Date('2024-06-20T14:00:00Z').toISOString(),
@@ -203,7 +205,7 @@ export const allAppointments: Appointment[] = [
   {
     appointment_id: 'AP-001',
     hospitalId: 'hosp-1',
-    patient_id: 'P-123456',
+    patient_id: 'hosp-1_MRN123456',
     patient_name: 'Kwame Owusu',
     doctor_id: 'hosp-1_e.mensah@gammed.com',
     doctor_name: 'Dr. Evelyn Mensah',
@@ -225,7 +227,7 @@ export const mockNotes: ClinicalNote[] = [
   {
     noteId: 'N-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     noteType: 'Consultation',
     recordedByUserId: 'hosp-1_e.mensah@gammed.com',
     noteText: 'Patient presented with stable BP. Advised to continue current medication and reduce sodium intake.',
@@ -234,7 +236,7 @@ export const mockNotes: ClinicalNote[] = [
   {
     noteId: 'N-002',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     noteType: 'Nursing Note',
     recordedByUserId: 'hosp-1_f.agyepong@gammed.com',
     noteText: 'Vitals stable. Patient compliant with dietary restrictions.',
@@ -246,7 +248,7 @@ export const mockVitalsLog: VitalsLog[] = [
   {
     vitalId: 'V-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     bloodPressure: '130/85',
     heartRate: '72',
     temperature: '36.8',
@@ -261,7 +263,7 @@ export const mockDiagnoses: Diagnosis[] = [
   {
     diagnosisId: 'D-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     diagnosisText: 'Essential Hypertension',
     icd10Code: 'I10',
     diagnosedAt: new Date('2023-10-15T10:00:00Z').toISOString(),
@@ -274,7 +276,7 @@ export const mockCarePlans: CarePlan[] = [
   {
     planId: 'CP-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     title: 'Hypertension Management Plan',
     goal: 'Maintain BP below 130/80 mmHg',
     interventions: ['Daily BP monitoring', 'Low sodium diet', 'Administer Amlodipine 5mg daily'],
@@ -309,7 +311,7 @@ export const mockPrescriptions: Prescription[] = [
   {
     prescriptionId: 'RX-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     patientName: 'Kwame Owusu',
     doctorId: 'hosp-1_e.mensah@gammed.com',
     datePrescribed: now.toISOString(),
@@ -322,7 +324,7 @@ export const mockMedicationRecords: MedicationRecord[] = [
   {
     prescriptionId: 'RX-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     patientName: 'Kwame Owusu',
     medicationName: 'Amlodipine',
     dosage: '5mg',
@@ -366,7 +368,7 @@ export const mockLabResults: LabResult[] = [
   {
     testId: 'L-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     patientName: 'Kwame Owusu',
     testName: 'Full Blood Count (FBC)',
     status: 'Validated',
@@ -389,7 +391,7 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
   {
     orderId: 'RAD-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     patientName: 'Kwame Owusu',
     doctorId: 'hosp-1_e.mensah@gammed.com',
     dateOrdered: now.toISOString(),
@@ -416,7 +418,7 @@ export const mockInvoices: Invoice[] = [
   {
     invoiceId: 'INV-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     patientName: 'Kwame Owusu',
     patientType: 'private',
     issueDate: new Date('2024-08-01T09:00:00Z').toISOString(),
@@ -450,7 +452,7 @@ export const mockResources: Asset[] = [
 ];
 
 export const allBeds: Bed[] = [
-  { bed_id: 'C-101', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'occupied', current_patient_id: 'P-123456', occupied_since: '2024-07-28T10:30:00Z', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() },
+  { bed_id: 'C-101', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'occupied', current_patient_id: 'hosp-1_MRN123456', occupied_since: '2024-07-28T10:30:00Z', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() },
   { bed_id: 'C-102', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'vacant', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() }
 ];
 
@@ -479,7 +481,7 @@ export const mockAlerts: PatientAlert[] = [
   {
     alertId: 'AL-001',
     hospitalId: 'hosp-1',
-    patientId: 'P-123456',
+    patientId: 'hosp-1_MRN123456',
     severity: 'Critical',
     alert_message: 'Patient BP critically high: 185/115',
     triggeredAt: now.toISOString(),
@@ -502,37 +504,37 @@ export const mockAuditLogs: AuditLog[] = [
 // == EMPTY PLACEHOLDERS ==
 // --------------------------------------------------------------------
 
-export const mockReferrals: Referral[] = [];
-export const mockBills: Bill[] = [];
-export const mockStaffClaims: StaffExpenseClaim[] = [];
-export const mockLeaveRequests: LeaveRequest[] = [];
-export const mockPayrollRuns: PayrollRun[] = [];
-export const mockPayrollRecords: PayrollRecord[] = [];
-export const mockOtSessions: OTSession[] = [];
-export const mockDietaryProfiles: DietaryProfile[] = [];
-export const mockMealOrders: MealOrder[] = [];
-export const mockPerformanceReviews: PerformanceReview[] = [];
-export const mockTrainingCourses: TrainingCourse[] = [];
-export const mockSpareParts: SparePart[] = [];
-export const mockSparePartsLog: SparePartLog[] = [];
-export const mockUtilityMeters: Meter[] = [];
-export const mockUtilityConsumption: UtilityConsumption[] = [];
-export const mockSecurityIncidents: SecurityIncident[] = [];
-export const mockHousekeepingTasks: HousekeepingTask[] = [];
-export const mockDepreciationRecords: DepreciationRecord[] = [];
-export const mockSavedReports: SavedReport[] = [];
-export const mockMessages: Message[] = [];
-export const mockReminders: Reminder[] = [];
-export const mockHealthContent: HealthContent[] = [];
-export const mockVaccineCatalog: Vaccine[] = [];
-export const mockImmunizationRecords: ImmunizationRecord[] = [];
-export const mockLabTestCatalog: LabTest[] = [];
-export const mockRadiologyStudies: RadiologyStudy[] = [];
-export const mockLabReports: LabReport[] = [];
-export const mockResourceBookings: ResourceBooking[] = [];
-export const mockInfectionReports: InfectionReport[] = [];
-export const mockEfficacyReports: EfficacyReport[] = [];
-export const mockRfqs: RequestForQuotation[] = [];
+export const mockReferrals = [];
+export const mockBills = [];
+export const mockStaffClaims = [];
+export const mockLeaveRequests = [];
+export const mockPayrollRuns = [];
+export const mockPayrollRecords = [];
+export const mockOtSessions = [];
+export const mockDietaryProfiles = [];
+export const mockMealOrders = [];
+export const mockPerformanceReviews = [];
+export const mockTrainingCourses = [];
+export const mockSpareParts = [];
+export const mockSparePartsLog = [];
+export const mockUtilityMeters = [];
+export const mockUtilityConsumption = [];
+export const mockSecurityIncidents = [];
+export const mockHousekeepingTasks = [];
+export const mockDepreciationRecords = [];
+export const mockSavedReports = [];
+export const mockMessages = [];
+export const mockReminders = [];
+export const mockHealthContent = [];
+export const mockVaccineCatalog = [];
+export const mockImmunizationRecords = [];
+export const mockLabTestCatalog = [];
+export const mockRadiologyStudies = [];
+export const mockLabReports = [];
+export const mockResourceBookings = [];
+export const mockInfectionReports = [];
+export const mockEfficacyReports = [];
+export const mockRfqs = [];
 
 export const mockPayrollConfig: PayrollConfiguration = {
   ssnitEmployeeContribution: 0.055,

@@ -62,6 +62,7 @@ export function AddPatientDialog({
     resolver: zodResolver(PatientSchema),
     defaultValues: isEditing && patientToEdit ? {
         hospitalId: patientToEdit.hospitalId,
+        mrn: patientToEdit.mrn,
         title: patientToEdit.title,
         firstName: patientToEdit.first_name,
         lastName: patientToEdit.last_name,
@@ -95,6 +96,7 @@ export function AddPatientDialog({
         consent: true,
     } : {
       hospitalId: user?.hospitalId || '',
+      mrn: '',
       title: '',
       firstName: '',
       lastName: '',
@@ -134,6 +136,7 @@ export function AddPatientDialog({
       setOpen(true);
       form.reset({
         hospitalId: patientToEdit.hospitalId,
+        mrn: patientToEdit.mrn,
         title: patientToEdit.title,
         firstName: patientToEdit.first_name,
         lastName: patientToEdit.last_name,
@@ -186,21 +189,28 @@ export function AddPatientDialog({
   };
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
+    // GENERATE COMPOSITE ID: {hospitalId}_MRN{mrn}
+    const customPatientId = `${values.hospitalId}_MRN${values.mrn}`;
+
     if (isEditing) {
       console.log('Updating patient:', values);
       toast.success('Patient updated successfully (simulated).');
       if (onPatientUpdated) onPatientUpdated();
     } else {
+      // In a real app, we check if customPatientId exists first
       const result = await addPatientAction(values);
       if (!result.success) {
         toast.error(`Error: ${result.message || 'Failed to add patient.'}`);
         return;
       }
-      toast.success('Patient registered successfully.');
+      toast.success('Patient registered successfully.', {
+          description: `Assigned Record ID: ${customPatientId}`
+      });
 
       const newPatient: Patient = {
-        patient_id: `P-${Date.now()}`,
+        patient_id: customPatientId,
         hospitalId: values.hospitalId,
+        mrn: values.mrn,
         title: values.title ?? "",
         first_name: values.firstName,
         last_name: values.lastName,
@@ -223,7 +233,7 @@ export function AddPatientDialog({
         insurance: {
             provider_name: values.insurance?.providerName || '',
             policy_number: values.insurance?.policyNumber || '',
-            expiry_date: values.insurance?.expiryDate || '',
+            expiry_date: values.insurance?.expiry_date || '',
             isActive: true,
         },
         is_admitted: false,
@@ -244,12 +254,40 @@ export function AddPatientDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Patient Details' : 'Register New Patient'}</DialogTitle>
           <DialogDescription>
-            {isEditing ? `Editing record for ${patientToEdit?.full_name}` : 'Fill in the details below to add a new patient to the system.'}
+            {isEditing ? `Editing record for ${patientToEdit?.full_name}` : 'Fill in the details below to add a new patient to the system. All files are unique within your hospital.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <FormField
+                  control={form.control}
+                  name="mrn"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Medical Record Number (MRN)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 58229" {...field} />
+                      </FormControl>
+                      <FormDescription>Must be unique within your hospital.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="ghanaCardId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ghana Card ID (Optional)</FormLabel>
+                      <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <h4 className="text-lg font-medium">Personal Information</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <FormField
@@ -365,17 +403,6 @@ export function AddPatientDialog({
                     <FormItem>
                       <FormLabel>Occupation (Optional)</FormLabel>
                       <Input {...field} />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="ghanaCardId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ghana Card ID (Optional)</FormLabel>
-                      <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
                       <FormMessage />
                     </FormItem>
                   )}

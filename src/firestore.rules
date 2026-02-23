@@ -72,7 +72,12 @@ service cloud.firestore {
     // Patients
     match /patients/{patientId} {
       allow read: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
-      allow create: if isEmployee() && isSameHospital(request.resource.data);
+      
+      // Enforce the Golden Pattern: {hospitalId}_MRN{mrn}
+      allow create: if isEmployee() && 
+                    isSameHospital(request.resource.data) && 
+                    patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn;
+      
       allow update: if isEmployee() && isSameHospital(resource.data) && isSameHospital(request.resource.data);
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }

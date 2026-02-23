@@ -39,8 +39,9 @@ export interface User {
 }
 
 export interface Patient {
-  patient_id: string;
+  patient_id: string; // This will be {hospitalId}_MRN{mrn}
   hospitalId: string; // Tenant ID
+  mrn: string; // Unique record number within hospital
   title: string;
   first_name: string;
   last_name: string;
@@ -647,7 +648,7 @@ export interface PerformanceReview {
   areasForDevelopment?: string;
   goalsAchieved?: string[];
   trainingRecommendations?: string;
-  nextReviewDate?: string;
+  targetDate?: string;
 }
 
 export interface TrainingCourse {

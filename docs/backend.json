@@ -32,18 +32,19 @@
     },
     "Patient": {
       "title": "Patient",
-      "description": "Stores demographic and clinical information for a patient within a hospital.",
+      "description": "Stores demographic and clinical information for a patient within a hospital. Document ID pattern: {hospitalId}_MRN{mrn}. This ensures that a patient record is unique to a hospital and prevents duplicate files.",
       "type": "object",
       "properties": {
         "patient_id": { "type": "string" },
         "hospitalId": { "type": "string" },
+        "mrn": { "type": "string" },
         "full_name": { "type": "string" },
         "dob": { "type": "string", "format": "date" },
         "gender": { "type": "string" },
         "is_admitted": { "type": "boolean" },
         "created_at": { "type": "string", "format": "date-time" }
       },
-      "required": ["patient_id", "hospitalId", "full_name", "dob", "gender", "is_admitted", "created_at"]
+      "required": ["patient_id", "hospitalId", "mrn", "full_name", "dob", "gender", "is_admitted", "created_at"]
     },
     "Appointment": {
       "title": "Appointment",
@@ -129,7 +130,7 @@
     },
     "/patients/{patientId}": {
       "schema": { "$ref": "#/entities/Patient" },
-      "description": "Patient records with hospitalId field for logical isolation."
+      "description": "Patient records. patientId follows {hospitalId}_MRN{mrn} pattern for unique identification and isolation."
     },
     "/appointments/{appointmentId}": {
       "schema": { "$ref": "#/entities/Appointment" },
