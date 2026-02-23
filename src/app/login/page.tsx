@@ -21,7 +21,8 @@ import { toast } from "@/hooks/use-toast";
  * 1. Dynamic Discovery: Fetches active hospital tenants from Firestore.
  * 2. Tenant-First Verification: Checks membership via {hospitalId}_{email} ID pattern.
  * 3. Secure Auth: Performs Firebase Auth sign-in.
- * 4. Context Sync: Updates global state with hospitalId for tenant isolation.
+ * 4. Token Refresh: Forces a refresh to fetch the latest Custom Claims (hospitalId, role).
+ * 5. Context Sync: Updates global state with hospitalId for tenant isolation.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -88,7 +89,13 @@ export default function LoginPage() {
             // Use Firebase Auth to verify the password against the normalized email
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
-            // 5. STEP C: SYNC GLOBAL STATE
+            // 5. STEP C: FORCE REFRESH TOKEN
+            // Custom claims (hospitalId, role) are added to the token when it's issued.
+            // Forcing a refresh ensures we have the latest claims immediately.
+            const idTokenResult = await userCredential.user.getIdTokenResult(true);
+            console.log("Verified Hospital ID from Claims:", idTokenResult.claims.hospitalId);
+            
+            // 6. STEP D: SYNC GLOBAL STATE
             // Pass the userData (which includes hospitalId) to your Global Context
             // This hospitalId is used by components to scope all subsequent queries.
             setUser({
@@ -100,7 +107,7 @@ export default function LoginPage() {
                 description: `Welcome to ${hospitals.find(h => h.id === selectedHospitalId)?.name || 'GamMed'}`
             });
 
-            // 6. ROLE-BASED REDIRECTION
+            // 7. ROLE-BASED REDIRECTION
             const routes = {
                 admin: '/dashboard/admin',
                 doctor: '/dashboard/my-practice',
