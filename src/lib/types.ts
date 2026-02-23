@@ -402,6 +402,7 @@ export interface StaffProfile {
 
 export interface DevelopmentGoal {
   goalId: string;
+  hospitalId: string;
   description: string;
   targetDate: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
@@ -470,6 +471,7 @@ export interface RequestForQuotation {
 
 export interface Quote {
   quoteId: string;
+  hospitalId: string;
   supplierId: string;
   supplierName: string;
   dateSubmitted: string;
@@ -538,6 +540,7 @@ export interface LabTest {
 
 export interface SampleAudit {
   auditId: string;
+  hospitalId: string;
   timestamp: string;
   action: string;
   location: string;
