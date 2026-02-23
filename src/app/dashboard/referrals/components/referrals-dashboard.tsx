@@ -19,7 +19,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Referral, Patient } from '@/lib/types';
+import { Referral, Patient, Appointment } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -171,9 +171,9 @@ export function ReferralsDashboard({ allReferrals, setAllReferrals }: ReferralsD
     toast.success("Patient registered. You can now book their appointment.");
   }
 
-  const handleAppointmentBooked = (appointmentId: string, patientId: string) => {
+  const handleAppointmentBooked = (newAppointment: Appointment) => {
     // Find the referral associated with this patient and update its status
-    const referralToUpdate = allReferrals.find(r => r.patientId === patientId && r.status === 'Assigned');
+    const referralToUpdate = allReferrals.find(r => r.patientId === newAppointment.patient_id && r.status === 'Assigned');
     if (referralToUpdate) {
         handleStatusUpdate(referralToUpdate.referral_id, 'Scheduled');
     }
