@@ -27,10 +27,10 @@ export default function PatientsPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   /**
-   * == SAAS GOLDEN RULE: DOUBLE-FILTER PATTERN (WITH PREFIX RANGE SEARCH) ==
+   * == SAAS GOLDEN RULE: DOUBLE-FILTER PATTERN (WITH PRE-NORMALIZED FIELDS) ==
    * This implementation ensures that search results are ALWAYS scoped to the 
-   * current hospital first. For name searches, it uses a high-performance 
-   * prefix matching logic (mirrors NoSQL range queries).
+   * current hospital first. It utilizes 'Data Preparation' fields like 
+   * full_name_lowercase and phone_search for high-performance filtering.
    */
   const handleSearch = useDebouncedCallback((query: string) => {
     if (!user) return;
@@ -44,27 +44,19 @@ export default function PatientsPage() {
     if (!query) {
       setFilteredPatients(hospitalPatients);
     } else {
-      const lowercasedQuery = query.toLowerCase();
-      // Normalize phone search input
-      const cleanPhoneQuery = query.replace(/\D/g, '');
+      const lowercasedQuery = query.toLowerCase().trim();
+      // Prepare searchable version of input query (digits only for phone search)
+      const digitsOnlyQuery = query.replace(/\D/g, '');
 
       const filtered = hospitalPatients.filter((patient) => {
-          // Check for MRN/ID match
+          // A) Direct ID/MRN Match (Standard NoSQL PK pattern)
           const matchesId = patient.patient_id.toLowerCase().includes(lowercasedQuery);
           
-          /**
-           * == OPTIMIZED PREFIX SEARCH (NoSQL RANGE PATTERN) ==
-           * In a production Firestore environment, this would be:
-           * .where('hospitalId', '==', hospitalId)
-           * .where('full_name_lowercase', '>=', lowercasedQuery)
-           * .where('full_name_lowercase', '<=', lowercasedQuery + '\uf8ff')
-           */
-          const searchKey = patient.full_name_lowercase || patient.full_name.toLowerCase();
-          const matchesName = searchKey.startsWith(lowercasedQuery);
+          // B) Optimized Case-Insensitive Prefix Search (using prepared field)
+          const matchesName = patient.full_name_lowercase?.startsWith(lowercasedQuery);
 
-          // Check for Phone match (Normalized)
-          const patientPhone = patient.contact.primaryPhone.replace(/\D/g, '');
-          const matchesPhone = cleanPhoneQuery !== '' && patientPhone.includes(cleanPhoneQuery);
+          // C) High-Performance Phone Search (using pre-stripped digits field)
+          const matchesPhone = digitsOnlyQuery !== '' && patient.phone_search?.includes(digitsOnlyQuery);
 
           return matchesId || matchesName || matchesPhone;
       });

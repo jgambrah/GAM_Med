@@ -32,19 +32,21 @@
     },
     "Patient": {
       "title": "Patient",
-      "description": "Stores demographic and clinical information for a patient within a hospital. Document ID pattern: {hospitalId}_MRN{mrn}. This is the Gold Standard for SaaS isolation, ensuring that a patient record is unique to a hospital, prevents duplicate files, and is secured via strict Firestore rules.",
+      "description": "Stores demographic and clinical information for a patient within a hospital. Document ID pattern: {hospitalId}_MRN{mrn}. Includes normalized searchable fields for high-performance NoSQL indexing.",
       "type": "object",
       "properties": {
         "patient_id": { "type": "string" },
         "hospitalId": { "type": "string" },
         "mrn": { "type": "string" },
         "full_name": { "type": "string" },
+        "full_name_lowercase": { "type": "string", "description": "Normalized name for case-insensitive prefix search." },
+        "phone_search": { "type": "string", "description": "Normalized phone number (digits only) for exact/prefix search." },
         "dob": { "type": "string", "format": "date" },
         "gender": { "type": "string" },
         "is_admitted": { "type": "boolean" },
         "created_at": { "type": "string", "format": "date-time" }
       },
-      "required": ["patient_id", "hospitalId", "mrn", "full_name", "dob", "gender", "is_admitted", "created_at"]
+      "required": ["patient_id", "hospitalId", "mrn", "full_name", "full_name_lowercase", "phone_search", "dob", "gender", "is_admitted", "created_at"]
     },
     "Appointment": {
       "title": "Appointment",

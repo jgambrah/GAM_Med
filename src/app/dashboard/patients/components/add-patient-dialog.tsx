@@ -240,7 +240,11 @@ export function AddPatientDialog({
           description: `Generated Record ID: ${customPatientId}`
       });
 
+      // 5. DATA PREPARATION: Prepare searchable normalized fields
       const fullName = `${values.firstName} ${values.lastName}`;
+      const fullNameLowercase = fullName.toLowerCase();
+      const phoneSearch = values.contact.primaryPhone.replace(/\D/g, '');
+
       const newPatient: Patient = {
         patient_id: customPatientId,
         hospitalId: values.hospitalId,
@@ -249,8 +253,8 @@ export function AddPatientDialog({
         first_name: values.firstName,
         last_name: values.lastName,
         full_name: fullName,
-        full_name_lowercase: fullName.toLowerCase(), // Normalized key for optimized NoSQL prefix search
-        ghanaCardId: values.ghanaCardId,
+        full_name_lowercase: fullNameLowercase, // Store for case-insensitive prefix search
+        phone_search: phoneSearch, // Store for high-performance digits-only lookup
         dob: values.dob,
         gender: values.gender,
         maritalStatus: values.maritalStatus,
