@@ -60,7 +60,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
       allow list: if isEmployee() && isAdmin(); 
-      allow create: if isOwner(userId) && isSameHospital(request.resource.data);
+      
+      // Enforce the Multi-tenant Unique Constraint pattern: {hospitalId}_{email}
+      allow create: if isOwner(userId) && 
+                    isSameHospital(request.resource.data) && 
+                    userId == request.resource.data.hospitalId + "_" + request.resource.data.email;
+      
       allow update: if (isOwner(userId) || isAdmin()) && isSameHospital(request.resource.data);
     }
 
