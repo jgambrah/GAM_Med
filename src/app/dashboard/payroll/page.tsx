@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -30,8 +29,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { mockPayrollRuns } from '@/lib/data';
-import { PayrollRun, PayrollRecord } from '@/lib/types';
+import { mockPayrollRuns, mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
+import { PayrollRun, PayrollRecord, LedgerAccount, LedgerEntry } from '@/lib/types';
 import { format } from 'date-fns';
 import { Download, WalletCards } from 'lucide-react';
 import { StartPayrollRunDialog } from './components/start-payroll-run-dialog';
@@ -41,7 +40,17 @@ import { PayrollConfigurationDashboard } from './components/payroll-configuratio
 import { PayrollAllowancesDashboard } from './components/payroll-allowances';
 import { PayrollDeductionsDashboard } from './components/payroll-deductions';
 import { LedgerPostingDialog } from '../admin/components/ledger-posting-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { z } from 'zod';
 
+const PostingSchema = z.object({
+  debitAccountId: z.string().min(1, 'Debit account is required.'),
+  creditAccountId: z.string().min(1, 'Credit account is required.'),
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
+  description: z.string().min(3, 'Description is required.'),
+  paymentMethod: z.enum(['Cheque', 'Bank Transfer']),
+  chequeNumber: z.string().optional(),
+});
 
 function getStatusVariant(status: PayrollRun['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -63,6 +72,8 @@ interface PayrollDetailsDialogProps {
 function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: PayrollDetailsDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [postingRemittanceInfo, setPostingRemittanceInfo] = React.useState<{ name: string; amount: number } | null>(null);
+  const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+  const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
 
   const handlePostRemittance = (name: string, amount: number) => {
     setPostingRemittanceInfo({ name, amount });
@@ -73,6 +84,50 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
       setPostingRemittanceInfo(null);
     }
   }
+
+  const handlePostRemittanceToLedger = async (values: z.infer<typeof PostingSchema>) => {
+    const { debitAccountId, creditAccountId, amount, paymentMethod, chequeNumber } = values;
+
+    try {
+        const now = new Date().toISOString();
+        const debitAccount = accounts.find(a => a.accountId === debitAccountId);
+        const creditAccount = accounts.find(a => a.accountId === creditAccountId);
+
+        if (!debitAccount || !creditAccount) {
+            toast.error("One or more accounts not found for ledger posting.");
+            return;
+        }
+        
+        let finalDescription = values.description;
+        if (paymentMethod === 'Cheque' && chequeNumber) {
+            finalDescription = `${finalDescription} (Cheque No: ${chequeNumber})`;
+        } else if (paymentMethod === 'Bank Transfer') {
+            finalDescription = `${finalDescription} (Bank Transfer)`;
+        }
+
+        const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        
+        setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
+
+        setAccounts(prev => prev.map(acc => {
+            let balanceChange = 0;
+            if (acc.accountId === debitAccountId) {
+                const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                balanceChange = isDebitType ? amount : -amount;
+            } else if (acc.accountId === creditAccountId) {
+                const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                balanceChange = isDebitType ? -amount : amount;
+            }
+            return balanceChange !== 0 ? { ...acc, balance: acc.balance + balanceChange } : acc;
+        }));
+        
+        toast.success("Remittance Posted", { description: `${finalDescription} for ₵${amount.toFixed(2)}` });
+    } catch (e) {
+        console.error(e);
+        toast.error("Failed to post remittance.");
+    }
+  };
 
   return (
     <>
@@ -206,6 +261,7 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
         <LedgerPostingDialog 
             isOpen={!!postingRemittanceInfo}
             onOpenChange={handleRemittanceDialogClose}
+            onPost={handlePostRemittanceToLedger}
             amount={postingRemittanceInfo.amount}
             description={`Remittance for ${postingRemittanceInfo.name} - ${run.payPeriod}`}
             defaultDebit="2010" // Accounts Payable
@@ -220,6 +276,8 @@ function PayrollRunsDashboard() {
     const [runs, setRuns] = React.useState<PayrollRun[]>(mockPayrollRuns);
     const [runRecords, setRunRecords] = React.useState<Record<string, PayrollRecord[]>>({});
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; runId: string; } | null>(null);
+    const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+    const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
 
     const handlePayrollStarted = (newRun: PayrollRun, newRecords: PayrollRecord[]) => {
       setRuns(prev => {
@@ -254,6 +312,50 @@ function PayrollRunsDashboard() {
             runId: run.runId,
         });
     };
+
+    const handlePostToLedgerAction = async (values: z.infer<typeof PostingSchema>) => {
+        const { debitAccountId, creditAccountId, amount, paymentMethod, chequeNumber } = values;
+
+        try {
+            const now = new Date().toISOString();
+            const debitAccount = accounts.find(a => a.accountId === debitAccountId);
+            const creditAccount = accounts.find(a => a.accountId === creditAccountId);
+
+            if (!debitAccount || !creditAccount) {
+                toast.error("One or more accounts not found for ledger posting.");
+                return;
+            }
+            
+            let finalDescription = values.description;
+            if (paymentMethod === 'Cheque' && chequeNumber) {
+                finalDescription = `${finalDescription} (Cheque No: ${chequeNumber})`;
+            } else if (paymentMethod === 'Bank Transfer') {
+                finalDescription = `${finalDescription} (Bank Transfer)`;
+            }
+
+            const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+            const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+            
+            setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
+
+            setAccounts(prev => prev.map(acc => {
+                let balanceChange = 0;
+                if (acc.accountId === debitAccountId) {
+                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                    balanceChange = isDebitType ? amount : -amount;
+                } else if (acc.accountId === creditAccountId) {
+                    const isDebitType = ['Asset', 'Expense'].includes(acc.accountType);
+                    balanceChange = isDebitType ? -amount : amount;
+                }
+                return balanceChange !== 0 ? { ...acc, balance: acc.balance + balanceChange } : acc;
+            }));
+            
+            toast.success("Payroll Posted", { description: `${finalDescription} for ₵${amount.toFixed(2)}` });
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to post payroll.");
+        }
+    }
 
     const handleLedgerDialogClose = (isOpen: boolean, posted?: boolean) => {
         if (!isOpen) {
@@ -320,6 +422,7 @@ function PayrollRunsDashboard() {
         <LedgerPostingDialog 
             isOpen={!!postingInfo}
             onOpenChange={(isOpen, posted) => handleLedgerDialogClose(isOpen, posted || false)}
+            onPost={handlePostToLedgerAction}
             amount={postingInfo.amount}
             description={postingInfo.description}
             defaultDebit="5010" // Salaries and Wages (Expense)
