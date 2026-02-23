@@ -80,13 +80,19 @@ export function MainNavClient() {
     },
     {
       href: '/dashboard/super-admin',
-      label: 'Platform Operations',
+      label: 'Hospital Management',
       icon: Globe,
       roles: ['super_admin'],
     },
     {
+      href: '/dashboard/super-admin/analytics',
+      label: 'Platform Analytics',
+      icon: BarChart,
+      roles: ['super_admin'],
+    },
+    {
       href: '/dashboard/admin/staff',
-      label: 'Manage Team',
+      label: 'Manage Staff',
       icon: UserCog,
       roles: ['director', 'admin'],
     },
@@ -268,7 +274,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/super-admin', '/dashboard/admin/staff', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/super-admin', '/dashboard/super-admin/analytics', '/dashboard/admin/staff', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
