@@ -1,5 +1,3 @@
-
-
 /**
  * @fileoverview This file contains the conceptual TypeScript code for key Firebase Cloud Functions.
  * These functions represent the secure, server-side backend logic for the GamMed ERP system.
@@ -12,6 +10,52 @@
 // import * as admin from 'firebase-admin';
 // admin.initializeApp();
 // const db = admin.firestore();
+
+// =======================================================================================
+// == IDENTITY & ACCESS MANAGEMENT (IAM)
+// =======================================================================================
+
+/**
+ * Syncs Firestore user data to Firebase Auth Custom Claims.
+ * This is the "Secret Sauce" for 100% secure multi-tenant SaaS.
+ * Trigger: Any time the users/{docId} document is created or updated.
+ * 
+ * @trigger_type Firestore Trigger (onWrite)
+ * @document /users/{userDocId}
+ */
+/*
+exports.syncUserClaims = functions.region('europe-west1').firestore
+    .document('users/{userDocId}')
+    .onWrite(async (change, context) => {
+        const userData = change.after.exists ? change.after.data() : null;
+
+        // If the document was deleted, we don't need to do anything
+        if (!userData) return null;
+
+        const { uid, hospitalId, role } = userData;
+
+        // Safety check: Ensure we have the Auth UID and Tenant ID
+        if (!uid || !hospitalId) {
+            console.error("Missing UID or HospitalID in Firestore document.");
+            return null;
+        }
+
+        try {
+            // SET THE CUSTOM CLAIMS
+            // These claims are baked into the user's ID Token (JWT) and cannot be tampered with.
+            await admin.auth().setCustomUserClaims(uid, {
+                hospitalId: hospitalId,
+                role: role || 'staff'
+            });
+
+            console.log(`Success: Set claims for user ${uid} at hospital ${hospitalId}`);
+            return { status: 'success' };
+        } catch (error) {
+            console.error("Error setting custom claims:", error);
+            return null;
+        }
+    });
+*/
 
 // =======================================================================================
 // == SECURE DATA STORAGE & DISASTER RECOVERY
@@ -1587,7 +1631,7 @@ exports.scheduleAppointment = functions.region('europe-west1').https.onCall(asyn
         return { success: true, appointmentId: appointmentRef.id };
 
     } catch (error) {
-        console.error(`Failed to schedule appointment for order ${orderId}:`, error);
+        console.error('Failed to schedule appointment for order ${orderId}:', error);
         throw new functions.https.HttpsError('aborted', 'Could not schedule appointment due to a conflict.', { message: error.message });
     }
 });
@@ -6084,22 +6128,3 @@ exports.deliverHealthContent = functions.region('europe-west1').firestore
         return null;
     });
 */
-    
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-    
-
-    
-
-

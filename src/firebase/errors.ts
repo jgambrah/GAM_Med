@@ -44,16 +44,15 @@ interface SecurityRuleRequest {
 
 /**
  * Builds a security-rule-compliant auth object from the Firebase User.
- * @param currentUser The currently authenticated Firebase user.
- * @returns An object that mirrors request.auth in security rules, or null.
+ * This helper mocks the Custom Claims that are synced via Cloud Functions.
  */
 function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   if (!currentUser) {
     return null;
   }
 
-  // In a real multi-tenant app, these fields would be set via Custom Claims.
-  // We simulate them here based on the email domain and local storage context.
+  // In a real multi-tenant app, these fields are set via Cloud Function syncUserClaims.
+  // We simulate them here based on the email domain and local storage context for development.
   const simulatedHospitalId = currentUser.email?.includes('stmary') ? 'hosp-2' : 'hosp-1';
   const simulatedRole = currentUser.email?.includes('admin') ? 'admin' : (currentUser.email?.includes('doc') ? 'doctor' : 'nurse');
 
@@ -102,7 +101,7 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
     auth: authObject,
     method: context.operation,
     path: `/databases/(default)/documents/${context.path}`,
-    // For 'list' operations, we simulate the query filter that rules expect
+    // For 'list' operations, we simulate the query filter that rules now mandate
     query: context.operation === 'list' ? {
         limit: 50,
         filters: { hospitalId: authObject?.token.hospitalId }

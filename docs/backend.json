@@ -17,7 +17,7 @@
     },
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Represents a user account. Document ID pattern: {hospitalId}_{email}. This enforces atomic uniqueness within a tenant and allows for O(1) direct lookups. Note: Changing an email requires re-keying the document (Copy-and-Delete pattern).",
+      "description": "Represents a user account. Document ID pattern: {hospitalId}_{email}. This enforces atomic uniqueness within a tenant and allows for O(1) direct lookups. Note: Changing an email requires re-keying the document (Copy-and-Delete pattern). Custom Claims (hospitalId, role) are synced from this entity to Firebase Auth for non-bypassable security.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -119,7 +119,11 @@
     }
   },
   "auth": {
-    "providers": ["password"]
+    "providers": ["password"],
+    "customClaims": {
+      "hospitalId": { "type": "string", "description": "The tenant ID for logical data isolation." },
+      "role": { "type": "string", "description": "The RBAC role for permission control." }
+    }
   },
   "firestore": {
     "/hospitals/{hospitalId}": {
@@ -128,7 +132,7 @@
     },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "User profiles. userId follows {hospitalId}_{email} pattern for atomic uniqueness and direct lookups."
+      "description": "User profiles. userId follows {hospitalId}_{email} pattern for atomic uniqueness and direct lookups. Triggers syncUserClaims Cloud Function."
     },
     "/patients/{patientId}": {
       "schema": { "$ref": "#/entities/Patient" },

@@ -15,8 +15,9 @@ service cloud.firestore {
     }
 
     /**
-     * Enforces logical isolation for direct document access (get/write).
+     * Enforces logical isolation using Custom Claims.
      * Ensures the user's hospitalId matches the document's hospitalId.
+     * Note: hospitalId is stored in request.auth.token via a Cloud Function sync.
      */
     function isSameHospital(docData) {
       return isSignedIn() && docData.hospitalId == request.auth.token.hospitalId;
@@ -31,7 +32,7 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the user has an authorized employee role via claims.
+     * Checks if the user has an authorized employee role via cryptographically signed claims.
      */
     function isEmployee() {
       return isSignedIn() && request.auth.token.role in [
@@ -41,7 +42,7 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the user is a hospital administrator via claims.
+     * Checks if the user is a hospital administrator via cryptographically signed claims.
      */
     function isAdmin() {
       return isSignedIn() && request.auth.token.role == 'admin';
@@ -82,7 +83,7 @@ service cloud.firestore {
       // The Ultimate Protection: Queries must be scoped and limited
       allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
       
-      // Direct access protection
+      // Direct access protection using claims
       allow get: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
       
       // Enforce the Gold Standard pattern: {hospitalId}_MRN{mrn}
@@ -99,7 +100,7 @@ service cloud.firestore {
       allow list: if (isEmployee() && isQueryScoped()) || (isSignedIn() && request.query.filters.patient_id == request.auth.token.patient_id);
       allow get: if (isSignedIn() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
       allow create: if isSignedIn() && isSameHospital(request.resource.data);
-      allow update: if isEmployee() && isSameHospital(resource.data);
+      allow update: if isEmployee() && isSameHospital(request.resource.data);
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
