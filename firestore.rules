@@ -2,187 +2,121 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --------------------------------------------------------------------
+    // Helper Functions for Multi-Tenant Logical Isolation
+    // --------------------------------------------------------------------
+
     /**
-     * GAMMED SAAS SECURITY RULES
-     *
-     * Core Philosophy:
-     * This ruleset implements a robust multi-tenant architecture where data isolation is 
-     * enforced at the path level. Every document is nested under a specific hospital 
-     * (/hospitals/{hospitalId}), ensuring that users only interact with data belonging 
-     * to their authorized healthcare facility.
-     *
-     * Data Structure:
-     * Data is organized hierarchically: /hospitals/{hospitalId}/[collection]/{documentId}. 
-     * This structure allows for clear separation between different medical facilities 
-     * sharing the same database infrastructure.
-     *
-     * Key Security Decisions:
-     * 1. Path-Based Multi-Tenancy: The 'hospitalId' in the URL is the primary anchor for 
-     *    all authorization decisions.
-     * 2. Profile-Based RBAC: Access permissions (Admin, Doctor, Staff, Patient) are 
-     *    determined by fetching the user's profile from the specific hospital's 
-     *    /userProfiles collection.
-     * 3. Relational Integrity: On creation, documents must contain a 'hospitalId' 
-     *    matching the URL path to ensure query consistency and data ownership.
-     * 4. Immutability: Critical fields like 'hospitalId' are marked as immutable 
-     *    to prevent data from being moved between tenants after creation.
-     *
-     * Denormalization for Authorization:
-     * 'hospitalId' is denormalized onto every document. This allows security rules 
-     * to verify tenant ownership instantly. User roles are stored directly within 
-     * the UserProfile document at the hospital-specific path, allowing for efficient 
-     * role-based lookups.
+     * Checks if the user is authenticated.
      */
-
-    // --- HELPER FUNCTIONS ---
-
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getProfile(hospitalId) {
-      return get(/databases/$(database)/documents/hospitals/$(hospitalId)/userProfiles/$(request.auth.uid)).data;
+    /**
+     * Retrieves the authenticated user's profile.
+     * Note: In a production environment with high scale, you would migrate 
+     * 'hospitalId' and 'role' to Custom Auth Claims to avoid this 'get' call.
+     */
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isHospitalMember(hospitalId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/hospitals/$(hospitalId)/userProfiles/$(request.auth.uid));
+    /**
+     * Verifies that the document belongs to the user's hospital.
+     */
+    function isSameHospital(docData) {
+      return isSignedIn() && docData.hospitalId == getUserData().hospitalId;
     }
 
-    function hasRole(hospitalId, role) {
-      return isHospitalMember(hospitalId) && getProfile(hospitalId).role == role;
+    /**
+     * Checks if the user is an employee of their hospital.
+     */
+    function isEmployee() {
+      return isSignedIn() && getUserData().role in [
+        'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 
+        'lab_technician', 'radiologist', 'dietitian', 'receptionist'
+      ];
     }
 
+    /**
+     * Checks if the user is a hospital administrator.
+     */
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    /**
+     * Checks if the authenticated user is the owner of the document.
+     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
+    // --------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------
 
-    function isValidHospitalLink(hospitalId) {
-      return request.resource.data.hospitalId == hospitalId;
-    }
-
-    function isHospitalLinkImmutable() {
-      return request.resource.data.hospitalId == resource.data.hospitalId;
-    }
-
-    // --- COLLECTION RULES ---
-
-    /**
-     * @description Rules for the top-level Hospital configuration.
-     * @path /hospitals/{hospitalId}
-     * @allow (get) If the user is a member of the hospital.
-     * @deny (write) If the user is not an Admin of the hospital.
-     * @principle Multi-tenancy isolation and Admin-only configuration.
-     */
+    // Hospitals (Tenant Masters)
     match /hospitals/{hospitalId} {
-      allow get: if isHospitalMember(hospitalId);
-      allow list: if isSignedIn() && hasRole(hospitalId, 'admin');
-      allow create: if isSignedIn() && request.resource.data.id == hospitalId;
-      allow update: if resource != null && hasRole(hospitalId, 'admin');
-      allow delete: if false; // Hospital deletion restricted to system super-admins
+      allow get: if isSignedIn() && getUserData().hospitalId == hospitalId;
+      allow write: if false; // Provisioning is handled via system admin tools
     }
 
-    /**
-     * @description Manages user roles and identities within a hospital.
-     * @path /hospitals/{hospitalId}/userProfiles/{userId}
-     * @allow (create) If the user is setting up their own profile for this hospital.
-     * @deny (update) If the user tries to change their own role (only Admins can).
-     * @principle Self-creation with immutable role assignment for non-admins.
-     */
-    match /hospitals/{hospitalId}/userProfiles/{userId} {
-      allow get: if isOwner(userId) || hasRole(hospitalId, 'admin');
-      allow list: if isHospitalMember(hospitalId) && hasRole(hospitalId, 'admin');
-      allow create: if isOwner(userId) && isValidHospitalLink(hospitalId);
-      allow update: if (isExistingOwner(userId) && request.resource.data.role == resource.data.role) || hasRole(hospitalId, 'admin');
-      allow delete: if resource != null && hasRole(hospitalId, 'admin');
+    // Users & Staff Profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
+      allow list: if isEmployee(); // Queries must filter by hospitalId
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Stores sensitive patient demographic and medical data.
-     * @path /hospitals/{hospitalId}/patients/{patientId}
-     * @allow (read) All hospital staff members.
-     * @deny (write) Users not explicitly assigned as Staff or Admin.
-     * @principle HIPAA-aligned staff-only access within the tenant boundary.
-     */
-    match /hospitals/{hospitalId}/patients/{patientId} {
-      allow get, list: if isHospitalMember(hospitalId);
-      allow create: if isHospitalMember(hospitalId) && isValidHospitalLink(hospitalId);
-      allow update: if resource != null && isHospitalMember(hospitalId) && isHospitalLinkImmutable();
-      allow delete: if resource != null && hasRole(hospitalId, 'admin');
+    // Patients
+    match /patients/{patientId} {
+      allow get: if (isSignedIn() && getUserData().patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow list: if isEmployee();
+      allow create: if isEmployee() && isSameHospital(request.resource.data);
+      allow update: if isEmployee() && isSameHospital(resource.data) && isSameHospital(request.resource.data);
+      allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
-    /**
-     * @description Organization units within the hospital (Cardiology, etc.).
-     * @path /hospitals/{hospitalId}/departments/{departmentId}
-     * @allow (read) Any member of the hospital.
-     * @deny (write) Anyone who is not a hospital Admin.
-     * @principle Public internal visibility with restricted administrative control.
-     */
-    match /hospitals/{hospitalId}/departments/{departmentId} {
-      allow get, list: if isHospitalMember(hospitalId);
-      allow create: if hasRole(hospitalId, 'admin') && isValidHospitalLink(hospitalId);
-      allow update: if resource != null && hasRole(hospitalId, 'admin') && isHospitalLinkImmutable();
-      allow delete: if resource != null && hasRole(hospitalId, 'admin');
+    // Appointments
+    match /appointments/{appointmentId} {
+      allow read: if (isSignedIn() && getUserData().patient_id == resource.data.patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow create: if isSignedIn() && isSameHospital(request.resource.data);
+      allow update: if isEmployee() && isSameHospital(resource.data);
+      allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
-    /**
-     * @description Scheduled patient visits and consultations.
-     * @path /hospitals/{hospitalId}/appointments/{appointmentId}
-     * @allow (get) If the user is the patient, the assigned staff, or an admin.
-     * @deny (list) If the user is a patient (Patients should query their own ID).
-     * @principle Shared access between patient and care providers.
-     */
-    match /hospitals/{hospitalId}/appointments/{appointmentId} {
-      allow get: if isHospitalMember(hospitalId) && (isOwner(resource.data.patientId) || isOwner(resource.data.assignedStaffId) || hasRole(hospitalId, 'admin'));
-      allow list: if isHospitalMember(hospitalId);
-      allow create: if isHospitalMember(hospitalId) && isValidHospitalLink(hospitalId);
-      allow update: if resource != null && isHospitalMember(hospitalId) && isHospitalLinkImmutable();
-      allow delete: if resource != null && hasRole(hospitalId, 'admin');
+    // Admissions & Beds
+    match /admissions/{admissionId} {
+      allow read, write: if isEmployee() && (resource == null || isSameHospital(resource.data)) && (request.resource == null || isSameHospital(request.resource.data));
+    }
+    match /beds/{bedId} {
+      allow read: if isEmployee() && isSameHospital(resource.data);
+      allow write: if isEmployee() && isSameHospital(request.resource.data);
     }
 
-    /**
-     * @description Working hours and availability for medical personnel.
-     * @path /hospitals/{hospitalId}/staffSchedules/{scheduleId}
-     * @allow (write) The specific staff member or an Admin.
-     * @deny (create) If the staffId in data doesn't match the authenticated user.
-     * @principle Owner-based schedule management.
-     */
-    match /hospitals/{hospitalId}/staffSchedules/{scheduleId} {
-      allow get, list: if isHospitalMember(hospitalId);
-      allow create: if isHospitalMember(hospitalId) && (isOwner(request.resource.data.staffId) || hasRole(hospitalId, 'admin')) && isValidHospitalLink(hospitalId);
-      allow update: if resource != null && (isOwner(resource.data.staffId) || hasRole(hospitalId, 'admin')) && isHospitalLinkImmutable();
-      allow delete: if resource != null && (isOwner(resource.data.staffId) || hasRole(hospitalId, 'admin'));
+    // Billing & Invoices
+    match /invoices/{invoiceId} {
+      allow read: if (isSignedIn() && getUserData().patient_id == resource.data.patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow create, update: if isEmployee() && isSameHospital(request.resource.data);
     }
 
-    /**
-     * @description High-value bookable assets like MRI machines or Theaters.
-     * @path /hospitals/{hospitalId}/hospitalResources/{resourceId}
-     * @allow (read) All hospital members.
-     * @deny (write) Non-admin users.
-     * @principle Restricted asset management.
-     */
-    match /hospitals/{hospitalId}/hospitalResources/{resourceId} {
-      allow get, list: if isHospitalMember(hospitalId);
-      allow create: if hasRole(hospitalId, 'admin') && isValidHospitalLink(hospitalId);
-      allow update: if resource != null && hasRole(hospitalId, 'admin') && isHospitalLinkImmutable();
-      allow delete: if resource != null && hasRole(hospitalId, 'admin');
+    // Laboratory & Radiology
+    match /lab_results/{testId} {
+      allow read: if (isSignedIn() && getUserData().patient_id == resource.data.patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow write: if isEmployee() && (resource == null || isSameHospital(resource.data)) && (request.resource == null || isSameHospital(request.resource.data));
+    }
+    match /radiology_orders/{orderId} {
+      allow read, write: if isEmployee() && (resource == null || isSameHospital(resource.data)) && (request.resource == null || isSameHospital(request.resource.data));
     }
 
-    /**
-     * @description Reservation records for hospital resources.
-     * @path /hospitals/{hospitalId}/resourceBookings/{bookingId}
-     * @allow (create) Any staff member making a booking.
-     * @deny (delete) Anyone except an Admin or the person who booked it.
-     * @principle Accountability for resource allocation.
-     */
-    match /hospitals/{hospitalId}/resourceBookings/{bookingId} {
-      allow get, list: if isHospitalMember(hospitalId);
-      allow create: if isHospitalMember(hospitalId) && isOwner(request.resource.data.bookedById) && isValidHospitalLink(hospitalId);
-      allow update: if resource != null && (isOwner(resource.data.bookedById) || hasRole(hospitalId, 'admin')) && isHospitalLinkImmutable();
-      allow delete: if resource != null && (isOwner(resource.data.bookedById) || hasRole(hospitalId, 'admin'));
+    // Generic fallback for hospital-specific data (Clinical Notes, Vitals, etc.)
+    match /{collection}/{docId} {
+      allow read, write: if isEmployee() && 
+        (resource == null || isSameHospital(resource.data)) && 
+        (request.resource == null || isSameHospital(request.resource.data));
     }
   }
 }
