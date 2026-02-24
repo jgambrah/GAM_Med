@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -44,7 +45,8 @@ import {
     UserCog,
     UserPlus,
     FolderSearch,
-    Zap
+    Zap,
+    Package
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -140,6 +142,12 @@ export function MainNavClient() {
       label: 'Beds',
       icon: BedDouble,
       roles: ['director', 'admin', 'doctor', 'nurse'],
+    },
+    {
+      href: '/dashboard/inventory',
+      label: 'Inventory & Assets',
+      icon: Package,
+      roles: ['director', 'admin', 'pharmacist', 'space_manager'],
     },
     {
       href: '/dashboard/appointments',
@@ -301,7 +309,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/super-admin/pulse', '/dashboard/super-admin', '/dashboard/super-admin/analytics', '/dashboard/reception/register-patient', '/dashboard/records/all-patients', '/dashboard/director/staff', '/dashboard/admin/staff', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/finance', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/super-admin/pulse', '/dashboard/super-admin', '/dashboard/super-admin/analytics', '/dashboard/reception/register-patient', '/dashboard/records/all-patients', '/dashboard/director/staff', '/dashboard/admin/staff', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/finance', '/dashboard/beds', '/dashboard/inventory', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
