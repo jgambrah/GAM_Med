@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -19,7 +20,7 @@ import Link from 'next/link';
 // It is kept here for reference but should be removed in a future iteration.
 
 export function RadiologyDashboard() {
-  const pendingOrders = mockRadiologyOrders.filter(o => o.status === 'Pending Scheduling');
+  const pendingOrders = mockRadiologyOrders.filter(o => o.status === 'Pending' || o.status === 'Pending Scheduling');
 
   const getPatientName = (patientId: string) => {
     return allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
@@ -52,7 +53,7 @@ export function RadiologyDashboard() {
                   </Link>
                 </TableCell>
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
-                <TableCell>{order.studyIds.join(', ')}</TableCell>
+                <TableCell>{order.modality}</TableCell>
                 <TableCell>
                     <Button variant="outline" size="sm" disabled>Schedule (Moved)</Button>
                 </TableCell>

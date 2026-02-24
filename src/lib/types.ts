@@ -688,7 +688,7 @@ export interface RadiologyOrder {
   doctorId: string;
   doctorName: string;
   dateOrdered: string;
-  status: 'Pending' | 'Scheduled' | 'Awaiting Report' | 'Completed';
+  status: 'Pending' | 'Scheduled' | 'Awaiting Report' | 'Completed' | 'Pending Scheduling';
   scheduledDateTime?: string;
   clinicalNotes?: string;
   priority: 'Routine' | 'Urgent' | number;
