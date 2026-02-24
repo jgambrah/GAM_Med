@@ -54,7 +54,7 @@ export default function SuperAdminDashboard() {
 
             {/* Global Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-blue-50/50 border-blue-200">
+                <Card className="bg-blue-50 border-blue-200 shadow-sm">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-blue-800 uppercase tracking-wider">Total Facilities</CardTitle>
                     </CardHeader>
@@ -62,7 +62,7 @@ export default function SuperAdminDashboard() {
                         <div className="text-3xl font-bold text-blue-900">{stats.totalHospitals}</div>
                     </CardContent>
                 </Card>
-                <Card className="bg-green-50/50 border-green-200">
+                <Card className="bg-green-50 border-green-200 shadow-sm">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-green-800 uppercase tracking-wider">Platform Patients</CardTitle>
                     </CardHeader>
@@ -70,14 +70,14 @@ export default function SuperAdminDashboard() {
                         <div className="text-3xl font-bold text-green-900">{stats.totalPatients.toLocaleString()}</div>
                     </CardContent>
                 </Card>
-                <Card className="bg-purple-50/50 border-purple-200">
+                <Card className="bg-purple-50 border-purple-200 shadow-sm">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-purple-800 uppercase tracking-wider">Active Staff</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-purple-900">{stats.totalUsers}</div>
                     </CardContent>
-                </Card>
+                </div>
             </div>
 
             {/* Hospitals Table */}

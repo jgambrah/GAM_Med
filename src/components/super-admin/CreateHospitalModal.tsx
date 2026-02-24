@@ -36,8 +36,16 @@ const CreateHospitalSchema = z.object({
   directorPassword: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+/**
+ * == Super Admin: Tenant Provisioning Tool ==
+ * 
+ * This tool allows the CEO to add new clients (Hospitals).
+ * It creates the Hospital entry and the Director account, 
+ * "stamping" them both with a new hospitalId for isolation.
+ */
 export default function CreateHospitalModal() {
   const [open, setOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const db = useFirestore();
   const auth = useAuth();
 
@@ -51,27 +59,27 @@ export default function CreateHospitalModal() {
   });
 
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
+    setIsSubmitting(true);
     try {
-      // 1. Generate unique ID (e.g., "st-marys-102")
+      // 1. Generate a unique ID (e.g., "st-marys-102")
       const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 1000);
       const now = new Date().toISOString();
 
       // 2. Create the Director in Firebase Auth
-      // NOTE: In a prototype client-side app, this will sign the current user out.
-      // In production, this would be a Cloud Function.
+      // NOTE: In this prototype, this will sign the current user out.
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
-      // 3. Atomically provision documents
+      // 3. Atomically provision documents via batch
       const batch = writeBatch(db);
 
-      // STAMP the Director
+      // STAMP the Director User Record
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
       const userRef = doc(db, 'users', userDocId);
       batch.set(userRef, {
         uid: uid,
-        email: values.directorEmail.toLowerCase(),
-        hospitalId: newHospitalId,
+        email: values.directorEmail.toLowerCase().trim(),
+        hospitalId: newHospitalId, // THE STAMP
         role: 'director',
         name: `${values.hospitalName} Director`,
         is_active: true,
@@ -79,11 +87,11 @@ export default function CreateHospitalModal() {
         last_login: now,
       });
 
-      // STAMP the Hospital
+      // STAMP the Hospital Master Record
       const hospitalRef = doc(db, 'hospitals', newHospitalId);
       batch.set(hospitalRef, {
         hospitalId: newHospitalId,
-        id: newHospitalId,
+        id: newHospitalId, // Support both ID fields
         name: values.hospitalName,
         slug: newHospitalId,
         status: 'active',
@@ -95,9 +103,10 @@ export default function CreateHospitalModal() {
 
       await batch.commit();
 
-      toast.success("Facility Created", {
-        description: `${values.hospitalName} and Director account have been provisioned.`
+      toast.success("Facility Provisioned", {
+        description: `${values.hospitalName} is now active. Please log back in as CEO.`
       });
+      
       setOpen(false);
       form.reset();
     } catch (error: any) {
@@ -105,25 +114,27 @@ export default function CreateHospitalModal() {
       toast.error("Provisioning Failed", {
         description: error.message
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="lg" className="shadow-md">
+        <Button className="bg-blue-600 hover:bg-blue-700 shadow-md">
           <Plus className="h-4 w-4 mr-2" />
-          Onboard New Hospital
+          New Hospital
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <Building2 className="h-5 w-5 text-primary" />
-            <DialogTitle>Hospital Onboarding</DialogTitle>
+            <DialogTitle>Register New Facility</DialogTitle>
           </div>
           <DialogDescription>
-            Register a new healthcare facility and provision its primary Director account.
+            Onboard a new hospital tenant and its primary Medical Director.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -134,7 +145,7 @@ export default function CreateHospitalModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Hospital Name</FormLabel>
-                  <FormControl><Input placeholder="e.g., Korle Bu Heights" {...field} /></FormControl>
+                  <FormControl><Input placeholder="e.g., City General Hospital" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -144,7 +155,7 @@ export default function CreateHospitalModal() {
               name="directorEmail"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Director Email</FormLabel>
+                  <FormLabel>Director Email (Login)</FormLabel>
                   <FormControl><Input type="email" placeholder="director@facility.com" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -155,8 +166,8 @@ export default function CreateHospitalModal() {
               name="directorPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Director Password</FormLabel>
-                  <FormControl><Input type="password" placeholder="Set a strong password" {...field} /></FormControl>
+                  <FormLabel>Temporary Password</FormLabel>
+                  <FormControl><Input type="password" placeholder="Set a temporary password" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -165,14 +176,14 @@ export default function CreateHospitalModal() {
             <div className="p-3 rounded-md bg-yellow-50 border border-yellow-200 flex gap-3">
                 <ShieldAlert className="h-5 w-5 text-yellow-600 shrink-0" />
                 <p className="text-xs text-yellow-700">
-                    <strong>Note:</strong> In this prototype, creating a new Director will sign you out. You will need to log back in as CEO to continue platform management.
+                    <strong>Notice:</strong> Provisioning a new hospital will sign you out. You must log back in as CEO to continue platform tasks.
                 </p>
             </div>
 
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Provisioning...' : 'Confirm & Provision'}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Provisioning...' : 'Confirm & Provision'}
               </Button>
             </DialogFooter>
           </form>
