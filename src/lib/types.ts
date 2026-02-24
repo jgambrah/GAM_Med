@@ -1,22 +1,40 @@
 
 /**
- * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
- * Updated for Multi-Tenant SaaS architecture using Logical Isolation.
+ * @fileoverview Updated types for the Referral Module.
  */
 
+// ... (other existing types)
+
+export interface Referral {
+  id?: string;
+  referral_id: string; // Legacy field
+  fromHospitalId: string;
+  fromHospitalName: string;
+  toHospitalId: string;
+  toHospitalName?: string;
+  patientId: string;
+  patientName: string;
+  clinicalSummary: string;
+  status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed';
+  priority: 'Routine' | 'Urgent' | 'Emergency';
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ... (rest of types file)
 export interface Hospital {
   hospitalId: string;
   name: string;
-  slug: string; // e.g., 'city-general'
+  slug: string;
   status: 'active' | 'suspended';
   subscriptionTier: 'basic' | 'premium';
   createdAt: string;
-  isInternal?: boolean; // Flag for platform-owned tenants (like GAMMED_HQ)
+  isInternal?: boolean;
 }
 
 export interface User {
   uid: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   email: string;
   name: string;
   role: 'super_admin' | 'director' | 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier';
@@ -37,19 +55,19 @@ export interface User {
   employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
   hireDate?: string;
   leaveBalances?: Record<string, number>;
-  features?: string[]; // SaaS Feature Flags (e.g., ['surgical_module'])
+  features?: string[];
 }
 
 export interface Patient {
-  patient_id: string; // This will be {hospitalId}_MRN123456
-  hospitalId: string; // Tenant ID
-  mrn: string; // Unique record number within hospital
+  patient_id: string;
+  hospitalId: string;
+  mrn: string;
   title: string;
   first_name: string;
   last_name: string;
   full_name: string;
-  full_name_lowercase: string; // Normalized key for optimized NoSQL prefix search
-  phone_search: string; // Normalized phone number (digits only) for high-performance lookups
+  full_name_lowercase: string;
+  phone_search: string;
   otherNames?: string;
   ghanaCardId?: string;
   dob: string;
@@ -90,7 +108,7 @@ export interface Patient {
   lastVisitDate?: string;
   created_at: string;
   updated_at: string;
-  isTemporary?: boolean; // Flag for emergency registration
+  isTemporary?: boolean;
 }
 
 export interface Appointment {
@@ -100,17 +118,17 @@ export interface Appointment {
   patientName: string;
   doctorId: string;
   doctorName: string;
-  appointmentDate: string; // YYYY-MM-DD
-  timeSlot: string; // e.g., 10:30 AM
+  appointmentDate: string;
+  timeSlot: string;
   status: 'Scheduled' | 'Arrived' | 'In-Consultation' | 'Completed' | 'Cancelled';
   reason: string;
   createdAt: string;
-  department?: string; // Optional for filtering
+  department?: string;
 }
 
 export interface Admission {
   admission_id: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   patient_id: string;
   type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string;
@@ -132,48 +150,26 @@ export interface Ward {
   id: string;
   hospitalId: string;
   name: string;
-  type: string; // General, ICU, Maternity, etc.
+  type: string;
 }
 
 export interface Bed {
   id: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   wardId: string;
   bedNumber: string;
   status: 'Available' | 'Occupied' | 'Cleaning' | 'Maintenance' | 'Reserved';
   currentPatientId?: string | null;
   currentPatientName?: string | null;
-  type: string; // e.g., "Electric", "Manual"
+  type: string;
   occupiedSince?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Referral {
-  referral_id: string;
-  hospitalId: string; // Tenant ID
-  referringProvider: string;
-  referralDate: string;
-  patientDetails: {
-    name: string;
-    phone: string;
-    dob: string;
-  };
-  reasonForReferral: string;
-  priority: 'Routine' | 'Urgent' | 'Emergency';
-  assignedDepartment: string;
-  status: 'Pending Review' | 'Assigned' | 'Scheduled' | 'Completed';
-  notes?: string;
-  patientId?: string;
-  assignedDoctorId?: string;
-  assignedDoctorName?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface LabResult {
   testId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   patientId: string;
   patientName: string;
   testName: string;
@@ -194,7 +190,7 @@ export interface LabResult {
 
 export interface MedicationRecord {
   prescriptionId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   patientId: string;
   patientName: string;
   medicationName: string;
@@ -209,7 +205,7 @@ export interface MedicationRecord {
 
 export interface LedgerAccount {
   accountId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   accountName: string;
   accountCode: string;
   accountType: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
@@ -221,7 +217,7 @@ export interface LedgerAccount {
 
 export interface LedgerEntry {
   entryId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   accountId: string;
   date: string;
   description: string;
@@ -231,7 +227,7 @@ export interface LedgerEntry {
 
 export interface Invoice {
   invoiceId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   patientId: string;
   patientName: string;
   patientType: 'private' | 'corporate' | 'public';
@@ -261,7 +257,7 @@ export interface InvoiceLineItem {
 
 export interface AuditLog {
   logId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   timestamp: string;
   userId: string;
   action: string;
@@ -313,7 +309,7 @@ export interface MedicalEquipment {
   currentPatientName?: string;
   lastMaintenance?: string;
   nextMaintenance?: string;
-  oxygenLevel?: number; // Only for category "Oxygen Tank"
+  oxygenLevel?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -600,7 +596,7 @@ export interface RadiologyStudy {
 }
 
 export interface RadiologyOrder {
-  id: string; // Document ID
+  id: string;
   orderId: string;
   hospitalId: string;
   patientId: string;
@@ -634,12 +630,12 @@ export interface RadiologyReport {
 }
 
 export interface OTSession {
-  id: string; // Document ID
+  id: string;
   sessionId: string;
   hospitalId: string;
   patientId: string;
   patientName: string;
-  patientMrn?: string; // Standard MRN for the board
+  patientMrn?: string;
   procedureName: string;
   surgeonId: string;
   surgeonName: string;
@@ -836,9 +832,9 @@ export interface Reminder {
 }
 
 export interface Diagnosis {
-  id: string; // Firestore ID
+  id: string;
   diagnosisId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   patientId: string;
   diagnosisText: string;
   icd10Code: string;
@@ -902,7 +898,7 @@ export interface ClinicalNote {
   recordedByUserId: string;
   noteText: string;
   recordedAt: string;
-  createdAt?: string; // Standardized field for indexing
+  createdAt?: string;
 }
 
 export interface VitalsLog {
@@ -918,7 +914,7 @@ export interface VitalsLog {
   notes?: string;
   recordedByUserId: string;
   recordedAt: string;
-  createdAt?: string; // Standardized field for indexing
+  createdAt?: string;
 }
 
 export interface CarePlan {
@@ -938,7 +934,7 @@ export interface CarePlan {
 export interface PatientAlert {
   alertId: string;
   hospitalId: string;
-  patientId?: string; // Optional if it's a facility resource alert
+  patientId?: string;
   severity: 'Critical' | 'Warning' | 'Information';
   alert_message: string;
   triggeredAt: string;
@@ -973,7 +969,7 @@ export interface PricingTable {
 
 export interface HealthContent {
   contentId: string;
-  hospitalId: string; // Tenant ID
+  hospitalId: string;
   title: string;
   body: string;
   keywords: string[];

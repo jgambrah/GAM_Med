@@ -339,113 +339,23 @@
       },
       "required": ["hospitalId", "patientId", "doctorId", "appointmentDate", "timeSlot", "status"]
     },
-    "Resource": {
+    "Referral": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Resource",
+      "title": "Referral",
       "type": "object",
-      "description": "Represents bookable physical assets or equipment within the MedFlow GH hospital (e.g., operating theaters, consultation rooms, specialized equipment).",
+      "description": "Cross-tenant or internal patient referral record.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Resource entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the resource (e.g., 'Operating Theater 1', 'MRI Scanner')."
-        },
-        "type": {
-          "type": "string",
-          "description": "The category or type of the resource.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the resource, including its capabilities or features."
-        },
-        "departmentId": {
-          "type": "string",
-          "description": "Reference to the Department this resource is primarily associated with or belongs to. (Relationship: Department 1:N Resource)"
-        },
-        "location": {
-          "type": "string",
-          "description": "The physical location of the resource within the hospital (e.g., 'Building A, Floor 3, Room 301')."
-        },
-        "capacity": {
-          "type": "number",
-          "description": "The capacity of the resource, if applicable (e.g., number of patients a ward bed can accommodate, size of a room)."
-        },
-        "isBookable": {
-          "type": "boolean",
-          "description": "Indicates whether this resource can be scheduled or booked for appointments/procedures."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the resource record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the resource record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "type",
-        "isBookable",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "OTSession": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "OTSession",
-      "type": "object",
-      "description": "Manages high-intensity Operating Theater (OT) sessions, linking patients, surgeons, and facilities.",
-      "properties": {
-        "id": { "type": "string" },
-        "hospitalId": { "type": "string" },
+        "fromHospitalId": { "type": "string" },
+        "fromHospitalName": { "type": "string" },
+        "toHospitalId": { "type": "string" },
         "patientId": { "type": "string" },
         "patientName": { "type": "string" },
-        "procedureName": { "type": "string" },
-        "surgeonId": { "type": "string" },
-        "surgeonName": { "type": "string" },
-        "anesthetistName": { "type": "string" },
-        "otRoomId": { "type": "string" },
-        "status": {
-          "type": "string",
-          "enum": ["Scheduled", "In-Progress", "Post-Op", "Completed", "Cancelled"]
-        },
-        "startTime": { "type": "string", "format": "date-time" },
-        "estimatedDuration": { "type": "number", "description": "Duration in minutes" },
-        "priority": {
-          "type": "string",
-          "enum": ["Emergency", "Elective", "Urgent"]
-        }
+        "clinicalSummary": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Accepted", "Rejected", "Completed"] },
+        "priority": { "type": "string", "enum": ["Routine", "Urgent", "Emergency"] },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "hospitalId", "patientId", "procedureName", "surgeonId", "otRoomId", "status", "startTime", "priority"]
-    },
-    "MortalityRecord": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "MortalityRecord",
-      "type": "object",
-      "description": "Official statutory record of a patient death within the facility.",
-      "properties": {
-        "id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "patientName": { "type": "string" },
-        "dateOfDeath": { "type": "string", "format": "date-time" },
-        "cause": { "type": "string" },
-        "icd10": { "type": "string" },
-        "certifiedBy": { "type": "string" },
-        "remarks": { "type": "string" }
-      },
-      "required": ["id", "hospitalId", "patientId", "patientName", "dateOfDeath", "cause", "icd10", "certifiedBy"]
+      "required": ["fromHospitalId", "toHospitalId", "patientId", "status", "priority"]
     }
   },
   "auth": {
@@ -463,160 +373,31 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores user profile information, including roles and links to specific domain entities. The document ID is the user's Firebase UID, and the 'role' field is critical for RBAC. The 'id' field within the UserProfile document is redundant and should align with 'firebaseUid'.",
+          "description": "Stores user profile information.",
           "params": [
             {
               "name": "firebaseUid",
-              "description": "The unique Firebase Authentication User ID (UID) of the user, serving as the document ID."
+              "description": "The unique Firebase Authentication User ID (UID)."
             }
           ]
         }
       },
       {
-        "path": "/roles_super_admin/{firebaseUid}",
+        "path": "/referrals/{referralId}",
         "definition": {
-          "entityName": "SuperAdminRole",
+          "entityName": "Referral",
           "schema": {
-            "$ref": "#/backend/entities/SuperAdminRole"
+            "$ref": "#/backend/entities/Referral"
           },
-          "description": "Dedicated collection to identify Super Admins. The existence of a document at this path for a given UID signifies Super Admin privileges for Firebase Security Rules DBAC.",
+          "description": "Patient referrals between facilities or departments.",
           "params": [
             {
-              "name": "firebaseUid",
-              "description": "The unique Firebase Authentication User ID (UID) of the Super Admin."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_admin/{firebaseUid}",
-        "definition": {
-          "entityName": "AdminRole",
-          "schema": {
-            "$ref": "#/backend/entities/AdminRole"
-          },
-          "description": "Dedicated collection to identify general Admins. The existence of a document at this path for a given UID signifies Admin privileges for Firebase Security Rules DBAC.",
-          "params": [
-            {
-              "name": "firebaseUid",
-              "description": "The unique Firebase Authentication User ID (UID) of the Admin."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/patients/{patientId}",
-        "definition": {
-          "entityName": "Patient",
-          "schema": {
-            "$ref": "#/backend/entities/Patient"
-          },
-          "description": "Stores comprehensive demographic and administrative information for a patient. Includes denormalized 'associatedUserFirebaseUid' for authorization independence if the patient has a linked UserProfile.",
-          "params": [
-            {
-              "name": "patientId",
-              "description": "Unique identifier for the Patient entity."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/healthcareProviders/{providerId}",
-        "definition": {
-          "entityName": "HealthcareProvider",
-          "schema": {
-            "$ref": "#/backend/entities/HealthcareProvider"
-          },
-          "description": "Stores detailed professional information for healthcare professionals. Includes denormalized 'associatedUserFirebaseUid' for authorization independence to allow providers to access their own records.",
-          "params": [
-            {
-              "name": "providerId",
-              "description": "Unique identifier for the HealthcareProvider entity."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/departments/{departmentId}",
-        "definition": {
-          "entityName": "Department",
-          "schema": {
-            "$ref": "#/backend/entities/Department"
-          },
-          "description": "Represents a medical department or unit within the hospital structure.",
-          "params": [
-            {
-              "name": "departmentId",
-              "description": "Unique identifier for the Department entity."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/resources/{resourceId}",
-        "definition": {
-          "entityName": "Resource",
-          "schema": {
-            "$ref": "#/backend/entities/Resource"
-          },
-          "description": "Represents bookable physical assets or equipment within the hospital. Linked to a department.",
-          "params": [
-            {
-              "name": "resourceId",
-              "description": "Unique identifier for the Resource entity."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/appointments/{appointmentId}",
-        "definition": {
-          "entityName": "Appointment",
-          "schema": {
-            "$ref": "#/backend/entities/Appointment"
-          },
-          "description": "SaaS stamped appointments for patient scheduling and clinic queue management.",
-          "params": [
-            {
-              "name": "appointmentId",
-              "description": "Unique identifier for the Appointment entity."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/ot_sessions/{sessionId}",
-        "definition": {
-          "entityName": "OTSession",
-          "schema": {
-            "$ref": "#/backend/entities/OTSession"
-          },
-          "description": "Logically isolated surgical sessions. Tied to hospitalId for SaaS security.",
-          "params": [
-            {
-              "name": "sessionId",
-              "description": "Unique identifier for the surgical session."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/mortality_records/{recordId}",
-        "definition": {
-          "entityName": "MortalityRecord",
-          "schema": {
-            "$ref": "#/backend/entities/MortalityRecord"
-          },
-          "description": "Official mortality register entries for statutory returns.",
-          "params": [
-            {
-              "name": "recordId",
-              "description": "Unique identifier for the mortality record."
+              "name": "referralId",
+              "description": "Unique identifier for the referral."
             }
           ]
         }
       }
-    ],
-    "reasoning": "The proposed Firestore data structure prioritizes security, scalability, and debuggability, aligning strictly with the specified CORE DESIGN PRINCIPLES and DESIGN STRATEGY MANDATES. The design leverages structural segregation, denormalization for authorization independence, and consistent access modeling.\n\n**Authorization Independence (CRITICAL) & DBAC:**\n1.  **User Profiles (`/userProfiles/{firebaseUid}`):** The primary source for user-specific data. Each document's ID is the user's `firebaseUid` (from `request.auth.uid`), ensuring direct, efficient access without needing `get()` calls for basic user identity. The `role` field within this document serves as the main source for Role-Based Access Control (RBAC) for roles like `Patient`, `Doctor`, `Nurse`, `Pharmacist`, and `Admin`.\n2.  **Super Admin & Admin Roles (`/roles_super_admin/{firebaseUid}`, `/roles_admin/{firebaseUid}`):** To address the 'God Power' requirement and strictly adhere to the 'DBAC (No Custom Claims)' principle for security rules, dedicated collections are used. The *existence* of a document at `/roles_super_admin/$(request.auth.uid)` or `/roles_admin/$(request.auth.uid)` grants Super Admin or Admin privileges, respectively. This provides a robust and simple `exists()` check in security rules, explicitly separating high-level administrative roles from general user roles and avoiding hierarchical dependencies or custom claims in client-side rules.\n3.  **Patient and Healthcare Provider Profiles:**\n    *   `patients/{patientId}`: Each `Patient` document includes an `associatedUserFirebaseUid` field. If a patient has a linked `UserProfile`, this field stores the `firebaseUid` of that user. This denormalization allows patients to access their own records directly (e.g., `request.auth.uid == resource.data.associatedUserFirebaseUid`) without performing an expensive `get()` on their `UserProfile` or relying on parent document data.\n    *   `healthcareProviders/{providerId}`: Similarly, `HealthcareProvider` documents include an `associatedUserFirebaseUid`. This enables providers to access their own professional profiles directly and securely.\n\n**QAPs (Rules are not Filters):**\n1.  **Appointments (`/appointments/{appointmentId}`):** This collection is designed for highly efficient and secure list operations for various user types. Each `Appointment` document includes several denormalized `firebaseUid` fields:\n    *   `patientFirebaseUid`: The Firebase UID of the patient's associated user profile (if any).\n    *   `healthcareProviderFirebaseUid`: The Firebase UID of the healthcare provider's associated user profile (if any).\n    *   `scheduledByUserFirebaseUid`: The Firebase UID of the user who scheduled the appointment.\n    This extensive denormalization is CRITICAL for QAPs. It allows queries like `db.collection('appointments').where('patientFirebaseUid', '==', request.auth.uid)` or `db.collection('appointments').where('healthcareProviderFirebaseUid', '==', request.auth.uid)` to be directly secured by Firestore rules without relying on `get()` calls. This ensures that users can only list appointments relevant to them, making rules simple, robust, and performant.\n2.  **Structural Segregation:** Each core entity (`UserProfile`, `Patient`, `HealthcareProvider`, `Department`, `Resource`, `Appointment`) resides in its own top-level collection. This ensures homogeneous security postures within each collection, simplifying security rules. For example, all documents in `/departments` might be read-only for general users but writable by admins, without needing complex logic to differentiate document types.\n\n**Invariants & Data Clarity:**\n*   Timestamps (`createdAt`, `updatedAt`) are standard across all entities.\n*   `status` fields (e.g., `Patient.status`, `Appointment.status`) are used for explicit state modeling.\n*   Consistent naming conventions like `firebaseUid`, `patientId`, `providerId` for document IDs and parameters enhance predictability and debuggability.\n\nThis architecture ensures that security rules are kept concise, performant, and easy to audit, minimizing the risk of authorization vulnerabilities while supporting the application's scalability and various user roles."
+    ]
   }
 }

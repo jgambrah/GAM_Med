@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -6,67 +7,64 @@ service cloud.firestore {
     // Helper Functions for Multi-Tenant Isolation (The SaaS Wall)
     // --------------------------------------------------------------------
 
-    /**
-     * Helper: Check if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Helper: Check if the user is the Platform Owner (Super Admin) via DBAC.
-     */
     function isSuperAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    /**
-     * Helper: Checks if the user is a hospital administrator or director via DBAC.
-     */
     function isAdmin() {
       return isSignedIn() && (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || isSuperAdmin());
     }
 
-    /**
-     * Logic: Fetch the current user's hospitalId from their profile document.
-     */
     function getMyHospitalId() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
     }
 
-    /**
-     * Logic: Ensures staff members only see data from their own facility.
-     */
     function isSameHospital(docData) {
       return isSignedIn() && (docData.hospitalId == getMyHospitalId() || isSuperAdmin());
     }
 
-    /**
-     * Helper: Checks if the user is the patient themselves via Custom Claims.
-     */
     function isPatient(patientId) {
       return isSignedIn() && request.auth.token.patientId == patientId;
     }
 
     // --------------------------------------------------------------------
-    // Global Bypass for Super Admin (God Mode)
+    // Global Bypass for Super Admin
     // --------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
 
     // --------------------------------------------------------------------
-    // Tenant-Specific Collection Rules
+    // Referral Module Rules (The collaborate window)
     // --------------------------------------------------------------------
+    match /referrals/{referralId} {
+      // Allow read if user belongs to the sending or receiving hospital
+      allow read: if isSignedIn() && (
+        resource.data.fromHospitalId == getMyHospitalId() || 
+        resource.data.toHospitalId == getMyHospitalId()
+      );
+      
+      // Allow create if sender is from the user's hospital
+      allow create: if isSignedIn() && request.resource.data.fromHospitalId == getMyHospitalId();
+      
+      // Allow update for status changes by the receiver, or details by the sender
+      allow update: if isSignedIn() && (
+        resource.data.fromHospitalId == getMyHospitalId() || 
+        resource.data.toHospitalId == getMyHospitalId()
+      );
+    }
 
-    // Hospitals (Tenant Masters)
+    // ... (rest of existing rules)
     match /hospitals/{hospId} {
       allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
       allow get: if isSignedIn();
       allow list: if isSuperAdmin();
     }
 
-    // Users & Staff Profiles
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isSameHospital(resource.data));
       allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
@@ -74,7 +72,6 @@ service cloud.firestore {
       allow update: if isSignedIn() && (request.auth.uid == userId || (isAdmin() && isSameHospital(resource.data)));
     }
 
-    // Patients (Demographics)
     match /patients/{patientId} {
       allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
       allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin() || isPatient(patientId));
@@ -82,8 +79,6 @@ service cloud.firestore {
       allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
-
-    // --- Clinical Data (Patient Portal Access) ---
 
     match /vitals/{vitalId} {
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
@@ -125,14 +120,10 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
-    // --- Inventory & Equipment ---
-
     match /medical_equipment/{equipId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
-
-    // --- Financial Data (Patient Portal Billing) ---
 
     match /invoices/{invId} {
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
@@ -144,7 +135,6 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
-    // Generic Safety Net for all other tenant-scoped documents
     match /{collection}/{docId} {
       allow read, write: if isSignedIn() && (isSuperAdmin() || isSameHospital(resource.data));
     }
