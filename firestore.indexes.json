@@ -14,6 +14,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "patients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
         { "fieldPath": "last_name", "order": "ASCENDING" }
       ]
     },
@@ -22,15 +30,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "hospitalId", "order": "ASCENDING" },
-        { "fieldPath": "contact.primaryPhone", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "patients",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "hospitalId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "phone_search", "order": "ASCENDING" }
       ]
     },
     {
