@@ -133,6 +133,11 @@ export default function LoginPage() {
                         {isLoading ? "Verifying..." : "Sign In"}
                     </Button>
                 </form>
+                <div className="mt-4 text-center">
+                  <Link href="/signup" className="text-blue-600 hover:underline text-sm font-medium">
+                    Create CEO Account
+                  </Link>
+                </div>
                 <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
                     <p>&copy; 2024 Gam It Services. All rights reserved.</p>
                 </div>
