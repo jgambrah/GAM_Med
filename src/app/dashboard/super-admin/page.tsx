@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -9,7 +10,7 @@ import { redirect } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Hospital, Patient } from '@/lib/types';
-import { Building2, CreditCard, Activity, ShieldCheck, Users } from 'lucide-react';
+import { Building2, CreditCard, ShieldCheck, Users } from 'lucide-react';
 
 /**
  * == Super Admin: Platform Control Center ==
@@ -38,8 +39,8 @@ export default function SuperAdminPage() {
     return query(collection(db, 'patients'));
   }, [db, user]);
 
-  const { data: hospitals, isLoading: isLoadingHospitals } = useCollection<Hospital>(hospitalsQuery);
-  const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(globalPatientsQuery);
+  const { data: hospitals } = useCollection<Hospital>(hospitalsQuery);
+  const { data: patients } = useCollection<Patient>(globalPatientsQuery);
 
   const totalHospitals = hospitals?.length || 0;
   const activeHospitals = hospitals?.filter(h => h.status === 'active').length || 0;

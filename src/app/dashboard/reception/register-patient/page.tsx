@@ -19,8 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  */
 export default function RegisterPatient() {
     const firestore = useFirestore();
-    const tenant = useTenant();
-    const hospitalId = tenant?.hospitalId;
+    const { hospitalId, hospitalName } = useTenant();
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -68,7 +67,7 @@ export default function RegisterPatient() {
                 hospitalId: hospitalId, // THE CRITICAL SAAS TAG
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-                status: 'active',
+                status: 'outpatient',
                 is_admitted: false
             });
 
@@ -88,7 +87,7 @@ export default function RegisterPatient() {
         <div className="p-6 max-w-2xl mx-auto">
             <div className="mb-6">
                 <h1 className="text-3xl font-bold">Reception Desk</h1>
-                <p className="text-muted-foreground">Register new patients for {tenant?.hospitalName || 'your facility'}.</p>
+                <p className="text-muted-foreground">Register new patients for {hospitalName || 'your facility'}.</p>
             </div>
             
             <Card className="border-t-4 border-t-primary shadow-lg">

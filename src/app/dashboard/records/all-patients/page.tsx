@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { query, collection, where, orderBy } from 'firebase/firestore';
+import { query, collection, where, orderBy, Timestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useTenant } from '@/hooks/use-tenant';
 import { 
@@ -26,8 +27,6 @@ export default function PatientList() {
     const db = useFirestore();
 
     // 1. MEMOIZED TENANT QUERY
-    // The useMemoFirebase hook ensures the query reference is stable,
-    // preventing infinite re-render loops while maintaining the SaaS filter.
     const patientsQuery = useMemoFirebase(() => {
         if (!hospitalId) return null;
         return query(
@@ -38,9 +37,14 @@ export default function PatientList() {
     }, [db, hospitalId]);
 
     // 2. REAL-TIME HOOK
-    // useCollection handles the onSnapshot listener and automatically
-    // pushes updates to the UI when data changes in Firestore.
     const { data: patients, isLoading } = useCollection<Patient>(patientsQuery);
+
+    const formatDate = (date: any) => {
+        if (!date) return 'N/A';
+        if (date instanceof Timestamp) return format(date.toDate(), 'PPP');
+        if (date.seconds) return format(new Date(date.seconds * 1000), 'PPP');
+        return format(new Date(date), 'PPP');
+    }
 
     if (isLoading) {
         return <div className="p-6 text-center text-muted-foreground">Loading hospital directory...</div>;
@@ -77,14 +81,7 @@ export default function PatientList() {
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right text-muted-foreground">
-                                        {p.createdAt ? (
-                                            format(
-                                                p.createdAt.seconds 
-                                                    ? new Date(p.createdAt.seconds * 1000) 
-                                                    : new Date(p.createdAt), 
-                                                'PPP'
-                                            )
-                                        ) : 'N/A'}
+                                        {formatDate(p.createdAt)}
                                     </TableCell>
                                 </TableRow>
                             ))
