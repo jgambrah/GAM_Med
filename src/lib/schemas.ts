@@ -36,9 +36,10 @@ export const PatientSchema = z.object({
 });
 
 export const NewBedSchema = z.object({
-  bedId: z.string().min(1, "Bed ID is required"),
-  wardName: z.string().min(1, "Ward Name is required"),
-  roomNumber: z.string().min(1, "Room Number is required"),
+  hospitalId: z.string().min(1),
+  wardId: z.string().min(1, "Ward ID is required"),
+  bedNumber: z.string().min(1, "Bed Label is required"),
+  type: z.enum(['Electric', 'Manual']),
 });
 
 export const NewAppointmentSchema = z.object({

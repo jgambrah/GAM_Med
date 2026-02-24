@@ -91,6 +91,22 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "dateOrdered", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "beds",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "bedNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

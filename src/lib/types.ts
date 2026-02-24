@@ -135,17 +135,25 @@ export interface Admission {
   readmission_flag?: boolean;
 }
 
+export interface Ward {
+  id: string;
+  hospitalId: string;
+  name: string;
+  type: string; // General, ICU, Maternity, etc.
+}
+
 export interface Bed {
-  bed_id: string;
+  id: string;
   hospitalId: string; // Tenant ID
-  wardName: string;
-  room_number: string;
-  status: 'occupied' | 'vacant' | 'cleaning' | 'maintenance' | 'Reserved';
-  current_patient_id?: string | null;
-  occupied_since?: string | null;
-  cleaningNeeded: boolean;
-  created_at: string;
-  updated_at: string;
+  wardId: string;
+  bedNumber: string;
+  status: 'Available' | 'Occupied' | 'Cleaning' | 'Maintenance' | 'Reserved';
+  currentPatientId?: string | null;
+  currentPatientName?: string | null;
+  type: string; // e.g., "Electric", "Manual"
+  occupiedSince?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Referral {

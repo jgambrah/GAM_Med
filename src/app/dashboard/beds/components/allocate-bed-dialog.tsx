@@ -1,11 +1,10 @@
-
 'use client';
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus } from 'lucide-react';
+import { Plus, UserCheck, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -33,35 +32,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { BedAllocationSchema } from '@/lib/schemas';
-import { allPatients as initialPatients, allBeds as initialBeds, allUsers, allAdmissions as initialAdmissions } from '@/lib/data';
-import { allocateBed } from '@/lib/actions';
-import { Input } from '@/components/ui/input';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Admission, Bed, Patient } from '@/lib/types';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
+import { Bed, Patient, User as UserType } from '@/lib/types';
+import { Input } from '@/components/ui/input';
 
-interface AllocateBedDialogProps {
-    patientId?: string;
-    disabled?: boolean;
-}
+const BedAllocationSchema = z.object({
+    hospitalId: z.string().min(1),
+    patientId: z.string().min(1, "Please select a patient"),
+    bedId: z.string().min(1, "Please select an available bed"),
+    attendingDoctorId: z.string().min(1, "Please select a doctor"),
+    reasonForAdmission: z.string().min(5, "Admission reason is required"),
+});
 
 /**
- * == Conceptual Code: Inpatient Admission UI ==
- *
- * This component serves as the front-end form for admitting a patient.
- * It collects all necessary information and passes it to the backend for processing.
+ * == Clinical Operations: Atomic Inpatient Admission ==
+ * 
+ * This tool performs a high-fidelity admission. It atomically:
+ * 1. Creates an 'admission' document.
+ * 2. Updates 'patient' record to 'is_admitted'.
+ * 3. Updates 'bed' record to 'Occupied' with denormalized patient data.
  */
-export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProps) {
+export function AllocateBedDialog({ patientId, disabled }: { patientId?: string, disabled?: boolean }) {
+  const { user } = useAuth();
+  const firestore = useFirestore();
   const [open, setOpen] = React.useState(false);
-  const [allPatients, setAllPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
-  const [beds, setBeds] = useLocalStorage<Bed[]>('beds', initialBeds);
-  const [admissions, setAdmissions] = useLocalStorage<Admission[]>('admissions', initialAdmissions);
 
+  // 1. DATA SOURCES: Fetch unadmitted patients, vacant beds, and doctors
+  const patientsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId) return null;
+    return query(collection(firestore, 'patients'), where('hospitalId', '==', user.hospitalId), where('is_admitted', '==', false));
+  }, [firestore, user?.hospitalId]);
+  const { data: patients } = useCollection<Patient>(patientsQuery);
+
+  const bedsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId) return null;
+    return query(collection(firestore, 'beds'), where('hospitalId', '==', user.hospitalId), where('status', '==', 'Available'));
+  }, [firestore, user?.hospitalId]);
+  const { data: availableBeds } = useCollection<Bed>(bedsQuery);
+
+  const doctorsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId) return null;
+    return query(collection(firestore, 'users'), where('hospitalId', '==', user.hospitalId), where('role', '==', 'doctor'));
+  }, [firestore, user?.hospitalId]);
+  const { data: doctors } = useCollection<UserType>(doctorsQuery);
 
   const form = useForm<z.infer<typeof BedAllocationSchema>>({
     resolver: zodResolver(BedAllocationSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       patientId: patientId || '',
       bedId: '',
       attendingDoctorId: '',
@@ -70,103 +91,135 @@ export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProp
   });
 
   React.useEffect(() => {
-    if (patientId) {
-        form.setValue('patientId', patientId);
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+        if (patientId) form.setValue('patientId', patientId);
     }
-  }, [patientId, form]);
-
-  const selectedPatient = allPatients.find(p => p.patient_id === form.watch('patientId'));
-  const unadmittedPatients = allPatients.filter(p => !p.is_admitted);
-  const vacantBeds = beds.filter(b => b.status === 'vacant');
-  const doctors = allUsers.filter(u => u.role === 'doctor');
+  }, [open, user, patientId, form]);
 
   const onSubmit = async (values: z.infer<typeof BedAllocationSchema>) => {
-    const result = await allocateBed(values);
-    if (result.success) {
-      toast.success('Patient has been admitted successfully.');
+    if (!firestore || !user) return;
 
-      const newAdmissionId = `A-${Date.now()}`;
-      const now = new Date().toISOString();
-      
-      // Update patient status
-      setAllPatients(prev => prev.map(p => 
-        p.patient_id === values.patientId 
-          ? { ...p, is_admitted: true, current_admission_id: newAdmissionId } 
-          : p
-      ));
+    try {
+        const batch = writeBatch(firestore);
+        const now = new Date().toISOString();
+        
+        const selectedPatient = patients?.find(p => p.id === values.patientId);
+        const selectedBed = availableBeds?.find(b => b.id === values.bedId);
+        const selectedDoctor = doctors?.find(d => d.uid === values.attendingDoctorId);
 
-      // Update bed status
-      setBeds(prev => prev.map(b => 
-        b.bed_id === values.bedId 
-          ? { ...b, status: 'occupied', current_patient_id: values.patientId, occupied_since: now, cleaningNeeded: false }
-          : b
-      ));
-      
-      // Create new admission record
-      const newAdmission: Admission = {
-        admission_id: newAdmissionId,
-        patient_id: values.patientId,
-        admission_date: now,
-        status: 'Admitted',
-        bed_id: values.bedId,
-        attending_doctor_id: values.attendingDoctorId,
-        ward: beds.find(b => b.bed_id === values.bedId)?.wardName || 'Unknown',
-        attending_doctor_name: doctors.find(d => d.uid === values.attendingDoctorId)?.name || 'Unknown',
-        reasonForVisit: values.reasonForAdmission,
-        type: 'Inpatient',
-        created_at: now,
-        updated_at: now,
-      };
-      setAdmissions(prev => [newAdmission, ...prev]);
+        // A) CREATE ADMISSION RECORD
+        const admissionRef = doc(collection(firestore, 'admissions'));
+        batch.set(admissionRef, {
+            id: admissionRef.id,
+            admission_id: `ADM-${Date.now()}`,
+            hospitalId: user.hospitalId,
+            patient_id: values.patientId,
+            type: 'Inpatient',
+            admission_date: now,
+            reasonForVisit: values.reasonForAdmission,
+            ward: selectedBed?.wardName || 'Unknown',
+            bed_id: selectedBed?.bedNumber || 'N/A',
+            attending_doctor_id: values.attendingDoctorId,
+            attending_doctor_name: selectedDoctor?.name || 'Staff',
+            status: 'Admitted',
+            createdAt: now,
+            updatedAt: now
+        });
 
-      setOpen(false);
-      form.reset();
-    } else {
-      toast.error(`Error: ${result.message || 'Failed to allocate bed.'}`);
+        // B) UPDATE PATIENT STATUS
+        const patientRef = doc(firestore, 'patients', values.patientId);
+        batch.update(patientRef, {
+            is_admitted: true,
+            current_admission_id: admissionRef.id,
+            updated_at: now
+        });
+
+        // C) UPDATE BED STATUS (Denormalized Patient Name)
+        const bedRef = doc(firestore, 'beds', values.bedId);
+        batch.update(bedRef, {
+            status: 'Occupied',
+            currentPatientId: values.patientId,
+            currentPatientName: selectedPatient?.full_name || 'Inpatient',
+            occupiedSince: now,
+            updatedAt: now
+        });
+
+        await batch.commit();
+        
+        toast.success("Inpatient Admitted", {
+            description: `${selectedPatient?.full_name} has been assigned to ${selectedBed?.bedNumber}.`
+        });
+        
+        setOpen(false);
+        form.reset();
+    } catch (error: any) {
+        console.error("Admission failed:", error);
+        toast.error("Admission Failed", { description: "Insufficient permissions to register inpatient data." });
     }
   };
 
-  const triggerText = patientId ? "Admit Patient" : "Allocate Bed";
+  const triggerText = patientId ? "Admit to Ward" : "Allocate Bed";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={patientId ? 'outline' : 'default'} size={patientId ? 'sm' : 'default'} disabled={disabled}>
-            <Plus className="h-4 w-4 mr-2" />
+        <Button variant={patientId ? 'outline' : 'default'} size={patientId ? 'sm' : 'default'} disabled={disabled} className="gap-2">
+            <UserCheck className="h-4 w-4" />
             {triggerText}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Allocate Bed to Patient</DialogTitle>
+          <div className="flex items-center gap-2 mb-2 text-primary">
+            <UserCheck className="h-5 w-5" />
+            <DialogTitle>Triage & Admission</DialogTitle>
+          </div>
           <DialogDescription>
-            Assign a patient to an available bed to admit them.
+            Assign a patient to an available unit. This will atomically update the census.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {patientId && selectedPatient ? (
-                 <div>
-                    <FormLabel>Patient</FormLabel>
-                    <Input value={`${selectedPatient.full_name} (${selectedPatient.patient_id})`} readOnly disabled />
-                </div>
-            ) : (
-                <FormField
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            <FormField
                 control={form.control}
                 name="patientId"
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Patient</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!patientId}>
                         <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select an unadmitted patient" />
+                        <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Select unadmitted patient" />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {unadmittedPatients.map(p => (
-                            <SelectItem key={p.patient_id} value={p.patient_id}>
-                            {p.full_name} ({p.patient_id})
+                        {patients?.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.mrn})</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="bedId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Available Bed</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger className="bg-background text-xs">
+                            <SelectValue placeholder="Unit selection" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {availableBeds?.map(b => (
+                            <SelectItem key={b.id} value={b.id}>
+                            {b.bedNumber} ({b.wardName})
                             </SelectItem>
                         ))}
                         </SelectContent>
@@ -175,64 +228,39 @@ export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProp
                     </FormItem>
                 )}
                 />
-            )}
+                <FormField
+                control={form.control}
+                name="attendingDoctorId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Attending Physician</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger className="bg-background text-xs">
+                            <SelectValue placeholder="Select doctor" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {doctors?.map(d => (
+                            <SelectItem key={d.uid} value={d.uid}>{d.name}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
             <FormField
-              control={form.control}
-              name="bedId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Vacant Bed</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a vacant bed" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {vacantBeds.map(b => (
-                        <SelectItem key={b.bed_id} value={b.bed_id}>
-                           {b.bed_id} ({b.wardName})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="attendingDoctorId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Attending Doctor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a doctor" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {doctors.map(d => (
-                        <SelectItem key={d.uid} value={d.uid}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
                 control={form.control}
                 name="reasonForAdmission"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Reason for Admission</FormLabel>
+                        <FormLabel>Clinical Indication</FormLabel>
                         <FormControl>
                             <Textarea 
-                                placeholder="Enter reason for admission..."
+                                placeholder="Reason for ward placement..."
+                                className="bg-muted/30"
                                 {...field}
                             />
                         </FormControl>
@@ -241,10 +269,11 @@ export function AllocateBedDialog({ patientId, disabled }: AllocateBedDialogProp
                 )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Allocating...' : 'Allocate and Admit'}
+              <Button type="submit" disabled={form.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Finalize Admission
               </Button>
             </DialogFooter>
           </form>

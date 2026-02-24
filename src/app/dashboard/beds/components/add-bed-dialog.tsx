@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,30 +17,46 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Bed } from '@/lib/types';
-import { NewBedSchema } from '@/lib/schemas';
-import { Plus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, BedDouble, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Ward } from '@/lib/types';
 
-interface AddBedDialogProps {
-  onBedCreated: (newBed: Bed) => void;
-}
-
-const NewBedWithHospitalSchema = NewBedSchema.extend({
-    hospitalId: z.string().min(1),
+const AddBedSchema = z.object({
+  hospitalId: z.string().min(1),
+  wardId: z.string().min(1, "Please select a ward"),
+  bedNumber: z.string().min(1, "Bed label is required (e.g. Bed 10)"),
+  type: z.enum(['Electric', 'Manual']),
 });
 
-export function AddBedDialog({ onBedCreated }: AddBedDialogProps) {
+/**
+ * == SaaS Facility Provisioning: Add Bed ==
+ * 
+ * Securely registers a new bed into a specific hospital ward.
+ * Enforces the SaaS Wall by locking hospitalId to the current user.
+ */
+export function AddBedDialog() {
   const { user } = useAuth();
+  const firestore = useFirestore();
   const [open, setOpen] = React.useState(false);
 
-  const form = useForm<z.infer<typeof NewBedWithHospitalSchema>>({
-    resolver: zodResolver(NewBedWithHospitalSchema),
+  // Fetch wards for the selection dropdown
+  const wardsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId) return null;
+    return query(collection(firestore, 'wards'), where('hospitalId', '==', user.hospitalId));
+  }, [firestore, user?.hospitalId]);
+
+  const { data: wards } = useCollection<Ward>(wardsQuery);
+
+  const form = useForm<z.infer<typeof AddBedSchema>>({
+    resolver: zodResolver(AddBedSchema),
     defaultValues: {
       hospitalId: user?.hospitalId || '',
-      bedId: '',
-      wardName: '',
-      roomNumber: '',
+      wardId: '',
+      bedNumber: '',
+      type: 'Manual',
     },
   });
 
@@ -51,85 +66,116 @@ export function AddBedDialog({ onBedCreated }: AddBedDialogProps) {
     }
   }, [open, user, form]);
 
-  const onSubmit = (values: z.infer<typeof NewBedWithHospitalSchema>) => {
-    const newBed: Bed = {
-      bed_id: values.bedId,
-      hospitalId: values.hospitalId,
-      wardName: values.wardName,
-      room_number: values.roomNumber,
-      status: 'vacant',
-      cleaningNeeded: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+  const onSubmit = async (values: z.infer<typeof AddBedSchema>) => {
+    if (!firestore) return;
 
-    onBedCreated(newBed);
-    toast.success('Bed Created', {
-      description: `Bed ${values.bedId} has been successfully created in ${values.wardName}.`,
-    });
-    setOpen(false);
-    form.reset();
+    try {
+        const ward = wards?.find(w => w.id === values.wardId);
+        const bedId = `${values.hospitalId}_${values.wardId}_${values.bedNumber.replace(/\s+/g, '')}`;
+        const bedRef = doc(firestore, 'beds', bedId);
+
+        await setDoc(bedRef, {
+            ...values,
+            id: bedId,
+            status: 'Available',
+            wardName: ward?.name || 'Unknown',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        });
+
+        toast.success('Facility Inventory Updated', {
+            description: `${values.bedNumber} is now active in ${ward?.name}.`
+        });
+        
+        setOpen(false);
+        form.reset();
+    } catch (error: any) {
+        console.error("Provisioning failed:", error);
+        toast.error("Access Denied", { description: "You don't have permission to modify facility assets." });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant="outline" className="shadow-sm">
           <Plus className="mr-2 h-4 w-4" /> Add New Bed
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Bed</DialogTitle>
+          <div className="flex items-center gap-2 mb-2 text-primary">
+            <BedDouble className="h-5 w-5" />
+            <DialogTitle>Add Facility Asset</DialogTitle>
+          </div>
           <DialogDescription>
-            Add a new bed to the hospital's registry.
+            Register a new inpatient bed for <strong>{user?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
             <FormField
               control={form.control}
-              name="bedId"
+              name="wardId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Bed ID</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., C-102, GW-209" {...field} />
-                  </FormControl>
+                  <FormLabel>Assigned Ward</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a ward unit" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {wards?.map(ward => (
+                        <SelectItem key={ward.id} value={ward.id}>{ward.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="wardName"
+              name="bedNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ward Name</FormLabel>
+                  <FormLabel>Bed Number / Label</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Cardiology, General Ward" {...field} />
+                    <Input placeholder="e.g., Bed 10, Suite A" {...field} />
                   </FormControl>
+                  <FormDescription className="text-[10px]">Must be unique within the ward.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="roomNumber"
+              name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Room Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., 10, 21" {...field} />
-                  </FormControl>
+                  <FormLabel>Bed Mechanism</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Manual">Manual (Standard)</SelectItem>
+                      <SelectItem value="Electric">Electric (ICU Grade)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Adding...' : 'Add Bed'}
+                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Provision Bed
               </Button>
             </DialogFooter>
           </form>
