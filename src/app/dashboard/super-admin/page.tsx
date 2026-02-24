@@ -15,7 +15,9 @@ export default function SuperAdminDashboard() {
     const [stats, setStats] = useState({ totalHospitals: 0, totalPatients: 0, totalUsers: 0 });
 
     useEffect(() => {
-        // 1. Listen to all hospitals (God Mode enabled via security rules)
+        if (!db) return;
+
+        // 1. Listen to all hospitals (God Mode enabled for super_admin role)
         const unsubHospitals = onSnapshot(collection(db, "hospitals"), (snap) => {
             const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Hospital));
             setHospitals(list);
@@ -25,9 +27,11 @@ export default function SuperAdminDashboard() {
         // 2. Fetch Global Stats (God Mode)
         const fetchGlobalStats = async () => {
             try {
-                // These counts are global for Super Admins
-                const patientsSnap = await getDocs(collection(db, "patients"));
-                const usersSnap = await getDocs(collection(db, "users"));
+                const [patientsSnap, usersSnap] = await Promise.all([
+                    getDocs(collection(db, "patients")),
+                    getDocs(collection(db, "users"))
+                ]);
+                
                 setStats(prev => ({ 
                     ...prev, 
                     totalPatients: patientsSnap.size,
@@ -52,7 +56,6 @@ export default function SuperAdminDashboard() {
                 <CreateHospitalModal />
             </div>
 
-            {/* Global Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-blue-50 border-blue-200 shadow-sm">
                     <CardHeader className="pb-2">
@@ -80,7 +83,6 @@ export default function SuperAdminDashboard() {
                 </Card>
             </div>
 
-            {/* Hospitals Table */}
             <Card className="shadow-sm">
                 <CardHeader>
                     <CardTitle>Global Tenant Directory</CardTitle>
@@ -105,7 +107,7 @@ export default function SuperAdminDashboard() {
                                             <TableCell><code className="text-xs bg-muted px-1 rounded">{hosp.id}</code></TableCell>
                                             <TableCell>{hosp.ownerEmail || 'N/A'}</TableCell>
                                             <TableCell>
-                                                <Badge variant={hosp.status === 'active' ? "default" : "destructive"}>
+                                                <Badge variant={hosp.status === 'active' ? "default" : "secondary"}>
                                                     {hosp.status === 'active' ? "Active" : "Suspended"}
                                                 </Badge>
                                             </TableCell>

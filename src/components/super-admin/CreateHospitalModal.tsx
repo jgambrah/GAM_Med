@@ -57,11 +57,11 @@ export default function CreateHospitalModal() {
     setIsSubmitting(true);
     try {
       // 1. Generate a unique ID (e.g., "st-marys-102")
-      const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 1000);
+      const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
       const now = new Date().toISOString();
 
       // 2. Create the Director in Firebase Auth
-      // NOTE: In this prototype, this will sign the current user out.
+      // NOTE: Creating a new user via client SDK will automatically sign out the current user.
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
@@ -72,6 +72,7 @@ export default function CreateHospitalModal() {
       // Pattern: {hospitalId}_{email} - The SaaS isolation anchor
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
       const userRef = doc(db, 'users', userDocId);
+      
       batch.set(userRef, {
         uid: uid,
         email: values.directorEmail.toLowerCase().trim(),
@@ -100,7 +101,7 @@ export default function CreateHospitalModal() {
       await batch.commit();
 
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active. You will be signed out to complete the Director's onboarding.`
+        description: `${values.hospitalName} is now active. You have been signed out to complete the Director's onboarding.`
       });
       
       setOpen(false);
@@ -108,7 +109,7 @@ export default function CreateHospitalModal() {
     } catch (error: any) {
       console.error(error);
       toast.error("Provisioning Failed", {
-        description: error.message
+        description: error.message || "An error occurred during hospital registration."
       });
     } finally {
       setIsSubmitting(false);
