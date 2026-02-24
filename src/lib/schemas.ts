@@ -144,6 +144,17 @@ export const NewAssetSchema = z.object({
   warrantyEndDate: z.string().optional(),
 });
 
+export const NewEquipmentSchema = z.object({
+  hospitalId: z.string().min(1),
+  name: z.string().min(3, "Equipment name is required"),
+  serialNumber: z.string().min(3, "Serial number is required"),
+  category: z.string().min(1, "Category is required"),
+  status: z.enum(['Available', 'In Use', 'Maintenance', 'Faulty']),
+  wardId: z.string().optional(),
+  lastMaintenance: z.string().optional(),
+  nextMaintenance: z.string().optional(),
+});
+
 export const UpdateInventorySchema = z.object({
   hospitalId: z.string().min(1),
   itemId: z.string().min(1),

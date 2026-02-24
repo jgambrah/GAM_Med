@@ -125,6 +125,13 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
+    // --- Inventory & Equipment ---
+
+    match /medical_equipment/{equipId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
     // --- Financial Data (Patient Portal Billing) ---
 
     match /invoices/{invId} {

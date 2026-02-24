@@ -307,6 +307,23 @@ export interface Asset {
   }[];
 }
 
+export interface MedicalEquipment {
+  id: string;
+  hospitalId: string;
+  serialNumber: string;
+  name: string;
+  category: string;
+  status: 'Available' | 'In Use' | 'Maintenance' | 'Faulty';
+  wardId?: string;
+  wardName?: string;
+  currentPatientId?: string;
+  currentPatientName?: string;
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ResourceBooking {
   bookingId: string;
   hospitalId: string;
