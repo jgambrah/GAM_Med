@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -19,15 +18,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { mockWaitingList, allAppointments, mockMedicationRecords, mockLabResults, mockInvoices, mockMessages, mockReminders } from '@/lib/data';
-import { WaitingListEntry, Appointment, MedicationRecord, LabResult, Invoice, Message, Reminder } from '@/lib/types';
-import { format, formatDistanceToNowStrict, differenceInMinutes } from 'date-fns';
+import { mockWaitingList, allAppointments, mockMedicationRecords } from '@/lib/data';
+import { WaitingListEntry, Appointment, MedicationRecord, LabResult, VitalsLog } from '@/lib/types';
+import { format, differenceInMinutes } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Clock, Video, FileText, MessageSquare, CreditCard, Pill, Bell } from 'lucide-react';
+import { HeartPulse, Video, FileText, Pill, Loader2, ArrowRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { MedicationsTab } from '../patients/[patientId]/components/medications-tab';
+import { useTenant } from '@/hooks/use-tenant';
 
 function MyWaitingListStatus() {
     const { user } = useAuth();
@@ -147,125 +149,131 @@ function UpcomingAppointments() {
     );
 }
 
-function RecentActivity() {
-    const { user } = useAuth();
-
-    const recentResults = mockLabResults
-        .filter(res => res.patientId === user?.patient_id && res.status === 'Validated')
-        .sort((a,b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
-        .slice(0, 1);
-    
-    const unreadMessages = mockMessages
-        .filter(msg => msg.receiverId === user?.uid && !msg.isRead)
-        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 1);
-
-    const outstandingBills = mockInvoices
-        .filter(inv => inv.patientId === user?.patient_id && (inv.status === 'Pending Payment' || inv.status === 'Overdue'))
-        .sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-        .slice(0, 1);
-    
-    const upcomingReminders = mockReminders
-        .filter(rem => rem.patientId === user?.patient_id && !rem.isSent)
-        .sort((a,b) => new Date(a.scheduledDateTime).getTime() - new Date(b.scheduledDateTime).getTime())
-        .slice(0,1);
-
-    const activities = [
-        ...recentResults.map(r => ({ type: 'Lab Result', data: r, date: r.completedAt })),
-        ...unreadMessages.map(m => ({ type: 'Message', data: m, date: m.timestamp })),
-        ...outstandingBills.map(b => ({ type: 'Billing', data: b, date: b.dueDate })),
-        ...upcomingReminders.map(rem => ({ type: 'Reminder', data: rem, date: rem.scheduledDateTime }))
-    ].filter(a => a.date).sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
-
-
-    const renderActivity = (activity: any) => {
-        const { type, data } = activity;
-        let icon, title, description, link;
-
-        switch (type) {
-            case 'Lab Result':
-                icon = <FileText className="h-5 w-5 text-blue-500" />;
-                title = `New Lab Result: ${data.testName}`;
-                description = `Completed ${formatDistanceToNowStrict(new Date(data.completedAt), { addSuffix: true })}`;
-                link = '/dashboard/my-records';
-                break;
-            case 'Message':
-                icon = <MessageSquare className="h-5 w-5 text-green-500" />;
-                title = `New Message from ${data.senderName}`;
-                description = `Received ${formatDistanceToNowStrict(new Date(data.timestamp), { addSuffix: true })}`;
-                link = '/dashboard/messages';
-                break;
-            case 'Billing':
-                icon = <CreditCard className="h-5 w-5 text-red-500" />;
-                title = `Outstanding Bill: Invoice ${data.invoiceId}`;
-                description = `Due ${format(new Date(data.dueDate), 'PPP')}`;
-                link = '/dashboard/my-billing';
-                break;
-            case 'Reminder':
-                 icon = <Bell className="h-5 w-5 text-yellow-500" />;
-                title = `Reminder: ${data.message}`;
-                description = `Scheduled for ${format(new Date(data.scheduledDateTime), 'PPP p')}`;
-                link = data.type === 'Appointment' ? '/dashboard/appointments' : '/dashboard/my-records';
-                break;
-            default: return null;
-        }
-
-        return (
-             <Link href={link} key={`${type}-${data.id || data.invoiceId || data.testId || data.messageId || data.reminderId}`}>
-                <div className="flex items-center gap-4 p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                    {icon}
-                    <div className="flex-grow">
-                        <p className="font-semibold">{title}</p>
-                        <p className="text-sm text-muted-foreground">{description}</p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-            </Link>
-        )
-    }
-
-     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Recent Updates</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-                {activities.length > 0 ? (
-                    activities.map(renderActivity)
-                ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">No recent updates.</p>
-                )}
-            </CardContent>
-        </Card>
-    );
-
-}
-
-
 export function PatientDashboard() {
   const { user } = useAuth();
+  const { hospitalName } = useTenant();
+  const firestore = useFirestore();
+
+  // 1. LIVE QUERY: My Vitals (Filtered by Patient ID)
+  const vitalsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.patient_id) return null;
+    return query(
+        collection(firestore, "vitals"),
+        where("patientId", "==", user.patient_id),
+        orderBy("createdAt", "desc"),
+        limit(5)
+    );
+  }, [firestore, user?.patient_id]);
+
+  const { data: vitals, isLoading: isVitalsLoading } = useCollection<VitalsLog>(vitalsQuery);
+
+  // 2. LIVE QUERY: My Lab Results (Filtered by Patient ID)
+  const labsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.patient_id) return null;
+    return query(
+        collection(firestore, "lab_orders"),
+        where("patientId", "==", user.patient_id),
+        where("status", "==", "Completed"),
+        orderBy("completedAt", "desc"),
+        limit(5)
+    );
+  }, [firestore, user?.patient_id]);
+
+  const { data: labResults, isLoading: isLabsLoading } = useCollection<LabResult>(labsQuery);
+
   if (!user?.patient_id) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+        <header className="space-y-2">
+            <h1 className="text-3xl font-black tracking-tight">Welcome, {user.name}</h1>
+            <p className="text-muted-foreground font-medium">Your Secure Health Record at <strong>{hospitalName}</strong></p>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Vitals Summary Card */}
+            <Card className="border-t-4 border-t-red-500 shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <HeartPulse className="h-5 w-5 text-red-500" />
+                        Latest Vitals
+                    </CardTitle>
+                    {isVitalsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </CardHeader>
+                <CardContent>
+                    {vitals && vitals[0] ? (
+                        <div className="space-y-4">
+                            <div className="flex items-end gap-2">
+                                <span className="text-4xl font-black text-slate-900">{vitals[0].bloodPressure}</span>
+                                <span className="text-sm font-bold text-muted-foreground mb-1 uppercase tracking-wider">mmHg</span>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm font-medium">
+                                <div className="flex items-center gap-1.5 text-red-600">
+                                    <HeartPulse className="h-4 w-4" />
+                                    <span>{vitals[0].heartRate} BPM</span>
+                                </div>
+                                <div className="text-muted-foreground border-l pl-4">
+                                    Recorded {format(new Date(vitals[0].createdAt || ''), 'PPP')}
+                                </div>
+                            </div>
+                        </div>
+                    ) : !isVitalsLoading ? (
+                        <div className="py-6 text-center italic text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                            No vitals recorded yet.
+                        </div>
+                    ) : null}
+                </CardContent>
+            </Card>
+
+            {/* Lab Results Summary Card */}
+            <Card className="border-t-4 border-t-purple-500 shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-purple-500" />
+                        Lab Results
+                    </CardTitle>
+                    {isLabsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {labResults && labResults.length > 0 ? (
+                        labResults.map((lab) => (
+                            <div key={lab.id} className="p-3 border rounded-xl flex justify-between items-center bg-muted/20 hover:bg-muted/40 transition-colors">
+                                <div>
+                                    <p className="font-bold text-sm text-slate-900">{lab.testName}</p>
+                                    <p className="text-[10px] uppercase font-black text-muted-foreground">
+                                        {lab.completedAt ? format(new Date(lab.completedAt), 'MMM dd, yyyy') : 'Recently'}
+                                    </p>
+                                </div>
+                                <Button size="sm" variant="ghost" className="h-8 text-xs font-bold text-purple-700 hover:text-purple-800 hover:bg-purple-50">
+                                    View Report
+                                    <ArrowRight className="h-3 w-3 ml-1.5" />
+                                </Button>
+                            </div>
+                        ))
+                    ) : !isLabsLoading ? (
+                        <div className="py-6 text-center italic text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                            No results published yet.
+                        </div>
+                    ) : null}
+                </CardContent>
+            </Card>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <UpcomingAppointments />
-            <RecentActivity />
+            <Card className="shadow-md">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Pill className="h-5 w-5 text-blue-500" />
+                        Active Medications
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <MedicationsTab patient={{ patient_id: user.patient_id } as any} />
+                </CardContent>
+            </Card>
         </div>
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                 <div>
-                    <CardTitle>My Medications</CardTitle>
-                    <CardDescription>A list of your current and past medications. Click to request a refill.</CardDescription>
-                </div>
-                 <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard/my-records">View All Records</Link>
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <MedicationsTab patientId={user.patient_id} />
-            </CardContent>
-        </Card>
+        
         <MyWaitingListStatus />
     </div>
   );
