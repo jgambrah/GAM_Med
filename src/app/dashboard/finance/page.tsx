@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -11,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, Receipt, CreditCard, TrendingUp, Loader2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { Invoice } from '@/lib/types';
+import { ReceivePaymentDialog } from '@/components/finance/receive-payment-dialog';
 
 /**
  * == Hospital Finance Hub ==
@@ -128,7 +128,8 @@ export default function FinanceDashboardPage() {
                                 <TableHead>Patient</TableHead>
                                 <TableHead className="text-right">Total Amount</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right pr-6">Date Issued</TableHead>
+                                <TableHead>Date Issued</TableHead>
+                                <TableHead className="text-right pr-6">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -154,14 +155,19 @@ export default function FinanceDashboardPage() {
                                                 {inv.status.toUpperCase()}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right text-xs text-muted-foreground pr-6 font-medium">
+                                        <TableCell className="text-xs text-muted-foreground font-medium">
                                             {inv.createdAt ? format(new Date(inv.createdAt.seconds * 1000), 'MMM dd, p') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="text-right pr-6">
+                                            {inv.status !== 'Paid' && (
+                                                <ReceivePaymentDialog invoice={inv} />
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                                         <div className="flex flex-col items-center justify-center opacity-30">
                                             <FileText className="h-12 w-12 mb-2" />
                                             <p>No transactions recorded for this facility.</p>
