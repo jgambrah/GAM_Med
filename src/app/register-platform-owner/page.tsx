@@ -28,22 +28,26 @@ export default function PlatformOwnerSetup() {
     useEffect(() => {
         // Debug check for developers
         if (!process.env.NEXT_PUBLIC_MASTER_SECRET_KEY) {
-            console.warn("DEVELOPER ALERT: NEXT_PUBLIC_MASTER_SECRET_KEY is not defined in your .env file.");
+            console.warn("DEVELOPER ALERT: NEXT_PUBLIC_MASTER_SECRET_KEY is not defined in your environment.");
         }
     }, []);
 
     const handleSetup = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        // DEBUG LOGS - These will help you see if the environment variable is being loaded correctly in the browser.
+        console.log("DEBUG: What you typed in the box:", adminKey);
+        console.log("DEBUG: What the system expects (from env):", process.env.NEXT_PUBLIC_MASTER_SECRET_KEY);
+
         // 1. Validate against secret key
         const masterKey = process.env.NEXT_PUBLIC_MASTER_SECRET_KEY;
         
         if (!masterKey) {
-            return toast.error("System Error", { description: "Master Secret Key is not configured on the server." });
+            return toast.error("System Error", { description: "Master Secret Key is not configured in the environment variables." });
         }
 
         if (adminKey !== masterKey) {
-            return toast.error("Unauthorized", { description: "Invalid Master Admin Key. Please check your .env file." });
+            return toast.error("Unauthorized", { description: "Invalid Master Admin Key. Please check your browser console for debug info." });
         }
 
         try {
@@ -62,6 +66,7 @@ export default function PlatformOwnerSetup() {
                 name: "GamMed CEO",
                 role: 'super_admin',
                 hospitalId: hospitalId,
+                hospitalName: "Gam It Services HQ",
                 is_active: true,
                 created_at: new Date().toISOString()
             });
@@ -123,7 +128,7 @@ export default function PlatformOwnerSetup() {
                         <div className="space-y-2">
                             <Label htmlFor="password">Set Secure Password</Label>
                             <Input 
-                                id="password"
+                                id="password" 
                                 type="password" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 
