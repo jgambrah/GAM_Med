@@ -1,29 +1,42 @@
-
 /**
- * @fileoverview Updated types for the Referral Module.
+ * @fileoverview Updated types for the Lab and Referral Modules.
  */
 
-// ... (other existing types)
-
-export interface Referral {
-  id?: string;
-  referral_id?: string; // Legacy field
-  fromHospitalId: string;
-  fromHospitalName: string;
-  toHospitalId: string;
-  toHospitalName?: string;
-  patientId: string;
-  patientName: string;
-  clinicalSummary: string;
-  status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed';
-  priority: 'Routine' | 'Urgent' | 'Emergency';
-  doctorId: string;
-  doctorName: string;
-  createdAt: string;
-  updatedAt?: string;
+export interface LabParameter {
+  name: string;
+  value: string;
+  unit: string;
+  range: string;
+  flag: 'Normal' | 'Low' | 'High' | 'Critical';
 }
 
-// ... (rest of types file)
+export interface LabResult {
+  id: string;
+  testId: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  patientMrn?: string;
+  testName: string;
+  status: 'Ordered' | 'In Progress' | 'Completed' | 'Cancelled' | 'Draft' | 'Validated' | 'Final';
+  orderedAt: string;
+  completedAt?: string;
+  isBilled: boolean;
+  resultPdfUrl?: string;
+  sampleDetails?: {
+    barcode: string;
+    sampleStatus: string;
+    collectionDate: string;
+    collectedByUserId: string;
+    auditLog?: SampleAudit[];
+  };
+  parameters?: LabParameter[];
+  resultDetails?: any;
+  doctorName?: string;
+  doctorId?: string;
+  notes?: string;
+}
+
 export interface Hospital {
   hospitalId: string;
   name: string;
@@ -167,27 +180,6 @@ export interface Bed {
   occupiedSince?: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface LabResult {
-  testId: string;
-  hospitalId: string;
-  patientId: string;
-  patientName: string;
-  testName: string;
-  status: 'Ordered' | 'In Progress' | 'Completed' | 'Cancelled' | 'Draft' | 'Validated' | 'Final';
-  orderedAt: string;
-  completedAt?: string;
-  isBilled: boolean;
-  resultPdfUrl?: string;
-  sampleDetails?: {
-    barcode: string;
-    sampleStatus: string;
-    collectionDate: string;
-    collectedByUserId: string;
-    auditLog?: SampleAudit[];
-  };
-  resultDetails?: any;
 }
 
 export interface MedicationRecord {
@@ -647,9 +639,34 @@ export interface OTSession {
   startTime: string;
   estimatedDuration: number;
   priority: 'Emergency' | 'Elective' | 'Urgent';
+  actualStartTime?: string;
+  actualEndTime?: string;
   recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
   recoveryRoomEntryTime?: string;
   dischargeFromRecoveryTime?: string;
+}
+
+export interface Referral {
+  id?: string;
+  referral_id?: string; // Legacy field
+  fromHospitalId: string;
+  fromHospitalName: string;
+  toHospitalId: string;
+  toHospitalName?: string;
+  patientId: string;
+  patientName: string;
+  clinicalSummary: string;
+  status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed';
+  priority: 'Routine' | 'Urgent' | 'Emergency';
+  doctorId: string;
+  doctorName: string;
+  createdAt: string;
+  updatedAt?: string;
+  patientDetails?: any;
+  assignedDoctorId?: string;
+  assignedDoctorName?: string;
+  assignedDepartment?: string;
+  notes?: string;
 }
 
 export interface DietaryProfile {
@@ -685,6 +702,7 @@ export interface PerformanceReview {
   goalsAchieved?: string[];
   trainingRecommendations?: string;
   targetDate?: string;
+  nextReviewDate?: string;
 }
 
 export interface TrainingCourse {
@@ -853,7 +871,9 @@ export interface MortalityRecord {
   dateOfDeath: string;
   cause: string;
   certifiedBy: string;
-  notes?: string;
+  certifiedByUserId: string;
+  icd10: string;
+  remarks?: string;
 }
 
 export interface FinancialTransaction {
