@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { UserPlus, Plus } from 'lucide-react';
+import { sendStaffInvitationEmail } from '@/lib/actions';
 
 const InviteStaffSchema = z.object({
   name: z.string().min(3, 'Full name is required'),
@@ -70,7 +71,6 @@ export default function InviteStaffModal() {
     
     try {
       // 1. Generate the unique Document ID for this tenant: {hospitalId}_{email}
-      // This is our "Discovery Pattern".
       const userDocId = `${currentUser.hospitalId}_${normalizedEmail}`;
 
       // 2. Uniqueness Check: Ensure this user isn't already registered at this facility
@@ -84,11 +84,9 @@ export default function InviteStaffModal() {
       }
 
       // 3. Provision the Firestore Profile (The "Stamping" Logic)
-      // We set a temporary UID. This will be updated to the real Firebase Auth UID
-      // automatically when the staff member logs in for the first time.
       await setDoc(doc(db, 'users', userDocId), {
         uid: `INVITED_${Date.now()}`, 
-        hospitalId: currentUser.hospitalId, // <--- THE SAAS STAMP
+        hospitalId: currentUser.hospitalId,
         email: normalizedEmail,
         name: values.name,
         role: values.role,
@@ -96,9 +94,27 @@ export default function InviteStaffModal() {
         created_at: new Date().toISOString(),
       });
 
-      toast.success('Invitation Recorded', {
-        description: `${values.name} has been added. They can now sign up with their work email.`
+      // 4. Fetch Hospital Name for the Email
+      const hospitalDoc = await getDoc(doc(db, 'hospitals', currentUser.hospitalId));
+      const hospitalName = hospitalDoc.exists() ? hospitalDoc.data().name : 'your local facility';
+
+      // 5. Trigger Welcome Email via Server Action
+      const emailResult = await sendStaffInvitationEmail({
+          email: normalizedEmail,
+          name: values.name,
+          hospitalName: hospitalName,
+          role: values.role.charAt(0).toUpperCase() + values.role.slice(1).replace('_', ' ')
       });
+
+      if (emailResult.success) {
+          toast.success('Invitation Recorded & Email Sent', {
+            description: `${values.name} has been added and notified via email.`
+          });
+      } else {
+          toast.warning('Staff Registered, but Email Failed', {
+            description: `Record created, but we couldn't send the welcome email to ${normalizedEmail}.`
+          });
+      }
       
       setOpen(false);
       form.reset();
@@ -146,7 +162,7 @@ export default function InviteStaffModal() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</Label>
+                  <FormLabel>Email Address</FormLabel>
                   <FormControl><Input type="email" placeholder="name@facility.com" {...field} /></FormControl>
                   <FormDescription className="text-xs">The staff member must use this email to sign up.</FormDescription>
                   <FormMessage />

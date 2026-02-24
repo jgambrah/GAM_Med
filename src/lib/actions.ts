@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -6,6 +5,7 @@ import { z } from 'zod';
 import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema, NewAssetSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
+import { sendWelcomeEmail } from './mail-service';
 
 /**
  * Server Action to register a new patient.
@@ -15,17 +15,25 @@ export async function addPatient(values: z.infer<typeof PatientSchema>) {
   const customId = `${values.hospitalId}_MRN${values.mrn.trim().toUpperCase()}`;
   console.log(`Server Action: Registering new patient with custom ID ${customId} for hospital ${values.hospitalId}.`);
 
-  // In a real implementation, this would be wrapped in a transaction:
-  // 1. const patientRef = doc(db, 'patients', customId);
-  // 2. const docSnap = await getDoc(patientRef);
-  // 3. if (docSnap.exists()) throw new Error("MRN already exists");
-  // 4. await setDoc(patientRef, { ...data });
-
   await new Promise((resolve) => setTimeout(resolve, 1000));
   
   revalidatePath('/dashboard/patients');
 
   return { success: true, message: 'Patient registered successfully.' };
+}
+
+/**
+ * Sends a welcome email to a newly invited staff member.
+ * This is a server action to keep the Resend API key secure.
+ */
+export async function sendStaffInvitationEmail(data: {
+    email: string;
+    name: string;
+    hospitalName: string;
+    role: string;
+}) {
+    const tempPass = "WelcomeGamMed123!"; // Static for prototype, would be generated in prod
+    return await sendWelcomeEmail(data.email, data.name, data.hospitalName, tempPass, data.role);
 }
 
 export async function dischargePatient(
