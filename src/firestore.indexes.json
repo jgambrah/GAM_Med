@@ -93,6 +93,14 @@
       ]
     },
     {
+      "collectionGroup": "ot_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "startTime", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "beds",
       "queryScope": "COLLECTION",
       "fields": [

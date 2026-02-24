@@ -641,10 +641,12 @@ export interface RadiologyReport {
 }
 
 export interface OTSession {
+  id: string; // Document ID
   sessionId: string;
   hospitalId: string;
   patientId: string;
   patientName: string;
+  patientMrn?: string; // Standard MRN for the board
   procedureName: string;
   surgeonId: string;
   surgeonName: string;

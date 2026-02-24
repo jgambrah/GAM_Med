@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -49,7 +48,8 @@ import {
     Package,
     TrendingUp,
     LayoutGrid,
-    Microscope
+    Microscope,
+    Monitor
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -62,6 +62,7 @@ export function MainNavClient() {
   const pathname = usePathname();
   const { user } = useAuth();
 
+  // In a real application, this would be a highly optimized, real-time query.
   const criticalAlertCount = React.useMemo(() => {
     if (!user || user.role !== 'doctor') return 0;
     
@@ -171,6 +172,12 @@ export function MainNavClient() {
       roles: ['director', 'admin', 'pharmacist', 'nurse'],
     },
     {
+      href: '/dashboard/surgery',
+      label: 'OT Status Board',
+      icon: Monitor,
+      roles: ['director', 'admin', 'doctor', 'ot_coordinator'],
+    },
+    {
       href: '/dashboard/appointments',
       label: 'Appointments',
       icon: Calendar,
@@ -222,7 +229,7 @@ export function MainNavClient() {
       href: '/dashboard/approvals',
       label: 'Approvals',
       icon: CheckSquare,
-      roles: ['director', 'admin', 'doctor'],
+      roles: ['director', 'admin', 'doctor'], // HOD and Director roles
     },
     {
         href: '/dashboard/ot',
@@ -330,7 +337,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/super-admin/pulse', '/dashboard/super-admin', '/dashboard/director/analytics', '/dashboard/super-admin/analytics', '/dashboard/reception/register-patient', '/dashboard/records/all-patients', '/dashboard/director/staff', '/dashboard/admin/staff', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/finance', '/dashboard/wards', '/dashboard/beds', '/dashboard/inventory', '/dashboard/inventory/equipment', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/super-admin/pulse', '/dashboard/super-admin', '/dashboard/director/analytics', '/dashboard/reception/register-patient', '/dashboard/records/all-patients', '/dashboard/director/staff', '/dashboard/admin/staff', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/finance', '/dashboard/wards', '/dashboard/beds', '/dashboard/inventory', '/dashboard/inventory/equipment', '/dashboard/surgery', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 
