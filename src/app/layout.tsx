@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-provider";
 import { ToasterProvider } from "@/context/toaster-provider";
+import { FirebaseClientProvider } from "@/firebase/client-provider";
 
 export const metadata: Metadata = {
   title: "GamMed",
@@ -16,10 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          {children}
-          <ToasterProvider />
-        </AuthProvider>
+        <FirebaseClientProvider>
+          <AuthProvider>
+            {children}
+            <ToasterProvider />
+          </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );
