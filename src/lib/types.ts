@@ -581,18 +581,24 @@ export interface RadiologyStudy {
 }
 
 export interface RadiologyOrder {
+  id: string; // Document ID
   orderId: string;
   hospitalId: string;
   patientId: string;
-  patientName?: string;
+  patientName: string;
+  patientMrn: string;
+  modality: string;
+  indication: string;
   doctorId: string;
+  doctorName: string;
   dateOrdered: string;
-  studyIds: string[];
-  status: 'Pending Scheduling' | 'Scheduled' | 'Awaiting Report' | 'Completed';
+  status: 'Pending' | 'Scheduled' | 'Awaiting Report' | 'Completed';
   scheduledDateTime?: string;
   clinicalNotes?: string;
-  priority: number;
+  priority: 'Routine' | 'Urgent';
   isReported?: boolean;
+  imageURL?: string;
+  impression?: string;
 }
 
 export interface RadiologyReport {

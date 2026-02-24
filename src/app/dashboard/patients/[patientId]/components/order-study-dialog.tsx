@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -24,54 +23,74 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Scan } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 import { NewRadOrderSchema } from '@/lib/schemas';
-import { mockRadiologyStudies } from '@/lib/data';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { RadiologyOrder } from '@/lib/types';
+import { useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { Patient } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface OrderStudyDialogProps {
-  patientId: string;
-  patientName: string;
+  patient: Patient;
   disabled?: boolean;
-  onOrderCreated: (newOrder: RadiologyOrder) => void;
+  onOrderCreated?: (newOrder: any) => void;
 }
 
-export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCreated }: OrderStudyDialogProps) {
+/**
+ * == EHR Integration: Order Imaging Study ==
+ * 
+ * Tool for doctors to request X-rays, MRIs, or CT Scans.
+ * Atomically pushes a request to the Radiology module's live queue with SaaS tags.
+ */
+export function OrderStudyDialog({ patient, disabled, onOrderCreated }: OrderStudyDialogProps) {
   const { user } = useAuth();
+  const firestore = useFirestore();
   const [open, setOpen] = React.useState(false);
   
   const form = useForm<z.infer<typeof NewRadOrderSchema>>({
     resolver: zodResolver(NewRadOrderSchema),
     defaultValues: {
-      studyIds: [],
+      hospitalId: user?.hospitalId || '',
+      modality: 'X-Ray',
+      indication: '',
+      priority: 'Routine',
       notes: '',
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
-     if (!user) {
-        toast.error("You must be logged in to order a study.");
-        return;
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
     }
+  }, [open, user, form]);
 
-    const newOrder: RadiologyOrder = {
-        orderId: `RAD-${Date.now()}`,
-        patientId,
-        patientName: patientName, // Ensure the patient name is included here
+  const onSubmit = async (values: z.infer<typeof NewRadOrderSchema>) => {
+    if (!user || !firestore) return;
+
+    // DATA PREPARATION: Create order for the Radiology Worklist
+    const radiologyOrder = {
+        patientId: patient.patient_id,
+        patientName: patient.full_name,
+        patientMrn: patient.mrn,
+        hospitalId: user.hospitalId, // Mandatory SaaS Stamp
+        modality: values.modality,
+        indication: values.indication,
+        priority: values.priority,
+        doctorName: user.name,
         doctorId: user.uid,
-        studyIds: values.studyIds,
+        status: "Pending",
         dateOrdered: new Date().toISOString(),
-        status: 'Pending Scheduling',
-        clinicalNotes: values.notes,
-        priority: 2, // Default priority
+        createdAt: serverTimestamp(),
+        notes: values.notes || '',
     };
 
-    onOrderCreated(newOrder);
-    toast.success('Imaging study ordered successfully.');
-
+    addDocumentNonBlocking(collection(firestore, 'radiology_orders'), radiologyOrder);
+    
+    toast.success(`${values.modality} order sent to imaging department.`);
+    
+    if (onOrderCreated) onOrderCreated(radiologyOrder);
     setOpen(false);
     form.reset();
   };
@@ -79,84 +98,86 @@ export function OrderStudyDialog({ patientId, patientName, disabled, onOrderCrea
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled}>
-          <Scan className="h-4 w-4 mr-2" /> Order Imaging Study
+        <Button variant="outline" size="sm" disabled={disabled} className="gap-2">
+          <Camera className="h-4 w-4" /> 
+          Order Imaging
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Order New Imaging Study</DialogTitle>
+          <DialogTitle>Radiology Request</DialogTitle>
           <DialogDescription>
-            Submit a new request to the radiology department for {patientName}.
+            Submit a new imaging request for {patient.full_name}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="modality"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Imaging Modality</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="X-Ray">X-Ray</SelectItem>
+                                    <SelectItem value="MRI">MRI Scan</SelectItem>
+                                    <SelectItem value="CT">CT Scan</SelectItem>
+                                    <SelectItem value="Ultrasound">Ultrasound</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Priority</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Routine">Routine</SelectItem>
+                                    <SelectItem value="Urgent">Urgent</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
+            
             <FormField
               control={form.control}
-              name="studyIds"
-              render={() => (
-                <FormItem>
-                  <div className="mb-4">
-                    <FormLabel className="text-base">Available Studies</FormLabel>
-                    <FormMessage />
-                  </div>
-                  <div className="space-y-2">
-                    {mockRadiologyStudies.map((study) => (
-                      <FormField
-                        key={study.studyId}
-                        control={form.control}
-                        name="studyIds"
-                        render={({ field }) => {
-                          return (
-                            <FormItem
-                              key={study.studyId}
-                              className="flex flex-row items-start space-x-3 space-y-0"
-                            >
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(study.studyId)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...(field.value || []), study.studyId])
-                                      : field.onChange(
-                                          field.value?.filter(
-                                            (value) => value !== study.studyId
-                                          )
-                                        )
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal">
-                                {study.name}
-                              </FormLabel>
-                            </FormItem>
-                          )
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
+              name="indication"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Clinical Information / Notes (Optional)</FormLabel>
+                  <FormLabel>Clinical Indication</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="e.g., Patient has a pacemaker, check for metal implants." {...field} />
+                    <Textarea 
+                        placeholder="Reason for imaging (e.g., Rule out fracture, follow-up on mass)..." 
+                        {...field} 
+                        className="bg-muted/30"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            
+            <DialogFooter className="pt-2">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Submitting...' : 'Submit Order'}
+                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Submit Order
               </Button>
             </DialogFooter>
           </form>

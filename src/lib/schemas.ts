@@ -88,7 +88,9 @@ export const NewLabOrderSchema = z.object({
 
 export const NewRadOrderSchema = z.object({
   hospitalId: z.string().min(1),
-  studyIds: z.array(z.string()).min(1),
+  modality: z.string().min(1),
+  indication: z.string().min(3, "Clinical indication is required"),
+  priority: z.enum(['Routine', 'Urgent']),
   notes: z.string().optional(),
 });
 
