@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
 import { Patient, User as UserType } from '@/lib/types';
@@ -104,28 +104,28 @@ export function AssignBedDialog({ bedId, bedNumber, wardName }: AssignBedDialogP
 
     try {
         const batch = writeBatch(firestore);
-        const now = new Date().toISOString();
         
         const selectedPatient = patients?.find(p => p.id === values.patientId);
         const selectedDoctor = doctors?.find(d => d.uid === values.attendingDoctorId);
 
-        // A) CREATE ADMISSION RECORD
+        // A) CREATE ADMISSION RECORD (SaaS Stamped)
         const admissionRef = doc(collection(firestore, 'admissions'));
         batch.set(admissionRef, {
             id: admissionRef.id,
             admission_id: `ADM-${Date.now()}`,
             hospitalId: user.hospitalId,
-            patient_id: values.patientId,
+            patientId: values.patientId,
+            patientName: selectedPatient?.full_name,
             type: 'Inpatient',
-            admission_date: now,
+            admissionDate: serverTimestamp(),
             reasonForVisit: values.reasonForAdmission,
             ward: wardName,
-            bed_id: bedNumber,
-            attending_doctor_id: values.attendingDoctorId,
-            attending_doctor_name: selectedDoctor?.name || 'Medical Staff',
+            bedId: bedNumber,
+            attendingDoctorId: values.attendingDoctorId,
+            attendingDoctorName: selectedDoctor?.name || 'Medical Staff',
             status: 'Admitted',
-            createdAt: now,
-            updatedAt: now
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
         });
 
         // B) UPDATE PATIENT EHR
@@ -133,7 +133,7 @@ export function AssignBedDialog({ bedId, bedNumber, wardName }: AssignBedDialogP
         batch.update(patientRef, {
             is_admitted: true,
             current_admission_id: admissionRef.id,
-            updated_at: now
+            updatedAt: serverTimestamp()
         });
 
         // C) UPDATE BED STATUS (Denormalized for Map performance)
@@ -142,8 +142,8 @@ export function AssignBedDialog({ bedId, bedNumber, wardName }: AssignBedDialogP
             status: 'Occupied',
             currentPatientId: values.patientId,
             currentPatientName: selectedPatient?.full_name || 'Inpatient',
-            occupiedSince: now,
-            updatedAt: now
+            occupiedSince: serverTimestamp(),
+            updatedAt: serverTimestamp()
         });
 
         await batch.commit();

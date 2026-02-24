@@ -51,7 +51,7 @@ const BedAllocationSchema = z.object({
  * == Clinical Operations: Atomic Inpatient Admission ==
  * 
  * This tool performs a high-fidelity admission. It atomically:
- * 1. Creates an 'admission' document.
+ * 1. Creates an 'admission' document (SaaS Stamped).
  * 2. Updates 'patient' record to 'is_admitted'.
  * 3. Updates 'bed' record to 'Occupied' with denormalized patient data.
  */
@@ -102,29 +102,29 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
 
     try {
         const batch = writeBatch(firestore);
-        const now = new Date().toISOString();
         
         const selectedPatient = patients?.find(p => p.id === values.patientId);
         const selectedBed = availableBeds?.find(b => b.id === values.bedId);
         const selectedDoctor = doctors?.find(d => d.uid === values.attendingDoctorId);
 
-        // A) CREATE ADMISSION RECORD
+        // A) CREATE ADMISSION RECORD (SaaS Stamped)
         const admissionRef = doc(collection(firestore, 'admissions'));
         batch.set(admissionRef, {
             id: admissionRef.id,
             admission_id: `ADM-${Date.now()}`,
             hospitalId: user.hospitalId,
-            patient_id: values.patientId,
+            patientId: values.patientId,
+            patientName: selectedPatient?.full_name,
             type: 'Inpatient',
-            admission_date: now,
+            admissionDate: serverTimestamp(),
             reasonForVisit: values.reasonForAdmission,
             ward: selectedBed?.wardName || 'Unknown',
-            bed_id: selectedBed?.bedNumber || 'N/A',
-            attending_doctor_id: values.attendingDoctorId,
-            attending_doctor_name: selectedDoctor?.name || 'Staff',
+            bedId: selectedBed?.bedNumber || 'N/A',
+            attendingDoctorId: values.attendingDoctorId,
+            attendingDoctorName: selectedDoctor?.name || 'Staff',
             status: 'Admitted',
-            createdAt: now,
-            updatedAt: now
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
         });
 
         // B) UPDATE PATIENT STATUS
@@ -132,7 +132,7 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
         batch.update(patientRef, {
             is_admitted: true,
             current_admission_id: admissionRef.id,
-            updated_at: now
+            updatedAt: serverTimestamp()
         });
 
         // C) UPDATE BED STATUS (Denormalized Patient Name)
@@ -141,8 +141,8 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
             status: 'Occupied',
             currentPatientId: values.patientId,
             currentPatientName: selectedPatient?.full_name || 'Inpatient',
-            occupiedSince: now,
-            updatedAt: now
+            occupiedSince: serverTimestamp(),
+            updatedAt: serverTimestamp()
         });
 
         await batch.commit();
