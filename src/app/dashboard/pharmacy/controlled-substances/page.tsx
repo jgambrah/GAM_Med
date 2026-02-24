@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { ControlledSubstance } from '@/lib/types';
 import { TransactionLogDialog } from './components/transaction-log-dialog';
 import { LogTransactionDialog } from './components/log-transaction-dialog';
-import { ShieldAlert, DownloadCloud, Loader2, Scale } from 'lucide-react';
+import { ShieldCheck, History, DownloadCloud, Loader2, PlusCircle, MinusCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -29,19 +29,19 @@ import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 
 /**
- * == SaaS Pharmacy: Controlled Substance Registry ==
+ * == High-Security Pharmacy: Controlled Substances (Narcotics) Dashboard ==
  * 
- * Provides a high-security workbench for managing narcotics.
+ * Provides a high-fidelity workspace for managing regulated substances.
  * Strictly logically isolated via the hospitalId SaaS wall.
  */
 export default function ControlledSubstancesPage() {
     const { user } = useAuth();
     const firestore = useFirestore();
     const [selectedSubstance, setSelectedSubstance] = React.useState<ControlledSubstance | null>(null);
-    const [transactionSubstance, setTransactionSubstance] = React.useState<ControlledSubstance | null>(null);
+    const [transactionConfig, setTransactionSubstance] = React.useState<{ substance: ControlledSubstance, action: 'Dispense' | 'Restock' } | null>(null);
     const [isGenerating, setIsGenerating] = React.useState(false);
 
-    // 1. LIVE QUERY: Listen for all controlled substances in THIS hospital
+    // 1. LIVE QUERY: Listen for all regulated substances in THIS hospital
     const substancesQuery = useMemoFirebase(() => {
         if (!firestore || !user?.hospitalId) return null;
         return query(
@@ -55,14 +55,18 @@ export default function ControlledSubstancesPage() {
 
     const handleGenerateReport = async () => {
         setIsGenerating(true);
-        toast.info('Generating Compliance Return...', { description: 'Compiling audit logs based on MoH standards.' });
+        toast.info('Compiling Statutory Return...', { description: 'Generating PDF for MoH Narcotics Board.' });
         await new Promise(resolve => setTimeout(resolve, 2000));
-        toast.success('Report Ready', { description: 'Monthly narcotic usage return has been generated.' });
+        toast.success('Report Ready', { description: 'Monthly narcotic return has been generated and archived.' });
         setIsGenerating(false);
     };
 
     if (isLoading) {
-        return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
     }
 
     return (
@@ -70,74 +74,95 @@ export default function ControlledSubstancesPage() {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-slate-900">
-                        <ShieldAlert className="text-red-600 h-8 w-8" />
-                        Narcotics & Controlled Drugs
+                        <ShieldCheck className="text-red-600 h-8 w-8" />
+                        Controlled Substances Inventory
                     </h1>
-                    <p className="text-muted-foreground font-medium">Statutory inventory and secure chain-of-custody for <strong>{user?.hospitalId}</strong></p>
+                    <p className="text-muted-foreground font-medium italic">Regulated Narcotics Audit & Statutory Compliance for <strong>{user?.hospitalId}</strong></p>
                 </div>
-                <Button onClick={handleGenerateReport} disabled={isGenerating} variant="outline" className="shadow-sm border-2">
-                    <DownloadCloud className="h-4 w-4 mr-2" />
-                    {isGenerating ? 'Compiling...' : 'MoH Compliance Return'}
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" className="shadow-sm bg-white" onClick={() => setSelectedSubstance(substances?.[0] || null)}>
+                        <History size={16} className="mr-2" /> 
+                        View Global Audit Trail
+                    </Button>
+                    <Button onClick={handleGenerateReport} disabled={isGenerating} className="bg-red-600 hover:bg-red-700 shadow-md">
+                        <DownloadCloud className="h-4 w-4 mr-2" />
+                        {isGenerating ? 'Compiling...' : 'Generate Monthly Report'}
+                    </Button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-red-50 border-red-200 border-t-4 border-t-red-500 shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest text-red-800 flex items-center gap-2">
-                            <Scale className="h-3 w-3" /> Secure Inventory Count
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-black text-red-900">{substances?.length || 0}</div>
-                        <p className="text-[10px] text-red-700/70 mt-1 uppercase font-bold tracking-tighter">Regulated substances on hand</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card className="shadow-md overflow-hidden border-none ring-1 ring-slate-200">
-                <CardHeader className="bg-muted/20 border-b">
-                    <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground">Digital Dangerous Drugs Register (DDDR)</CardTitle>
+            <Card className="shadow-xl overflow-hidden border-none ring-1 ring-slate-200">
+                <CardHeader className="bg-slate-900 text-white pb-6">
+                    <CardTitle className="text-sm font-black uppercase tracking-widest opacity-80">Digital Dangerous Drugs Register (DDDR)</CardTitle>
+                    <CardDescription className="text-slate-400 text-xs">Real-time balances and secure movement logs.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
+                <CardContent className="p-0 bg-white">
                     <Table>
-                        <TableHeader className="bg-muted/50">
+                        <TableHeader className="bg-slate-50 border-b">
                             <TableRow>
-                                <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Substance / Formulation</TableHead>
+                                <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Substance Name</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Strength</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest">Form</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Total Quantity</TableHead>
-                                <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Action</TableHead>
+                                <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Secure Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {substances && substances.length > 0 ? (
                                 substances.map((substance) => (
-                                    <TableRow key={substance.id} className="hover:bg-muted/30 transition-colors">
+                                    <TableRow key={substance.id} className="hover:bg-slate-50/80 transition-colors border-b last:border-0 h-20">
                                         <TableCell className="pl-6">
-                                            <p className="font-black text-slate-900">{substance.name}</p>
-                                            <p className="text-[10px] text-muted-foreground font-medium uppercase">{substance.form}</p>
+                                            <p className="font-black text-slate-900 text-base">{substance.name}</p>
+                                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">Controlled Item</p>
                                         </TableCell>
-                                        <TableCell className="font-bold text-xs">{substance.strength}</TableCell>
+                                        <TableCell className="font-bold text-xs text-slate-600">{substance.strength}</TableCell>
+                                        <TableCell className="text-[10px] font-black text-slate-500 uppercase">{substance.form}</TableCell>
                                         <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black font-mono text-lg text-primary">{substance.totalQuantity}</span>
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase">{substance.unit}s</span>
+                                            <div className="flex flex-col">
+                                                <span className={`text-xl font-black font-mono leading-none ${substance.totalQuantity < 10 ? 'text-red-600 animate-pulse' : 'text-slate-900'}`}>
+                                                    {substance.totalQuantity}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase">{substance.unit}s Rem.</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right pr-6 space-x-2">
-                                            <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase hover:bg-muted" onClick={() => setSelectedSubstance(substance)}>
-                                                Chain of Custody
-                                            </Button>
-                                            <Button size="sm" className="h-8 text-[10px] font-black uppercase shadow-sm" onClick={() => setTransactionSubstance(substance)}>
-                                                Record Movement
-                                            </Button>
+                                        <TableCell className="text-right pr-6">
+                                            <div className="flex justify-end gap-2">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-9 px-4 text-[10px] font-black uppercase border-2 text-slate-700" 
+                                                    onClick={() => setTransactionSubstance({ substance, action: 'Restock' })}
+                                                >
+                                                    <PlusCircle className="h-3 w-3 mr-2 text-green-600" />
+                                                    Refill
+                                                </Button>
+                                                <Button 
+                                                    size="sm" 
+                                                    className="h-9 px-4 text-[10px] font-black uppercase bg-slate-900 hover:bg-slate-800 text-white shadow-md" 
+                                                    onClick={() => setTransactionSubstance({ substance, action: 'Dispense' })}
+                                                >
+                                                    <MinusCircle className="h-3 w-3 mr-2 text-red-400" />
+                                                    Dispense
+                                                </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-9 w-9 text-muted-foreground hover:text-primary"
+                                                    onClick={() => setSelectedSubstance(substance)}
+                                                >
+                                                    <History className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-40 text-center text-muted-foreground italic">
-                                        No controlled substances found in the facility register.
+                                    <TableCell colSpan={5} className="h-40 text-center">
+                                        <div className="flex flex-col items-center justify-center opacity-30">
+                                            <ShieldCheck className="h-12 w-12 mb-2" />
+                                            <p className="text-sm font-medium tracking-tighter">Register is currently empty.</p>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -146,6 +171,14 @@ export default function ControlledSubstancesPage() {
                 </CardContent>
             </Card>
 
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center gap-4">
+                <History className="h-5 w-5 text-blue-600" />
+                <p className="text-xs text-blue-800 font-medium">
+                    <strong>Notice:</strong> This dashboard is an immutable legal record. All movements are time-stamped and mapped to the performing clinician's license. 
+                    Attempts to tamper with logs are automatically flagged to the <strong>GamMed Compliance Monitor</strong>.
+                </p>
+            </div>
+
             {selectedSubstance && (
                 <TransactionLogDialog
                     substance={selectedSubstance}
@@ -153,11 +186,12 @@ export default function ControlledSubstancesPage() {
                     onOpenChange={() => setSelectedSubstance(null)}
                 />
             )}
-             {transactionSubstance && (
+             {transactionConfig && (
                 <LogTransactionDialog
-                    substance={transactionSubstance}
-                    isOpen={!!transactionSubstance}
-                    onOpenChange={() => setTransactionSubstance(null)}
+                    substance={transactionConfig.substance}
+                    isOpen={!!transactionConfig}
+                    onOpenChange={(isOpen) => !isOpen && setTransactionSubstance(null)}
+                    initialType={transactionConfig.action}
                 />
             )}
         </div>

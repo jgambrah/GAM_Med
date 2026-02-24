@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -52,7 +53,8 @@ import {
     Monitor,
     FileSpreadsheet,
     ListTodo,
-    Inbox
+    Inbox,
+    ShieldAlert
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -303,7 +305,7 @@ export function MainNavClient() {
     {
         href: '/dashboard/pharmacy/controlled-substances',
         label: 'Controlled Substances',
-        icon: ShieldCheck,
+        icon: ShieldAlert,
         roles: ['director', 'admin', 'pharmacist'],
     },
     {

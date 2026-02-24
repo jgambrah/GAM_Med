@@ -39,15 +39,16 @@ interface LogTransactionDialogProps {
   substance: ControlledSubstance;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  initialType?: 'Dispense' | 'Restock';
 }
 
 /**
  * == Secure Narcotic Transaction Handler ==
  * 
- * Implements the "Double-Witness" protocol for wasting or adjusting controlled substances.
+ * Implements the "Double-Witness" protocol for high-risk pharmacy actions.
  * Uses a Firestore Transaction to ensure atomic consistency between log and balance.
  */
-export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTransactionDialogProps) {
+export function LogTransactionDialog({ substance, isOpen, onOpenChange, initialType = 'Dispense' }: LogTransactionDialogProps) {
   const db = useFirestore();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -55,7 +56,7 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
     resolver: zodResolver(ControlledSubstanceTransactionSchema),
     defaultValues: {
       hospitalId: substance.hospitalId,
-      transactionType: 'Dispense',
+      transactionType: initialType as any,
       quantity: 1,
       reason: '',
       patientId: '',
@@ -65,6 +66,20 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
 
   const transactionType = form.watch('transactionType');
 
+  // Reset form when the dialog opens with a new initial type
+  React.useEffect(() => {
+    if (isOpen) {
+        form.reset({
+            hospitalId: substance.hospitalId,
+            transactionType: initialType as any,
+            quantity: 1,
+            reason: '',
+            patientId: '',
+            witnessId: '',
+        });
+    }
+  }, [isOpen, initialType, substance.hospitalId, form]);
+
   const onSubmit = async (values: z.infer<typeof ControlledSubstanceTransactionSchema>) => {
     setIsSubmitting(true);
     
@@ -73,13 +88,13 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
             const substanceRef = doc(db, 'controlled_substances', substance.substanceId);
             const substanceSnap = await transaction.get(substanceRef);
             
-            if (!substanceSnap.exists()) throw new Error("Substance record missing");
+            if (!substanceSnap.exists()) throw new Error("Substance record missing from registry.");
             
             const currentTotal = substanceSnap.data().totalQuantity;
             const change = (values.transactionType === 'Restock') ? values.quantity : -values.quantity;
             const newTotal = currentTotal + change;
 
-            if (newTotal < 0) throw new Error("Insufficient stock for this transaction");
+            if (newTotal < 0) throw new Error("INSUFFICIENT STOCK: This transaction would result in a negative balance.");
 
             // 1. UPDATE MASTER BALANCE
             transaction.update(substanceRef, { 
@@ -96,17 +111,18 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
                 quantityChange: change,
                 currentQuantity: newTotal,
                 date: new Date().toISOString(),
+                userId: db.app.options.apiKey?.slice(0,5) || 'staff', // Mocking user ID for prototype
                 createdAt: serverTimestamp()
             });
         });
 
-        toast.success('Transaction Logged', {
-            description: `Audit trail updated for ${substance.name}. New balance: ${substance.totalQuantity + ((values.transactionType === 'Restock') ? values.quantity : -values.quantity)}`
+        toast.success('Movement Logged', {
+            description: `Audit trail updated for ${substance.name}. Current register balance: ${substance.totalQuantity + ((values.transactionType === 'Restock') ? values.quantity : -values.quantity)}`
         });
         onOpenChange(false);
         form.reset();
     } catch (error: any) {
-        toast.error("Legal Audit Failed", { description: error.message });
+        toast.error("Audit Failure", { description: error.message });
     } finally {
         setIsSubmitting(false);
     }
@@ -117,14 +133,16 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md border-t-4 border-t-red-600">
         <DialogHeader>
-          <div className="flex items-center gap-2 mb-2 text-primary">
+          <div className="flex items-center gap-2 mb-2 text-red-600">
             <ShieldCheck className="h-5 w-5" />
-            <DialogTitle>Secure Narcotic Log</DialogTitle>
+            <DialogTitle>Secure Movement Registry</DialogTitle>
           </div>
           <DialogDescription>
-            Logging movement for <strong>{substance.name}</strong>. Current: {substance.totalQuantity} {substance.unit}
+            Logging transaction for <strong>{substance.name}</strong> ({substance.strength}). 
+            <br />
+            Current Register Balance: <strong>{substance.totalQuantity} {substance.unit}s</strong>
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -135,14 +153,14 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
                     name="transactionType"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs uppercase font-bold">Action Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormLabel className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Action Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl>
-                                    <SelectTrigger className="bg-muted/30"><SelectValue/></SelectTrigger>
+                                    <SelectTrigger className="bg-muted/30 font-bold"><SelectValue/></SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                     <SelectItem value="Dispense">Dispense to Patient</SelectItem>
-                                    <SelectItem value="Restock">Restock Inventory</SelectItem>
+                                    <SelectItem value="Restock">Inventory Refill</SelectItem>
                                     <SelectItem value="Waste">Wastage / Disposal</SelectItem>
                                     <SelectItem value="Adjustment">Audit Adjustment</SelectItem>
                                 </SelectContent>
@@ -156,9 +174,9 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
                     name="quantity"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs uppercase font-bold">Quantity ({substance.unit})</FormLabel>
+                            <FormLabel className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Quantity ({substance.unit}s)</FormLabel>
                             <FormControl>
-                                <Input type="number" className="bg-muted/30" {...field} />
+                                <Input type="number" className="bg-muted/30 font-mono text-lg font-bold" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -172,12 +190,12 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
                     name="patientId"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs uppercase font-bold">Inpatient Assignment</FormLabel>
+                            <FormLabel className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Assign to Inpatient</FormLabel>
                             <Combobox 
                                 options={patientOptions}
                                 value={field.value}
                                 onChange={field.onChange}
-                                placeholder="Select patient..."
+                                placeholder="Search admitted patients..."
                             />
                             <FormMessage />
                         </FormItem>
@@ -190,17 +208,22 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
                     control={form.control}
                     name="witnessId"
                     render={({ field }) => (
-                        <FormItem className="bg-orange-50 p-3 rounded-md border border-orange-100">
-                            <FormLabel className="text-xs uppercase font-bold text-orange-800">Mandatory Witness Signature</FormLabel>
+                        <FormItem className="bg-orange-50 p-3 rounded-lg border border-orange-100 ring-2 ring-orange-200/50">
+                            <FormLabel className="text-[10px] uppercase font-black text-orange-800 flex items-center gap-2">
+                                <ShieldCheck className="h-3 w-3" />
+                                Mandatory Witness Signature
+                            </FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
-                                    <SelectTrigger className="bg-white"><SelectValue placeholder="Select witness..."/></SelectTrigger>
+                                    <SelectTrigger className="bg-white border-orange-200 mt-2 font-bold"><SelectValue placeholder="Select witness..."/></SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                     {witnessOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <FormDescription className="text-[10px] text-orange-700">A second licensed clinician must verify this disposal.</FormDescription>
+                            <FormDescription className="text-[9px] text-orange-700/70 mt-1 font-medium leading-tight">
+                                A second licensed clinical professional (Pharmacist or Doctor) must verify this wastage for legal compliance.
+                            </FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -212,20 +235,20 @@ export function LogTransactionDialog({ substance, isOpen, onOpenChange }: LogTra
                 name="reason"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-xs uppercase font-bold">Clinical/Audit Notes</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Clinical/Audit Notes</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="e.g., Post-op pain, Sample contaminated, Quarterly audit reconciliation..." className="bg-muted/30" {...field} />
+                            <Textarea placeholder="Provide clinical context or audit rationale..." className="bg-muted/30 text-xs italic" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
             />
 
-            <DialogFooter className="pt-4 border-t">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 font-bold">
+            <DialogFooter className="pt-4 border-t gap-2 sm:gap-0">
+              <Button type="button" variant="ghost" className="text-xs uppercase font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="bg-slate-900 hover:bg-slate-800 font-black text-xs uppercase tracking-widest px-8 h-11">
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Finalize & Stamp Log
+                Finalize & Stamp Register
               </Button>
             </DialogFooter>
           </form>
