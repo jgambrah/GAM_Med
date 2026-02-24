@@ -24,23 +24,31 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { TestTube } from 'lucide-react';
+import { TestTube, Loader2 } from 'lucide-react';
 import { NewLabOrderSchema } from '@/lib/schemas';
 import { Combobox } from '@/components/ui/combobox';
 import { mockLabTestCatalog } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { LabResult } from '@/lib/types';
+import { useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 interface OrderTestDialogProps {
     patientId: string;
     patientName: string;
     disabled?: boolean;
-    onOrderCreated: (newOrder: LabResult) => void;
+    onOrderCreated: (newOrder: any) => void;
 }
 
+/**
+ * == EHR Integration: Order Lab Test ==
+ * 
+ * Clinical tool for doctors to request diagnostic tests.
+ * Atomically pushes a request to the Laboratory module's live queue.
+ */
 export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreated }: OrderTestDialogProps) {
     const { user } = useAuth();
+    const firestore = useFirestore();
     const [open, setOpen] = React.useState(false);
     
     const form = useForm<z.infer<typeof NewLabOrderSchema>>({
@@ -52,46 +60,52 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
     });
 
     const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
-        if (!user) {
-            toast.error("You must be logged in to order a test.");
+        if (!user || !firestore) {
+            toast.error("Session context missing. Please log in.");
             return;
         }
         
-        const newOrder: LabResult = {
-            testId: `lab-${Date.now()}`,
+        // DATA PREPARATION: Create order for the Lab Worklist
+        const labOrder = {
+            hospitalId: user.hospitalId,
             patientId: patientId,
-            patientName: patientName, // Ensure the patient name is included here
+            patientName: patientName,
+            patientMrn: patientId.split('_MRN')[1] || 'N/A',
             testName: values.testName,
-            status: 'Ordered',
-            orderedByDoctorId: user.uid,
-            orderedAt: new Date().toISOString(),
-            isBilled: false,
+            status: 'Requested',
+            doctorName: user.name,
+            doctorId: user.uid,
+            priority: 'Routine',
+            notes: values.notes || '',
+            createdAt: new Date().toISOString(),
         };
         
-        onOrderCreated(newOrder);
-        toast.success('Lab test ordered successfully.');
+        // PUSH TO LIVE QUEUE: Triggers instant update on Lab Technician dashboard
+        addDocumentNonBlocking(collection(firestore, 'lab_orders'), labOrder);
         
+        toast.success(`Lab request for ${values.testName} sent to diagnostics.`);
         setOpen(false);
         form.reset();
     }
     
     const labTestOptions = mockLabTestCatalog.map(test => ({
         label: `${test.name} (${test.testId})`,
-        value: test.name // Submitting the full name
+        value: test.name
     }));
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                 <Button variant="outline" size="sm" disabled={disabled}>
-                    <TestTube className="h-4 w-4 mr-2" /> Order Lab Test
+                 <Button variant="outline" size="sm" disabled={disabled} className="gap-2">
+                    <TestTube className="h-4 w-4" /> 
+                    Order Lab Test
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Order New Lab Test</DialogTitle>
+                    <DialogTitle>Diagnostic Request</DialogTitle>
                     <DialogDescription>
-                        Submit a new request to the laboratory for {patientName}.
+                        Submit a new laboratory request for {patientName}.
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...form}>
@@ -107,7 +121,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
                                         value={field.value}
                                         onChange={field.onChange}
                                         placeholder="Search for a lab test..."
-                                        searchPlaceholder="Search tests..."
+                                        searchPlaceholder="Search catalog..."
                                         notFoundText="No test found."
                                     />
                                     <FormMessage />
@@ -119,18 +133,23 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
                             name="notes"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Notes for Lab (Optional)</FormLabel>
+                                    <FormLabel>Clinical Notes (Optional)</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="e.g., STAT, fasting required" {...field} />
+                                        <Textarea 
+                                            placeholder="e.g. Patient is fasting. Please check for specific markers..." 
+                                            {...field} 
+                                            className="bg-muted/30"
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
-                        <DialogFooter>
+                        <DialogFooter className="pt-2">
                             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? 'Submitting...' : 'Submit Order'}
+                                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                Submit Order
                             </Button>
                         </DialogFooter>
                     </form>
