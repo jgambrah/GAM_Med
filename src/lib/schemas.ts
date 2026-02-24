@@ -36,6 +36,12 @@ export const PatientSchema = z.object({
   isTemporary: z.boolean().default(false),
 });
 
+export const NewBedSchema = z.object({
+  bedId: z.string().min(1, "Bed ID is required"),
+  wardName: z.string().min(1, "Ward Name is required"),
+  roomNumber: z.string().min(1, "Room Number is required"),
+});
+
 export const NewAppointmentSchema = z.object({
   hospitalId: z.string().min(1),
   patientId: z.string().min(1),

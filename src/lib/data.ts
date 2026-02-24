@@ -1,3 +1,4 @@
+
 import { Hospital, User, Patient, Appointment, Admission, Bed, Referral, LabResult, ClinicalNote, VitalsLog, CarePlan, MedicationRecord, PatientAlert, ImmunizationRecord, Vaccine, Asset, ResourceBooking, WaitingListEntry, Invoice, Claim, FinancialTransaction, Prescription, PricingTable, Receipt, Bill, Supplier, LedgerAccount, LedgerEntry, StaffExpenseClaim, LeaveRequest, PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Allowance, Deduction, Position, InventoryItem, PurchaseOrder, PrescribedMedication, ControlledSubstance, ControlledSubstanceLog, LabTest, SampleAudit, EquipmentLog, LabReport, RadiologyStudy, RadiologyOrder, RadiologyReport, OTSession, DietaryProfile, MealOrder, PerformanceReview, TrainingCourse, FacilityZone, WorkOrder, SparePart, SparePartLog, Meter, UtilityConsumption, SecurityIncident, HousekeepingTask, DepreciationRecord, InfectionReport, EfficacyReport, SavedReport, Message, Reminder, HealthContent, AuditLog, Diagnosis, RequestForQuotation } from './types';
 
 const now = new Date('2024-08-16T10:15:00.000Z');
@@ -277,21 +278,6 @@ export const mockNotes: ClinicalNote[] = [
   }
 ];
 
-export const mockVitalsLog: VitalsLog[] = [
-  {
-    vitalId: 'V-001',
-    hospitalId: 'hosp-1',
-    patientId: 'hosp-1_MRN123456',
-    bloodPressure: '130/85',
-    heartRate: '72',
-    temperature: '36.8',
-    respiratoryRate: '16',
-    oxygenSaturation: '98',
-    recordedByUserId: 'hosp-1_f.agyepong@gammed.com',
-    recordedAt: now.toISOString(),
-  }
-];
-
 export const mockDiagnoses: Diagnosis[] = [
   {
     diagnosisId: 'D-001',
@@ -537,37 +523,46 @@ export const mockAuditLogs: AuditLog[] = [
 // == EMPTY PLACEHOLDERS ==
 // --------------------------------------------------------------------
 
-export const mockReferrals = [];
-export const mockBills = [];
-export const mockStaffClaims = [];
-export const mockLeaveRequests = [];
-export const mockPayrollRuns = [];
-export const mockPayrollRecords = [];
-export const mockOtSessions = [];
-export const mockDietaryProfiles = [];
-export const mockMealOrders = [];
-export const mockPerformanceReviews = [];
-export const mockTrainingCourses = [];
-export const mockSpareParts = [];
-export const mockSparePartsLog = [];
-export const mockUtilityMeters = [];
-export const mockUtilityConsumption = [];
-export const mockSecurityIncidents = [];
-export const mockHousekeepingTasks = [];
-export const mockDepreciationRecords = [];
-export const mockSavedReports = [];
-export const mockMessages = [];
-export const mockReminders = [];
-export const mockHealthContent = [];
-export const mockVaccineCatalog = [];
-export const mockImmunizationRecords = [];
-export const mockLabTestCatalog = [];
-export const mockRadiologyStudies = [];
-export const mockLabReports = [];
-export const mockResourceBookings = [];
-export const mockInfectionReports = [];
-export const mockEfficacyReports = [];
-export const mockRfqs = [];
+export const mockReferrals: Referral[] = [];
+export const mockBills: Bill[] = [];
+export const mockStaffClaims: StaffExpenseClaim[] = [];
+export const mockClaims: Claim[] = [];
+export const mockPayments: FinancialTransaction[] = [];
+export const mockWaitingList: WaitingListEntry[] = [];
+export const mockLeaveRequests: LeaveRequest[] = [];
+export const mockPayrollRuns: PayrollRun[] = [];
+export const mockPayrollRecords: PayrollRecord[] = [];
+export const mockOtSessions: OTSession[] = [];
+export const mockDietaryProfiles: DietaryProfile[] = [];
+export const mockMealOrders: MealOrder[] = [];
+export const mockPerformanceReviews: PerformanceReview[] = [];
+export const mockTrainingCourses: TrainingCourse[] = [];
+export const mockSpareParts: SparePart[] = [];
+export const mockSparePartsLog: SparePartLog[] = [];
+export const mockUtilityMeters: Meter[] = [];
+export const mockUtilityConsumption: UtilityConsumption[] = [];
+export const mockSecurityIncidents: SecurityIncident[] = [];
+export const mockHousekeepingTasks: HousekeepingTask[] = [];
+export const mockDepreciationRecords: DepreciationRecord[] = [];
+export const mockSavedReports: SavedReport[] = [];
+export const mockMessages: Message[] = [];
+export const mockReminders: Reminder[] = [];
+export const mockHealthContent: HealthContent[] = [];
+export const mockVaccineCatalog: Vaccine[] = [];
+export const mockImmunizationRecords: ImmunizationRecord[] = [];
+export const mockLabTestCatalog: LabTest[] = [];
+export const mockRadiologyStudies: RadiologyStudy[] = [];
+export const mockRadiologyReports: RadiologyReport[] = [];
+export const mockLabReports: LabReport[] = [];
+export const mockResourceBookings: ResourceBooking[] = [];
+export const mockInfectionReports: InfectionReport[] = [];
+export const mockEfficacyReports: EfficacyReport[] = [];
+export const mockRfqs: RequestForQuotation[] = [];
+export const mockEquipmentLogs: EquipmentLog[] = [];
+export const mockControlledSubstanceLog: ControlledSubstanceLog[] = [];
+export const mockControlledSubstances: ControlledSubstance[] = [];
+export const mockAllowances: Allowance[] = [];
+export const mockDeductions: Deduction[] = [];
 
 export const mockPayrollConfig: PayrollConfiguration = {
   ssnitEmployeeContribution: 0.055,

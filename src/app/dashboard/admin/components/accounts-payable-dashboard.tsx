@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -44,6 +43,7 @@ import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { PaymentVoucher } from './payment-voucher';
 import { z } from 'zod';
+import { useAuth } from '@/hooks/use-auth';
 
 
 const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -124,33 +124,11 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
                      <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label>Expense Account (to Debit)</Label>
-                            <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select an expense account..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {expenseAccounts.map(acc => (
-                                        <SelectItem key={acc.accountId} value={acc.accountId}>
-                                            {acc.accountName} ({acc.accountCode})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <CircleSelect value={expenseAccountId} onValueChange={setExpenseAccountId} options={expenseAccounts.map(acc => ({ value: acc.accountId, label: `${acc.accountName} (${acc.accountCode})` }))} />
                         </div>
                          <div>
                             <Label>Payable Account (to Credit)</Label>
-                            <Select value={payableAccountId} onValueChange={setPayableAccountId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a payable account..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {apSubAccounts.map(acc => (
-                                        <SelectItem key={acc.accountId} value={acc.accountId}>
-                                            {acc.accountName} ({acc.accountCode})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <CircleSelect value={payableAccountId} onValueChange={setPayableAccountId} options={apSubAccounts.map(acc => ({ value: acc.accountId, label: `${acc.accountName} (${acc.accountCode})` }))} />
                         </div>
                     </div>
 
@@ -235,6 +213,23 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
     )
 }
 
+function CircleSelect({ value, onValueChange, options }: { value: string, onValueChange: (v: string) => void, options: { value: string, label: string }[] }) {
+    return (
+        <Select value={value} onValueChange={onValueChange}>
+            <SelectTrigger>
+                <SelectValue placeholder="Select an account..." />
+            </SelectTrigger>
+            <SelectContent>
+                {options.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    )
+}
+
 function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, onClaimAccrued: (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => void }) {
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -301,18 +296,7 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
                      <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label>Expense Account (to Debit)</Label>
-                            <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select an expense account" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {expenseAccounts.map(acc => (
-                                        <SelectItem key={acc.accountId} value={acc.accountId}>
-                                            {acc.accountName} ({acc.accountCode})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <CircleSelect value={expenseAccountId} onValueChange={setExpenseAccountId} options={expenseAccounts.map(acc => ({ value: acc.accountId, label: `${acc.accountName} (${acc.accountCode})` }))} />
                         </div>
                         <div>
                             <Label>Payable Account (to Credit)</Label>
@@ -555,6 +539,7 @@ const PostingSchema = z.object({
 
 
 export function AccountsPayableDashboard() {
+  const { user } = useAuth();
   const [postingInfo, setPostingInfo] = React.useState<{ debitAccountId: string, creditAccountId: string, amount: number; description: string; onPostComplete: () => void } | null>(null);
   const [bills, setBills] = useLocalStorage<Bill[]>('bills', initialBills);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', initialClaims);
@@ -595,8 +580,8 @@ export function AccountsPayableDashboard() {
             finalDescription = `${finalDescription} (Bank Transfer)`;
         }
 
-        const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-        const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
         
         setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 

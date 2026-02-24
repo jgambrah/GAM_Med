@@ -42,6 +42,7 @@ import { PayrollDeductionsDashboard } from './components/payroll-deductions';
 import { LedgerPostingDialog } from '../admin/components/ledger-posting-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { z } from 'zod';
+import { useAuth } from '@/hooks/use-auth';
 
 const PostingSchema = z.object({
   debitAccountId: z.string().min(1, 'Debit account is required.'),
@@ -70,6 +71,7 @@ interface PayrollDetailsDialogProps {
 }
 
 function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: PayrollDetailsDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [postingRemittanceInfo, setPostingRemittanceInfo] = React.useState<{ name: string; amount: number } | null>(null);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
@@ -105,8 +107,8 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
             finalDescription = `${finalDescription} (Bank Transfer)`;
         }
 
-        const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-        const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
         
         setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 
@@ -273,6 +275,7 @@ function PayrollDetailsDialog({ run, records, onFinalize, onPostToLedger }: Payr
 }
 
 function PayrollRunsDashboard() {
+    const { user } = useAuth();
     const [runs, setRuns] = React.useState<PayrollRun[]>(mockPayrollRuns);
     const [runRecords, setRunRecords] = React.useState<Record<string, PayrollRecord[]>>({});
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string; runId: string; } | null>(null);
@@ -333,8 +336,8 @@ function PayrollRunsDashboard() {
                 finalDescription = `${finalDescription} (Bank Transfer)`;
             }
 
-            const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-            const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+            const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+            const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
             
             setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 

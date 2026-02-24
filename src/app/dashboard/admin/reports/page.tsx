@@ -20,6 +20,7 @@ import { mockLedgerAccounts, mockLedgerEntries } from '@/lib/data';
 import { LedgerAccount, LedgerEntry } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { useAuth } from '@/hooks/use-auth';
 
 const PostingSchema = z.object({
   debitAccountId: z.string().min(1, 'Debit account is required.'),
@@ -37,6 +38,7 @@ const PostingSchema = z.object({
 
 
 export default function FinancialReportsPage() {
+  const { user } = useAuth();
   const [endDate, setEndDate] = React.useState('');
   const [isJournalOpen, setIsJournalOpen] = React.useState(false);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
@@ -73,8 +75,8 @@ export default function FinancialReportsPage() {
             finalDescription = `${finalDescription} (Bank Transfer)`;
         }
 
-        const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-        const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
         
         setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 

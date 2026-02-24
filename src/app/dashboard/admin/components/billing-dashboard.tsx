@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -32,6 +31,7 @@ import { toast } from '@/hooks/use-toast';
 import { logPayment } from '@/lib/actions';
 import { LedgerPostingDialog } from './ledger-posting-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 
 const getInvoiceStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -217,6 +217,7 @@ const PostingSchema = z.object({
 });
 
 function PaymentReconciliationTab() {
+    const { user } = useAuth();
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
     const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
@@ -274,8 +275,8 @@ function PaymentReconciliationTab() {
                 finalDescription = `${finalDescription} (Bank Transfer)`;
             }
 
-            const newDebitEntry: LedgerEntry = { entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-            const newCreditEntry: LedgerEntry = { entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+            const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+            const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
             
             setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 
