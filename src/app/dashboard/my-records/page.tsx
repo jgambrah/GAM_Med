@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -55,12 +53,12 @@ export default function MyRecordsPage() {
                     </CardHeader>
                     <TabsContent value="medications" className="m-0">
                          <CardContent>
-                            <MedicationsTab patientId={user.patient_id} />
+                            <MedicationsTab patient={{ patient_id: user.patient_id } as any} />
                         </CardContent>
                     </TabsContent>
                     <TabsContent value="labs" className="m-0">
                          <CardContent>
-                            <LabResultsTab />
+                            <LabResultsTab patientId={user.patient_id} />
                         </CardContent>
                     </TabsContent>
                     <TabsContent value="radiology" className="m-0">
@@ -75,7 +73,7 @@ export default function MyRecordsPage() {
                     </TabsContent>
                     <TabsContent value="admissions" className="m-0">
                         <CardContent>
-                           <AdmissionsHistoryTab admissions={admissions} />
+                           <AdmissionsHistoryTab patientId={user.patient_id} />
                         </CardContent>
                     </TabsContent>
                 </Tabs>

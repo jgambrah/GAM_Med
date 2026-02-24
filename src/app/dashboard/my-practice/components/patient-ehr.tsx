@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -148,7 +147,7 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                     </TabsContent>
                     
                     <TabsContent value="labs" className="mt-4">
-                        <LabResultsTab />
+                        <LabResultsTab patient={patient} />
                     </TabsContent>
                     
                     <TabsContent value="vitals" className="mt-4">
