@@ -7,7 +7,7 @@
 
 export interface Referral {
   id?: string;
-  referral_id: string; // Legacy field
+  referral_id?: string; // Legacy field
   fromHospitalId: string;
   fromHospitalName: string;
   toHospitalId: string;
@@ -17,6 +17,8 @@ export interface Referral {
   clinicalSummary: string;
   status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed';
   priority: 'Routine' | 'Urgent' | 'Emergency';
+  doctorId: string;
+  doctorName: string;
   createdAt: string;
   updatedAt?: string;
 }

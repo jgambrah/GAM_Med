@@ -31,6 +31,7 @@ import { OrderStudyDialog } from '../../patients/[patientId]/components/order-st
 import { PreOpChecklistTab } from '../../patients/[patientId]/components/pre-op-checklist-tab';
 import { PostOpCareTab } from '../../patients/[patientId]/components/post-op-care-tab';
 import { CertifyDeathDialog } from '../../patients/[patientId]/components/certify-death-dialog';
+import { ReferOutDialog } from '../../patients/[patientId]/components/refer-out-dialog';
 
 // Types
 import { Patient, OTSession } from '@/lib/types';
@@ -106,6 +107,10 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                         patientId={patient.patient_id}
                         patientName={patient.full_name}
                         onOrderCreated={() => {}}
+                        disabled={patient.status === 'deceased'}
+                     />
+                     <ReferOutDialog 
+                        patient={patient}
                         disabled={patient.status === 'deceased'}
                      />
                      <CertifyDeathDialog patient={patient} />
