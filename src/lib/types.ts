@@ -17,8 +17,10 @@ export interface FacilityBooking {
   hospitalId: string;
   facilityId: string;
   userId: string;
+  userName?: string;
   startTime: string;
   endTime: string;
+  duration: number; // in hours
   purpose: string;
   status: 'Confirmed' | 'Pending' | 'Cancelled';
 }

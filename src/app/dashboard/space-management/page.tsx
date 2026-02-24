@@ -7,6 +7,7 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FacilitySchedule } from './components/facility-schedule';
+import { BookFacilityDialog } from './components/book-facility-dialog';
 import { Facility, FacilityBooking } from '@/lib/types';
 import { Building2, Calendar as CalendarIcon, Clock, Users, Loader2, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,9 @@ export default function SpaceManagementPage() {
         const availableHoursWeekly = totalBookable * 168; // 24/7 = 168 hours per facility
         
         const bookedHours = bookings.reduce((acc, b) => {
+            // Use the duration field if present, otherwise calculate it
+            if (b.duration !== undefined) return acc + b.duration;
+            
             const start = new Date(b.startTime);
             const end = new Date(b.endTime);
             const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
@@ -81,13 +85,16 @@ export default function SpaceManagementPage() {
 
     return (
         <div className="p-8 space-y-8 bg-slate-50/30 min-h-screen">
-            <header className="space-y-2">
-                <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-slate-900">
-                    <Building2 className="text-blue-600 h-8 w-8" />
-                    Space & Facility Management
-                </h1>
-                <p className="text-muted-foreground font-medium">Real-time utilization and scheduling for <strong>{user?.hospitalId}</strong></p>
-            </header>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-slate-900">
+                        <Building2 className="text-blue-600 h-8 w-8" />
+                        Space & Facility Management
+                    </h1>
+                    <p className="text-muted-foreground font-medium">Real-time utilization and scheduling for <strong>{user?.hospitalId}</strong></p>
+                </div>
+                <BookFacilityDialog facilities={facilities || []} />
+            </div>
             
             {/* Metrics Row */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

@@ -328,3 +328,11 @@ export const DietaryOrderSchema = z.object({
   dietType: z.enum(['Standard', 'Diabetic', 'Low Salt', 'Renal', 'NPO', 'Soft']),
   specialInstructions: z.string().optional(),
 });
+
+export const NewFacilityBookingSchema = z.object({
+  hospitalId: z.string().min(1),
+  facilityId: z.string().min(1, "Please select a facility"),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().min(1, "End time is required"),
+  purpose: z.string().min(3, "Purpose is required"),
+});
