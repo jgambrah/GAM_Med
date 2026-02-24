@@ -21,18 +21,22 @@ service cloud.firestore {
     }
 
     /**
-     * Logic: The token's hospitalId (or doc data) MUST match the requested data's hospitalId.
-     */
-    function isSameHospital(docData) {
-      return isSignedIn() && 
-             docData.hospitalId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
-    }
-
-    /**
-     * Checks if the user is a hospital administrator or director via DBAC.
+     * Helper: Checks if the user is a hospital administrator or director via DBAC.
      */
     function isAdmin() {
       return isSignedIn() && (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || isSuperAdmin());
+    }
+
+    /**
+     * Logic: The token's hospitalId (or doc data) MUST match the requested data's hospitalId.
+     * Note: We fetch the current user's hospitalId from their profile document.
+     */
+    function getMyHospitalId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
+    }
+
+    function isSameHospital(docData) {
+      return isSignedIn() && docData.hospitalId == getMyHospitalId();
     }
 
     // --------------------------------------------------------------------
@@ -56,7 +60,7 @@ service cloud.firestore {
     // Role Markers (DBAC)
     match /roles_super_admin/{uid} {
       allow read: if isSignedIn();
-      allow write: if false; // Only manageable via internal setup/signup once
+      allow write: if false; 
     }
 
     match /roles_admin/{uid} {
@@ -66,10 +70,11 @@ service cloud.firestore {
 
     // Users & Staff Profiles
     match /users/{userId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.uid || isAdmin());
+      // Allow discovery of own profile or listing within same hospital
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSameHospital(resource.data));
+      allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow create: if isSignedIn(); // Creation handled via Admin SDK/Batch in onboarding
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // Patients
