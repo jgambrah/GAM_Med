@@ -1,6 +1,6 @@
-
 /**
- * @fileoverview Updated types for the Space & Facility Management Module.
+ * @fileoverview Updated types for the GamMed ERP System.
+ * Ensures all financial and clinical entities are properly defined for the Billing Dashboard.
  */
 
 export interface Facility {
@@ -68,6 +68,7 @@ export interface Hospital {
   subscriptionTier: 'basic' | 'premium';
   createdAt: string;
   isInternal?: boolean;
+  ownerEmail?: string;
 }
 
 export interface User {
@@ -94,9 +95,12 @@ export interface User {
   hireDate?: string;
   leaveBalances?: Record<string, number>;
   features?: string[];
+  phoneNumber?: string;
+  dateOfBirth?: string;
 }
 
 export interface Patient {
+  id?: string;
   patient_id: string;
   hospitalId: string;
   mrn: string;
@@ -151,23 +155,43 @@ export interface Patient {
 
 export interface Appointment {
   id: string;
+  appointment_id?: string;
   hospitalId: string;
   patientId: string;
+  patient_id?: string;
   patientName: string;
+  patient_name?: string;
   doctorId: string;
+  doctor_id?: string;
   doctorName: string;
+  doctor_name?: string;
   appointmentDate: string;
+  appointment_date?: string;
   timeSlot: string;
-  status: 'Scheduled' | 'Arrived' | 'In-Consultation' | 'Completed' | 'Cancelled';
+  status: 'Scheduled' | 'Arrived' | 'In-Consultation' | 'Completed' | 'Cancelled' | 'confirmed' | 'cancelled' | 'completed';
   reason: string;
   createdAt: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
   department?: string;
+  end_time?: string;
+  duration?: number;
+  isBilled?: boolean;
+  isConfirmed?: boolean;
+  bookingMethod?: string;
+  isVirtual?: boolean;
+  telemedicineLink?: string;
+  notes?: string;
 }
 
 export interface Admission {
+  id?: string;
   admission_id: string;
   hospitalId: string;
+  patientId?: string;
   patient_id: string;
+  patientName?: string;
   type: 'Inpatient' | 'Outpatient' | 'Emergency';
   admission_date: string;
   discharge_date?: string | null;
@@ -178,10 +202,14 @@ export interface Admission {
   attending_doctor_name: string;
   status: 'Admitted' | 'Discharged' | 'Pending Discharge' | 'Cancelled';
   readmissionFlag?: boolean;
+  readmission_flag?: boolean;
   summary_pdf_url?: string;
   created_at: string;
   updated_at: string;
-  readmission_flag?: boolean;
+  dischargeSummary?: any;
+  dischargeByDoctorId?: string;
+  isSummaryFinalized?: boolean;
+  finalBillId?: string;
 }
 
 export interface Ward {
@@ -196,17 +224,24 @@ export interface Bed {
   hospitalId: string;
   wardId: string;
   bedNumber: string;
-  status: 'Available' | 'Occupied' | 'Cleaning' | 'Maintenance' | 'Reserved';
+  status: 'Available' | 'Occupied' | 'Cleaning' | 'Maintenance' | 'Reserved' | 'vacant' | 'occupied';
   currentPatientId?: string | null;
+  current_patient_id?: string | null;
   currentPatientName?: string | null;
   wardName?: string;
+  room_number?: string;
   type: string;
   occupiedSince?: string | null;
+  occupied_since?: string | null;
+  cleaningNeeded?: boolean;
   createdAt: string;
+  created_at?: string;
   updatedAt: string;
+  updated_at?: string;
 }
 
 export interface MedicationRecord {
+  id?: string;
   prescriptionId: string;
   hospitalId: string;
   patientId: string;
@@ -223,10 +258,13 @@ export interface MedicationRecord {
 
 export interface LedgerAccount {
   accountId: string;
+  id?: string;
   hospitalId: string;
   accountName: string;
+  name?: string;
   accountCode: string;
   accountType: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+  type?: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
   balance: number;
   isSubLedger: boolean;
   parentAccountId?: string | null;
@@ -235,8 +273,10 @@ export interface LedgerAccount {
 
 export interface LedgerEntry {
   entryId: string;
+  id?: string;
   hospitalId: string;
   accountId: string;
+  account_id?: string;
   date: string;
   description: string;
   debit?: number;
@@ -245,25 +285,35 @@ export interface LedgerEntry {
 
 export interface Invoice {
   invoiceId: string;
+  id?: string;
   hospitalId: string;
   patientId: string;
+  patient_id?: string;
   patientName: string;
+  patient_name?: string;
   patientType: 'private' | 'corporate' | 'public';
   issueDate: string;
   dueDate: string;
+  due_date?: string;
   billedItems: InvoiceLineItem[];
   subtotal: number;
   vatOption: 'zero' | 'flat' | 'standard';
-  vat: number;
-  nhia: number;
-  getfund: number;
-  covidLevy: number;
-  totalTax: number;
+  vat?: number;
+  nhia?: number;
+  getfund?: number;
+  covidLevy?: number;
+  totalTax?: number;
   grandTotal: number;
+  amount?: number;
   amountDue: number;
-  status: 'Pending Payment' | 'Paid' | 'Overdue' | 'Partially Paid' | 'Draft';
+  status: 'Pending Payment' | 'Paid' | 'Overdue' | 'Partially Paid' | 'Draft' | 'Unpaid' | 'Void';
   invoicePdfUrl?: string;
   receipts?: Receipt[];
+  paymentMethod?: string;
+  paidAt?: any;
+  createdAt?: any;
+  created_at?: any;
+  updatedAt?: any;
 }
 
 export interface InvoiceLineItem {
@@ -328,8 +378,8 @@ export interface MedicalEquipment {
   lastMaintenance?: string;
   nextMaintenance?: string;
   oxygenLevel?: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: any;
+  updatedAt: any;
 }
 
 export interface ResourceBooking {
@@ -539,6 +589,8 @@ export interface Prescription {
   datePrescribed: string;
   status: 'Pending' | 'Dispensed' | 'Canceled';
   medications: PrescribedMedication[];
+  dispensedBy?: string;
+  dispensedAt?: string;
 }
 
 export interface PrescribedMedication {
@@ -557,20 +609,27 @@ export interface ControlledSubstance {
   form: string;
   totalQuantity: number;
   unit: string;
+  id?: string;
 }
 
 export interface ControlledSubstanceLog {
+  id?: string;
   logId: string;
   hospitalId: string;
   substanceId: string;
+  substanceName?: string;
   date: string;
   transactionType: 'Dispense' | 'Restock' | 'Audit' | 'Waste' | 'Adjustment';
   quantityChange: number;
   currentQuantity: number;
   userId: string;
+  performedBy?: string;
+  performedByUserId?: string;
   patientId?: string;
   witnessId?: string;
+  witnessName?: string;
   reason: string;
+  createdAt?: any;
 }
 
 export interface LabTest {
@@ -628,7 +687,7 @@ export interface RadiologyOrder {
   status: 'Pending' | 'Scheduled' | 'Awaiting Report' | 'Completed';
   scheduledDateTime?: string;
   clinicalNotes?: string;
-  priority: 'Routine' | 'Urgent';
+  priority: 'Routine' | 'Urgent' | number;
   isReported?: boolean;
   imageURL?: string;
   impression?: string;
@@ -663,11 +722,14 @@ export interface OTSession {
   startTime: string;
   estimatedDuration: number;
   priority: 'Emergency' | 'Elective' | 'Urgent';
-  actualStartTime?: string;
-  actualEndTime?: string;
+  actualStartTime?: any;
+  actualEndTime?: any;
   recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
   recoveryRoomEntryTime?: string;
   dischargeFromRecoveryTime?: string;
+  updatedAt?: any;
+  createdAt?: any;
+  notes?: string;
 }
 
 export interface Referral {
@@ -680,12 +742,14 @@ export interface Referral {
   patientId: string;
   patientName: string;
   clinicalSummary: string;
-  status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed';
+  status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed' | 'Pending Review' | 'Assigned' | 'Scheduled' | 'Pending Further Action';
   priority: 'Routine' | 'Urgent' | 'Emergency';
   doctorId: string;
   doctorName: string;
   createdAt: string;
   updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
   patientDetails?: any;
   assignedDoctorId?: string;
   assignedDoctorName?: string;
@@ -705,6 +769,7 @@ export interface DietaryOrder {
   specialInstructions?: string;
   status: 'Requested' | 'Preparing' | 'Delivered' | 'Cancelled';
   createdAt: string;
+  deliveredAt?: string;
 }
 
 export interface DietaryProfile {
@@ -906,22 +971,29 @@ export interface MortalityRecord {
   hospitalId: string;
   patientId: string;
   patientName: string;
-  dateOfDeath: string;
+  dateOfDeath: any;
   cause: string;
   certifiedBy: string;
   certifiedByUserId: string;
   icd10: string;
   remarks?: string;
+  createdAt?: any;
 }
 
 export interface FinancialTransaction {
   transactionId: string;
+  id?: string;
   hospitalId: string;
   invoiceId: string;
   amount: number;
-  paymentMethod: 'Cash' | 'Credit Card' | 'Mobile Money' | 'Insurance Payout';
+  paymentMethod: 'Cash' | 'Credit Card' | 'Mobile Money' | 'Insurance Payout' | 'POS / Card';
   paymentDate: string;
   paymentId?: string;
+  type?: string;
+  description?: string;
+  createdAt?: any;
+  date?: string;
+  category?: string;
 }
 
 export interface Receipt {
@@ -951,6 +1023,7 @@ export interface Bill {
 }
 
 export interface ClinicalNote {
+  id?: string;
   noteId: string;
   hospitalId: string;
   patientId: string;
@@ -962,6 +1035,7 @@ export interface ClinicalNote {
 }
 
 export interface VitalsLog {
+  id?: string;
   vitalId: string;
   hospitalId: string;
   patientId: string;
@@ -978,6 +1052,7 @@ export interface VitalsLog {
 }
 
 export interface CarePlan {
+  id?: string;
   planId: string;
   hospitalId: string;
   patientId: string;
@@ -1038,20 +1113,37 @@ export interface HealthContent {
 
 export interface Claim {
   claimId: string;
+  id?: string;
   hospitalId: string;
   patientId: string;
+  patient_id?: string;
   patientName: string;
+  patient_name?: string;
   providerId: string;
+  insurance_provider?: string;
+  policy_number?: string;
   submissionDate: string;
-  status: 'Paid' | 'Submitted' | 'Denied';
+  submission_date?: string;
+  status: 'Paid' | 'Submitted' | 'Denied' | 'Pending' | 'Approved' | 'Rejected';
+  amount?: number;
   payoutAmount?: number;
   invoiceId: string;
   denialReasonCode?: string;
   followUpNotes?: FollowUpNote[];
+  service_date?: string;
+  diagnosis_codes?: string[];
 }
 
 export interface FollowUpNote {
   note: string;
   userId: string;
   date: string;
+}
+
+export interface MyReportedIssue {
+  issueId: string;
+  dateReported: string;
+  description: string;
+  item: string;
+  status: string;
 }
