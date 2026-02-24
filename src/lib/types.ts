@@ -40,7 +40,7 @@ export interface User {
 }
 
 export interface Patient {
-  patient_id: string; // This will be {hospitalId}_MRN{mrn}
+  patient_id: string; // This will be {hospitalId}_MRN123456
   hospitalId: string; // Tenant ID
   mrn: string; // Unique record number within hospital
   title: string;
@@ -843,14 +843,26 @@ export interface Reminder {
 }
 
 export interface Diagnosis {
+  id: string; // Firestore ID
   diagnosisId: string;
-  hospitalId: string;
+  hospitalId: string; // Tenant ID
   patientId: string;
   diagnosisText: string;
   icd10Code: string;
   diagnosedAt: string;
   diagnosedByDoctorId: string;
   isPrimary: boolean;
+}
+
+export interface MortalityRecord {
+  id: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  dateOfDeath: string;
+  cause: string;
+  certifiedBy: string;
+  notes?: string;
 }
 
 export interface FinancialTransaction {
