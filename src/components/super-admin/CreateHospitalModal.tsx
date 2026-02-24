@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useFirestore, useAuth } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -32,17 +32,11 @@ import { Plus, Building2, ShieldAlert } from 'lucide-react';
 
 const CreateHospitalSchema = z.object({
   hospitalName: z.string().min(3, 'Hospital name must be at least 3 characters'),
+  directorName: z.string().min(3, 'Director full name is required'),
   directorEmail: z.string().email('Invalid email address'),
   directorPassword: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
-/**
- * == Super Admin: Tenant Provisioning Tool ==
- * 
- * This tool allows the CEO to add new clients (Hospitals).
- * It creates the Hospital entry and the Director account, 
- * "stamping" them both with a new hospitalId for isolation.
- */
 export default function CreateHospitalModal() {
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -53,6 +47,7 @@ export default function CreateHospitalModal() {
     resolver: zodResolver(CreateHospitalSchema),
     defaultValues: {
       hospitalName: '',
+      directorName: '',
       directorEmail: '',
       directorPassword: '',
     },
@@ -74,14 +69,15 @@ export default function CreateHospitalModal() {
       const batch = writeBatch(db);
 
       // STAMP the Director User Record
+      // Pattern: {hospitalId}_{email} - The SaaS isolation anchor
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
       const userRef = doc(db, 'users', userDocId);
       batch.set(userRef, {
         uid: uid,
         email: values.directorEmail.toLowerCase().trim(),
-        hospitalId: newHospitalId, // THE STAMP
+        hospitalId: newHospitalId,
         role: 'director',
-        name: `${values.hospitalName} Director`,
+        name: values.directorName,
         is_active: true,
         created_at: now,
         last_login: now,
@@ -91,7 +87,7 @@ export default function CreateHospitalModal() {
       const hospitalRef = doc(db, 'hospitals', newHospitalId);
       batch.set(hospitalRef, {
         hospitalId: newHospitalId,
-        id: newHospitalId, // Support both ID fields
+        id: newHospitalId,
         name: values.hospitalName,
         slug: newHospitalId,
         status: 'active',
@@ -104,7 +100,7 @@ export default function CreateHospitalModal() {
       await batch.commit();
 
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active. Please log back in as CEO.`
+        description: `${values.hospitalName} is now active. You will be signed out to complete the Director's onboarding.`
       });
       
       setOpen(false);
@@ -146,6 +142,17 @@ export default function CreateHospitalModal() {
                 <FormItem>
                   <FormLabel>Hospital Name</FormLabel>
                   <FormControl><Input placeholder="e.g., City General Hospital" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="directorName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Director Full Name</FormLabel>
+                  <FormControl><Input placeholder="Dr. James Smith" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

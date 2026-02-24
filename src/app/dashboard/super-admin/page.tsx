@@ -77,7 +77,7 @@ export default function SuperAdminDashboard() {
                     <CardContent>
                         <div className="text-3xl font-bold text-purple-900">{stats.totalUsers}</div>
                     </CardContent>
-                </div>
+                </Card>
             </div>
 
             {/* Hospitals Table */}
@@ -86,42 +86,44 @@ export default function SuperAdminDashboard() {
                     <CardTitle>Global Tenant Directory</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader className="bg-muted/50">
-                            <TableRow>
-                                <TableHead>Hospital Name</TableHead>
-                                <TableHead>ID / Slug</TableHead>
-                                <TableHead>Director Email</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Registered</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {hospitals.length > 0 ? (
-                                hospitals.map((hosp: any) => (
-                                    <TableRow key={hosp.id}>
-                                        <TableCell className="font-semibold">{hosp.name}</TableCell>
-                                        <TableCell><code className="text-xs bg-muted px-1 rounded">{hosp.id}</code></TableCell>
-                                        <TableCell>{hosp.ownerEmail || 'N/A'}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={hosp.status === 'active' ? "default" : "destructive"}>
-                                                {hosp.status === 'active' ? "Active" : "Suspended"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {hosp.createdAt ? (typeof hosp.createdAt === 'string' ? new Date(hosp.createdAt).toLocaleDateString() : new Date(hosp.createdAt.seconds * 1000).toLocaleDateString()) : 'N/A'}
+                    <div className="rounded-md border mx-6 mb-6">
+                        <Table>
+                            <TableHeader className="bg-muted/50">
+                                <TableRow>
+                                    <TableHead>Hospital Name</TableHead>
+                                    <TableHead>ID / Slug</TableHead>
+                                    <TableHead>Director Email</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Registered</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {hospitals.length > 0 ? (
+                                    hospitals.map((hosp: any) => (
+                                        <TableRow key={hosp.id}>
+                                            <TableCell className="font-semibold">{hosp.name}</TableCell>
+                                            <TableCell><code className="text-xs bg-muted px-1 rounded">{hosp.id}</code></TableCell>
+                                            <TableCell>{hosp.ownerEmail || 'N/A'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={hosp.status === 'active' ? "default" : "destructive"}>
+                                                    {hosp.status === 'active' ? "Active" : "Suspended"}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {hosp.createdAt ? (typeof hosp.createdAt === 'string' ? new Date(hosp.createdAt).toLocaleDateString() : new Date(hosp.createdAt.seconds * 1000).toLocaleDateString()) : 'N/A'}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground text-sm">
+                                            No hospital tenants found on the platform.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground text-sm">
-                                        No hospital tenants found on the platform.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
