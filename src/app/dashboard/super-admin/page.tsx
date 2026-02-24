@@ -1,15 +1,20 @@
-
 'use client';
 
 import * as React from 'react';
 import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { Hospital } from '@/lib/types';
 
+/**
+ * == Super Admin Platform Control Tower ==
+ * 
+ * Provides global oversight of all hospital tenants.
+ * Utilizes "God Mode" permissions to aggregate platform-wide stats.
+ */
 export default function SuperAdminDashboard() {
   const db = useFirestore();
   const [hospitals, setHospitals] = React.useState<Hospital[]>([]);
@@ -18,14 +23,14 @@ export default function SuperAdminDashboard() {
   React.useEffect(() => {
     if (!db) return;
 
-    // 1. Listen to all hospitals (God Mode enabled for super_admin role)
+    // 1. Real-time listener for all hospitals
     const unsubHospitals = onSnapshot(collection(db, "hospitals"), (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Hospital));
+      const list = snap.docs.map(doc => ({ hospitalId: doc.id, ...doc.data() } as Hospital));
       setHospitals(list);
       setStats(prev => ({ ...prev, totalHospitals: snap.size }));
     });
 
-    // 2. Fetch Global Stats (God Mode)
+    // 2. Fetch platform-wide counts
     const fetchGlobalStats = async () => {
       try {
         const [patientsSnap, usersSnap] = await Promise.all([
@@ -87,6 +92,7 @@ export default function SuperAdminDashboard() {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Global Tenant Directory</CardTitle>
+          <CardDescription>Directory of all healthcare facilities provisioned on the platform.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="rounded-md border mx-6 mb-6">
@@ -103,12 +109,12 @@ export default function SuperAdminDashboard() {
               <TableBody>
                 {hospitals.length > 0 ? (
                   hospitals.map((hosp: any) => (
-                    <TableRow key={hosp.id}>
+                    <TableRow key={hosp.hospitalId}>
                       <TableCell className="font-semibold">{hosp.name}</TableCell>
-                      <TableCell><code className="text-xs bg-muted px-1 rounded">{hosp.id}</code></TableCell>
+                      <TableCell><code className="text-xs bg-muted px-1 rounded">{hosp.hospitalId}</code></TableCell>
                       <TableCell>{hosp.ownerEmail || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge variant={hosp.status === 'active' ? "default" : "secondary"}>
+                        <Badge variant={hosp.status === 'active' ? "secondary" : "destructive"}>
                           {hosp.status === 'active' ? "Active" : "Suspended"}
                         </Badge>
                       </TableCell>

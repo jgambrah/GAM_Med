@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -6,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { useFirestore, useAuth } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -41,9 +40,9 @@ const CreateHospitalSchema = z.object({
 /**
  * == Super Admin: Tenant Provisioning Tool ==
  * 
- * This component handles the creation of new hospital tenants using the client SDK.
- * It atomically provisions the Hospital record and the Director's profile, "stamping" 
- * them both with a unique shared hospitalId for logical isolation.
+ * This component handles the creation of new hospital tenants.
+ * It atomically provisions the Hospital record and the Director's profile,
+ * "stamping" them both with a unique shared hospitalId for logical isolation.
  */
 export default function CreateHospitalModal() {
   const [open, setOpen] = React.useState(false);
@@ -69,7 +68,7 @@ export default function CreateHospitalModal() {
       const now = new Date().toISOString();
 
       // 2. Create the Director in Firebase Auth
-      // NOTE: Creating a new user via the client SDK will automatically sign out the current user.
+      // NOTE: Creating a new user via the client SDK will automatically sign out the current CEO user.
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
@@ -96,14 +95,12 @@ export default function CreateHospitalModal() {
       const hospitalRef = doc(db, 'hospitals', newHospitalId);
       batch.set(hospitalRef, {
         hospitalId: newHospitalId,
-        id: newHospitalId,
         name: values.hospitalName,
         slug: newHospitalId,
         status: 'active',
-        isActive: true,
-        createdAt: serverTimestamp(),
-        ownerEmail: values.directorEmail,
         subscriptionTier: 'basic',
+        createdAt: now,
+        ownerEmail: values.directorEmail,
       });
 
       await batch.commit();
