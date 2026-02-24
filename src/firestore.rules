@@ -28,15 +28,24 @@ service cloud.firestore {
     }
 
     /**
-     * Logic: The token's hospitalId (or doc data) MUST match the requested data's hospitalId.
-     * Note: We fetch the current user's hospitalId from their profile document.
+     * Logic: Fetch the current user's hospitalId from their profile document.
      */
     function getMyHospitalId() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
     }
 
+    /**
+     * Logic: Ensures staff members only see data from their own facility.
+     */
     function isSameHospital(docData) {
       return isSignedIn() && (docData.hospitalId == getMyHospitalId() || isSuperAdmin());
+    }
+
+    /**
+     * Helper: Checks if the user is the patient themselves via Custom Claims.
+     */
+    function isPatient(patientId) {
+      return isSignedIn() && request.auth.token.patientId == patientId;
     }
 
     // --------------------------------------------------------------------
@@ -57,36 +66,75 @@ service cloud.firestore {
       allow list: if isSuperAdmin();
     }
 
-    // Role Markers (DBAC)
-    match /roles_super_admin/{uid} {
-      allow read: if isSignedIn();
-      allow write: if false; 
-    }
-
-    match /roles_admin/{uid} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin();
-    }
-
     // Users & Staff Profiles
     match /users/{userId} {
-      // Allow discovery of own profile (important for login)
       allow get: if isSignedIn() && (request.auth.uid == userId || isSameHospital(resource.data));
-      // Listing is restricted to same-hospital staff
       allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
-      // Create: Only Directors/Admins can provision new staff, and they must stamp with their own hospitalId
       allow create: if isSignedIn() && isAdmin() && request.resource.data.hospitalId == getMyHospitalId();
-      // Update: Allow users to update their own profile (or admin)
       allow update: if isSignedIn() && (request.auth.uid == userId || (isAdmin() && isSameHospital(resource.data)));
     }
 
-    // Patients
+    // Patients (Demographics)
     match /patients/{patientId} {
       allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
-      allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin() || isPatient(patientId));
       allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId());
       allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
       allow delete: if isAdmin() && isSameHospital(resource.data);
+    }
+
+    // --- Clinical Data (Patient Portal Access) ---
+
+    match /vitals/{vitalId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /clinical_notes/{noteId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /lab_orders/{orderId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /lab_results/{resultId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /medication_records/{medId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /prescriptions/{presId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /radiology_orders/{orderId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /appointments/{apptId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patient_id));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    // --- Financial Data (Patient Portal Billing) ---
+
+    match /invoices/{invId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /transactions/{txId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     // Generic Safety Net for all other tenant-scoped documents
