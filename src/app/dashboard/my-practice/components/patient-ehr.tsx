@@ -10,7 +10,10 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
+import { Scissors } from 'lucide-react';
 
 // EHR Components
 import { DemographicsTab } from '../../patients/[patientId]/components/demographics-tab';
@@ -24,9 +27,11 @@ import { VitalsTab } from '../../patients/[patientId]/components/vitals-tab';
 import { PatientAlerts } from '../../patients/[patientId]/components/patient-alerts';
 import { OrderTestDialog } from '../../patients/[patientId]/components/order-test-dialog';
 import { OrderStudyDialog } from '../../patients/[patientId]/components/order-study-dialog';
+import { PreOpChecklistTab } from '../../patients/[patientId]/components/pre-op-checklist-tab';
+import { PostOpCareTab } from '../../patients/[patientId]/components/post-op-care-tab';
 
 // Types
-import { Patient } from '@/lib/types';
+import { Patient, OTSession } from '@/lib/types';
 
 interface PatientEHRProps {
     patient: Patient;
@@ -41,6 +46,25 @@ interface PatientEHRProps {
  */
 export function PatientEHR({ patient }: PatientEHRProps) {
   const { user } = useAuth();
+  const firestore = useFirestore();
+
+  // Premium Feature Check: Surgical Module
+  const isSurgicalEnabled = user?.features?.includes('surgical_module');
+
+  // Fetch active surgery sessions if surgical module is enabled
+  const surgeryQuery = useMemoFirebase(() => {
+    if (!firestore || !isSurgicalEnabled || !patient.patient_id || !user?.hospitalId) return null;
+    return query(
+        collection(firestore, 'ot_sessions'),
+        where('hospitalId', '==', user.hospitalId),
+        where('patientId', '==', patient.patient_id),
+        where('status', 'in', ['Scheduled', 'In Progress', 'Post-Op']),
+        limit(1)
+    );
+  }, [firestore, isSurgicalEnabled, patient.patient_id, user?.hospitalId]);
+
+  const { data: surgeries } = useCollection<OTSession>(surgeryQuery);
+  const activeSurgery = surgeries?.[0];
 
   return (
     <Card className="h-full flex flex-col shadow-md overflow-hidden border-t-4 border-t-primary">
@@ -86,13 +110,19 @@ export function PatientEHR({ patient }: PatientEHRProps) {
 
                 {/* Longitudinal Medical Record Sections */}
                 <Tabs defaultValue="notes" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto bg-muted/50 p-1">
+                    <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 h-auto bg-muted/50 p-1">
                         <TabsTrigger value="notes">Notes</TabsTrigger>
                         <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
                         <TabsTrigger value="medications">Meds</TabsTrigger>
                         <TabsTrigger value="labs">Labs</TabsTrigger>
                         <TabsTrigger value="vitals">Vitals</TabsTrigger>
                         <TabsTrigger value="admissions">Visits</TabsTrigger>
+                        {isSurgicalEnabled && (
+                            <TabsTrigger value="surgical" className="gap-1">
+                                <Scissors className="h-3 w-3" />
+                                Surgery
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="demographics">Profile</TabsTrigger>
                         <TabsTrigger value="billing">Finance</TabsTrigger>
                     </TabsList>
@@ -116,6 +146,13 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                     <TabsContent value="vitals" className="mt-4">
                         <VitalsTab patientId={patient.patient_id} />
                     </TabsContent>
+
+                    {isSurgicalEnabled && (
+                        <TabsContent value="surgical" className="mt-4 space-y-6">
+                            <PreOpChecklistTab surgery={activeSurgery} />
+                            <PostOpCareTab surgery={activeSurgery} />
+                        </TabsContent>
+                    )}
                     
                      <TabsContent value="admissions" className="mt-4">
                         <AdmissionsHistoryTab patientId={patient.patient_id} />

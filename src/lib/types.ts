@@ -36,6 +36,7 @@ export interface User {
   employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
   hireDate?: string;
   leaveBalances?: Record<string, number>;
+  features?: string[]; // SaaS Feature Flags (e.g., ['surgical_module'])
 }
 
 export interface Patient {
@@ -202,7 +203,7 @@ export interface MedicationRecord {
   prescribedByDoctorId: string;
   prescribedByDoctorName: string;
   prescribedAt: string;
-  status: 'Active' | 'Discontinued' | 'Completed' | 'Filled';
+  status: 'Active' | 'Filled' | 'Discontinued' | 'Completed';
 }
 
 export interface LedgerAccount {
@@ -856,6 +857,7 @@ export interface ClinicalNote {
   recordedByUserId: string;
   noteText: string;
   recordedAt: string;
+  createdAt?: string; // Standardized field for indexing
 }
 
 export interface VitalsLog {
@@ -871,6 +873,7 @@ export interface VitalsLog {
   notes?: string;
   recordedByUserId: string;
   recordedAt: string;
+  createdAt?: string; // Standardized field for indexing
 }
 
 export interface CarePlan {

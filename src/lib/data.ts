@@ -48,6 +48,7 @@ export const allUsers: User[] = [
     created_at: now.toISOString(),
     last_login: now.toISOString(),
     photoURL: 'https://picsum.photos/seed/superadmin/200',
+    features: ['surgical_module'],
   },
   {
     uid: 'hosp-1_director@cityhosp.com',
@@ -59,6 +60,7 @@ export const allUsers: User[] = [
     created_at: now.toISOString(),
     last_login: now.toISOString(),
     photoURL: 'https://picsum.photos/seed/director1/200',
+    features: ['surgical_module'],
   },
   {
     uid: 'hosp-1_admin@gammed.com',
@@ -70,6 +72,7 @@ export const allUsers: User[] = [
     created_at: now.toISOString(),
     last_login: now.toISOString(),
     photoURL: 'https://picsum.photos/seed/admin1/200',
+    features: ['surgical_module'],
   },
   {
     uid: 'hosp-1_e.mensah@gammed.com',
@@ -85,6 +88,7 @@ export const allUsers: User[] = [
     last_login: now.toISOString(),
     availability: { '2024-08-16': ['09:00', '10:00', '11:00', '14:00', '15:00'] },
     photoURL: 'https://picsum.photos/seed/doc1/200',
+    features: ['surgical_module'],
   },
   {
     uid: 'hosp-1_f.agyepong@gammed.com',
@@ -97,6 +101,7 @@ export const allUsers: User[] = [
     created_at: now.toISOString(),
     last_login: now.toISOString(),
     photoURL: 'https://picsum.photos/seed/nurse1/200',
+    features: ['surgical_module'],
   },
   {
     uid: 'hosp-2_doctor@stmary.com',

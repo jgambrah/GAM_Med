@@ -23,12 +23,10 @@ import {
     Pill, 
     AlertCircle, 
     BedDouble,
-    Loader2,
-    CheckCircle2
+    Scissors
 } from 'lucide-react';
 import { NurseTaskQueue } from './components/nurse-task-queue';
 import { WardOccupancy } from './components/ward-occupancy';
-import { PatientAlerts } from '../patients/[patientId]/components/patient-alerts';
 import { Badge } from '@/components/ui/badge';
 
 /**
@@ -40,6 +38,9 @@ import { Badge } from '@/components/ui/badge';
 export default function NursingPage() {
   const { user } = useAuth();
   const firestore = useFirestore();
+
+  // SaaS Feature Toggle: Check if the hospital has the "Surgical" module enabled
+  const isSurgicalEnabled = user?.features?.includes('surgical_module');
 
   // 1. Fetch Global Facility Alerts (Critical Only)
   const alertsQuery = useMemoFirebase(() => {
@@ -53,7 +54,7 @@ export default function NursingPage() {
     );
   }, [firestore, user?.hospitalId]);
 
-  const { data: criticalAlerts, isLoading: alertsLoading } = useCollection(alertsQuery);
+  const { data: criticalAlerts } = useCollection(alertsQuery);
 
   return (
     <div className="space-y-6">
@@ -97,6 +98,12 @@ export default function NursingPage() {
                         <Pill className="h-4 w-4" />
                         Medication Rounds
                     </TabsTrigger>
+                    {isSurgicalEnabled && (
+                        <TabsTrigger value="surgical" className="gap-2">
+                            <Scissors className="h-4 w-4" />
+                            Surgical Worklist
+                        </TabsTrigger>
+                    )}
                 </TabsList>
                 
                 <TabsContent value="tasks" className="mt-4">
@@ -106,6 +113,18 @@ export default function NursingPage() {
                 <TabsContent value="meds" className="mt-4">
                     <NurseTaskQueue hospitalId={user?.hospitalId} type="Meds" />
                 </TabsContent>
+
+                {isSurgicalEnabled && (
+                    <TabsContent value="surgical" className="mt-4">
+                        <Card className="border-dashed bg-muted/20">
+                            <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                                <Scissors className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                                <p className="font-semibold text-muted-foreground">Surgical Preparation</p>
+                                <p className="text-sm text-muted-foreground">Pre-op and Post-op tasks will appear here for scheduled procedures.</p>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
             </Tabs>
         </div>
 
