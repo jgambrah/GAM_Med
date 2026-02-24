@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -25,24 +25,37 @@ export default function PlatformOwnerSetup() {
     const auth = useAuth();
     const db = useFirestore();
 
+    useEffect(() => {
+        // Debug check for developers
+        if (!process.env.NEXT_PUBLIC_MASTER_SECRET_KEY) {
+            console.warn("DEVELOPER ALERT: NEXT_PUBLIC_MASTER_SECRET_KEY is not defined in your .env file.");
+        }
+    }, []);
+
     const handleSetup = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Check against secret key in environment variables
-        if (adminKey !== process.env.NEXT_PUBLIC_MASTER_SECRET_KEY) {
-            return toast.error("Unauthorized", { description: "Invalid Master Admin Key." });
+        // 1. Validate against secret key
+        const masterKey = process.env.NEXT_PUBLIC_MASTER_SECRET_KEY;
+        
+        if (!masterKey) {
+            return toast.error("System Error", { description: "Master Secret Key is not configured on the server." });
+        }
+
+        if (adminKey !== masterKey) {
+            return toast.error("Unauthorized", { description: "Invalid Master Admin Key. Please check your .env file." });
         }
 
         try {
-            // 1. Create the Auth User
+            // 2. Create the Auth User
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const uid = userCredential.user.uid;
 
-            // 2. Provision Internal Tenant (HQ)
+            // 3. Provision Internal Tenant (HQ)
             const hospitalId = 'GAMMED_HQ';
             const userDocId = `${hospitalId}_${email.toLowerCase().trim()}`;
 
-            // 3. Create Super Admin Document
+            // 4. Create Super Admin Document
             await setDoc(doc(db, 'users', userDocId), {
                 uid: uid,
                 email: email.toLowerCase(),
@@ -53,7 +66,7 @@ export default function PlatformOwnerSetup() {
                 created_at: new Date().toISOString()
             });
 
-            // 4. Create the HQ Hospital Doc
+            // 5. Create the HQ Hospital Doc
             await setDoc(doc(db, 'hospitals', hospitalId), {
                 hospitalId: hospitalId,
                 name: "Gam It Services HQ",
