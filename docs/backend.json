@@ -465,6 +465,34 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "OTSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OTSession",
+      "type": "object",
+      "description": "Manages high-intensity Operating Theater (OT) sessions, linking patients, surgeons, and facilities.",
+      "properties": {
+        "id": { "type": "string" },
+        "hospitalId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "procedureName": { "type": "string" },
+        "surgeonId": { "type": "string" },
+        "surgeonName": { "type": "string" },
+        "anesthetistName": { "type": "string" },
+        "otRoomId": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Scheduled", "In-Progress", "Post-Op", "Completed", "Cancelled"]
+        },
+        "startTime": { "type": "string", "format": "date-time" },
+        "estimatedDuration": { "type": "number", "description": "Duration in minutes" },
+        "priority": {
+          "type": "string",
+          "enum": ["Emergency", "Elective", "Urgent"]
+        }
+      },
+      "required": ["id", "hospitalId", "patientId", "procedureName", "surgeonId", "otRoomId", "status", "startTime", "priority"]
     }
   },
   "auth": {
@@ -599,6 +627,22 @@
             {
               "name": "appointmentId",
               "description": "Unique identifier for the Appointment entity."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/ot_sessions/{sessionId}",
+        "definition": {
+          "entityName": "OTSession",
+          "schema": {
+            "$ref": "#/backend/entities/OTSession"
+          },
+          "description": "Logically isolated surgical sessions. Tied to hospitalId for SaaS security.",
+          "params": [
+            {
+              "name": "sessionId",
+              "description": "Unique identifier for the surgical session."
             }
           ]
         }
