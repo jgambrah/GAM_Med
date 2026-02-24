@@ -35,43 +35,25 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { NewAppointmentSchema } from '@/lib/schemas';
-import { allPatients as initialPatients, allUsers, allAppointments as initialAppointments } from '@/lib/data';
-import { Plus, Clock } from 'lucide-react';
-import { bookAppointment } from '@/lib/actions';
+import { allPatients as initialPatients, allUsers } from '@/lib/data';
+import { Plus, Loader2, Calendar } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Appointment, Patient, User } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-
-const mockDepartments = [
-    { value: 'Cardiology', label: 'Cardiology' },
-    { value: 'Orthopedics', label: 'Orthopedics' },
-    { value: 'Pediatrics', label: 'Pediatrics' },
-    { value: 'Neurology', label: 'Neurology' },
-    { value: 'General Surgery', label: 'General Surgery' },
-    { value: 'Dermatology', label: 'Dermatology' },
-];
+import { useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
 
 const mockAvailableSlots = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30'
-];
-
-const mockProcedureRooms = [
-    { value: 'proc-room-1', label: 'Procedure Room 1' },
-    { value: 'proc-room-2', label: 'Procedure Room 2' },
+  '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM'
 ];
 
 interface NewAppointmentDialogProps {
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   appointmentToReschedule?: Appointment | null;
-  patientId?: string; // Prop to pre-select a patient
-  doctorId?: string; // Prop to pre-select a doctor
+  patientId?: string;
   onAppointmentBooked?: (newAppointment: Appointment) => void;
 }
 
@@ -80,421 +62,200 @@ export function NewAppointmentDialog({
   onOpenChange, 
   appointmentToReschedule,
   patientId,
-  doctorId,
   onAppointmentBooked,
 }: NewAppointmentDialogProps) {
-  const [internalOpen, setInternalOpen] = React.useState(false);
-  const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
-  const [isLoadingSlots, setIsLoadingSlots] = React.useState(false);
+  const [internalOpen, setOpen] = React.useState(false);
   const { user } = useAuth();
+  const firestore = useFirestore();
   const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
-  const [allAppointments, setAllAppointments] = useLocalStorage<Appointment[]>('appointments', initialAppointments);
   
   const isEditing = !!appointmentToReschedule;
-  const isPrefilled = !!patientId;
-  const open = isOpen !== undefined ? isOpen : internalOpen;
-  const setOpen = onOpenChange !== undefined ? onOpenChange : setInternalOpen;
+  const dialogOpen = isOpen !== undefined ? isOpen : internalOpen;
+  const setDialogOpen = onOpenChange !== undefined ? onOpenChange : setOpen;
   
   const form = useForm<z.infer<typeof NewAppointmentSchema>>({
     resolver: zodResolver(NewAppointmentSchema),
     defaultValues: {
-      patientId: '',
-      department: '',
-      doctorId: 'any',
+      hospitalId: user?.hospitalId || '',
+      patientId: patientId || '',
       appointmentDate: '',
       appointmentTime: '',
-      type: 'consultation',
-      resourceId: '',
-      isVirtual: false,
+      doctorId: '',
+      reason: '',
     },
   });
 
   React.useEffect(() => {
-     if (open) {
-        let defaultValues: Partial<z.infer<typeof NewAppointmentSchema>> = {
-            patientId: user?.role === 'patient' ? user.patient_id : '',
-            department: '',
-            doctorId: 'any',
-            appointmentDate: '',
-            appointmentTime: '',
-            type: 'consultation',
-            isVirtual: false,
-        };
-
-        if (isEditing && appointmentToReschedule) {
-            defaultValues = {
-                ...defaultValues,
-                patientId: appointmentToReschedule.patient_id,
-                department: appointmentToReschedule.department,
-                doctorId: appointmentToReschedule.doctor_id,
-                appointmentDate: format(new Date(appointmentToReschedule.appointment_date), 'yyyy-MM-dd'),
-                appointmentTime: format(new Date(appointmentToReschedule.appointment_date), 'HH:mm'),
-                type: appointmentToReschedule.type,
-                isVirtual: appointmentToReschedule.isVirtual,
-            };
-        } else if (isPrefilled && patientId) {
-             defaultValues.patientId = patientId;
-        }
-
-        if (doctorId) {
-            const preselectedDoctor = allUsers.find(u => u.uid === doctorId);
-            if (preselectedDoctor) {
-                defaultValues.doctorId = preselectedDoctor.uid;
-                if (preselectedDoctor.department) {
-                    defaultValues.department = preselectedDoctor.department;
-                }
-            }
-        }
-        
-        form.reset(defaultValues as z.infer<typeof NewAppointmentSchema>);
+    if (dialogOpen && user) {
+        form.setValue('hospitalId', user.hospitalId);
+        if (patientId) form.setValue('patientId', patientId);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isEditing, appointmentToReschedule, user, form.reset, isPrefilled, patientId, doctorId]);
-  
-  const selectedDepartment = form.watch('department');
-  const selectedDate = form.watch('appointmentDate');
-  const appointmentType = form.watch('type');
-
-  React.useEffect(() => {
-    // This simulates fetching available slots when a date is selected.
-    if (selectedDate) {
-        setIsLoadingSlots(true);
-        // In a real app, you would call `getClinicAvailability` or `getDoctorAvailability` here.
-        setTimeout(() => {
-            // To demonstrate the "no slots" workflow, we'll sometimes return an empty array.
-            const slots = Math.random() > 0.3 ? mockAvailableSlots : [];
-            setAvailableSlots(slots);
-            setIsLoadingSlots(false);
-        }, 500); // Simulate network delay
-    } else {
-        setAvailableSlots([]);
-    }
-  }, [selectedDate]);
-
-
-  const doctors = allUsers.filter((user) => user.role === 'doctor');
-  const filteredDoctors = selectedDepartment 
-    ? doctors.filter(doc => doc.department === selectedDepartment)
-    : doctors;
-
-  const patientOptions = allPatients.map(p => ({
-      value: p.patient_id,
-      label: `${p.full_name} (${p.patient_id})`
-  }));
-  
-  const prefilledPatient = allPatients.find(p => p.patient_id === patientId);
-
+  }, [dialogOpen, user, patientId, form]);
 
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
-    const result = await bookAppointment(values); // This is a mock
-    
-    if (result.success) {
-      toast.success(isEditing ? 'The appointment has been successfully rescheduled.' : 'The appointment has been successfully scheduled.');
-      
-      const patient = allPatients.find(p => p.patient_id === values.patientId);
-      const doctor = allUsers.find(u => u.uid === values.doctorId);
+    if (!firestore || !user) return;
 
-      const newAppointment: Appointment = {
-        appointment_id: `AP-${Date.now()}`,
-        patient_id: values.patientId,
-        patient_name: patient?.full_name || 'Unknown Patient',
-        doctor_id: values.doctorId ?? 'any',
-        doctor_name: doctor?.name || 'Any Doctor',
-        appointment_date: new Date(`${values.appointmentDate}T${values.appointmentTime}`).toISOString(),
-        end_time: new Date(new Date(`${values.appointmentDate}T${values.appointmentTime}`).getTime() + 30 * 60000).toISOString(),
-        duration: 30,
-        type: values.type,
-        department: values.department,
-        status: 'confirmed',
-        isBilled: false,
-        isConfirmed: true,
-        bookingMethod: 'Front Desk',
-        notes: '',
-        isVirtual: values.isVirtual,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+    try {
+        const patient = allPatients.find(p => p.patient_id === values.patientId);
+        const doctor = allUsers.find(u => u.uid === values.doctorId);
 
-      setAllAppointments(prev => [newAppointment, ...prev]);
+        const appointmentData = {
+            hospitalId: user.hospitalId,
+            patientId: values.patientId,
+            patientName: patient?.full_name || 'Inpatient',
+            doctorId: values.doctorId || 'staff',
+            doctorName: doctor?.name || 'Staff Physician',
+            appointmentDate: values.appointmentDate,
+            timeSlot: values.appointmentTime,
+            status: 'Scheduled',
+            reason: values.reason || 'General Consultation',
+            createdAt: new Date().toISOString(),
+        };
 
-      if (onAppointmentBooked) {
-        onAppointmentBooked(newAppointment);
-      }
-      setOpen(false);
-      form.reset();
-    } else {
-      toast.error(result.message || 'An unexpected error occurred.');
+        // SaaS Wall Implementation: Stamped write
+        addDocumentNonBlocking(collection(firestore, 'appointments'), appointmentData);
+
+        toast.success(isEditing ? 'Appointment Rescheduled' : 'Appointment Confirmed', {
+            description: `Kofi Mensah is booked for ${values.appointmentDate} at ${values.appointmentTime}.`
+        });
+
+        if (onAppointmentBooked) onAppointmentBooked(appointmentData as any);
+        setDialogOpen(false);
+        form.reset();
+    } catch (error) {
+        toast.error("Process Failed", { description: "You don't have permission to book appointments." });
     }
   };
 
-  const handleAddToWaitlist = () => {
-    // In a real app, this would open the AddToWaitlistDialog,
-    // pre-filled with the patient and service details.
-    setOpen(false);
-    toast.info("This would open the 'Add to Waitlist' dialog.");
-  }
+  const patientOptions = allPatients.map(p => ({
+      value: p.patient_id,
+      label: `${p.full_name} (MRN: ${p.mrn})`
+  }));
 
-  const dialogContent = (
-    <DialogContent className="sm:max-w-lg h-auto max-h-[90vh] flex flex-col">
+  const doctors = allUsers.filter(u => u.role === 'doctor');
+
+  return (
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogTrigger asChild>
+        {!isOpen && (
+            <Button className="shadow-md">
+                <Plus className="h-4 w-4 mr-2" />
+                Schedule Appointment
+            </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Reschedule Appointment' : 'Book New Appointment'}</DialogTitle>
+          <div className="flex items-center gap-2 mb-2 text-primary">
+            <Calendar className="h-5 w-5" />
+            <DialogTitle>{isEditing ? 'Reschedule' : 'New Appointment'}</DialogTitle>
+          </div>
           <DialogDescription>
-            {isEditing ? 'Modify the details below to reschedule the appointment.' : 'Fill in the details below to schedule a new appointment.'}
+            Allocate a clinician and time slot for <strong>{user?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto pr-6 -mr-6">
-            <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                
-                {user?.role === 'patient' ? (
-                    <FormItem>
-                    <FormLabel>Patient</FormLabel>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
+            <FormField
+              control={form.control}
+              name="patientId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Patient</FormLabel>
+                  <Combobox
+                    options={patientOptions}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Search patient database..."
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="doctorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Practitioner</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                        <Input value={user.name} readOnly disabled />
+                      <SelectTrigger className="bg-muted/30">
+                        <SelectValue placeholder="Select doctor" />
+                      </SelectTrigger>
                     </FormControl>
-                    </FormItem>
-                ) : isPrefilled && prefilledPatient ? (
-                    <FormItem>
-                    <FormLabel>Patient</FormLabel>
-                    <FormControl>
-                        <Input value={`${prefilledPatient.full_name} (${prefilledPatient.patient_id})`} readOnly disabled />
-                    </FormControl>
-                    </FormItem>
-                ) : (
-                    <FormField
-                    control={form.control}
-                    name="patientId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Patient</FormLabel>
-                        <Combobox
-                            options={patientOptions}
-                            value={field.value}
-                            onChange={field.onChange}
-                            placeholder="Search for a patient..."
-                            searchPlaceholder='Search patients...'
-                            notFoundText='No patient found.'
-                        />
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                )}
-                
-                <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <Select onValueChange={(value) => {
-                        field.onChange(value);
-                        form.setValue('doctorId', 'any');
-                    }} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a department" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {mockDepartments.map((d) => (
-                            <SelectItem key={d.value} value={d.value}>
-                            {d.label}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                
-                <FormField
-                control={form.control}
-                name="doctorId"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Doctor (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedDepartment}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder={selectedDepartment ? "Any available doctor" : "Select a department first"} />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        <SelectItem value="any">Any available doctor</SelectItem>
-                        {filteredDoctors.map((d) => (
-                            <SelectItem key={d.uid} value={d.uid}>
-                            {d.name}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                    <SelectContent>
+                      {doctors.map((d) => (
+                        <SelectItem key={d.uid} value={d.uid}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
+            <div className="grid grid-cols-2 gap-4">
                 <FormField
                     control={form.control}
                     name="appointmentDate"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} min={new Date().toISOString().split('T')[0]} />
-                            </FormControl>
+                            <FormLabel className="text-xs">Visit Date</FormLabel>
+                            <FormControl><Input type="date" {...field} className="bg-muted/30" /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-                {selectedDate && (
-                    <FormField
-                        control={form.control}
-                        name="appointmentTime"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Available Time Slots</FormLabel>
-                                <FormControl>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {isLoadingSlots ? (
-                                            <p className="text-sm text-muted-foreground col-span-4">Loading slots...</p>
-                                        ) : availableSlots.length > 0 ? (
-                                            availableSlots.map(slot => (
-                                                <Button
-                                                    key={slot}
-                                                    type="button"
-                                                    variant={field.value === slot ? 'default' : 'outline'}
-                                                    onClick={() => field.onChange(slot)}
-                                                    className="w-full"
-                                                >
-                                                    {slot}
-                                                </Button>
-                                            ))
-                                        ) : (
-                                            <div className="col-span-4 text-center p-4 border-2 border-dashed rounded-lg">
-                                                <p className="text-sm text-muted-foreground">No available slots on this date.</p>
-                                                <Button 
-                                                    type="button" 
-                                                    variant="secondary" 
-                                                    className="mt-2"
-                                                    onClick={handleAddToWaitlist}
-                                                    disabled={!form.getValues('patientId')}
-                                                >
-                                                    <Clock className="h-4 w-4 mr-2" />
-                                                    Add to Waiting List
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
                 <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Appointment Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a type" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        <SelectItem value="consultation">Consultation</SelectItem>
-                        <SelectItem value="follow-up">Follow-up</SelectItem>
-                        <SelectItem value="procedure">Procedure</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-
-                {appointmentType === 'procedure' && (
-                    <FormField
-                        control={form.control}
-                        name="resourceId"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Book Procedure Room</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    control={form.control}
+                    name="appointmentTime"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs">Time Slot</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a procedure room" />
-                                </SelectTrigger>
+                                    <SelectTrigger className="bg-muted/30">
+                                        <SelectValue placeholder="Select time" />
+                                    </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                {mockProcedureRooms.map((room) => (
-                                    <SelectItem key={room.value} value={room.value}>
-                                    {room.label}
-                                    </SelectItem>
-                                ))}
+                                    {mockAvailableSlots.map(slot => (
+                                        <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                             <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
-                
-                <FormField
-                control={form.control}
-                name="isVirtual"
-                render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Virtual Consultation</FormLabel>
-                        <FormDescription>
-                            This appointment will be a video call.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                    </FormItem>
-                )}
+                        </FormItem>
+                    )}
                 />
+            </div>
 
+            <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Indications / Reason</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Routine Checkup, Lab Review" {...field} className="bg-muted/30" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                
-            </form>
-            </Form>
-        </div>
-        <DialogFooter className="sticky bottom-0 bg-background py-4 pr-6">
-          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button type="submit" form="appointment-form" onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? (isEditing ? 'Rescheduling...' : 'Booking...') : (isEditing ? 'Confirm Reschedule' : 'Book Appointment')}
-          </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-
-  if (isEditing) {
-    return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        {dialogContent}
-      </Dialog>
-    );
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Book New Appointment
-        </Button>
-      </DialogTrigger>
-      {dialogContent}
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Finalize Booking
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
     </Dialog>
   );
 }

@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview This file defines the core data structures (TypeScript types) for the GamMed ERP system.
  * Updated for Multi-Tenant SaaS architecture using Logical Isolation.
@@ -93,26 +94,18 @@ export interface Patient {
 }
 
 export interface Appointment {
-  appointment_id: string;
-  hospitalId: string; // Tenant ID
-  patient_id: string;
-  patient_name: string;
-  doctor_id: string;
-  doctor_name: string;
-  department: string;
-  appointment_date: string;
-  end_time: string;
-  duration: number;
-  type: 'consultation' | 'follow-up' | 'procedure';
-  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
-  isBilled: boolean;
-  isConfirmed: boolean;
-  bookingMethod: 'Online Portal' | 'Front Desk' | 'Referral';
-  notes?: string;
-  isVirtual?: boolean;
-  telemedicineLink?: string;
-  created_at: string;
-  updated_at: string;
+  id: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  doctorName: string;
+  appointmentDate: string; // YYYY-MM-DD
+  timeSlot: string; // e.g., 10:30 AM
+  status: 'Scheduled' | 'Arrived' | 'In-Consultation' | 'Completed' | 'Cancelled';
+  reason: string;
+  createdAt: string;
+  department?: string; // Optional for filtering
 }
 
 export interface Admission {

@@ -321,89 +321,23 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Appointment",
       "type": "object",
-      "description": "Manages scheduled appointments for patients with healthcare providers, departments, or resources.",
+      "description": "SaaS stamped appointment for patient scheduling and queue management.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Appointment entity."
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Reference to the Patient entity for whom the appointment is scheduled. (Relationship: Patient 1:N Appointment)"
-        },
-        "healthcareProviderId": {
-          "type": "string",
-          "description": "Reference to the HealthcareProvider scheduled for this appointment. (Relationship: HealthcareProvider 1:N Appointment)"
-        },
-        "departmentId": {
-          "type": "string",
-          "description": "Reference to the Department associated with this appointment (e.g., if it's a general department visit). (Relationship: Department 1:N Appointment)"
-        },
-        "appointmentDateTime": {
-          "type": "string",
-          "description": "The exact date and time the appointment is scheduled for.",
-          "format": "date-time"
-        },
-        "reasonForVisit": {
-          "type": "string",
-          "description": "The patient's stated reason for the appointment."
-        },
+        "hospitalId": { "type": "string", "description": "Tenant ID for logical isolation." },
+        "patientId": { "type": "string", "description": "Patient's unique ID." },
+        "patientName": { "type": "string", "description": "Patient's full name." },
+        "doctorId": { "type": "string", "description": "Clinician's unique ID." },
+        "doctorName": { "type": "string", "description": "Clinician's full name." },
+        "appointmentDate": { "type": "string", "description": "Date of appointment (YYYY-MM-DD)." },
+        "timeSlot": { "type": "string", "description": "Scheduled time (e.g., 10:30 AM)." },
         "status": {
           "type": "string",
-          "description": "The current status of the appointment.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
+          "enum": ["Scheduled", "Arrived", "In-Consultation", "Completed", "Cancelled"]
         },
-        "type": {
-          "type": "string",
-          "description": "The type of appointment (e.g., 'Consultation', 'Follow-up', 'Emergency').",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "durationMinutes": {
-          "type": "number",
-          "description": "The expected duration of the appointment in minutes."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or instructions for the appointment."
-        },
-        "resourceIds": {
-          "type": "array",
-          "description": "References to Resource entities (e.g., operating theaters, specific equipment) required for this appointment. (Relationship: Appointment N:N Resource)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "scheduledByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile of the user who scheduled this appointment. (Relationship: UserProfile 1:N Appointment)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the appointment record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the appointment record was last updated.",
-          "format": "date-time"
-        }
+        "reason": { "type": "string", "description": "Reason for the visit." },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "patientId",
-        "appointmentDateTime",
-        "reasonForVisit",
-        "status",
-        "type",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["hospitalId", "patientId", "doctorId", "appointmentDate", "timeSlot", "status"]
     },
     "Resource": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -641,7 +575,7 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Manages scheduled appointments. Critically includes denormalized 'patientFirebaseUid', 'healthcareProviderFirebaseUid', and 'scheduledByUserFirebaseUid' for Authorization Independence and QAPs, enabling secure listing for patients, providers, and schedulers.",
+          "description": "SaaS stamped appointments for patient scheduling and clinic queue management.",
           "params": [
             {
               "name": "appointmentId",
