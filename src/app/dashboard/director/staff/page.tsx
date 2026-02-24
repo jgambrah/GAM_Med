@@ -10,10 +10,10 @@ import InviteStaffModal from '@/components/director/InviteStaffModal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 /**
- * == Hospital Director: Staff Management ==
+ * == Hospital Director: Staff Management Workbench ==
  * 
  * Provides a real-time directory of all staff members belonging to the Director's hospital.
- * Enforces strict multi-tenant isolation via hospitalId filtering.
+ * Enforces strict multi-tenant isolation via hospitalId filtering (The SaaS Wall).
  */
 export default function StaffManagement() {
     const { user } = useAuth();
@@ -56,7 +56,7 @@ export default function StaffManagement() {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
-                    <p className="text-muted-foreground">Manage the clinical and administrative team for <strong>{user?.hospitalId}</strong>.</p>
+                    <p className="text-muted-foreground">Independent clinical and administrative team for <strong>{user?.hospitalId}</strong>.</p>
                 </div>
                 <InviteStaffModal />
             </div>
@@ -64,7 +64,7 @@ export default function StaffManagement() {
             <Card className="shadow-sm">
                 <CardHeader>
                     <CardTitle>Hospital Personnel</CardTitle>
-                    <CardDescription>A real-time list of active and pending staff members for your facility.</CardDescription>
+                    <CardDescription>A real-time list of staff members logically isolated to your facility.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Table>

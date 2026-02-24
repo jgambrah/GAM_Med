@@ -39,11 +39,11 @@ const InviteStaffSchema = z.object({
 });
 
 /**
- * == Director Module: Staff Provisioning ==
+ * == Director Module: Staff Provisioning & Email Automation ==
  * 
  * Allows a Hospital Director to register new staff members.
- * It uses the Client SDK to "stamp" the user document atomically with the hospitalId.
- * Security is enforced by Firestore Security Rules (DBAC).
+ * It atomically provisions the Firestore profile and triggers a stylized 
+ * welcome email via a secure server action.
  */
 export default function InviteStaffModal() {
   const [open, setOpen] = React.useState(false);
@@ -83,9 +83,9 @@ export default function InviteStaffModal() {
           return;
       }
 
-      // 3. Provision the Firestore Profile (The "Stamping" Logic)
+      // 3. Provision the Firestore Profile (The SaaS "Stamping" Logic)
       await setDoc(doc(db, 'users', userDocId), {
-        uid: `INVITED_${Date.now()}`, 
+        uid: `INVITED_${Date.now()}`, // Temporary ID, will be synced on first login
         hospitalId: currentUser.hospitalId,
         email: normalizedEmail,
         name: values.name,
@@ -94,11 +94,11 @@ export default function InviteStaffModal() {
         created_at: new Date().toISOString(),
       });
 
-      // 4. Fetch Hospital Name for the Email
+      // 4. Fetch the real Hospital Name for the welcome email
       const hospitalDoc = await getDoc(doc(db, 'hospitals', currentUser.hospitalId));
       const hospitalName = hospitalDoc.exists() ? hospitalDoc.data().name : 'your local facility';
 
-      // 5. Trigger Welcome Email via Server Action
+      // 5. Trigger stylized Welcome Email via Server Action
       const emailResult = await sendStaffInvitationEmail({
           email: normalizedEmail,
           name: values.name,
@@ -107,12 +107,12 @@ export default function InviteStaffModal() {
       });
 
       if (emailResult.success) {
-          toast.success('Invitation Recorded & Email Sent', {
-            description: `${values.name} has been added and notified via email.`
+          toast.success('Staff Member Invited', {
+            description: `Invitation sent to ${normalizedEmail}. They can now log in.`
           });
       } else {
-          toast.warning('Staff Registered, but Email Failed', {
-            description: `Record created, but we couldn't send the welcome email to ${normalizedEmail}.`
+          toast.warning('Staff Registered, Email Failed', {
+            description: `Profile created, but the welcome email could not be sent.`
           });
       }
       
@@ -196,7 +196,7 @@ export default function InviteStaffModal() {
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Recording...' : 'Register Invitation'}
+                {isSubmitting ? 'Recording...' : 'Register & Send Invite'}
               </Button>
             </DialogFooter>
           </form>
