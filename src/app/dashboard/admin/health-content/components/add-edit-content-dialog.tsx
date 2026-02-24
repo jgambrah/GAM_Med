@@ -19,6 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { HealthContent } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 const ContentSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters.'),
@@ -35,6 +36,7 @@ interface AddEditContentDialogProps {
 }
 
 export function AddEditContentDialog({ isOpen, onOpenChange, content, onSave }: AddEditContentDialogProps) {
+  const { user } = useAuth();
   const isEditing = !!content;
 
   const form = useForm<z.infer<typeof ContentSchema>>({
@@ -51,6 +53,7 @@ export function AddEditContentDialog({ isOpen, onOpenChange, content, onSave }: 
     // In a real app, this would call a server action.
     const newContent: HealthContent = {
       contentId: content?.contentId || `hc-${Date.now()}`,
+      hospitalId: user?.hospitalId || '', // SaaS Stamp: Tie content to this facility
       ...values,
       keywords: values.keywords.split(',').map(kw => kw.trim()).filter(Boolean),
     };
