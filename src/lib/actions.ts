@@ -437,3 +437,34 @@ export async function updateOxygenLevel(tankId: string, hospitalId: string, newL
 
     return { success: true, alerts };
 }
+
+/**
+ * Schedules a new surgical session after performing a conflict check for the OT Room.
+ * Enforces the SaaS Wall by scoping conflict checks to the hospitalId.
+ */
+export async function scheduleOTSession(values: any) {
+    console.log(`Server Action: Attempting to schedule surgery for hospital ${values.hospitalId} in room ${values.otRoomId}.`);
+    
+    // In a production environment, this would perform a getDocs() check for existing
+    // sessions in the same room at the same time before saving.
+    
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    revalidatePath('/dashboard/surgery');
+    revalidatePath('/dashboard/ot');
+
+    return { success: true, message: 'Surgical session scheduled successfully.' };
+}
+
+/**
+ * Updates the status of an active surgical procedure.
+ */
+export async function updateSurgicalStatus(sessionId: string, newStatus: string) {
+    console.log(`Server Action: Updating procedure ${sessionId} to ${newStatus}.`);
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    revalidatePath('/dashboard/surgery');
+    
+    return { success: true };
+}

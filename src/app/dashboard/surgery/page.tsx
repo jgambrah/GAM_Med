@@ -2,16 +2,19 @@
 
 import * as React from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Scissors, User, Play, Edit, Monitor } from 'lucide-react';
+import { Scissors, User, Play, Edit, Monitor, CheckCircle2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { OTSession } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { BookOtSessionDialog } from '../ot/components/book-ot-session-dialog';
+import { toast } from '@/hooks/use-toast';
+import { updateSurgicalStatus } from '@/lib/actions';
 
 /**
  * == OT Air Traffic Control: Surgical Status Board ==
@@ -35,6 +38,50 @@ export default function SurgeryDashboard() {
 
     const { data: surgeries, isLoading } = useCollection<OTSession>(surgeryQuery);
 
+    const handleStartCase = async (sessionId: string, procedureName: string) => {
+        if (!firestore) return;
+        
+        try {
+            const sessionRef = doc(firestore, 'ot_sessions', sessionId);
+            
+            // Server side side-effects
+            await updateSurgicalStatus(sessionId, 'In-Progress');
+
+            // Optimistic client-side update
+            await updateDoc(sessionRef, {
+                status: 'In-Progress',
+                actualStartTime: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            toast.success("Procedure Started", {
+                description: `${procedureName} is now active in the theatre.`
+            });
+        } catch (error) {
+            toast.error("Process Error", { description: "Failed to update surgical status." });
+        }
+    };
+
+    const handleCompleteCase = async (sessionId: string) => {
+        if (!firestore) return;
+        
+        try {
+            const sessionRef = doc(firestore, 'ot_sessions', sessionId);
+            
+            await updateDoc(sessionRef, {
+                status: 'Post-Op',
+                actualEndTime: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            toast.success("Procedure Concluded", {
+                description: "Patient moved to recovery unit."
+            });
+        } catch (error) {
+            toast.error("Process Error");
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="p-8 space-y-4">
@@ -56,16 +103,17 @@ export default function SurgeryDashboard() {
                     </h1>
                     <p className="text-muted-foreground font-medium">Real-time theater coordination for <strong>{user?.hospitalId}</strong></p>
                 </div>
-                <Button className="bg-red-600 hover:bg-red-700 shadow-md h-11 px-6">
-                    <Scissors className="h-4 w-4 mr-2" />
-                    Schedule Procedure
-                </Button>
+                <BookOtSessionDialog />
             </div>
 
             <div className="grid grid-cols-1 gap-4">
                 {surgeries && surgeries.length > 0 ? (
                     surgeries.map((op) => (
-                        <Card key={op.id} className="border-l-8 border-l-red-500 hover:shadow-lg transition-all shadow-sm overflow-hidden group">
+                        <Card key={op.id} className={cn(
+                            "border-l-8 hover:shadow-lg transition-all shadow-sm overflow-hidden group",
+                            op.status === 'In-Progress' ? "border-l-red-500" : 
+                            op.status === 'Post-Op' ? "border-l-green-500" : "border-l-blue-500"
+                        )}>
                             <CardContent className="p-0">
                                 <div className="flex flex-col md:flex-row items-stretch">
                                     {/* Timeline & Room Block */}
@@ -79,7 +127,7 @@ export default function SurgeryDashboard() {
                                         <div className="mt-4">
                                             <Badge variant={
                                                 op.status === 'In-Progress' ? 'destructive' : 
-                                                op.status === 'Completed' ? 'secondary' : 'outline'
+                                                op.status === 'Post-Op' ? 'secondary' : 'outline'
                                             } className={cn(
                                                 "text-[9px] font-black uppercase tracking-tighter px-2",
                                                 op.status === 'In-Progress' && 'animate-pulse'
@@ -125,9 +173,23 @@ export default function SurgeryDashboard() {
                                             Modify
                                         </Button>
                                         {op.status === 'Scheduled' && (
-                                            <Button size="sm" className="h-9 px-4 font-bold text-xs uppercase bg-slate-900 hover:bg-slate-800 text-white">
+                                            <Button 
+                                                size="sm" 
+                                                className="h-9 px-4 font-bold text-xs uppercase bg-slate-900 hover:bg-slate-800 text-white"
+                                                onClick={() => handleStartCase(op.id, op.procedureName)}
+                                            >
                                                 <Play className="h-3 w-3 mr-2 fill-current" />
                                                 Start Case
+                                            </Button>
+                                        )}
+                                        {op.status === 'In-Progress' && (
+                                            <Button 
+                                                size="sm" 
+                                                className="h-9 px-4 font-bold text-xs uppercase bg-green-600 hover:bg-green-700 text-white"
+                                                onClick={() => handleCompleteCase(op.id)}
+                                            >
+                                                <CheckCircle2 className="h-3 w-3 mr-2" />
+                                                Conclude
                                             </Button>
                                         )}
                                     </div>
