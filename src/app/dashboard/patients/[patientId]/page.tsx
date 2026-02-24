@@ -1,66 +1,58 @@
-
 'use client';
 
 import * as React from 'react';
-import { useParams, notFound, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useParams, notFound } from 'next/navigation';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-
-// EHR Sub-Components
 import { PatientEHR } from '../../my-practice/components/patient-ehr';
-
-// Data & Types
-import { allPatients as initialAllPatientsData } from '@/lib/data';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Patient } from '@/lib/types';
 
 /**
- * == Patient Electronic Medical Record (EMR) Root ==
+ * == Live SaaS Patient Electronic Medical Record ==
  * 
- * This is the canonical entry point for a patient's full record.
- * It leverages the PatientEHR workbench component to provide a consistent
- * clinical view across the entire application.
+ * This page is the secure entry point for a specific patient's chart.
+ * It uses a live Firestore listener and enforces the "SaaS Wall" to 
+ * prevent cross-tenant data access.
  */
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
   const { user } = useAuth();
-  
-  const [allPatients, , isLoading] = useLocalStorage<Patient[]>('patients', initialAllPatientsData);
+  const firestore = useFirestore();
+
+  // STABILIZE REFERENCE: Use useMemoFirebase to prevent infinite loops with the useDoc hook.
+  const patientRef = useMemoFirebase(() => {
+    if (!patientId || !firestore) return null;
+    return doc(firestore, 'patients', patientId);
+  }, [firestore, patientId]);
+
+  const { data: patient, isLoading } = useDoc<Patient>(patientRef);
 
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
-        <Skeleton className="h-12 w-1/3" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-[500px] w-full" />
       </div>
     );
   }
 
-  const patient = allPatients.find((p) => p.patient_id === patientId);
-
-  // SAAS SECURITY WALL: Prevent cross-tenant data access
+  // SAAS SECURITY WALL: 
+  // Even if the URL is correct, if the patient doesn't belong to the user's hospital, block access.
   if (!patient || (user && patient.hospitalId !== user.hospitalId)) {
     notFound();
   }
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link href="/dashboard/patients">
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Back to Directory
-            </Link>
-        </Button>
-      </div>
-
       <div className="flex-grow overflow-hidden">
-        <PatientEHR patientId={patientId} />
+        {/* Pass the live patient object to the workbench */}
+        <PatientEHR patient={patient} />
       </div>
     </div>
   );

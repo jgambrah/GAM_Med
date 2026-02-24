@@ -1,35 +1,32 @@
-
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { ClinicalNote } from '@/lib/types';
-import { mockNotes as allMockNotes, allUsers } from '@/lib/data';
-import { useParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { addClinicalNote } from '@/lib/actions';
 import { useAuth } from '@/hooks/use-auth';
-import { FileText } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { FileText, Loader2 } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
 export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId: string, disabled?: boolean, onNoteAdded: (note: ClinicalNote) => void }) {
     const { user } = useAuth();
+    const firestore = useFirestore();
     const [open, setOpen] = React.useState(false);
     const [newNote, setNewNote] = React.useState('');
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newNote.trim() || !user) return;
+        if (!newNote.trim() || !user || !firestore) return;
 
         setIsSubmitting(true);
 
-        const newNoteObject: ClinicalNote = {
-            noteId: `note-${Date.now()}`,
+        const newNoteData = {
             hospitalId: user.hospitalId,
             patientId: patientId,
             noteType: 'Consultation',
@@ -38,8 +35,10 @@ export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId:
             recordedAt: new Date().toISOString()
         };
 
-        onNoteAdded(newNoteObject);
-        toast.success('New clinical note has been added.');
+        // NON-BLOCKING WRITE: Optimized for high clinical throughput
+        addDocumentNonBlocking(collection(firestore, 'clinical_notes'), newNoteData);
+        
+        toast.success('Clinical note recorded.');
         setNewNote('');
         setIsSubmitting(false);
         setOpen(false);
@@ -54,14 +53,14 @@ export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId:
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Add New Clinical Note</DialogTitle>
+                    <DialogTitle>Add Clinical Note</DialogTitle>
                      <DialogDescription>
-                        Recording a new note for the patient as {user?.name}.
+                        Record observations for this patient.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 pt-4">
                      <Textarea 
-                        placeholder="Type new clinical note here..."
+                        placeholder="Type clinical observations here..."
                         value={newNote}
                         onChange={(e) => setNewNote(e.target.value)}
                         rows={6}
@@ -70,7 +69,8 @@ export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId:
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={isSubmitting || !newNote.trim()}>
-                            {isSubmitting ? 'Saving...' : 'Save Note'}
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Save Note
                         </Button>
                     </DialogFooter>
                 </form>
@@ -85,45 +85,51 @@ interface ClinicalNotesTabProps {
 
 export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
     const { user } = useAuth();
-    const canAddNote = user?.role === 'doctor' || user?.role === 'nurse';
-    const [notes, setNotes] = useLocalStorage<ClinicalNote[]>('clinicalNotes', allMockNotes);
+    const firestore = useFirestore();
+    
+    // LIVE QUERY: Filtered by hospital and patient for strict SaaS isolation
+    const notesQuery = useMemoFirebase(() => {
+        if (!firestore || !patientId || !user?.hospitalId) return null;
+        return query(
+            collection(firestore, 'clinical_notes'),
+            where('hospitalId', '==', user.hospitalId),
+            where('patientId', '==', patientId),
+            orderBy('recordedAt', 'desc')
+        );
+    }, [firestore, patientId, user?.hospitalId]);
 
-    const patientNotes = notes.filter(note => note.patientId === patientId)
-
-    const handleNoteAdded = (newNote: ClinicalNote) => {
-        setNotes(prev => [newNote, ...prev]);
-    }
-
-    const getStaffName = (userId: string) => {
-        return allUsers.find(u => u.uid === userId)?.name || 'Staff';
-    };
+    const { data: notes, isLoading } = useCollection<ClinicalNote>(notesQuery);
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle>Clinical Notes</CardTitle>
-                    <CardDescription>A chronological record of all clinical interactions and observations.</CardDescription>
+                    <CardDescription>Chronological record of clinical interactions.</CardDescription>
                 </div>
-                {canAddNote && <AddNoteDialog patientId={patientId} onNoteAdded={handleNoteAdded} />}
+                <AddNoteDialog patientId={patientId} onNoteAdded={() => {}} />
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
-                    {patientNotes.length > 0 ? (
-                        patientNotes.map((note) => (
-                        <div key={note.noteId} className="border-l-4 border-primary pl-4 py-2">
-                           <p className="text-sm text-muted-foreground">
-                             {format(new Date(note.recordedAt), 'PPP p')} by <span className="font-semibold">{getStaffName(note.recordedByUserId)}</span>
-                           </p>
-                           <p className="mt-1 whitespace-pre-wrap">{note.noteText}</p>
-                        </div>
-                    ))
-                    ) : (
-                        <div className="flex items-center justify-center h-40 text-center">
-                            <p className="text-muted-foreground">No clinical notes recorded for this patient.</p>
-                        </div>
-                    )}
-                </div>
+                {isLoading ? (
+                    <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                ) : (
+                    <div className="space-y-4 max-h-96 overflow-y-auto pr-4">
+                        {notes && notes.length > 0 ? (
+                            notes.map((note) => (
+                            <div key={note.id} className="border-l-4 border-primary pl-4 py-2">
+                               <p className="text-xs text-muted-foreground">
+                                 {format(new Date(note.recordedAt), 'PPP p')}
+                               </p>
+                               <p className="mt-1 whitespace-pre-wrap text-sm">{note.noteText}</p>
+                            </div>
+                        ))
+                        ) : (
+                            <div className="flex items-center justify-center h-40 text-center">
+                                <p className="text-muted-foreground">No notes on file for this patient.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

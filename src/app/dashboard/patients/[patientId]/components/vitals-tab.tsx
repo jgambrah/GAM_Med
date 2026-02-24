@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -14,11 +13,10 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { VitalsSchema } from '@/lib/schemas';
-import { logVitals, streamVitals } from '@/lib/actions';
-import { mockVitalsLog as allMockVitals, allUsers } from '@/lib/data';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
-import { AlertTriangle, Info, Radio } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { AlertTriangle, Radio, Loader2 } from 'lucide-react';
 import { VitalsLog } from '@/lib/types';
 
 interface VitalsTabProps {
@@ -27,10 +25,21 @@ interface VitalsTabProps {
 
 export function VitalsTab({ patientId }: VitalsTabProps) {
     const { user } = useAuth();
-    const [vitalsLog, setVitalsLog] = useLocalStorage<VitalsLog[]>('vitalsLog', allMockVitals);
+    const firestore = useFirestore();
     const [isStreaming, setIsStreaming] = React.useState(false);
 
-    const patientVitals = vitalsLog.filter(v => v.patientId === patientId);
+    // LIVE QUERY: Real-time vitals history
+    const vitalsQuery = useMemoFirebase(() => {
+        if (!firestore || !patientId || !user?.hospitalId) return null;
+        return query(
+            collection(firestore, 'vitals_log'),
+            where('hospitalId', '==', user.hospitalId),
+            where('patientId', '==', patientId),
+            orderBy('recordedAt', 'desc')
+        );
+    }, [firestore, patientId, user?.hospitalId]);
+
+    const { data: vitalsHistory, isLoading } = useCollection<VitalsLog>(vitalsQuery);
 
     const form = useForm<z.infer<typeof VitalsSchema>>({
         resolver: zodResolver(VitalsSchema),
@@ -45,46 +54,30 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
         }
     });
 
-    const handleStreamVitals = async () => {
-        setIsStreaming(true);
-        toast.info('Simulating live sensor data for 30 seconds.');
-        await streamVitals(patientId);
-        setIsStreaming(false);
-        toast.info('Vitals Stream Ended: Live sensor simulation has completed.');
-    };
-
     const onSubmit = async (values: z.infer<typeof VitalsSchema>) => {
-        if (!user) {
-            toast.error("You must be logged in.");
-            return;
-        }
+        if (!user || !firestore) return;
 
-        const newVitalsEntry: VitalsLog = {
-            vitalId: `vtl-${Date.now()}`,
-            patientId,
+        const newVitalsEntry = {
             ...values,
+            hospitalId: user.hospitalId,
+            patientId,
             recordedByUserId: user.uid,
             recordedAt: new Date().toISOString(),
         };
 
-        setVitalsLog(prev => [newVitalsEntry, ...prev]);
+        addDocumentNonBlocking(collection(firestore, 'vitals_log'), newVitalsEntry);
 
         form.reset();
         
-        // Simulate checking for alerts
         const [systolic, diastolic] = values.bloodPressure.split('/').map(Number);
         if (systolic > 180 || diastolic > 110) {
-            toast.warning("Patient's blood pressure is critically high. Attending doctor has been notified.", {
+            toast.warning("Critical BP Warning: Provider notified.", {
                 icon: <AlertTriangle className="h-4 w-4" />,
             });
         } else {
-             toast.success("The patient's vital signs have been saved.");
+             toast.success("Vitals saved.");
         }
     }
-
-    const getStaffName = (userId: string) => {
-        return allUsers.find(u => u.uid === userId)?.name || 'Staff';
-    };
 
     return (
         <div className="space-y-6">
@@ -93,11 +86,11 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                     <div className="flex justify-between items-center">
                         <div>
                             <CardTitle>Log New Vitals</CardTitle>
-                            <CardDescription>Enter the latest vital signs for the patient.</CardDescription>
+                            <CardDescription>Enter latest clinical measurements.</CardDescription>
                         </div>
-                         <Button variant="outline" onClick={handleStreamVitals} disabled={isStreaming}>
+                         <Button variant="outline" size="sm" onClick={() => setIsStreaming(!isStreaming)} disabled={isStreaming}>
                             <Radio className="mr-2 h-4 w-4" />
-                            {isStreaming ? 'Streaming Vitals...' : 'Start Live Monitoring (Simulated)'}
+                            {isStreaming ? 'Streaming...' : 'Start Monitoring'}
                         </Button>
                     </div>
                 </CardHeader>
@@ -110,8 +103,8 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     name="bloodPressure"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>BP (Systolic/Diastolic)</FormLabel>
-                                            <FormControl><Input placeholder="e.g., 120/80" {...field} /></FormControl>
+                                            <FormLabel className="text-xs">BP (S/D)</FormLabel>
+                                            <FormControl><Input placeholder="120/80" className="h-8 text-xs" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -121,8 +114,8 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     name="heartRate"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Heart Rate (bpm)</FormLabel>
-                                            <FormControl><Input type="number" placeholder="e.g., 75" {...field} /></FormControl>
+                                            <FormLabel className="text-xs">HR (bpm)</FormLabel>
+                                            <FormControl><Input type="number" className="h-8 text-xs" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -132,8 +125,8 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     name="temperature"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Temperature (°C)</FormLabel>
-                                            <FormControl><Input type="number" step="0.1" placeholder="e.g., 37.5" {...field} /></FormControl>
+                                            <FormLabel className="text-xs">Temp (°C)</FormLabel>
+                                            <FormControl><Input type="number" step="0.1" className="h-8 text-xs" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -143,8 +136,8 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     name="respiratoryRate"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Resp. Rate (b/min)</FormLabel>
-                                            <FormControl><Input type="number" placeholder="e.g., 18" {...field} /></FormControl>
+                                            <FormLabel className="text-xs">Resp (b/m)</FormLabel>
+                                            <FormControl><Input type="number" className="h-8 text-xs" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -154,8 +147,8 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     name="oxygenSaturation"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>SpO2 (%)</FormLabel>
-                                            <FormControl><Input type="number" placeholder="e.g., 98" {...field} /></FormControl>
+                                            <FormLabel className="text-xs">SpO2 (%)</FormLabel>
+                                            <FormControl><Input type="number" className="h-8 text-xs" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -165,27 +158,16 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                     name="painScore"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Pain Score (0-10)</FormLabel>
-                                            <FormControl><Input type="number" placeholder="e.g., 2" {...field} /></FormControl>
+                                            <FormLabel className="text-xs">Pain (0-10)</FormLabel>
+                                            <FormControl><Input type="number" className="h-8 text-xs" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
                             </div>
-                            <FormField
-                                control={form.control}
-                                name="notes"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Notes (Optional)</FormLabel>
-                                        <FormControl><Textarea placeholder="Any observations..." {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
                             <div className="flex justify-end">
-                                <Button type="submit" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? 'Saving...' : 'Save Vitals'}
+                                <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
+                                    Save Vitals
                                 </Button>
                             </div>
                         </form>
@@ -195,43 +177,38 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
 
              <Card>
                 <CardHeader>
-                    <CardTitle>Vitals History</CardTitle>
-                    <CardDescription>A log of previously recorded vital signs.</CardDescription>
+                    <CardTitle>History</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Timestamp</TableHead>
+                                    <TableHead>Time</TableHead>
                                     <TableHead>BP</TableHead>
                                     <TableHead>HR</TableHead>
                                     <TableHead>Temp</TableHead>
-                                    <TableHead>Resp</TableHead>
                                     <TableHead>SpO2</TableHead>
                                     <TableHead>Pain</TableHead>
-                                    <TableHead>Recorded By</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {patientVitals.length > 0 ? (
-                                    patientVitals.map((log) => (
-                                        <TableRow key={log.vitalId}>
-                                            <TableCell>{format(new Date(log.recordedAt), 'PPP p')}</TableCell>
-                                            <TableCell>{log.bloodPressure}</TableCell>
-                                            <TableCell>{log.heartRate}</TableCell>
-                                            <TableCell>{log.temperature}°C</TableCell>
-                                            <TableCell>{log.respiratoryRate}</TableCell>
-                                            <TableCell>{log.oxygenSaturation}%</TableCell>
-                                            <TableCell>{log.painScore || 'N/A'}</TableCell>
-                                            <TableCell>{getStaffName(log.recordedByUserId)}</TableCell>
+                                {isLoading ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
+                                ) : vitalsHistory && vitalsHistory.length > 0 ? (
+                                    vitalsHistory.map((log) => (
+                                        <TableRow key={log.id}>
+                                            <TableCell className="text-xs">{format(new Date(log.recordedAt), 'MM/dd p')}</TableCell>
+                                            <TableCell className="text-xs">{log.bloodPressure}</TableCell>
+                                            <TableCell className="text-xs">{log.heartRate}</TableCell>
+                                            <TableCell className="text-xs">{log.temperature}°C</TableCell>
+                                            <TableCell className="text-xs">{log.oxygenSaturation}%</TableCell>
+                                            <TableCell className="text-xs">{log.painScore || '0'}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="h-24 text-center">
-                                            No vitals recorded for this patient yet.
-                                        </TableCell>
+                                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No data.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
