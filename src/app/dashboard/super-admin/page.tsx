@@ -8,8 +8,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { redirect } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { Hospital } from '@/lib/types';
-import { Building2, CreditCard, Activity, ShieldCheck } from 'lucide-react';
+import { Hospital, Patient } from '@/lib/types';
+import { Building2, CreditCard, Activity, ShieldCheck, Users } from 'lucide-react';
 
 /**
  * == Super Admin: Platform Control Center ==
@@ -26,16 +26,24 @@ export default function SuperAdminPage() {
     redirect('/dashboard');
   }
 
-  // Fetch all tenants for global metrics - Scoped by 'God Mode' security rules
+  // 1. Fetch all tenants for global metrics - Scoped by 'God Mode' security rules
   const hospitalsQuery = useMemoFirebase(() => {
     if (!user || user.role !== 'super_admin') return null;
     return query(collection(db, 'hospitals'));
   }, [db, user]);
 
-  const { data: hospitals, isLoading } = useCollection<Hospital>(hospitalsQuery);
+  // 2. Fetch global patient count - This query is only possible for super_admin
+  const globalPatientsQuery = useMemoFirebase(() => {
+    if (!user || user.role !== 'super_admin') return null;
+    return query(collection(db, 'patients'));
+  }, [db, user]);
+
+  const { data: hospitals, isLoading: isLoadingHospitals } = useCollection<Hospital>(hospitalsQuery);
+  const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(globalPatientsQuery);
 
   const totalHospitals = hospitals?.length || 0;
   const activeHospitals = hospitals?.filter(h => h.status === 'active').length || 0;
+  const totalPatients = patients?.length || 0;
   
   // Prototype Revenue Calculation: Basic (₵1,500) | Premium (₵3,500)
   const estimatedRevenue = hospitals?.reduce((total, h) => {
@@ -54,10 +62,10 @@ export default function SuperAdminPage() {
         <CreateHospitalDialog />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-t-4 border-t-primary">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-t-4 border-t-primary shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Onboarded Hospitals</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Hospitals</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -67,22 +75,37 @@ export default function SuperAdminPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-green-500">
+
+        <Card className="border-t-4 border-t-blue-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Estimated Monthly Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Global Patients</CardTitle>
+            <Users className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalPatients.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              Across all hospital tenants
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-t-4 border-t-green-500 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Estimated Revenue</CardTitle>
             <CreditCard className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₵{estimatedRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Across all tiers (GHS)
+              Projected Monthly MRR (GHS)
             </p>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-blue-500">
+
+        <Card className="border-t-4 border-t-orange-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Security Status</CardTitle>
-            <ShieldCheck className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-sm font-medium">Platform Security</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">Hardened</div>
@@ -93,7 +116,7 @@ export default function SuperAdminPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Global Tenant Directory</CardTitle>
           <CardDescription>
