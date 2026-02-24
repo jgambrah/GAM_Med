@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,65 +8,68 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { PharmacyWorkQueue } from '../prescriptions/components/pharmacy-work-queue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PharmacyWorkQueue } from '../prescriptions/components/pharmacy-work-queue';
 import { InventoryTable } from './inventory/components/inventory-table';
-import { Input } from '@/components/ui/input';
+import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
+import { RfqDashboard } from './procurement/components/rfq-dashboard';
 import { ProcurementDashboard } from './procurement/components/procurement-dashboard';
 import { useAuth } from '@/hooks/use-auth';
-import { PointOfSaleDashboard } from './pos/components/pos-dashboard';
+import { Input } from '@/components/ui/input';
+import { Pill } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { PurchaseOrder, RequestForQuotation } from '@/lib/types';
 import { mockPurchaseOrders, mockRfqs } from '@/lib/data';
-import { RfqDashboard } from './procurement/components/rfq-dashboard';
 
+/**
+ * == Core Hospital Engine: Pharmacy Workbench ==
+ * 
+ * This is the central hub for pharmacists. It aggregates the live prescription 
+ * queue from the EHR and the hospital's private inventory.
+ */
 export default function PharmacyPage() {
   const { user } = useAuth();
-  // Add a key to force re-render when a prescription is dispensed.
-  const [key, setKey] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', mockPurchaseOrders);
   const [rfqs, setRfqs] = useLocalStorage<RequestForQuotation[]>('rfqs', mockRfqs);
-  
-  const handleDispense = () => {
-    setKey(prev => prev + 1);
-  };
-  
-  const canViewWorkQueue = user?.role === 'admin' || user?.role === 'pharmacist' || user?.role === 'doctor';
-  const canViewInventory = user?.role === 'admin' || user?.role === 'pharmacist' || user?.role === 'doctor' || user?.role === 'nurse';
-  const canViewProcurement = user?.role === 'admin' || user?.role === 'pharmacist';
-  const canUsePos = user?.role === 'admin' || user?.role === 'pharmacist' || user?.role === 'billing_clerk';
 
+  const canViewWorkQueue = ['admin', 'pharmacist', 'doctor', 'director'].includes(user?.role || '');
+  const canViewInventory = ['admin', 'pharmacist', 'doctor', 'nurse', 'director'].includes(user?.role || '');
+  const canViewProcurement = ['admin', 'pharmacist', 'director'].includes(user?.role || '');
+  const canUsePos = ['admin', 'pharmacist', 'billing_clerk', 'director'].includes(user?.role || '');
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Pharmacy Dashboard</h1>
-        <p className="text-muted-foreground">
-          View and manage all incoming prescription orders, inventory, and procurement.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Pill className="h-8 w-8 text-blue-600" />
+            Pharmacy Operations
+          </h1>
+          <p className="text-muted-foreground">
+            Inventory management and prescription fulfillment for <strong>{user?.hospitalId}</strong>.
+          </p>
+        </div>
       </div>
 
-       <Tabs defaultValue="work-queue">
-        <TabsList className="h-auto flex-wrap justify-start">
-            {canViewWorkQueue && <TabsTrigger value="work-queue">Prescription Work Queue</TabsTrigger>}
-            {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
-            {canUsePos && <TabsTrigger value="pos">Point of Sale</TabsTrigger>}
-            {canViewProcurement && <TabsTrigger value="rfq">Requests for Quotation</TabsTrigger>}
+      <Tabs defaultValue="work-queue" className="w-full">
+        <TabsList className="bg-muted/50 p-1 flex-wrap h-auto">
+            {canViewWorkQueue && <TabsTrigger value="work-queue">Dispensing Queue</TabsTrigger>}
+            {canViewInventory && <TabsTrigger value="inventory">Inventory Catalog</TabsTrigger>}
+            {canUsePos && <TabsTrigger value="pos">OTC Point of Sale</TabsTrigger>}
+            {canViewProcurement && <TabsTrigger value="rfq">Procurement (RFQs)</TabsTrigger>}
             {canViewProcurement && <TabsTrigger value="procurement">Purchase Orders</TabsTrigger>}
         </TabsList>
         
         {canViewWorkQueue && (
             <TabsContent value="work-queue" className="mt-4">
-                <Card>
+                <Card className="border-t-4 border-t-blue-500">
                     <CardHeader>
-                    <CardTitle>Prescription Fulfillment Queue</CardTitle>
-                    <CardDescription>
-                        A real-time list of all prescriptions waiting to be filled.
-                    </CardDescription>
+                        <CardTitle>Prescription Fulfillment</CardTitle>
+                        <CardDescription>Live queue of pending orders from the clinical team.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <PharmacyWorkQueue key={key} onDispense={handleDispense} />
+                        <PharmacyWorkQueue />
                     </CardContent>
                 </Card>
             </TabsContent>
@@ -77,22 +79,20 @@ export default function PharmacyPage() {
             <TabsContent value="inventory" className="mt-4">
                 <Card>
                     <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                        <div>
-                        <CardTitle>Inventory Catalog</CardTitle>
-                        <CardDescription>
-                            Search and manage all items in the inventory.
-                        </CardDescription>
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                            <div>
+                                <CardTitle>Drug & Supplies Registry</CardTitle>
+                                <CardDescription>Hospital-wide stock levels and batch tracking.</CardDescription>
+                            </div>
+                            <div className="w-full sm:w-auto">
+                                <Input
+                                    placeholder="Search by drug name..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="max-w-sm"
+                                />
+                            </div>
                         </div>
-                        <div className="w-full sm:w-auto">
-                        <Input
-                            placeholder="Search by item name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="max-w-sm"
-                        />
-                        </div>
-                    </div>
                     </CardHeader>
                     <CardContent>
                         <InventoryTable searchQuery={searchQuery} />
@@ -116,6 +116,7 @@ export default function PharmacyPage() {
                 />
             </TabsContent>
         )}
+        
         {canViewProcurement && (
             <TabsContent value="procurement" className="mt-4">
                 <ProcurementDashboard 
@@ -124,7 +125,6 @@ export default function PharmacyPage() {
                 />
             </TabsContent>
         )}
-
       </Tabs>
     </div>
   );

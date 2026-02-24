@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -10,177 +9,92 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { mockInventory } from '@/lib/data';
-import { InventoryItem } from '@/lib/types';
-import { cn } from '@/lib/utils';
-import { format, parseISO, differenceInDays } from 'date-fns';
-import { useDebouncedCallback } from 'use-debounce';
 import { useAuth } from '@/hooks/use-auth';
-
-interface BatchDetailsDialogProps {
-  item: InventoryItem;
-  trigger: React.ReactNode;
-}
-
-function BatchDetailsDialog({ item, trigger }: BatchDetailsDialogProps) {
-  const getExpiryColor = (dateString: string) => {
-    const daysToExpiry = differenceInDays(parseISO(dateString), new Date());
-    if (daysToExpiry < 0) return 'text-destructive font-semibold';
-    if (daysToExpiry <= 30) return 'text-yellow-600 font-semibold';
-    return '';
-  };
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Batch Details: {item.name}</DialogTitle>
-          <DialogDescription>
-            A detailed breakdown of all available batches for this item.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="rounded-md border mt-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Batch Number</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead>Expiry Date</TableHead>
-                <TableHead>Date Received</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {item.batches && item.batches.length > 0 ? (
-                item.batches
-                  .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime())
-                  .map(batch => (
-                    <TableRow key={batch.batchNumber}>
-                      <TableCell>{batch.batchNumber}</TableCell>
-                      <TableCell className="text-right font-mono">{batch.currentQuantity}</TableCell>
-                      <TableCell className={cn(getExpiryColor(batch.expiryDate))}>
-                        {format(parseISO(batch.expiryDate), 'PPP')}
-                      </TableCell>
-                      <TableCell>{format(parseISO(batch.dateReceived), 'PPP')}</TableCell>
-                    </TableRow>
-                  ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
-                    No batches found for this item.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
+import { InventoryItem } from '@/lib/types';
+import { format } from 'date-fns';
+import { PackageSearch, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface InventoryTableProps {
   searchQuery: string;
 }
 
+/**
+ * == Live Inventory Catalog ==
+ * 
+ * Displays the hospital's private stock of drugs and medical supplies.
+ * Enforces strict SaaS isolation via the hospitalId filter.
+ */
 export function InventoryTable({ searchQuery }: InventoryTableProps) {
   const { user } = useAuth();
-  const [filteredItems, setFilteredItems] = React.useState<InventoryItem[]>([]);
+  const firestore = useFirestore();
 
-  const filterItems = useDebouncedCallback((query: string) => {
-    if (!user) return;
+  // LIVE QUERY: Hospital-specific inventory
+  const invQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId) return null;
+    return query(
+        collection(firestore, 'inventory'),
+        where('hospitalId', '==', user.hospitalId),
+        orderBy('name', 'asc')
+    );
+  }, [firestore, user?.hospitalId]);
 
-    // SaaS LOGIC: Always filter by hospitalId first
-    const hospitalInventory = mockInventory.filter(item => item.hospitalId === user.hospitalId);
+  const { data: rawItems, isLoading } = useCollection<InventoryItem>(invQuery);
 
-    if (!query) {
-      setFilteredItems(hospitalInventory);
-    } else {
-      const lowercasedQuery = query.toLowerCase();
-      const filtered = hospitalInventory.filter(item =>
-        item.name.toLowerCase().includes(lowercasedQuery)
-      );
-      setFilteredItems(filtered);
-    }
-  }, 200);
+  // Local filtering for search (prefix search equivalent)
+  const filteredItems = React.useMemo(() => {
+    if (!rawItems) return [];
+    if (!searchQuery) return rawItems;
+    const lowerQuery = searchQuery.toLowerCase();
+    return rawItems.filter(item => item.name.toLowerCase().includes(lowerQuery));
+  }, [rawItems, searchQuery]);
 
-  React.useEffect(() => {
-    filterItems(searchQuery);
-  }, [searchQuery, filterItems, user]);
+  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
-  const getRowClass = (totalQuantity: number, reorderLevel: number, nearestExpiry?: string) => {
-    const isLowStock = totalQuantity <= reorderLevel;
-    if (isLowStock) return 'bg-destructive/10 hover:bg-destructive/20';
-    
-    if (nearestExpiry) {
-        const daysToExpiry = differenceInDays(parseISO(nearestExpiry), new Date());
-        if (daysToExpiry <= 30 && daysToExpiry >= 0) return 'bg-yellow-400/10 hover:bg-yellow-400/20';
-    }
-    return '';
-  };
-  
   return (
     <div className="rounded-md border">
       <Table>
-        <TableHeader>
+        <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead>Item Name</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead className="text-right">Total Quantity</TableHead>
-            <TableHead className="text-right">Reorder Level</TableHead>
-            <TableHead>Nearest Expiry</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead className="text-right">Stock Level</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredItems.length > 0 ? (
-            filteredItems.map(item => {
-              const totalQuantity = item.batches?.reduce((sum, batch) => sum + batch.currentQuantity, 0) || 0;
-              const nearestExpiryBatch = item.batches?.filter(b => new Date(b.expiryDate) > new Date()).sort((a,b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime())[0];
-              const nearestExpiry = nearestExpiryBatch?.expiryDate;
-
-              const isLowStock = totalQuantity <= item.reorderLevel;
-              const isExpiringSoon = nearestExpiry ? differenceInDays(parseISO(nearestExpiry), new Date()) <= 30 : false;
-
-              return (
-                <TableRow key={item.itemId} className={cn(getRowClass(totalQuantity, item.reorderLevel, nearestExpiry))}>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{item.type}</TableCell>
-                  <TableCell className="text-right font-mono">{totalQuantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono">{item.reorderLevel.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {nearestExpiry ? format(parseISO(nearestExpiry), 'PPP') : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {isLowStock && <Badge variant="destructive">Low Stock</Badge>}
-                    {isExpiringSoon && !isLowStock && <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">Expiring Soon</Badge>}
-                    {!isLowStock && !isExpiringSoon && <Badge variant="secondary">In Stock</Badge>}
-                  </TableCell>
-                  <TableCell>
-                     <BatchDetailsDialog 
-                        item={item} 
-                        trigger={<Button variant="outline" size="sm">View Batches</Button>} 
-                     />
-                  </TableCell>
-                </TableRow>
-              )
-            })
+            filteredItems.map((item) => (
+              <TableRow key={item.id} className={item.currentQuantity <= item.reorderLevel ? 'bg-destructive/5' : ''}>
+                <TableCell className="font-bold">{item.name}</TableCell>
+                <TableCell className="text-xs uppercase font-semibold text-muted-foreground">{item.type}</TableCell>
+                <TableCell className="text-right font-mono font-bold">
+                    {item.currentQuantity.toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  {item.currentQuantity <= item.reorderLevel ? (
+                    <Badge variant="destructive" className="gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Low Stock
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Optimal</Badge>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="outline" size="sm">Manage Stock</Button>
+                </TableCell>
+              </TableRow>
+            ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
-                No inventory items found.
+              <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                <PackageSearch className="h-12 w-12 mx-auto opacity-20 mb-2" />
+                <p>No inventory items found matching "{searchQuery}".</p>
               </TableCell>
             </TableRow>
           )}
