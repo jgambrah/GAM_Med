@@ -15,10 +15,10 @@ import {
     Pill, 
     ArrowRight,
     Loader2,
-    CircleDashed,
     CheckCircle2
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/badge';
+import { RecordVitalsDialog } from '@/components/nursing/record-vitals-dialog';
 
 interface NurseTaskQueueProps {
     hospitalId?: string;
@@ -35,8 +35,6 @@ export function NurseTaskQueue({ hospitalId, type }: NurseTaskQueueProps) {
   const firestore = useFirestore();
 
   // LIVE QUERY: Fetch active Care Plans or Medication Records
-  // Note: In a production app, we would have a dedicated 'tasks' collection.
-  // For this prototype, we derive tasks from 'medication_records' and 'care_plans'.
   const taskQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     
@@ -95,12 +93,26 @@ export function NurseTaskQueue({ hospitalId, type }: NurseTaskQueueProps) {
                                 <span className="text-[10px] text-muted-foreground">Scheduled Round: {format(new Date(), 'p')}</span>
                             </div>
                         </div>
-                        <Button variant="outline" size="sm" asChild className="group">
-                            <Link href={`/dashboard/patients/${task.patientId}`}>
-                                Record
-                                <ArrowRight className="h-3 w-3 ml-2 group-hover:translate-x-1 transition-transform" />
-                            </Link>
-                        </Button>
+                        <div className="flex flex-col gap-2">
+                            {type === 'Care' ? (
+                                <RecordVitalsDialog 
+                                    patientId={task.patientId} 
+                                    patientName={task.patientName || `Patient ${task.patientId}`} 
+                                />
+                            ) : (
+                                <Button variant="outline" size="sm" asChild className="group">
+                                    <Link href={`/dashboard/patients/${task.patientId}`}>
+                                        Record Meds
+                                        <ArrowRight className="h-3 w-3 ml-2 group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="sm" asChild className="text-[10px] h-6">
+                                <Link href={`/dashboard/patients/${task.patientId}`}>
+                                    View Full EHR
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
