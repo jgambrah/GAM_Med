@@ -136,7 +136,7 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                     </TabsContent>
                     
                     <TabsContent value="medications" className="mt-4">
-                        <MedicationsTab patientId={patient.patient_id} />
+                        <MedicationsTab patient={patient} />
                     </TabsContent>
                     
                     <TabsContent value="labs" className="mt-4">

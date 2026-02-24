@@ -8,12 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
-import { MedicationRecord } from '@/lib/types';
+import { MedicationRecord, Patient } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { useParams } from 'next/navigation';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { NewPrescriptionSchema } from '@/lib/schemas';
 import { Pill, Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -22,7 +19,11 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } 
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
-function NewPrescriptionDialog({ patientId, onPrescriptionAdded }: { patientId: string, onPrescriptionAdded: () => void }) {
+interface MedicationsTabProps {
+    patient: Patient;
+}
+
+function NewPrescriptionDialog({ patient, onPrescriptionAdded }: { patient: Patient, onPrescriptionAdded: () => void }) {
     const { user } = useAuth();
     const firestore = useFirestore();
     const [open, setOpen] = React.useState(false);
@@ -33,8 +34,8 @@ function NewPrescriptionDialog({ patientId, onPrescriptionAdded }: { patientId: 
             medicationName: '',
             dosage: '',
             frequency: '',
-            route: '',
-            quantity: 0,
+            route: 'Oral',
+            quantity: 30,
             instructions: '',
         }
     });
@@ -42,20 +43,42 @@ function NewPrescriptionDialog({ patientId, onPrescriptionAdded }: { patientId: 
     const onSubmit = async (values: z.infer<typeof NewPrescriptionSchema>) => {
         if (!user || !firestore) return;
 
-        const newMedData = {
+        // 1. ADD TO EHR MEDICATION HISTORY (Longitudinal Charting)
+        const newMedRecord = {
             ...values,
             hospitalId: user.hospitalId,
-            patientId: patientId,
+            patientId: patient.patient_id,
+            patientName: patient.full_name,
             prescribedByDoctorId: user.uid,
             prescribedByDoctorName: user.name,
             prescribedAt: new Date().toISOString(),
             status: 'Active'
         };
+        addDocumentNonBlocking(collection(firestore, 'medication_records'), newMedRecord);
 
-        addDocumentNonBlocking(collection(firestore, 'medication_records'), newMedData);
-        toast.success('Prescription sent.');
+        // 2. ADD TO PHARMACY QUEUE (SaaS "Close the Loop" Pattern)
+        const pharmacyPrescription = {
+            hospitalId: user.hospitalId,
+            patientId: patient.patient_id,
+            patientName: patient.full_name,
+            patientMrn: patient.mrn,
+            doctorId: user.uid,
+            doctorName: user.name,
+            datePrescribed: new Date().toISOString(),
+            status: "Pending",
+            medications: [{
+                name: values.medicationName,
+                dosage: values.dosage,
+                frequency: values.frequency,
+                quantity_to_dispense: values.quantity
+            }]
+        };
+        addDocumentNonBlocking(collection(firestore, 'prescriptions'), pharmacyPrescription);
+
+        toast.success("e-Prescription sent to Pharmacy");
         setOpen(false);
         form.reset();
+        onPrescriptionAdded();
     };
 
     return (
@@ -99,6 +122,22 @@ function NewPrescriptionDialog({ patientId, onPrescriptionAdded }: { patientId: 
                                 )}
                             />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="route"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Route</FormLabel><FormControl><Input placeholder="Oral" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="quantity"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Quantity to Dispense</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}
+                            />
+                        </div>
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                             <Button type="submit">Send Prescription</Button>
@@ -110,9 +149,10 @@ function NewPrescriptionDialog({ patientId, onPrescriptionAdded }: { patientId: 
     )
 }
 
-export function MedicationsTab({ patientId }: { patientId: string }) {
+export function MedicationsTab({ patient }: MedicationsTabProps) {
     const { user } = useAuth();
     const firestore = useFirestore();
+    const patientId = patient.patient_id;
 
     const medQuery = useMemoFirebase(() => {
         if (!firestore || !patientId || !user?.hospitalId) return null;
@@ -133,7 +173,7 @@ export function MedicationsTab({ patientId }: { patientId: string }) {
                     <CardTitle>Medications</CardTitle>
                     <CardDescription>Current and historical prescriptions.</CardDescription>
                 </div>
-                {user?.role === 'doctor' && <NewPrescriptionDialog patientId={patientId} onPrescriptionAdded={() => {}} />}
+                {user?.role === 'doctor' && <NewPrescriptionDialog patient={patient} onPrescriptionAdded={() => {}} />}
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border">
