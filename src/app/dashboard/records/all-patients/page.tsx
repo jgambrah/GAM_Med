@@ -1,8 +1,7 @@
-
 'use client';
 
 import * as React from 'react';
-import { query, collection, where, orderBy, Timestamp } from 'firebase/firestore';
+import { query, collection, where, orderBy } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useTenant } from '@/hooks/use-tenant';
 import { 
@@ -17,16 +16,17 @@ import { format } from 'date-fns';
 import { Patient } from '@/lib/types';
 
 /**
- * == Core Hospital Engine: Live Patient List ==
+ * == Core Hospital Engine: Live Patient Directory ==
  * 
  * This component displays a real-time stream of patients belonging to the current tenant.
- * It enforces logical isolation via the hospitalId filter.
+ * It enforces logical isolation via the hospitalId filter (The SaaS Wall).
  */
 export default function PatientList() {
     const { hospitalId } = useTenant();
     const db = useFirestore();
 
     // 1. MEMOIZED TENANT QUERY
+    // Only fetch data matching the logged-in user's facility
     const patientsQuery = useMemoFirebase(() => {
         if (!hospitalId) return null;
         return query(
@@ -36,15 +36,8 @@ export default function PatientList() {
         );
     }, [db, hospitalId]);
 
-    // 2. REAL-TIME HOOK
+    // 2. REAL-TIME DATA HOOK
     const { data: patients, isLoading } = useCollection<Patient>(patientsQuery);
-
-    const formatDate = (date: any) => {
-        if (!date) return 'N/A';
-        if (date instanceof Timestamp) return format(date.toDate(), 'PPP');
-        if (date.seconds) return format(new Date(date.seconds * 1000), 'PPP');
-        return format(new Date(date), 'PPP');
-    }
 
     if (isLoading) {
         return <div className="p-6 text-center text-muted-foreground">Loading hospital directory...</div>;
@@ -52,7 +45,7 @@ export default function PatientList() {
 
     return (
         <div className="p-6 space-y-6">
-            <div>
+            <div className="mb-6">
                 <h1 className="text-3xl font-bold">Hospital Directory</h1>
                 <p className="text-muted-foreground">A real-time view of all patients registered at your facility.</p>
             </div>
@@ -69,11 +62,11 @@ export default function PatientList() {
                     </TableHeader>
                     <TableBody>
                         {patients && patients.length > 0 ? (
-                            patients.map((p: any) => (
+                            patients.map((p) => (
                                 <TableRow key={p.id} className="hover:bg-muted/50 transition-colors">
                                     <TableCell className="font-mono text-sm">{p.mrn}</TableCell>
                                     <TableCell className="font-medium">
-                                        {p.full_name || `${p.firstName} ${p.lastName}`}
+                                        {p.full_name}
                                     </TableCell>
                                     <TableCell>
                                         <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 capitalize">
@@ -81,14 +74,14 @@ export default function PatientList() {
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right text-muted-foreground">
-                                        {formatDate(p.createdAt)}
+                                        {p.createdAt ? format(new Date(p.createdAt), 'PPP') : 'N/A'}
                                     </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                                    No patients found in your hospital's directory.
+                                    No patients found in your facility's directory.
                                 </TableCell>
                             </TableRow>
                         )}

@@ -55,7 +55,8 @@ service cloud.firestore {
       // Allow creation of the very first HQ hospital
       allow create: if isSignedIn() && hospId == 'GAMMED_HQ' && request.auth.token.email == 'ceo@gammed.com';
       allow get: if isSignedIn() && (request.auth.token.hospitalId == hospId || isSuperAdmin());
-      allow list: if isSuperAdmin();
+      // SAAS UPDATE: Allow list ONLY if filtered by the user's hospitalId or if super_admin
+      allow list: if isSuperAdmin() || (isSignedIn() && request.query.filters.hospitalId == request.auth.token.hospitalId);
     }
 
     // Users & Staff Profiles
