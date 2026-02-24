@@ -20,13 +20,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { ControlledSubstance } from '@/lib/types';
 import { TransactionLogDialog } from './components/transaction-log-dialog';
-import { LogTransactionDialog } from './components/log-transaction-dialog';
-import { ShieldCheck, History, DownloadCloud, Loader2, PlusCircle, MinusCircle } from 'lucide-react';
+import { LogNarcoticTransaction } from '@/components/pharmacy/LogNarcoticTransaction';
+import { ShieldCheck, History, DownloadCloud, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
-import { Badge } from '@/components/ui/badge';
 
 /**
  * == High-Security Pharmacy: Controlled Substances (Narcotics) Dashboard ==
@@ -38,7 +37,6 @@ export default function ControlledSubstancesPage() {
     const { user } = useAuth();
     const firestore = useFirestore();
     const [selectedSubstance, setSelectedSubstance] = React.useState<ControlledSubstance | null>(null);
-    const [transactionConfig, setTransactionSubstance] = React.useState<{ substance: ControlledSubstance, action: 'Dispense' | 'Restock' } | null>(null);
     const [isGenerating, setIsGenerating] = React.useState(false);
 
     // 1. LIVE QUERY: Listen for all regulated substances in THIS hospital
@@ -82,7 +80,7 @@ export default function ControlledSubstancesPage() {
                 <div className="flex gap-2">
                     <Button variant="outline" className="shadow-sm bg-white" onClick={() => setSelectedSubstance(substances?.[0] || null)}>
                         <History size={16} className="mr-2" /> 
-                        View Global Audit Trail
+                        View Audit Trail
                     </Button>
                     <Button onClick={handleGenerateReport} disabled={isGenerating} className="bg-red-600 hover:bg-red-700 shadow-md">
                         <DownloadCloud className="h-4 w-4 mr-2" />
@@ -94,7 +92,7 @@ export default function ControlledSubstancesPage() {
             <Card className="shadow-xl overflow-hidden border-none ring-1 ring-slate-200">
                 <CardHeader className="bg-slate-900 text-white pb-6">
                     <CardTitle className="text-sm font-black uppercase tracking-widest opacity-80">Digital Dangerous Drugs Register (DDDR)</CardTitle>
-                    <CardDescription className="text-slate-400 text-xs">Real-time balances and secure movement logs.</CardDescription>
+                    <CardDescription className="text-slate-400 text-xs">Real-time balances and secure movement logs with double sign-off enforcement.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0 bg-white">
                     <Table>
@@ -127,23 +125,8 @@ export default function ControlledSubstancesPage() {
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
                                             <div className="flex justify-end gap-2">
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-9 px-4 text-[10px] font-black uppercase border-2 text-slate-700" 
-                                                    onClick={() => setTransactionSubstance({ substance, action: 'Restock' })}
-                                                >
-                                                    <PlusCircle className="h-3 w-3 mr-2 text-green-600" />
-                                                    Refill
-                                                </Button>
-                                                <Button 
-                                                    size="sm" 
-                                                    className="h-9 px-4 text-[10px] font-black uppercase bg-slate-900 hover:bg-slate-800 text-white shadow-md" 
-                                                    onClick={() => setTransactionSubstance({ substance, action: 'Dispense' })}
-                                                >
-                                                    <MinusCircle className="h-3 w-3 mr-2 text-red-400" />
-                                                    Dispense
-                                                </Button>
+                                                <LogNarcoticTransaction substance={substance} action="Refill" />
+                                                <LogNarcoticTransaction substance={substance} action="Dispense" />
                                                 <Button 
                                                     variant="ghost" 
                                                     size="icon" 
@@ -174,8 +157,8 @@ export default function ControlledSubstancesPage() {
             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center gap-4">
                 <History className="h-5 w-5 text-blue-600" />
                 <p className="text-xs text-blue-800 font-medium">
-                    <strong>Notice:</strong> This dashboard is an immutable legal record. All movements are time-stamped and mapped to the performing clinician's license. 
-                    Attempts to tamper with logs are automatically flagged to the <strong>GamMed Compliance Monitor</strong>.
+                    <strong>Notice:</strong> This dashboard is an immutable legal record. All movements require a witness sign-off and are mapped to the performing clinician's license. 
+                    Register discrepancies are automatically flagged to the <strong>GamMed Compliance Monitor</strong>.
                 </p>
             </div>
 
@@ -184,14 +167,6 @@ export default function ControlledSubstancesPage() {
                     substance={selectedSubstance}
                     isOpen={!!selectedSubstance}
                     onOpenChange={() => setSelectedSubstance(null)}
-                />
-            )}
-             {transactionConfig && (
-                <LogTransactionDialog
-                    substance={transactionConfig.substance}
-                    isOpen={!!transactionConfig}
-                    onOpenChange={(isOpen) => !isOpen && setTransactionSubstance(null)}
-                    initialType={transactionConfig.action}
                 />
             )}
         </div>
