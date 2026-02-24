@@ -1,106 +1,173 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------------------------------------------
-    // Helper Functions for Multi-Tenant Isolation
-    // --------------------------------------------------------------------
-
     /**
-     * Returns true if the user is authenticated.
+     * MedFlow GH Security Rules
+     *
+     * Core Philosophy:
+     * This ruleset implements a robust Role-Based Access Control (RBAC) and Database-Based Access Control (DBAC) 
+     * model. It prioritizes "Authorization Independence" by using denormalized Firebase UIDs within documents 
+     * to allow for fast, scalable security checks without excessive document lookups.
+     *
+     * Data Structure:
+     * - Top-level collections for primary entities: userProfiles, patients, healthcareProviders, departments, 
+     *   resources, and appointments.
+     * - Dedicated role collections (roles_super_admin, roles_admin) for high-level administrative "God Power" 
+     *   checks (DBAC).
+     *
+     * Key Security Decisions:
+     * - Super Admins and Admins have broad access to manage the system.
+     * - Users (Patients and Providers) are strictly limited to documents containing their specific Firebase UID.
+     * - Appointments use multiple denormalized UID fields (patient, provider, scheduler) to ensure all 
+     *   involved parties can securely access the record.
+     * - Prototyping Mode: Schema validation is omitted for general content, but relational integrity 
+     *   for UIDs is strictly enforced.
      */
+
+    // --- HELPER FUNCTIONS ---
+
+    /** @description Checks if the user is authenticated. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Enforces logical isolation using Custom Claims.
-     * Ensures the user's hospitalId matches the document's hospitalId.
-     */
-    function isSameHospital(docData) {
-      return isSignedIn() && docData.hospitalId == request.auth.token.hospitalId;
-    }
-
-    /**
-     * Checks if the user has an authorized employee role via claims.
-     */
-    function isEmployee() {
-      return isSignedIn() && request.auth.token.role in [
-        'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 
-        'lab_technician', 'radiologist', 'dietitian', 'receptionist'
-      ];
-    }
-
-    /**
-     * Checks if the user is a hospital administrator via claims.
-     */
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    /**
-     * Checks if the authenticated user is the owner of the document.
-     */
+    /** @description Checks if the user is the owner of the specific UID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --------------------------------------------------------------------
-    // Collection Rules
-    // --------------------------------------------------------------------
-
-    // Hospitals (Tenant Masters)
-    match /hospitals/{hospitalId} {
-      allow get: if isSignedIn() && request.auth.token.hospitalId == hospitalId;
-      allow write: if false; // Provisioning is handled via system admin tools
+    /** @description Verifies Super Admin status via the roles_super_admin collection (DBAC). */
+    function isSuperAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    // Users & Staff Profiles
-    match /users/{userId} {
-      allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
-      allow list: if isEmployee() && isAdmin(); 
-      
-      // Enforce the Multi-tenant Unique Constraint pattern: {hospitalId}_{email}
-      allow create: if isOwner(userId) && 
-                    isSameHospital(request.resource.data) && 
-                    userId == request.resource.data.hospitalId + "_" + request.resource.data.email;
-      
-      allow update: if (isOwner(userId) || isAdmin()) && isSameHospital(request.resource.data);
+    /** @description Verifies Admin status via the roles_admin collection or Super Admin status. */
+    function isAdmin() {
+      return isSignedIn() && (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || isSuperAdmin());
     }
 
-    // Patients
+    // The 'isExistingOwner' function was unused and also had an invalid variable name 'resource'
+    // within its scope. As per the prototyping mode directive to only fix identified issues and
+    // its lack of use, it has been removed.
+
+    /** @description Shared access logic for appointments based on denormalized UIDs. */
+    function canAccessAppointment(data) {
+      return isSignedIn() && (
+        data.patientFirebaseUid == request.auth.uid || 
+        data.healthcareProviderFirebaseUid == request.auth.uid || 
+        data.scheduledByUserFirebaseUid == request.auth.uid || 
+        isAdmin()
+      );
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for user profile management. Users manage their own; Admins manage all.
+     * @path /userProfiles/{firebaseUid}
+     * @allow (get) If user is owner or Admin.
+     * @deny (create) If the internal 'firebaseUid' field does not match the document path.
+     * @principle Ownership and Path Consistency.
+     */
+    match /userProfiles/{firebaseUid} {
+      allow get: if isOwner(firebaseUid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(firebaseUid) && request.resource.data.firebaseUid == firebaseUid;
+      allow update: if (isOwner(firebaseUid) || isAdmin()) && request.resource.data.firebaseUid == resource.data.firebaseUid;
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description High-privilege role marker for Super Admins.
+     * @path /roles_super_admin/{firebaseUid}
+     * @allow (get) If signed in (to verify role).
+     * @deny (write) If not a Super Admin.
+     * @principle DBAC (Database-Based Access Control).
+     */
+    match /roles_super_admin/{firebaseUid} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    /**
+     * @description High-privilege role marker for Admins.
+     * @path /roles_admin/{firebaseUid}
+     * @allow (get) If signed in.
+     * @deny (write) If not a Super Admin.
+     * @principle DBAC (Database-Based Access Control).
+     */
+    match /roles_admin/{firebaseUid} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    /**
+     * @description Detailed patient records. Access is restricted to the specific patient and hospital staff.
+     * @path /patients/{patientId}
+     * @allow (list) If query filters by the user's UID or user is Admin.
+     * @deny (update) If attempting to change the associatedUserFirebaseUid.
+     * @principle Denormalization for Authorization.
+     */
     match /patients/{patientId} {
-      // Ensure users can only read patients belonging to their hospital
-      allow read: if (isSignedIn() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
-      
-      // Enforce the Gold Standard pattern: {hospitalId}_MRN{mrn}
-      // 1. Document ID must exactly match the hospitalId and MRN.
-      // 2. Document ID must start with the user's own hospitalId.
-      // 3. The internal hospitalId field must match the user's hospitalId.
-      allow create: if isEmployee() && 
-                    patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn &&
-                    patientId.startsWith(request.auth.token.hospitalId + "_") &&
-                    request.resource.data.hospitalId == request.auth.token.hospitalId;
-      
-      allow update: if isEmployee() && isSameHospital(resource.data) && isSameHospital(request.resource.data);
-      allow delete: if isAdmin() && isSameHospital(resource.data);
+      allow get, list: if isSignedIn() && (resource.data.associatedUserFirebaseUid == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.associatedUserFirebaseUid == request.auth.uid);
+      allow update: if isAdmin() || (resource != null && resource.data.associatedUserFirebaseUid == request.auth.uid && request.resource.data.associatedUserFirebaseUid == resource.data.associatedUserFirebaseUid);
+      allow delete: if isAdmin();
     }
 
-    // Appointments
+    /**
+     * @description Professional profiles for healthcare providers.
+     * @path /healthcareProviders/{providerId}
+     * @allow (get) Publicly readable for authenticated users.
+     * @deny (write) If not the provider themselves or an Admin.
+     * @principle Ownership with Admin Overrides.
+     */
+    match /healthcareProviders/{providerId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.associatedUserFirebaseUid == request.auth.uid);
+      allow update: if isAdmin() || (resource != null && resource.data.associatedUserFirebaseUid == request.auth.uid && request.resource.data.associatedUserFirebaseUid == resource.data.associatedUserFirebaseUid);
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Hospital departments.
+     * @path /departments/{departmentId}
+     * @allow (read) All authenticated users.
+     * @deny (write) Any non-Admin.
+     * @principle Public Read with Restricted Writes.
+     */
+    match /departments/{departmentId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Bookable hospital resources.
+     * @path /resources/{resourceId}
+     * @allow (read) All authenticated users.
+     * @deny (write) Any non-Admin.
+     * @principle Public Read with Restricted Writes.
+     */
+    match /resources/{resourceId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Appointment management using shared access patterns.
+     * @path /appointments/{appointmentId}
+     * @allow (list) If the user is the patient, the provider, or the creator of the appointment.
+     * @deny (create) If the user attempts to set a different UID for the scheduler field.
+     * @principle Shared Access (Closed Collaborators).
+     */
     match /appointments/{appointmentId} {
-      allow read: if (isSignedIn() && request.auth.token.patient_id == resource.data.patient_id) || (isEmployee() && isSameHospital(resource.data));
-      allow create: if isSignedIn() && isSameHospital(request.resource.data);
-      allow update: if isEmployee() && isSameHospital(resource.data);
-      allow delete: if isAdmin() && isSameHospital(resource.data);
-    }
-
-    // Admissions, Beds, Invoices, Lab Results, etc.
-    match /{collection}/{docId} {
-      // General safety net for all tenant-specific documents
-      allow read, write: if isEmployee() && 
-        (resource == null || (isSameHospital(resource.data) && docId.startsWith(request.auth.token.hospitalId + "_"))) && 
-        (request.resource == null || (isSameHospital(request.resource.data) && docId.startsWith(request.auth.token.hospitalId + "_")));
+      allow get, list: if canAccessAppointment(resource.data);
+      allow create: if isSignedIn() && (request.resource.data.scheduledByUserFirebaseUid == request.auth.uid || isAdmin());
+      allow update: if canAccessAppointment(resource.data) && (request.resource.data.scheduledByUserFirebaseUid == resource.data.scheduledByUserFirebaseUid);
+      allow delete: if isAdmin() || (resource != null && resource.data.scheduledByUserFirebaseUid == request.auth.uid);
     }
   }
 }

@@ -1,161 +1,609 @@
 {
   "entities": {
-    "Hospital": {
-      "title": "Hospital",
-      "description": "Represents a healthcare facility (Tenant) in the system. The 'hospitalId' serves as the logical isolation key for all tenant-specific data.",
-      "type": "object",
-      "properties": {
-        "hospitalId": { "type": "string" },
-        "name": { "type": "string" },
-        "slug": { "type": "string" },
-        "status": { "type": "string", "enum": ["active", "suspended"] },
-        "subscriptionTier": { "type": "string", "enum": ["basic", "premium"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["hospitalId", "name", "slug", "status", "subscriptionTier", "createdAt"]
-    },
     "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
-      "description": "Represents a user account. Document ID pattern: {hospitalId}_{email}. This enforces atomic uniqueness within a tenant and allows for O(1) direct lookups. Internal Platform Owner (Super Admin) users belong to the 'GAMMED_INTERNAL' tenant.",
       "type": "object",
+      "description": "Stores user profile information, including roles and links to specific domain entities like Patient or HealthcareProvider, complementing Firebase Authentication.",
       "properties": {
-        "uid": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["super_admin", "director", "admin", "doctor", "nurse", "pharmacist", "patient", "billing_clerk"] },
-        "is_active": { "type": "boolean" },
-        "created_at": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "firebaseUid": {
+          "type": "string",
+          "description": "The unique user ID provided by Firebase Authentication. (Relationship: UserProfile 1:1 Firebase Authentication User)"
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "User's primary contact phone number."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "User's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "User's last name."
+        },
+        "role": {
+          "type": "string",
+          "description": "Assigned role for the user (e.g., Patient, Doctor, Nurse, Pharmacist, Admin, SuperAdmin).",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "patientProfileId": {
+          "type": "string",
+          "description": "Reference to the Patient entity if this user is a patient. (Relationship: UserProfile 1:1 Patient)"
+        },
+        "healthcareProviderProfileId": {
+          "type": "string",
+          "description": "Reference to the HealthcareProvider entity if this user is a healthcare professional. (Relationship: UserProfile 1:1 HealthcareProvider)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["uid", "hospitalId", "email", "name", "role", "is_active", "created_at"]
+      "required": [
+        "id",
+        "firebaseUid",
+        "firstName",
+        "lastName",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
     },
     "Patient": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Patient",
-      "description": "Stores demographic and clinical information for a patient within a hospital. Document ID pattern: {hospitalId}_MRN{mrn}. Includes normalized searchable fields for high-performance NoSQL indexing.",
       "type": "object",
+      "description": "Stores comprehensive demographic and administrative information for a patient within MedFlow GH.",
       "properties": {
-        "patient_id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "mrn": { "type": "string" },
-        "full_name": { "type": "string" },
-        "full_name_lowercase": { "type": "string", "description": "Normalized name for case-insensitive prefix search." },
-        "phone_search": { "type": "string", "description": "Normalized phone number (digits only) for exact/prefix search." },
-        "dob": { "type": "string", "format": "date" },
-        "gender": { "type": "string" },
-        "is_admitted": { "type": "boolean" },
-        "created_at": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Patient entity (often referred to as Unique Patient ID)."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity if this patient has an associated user account. (Relationship: Patient 1:1 UserProfile)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "Patient's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Patient's last name."
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "description": "Patient's date of birth.",
+          "format": "date"
+        },
+        "gender": {
+          "type": "string",
+          "description": "Patient's gender.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Patient's primary contact phone number."
+        },
+        "email": {
+          "type": "string",
+          "description": "Patient's email address.",
+          "format": "email"
+        },
+        "address": {
+          "type": "string",
+          "description": "Patient's residential address."
+        },
+        "ghanaCardId": {
+          "type": "string",
+          "description": "Patient's Ghana Card identification number, as per local regulations."
+        },
+        "bloodGroup": {
+          "type": "string",
+          "description": "Patient's blood group.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allergies": {
+          "type": "array",
+          "description": "A list of patient's known allergies.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "emergencyContactName": {
+          "type": "string",
+          "description": "Name of the patient's emergency contact."
+        },
+        "emergencyContactNumber": {
+          "type": "string",
+          "description": "Phone number of the patient's emergency contact."
+        },
+        "emergencyContactRelationship": {
+          "type": "string",
+          "description": "Relationship of the emergency contact to the patient (e.g., 'Spouse', 'Parent', 'Sibling')."
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "Date and time when the patient was registered in the system.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current administrative status of the patient (e.g., 'Active', 'Discharged', 'Deceased').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the patient record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the patient record was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["patient_id", "hospitalId", "mrn", "full_name", "full_name_lowercase", "phone_search", "dob", "gender", "is_admitted", "created_at"]
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "dateOfBirth",
+        "gender",
+        "contactNumber",
+        "ghanaCardId",
+        "registrationDate",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "HealthcareProvider": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HealthcareProvider",
+      "type": "object",
+      "description": "Stores detailed professional information for all healthcare professionals (doctors, nurses, pharmacists) at MedFlow GH.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the HealthcareProvider entity."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to the associated UserProfile entity. (Relationship: HealthcareProvider 1:1 UserProfile)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "Healthcare provider's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Healthcare provider's last name."
+        },
+        "type": {
+          "type": "string",
+          "description": "The professional type of the healthcare provider.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "specialization": {
+          "type": "string",
+          "description": "Specific medical specialization (primarily for Doctors, e.g., 'Cardiology', 'Pediatrics')."
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "Professional license or registration number."
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Healthcare provider's contact phone number."
+        },
+        "email": {
+          "type": "string",
+          "description": "Healthcare provider's email address.",
+          "format": "email"
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department the healthcare provider belongs to. (Relationship: Department 1:N HealthcareProvider)"
+        },
+        "bio": {
+          "type": "string",
+          "description": "A short professional biography or description."
+        },
+        "isAvailable": {
+          "type": "boolean",
+          "description": "Indicates if the healthcare provider is currently available for appointments/consultations."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the healthcare provider record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the healthcare provider record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "firstName",
+        "lastName",
+        "type",
+        "licenseNumber",
+        "departmentId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a medical department or unit within the MedFlow GH hospital structure.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Department entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the department (e.g., 'Cardiology', 'Emergency Room')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the department's primary functions and services."
+        },
+        "headOfDepartmentId": {
+          "type": "string",
+          "description": "Reference to the HealthcareProvider who is currently the head of this department. (Relationship: Department 1:1 HealthcareProvider)"
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Department's main contact phone number."
+        },
+        "email": {
+          "type": "string",
+          "description": "Department's official email address.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the department record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the department record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt",
+        "updatedAt"
+      ]
     },
     "Appointment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Appointment",
-      "description": "A scheduled visit for a patient at a hospital.",
       "type": "object",
+      "description": "Manages scheduled appointments for patients with healthcare providers, departments, or resources.",
       "properties": {
-        "appointment_id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "patient_id": { "type": "string" },
-        "doctor_id": { "type": "string" },
-        "appointment_date": { "type": "string", "format": "date-time" },
-        "status": { "type": "string" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Appointment entity."
+        },
+        "patientId": {
+          "type": "string",
+          "description": "Reference to the Patient entity for whom the appointment is scheduled. (Relationship: Patient 1:N Appointment)"
+        },
+        "healthcareProviderId": {
+          "type": "string",
+          "description": "Reference to the HealthcareProvider scheduled for this appointment. (Relationship: HealthcareProvider 1:N Appointment)"
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department associated with this appointment (e.g., if it's a general department visit). (Relationship: Department 1:N Appointment)"
+        },
+        "appointmentDateTime": {
+          "type": "string",
+          "description": "The exact date and time the appointment is scheduled for.",
+          "format": "date-time"
+        },
+        "reasonForVisit": {
+          "type": "string",
+          "description": "The patient's stated reason for the appointment."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the appointment.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of appointment (e.g., 'Consultation', 'Follow-up', 'Emergency').",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "The expected duration of the appointment in minutes."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any additional notes or instructions for the appointment."
+        },
+        "resourceIds": {
+          "type": "array",
+          "description": "References to Resource entities (e.g., operating theaters, specific equipment) required for this appointment. (Relationship: Appointment N:N Resource)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scheduledByUserId": {
+          "type": "string",
+          "description": "Reference to the UserProfile of the user who scheduled this appointment. (Relationship: UserProfile 1:N Appointment)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the appointment record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the appointment record was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["appointment_id", "hospitalId", "patient_id", "doctor_id", "appointment_date", "status"]
+      "required": [
+        "id",
+        "patientId",
+        "appointmentDateTime",
+        "reasonForVisit",
+        "status",
+        "type",
+        "createdAt",
+        "updatedAt"
+      ]
     },
-    "Admission": {
-      "title": "Admission",
-      "description": "Records an inpatient admission at a hospital.",
+    "Resource": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Resource",
       "type": "object",
+      "description": "Represents bookable physical assets or equipment within the MedFlow GH hospital (e.g., operating theaters, consultation rooms, specialized equipment).",
       "properties": {
-        "admission_id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "patient_id": { "type": "string" },
-        "type": { "type": "string" },
-        "admission_date": { "type": "string", "format": "date-time" },
-        "ward": { "type": "string" },
-        "bed_id": { "type": "string" },
-        "status": { "type": "string" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Resource entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the resource (e.g., 'Operating Theater 1', 'MRI Scanner')."
+        },
+        "type": {
+          "type": "string",
+          "description": "The category or type of the resource.",
+          "format": "enum",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the resource, including its capabilities or features."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department this resource is primarily associated with or belongs to. (Relationship: Department 1:N Resource)"
+        },
+        "location": {
+          "type": "string",
+          "description": "The physical location of the resource within the hospital (e.g., 'Building A, Floor 3, Room 301')."
+        },
+        "capacity": {
+          "type": "number",
+          "description": "The capacity of the resource, if applicable (e.g., number of patients a ward bed can accommodate, size of a room)."
+        },
+        "isBookable": {
+          "type": "boolean",
+          "description": "Indicates whether this resource can be scheduled or booked for appointments/procedures."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the resource record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the resource record was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["admission_id", "hospitalId", "patient_id", "type", "admission_date", "ward", "bed_id", "status"]
-    },
-    "Bed": {
-      "title": "Bed",
-      "description": "Represents a physical bed in a hospital ward.",
-      "type": "object",
-      "properties": {
-        "bed_id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "wardName": { "type": "string" },
-        "room_number": { "type": "string" },
-        "status": { "type": "string" }
-      },
-      "required": ["bed_id", "hospitalId", "wardName", "room_number", "status"]
-    },
-    "Referral": {
-      "title": "Referral",
-      "description": "Incoming patient referral from another facility.",
-      "type": "object",
-      "properties": {
-        "referral_id": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "referringProvider": { "type": "string" },
-        "patientDetails": { "type": "object" },
-        "status": { "type": "string" }
-      },
-      "required": ["referral_id", "hospitalId", "referringProvider", "patientDetails", "status"]
-    },
-    "Invoice": {
-      "title": "Invoice",
-      "description": "Financial document for services rendered to a patient.",
-      "type": "object",
-      "properties": {
-        "invoiceId": { "type": "string" },
-        "hospitalId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "grandTotal": { "type": "number" },
-        "status": { "type": "string" }
-      },
-      "required": ["invoiceId", "hospitalId", "patientId", "grandTotal", "status"]
+      "required": [
+        "id",
+        "name",
+        "type",
+        "isBookable",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "auth": {
-    "providers": ["password"],
-    "customClaims": {
-      "hospitalId": { "type": "string", "description": "The tenant ID for logical data isolation. Super Admins use 'GAMMED_INTERNAL'." },
-      "role": { "type": "string", "description": "The RBAC role for permission control (super_admin, director, admin, etc)." }
-    }
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/hospitals/{hospitalId}": {
-      "schema": { "$ref": "#/entities/Hospital" },
-      "description": "Root tenant configuration."
-    },
-    "/users/{userId}": {
-      "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "User profiles. userId follows {hospitalId}_{email} pattern for atomic uniqueness and direct lookups. Triggers syncUserClaims Cloud Function."
-    },
-    "/patients/{patientId}": {
-      "schema": { "$ref": "#/entities/Patient" },
-      "description": "Patient records. patientId follows {hospitalId}_MRN{mrn} pattern for unique identification and isolation."
-    },
-    "/appointments/{appointmentId}": {
-      "schema": { "$ref": "#/entities/Appointment" },
-      "description": "Appointment records with hospitalId field for logical isolation."
-    },
-    "/admissions/{admissionId}": {
-      "schema": { "$ref": "#/entities/Admission" },
-      "description": "Admission records with hospitalId field for logical isolation."
-    },
-    "/beds/{bedId}": {
-      "schema": { "$ref": "#/entities/Bed" },
-      "description": "Bed records with hospitalId field for logical isolation."
-    },
-    "/referrals/{referralId}": {
-      "schema": { "$ref": "#/entities/Referral" },
-      "description": "Referral records with hospitalId field for logical isolation."
-    },
-    "/invoices/{invoiceId}": {
-      "schema": { "$ref": "#/entities/Invoice" },
-      "description": "Invoice records with hospitalId field for logical isolation."
-    }
+    "structure": [
+      {
+        "path": "/userProfiles/{firebaseUid}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information, including roles and links to specific domain entities. The document ID is the user's Firebase UID, and the 'role' field is critical for RBAC. The 'id' field within the UserProfile document is redundant and should align with 'firebaseUid'.",
+          "params": [
+            {
+              "name": "firebaseUid",
+              "description": "The unique Firebase Authentication User ID (UID) of the user, serving as the document ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_super_admin/{firebaseUid}",
+        "definition": {
+          "entityName": "SuperAdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/SuperAdminRole"
+          },
+          "description": "Dedicated collection to identify Super Admins. The existence of a document at this path for a given UID signifies Super Admin privileges for Firebase Security Rules DBAC.",
+          "params": [
+            {
+              "name": "firebaseUid",
+              "description": "The unique Firebase Authentication User ID (UID) of the Super Admin."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{firebaseUid}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/AdminRole"
+          },
+          "description": "Dedicated collection to identify general Admins. The existence of a document at this path for a given UID signifies Admin privileges for Firebase Security Rules DBAC.",
+          "params": [
+            {
+              "name": "firebaseUid",
+              "description": "The unique Firebase Authentication User ID (UID) of the Admin."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/patients/{patientId}",
+        "definition": {
+          "entityName": "Patient",
+          "schema": {
+            "$ref": "#/backend/entities/Patient"
+          },
+          "description": "Stores comprehensive demographic and administrative information for a patient. Includes denormalized 'associatedUserFirebaseUid' for authorization independence if the patient has a linked UserProfile.",
+          "params": [
+            {
+              "name": "patientId",
+              "description": "Unique identifier for the Patient entity."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/healthcareProviders/{providerId}",
+        "definition": {
+          "entityName": "HealthcareProvider",
+          "schema": {
+            "$ref": "#/backend/entities/HealthcareProvider"
+          },
+          "description": "Stores detailed professional information for healthcare professionals. Includes denormalized 'associatedUserFirebaseUid' for authorization independence to allow providers to access their own records.",
+          "params": [
+            {
+              "name": "providerId",
+              "description": "Unique identifier for the HealthcareProvider entity."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Represents a medical department or unit within the hospital structure.",
+          "params": [
+            {
+              "name": "departmentId",
+              "description": "Unique identifier for the Department entity."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/resources/{resourceId}",
+        "definition": {
+          "entityName": "Resource",
+          "schema": {
+            "$ref": "#/backend/entities/Resource"
+          },
+          "description": "Represents bookable physical assets or equipment within the hospital. Linked to a department.",
+          "params": [
+            {
+              "name": "resourceId",
+              "description": "Unique identifier for the Resource entity."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/appointments/{appointmentId}",
+        "definition": {
+          "entityName": "Appointment",
+          "schema": {
+            "$ref": "#/backend/entities/Appointment"
+          },
+          "description": "Manages scheduled appointments. Critically includes denormalized 'patientFirebaseUid', 'healthcareProviderFirebaseUid', and 'scheduledByUserFirebaseUid' for Authorization Independence and QAPs, enabling secure listing for patients, providers, and schedulers.",
+          "params": [
+            {
+              "name": "appointmentId",
+              "description": "Unique identifier for the Appointment entity."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The proposed Firestore data structure prioritizes security, scalability, and debuggability, aligning strictly with the specified CORE DESIGN PRINCIPLES and DESIGN STRATEGY MANDATES. The design leverages structural segregation, denormalization for authorization independence, and consistent access modeling.\n\n**Authorization Independence (CRITICAL) & DBAC:**\n1.  **User Profiles (`/userProfiles/{firebaseUid}`):** The primary source for user-specific data. Each document's ID is the user's `firebaseUid` (from `request.auth.uid`), ensuring direct, efficient access without needing `get()` calls for basic user identity. The `role` field within this document serves as the main source for Role-Based Access Control (RBAC) for roles like `Patient`, `Doctor`, `Nurse`, `Pharmacist`, and `Admin`.\n2.  **Super Admin & Admin Roles (`/roles_super_admin/{firebaseUid}`, `/roles_admin/{firebaseUid}`):** To address the 'God Power' requirement and strictly adhere to the 'DBAC (No Custom Claims)' principle for security rules, dedicated collections are used. The *existence* of a document at `/roles_super_admin/$(request.auth.uid)` or `/roles_admin/$(request.auth.uid)` grants Super Admin or Admin privileges, respectively. This provides a robust and simple `exists()` check in security rules, explicitly separating high-level administrative roles from general user roles and avoiding hierarchical dependencies or custom claims in client-side rules.\n3.  **Patient and Healthcare Provider Profiles:**\n    *   `patients/{patientId}`: Each `Patient` document includes an `associatedUserFirebaseUid` field. If a patient has a linked `UserProfile`, this field stores the `firebaseUid` of that user. This denormalization allows patients to access their own records directly (e.g., `request.auth.uid == resource.data.associatedUserFirebaseUid`) without performing an expensive `get()` on their `UserProfile` or relying on parent document data.\n    *   `healthcareProviders/{providerId}`: Similarly, `HealthcareProvider` documents include an `associatedUserFirebaseUid`. This enables providers to access their own professional profiles directly and securely.\n\n**QAPs (Rules are not Filters):**\n1.  **Appointments (`/appointments/{appointmentId}`):** This collection is designed for highly efficient and secure list operations for various user types. Each `Appointment` document includes several denormalized `firebaseUid` fields:\n    *   `patientFirebaseUid`: The Firebase UID of the patient's associated user profile (if any).\n    *   `healthcareProviderFirebaseUid`: The Firebase UID of the healthcare provider's associated user profile (if any).\n    *   `scheduledByUserFirebaseUid`: The Firebase UID of the user who scheduled the appointment.\n    This extensive denormalization is CRITICAL for QAPs. It allows queries like `db.collection('appointments').where('patientFirebaseUid', '==', request.auth.uid)` or `db.collection('appointments').where('healthcareProviderFirebaseUid', '==', request.auth.uid)` to be directly secured by Firestore rules without relying on `get()` calls. This ensures that users can only list appointments relevant to them, making rules simple, robust, and performant.\n2.  **Structural Segregation:** Each core entity (`UserProfile`, `Patient`, `HealthcareProvider`, `Department`, `Resource`, `Appointment`) resides in its own top-level collection. This ensures homogeneous security postures within each collection, simplifying security rules. For example, all documents in `/departments` might be read-only for general users but writable by admins, without needing complex logic to differentiate document types.\n\n**Invariants & Data Clarity:**\n*   Timestamps (`createdAt`, `updatedAt`) are standard across all entities.\n*   `status` fields (e.g., `Patient.status`, `Appointment.status`) are used for explicit state modeling.\n*   Consistent naming conventions like `firebaseUid`, `patientId`, `providerId` for document IDs and parameters enhance predictability and debuggability.\n\nThis architecture ensures that security rules are kept concise, performant, and easy to audit, minimizing the risk of authorization vulnerabilities while supporting the application's scalability and various user roles."
   }
 }
