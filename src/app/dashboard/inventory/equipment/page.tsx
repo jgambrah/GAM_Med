@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Monitor, Wind, BatteryCharging, AlertCircle, Wrench, Loader2, Microscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AddEquipmentDialog } from '@/components/inventory/add-equipment-dialog';
+import { UpdateOxygenLevelDialog } from '@/components/inventory/update-oxygen-level-dialog';
 import { format } from 'date-fns';
 import { MedicalEquipment } from '@/lib/types';
 
@@ -124,8 +125,8 @@ export default function EquipmentInventoryPage() {
                             <TableRow>
                                 <TableHead className="pl-6">Serial Number</TableHead>
                                 <TableHead>Category</TableHead>
-                                <TableHead>Location</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Clinical Reading</TableHead>
                                 <TableHead>Next Service</TableHead>
                                 <TableHead className="text-right pr-6">Action</TableHead>
                             </TableRow>
@@ -138,9 +139,6 @@ export default function EquipmentInventoryPage() {
                                             {item.serialNumber}
                                         </TableCell>
                                         <TableCell className="font-medium">{item.category}</TableCell>
-                                        <TableCell className="text-xs text-muted-foreground font-bold uppercase tracking-tighter">
-                                            {item.wardName || 'Central Store'}
-                                        </TableCell>
                                         <TableCell>
                                             <Badge 
                                                 variant={item.status === 'Available' ? 'secondary' : 'default'}
@@ -154,11 +152,36 @@ export default function EquipmentInventoryPage() {
                                                 {item.status.toUpperCase()}
                                             </Badge>
                                         </TableCell>
+                                        <TableCell>
+                                            {item.category === 'Oxygen Tank' && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold font-mono">
+                                                        {item.oxygenLevel ?? 0}%
+                                                    </span>
+                                                    <Badge 
+                                                        variant="outline" 
+                                                        className={cn(
+                                                            "text-[9px] font-black uppercase",
+                                                            (item.oxygenLevel ?? 0) < 20 ? "border-red-500 text-red-600 animate-pulse" : 
+                                                            (item.oxygenLevel ?? 0) < 50 ? "border-orange-500 text-orange-600" : 
+                                                            "border-green-500 text-green-600"
+                                                        )}
+                                                    >
+                                                        {(item.oxygenLevel ?? 0) < 20 ? "CRITICAL" : (item.oxygenLevel ?? 0) < 50 ? "LOW" : "OK"}
+                                                    </Badge>
+                                                </div>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-xs font-medium">
                                             {item.nextMaintenance ? format(new Date(item.nextMaintenance), 'MMM dd, yyyy') : 'NOT SET'}
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
-                                            <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase">Manage</Button>
+                                            <div className="flex justify-end gap-2">
+                                                {item.category === 'Oxygen Tank' && (
+                                                    <UpdateOxygenLevelDialog tank={{ id: item.id, serialNumber: item.serialNumber, currentLevel: item.oxygenLevel }} />
+                                                )}
+                                                <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase">Manage</Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -196,4 +219,8 @@ function StatCard({ title, available, total, value, icon }: { title: string, ava
             </CardContent>
         </Card>
     );
+}
+
+function cn(...classes: any[]) {
+    return classes.filter(Boolean).join(' ');
 }

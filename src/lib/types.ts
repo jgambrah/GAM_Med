@@ -320,6 +320,7 @@ export interface MedicalEquipment {
   currentPatientName?: string;
   lastMaintenance?: string;
   nextMaintenance?: string;
+  oxygenLevel?: number; // Only for category "Oxygen Tank"
   createdAt: string;
   updatedAt: string;
 }
@@ -926,11 +927,12 @@ export interface CarePlan {
 export interface PatientAlert {
   alertId: string;
   hospitalId: string;
-  patientId: string;
+  patientId?: string; // Optional if it's a facility resource alert
   severity: 'Critical' | 'Warning' | 'Information';
   alert_message: string;
   triggeredAt: string;
   isAcknowledged: boolean;
+  type?: 'Patient' | 'Resource';
 }
 
 export interface ImmunizationRecord {

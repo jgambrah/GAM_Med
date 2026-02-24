@@ -413,3 +413,27 @@ export async function postToLedger(values: z.infer<typeof NewLedgerEntrySchema>)
     
     return { success: true, message: 'Transaction posted to ledger.' };
 }
+
+/**
+ * Updates the oxygen level for a specific tank.
+ * If the level falls below 20%, it triggers a critical facility alert.
+ */
+export async function updateOxygenLevel(tankId: string, hospitalId: string, newLevel: number) {
+    console.log(`Server Action: Updating oxygen level for tank ${tankId} to ${newLevel}%`);
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    revalidatePath('/dashboard/inventory/equipment');
+    revalidatePath('/dashboard/nursing');
+
+    const alerts = [];
+    if (newLevel < 20) {
+        alerts.push({
+            severity: 'Critical' as const,
+            message: `CRITICAL: Oxygen Tank ${tankId} is at ${newLevel}%. Refill required immediately.`,
+            type: 'Resource' as const
+        });
+    }
+
+    return { success: true, alerts };
+}
