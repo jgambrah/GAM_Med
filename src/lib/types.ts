@@ -1035,3 +1035,23 @@ export interface HealthContent {
   keywords: string[];
   fileUrl?: string;
 }
+
+export interface Claim {
+  claimId: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  providerId: string;
+  submissionDate: string;
+  status: 'Paid' | 'Submitted' | 'Denied';
+  payoutAmount?: number;
+  invoiceId: string;
+  denialReasonCode?: string;
+  followUpNotes?: FollowUpNote[];
+}
+
+export interface FollowUpNote {
+  note: string;
+  userId: string;
+  date: string;
+}
