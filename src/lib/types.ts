@@ -1,6 +1,27 @@
+
 /**
- * @fileoverview Updated types for the Lab, Referral, and Dietary Modules.
+ * @fileoverview Updated types for the Space & Facility Management Module.
  */
+
+export interface Facility {
+  id: string;
+  hospitalId: string;
+  name: string;
+  type: 'Consultation' | 'Diagnostic' | 'Seminar' | 'Ward' | 'OT';
+  capacity: number;
+  isActive: boolean;
+}
+
+export interface FacilityBooking {
+  id: string;
+  hospitalId: string;
+  facilityId: string;
+  userId: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  status: 'Confirmed' | 'Pending' | 'Cancelled';
+}
 
 export interface LabParameter {
   name: string;

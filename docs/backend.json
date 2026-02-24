@@ -372,24 +372,35 @@
       },
       "required": ["hospitalId", "name", "totalQuantity"]
     },
-    "ControlledSubstanceLog": {
+    "Facility": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ControlledSubstanceLog",
+      "title": "Facility",
       "type": "object",
-      "description": "Immutable audit trail for narcotic movements.",
+      "description": "Represents a physical room or space within the hospital.",
       "properties": {
         "hospitalId": { "type": "string" },
-        "substanceId": { "type": "string" },
-        "transactionType": { "type": "string", "enum": ["Dispense", "Restock", "Audit", "Waste", "Adjustment"] },
-        "quantityChange": { "type": "number" },
-        "currentQuantity": { "type": "number" },
-        "userId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "witnessId": { "type": "string" },
-        "reason": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" }
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Consultation", "Diagnostic", "Seminar", "Ward", "OT"] },
+        "capacity": { "type": "number" },
+        "isActive": { "type": "boolean" }
       },
-      "required": ["hospitalId", "substanceId", "transactionType", "quantityChange", "userId"]
+      "required": ["hospitalId", "name", "type"]
+    },
+    "FacilityBooking": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FacilityBooking",
+      "type": "object",
+      "description": "A scheduled reservation for a specific facility.",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "facilityId": { "type": "string" },
+        "userId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "purpose": { "type": "string" },
+        "status": { "type": "string", "enum": ["Confirmed", "Pending", "Cancelled"] }
+      },
+      "required": ["hospitalId", "facilityId", "startTime", "endTime", "status"]
     }
   },
   "auth": {
@@ -417,19 +428,19 @@
         }
       },
       {
-        "path": "/controlled_substances/{substanceId}",
+        "path": "/facilities/{facilityId}",
         "definition": {
-          "entityName": "ControlledSubstance",
-          "schema": { "$ref": "#/backend/entities/ControlledSubstance" },
-          "description": "Narcotic inventory."
+          "entityName": "Facility",
+          "schema": { "$ref": "#/backend/entities/Facility" },
+          "description": "Hospital real estate assets."
         }
       },
       {
-        "path": "/controlled_substance_logs/{logId}",
+        "path": "/facility_bookings/{bookingId}",
         "definition": {
-          "entityName": "ControlledSubstanceLog",
-          "schema": { "$ref": "#/backend/entities/ControlledSubstanceLog" },
-          "description": "Narcotic audit trail."
+          "entityName": "FacilityBooking",
+          "schema": { "$ref": "#/backend/entities/FacilityBooking" },
+          "description": "Facility utilization schedules."
         }
       }
     ]

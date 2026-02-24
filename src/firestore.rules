@@ -37,6 +37,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.patientId == patientId;
     }
 
+    function getMyRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
     // --------------------------------------------------------------------
     // Global Bypass for Super Admin
     // --------------------------------------------------------------------
@@ -88,6 +92,21 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------------
+    // Space & Facility Management
+    // --------------------------------------------------------------------
+
+    match /facilities/{facilityId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
+                   (getMyRole() == 'director' || getMyRole() == 'admin' || getMyRole() == 'space_manager');
+    }
+
+    match /facility_bookings/{bookingId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    // --------------------------------------------------------------------
     // Narcotic Control (High Security)
     // --------------------------------------------------------------------
 
@@ -101,12 +120,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow create: if isSignedIn() && isSameHospital(request.resource.data) && 
                     (getMyRole() == 'pharmacist' || getMyRole() == 'admin' || getMyRole() == 'doctor');
-      // Logs are immutable: no update or delete allowed
       allow update, delete: if false;
-    }
-
-    function getMyRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
     // --------------------------------------------------------------------
