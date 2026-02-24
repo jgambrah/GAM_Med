@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -31,6 +32,7 @@ import { PreOpChecklistTab } from '../../patients/[patientId]/components/pre-op-
 import { PostOpCareTab } from '../../patients/[patientId]/components/post-op-care-tab';
 import { CertifyDeathDialog } from '../../patients/[patientId]/components/certify-death-dialog';
 import { ReferOutDialog } from '../../patients/[patientId]/components/refer-out-dialog';
+import { OrderDietDialog } from '../../patients/[patientId]/components/order-diet-dialog';
 
 // Types
 import { Patient, OTSession } from '@/lib/types';
@@ -106,6 +108,10 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                         patientId={patient.patient_id}
                         patientName={patient.full_name}
                         onOrderCreated={() => {}}
+                        disabled={patient.status === 'deceased'}
+                     />
+                     <OrderDietDialog 
+                        patient={patient}
                         disabled={patient.status === 'deceased'}
                      />
                      <ReferOutDialog 

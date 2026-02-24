@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema, NewAssetSchema, CertifyDeathSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema, NewAssetSchema, CertifyDeathSchema, DietaryOrderSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 import { sendWelcomeEmail } from './mail-service';
@@ -168,7 +168,7 @@ export async function fulfillLabRequest(
     revalidatePath(`/dashboard/lab`);
     revalidatePath(`/dashboard/patients/${patientId}`);
     
-    return { success: true, message: 'Lab request fulfilled successfully.' };
+    return { success: true, message: 'lab request fulfilled successfully.' };
 }
 
 export async function validateLabResult(
@@ -484,4 +484,16 @@ export async function recordMortality(patientId: string, values: z.infer<typeof 
     revalidatePath('/dashboard/records/compliance');
     
     return { success: true, message: 'Mortality record finalized.' };
+}
+
+export async function orderDiet(patientId: string, values: z.infer<typeof DietaryOrderSchema>) {
+    console.log(`Server Action: Prescribing ${values.dietType} for patient ${patientId} in hospital ${values.hospitalId}.`);
+    
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath('/dashboard/dietary');
+    revalidatePath('/dashboard/nursing');
+
+    return { success: true, message: 'Dietary order sent to kitchen.' };
 }

@@ -322,3 +322,9 @@ export const CertifyDeathSchema = z.object({
   code: z.string().min(1, "ICD-10 code is required"),
   remarks: z.string().optional(),
 });
+
+export const DietaryOrderSchema = z.object({
+  hospitalId: z.string().min(1),
+  dietType: z.enum(['Standard', 'Diabetic', 'Low Salt', 'Renal', 'NPO', 'Soft']),
+  specialInstructions: z.string().optional(),
+});
