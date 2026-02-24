@@ -41,8 +41,8 @@ const CreateHospitalSchema = z.object({
  * == Super Admin: Tenant Provisioning Tool ==
  * 
  * This component handles the creation of new hospital tenants.
- * It atomically provisions the Hospital record and the Director's profile,
- * "stamping" them both with a unique shared hospitalId for logical isolation.
+ * It atomically provisions the Hospital record, the Director's profile,
+ * and the DBAC role marker, "stamping" them with a shared hospitalId.
  */
 export default function CreateHospitalModal() {
   const [open, setOpen] = React.useState(false);
@@ -63,12 +63,12 @@ export default function CreateHospitalModal() {
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
     try {
-      // 1. Generate a unique ID (e.g., "st-marys-102")
+      // 1. Generate a unique ID (e.g., "city-general-1234")
       const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
       const now = new Date().toISOString();
 
       // 2. Create the Director in Firebase Auth
-      // NOTE: Creating a new user via the client SDK will automatically sign out the current CEO user.
+      // NOTE: Creating a new user via the client SDK will automatically sign you out.
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
@@ -101,6 +101,14 @@ export default function CreateHospitalModal() {
         subscriptionTier: 'basic',
         createdAt: now,
         ownerEmail: values.directorEmail,
+      });
+
+      // "STAMP" the Admin Role Marker (DBAC for Security Rules)
+      const roleRef = doc(db, 'roles_admin', uid);
+      batch.set(roleRef, {
+        uid: uid,
+        hospitalId: newHospitalId,
+        assignedAt: now,
       });
 
       await batch.commit();

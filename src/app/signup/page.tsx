@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,8 @@ import { toast } from '@/hooks/use-toast';
  * == Master Platform Initializer ==
  * 
  * This page allows the first-time setup of the GamMed Super Admin account.
- * It "stamps" the user with the 'super_admin' role and links them to the
- * internal 'GAMMED_HQ' tenant.
- * 
- * IMPORTANT: DELETE THIS FILE AFTER YOUR ACCOUNT IS CREATED.
+ * It provisions the Super Admin profile and the mandatory role marker document
+ * required for DBAC security rules.
  */
 export default function SignUpPage() {
     const [email, setEmail] = React.useState('');
@@ -35,36 +33,46 @@ export default function SignUpPage() {
 
         const hospitalId = 'GAMMED_HQ';
         const normalizedEmail = email.toLowerCase().trim();
+        const now = new Date().toISOString();
         
-        // 1. Generate the SaaS-compliant Document ID: {hospitalId}_{email}
-        const userDocId = `${hospitalId}_${normalizedEmail}`;
-
         try {
-            // 2. Create the user in Firebase Auth
+            // 1. Create the user in Firebase Auth
             const userCred = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
             const authUid = userCred.user.uid;
             
-            // 3. Provision the Super Admin Profile
-            // This grants "God Mode" access to the entire platform
-            await setDoc(doc(db, 'users', userDocId), {
+            // 2. Atomic Batch Provisioning
+            const batch = writeBatch(db);
+
+            // Provision the Super Admin Profile
+            const userDocId = `${hospitalId}_${normalizedEmail}`;
+            batch.set(doc(db, 'users', userDocId), {
                 uid: authUid,
                 email: normalizedEmail,
                 name: name,
                 role: 'super_admin',
                 hospitalId: hospitalId,
                 is_active: true,
-                created_at: new Date().toISOString()
+                created_at: now
             });
 
-            // 4. Provision the Master Hospital Record (HQ)
-            await setDoc(doc(db, 'hospitals', hospitalId), {
+            // Provision the Super Admin Role Marker (CRITICAL for DBAC Rules)
+            batch.set(doc(db, 'roles_super_admin', authUid), {
+                uid: authUid,
+                assignedAt: now,
+                email: normalizedEmail
+            });
+
+            // Provision the Master Hospital Record (HQ)
+            batch.set(doc(db, 'hospitals', hospitalId), {
                 hospitalId: hospitalId,
                 name: "Gam It Services HQ",
                 slug: "gammed-hq",
                 status: "active",
                 subscriptionTier: "premium",
-                createdAt: new Date().toISOString()
-            }, { merge: true });
+                createdAt: now
+            });
+
+            await batch.commit();
 
             toast.success("CEO Account Created Successfully!", {
                 description: "Platform initialized. Redirecting to login..."

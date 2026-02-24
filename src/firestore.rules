@@ -14,29 +14,25 @@ service cloud.firestore {
     }
 
     /**
-     * Helper: Check if the user is the Platform Owner (Super Admin).
+     * Helper: Check if the user is the Platform Owner (Super Admin) via DBAC.
      */
     function isSuperAdmin() {
-      return isSignedIn() && 
-             (request.auth.token.role == 'super_admin' || 
-              request.auth.token.email == 'ceo@gammed.com');
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
     /**
-     * Logic: The token's hospitalId MUST match the data's hospitalId.
-     * This is the primary mechanism for airtight logical isolation.
+     * Logic: The token's hospitalId (or doc data) MUST match the requested data's hospitalId.
      */
     function isSameHospital(docData) {
       return isSignedIn() && 
-             request.auth.token != null && 
-             docData.hospitalId == request.auth.token.hospitalId;
+             docData.hospitalId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
     }
 
     /**
-     * Checks if the user is a hospital administrator or director via claims.
+     * Checks if the user is a hospital administrator or director via DBAC.
      */
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role in ['admin', 'director'];
+      return isSignedIn() && (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || isSuperAdmin());
     }
 
     // --------------------------------------------------------------------
@@ -52,55 +48,42 @@ service cloud.firestore {
 
     // Hospitals (Tenant Masters)
     match /hospitals/{hospId} {
-      // Allow creation of the very first HQ hospital
-      allow create: if isSignedIn() && hospId == 'GAMMED_HQ' && request.auth.token.email == 'ceo@gammed.com';
-      allow get: if isSignedIn() && (request.auth.token.hospitalId == hospId || isSuperAdmin());
-      // SAAS UPDATE: Allow list ONLY if results belong to the user's hospital
-      allow list: if isSuperAdmin() || (isSignedIn() && resource.data.hospitalId == request.auth.token.hospitalId);
+      allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
+      allow get: if isSignedIn();
+      allow list: if isSuperAdmin();
+    }
+
+    // Role Markers (DBAC)
+    match /roles_super_admin/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manageable via internal setup/signup once
+    }
+
+    match /roles_admin/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     // Users & Staff Profiles
     match /users/{userId} {
-      // Allow discovery for any authenticated user searching for their own profile by UID
-      // This is used after login to find the user's hospitalId and role
-      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
-
-      // Allow get if it's your own profile or if you are staff in the same hospital
-      allow get: if isSignedIn() && (resource.data.uid == request.auth.uid || isSameHospital(resource.data));
-      
-      // Enforce the Gold Standard pattern for all user creation
-      // pattern: {hospitalId}_{email}
-      allow create: if isSignedIn() && 
-                    (userId == request.resource.data.hospitalId + "_" + request.resource.data.email) &&
-                    (request.auth.uid == request.resource.data.uid || isSuperAdmin());
-      
-      allow update: if isSignedIn() && (resource.data.uid == request.auth.uid || (isAdmin() && isSameHospital(resource.data)));
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.uid || isAdmin());
     }
 
     // Patients
     match /patients/{patientId} {
-      // Enforce logical isolation for listing patients
-      allow list: if isSignedIn() && isSameHospital(resource.data);
-      
-      // Allow get if it's the patient themselves or an authorized employee at the same hospital
-      allow get: if isSignedIn() && (request.auth.token.patient_id == patientId || isSameHospital(resource.data));
-      
-      // Enforce the Gold Standard pattern for patient IDs: {hospitalId}_MRN{mrn}
-      allow create: if isSignedIn() && 
-                    isSameHospital(request.resource.data) && 
-                    patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn;
-      
-      allow update: if isSignedIn() && isSameHospital(resource.data);
-      allow delete: if isAdmin() && isSameHospital(resource.data);
+      allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow delete: if isAdmin();
     }
 
     // Generic Safety Net for all other tenant-scoped documents
     match /{collection}/{docId} {
-      allow list: if isSignedIn() && isSameHospital(resource.data);
-      allow get: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && 
-                    (resource == null || isSameHospital(resource.data)) && 
-                    (request.resource == null || isSameHospital(request.resource.data));
+      allow read, write: if isSignedIn() && (isSuperAdmin() || isSameHospital(resource.data));
     }
   }
 }
