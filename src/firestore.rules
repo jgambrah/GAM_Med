@@ -18,8 +18,8 @@ service cloud.firestore {
      */
     function isSuperAdmin() {
       return isSignedIn() && 
-             request.auth.token != null && 
-             request.auth.token.role == 'super_admin';
+             (request.auth.token.role == 'super_admin' || 
+              request.auth.token.email == 'ceo@gammed.com');
     }
 
     /**
@@ -52,21 +52,25 @@ service cloud.firestore {
 
     // Hospitals (Tenant Masters)
     match /hospitals/{hospId} {
+      // Allow creation of the very first HQ hospital
+      allow create: if isSignedIn() && hospId == 'GAMMED_HQ' && request.auth.token.email == 'ceo@gammed.com';
       allow get: if isSignedIn() && (request.auth.token.hospitalId == hospId || isSuperAdmin());
       allow list: if isSuperAdmin();
     }
 
     // Users & Staff Profiles
     match /users/{userId} {
-      // DISCOVERY RULE: Allow signed-in users to find their own profile by UID
+      // Allow discovery for any authenticated user searching for their own profile
       allow list: if isSignedIn() && request.query.limit == 1 && request.query.filters.uid == request.auth.uid;
 
+      // Allow get if it's your own profile or if you are staff in the same hospital
       allow get: if isSignedIn() && (resource.data.uid == request.auth.uid || isSameHospital(resource.data));
       
-      // Enforce: hospitalId_email pattern + Auth matching
+      // Enforce the Gold Standard pattern for all user creation
+      // pattern: {hospitalId}_{email}
       allow create: if isSignedIn() && 
-                    isSameHospital(request.resource.data) && 
-                    userId == request.resource.data.hospitalId + "_" + request.resource.data.email;
+                    (userId == request.resource.data.hospitalId + "_" + request.resource.data.email) &&
+                    (request.auth.uid == request.resource.data.uid || isSuperAdmin());
       
       allow update: if isSignedIn() && (resource.data.uid == request.auth.uid || (isAdmin() && isSameHospital(resource.data)));
     }

@@ -1,4 +1,3 @@
-
 'use client';
 import { getAuth, type User } from 'firebase/auth';
 
@@ -54,8 +53,8 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   let simulatedHospitalId = 'hosp-1';
   let simulatedRole = 'nurse';
 
-  if (currentUser.email?.includes('superadmin')) {
-      simulatedHospitalId = 'GAMMED_INTERNAL';
+  if (currentUser.email === 'ceo@gammed.com' || currentUser.email?.includes('superadmin')) {
+      simulatedHospitalId = 'GAMMED_HQ';
       simulatedRole = 'super_admin';
   } else if (currentUser.email?.includes('director')) {
       simulatedRole = 'director';
