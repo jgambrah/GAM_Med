@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -356,6 +355,46 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["fromHospitalId", "toHospitalId", "patientId", "status", "priority"]
+    },
+    "OTSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OTSession",
+      "type": "object",
+      "description": "High-intensity surgical coordination record.",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "procedureName": { "type": "string" },
+        "surgeonId": { "type": "string" },
+        "surgeonName": { "type": "string" },
+        "anesthetistName": { "type": "string" },
+        "otRoomId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Scheduled", "In-Progress", "Recovery", "Completed", "Cancelled"] },
+        "startTime": { "type": "string", "format": "date-time" },
+        "estimatedDuration": { "type": "number" },
+        "priority": { "type": "string", "enum": ["Emergency", "Elective", "Urgent"] }
+      },
+      "required": ["hospitalId", "patientId", "procedureName", "surgeonId", "otRoomId", "status", "startTime"]
+    },
+    "DietaryOrder": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DietaryOrder",
+      "type": "object",
+      "description": "Patient meal order based on clinical requirements.",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "wardName": { "type": "string" },
+        "bedId": { "type": "string" },
+        "dietType": { "type": "string", "enum": ["Standard", "Diabetic", "Low Salt", "Renal", "NPO", "Soft"] },
+        "allergies": { "type": "string" },
+        "specialInstructions": { "type": "string" },
+        "status": { "type": "string", "enum": ["Requested", "Prepared", "Delivered", "Cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "patientId", "dietType", "status"]
     }
   },
   "auth": {
@@ -396,6 +435,22 @@
               "description": "Unique identifier for the referral."
             }
           ]
+        }
+      },
+      {
+        "path": "/ot_sessions/{sessionId}",
+        "definition": {
+          "entityName": "OTSession",
+          "schema": { "$ref": "#/backend/entities/OTSession" },
+          "description": "Surgical theatre scheduling."
+        }
+      },
+      {
+        "path": "/dietary_orders/{orderId}",
+        "definition": {
+          "entityName": "DietaryOrder",
+          "schema": { "$ref": "#/backend/entities/DietaryOrder" },
+          "description": "Patient nutrition and meal tracking."
         }
       }
     ]

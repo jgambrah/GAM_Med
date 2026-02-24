@@ -135,6 +135,11 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
+    match /dietary_orders/{orderId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
     match /medical_equipment/{equipId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow write: if isSignedIn() && isSameHospital(request.resource.data);

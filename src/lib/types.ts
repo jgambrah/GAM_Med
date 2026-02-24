@@ -1,5 +1,5 @@
 /**
- * @fileoverview Updated types for the Lab and Referral Modules.
+ * @fileoverview Updated types for the Lab, Referral, and Dietary Modules.
  */
 
 export interface LabParameter {
@@ -176,6 +176,7 @@ export interface Bed {
   status: 'Available' | 'Occupied' | 'Cleaning' | 'Maintenance' | 'Reserved';
   currentPatientId?: string | null;
   currentPatientName?: string | null;
+  wardName?: string;
   type: string;
   occupiedSince?: string | null;
   createdAt: string;
@@ -667,6 +668,20 @@ export interface Referral {
   assignedDoctorName?: string;
   assignedDepartment?: string;
   notes?: string;
+}
+
+export interface DietaryOrder {
+  id: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  wardName: string;
+  bedId: string;
+  dietType: 'Standard' | 'Diabetic' | 'Low Salt' | 'Renal' | 'NPO' | 'Soft';
+  allergies?: string;
+  specialInstructions?: string;
+  status: 'Requested' | 'Preparing' | 'Delivered' | 'Cancelled';
+  createdAt: string;
 }
 
 export interface DietaryProfile {

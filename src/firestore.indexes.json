@@ -101,6 +101,15 @@
       ]
     },
     {
+      "collectionGroup": "dietary_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "beds",
       "queryScope": "COLLECTION",
       "fields": [
