@@ -26,7 +26,7 @@ import { OrderTestDialog } from '../../patients/[patientId]/components/order-tes
 import { OrderStudyDialog } from '../../patients/[patientId]/components/order-study-dialog';
 
 // Types
-import { Patient, ClinicalNote, LabResult, RadiologyOrder } from '@/lib/types';
+import { Patient } from '@/lib/types';
 
 interface PatientEHRProps {
     patient: Patient;
@@ -37,21 +37,10 @@ interface PatientEHRProps {
  * 
  * This is the primary clinical interface. It aggregates real-time data from 
  * multiple Firestore collections (notes, vitals, labs) into a single workspace.
+ * Every query is tenant-locked using the user's hospitalId.
  */
 export function PatientEHR({ patient }: PatientEHRProps) {
   const { user } = useAuth();
-  
-  const handleNoteAdded = (newNote: ClinicalNote) => {
-    // Parent notification for optimistic updates if needed
-  };
-  
-  const handleLabOrderCreated = (newOrder: LabResult) => {
-    // Parent notification
-  };
-  
-  const handleRadiologyOrderCreated = (newOrder: RadiologyOrder) => {
-    // Parent notification
-  };
 
   return (
     <Card className="h-full flex flex-col shadow-md overflow-hidden border-t-4 border-t-primary">
@@ -63,9 +52,12 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                         MRN: {patient.mrn} | {patient.gender} | {patient.dob}
                     </p>
                 </div>
-                <Badge variant={patient.is_admitted ? "destructive" : "secondary"}>
-                    {patient.is_admitted ? "INPATIENT" : "OUTPATIENT"}
-                </Badge>
+                <div className="text-right flex flex-col items-end gap-2">
+                    <Badge variant={patient.is_admitted ? "destructive" : "secondary"}>
+                        {patient.is_admitted ? "INPATIENT" : "OUTPATIENT"}
+                    </Badge>
+                    <p className="text-[10px] font-bold text-primary uppercase">{user?.hospitalId}</p>
+                </div>
             </div>
         </div>
         
@@ -79,16 +71,16 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                 {/* Direct Clinical Action Workbench */}
                  <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-lg border border-accent/20 flex-wrap">
                     <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-2">Clinical Toolkit:</div>
-                    <AddNoteDialog patientId={patient.patient_id} onNoteAdded={handleNoteAdded} />
+                    <AddNoteDialog patientId={patient.patient_id} onNoteAdded={() => {}} />
                     <OrderTestDialog 
                         patientId={patient.patient_id} 
                         patientName={patient.full_name}
-                        onOrderCreated={handleLabOrderCreated}
+                        onOrderCreated={() => {}}
                     />
                      <OrderStudyDialog 
                         patientId={patient.patient_id}
                         patientName={patient.full_name}
-                        onOrderCreated={handleRadiologyOrderCreated}
+                        onOrderCreated={() => {}}
                      />
                 </div>
 
