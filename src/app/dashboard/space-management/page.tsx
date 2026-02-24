@@ -8,7 +8,7 @@ import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FacilitySchedule } from './components/facility-schedule';
 import { Facility, FacilityBooking } from '@/lib/types';
-import { Building, Loader2, Users, CalendarClock, Zap } from 'lucide-react';
+import { Building2, Calendar as CalendarIcon, Clock, Users, Loader2, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
@@ -49,28 +49,25 @@ export default function SpaceManagementPage() {
 
     // 3. UTILIZATION CALCULATIONS
     const stats = React.useMemo(() => {
-        if (!facilities || !bookings) return { rate: 0, hours: 0, capacity: 0 };
+        if (!facilities || !bookings) return { totalBookable: 0, bookedHours: 0, availableHours: 0, rate: 0 };
         
-        const totalRooms = facilities.length;
-        const totalCapacity = facilities.reduce((acc, f) => acc + (f.capacity || 0), 0);
-        
-        // Simple heuristic: Total available hours per week per room (12 hours * 7 days)
-        const weeklyRoomCapacityHours = totalRooms * 12 * 7;
+        const totalBookable = facilities.length;
+        const availableHoursWeekly = totalBookable * 168; // 24/7 = 168 hours per facility
         
         const bookedHours = bookings.reduce((acc, b) => {
             const start = new Date(b.startTime);
             const end = new Date(b.endTime);
             const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-            return acc + duration;
+            return acc + (isNaN(duration) ? 0 : duration);
         }, 0);
 
-        const utilizationRate = weeklyRoomCapacityHours > 0 ? (bookedHours / weeklyRoomCapacityHours) * 100 : 0;
+        const utilizationRate = availableHoursWeekly > 0 ? (bookedHours / availableHoursWeekly) * 100 : 0;
 
         return {
-            rate: utilizationRate,
-            hours: bookedHours,
-            capacity: totalCapacity,
-            totalRooms
+            totalBookable,
+            bookedHours,
+            availableHours: availableHoursWeekly,
+            rate: utilizationRate
         };
     }, [facilities, bookings]);
 
@@ -86,82 +83,100 @@ export default function SpaceManagementPage() {
         <div className="p-8 space-y-8 bg-slate-50/30 min-h-screen">
             <header className="space-y-2">
                 <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-slate-900">
-                    <Building className="text-blue-600 h-8 w-8" />
+                    <Building2 className="text-blue-600 h-8 w-8" />
                     Space & Facility Management
                 </h1>
                 <p className="text-muted-foreground font-medium">Real-time utilization and scheduling for <strong>{user?.hospitalId}</strong></p>
             </header>
             
-            {/* Real Estate KPIs */}
+            {/* Metrics Row */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <KPICard 
-                    title="Managed Assets" 
-                    value={stats.totalRooms || 0} 
-                    sub="Active Rooms/Suites"
-                    icon={<Building className="text-blue-500" />} 
+                <MetricCard 
+                    title="Bookable Facilities" 
+                    value={stats.totalBookable} 
+                    icon={<Building2 />} 
                 />
-                <KPICard 
-                    title="Human Capacity" 
-                    value={stats.capacity || 0} 
-                    sub="Simultaneous Capacity"
-                    icon={<Users className="text-emerald-500" />} 
+                <MetricCard 
+                    title="Utilization Rate" 
+                    value={`${stats.rate.toFixed(1)}%`} 
+                    icon={<Users />} 
                 />
-                <KPICard 
-                    title="Booked Time" 
-                    value={`${stats.hours.toFixed(1)}h`} 
-                    sub="Total Weekly Reservation"
-                    icon={<CalendarClock className="text-orange-500" />} 
+                <MetricCard 
+                    title="Booked Hours" 
+                    value={`${stats.bookedHours.toFixed(1)}h`} 
+                    icon={<CalendarIcon />} 
                 />
+                <MetricCard 
+                    title="Available Hours" 
+                    value={`${stats.availableHours}h`} 
+                    icon={<Clock />} 
+                />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Live Facility Map */}
+                <Card className="lg:col-span-2 shadow-lg border-none ring-1 ring-slate-200 overflow-hidden">
+                    <CardHeader className="bg-slate-900 text-white pb-6">
+                        <CardTitle className="text-lg font-bold">Facility Schedule Map</CardTitle>
+                        <CardDescription className="text-slate-400">
+                            Live visual overview of room occupancy and upcoming sessions.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0 bg-white">
+                        {facilities && facilities.length > 0 ? (
+                            <div className="p-6">
+                                <FacilitySchedule facilities={facilities} bookings={bookings || []} />
+                            </div>
+                        ) : (
+                            <div className="py-32 text-center border-2 border-dashed m-6 rounded-2xl bg-muted/10">
+                                <Building2 className="mx-auto h-16 w-16 text-muted-foreground/20 mb-4" />
+                                <h3 className="text-lg font-bold text-slate-900">Registry Empty</h3>
+                                <p className="text-sm text-muted-foreground">No active facilities found for this facility.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Utilization Health */}
                 <Card className="shadow-sm border-none bg-white ring-1 ring-slate-200">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-[10px] uppercase font-black tracking-widest text-muted-foreground flex items-center justify-between">
-                            Utilization Rate
-                            <Zap size={14} className="text-yellow-500" />
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Zap size={18} className="text-yellow-500" />
+                            Utilization Health
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-black text-slate-900">{stats.rate.toFixed(1)}%</div>
-                        <Progress value={stats.rate} className="h-1.5 mt-3" />
+                    <CardContent className="space-y-6">
+                        <div className="flex flex-col items-center justify-center p-6 text-center">
+                            <h2 className="text-5xl font-black text-blue-600">{stats.rate.toFixed(1)}%</h2>
+                            <p className="text-xs font-bold text-muted-foreground uppercase mt-3 tracking-widest">Weekly Space Efficiency</p>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold uppercase tracking-tighter">
+                                <span>Current Load</span>
+                                <span>Target: 75%</span>
+                            </div>
+                            <Progress value={stats.rate} className="h-2 bg-slate-100" />
+                        </div>
+                        <p className="text-[10px] text-center text-muted-foreground italic leading-relaxed px-4">
+                            Efficiency Tip: High utilization Hall usage indicates a need for more multi-purpose seminar spaces.
+                        </p>
                     </CardContent>
                 </Card>
             </div>
-
-            <Card className="shadow-lg border-none ring-1 ring-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white pb-6">
-                    <CardTitle className="text-lg font-bold">Facility Schedule Map</CardTitle>
-                    <CardDescription className="text-slate-400">
-                        Live visual overview of room occupancy and upcoming seminar/diagnostic sessions.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0 bg-white">
-                    {facilities && facilities.length > 0 ? (
-                        <div className="p-6">
-                            <FacilitySchedule facilities={facilities} bookings={bookings || []} />
-                        </div>
-                    ) : (
-                        <div className="py-32 text-center border-2 border-dashed m-6 rounded-2xl bg-muted/10">
-                            <Building className="mx-auto h-16 w-16 text-muted-foreground/20 mb-4" />
-                            <h3 className="text-lg font-bold text-slate-900">Asset Registry Empty</h3>
-                            <p className="text-sm text-muted-foreground">No bookable facilities found for this facility.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
         </div>
     );
 }
 
-function KPICard({ title, value, sub, icon }: { title: string, value: any, sub: string, icon: React.ReactNode }) {
+function MetricCard({ title, value, icon }: { title: string, value: any, icon: React.ReactNode }) {
     return (
         <Card className="shadow-sm border-none bg-white ring-1 ring-slate-200 hover:shadow-md transition-all group">
             <CardContent className="p-6 flex items-center justify-between">
                 <div>
                     <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">{title}</p>
-                    <h3 className="text-3xl font-black text-slate-900 leading-none">{value}</h3>
-                    <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase">{sub}</p>
+                    <h3 className="text-2xl font-black text-slate-900 leading-none">{value}</h3>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary/5 transition-colors">
-                    {React.cloneElement(icon as React.ReactElement, { size: 24 })}
+                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors text-blue-600">
+                    {React.cloneElement(icon as React.ReactElement, { size: 24, strokeWidth: 2.5 })}
                 </div>
             </CardContent>
         </Card>
