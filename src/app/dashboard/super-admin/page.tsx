@@ -1,133 +1,129 @@
-
 'use client';
 
-import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { HospitalList } from './components/hospital-list';
-import { CreateHospitalDialog } from './components/create-hospital-dialog';
-import { useAuth } from '@/hooks/use-auth';
-import { redirect } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { Hospital, Patient } from '@/lib/types';
-import { Building2, CreditCard, ShieldCheck, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
+import { Hospital } from '@/lib/types';
 
-/**
- * == Super Admin: Platform Control Center ==
- * 
- * This is your primary dashboard as the Platform Owner.
- * Use this to monitor global metrics and onboard new hospital tenants.
- */
-export default function SuperAdminPage() {
-  const { user } = useAuth();
-  const db = useFirestore();
+export default function SuperAdminDashboard() {
+    const db = useFirestore();
+    const [hospitals, setHospitals] = useState<Hospital[]>([]);
+    const [stats, setStats] = useState({ totalHospitals: 0, totalPatients: 0, totalUsers: 0 });
 
-  // Security: Immediate redirect for non-owners
-  if (user?.role !== 'super_admin') {
-    redirect('/dashboard');
-  }
+    useEffect(() => {
+        // 1. Listen to all hospitals (God Mode enabled via security rules)
+        const unsubHospitals = onSnapshot(collection(db, "hospitals"), (snap) => {
+            const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as Hospital));
+            setHospitals(list);
+            setStats(prev => ({ ...prev, totalHospitals: snap.size }));
+        });
 
-  // 1. Fetch all tenants for global metrics - Scoped by 'God Mode' security rules
-  const hospitalsQuery = useMemoFirebase(() => {
-    if (!user || user.role !== 'super_admin') return null;
-    return query(collection(db, 'hospitals'));
-  }, [db, user]);
+        // 2. Fetch Global Stats (God Mode)
+        const fetchGlobalStats = async () => {
+            try {
+                // These counts are global for Super Admins
+                const patientsSnap = await getDocs(collection(db, "patients"));
+                const usersSnap = await getDocs(collection(db, "users"));
+                setStats(prev => ({ 
+                    ...prev, 
+                    totalPatients: patientsSnap.size,
+                    totalUsers: usersSnap.size 
+                }));
+            } catch (e) {
+                console.error("Global stats fetch failed:", e);
+            }
+        };
+        fetchGlobalStats();
 
-  // 2. Fetch global patient count - This query is only possible for super_admin
-  const globalPatientsQuery = useMemoFirebase(() => {
-    if (!user || user.role !== 'super_admin') return null;
-    return query(collection(db, 'patients'));
-  }, [db, user]);
+        return () => unsubHospitals();
+    }, [db]);
 
-  const { data: hospitals } = useCollection<Hospital>(hospitalsQuery);
-  const { data: patients } = useCollection<Patient>(globalPatientsQuery);
+    return (
+        <div className="p-8 space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-primary">Platform Control Tower</h1>
+                    <p className="text-muted-foreground">Global oversight and tenant management for GamMed SaaS.</p>
+                </div>
+                <CreateHospitalModal />
+            </div>
 
-  const totalHospitals = hospitals?.length || 0;
-  const activeHospitals = hospitals?.filter(h => h.status === 'active').length || 0;
-  const totalPatients = patients?.length || 0;
-  
-  // Prototype Revenue Calculation: Basic (₵1,500) | Premium (₵3,500)
-  const estimatedRevenue = hospitals?.reduce((total, h) => {
-    return total + (h.subscriptionTier === 'premium' ? 3500 : 1500);
-  }, 0) || 0;
+            {/* Global Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="bg-blue-50/50 border-blue-200">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-blue-800 uppercase tracking-wider">Total Facilities</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-blue-900">{stats.totalHospitals}</div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-green-50/50 border-green-200">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-green-800 uppercase tracking-wider">Platform Patients</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-green-900">{stats.totalPatients.toLocaleString()}</div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-purple-50/50 border-purple-200">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-purple-800 uppercase tracking-wider">Active Staff</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-purple-900">{stats.totalUsers}</div>
+                    </CardContent>
+                </Card>
+            </div>
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Platform Control Center</h1>
-          <p className="text-muted-foreground">
-            Manage global hospital tenants and platform-wide security.
-          </p>
+            {/* Hospitals Table */}
+            <Card className="shadow-sm">
+                <CardHeader>
+                    <CardTitle>Global Tenant Directory</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader className="bg-muted/50">
+                            <TableRow>
+                                <TableHead>Hospital Name</TableHead>
+                                <TableHead>ID / Slug</TableHead>
+                                <TableHead>Director Email</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Registered</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {hospitals.length > 0 ? (
+                                hospitals.map((hosp: any) => (
+                                    <TableRow key={hosp.id}>
+                                        <TableCell className="font-semibold">{hosp.name}</TableCell>
+                                        <TableCell><code className="text-xs bg-muted px-1 rounded">{hosp.id}</code></TableCell>
+                                        <TableCell>{hosp.ownerEmail || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={hosp.status === 'active' ? "default" : "destructive"}>
+                                                {hosp.status === 'active' ? "Active" : "Suspended"}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {hosp.createdAt ? (typeof hosp.createdAt === 'string' ? new Date(hosp.createdAt).toLocaleDateString() : new Date(hosp.createdAt.seconds * 1000).toLocaleDateString()) : 'N/A'}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground text-sm">
+                                        No hospital tenants found on the platform.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
-        <CreateHospitalDialog />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-t-4 border-t-primary shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hospitals</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalHospitals}</div>
-            <p className="text-xs text-muted-foreground">
-              {activeHospitals} active | {totalHospitals - activeHospitals} suspended
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-t-4 border-t-blue-500 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Global Patients</CardTitle>
-            <Users className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalPatients.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all hospital tenants
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-t-4 border-t-green-500 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Estimated Revenue</CardTitle>
-            <CreditCard className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₵{estimatedRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Projected Monthly MRR (GHS)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-t-4 border-t-orange-500 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Platform Security</CardTitle>
-            <ShieldCheck className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Hardened</div>
-            <p className="text-xs text-muted-foreground">
-              SaaS Wall rules enforced
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Global Tenant Directory</CardTitle>
-          <CardDescription>
-            A real-time overview of all healthcare facilities registered on the platform.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <HospitalList />
-        </CardContent>
-      </Card>
-    </div>
-  );
+    );
 }
