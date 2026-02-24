@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,19 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import * as React from 'react';
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
 
 /**
- * == SaaS-Ready Zero-Config Login ==
+ * == Professional SaaS Login (Discovery Flow) ==
  * 
- * This page uses "Discovery Logic":
- * 1. User enters email.
- * 2. System queries the 'users' collection to find the tenant (hospitalId) and role.
- * 3. System completes authentication and routes the user based on their specific role.
+ * Users enter only their email and password. The system automatically
+ * discovers their hospital tenant and role after authentication.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -38,14 +36,18 @@ export default function LoginPage() {
         const normalizedEmail = email.toLowerCase().trim();
 
         try {
-            // 1. DISCOVERY: Find the user's record globally by email
-            // This allows us to find their hospitalId and role without them selecting it.
+            // 1. AUTHENTICATE with Firebase Auth
+            const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+            const authUid = userCredential.user.uid;
+
+            // 2. DISCOVERY: Find the user's profile document by Auth UID
+            // This retrieves the hospitalId and role assigned to this account.
             const usersRef = collection(db, "users");
-            const discoveryQuery = query(usersRef, where("email", "==", normalizedEmail), limit(1));
-            const querySnapshot = await getDocs(discoveryQuery);
+            const q = query(usersRef, where("uid", "==", authUid), limit(1));
+            const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
-                throw new Error("No account found with this email address. Please check your spelling.");
+                throw new Error("User profile not found. Please contact support.");
             }
 
             const userData = querySnapshot.docs[0].data();
@@ -54,15 +56,9 @@ export default function LoginPage() {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
-            // 2. AUTHENTICATE with Firebase Auth
-            const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-            
-            // 3. FORCE TOKEN REFRESH to ensure Custom Claims (hospitalId, role) are in the JWT
-            await userCredential.user.getIdTokenResult(true);
-            
-            // 4. SYNC GLOBAL UI STATE
+            // 3. SYNC GLOBAL UI STATE
             setUser({
-                uid: userCredential.user.uid,
+                uid: authUid,
                 ...userData
             } as any);
 
@@ -70,18 +66,19 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // 5. SMART ROUTING
-            const routes = {
-                super_admin: '/dashboard/super-admin',
-                director: '/dashboard/admin', 
-                admin: '/dashboard/admin',
-                doctor: '/dashboard/my-practice',
-                nurse: '/dashboard/nursing',
-                patient: '/dashboard/my-records'
-            };
-            
-            const destination = routes[userData.role as keyof typeof routes] || '/dashboard';
-            router.push(destination);
+            // 4. SMART ROUTING
+            // Redirect users based on their role within their tenant.
+            if (userData.role === 'super_admin') {
+                router.push('/dashboard/super-admin');
+            } else if (userData.role === 'doctor') {
+                router.push('/dashboard/my-practice');
+            } else if (userData.role === 'nurse') {
+                router.push('/dashboard/nursing');
+            } else if (userData.role === 'patient') {
+                router.push('/dashboard/my-records');
+            } else {
+                router.push('/dashboard');
+            }
 
         } catch (error: any) {
             console.error("Login error:", error);
@@ -97,9 +94,9 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-muted/50 p-4">
         <Card className="mx-auto max-w-sm w-full shadow-lg border-t-4 border-t-primary">
             <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl text-center font-bold">GamMed Login</CardTitle>
+                <CardTitle className="text-2xl text-center font-bold">GamMed Sign In</CardTitle>
                 <CardDescription className="text-center">
-                    Enter your email to access your hospital portal
+                    Access your secure hospital portal
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -133,7 +130,7 @@ export default function LoginPage() {
                         />
                     </div>
                     <Button type="submit" className="w-full mt-2 h-11" disabled={isLoading}>
-                        {isLoading ? "Signing in..." : "Sign In"}
+                        {isLoading ? "Verifying..." : "Sign In"}
                     </Button>
                 </form>
                 <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">

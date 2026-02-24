@@ -7,21 +7,19 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     /**
-     * Helper: Check if the user is the Platform Owner (Super Admin).
+     * Helper: Check if the user is authenticated.
      */
-    function isSuperAdmin() {
-      return request.auth != null && 
-             request.auth.token != null && 
-             request.auth.token.role == 'super_admin';
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     /**
-     * Helper: Check if the user is authenticated and has a hospitalId claim.
+     * Helper: Check if the user is the Platform Owner (Super Admin).
      */
-    function isAuthenticated() {
-      return request.auth != null && 
+    function isSuperAdmin() {
+      return isSignedIn() && 
              request.auth.token != null && 
-             request.auth.token.hospitalId != null;
+             request.auth.token.role == 'super_admin';
     }
 
     /**
@@ -29,40 +27,16 @@ service cloud.firestore {
      * This is the primary mechanism for airtight logical isolation.
      */
     function isSameHospital(docData) {
-      return isAuthenticated() && docData.hospitalId == request.auth.token.hospitalId;
-    }
-
-    /**
-     * THE SAFETY NET: Enforces logical isolation for queries (list).
-     * Mandates that the query MUST include a filter for the user's hospitalId.
-     */
-    function isQueryScoped() {
-      return isAuthenticated() && request.query.filters.hospitalId == request.auth.token.hospitalId;
-    }
-
-    /**
-     * Checks if the user has an authorized employee role via claims.
-     */
-    function isEmployee() {
-      return isAuthenticated() && request.auth.token.role in [
-        'director', 'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 
-        'lab_technician', 'radiologist', 'dietitian', 'receptionist',
-        'ot_coordinator', 'housekeeping', 'space_manager'
-      ];
+      return isSignedIn() && 
+             request.auth.token != null && 
+             docData.hospitalId == request.auth.token.hospitalId;
     }
 
     /**
      * Checks if the user is a hospital administrator or director via claims.
      */
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role in ['admin', 'director'];
-    }
-
-    /**
-     * Checks if the authenticated user is the owner of the document.
-     */
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isSignedIn() && request.auth.token.role in ['admin', 'director'];
     }
 
     // --------------------------------------------------------------------
@@ -78,48 +52,43 @@ service cloud.firestore {
 
     // Hospitals (Tenant Masters)
     match /hospitals/{hospId} {
-      // Allow unauthenticated list for public facility verification
-      allow list: if request.query.limit <= 50;
-      allow get: if isAuthenticated() && request.auth.token.hospitalId == hospId;
+      allow get: if isSignedIn() && (request.auth.token.hospitalId == hospId || isSuperAdmin());
+      allow list: if isSuperAdmin();
     }
 
     // Users & Staff Profiles
     match /users/{userId} {
-      // DISCOVERY RULE: Allow login page to find tenant/role by email
-      allow list: if request.query.limit == 1 && request.query.filters.email != null;
+      // DISCOVERY RULE: Allow signed-in users to find their own profile by UID
+      allow list: if isSignedIn() && request.query.limit == 1 && request.query.filters.uid == request.auth.uid;
 
-      // Regular management queries MUST be scoped to the user's hospital
-      allow list: if isEmployee() && isAdmin() && isQueryScoped();
+      allow get: if isSignedIn() && (resource.data.uid == request.auth.uid || isSameHospital(resource.data));
       
-      allow get: if isOwner(userId) || (isEmployee() && isSameHospital(resource.data));
-      
-      // Enforce: hospitalId_email pattern + Token matching
-      allow create: if isOwner(userId) && 
+      // Enforce: hospitalId_email pattern + Auth matching
+      allow create: if isSignedIn() && 
                     isSameHospital(request.resource.data) && 
                     userId == request.resource.data.hospitalId + "_" + request.resource.data.email;
       
-      // Update is restricted to self or admins within the same hospital
-      allow update: if (isOwner(userId) || (isAdmin() && isSameHospital(resource.data))) && isSameHospital(request.resource.data);
+      allow update: if isSignedIn() && (resource.data.uid == request.auth.uid || (isAdmin() && isSameHospital(resource.data)));
     }
 
     // Patients
     match /patients/{patientId} {
-      allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
-      allow get: if (isAuthenticated() && request.auth.token.patient_id == patientId) || (isEmployee() && isSameHospital(resource.data));
+      allow list: if isSignedIn() && request.query.filters.hospitalId == request.auth.token.hospitalId;
+      allow get: if isSignedIn() && (request.auth.token.patient_id == patientId || isSameHospital(resource.data));
       
-      allow create: if isEmployee() && 
+      allow create: if isSignedIn() && 
                     isSameHospital(request.resource.data) && 
                     patientId == request.resource.data.hospitalId + "_MRN" + request.resource.data.mrn;
       
-      allow update: if isEmployee() && isSameHospital(resource.data) && isSameHospital(request.resource.data);
+      allow update: if isSignedIn() && isSameHospital(resource.data);
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
 
     // Generic Safety Net for all other tenant-scoped documents
     match /{collection}/{docId} {
-      allow list: if isEmployee() && isQueryScoped() && request.query.limit <= 50;
-      allow get: if isEmployee() && isSameHospital(resource.data);
-      allow write: if isEmployee() && 
+      allow list: if isSignedIn() && request.query.filters.hospitalId == request.auth.token.hospitalId;
+      allow get: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && 
                     (resource == null || isSameHospital(resource.data)) && 
                     (request.resource == null || isSameHospital(request.resource.data));
     }
