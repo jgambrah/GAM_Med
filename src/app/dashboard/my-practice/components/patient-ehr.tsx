@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -97,9 +98,7 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                     <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-2">Clinical Toolkit:</div>
                     <AddNoteDialog patientId={patient.patient_id} onNoteAdded={() => {}} />
                     <OrderTestDialog 
-                        patientId={patient.patient_id} 
-                        patientName={patient.full_name}
-                        onOrderCreated={() => {}}
+                        patient={patient}
                     />
                      <OrderStudyDialog 
                         patientId={patient.patient_id}

@@ -81,6 +81,8 @@ export const NewDiagnosisSchema = z.object({
 export const NewLabOrderSchema = z.object({
   hospitalId: z.string().min(1),
   testName: z.string().min(3),
+  indication: z.string().min(3, "Clinical indication is required"),
+  priority: z.enum(['Routine', 'Urgent']),
   notes: z.string().optional(),
 });
 

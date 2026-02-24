@@ -19,6 +19,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,22 +38,22 @@ import { mockLabTestCatalog } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { Patient } from '@/lib/types';
 
 interface OrderTestDialogProps {
-    patientId: string;
-    patientName: string;
+    patient: Patient;
     disabled?: boolean;
-    onOrderCreated: (newOrder: any) => void;
+    onOrderCreated?: (newOrder: any) => void;
 }
 
 /**
  * == EHR Integration: Order Lab Test ==
  * 
  * Clinical tool for doctors to request diagnostic tests.
- * Atomically pushes a request to the Laboratory module's live queue.
+ * Atomically pushes a request to the Laboratory module's live queue with SaaS tags.
  */
-export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreated }: OrderTestDialogProps) {
+export function OrderTestDialog({ patient, disabled, onOrderCreated }: OrderTestDialogProps) {
     const { user } = useAuth();
     const firestore = useFirestore();
     const [open, setOpen] = React.useState(false);
@@ -54,10 +61,20 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
     const form = useForm<z.infer<typeof NewLabOrderSchema>>({
         resolver: zodResolver(NewLabOrderSchema),
         defaultValues: {
+            hospitalId: user?.hospitalId || '',
             testName: '',
+            indication: '',
+            priority: 'Routine',
             notes: '',
         }
     });
+
+    // Auto-fill tenant ID from context
+    React.useEffect(() => {
+        if (open && user) {
+            form.setValue('hospitalId', user.hospitalId);
+        }
+    }, [open, user, form]);
 
     const onSubmit = async (values: z.infer<typeof NewLabOrderSchema>) => {
         if (!user || !firestore) {
@@ -65,25 +82,31 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
             return;
         }
         
-        // DATA PREPARATION: Create order for the Lab Worklist
+        // DATA PREPARATION: Create order for the Lab Worklist (Step 3: Closing the Loop)
         const labOrder = {
-            hospitalId: user.hospitalId,
-            patientId: patientId,
-            patientName: patientName,
-            patientMrn: patientId.split('_MRN')[1] || 'N/A',
+            patientId: patient.patient_id,
+            patientName: patient.full_name,
+            patientMrn: patient.mrn,
+            hospitalId: user.hospitalId, // Mandatory SaaS Stamp
             testName: values.testName,
-            status: 'Requested',
+            indication: values.indication,
+            priority: values.priority, // Urgent vs Routine
             doctorName: user.name,
             doctorId: user.uid,
-            priority: 'Routine',
+            status: "Requested",
+            createdAt: serverTimestamp(),
             notes: values.notes || '',
-            createdAt: new Date().toISOString(),
         };
         
         // PUSH TO LIVE QUEUE: Triggers instant update on Lab Technician dashboard
         addDocumentNonBlocking(collection(firestore, 'lab_orders'), labOrder);
         
         toast.success(`Lab request for ${values.testName} sent to diagnostics.`);
+        
+        if (onOrderCreated) {
+            onOrderCreated(labOrder);
+        }
+
         setOpen(false);
         form.reset();
     }
@@ -105,7 +128,7 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
                 <DialogHeader>
                     <DialogTitle>Diagnostic Request</DialogTitle>
                     <DialogDescription>
-                        Submit a new laboratory request for {patientName}.
+                        Submit a new laboratory request for {patient.full_name}.
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...form}>
@@ -128,15 +151,38 @@ export function OrderTestDialog({ patientId, patientName, disabled, onOrderCreat
                                 </FormItem>
                             )}
                         />
+                        <div className="grid grid-cols-1 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="priority"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Priority Level</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select priority" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="Routine">Routine</SelectItem>
+                                                <SelectItem value="Urgent">Urgent (STAT)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
                          <FormField
                             control={form.control}
-                            name="notes"
+                            name="indication"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Clinical Notes (Optional)</FormLabel>
+                                    <FormLabel>Clinical Indication</FormLabel>
                                     <FormControl>
                                         <Textarea 
-                                            placeholder="e.g. Patient is fasting. Please check for specific markers..." 
+                                            placeholder="Reason for test (e.g. Rule out anemia, pre-op screening)..." 
                                             {...field} 
                                             className="bg-muted/30"
                                         />
