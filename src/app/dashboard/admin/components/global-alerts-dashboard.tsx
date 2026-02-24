@@ -84,8 +84,8 @@ export function GlobalAlertsDashboard() {
                             </TableCell>
                             <TableCell>
                                 <Button variant="link" asChild className="p-0 h-auto">
-                                    <Link href={`/dashboard/patients/${alert.patientId}`}>
-                                        {getPatientName(alert.patientId)}
+                                    <Link href={`/dashboard/patients/${alert.patientId || '#'}`}>
+                                        {getPatientName(alert.patientId || '')}
                                     </Link>
                                 </Button>
                             </TableCell>
@@ -100,7 +100,7 @@ export function GlobalAlertsDashboard() {
                                 <Button 
                                     variant="outline" 
                                     size="sm"
-                                    onClick={() => handleAcknowledge(alert.patientId, alert.alertId)}
+                                    onClick={() => handleAcknowledge(alert.patientId || '', alert.alertId)}
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Acknowledge
