@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -493,6 +494,24 @@
         }
       },
       "required": ["id", "hospitalId", "patientId", "procedureName", "surgeonId", "otRoomId", "status", "startTime", "priority"]
+    },
+    "MortalityRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MortalityRecord",
+      "type": "object",
+      "description": "Official statutory record of a patient death within the facility.",
+      "properties": {
+        "id": { "type": "string" },
+        "hospitalId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "dateOfDeath": { "type": "string", "format": "date-time" },
+        "cause": { "type": "string" },
+        "icd10": { "type": "string" },
+        "certifiedBy": { "type": "string" },
+        "remarks": { "type": "string" }
+      },
+      "required": ["id", "hospitalId", "patientId", "patientName", "dateOfDeath", "cause", "icd10", "certifiedBy"]
     }
   },
   "auth": {
@@ -643,6 +662,22 @@
             {
               "name": "sessionId",
               "description": "Unique identifier for the surgical session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/mortality_records/{recordId}",
+        "definition": {
+          "entityName": "MortalityRecord",
+          "schema": {
+            "$ref": "#/backend/entities/MortalityRecord"
+          },
+          "description": "Official mortality register entries for statutory returns.",
+          "params": [
+            {
+              "name": "recordId",
+              "description": "Unique identifier for the mortality record."
             }
           ]
         }

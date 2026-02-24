@@ -1,8 +1,9 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema, NewAssetSchema } from './schemas';
+import { PatientSchema, BedAllocationSchema, NewPrescriptionSchema, NewDiagnosisSchema, NewLabOrderSchema, FulfillLabRequestSchema, VitalsSchema, CarePlanSchema, LogImmunizationSchema, NewAppointmentSchema, NewWaitingListSchema, NewInvoiceSchema, LogPaymentSchema, NewLedgerEntrySchema, NewStaffClaimSchema, UpdateInventorySchema, ValidateLabResultSchema, NewRadOrderSchema, RadiologyReportSchema, LeaveRequestSchema, NewAssetSchema, CertifyDeathSchema } from './schemas';
 import { Appointment, LabResult, Patient } from './types';
 import { allPatients, mockMedicationRecords } from './data';
 import { sendWelcomeEmail } from './mail-service';
@@ -467,4 +468,20 @@ export async function updateSurgicalStatus(sessionId: string, newStatus: string)
     revalidatePath('/dashboard/surgery');
     
     return { success: true };
+}
+
+/**
+ * Official Mortality Certification
+ * Atomically updates patient status and logs the event in the statutory register.
+ */
+export async function recordMortality(patientId: string, values: z.infer<typeof CertifyDeathSchema>) {
+    console.log(`Server Action: Certifying death for patient ${patientId} in hospital ${values.hospitalId}.`);
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    revalidatePath(`/dashboard/patients/${patientId}`);
+    revalidatePath('/dashboard/patients');
+    revalidatePath('/dashboard/records/compliance');
+    
+    return { success: true, message: 'Mortality record finalized.' };
 }

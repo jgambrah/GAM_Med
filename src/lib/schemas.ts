@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const PatientSchema = z.object({
@@ -313,4 +314,11 @@ export const ReferralSchema = z.object({
   priority: z.enum(['Routine', 'Urgent', 'Emergency']),
   assignedDepartment: z.string().min(1),
   notes: z.string().optional(),
+});
+
+export const CertifyDeathSchema = z.object({
+  hospitalId: z.string().min(1),
+  cause: z.string().min(5, "Primary cause of death is required"),
+  code: z.string().min(1, "ICD-10 code is required"),
+  remarks: z.string().optional(),
 });

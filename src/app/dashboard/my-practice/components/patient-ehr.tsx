@@ -30,6 +30,7 @@ import { OrderTestDialog } from '../../patients/[patientId]/components/order-tes
 import { OrderStudyDialog } from '../../patients/[patientId]/components/order-study-dialog';
 import { PreOpChecklistTab } from '../../patients/[patientId]/components/pre-op-checklist-tab';
 import { PostOpCareTab } from '../../patients/[patientId]/components/post-op-care-tab';
+import { CertifyDeathDialog } from '../../patients/[patientId]/components/certify-death-dialog';
 
 // Types
 import { Patient, OTSession } from '@/lib/types';
@@ -78,8 +79,8 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                     </p>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
-                    <Badge variant={patient.is_admitted ? "destructive" : "secondary"}>
-                        {patient.is_admitted ? "INPATIENT" : "OUTPATIENT"}
+                    <Badge variant={patient.status === 'deceased' ? 'destructive' : (patient.is_admitted ? "default" : "secondary")}>
+                        {patient.status === 'deceased' ? "DECEASED" : (patient.is_admitted ? "INPATIENT" : "OUTPATIENT")}
                     </Badge>
                     <p className="text-[10px] font-bold text-primary uppercase">{user?.hospitalId}</p>
                 </div>
@@ -96,15 +97,18 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                 {/* Direct Clinical Action Workbench */}
                  <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-lg border border-accent/20 flex-wrap">
                     <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-2">Clinical Toolkit:</div>
-                    <AddNoteDialog patientId={patient.patient_id} onNoteAdded={() => {}} />
+                    <AddNoteDialog patientId={patient.patient_id} onNoteAdded={() => {}} disabled={patient.status === 'deceased'} />
                     <OrderTestDialog 
                         patient={patient}
+                        disabled={patient.status === 'deceased'}
                     />
                      <OrderStudyDialog 
                         patientId={patient.patient_id}
                         patientName={patient.full_name}
                         onOrderCreated={() => {}}
+                        disabled={patient.status === 'deceased'}
                      />
+                     <CertifyDeathDialog patient={patient} />
                 </div>
 
                 {/* Longitudinal Medical Record Sections */}
