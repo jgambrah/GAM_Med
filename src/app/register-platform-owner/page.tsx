@@ -34,44 +34,40 @@ export default function PlatformOwnerSetup() {
 
     const handleSetup = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Starting initialization...");
+        console.log("Input Key:", adminKey);
+        console.log("Expected Key:", process.env.NEXT_PUBLIC_MASTER_SECRET_KEY);
 
-        // DEBUG LOGS - These will help you see if the environment variable is being loaded correctly in the browser.
-        console.log("DEBUG: What you typed in the box:", adminKey);
-        console.log("DEBUG: What the system expects (from env):", process.env.NEXT_PUBLIC_MASTER_SECRET_KEY);
-
-        // 1. Validate against secret key
-        const masterKey = process.env.NEXT_PUBLIC_MASTER_SECRET_KEY;
-        
-        if (!masterKey) {
-            return toast.error("System Error", { description: "Master Secret Key is not configured in the environment variables." });
-        }
-
-        if (adminKey !== masterKey) {
-            return toast.error("Unauthorized", { description: "Invalid Master Admin Key. Please check your browser console for debug info." });
+        if (adminKey !== process.env.NEXT_PUBLIC_MASTER_SECRET_KEY) {
+            alert("Key mismatch! What you typed does not match NEXT_PUBLIC_MASTER_SECRET_KEY in your .env file.");
+            return;
         }
 
         try {
-            // 2. Create the Auth User
+            // 1. Create the Auth User
+            console.log("Attempting to create Auth user...");
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const uid = userCredential.user.uid;
+            console.log("Auth user created with UID:", uid);
 
-            // 3. Provision Internal Tenant (HQ)
+            // 2. Provision Internal Tenant (HQ)
             const hospitalId = 'GAMMED_HQ';
             const userDocId = `${hospitalId}_${email.toLowerCase().trim()}`;
 
-            // 4. Create Super Admin Document
+            // 3. Create Super Admin Document
+            console.log("Creating Firestore User Document...");
             await setDoc(doc(db, 'users', userDocId), {
                 uid: uid,
                 email: email.toLowerCase(),
                 name: "GamMed CEO",
                 role: 'super_admin',
                 hospitalId: hospitalId,
-                hospitalName: "Gam It Services HQ",
                 is_active: true,
                 created_at: new Date().toISOString()
             });
 
-            // 5. Create the HQ Hospital Doc
+            // 4. Create the HQ Hospital Doc
+            console.log("Creating Firestore Hospital Document...");
             await setDoc(doc(db, 'hospitals', hospitalId), {
                 hospitalId: hospitalId,
                 name: "Gam It Services HQ",
@@ -82,13 +78,11 @@ export default function PlatformOwnerSetup() {
                 createdAt: new Date().toISOString()
             });
 
-            toast.success("Super Admin Created!", {
-                description: "You can now log in to the Platform Operations center."
-            });
+            alert("SUCCESS! HQ Initialized and Super Admin created. Redirecting to login...");
             router.push('/login');
         } catch (error: any) {
-            console.error("Setup failed:", error);
-            toast.error("Registration Failed", { description: error.message });
+            console.error("FULL ERROR OBJECT:", error);
+            alert("FAILED: " + error.message);
         }
     };
 
