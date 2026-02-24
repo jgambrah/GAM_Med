@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,14 +28,14 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
     const firestore = useFirestore();
     const [isStreaming, setIsStreaming] = React.useState(false);
 
-    // LIVE QUERY: Real-time vitals history
+    // LIVE QUERY: Real-time vitals history (Synced with Index)
     const vitalsQuery = useMemoFirebase(() => {
         if (!firestore || !patientId || !user?.hospitalId) return null;
         return query(
-            collection(firestore, 'vitals_log'),
+            collection(firestore, 'vitals'),
             where('hospitalId', '==', user.hospitalId),
             where('patientId', '==', patientId),
-            orderBy('recordedAt', 'desc')
+            orderBy('createdAt', 'desc')
         );
     }, [firestore, patientId, user?.hospitalId]);
 
@@ -62,10 +62,10 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
             hospitalId: user.hospitalId,
             patientId,
             recordedByUserId: user.uid,
-            recordedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(), // Standardized field name
         };
 
-        addDocumentNonBlocking(collection(firestore, 'vitals_log'), newVitalsEntry);
+        addDocumentNonBlocking(collection(firestore, 'vitals'), newVitalsEntry);
 
         form.reset();
         
@@ -198,7 +198,7 @@ export function VitalsTab({ patientId }: VitalsTabProps) {
                                 ) : vitalsHistory && vitalsHistory.length > 0 ? (
                                     vitalsHistory.map((log) => (
                                         <TableRow key={log.id}>
-                                            <TableCell className="text-xs">{format(new Date(log.recordedAt), 'MM/dd p')}</TableCell>
+                                            <TableCell className="text-xs">{log.createdAt ? format(new Date(log.createdAt), 'MM/dd p') : 'N/A'}</TableCell>
                                             <TableCell className="text-xs">{log.bloodPressure}</TableCell>
                                             <TableCell className="text-xs">{log.heartRate}</TableCell>
                                             <TableCell className="text-xs">{log.temperature}°C</TableCell>

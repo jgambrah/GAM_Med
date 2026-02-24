@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -32,10 +33,9 @@ export function AddNoteDialog({ patientId, disabled, onNoteAdded }: { patientId:
             noteType: 'Consultation',
             recordedByUserId: user.uid,
             noteText: newNote,
-            recordedAt: new Date().toISOString()
+            createdAt: new Date().toISOString() // Standardized field name
         };
 
-        // NON-BLOCKING WRITE: Optimized for high clinical throughput
         addDocumentNonBlocking(collection(firestore, 'clinical_notes'), newNoteData);
         
         toast.success('Clinical note recorded.');
@@ -87,14 +87,14 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
     const { user } = useAuth();
     const firestore = useFirestore();
     
-    // LIVE QUERY: Filtered by hospital and patient for strict SaaS isolation
+    // LIVE QUERY: Filtered by hospital and patient (Synced with Index)
     const notesQuery = useMemoFirebase(() => {
         if (!firestore || !patientId || !user?.hospitalId) return null;
         return query(
             collection(firestore, 'clinical_notes'),
             where('hospitalId', '==', user.hospitalId),
             where('patientId', '==', patientId),
-            orderBy('recordedAt', 'desc')
+            orderBy('createdAt', 'desc')
         );
     }, [firestore, patientId, user?.hospitalId]);
 
@@ -118,7 +118,7 @@ export function ClinicalNotesTab({ patientId }: ClinicalNotesTabProps) {
                             notes.map((note) => (
                             <div key={note.id} className="border-l-4 border-primary pl-4 py-2">
                                <p className="text-xs text-muted-foreground">
-                                 {format(new Date(note.recordedAt), 'PPP p')}
+                                 {note.createdAt ? format(new Date(note.createdAt), 'PPP p') : 'N/A'}
                                </p>
                                <p className="mt-1 whitespace-pre-wrap text-sm">{note.noteText}</p>
                             </div>
