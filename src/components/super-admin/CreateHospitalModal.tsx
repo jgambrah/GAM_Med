@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -37,6 +38,13 @@ const CreateHospitalSchema = z.object({
   directorPassword: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+/**
+ * == Super Admin: Tenant Provisioning Tool ==
+ * 
+ * This component handles the creation of new hospital tenants using the client SDK.
+ * It atomically provisions the Hospital record and the Director's profile, "stamping" 
+ * them both with a unique shared hospitalId for logical isolation.
+ */
 export default function CreateHospitalModal() {
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -61,18 +69,18 @@ export default function CreateHospitalModal() {
       const now = new Date().toISOString();
 
       // 2. Create the Director in Firebase Auth
-      // NOTE: Creating a new user via client SDK will automatically sign out the current user.
+      // NOTE: Creating a new user via the client SDK will automatically sign out the current user.
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
-      // 3. Atomically provision documents via batch
+      // 3. Atomically provision documents via a Firestore Batch
       const batch = writeBatch(db);
 
-      // STAMP the Director User Record
-      // Pattern: {hospitalId}_{email} - The SaaS isolation anchor
+      // Pattern: {hospitalId}_{email} - The SaaS isolation anchor for user profiles
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
       const userRef = doc(db, 'users', userDocId);
       
+      // "STAMP" the Director with the Hospital ID
       batch.set(userRef, {
         uid: uid,
         email: values.directorEmail.toLowerCase().trim(),
@@ -84,7 +92,7 @@ export default function CreateHospitalModal() {
         last_login: now,
       });
 
-      // STAMP the Hospital Master Record
+      // "STAMP" the Hospital Master Record
       const hospitalRef = doc(db, 'hospitals', newHospitalId);
       batch.set(hospitalRef, {
         hospitalId: newHospitalId,
@@ -107,7 +115,7 @@ export default function CreateHospitalModal() {
       setOpen(false);
       form.reset();
     } catch (error: any) {
-      console.error(error);
+      console.error("Provisioning failed:", error);
       toast.error("Provisioning Failed", {
         description: error.message || "An error occurred during hospital registration."
       });
