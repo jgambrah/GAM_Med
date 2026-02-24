@@ -1,4 +1,3 @@
-
 {
   "indexes": [
     {
@@ -50,6 +49,14 @@
       "fields": [
         { "fieldPath": "hospitalId", "order": "ASCENDING" },
         { "fieldPath": "role", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],
