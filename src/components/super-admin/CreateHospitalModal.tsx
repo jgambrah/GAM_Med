@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Building2, ShieldAlert } from 'lucide-react';
+import { sendStaffInvitationEmail } from '@/lib/actions';
 
 const CreateHospitalSchema = z.object({
   hospitalName: z.string().min(3, 'Hospital name must be at least 3 characters'),
@@ -113,8 +114,17 @@ export default function CreateHospitalModal() {
 
       await batch.commit();
 
+      // 4. Automated Onboarding Email
+      // This sends the welcome instructions to the new Director
+      await sendStaffInvitationEmail({
+          email: values.directorEmail,
+          name: values.directorName,
+          hospitalName: values.hospitalName,
+          role: 'Medical Director'
+      });
+
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active. You have been signed out to complete the Director's onboarding.`
+        description: `${values.hospitalName} is now active. The Director has been notified via email.`
       });
       
       setOpen(false);
