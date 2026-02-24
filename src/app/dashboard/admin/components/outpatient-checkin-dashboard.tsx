@@ -43,7 +43,7 @@ export function OutpatientCheckinDashboard() {
     return allAppointments.filter(
         (appt) => 
             appt.hospitalId === user.hospitalId &&
-            appt.type !== 'procedure' && 
+            appt?.type !== 'procedure' && 
             new Date(appt.appointment_date).toDateString() === new Date().toDateString()
     );
   }, [user]);

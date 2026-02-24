@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -56,7 +57,7 @@ export default function LandingPage() {
           <FeatureCard 
             icon={<Activity className="h-8 w-8 text-green-600" />}
             title="Clinical Excellence"
-            desc="From Operating Theatre scheduling to Ward Census management, our EMR covers the entire patient journey with real-time precision."
+            desc="From Surgery scheduling to Bed management, our EMR covers the entire patient journey with real-time precision."
           />
           <FeatureCard 
             icon={<BarChart3 className="h-8 w-8 text-purple-600" />}

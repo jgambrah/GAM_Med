@@ -183,6 +183,7 @@ export interface Appointment {
   isVirtual?: boolean;
   telemedicineLink?: string;
   notes?: string;
+  type?: string;
 }
 
 export interface Admission {
