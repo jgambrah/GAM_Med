@@ -29,7 +29,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { Plus, UserPlus } from 'lucide-react';
+import { UserPlus, Plus } from 'lucide-react';
 
 const InviteStaffSchema = z.object({
   name: z.string().min(3, 'Full name is required'),
@@ -42,6 +42,7 @@ const InviteStaffSchema = z.object({
  * 
  * Allows a Hospital Director to register new staff members.
  * Enforces logical isolation by locking the hospitalId to the Director's own ID.
+ * This implementation uses the Client SDK to "stamp" the user document atomically.
  */
 export default function InviteStaffModal() {
   const [open, setOpen] = React.useState(false);
@@ -60,7 +61,7 @@ export default function InviteStaffModal() {
 
   const onSubmit = async (values: z.infer<typeof InviteStaffSchema>) => {
     if (!currentUser?.hospitalId) {
-        toast.error("Auth Error", { description: "Hospital context not found." });
+        toast.error("Auth Error", { description: "Hospital context not found. Please log in again." });
         return;
     }
 
@@ -68,22 +69,24 @@ export default function InviteStaffModal() {
     const normalizedEmail = values.email.toLowerCase().trim();
     
     try {
-      // In a production app, this would call a Cloud Function to handle Firebase Auth creation.
-      // For this prototype, we simulate the provisioning of the Firestore profile.
-      
-      // Pattern: {hospitalId}_{email} - Ensuring uniqueness within the tenant
+      // 1. Generate the unique Document ID for this tenant: {hospitalId}_{email}
       const userDocId = `${currentUser.hospitalId}_${normalizedEmail}`;
 
+      // 2. Uniqueness Check: Ensure this user isn't already registered at this facility
       const existingDoc = await getDoc(doc(db, 'users', userDocId));
       if (existingDoc.exists()) {
           toast.error("Duplicate Entry", {
               description: "A user with this email already exists at your facility."
           });
+          setIsSubmitting(false);
           return;
       }
 
+      // 3. Provision the Firestore Profile (The "Stamping" Logic)
+      // In a production environment, this write would trigger a Cloud Function to 
+      // handle Firebase Auth creation and send a welcome email.
       await setDoc(doc(db, 'users', userDocId), {
-        uid: `PENDING_${Date.now()}`, // Simulated Auth UID
+        uid: `PENDING_${Date.now()}`, // Simulated UID until Auth is confirmed
         hospitalId: currentUser.hospitalId,
         email: normalizedEmail,
         name: values.name,
@@ -109,9 +112,9 @@ export default function InviteStaffModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
-            Register Staff
+            Invite Staff Member
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -121,7 +124,7 @@ export default function InviteStaffModal() {
             <DialogTitle>Invite New Staff</DialogTitle>
           </div>
           <DialogDescription>
-            Register a new employee for your facility. They will be automatically linked to <strong>{currentUser?.hospitalId}</strong>.
+            Register a new employee for your facility. They will be logically isolated to <strong>{currentUser?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -176,7 +179,7 @@ export default function InviteStaffModal() {
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Registering...' : 'Register Staff Member'}
+                {isSubmitting ? 'Registering...' : 'Invite to GamMed'}
               </Button>
             </DialogFooter>
           </form>

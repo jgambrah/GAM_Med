@@ -25,6 +25,7 @@ export default function StaffManagement() {
         if (!user?.hospitalId) return;
 
         // SAAS FILTER: Only show users belonging to this director's hospital
+        // This query matches the requirements for the "SaaS Wall" logical isolation
         const q = query(
             collection(db, "users"),
             where("hospitalId", "==", user.hospitalId)
@@ -41,30 +42,33 @@ export default function StaffManagement() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-                Loading staff directory...
+            <div className="flex items-center justify-center h-[50vh] text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                    <p>Loading staff directory...</p>
+                </div>
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold">Staff Directory</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
                     <p className="text-muted-foreground">Manage the clinical and administrative team for <strong>{user?.hospitalId}</strong>.</p>
                 </div>
                 <InviteStaffModal />
             </div>
 
-            <Card>
+            <Card className="shadow-sm">
                 <CardHeader>
                     <CardTitle>Hospital Personnel</CardTitle>
-                    <CardDescription>A real-time list of active and pending staff members.</CardDescription>
+                    <CardDescription>A real-time list of active and pending staff members for your facility.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Table>
-                        <TableHeader>
+                        <TableHeader className="bg-muted/50">
                             <TableRow>
                                 <TableHead className="pl-6">Name</TableHead>
                                 <TableHead>Email</TableHead>
