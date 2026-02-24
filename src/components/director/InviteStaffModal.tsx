@@ -41,8 +41,8 @@ const InviteStaffSchema = z.object({
  * == Director Module: Staff Provisioning ==
  * 
  * Allows a Hospital Director to register new staff members.
- * Enforces logical isolation by locking the hospitalId to the Director's own ID.
- * This implementation uses the Client SDK to "stamp" the user document atomically.
+ * It uses the Client SDK to "stamp" the user document atomically with the hospitalId.
+ * Security is enforced by Firestore Security Rules (DBAC).
  */
 export default function InviteStaffModal() {
   const [open, setOpen] = React.useState(false);
@@ -70,6 +70,7 @@ export default function InviteStaffModal() {
     
     try {
       // 1. Generate the unique Document ID for this tenant: {hospitalId}_{email}
+      // This is our "Discovery Pattern".
       const userDocId = `${currentUser.hospitalId}_${normalizedEmail}`;
 
       // 2. Uniqueness Check: Ensure this user isn't already registered at this facility
@@ -83,11 +84,11 @@ export default function InviteStaffModal() {
       }
 
       // 3. Provision the Firestore Profile (The "Stamping" Logic)
-      // In a production environment, this write would trigger a Cloud Function to 
-      // handle Firebase Auth creation and send a welcome email.
+      // We set a temporary UID. This will be updated to the real Firebase Auth UID
+      // automatically when the staff member logs in for the first time.
       await setDoc(doc(db, 'users', userDocId), {
-        uid: `PENDING_${Date.now()}`, // Simulated UID until Auth is confirmed
-        hospitalId: currentUser.hospitalId,
+        uid: `INVITED_${Date.now()}`, 
+        hospitalId: currentUser.hospitalId, // <--- THE SAAS STAMP
         email: normalizedEmail,
         name: values.name,
         role: values.role,
@@ -95,15 +96,15 @@ export default function InviteStaffModal() {
         created_at: new Date().toISOString(),
       });
 
-      toast.success('Staff Member Registered', {
-        description: `${values.name} has been added to the hospital directory.`
+      toast.success('Invitation Recorded', {
+        description: `${values.name} has been added. They can now sign up with their work email.`
       });
       
       setOpen(false);
       form.reset();
     } catch (error: any) {
       console.error("Provisioning failed:", error);
-      toast.error('Provisioning Failed', { description: error.message });
+      toast.error('Provisioning Failed', { description: "You don't have permission to invite staff." });
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +113,7 @@ export default function InviteStaffModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
+        <Button className="shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             Invite Staff Member
         </Button>
@@ -145,9 +146,9 @@ export default function InviteStaffModal() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>Email Address</Label>
                   <FormControl><Input type="email" placeholder="name@facility.com" {...field} /></FormControl>
-                  <FormDescription className="text-xs">This will be their login username.</FormDescription>
+                  <FormDescription className="text-xs">The staff member must use this email to sign up.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -179,7 +180,7 @@ export default function InviteStaffModal() {
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Registering...' : 'Invite to GamMed'}
+                {isSubmitting ? 'Recording...' : 'Register Invitation'}
               </Button>
             </DialogFooter>
           </form>
