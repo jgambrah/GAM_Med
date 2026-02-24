@@ -28,12 +28,14 @@ import { Plus, Building2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { doc, writeBatch } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useFirestore, useAuth } from '@/firebase';
 
 const OnboardingSchema = z.object({
   hospitalName: z.string().min(3, 'Hospital name is required'),
   directorName: z.string().min(3, 'Director name is required'),
   directorEmail: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   tier: z.enum(['basic', 'premium']),
 });
 
@@ -46,6 +48,7 @@ const OnboardingSchema = z.object({
 export function CreateHospitalDialog() {
   const [open, setOpen] = React.useState(false);
   const db = useFirestore();
+  const auth = useAuth();
 
   const form = useForm<z.infer<typeof OnboardingSchema>>({
     resolver: zodResolver(OnboardingSchema),
@@ -53,55 +56,62 @@ export function CreateHospitalDialog() {
       hospitalName: '',
       directorName: '',
       directorEmail: '',
+      password: '',
       tier: 'basic',
     },
   });
 
   const onSubmit = async (values: z.infer<typeof OnboardingSchema>) => {
-    // 1. Generate unique Hospital ID (Slug)
-    const hospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // 1. Generate unique Hospital ID (e.g., "st-marys-102")
+    const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 1000);
     const now = new Date().toISOString();
     
-    // 2. Provision documents atomically via Batch
-    // This ensures data integrity: both records exist or neither does.
-    const batch = writeBatch(db);
-    
-    // a) Create the Hospital Master Record
-    const hospitalRef = doc(db, 'hospitals', hospitalId);
-    batch.set(hospitalRef, {
-      hospitalId,
-      name: values.hospitalName,
-      slug: hospitalId,
-      status: 'active',
-      subscriptionTier: values.tier,
-      createdAt: now,
-      ownerEmail: values.directorEmail
-    });
-
-    // b) Create the Director's User Profile
-    // ID Pattern: {hospitalId}_{email} - The "SaaS Wall" anchor
-    const directorId = `${hospitalId}_${values.directorEmail.toLowerCase().trim()}`;
-    const directorRef = doc(db, 'users', directorId);
-    
-    batch.set(directorRef, {
-      uid: `PROVISIONED_${Date.now()}`, // Temporary UID; actual Auth UID assigned on first login
-      hospitalId,
-      email: values.directorEmail.toLowerCase().trim(),
-      name: values.directorName,
-      role: 'director',
-      is_active: true,
-      created_at: now,
-      last_login: now
-    });
-
     try {
+      // 2. Create the Director in Firebase Auth
+      // Note: In a prototype, this will sign out the current admin. 
+      // In production, this would be a Cloud Function.
+      const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.password);
+      const uid = cred.user.uid;
+
+      // 3. Provision documents atomically via Batch
+      const batch = writeBatch(db);
+      
+      // Pattern: {hospitalId}_{email} - The SaaS isolation anchor
+      const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
+      const directorRef = doc(db, 'users', userDocId);
+      
+      // STAMP the Director with the Hospital ID
+      batch.set(directorRef, {
+        uid: uid,
+        hospitalId: newHospitalId,
+        email: values.directorEmail.toLowerCase().trim(),
+        name: values.directorName,
+        role: 'director',
+        is_active: true,
+        created_at: now,
+        last_login: now
+      });
+
+      // 4. Create the Hospital Master Record
+      const hospitalRef = doc(db, 'hospitals', newHospitalId);
+      batch.set(hospitalRef, {
+        hospitalId: newHospitalId,
+        id: newHospitalId, // Legacy field support
+        name: values.hospitalName,
+        slug: newHospitalId,
+        status: 'active',
+        isActive: true, // Legacy field support
+        subscriptionTier: values.tier,
+        createdAt: now,
+        ownerEmail: values.directorEmail
+      });
+
       await batch.commit();
       
       toast.success('Hospital Onboarded Successfully', {
-        description: `${values.hospitalName} has been provisioned. Welcome email sent to ${values.directorEmail} (simulated).`
+        description: `${values.hospitalName} has been provisioned. Redirecting to login...`
       });
       
-      // Close and reset
       setOpen(false);
       form.reset();
     } catch (error: any) {
@@ -168,8 +178,21 @@ export function CreateHospitalDialog() {
                     <Input type="email" placeholder="director@facility.com" {...field} />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    This email will be the primary login for the hospital tenant.
+                    Used for the primary Director account.
                   </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Director's Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Set a strong password" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
