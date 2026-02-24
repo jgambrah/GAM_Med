@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { 
@@ -17,7 +17,7 @@ import {
     Loader2,
     CheckCircle2
 } from 'lucide-react';
-import { Badge } from '@/badge';
+import { Badge } from '@/components/ui/badge';
 import { RecordVitalsDialog } from '@/components/nursing/record-vitals-dialog';
 
 interface NurseTaskQueueProps {
@@ -74,42 +74,43 @@ export function NurseTaskQueue({ hospitalId, type }: NurseTaskQueueProps) {
         {rawTasks.map((task: any) => (
             <Card key={task.id} className="hover:shadow-md transition-all border-l-4 border-l-primary overflow-hidden">
                 <CardContent className="p-4">
-                    <div className="flex justify-between items-start gap-4">
-                        <div className="flex-grow">
-                            <div className="flex items-center gap-2 mb-1">
-                                {type === 'Meds' ? <Pill className="h-4 w-4 text-blue-600" /> : <Activity className="h-4 w-4 text-green-600" />}
-                                <h4 className="font-bold text-sm">
-                                    {task.medicationName || task.title}
-                                </h4>
-                                <Badge variant="secondary" className="text-[10px] uppercase">
-                                    {task.frequency || 'Care Task'}
-                                </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                                {task.instructions || task.goal || 'Follow standard protocol'}
-                            </p>
-                            <div className="mt-3 flex items-center gap-2">
-                                <Badge variant="outline" className="text-[10px] bg-muted/50">Patient ID: {task.patientId}</Badge>
-                                <span className="text-[10px] text-muted-foreground">Scheduled Round: {format(new Date(), 'p')}</span>
-                            </div>
+                    <div className="flex items-center gap-2 mb-1">
+                        {type === 'Meds' ? <Pill className="h-4 w-4 text-blue-600" /> : <Activity className="h-4 w-4 text-green-600" />}
+                        <h4 className="font-bold text-sm">
+                            {task.medicationName || task.title}
+                        </h4>
+                        <Badge variant="secondary" className="text-[10px] uppercase">
+                            {task.frequency || 'Care Task'}
+                        </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                        {task.instructions || task.goal || 'Follow standard protocol'}
+                    </p>
+                    
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] bg-muted/50">ID: {task.patientId}</Badge>
+                            <span className="text-[10px] text-muted-foreground">Round: {format(new Date(), 'p')}</span>
                         </div>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                            {/* Execution Tool: If it's a Care task, show the Vitals Dialog */}
                             {type === 'Care' ? (
                                 <RecordVitalsDialog 
                                     patientId={task.patientId} 
-                                    patientName={task.patientName || `Patient ${task.patientId}`} 
+                                    patientName={task.patientName || "Patient"} 
                                 />
                             ) : (
-                                <Button variant="outline" size="sm" asChild className="group">
+                                <Button variant="outline" size="sm" asChild className="group h-8">
                                     <Link href={`/dashboard/patients/${task.patientId}`}>
                                         Record Meds
                                         <ArrowRight className="h-3 w-3 ml-2 group-hover:translate-x-1 transition-transform" />
                                     </Link>
                                 </Button>
                             )}
-                            <Button variant="ghost" size="sm" asChild className="text-[10px] h-6">
+                            
+                            <Button variant="ghost" size="sm" asChild className="h-8 text-[10px]">
                                 <Link href={`/dashboard/patients/${task.patientId}`}>
-                                    View Full EHR
+                                    View EHR
                                 </Link>
                             </Button>
                         </div>
