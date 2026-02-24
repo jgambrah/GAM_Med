@@ -44,7 +44,7 @@ export function OutpatientCheckinDashboard() {
         (appt) => 
             appt.hospitalId === user.hospitalId &&
             appt?.type !== 'procedure' && 
-            new Date(appt.appointment_date).toDateString() === new Date().toDateString()
+            appt.appointment_date && new Date(appt.appointment_date).toDateString() === new Date().toDateString()
     );
   }, [user]);
 
@@ -96,7 +96,7 @@ export function OutpatientCheckinDashboard() {
                 todaysOutpatientAppointments.map((appt) => (
                   <TableRow key={appt.appointment_id}>
                     <TableCell className="font-medium">
-                      {format(new Date(appt.appointment_date), 'p')}
+                      {appt.appointment_date ? format(new Date(appt.appointment_date), 'p') : 'N/A'}
                     </TableCell>
                     <TableCell>
                         <Link href={`/dashboard/patients/${appt.patient_id}`} className="hover:underline">
@@ -112,7 +112,7 @@ export function OutpatientCheckinDashboard() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleUpdateStatus(appt.appointment_id, 'completed')}
+                        onClick={() => handleUpdateStatus(appt.appointment_id || '', 'completed')}
                         disabled={appt.status === 'completed' || appt.status === 'cancelled'}
                       >
                         Check-in
@@ -120,7 +120,7 @@ export function OutpatientCheckinDashboard() {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleUpdateStatus(appt.appointment_id, 'cancelled')}
+                        onClick={() => handleUpdateStatus(appt.appointment_id || '', 'cancelled')}
                         disabled={appt.status === 'completed' || appt.status === 'cancelled'}
                         >
                         Cancel

@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Updated types for the GamMed ERP System.
  * Ensures all financial and clinical entities are properly defined for the Billing Dashboard.
@@ -157,17 +158,12 @@ export interface Appointment {
   id: string;
   appointment_id?: string;
   hospitalId: string;
-  patientId: string;
-  patient_id?: string;
-  patientName: string;
-  patient_name?: string;
-  doctorId: string;
-  doctor_id?: string;
-  doctorName: string;
-  doctor_name?: string;
-  appointmentDate: string;
-  appointment_date?: string;
-  timeSlot: string;
+  patient_id: string;
+  patient_name: string;
+  doctor_id: string;
+  doctor_name: string;
+  appointment_date: string;
+  time_slot: string;
   status: 'Scheduled' | 'Arrived' | 'In-Consultation' | 'Completed' | 'Cancelled' | 'confirmed' | 'cancelled' | 'completed';
   reason: string;
   createdAt: string;
@@ -184,6 +180,13 @@ export interface Appointment {
   telemedicineLink?: string;
   notes?: string;
   type?: string;
+  // Legacy camelCase fields kept for backward compatibility during migration
+  patientId?: string;
+  patientName?: string;
+  doctorId?: string;
+  doctorName?: string;
+  appointmentDate?: string;
+  timeSlot?: string;
 }
 
 export interface Admission {
