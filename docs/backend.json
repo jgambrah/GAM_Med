@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -356,45 +357,39 @@
       },
       "required": ["fromHospitalId", "toHospitalId", "patientId", "status", "priority"]
     },
-    "OTSession": {
+    "ControlledSubstance": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "OTSession",
+      "title": "ControlledSubstance",
       "type": "object",
-      "description": "High-intensity surgical coordination record.",
+      "description": "Narcotic inventory record for legal compliance.",
       "properties": {
         "hospitalId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "patientName": { "type": "string" },
-        "procedureName": { "type": "string" },
-        "surgeonId": { "type": "string" },
-        "surgeonName": { "type": "string" },
-        "anesthetistName": { "type": "string" },
-        "otRoomId": { "type": "string" },
-        "status": { "type": "string", "enum": ["Scheduled", "In-Progress", "Recovery", "Completed", "Cancelled"] },
-        "startTime": { "type": "string", "format": "date-time" },
-        "estimatedDuration": { "type": "number" },
-        "priority": { "type": "string", "enum": ["Emergency", "Elective", "Urgent"] }
+        "name": { "type": "string" },
+        "strength": { "type": "string" },
+        "form": { "type": "string" },
+        "totalQuantity": { "type": "number" },
+        "unit": { "type": "string" }
       },
-      "required": ["hospitalId", "patientId", "procedureName", "surgeonId", "otRoomId", "status", "startTime"]
+      "required": ["hospitalId", "name", "totalQuantity"]
     },
-    "DietaryOrder": {
+    "ControlledSubstanceLog": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DietaryOrder",
+      "title": "ControlledSubstanceLog",
       "type": "object",
-      "description": "Patient meal order based on clinical requirements.",
+      "description": "Immutable audit trail for narcotic movements.",
       "properties": {
         "hospitalId": { "type": "string" },
+        "substanceId": { "type": "string" },
+        "transactionType": { "type": "string", "enum": ["Dispense", "Restock", "Audit", "Waste", "Adjustment"] },
+        "quantityChange": { "type": "number" },
+        "currentQuantity": { "type": "number" },
+        "userId": { "type": "string" },
         "patientId": { "type": "string" },
-        "patientName": { "type": "string" },
-        "wardName": { "type": "string" },
-        "bedId": { "type": "string" },
-        "dietType": { "type": "string", "enum": ["Standard", "Diabetic", "Low Salt", "Renal", "NPO", "Soft"] },
-        "allergies": { "type": "string" },
-        "specialInstructions": { "type": "string" },
-        "status": { "type": "string", "enum": ["Requested", "Prepared", "Delivered", "Cancelled"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "witnessId": { "type": "string" },
+        "reason": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
       },
-      "required": ["hospitalId", "patientId", "dietType", "status"]
+      "required": ["hospitalId", "substanceId", "transactionType", "quantityChange", "userId"]
     }
   },
   "auth": {
@@ -422,35 +417,19 @@
         }
       },
       {
-        "path": "/referrals/{referralId}",
+        "path": "/controlled_substances/{substanceId}",
         "definition": {
-          "entityName": "Referral",
-          "schema": {
-            "$ref": "#/backend/entities/Referral"
-          },
-          "description": "Patient referrals between facilities or departments.",
-          "params": [
-            {
-              "name": "referralId",
-              "description": "Unique identifier for the referral."
-            }
-          ]
+          "entityName": "ControlledSubstance",
+          "schema": { "$ref": "#/backend/entities/ControlledSubstance" },
+          "description": "Narcotic inventory."
         }
       },
       {
-        "path": "/ot_sessions/{sessionId}",
+        "path": "/controlled_substance_logs/{logId}",
         "definition": {
-          "entityName": "OTSession",
-          "schema": { "$ref": "#/backend/entities/OTSession" },
-          "description": "Surgical theatre scheduling."
-        }
-      },
-      {
-        "path": "/dietary_orders/{orderId}",
-        "definition": {
-          "entityName": "DietaryOrder",
-          "schema": { "$ref": "#/backend/entities/DietaryOrder" },
-          "description": "Patient nutrition and meal tracking."
+          "entityName": "ControlledSubstanceLog",
+          "schema": { "$ref": "#/backend/entities/ControlledSubstanceLog" },
+          "description": "Narcotic audit trail."
         }
       }
     ]

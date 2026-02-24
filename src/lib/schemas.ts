@@ -264,8 +264,8 @@ export const PaymentSchema = z.object({
 export const ControlledSubstanceTransactionSchema = z.object({
     hospitalId: z.string().min(1),
     transactionType: z.enum(['Dispense', 'Restock', 'Waste', 'Adjustment']),
-    quantity: z.number(),
-    reason: z.string().min(5),
+    quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+    reason: z.string().min(5, "A descriptive reason is required for legal audit"),
     patientId: z.string().optional(),
     witnessId: z.string().optional(),
 });

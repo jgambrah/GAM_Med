@@ -11,10 +11,13 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ControlledSubstance, ControlledSubstanceLog } from '@/lib/types';
-import { mockControlledSubstanceLog, allUsers } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { History, Loader2, User, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 interface TransactionLogDialogProps {
@@ -23,7 +26,7 @@ interface TransactionLogDialogProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
-const getTransactionTypeVariant = (type: ControlledSubstanceLog['transactionType']) => {
+const getTransactionTypeVariant = (type: ControlledSubstanceLog['transactionType']): "default" | "secondary" | "destructive" | "outline" => {
     switch(type) {
         case 'Dispense':
         case 'Waste':
@@ -38,62 +41,99 @@ const getTransactionTypeVariant = (type: ControlledSubstanceLog['transactionType
     }
 }
 
-const getUserName = (userId: string) => allUsers.find(u => u.uid === userId)?.name || 'Unknown User';
-
+/**
+ * == Tamper-Proof Audit Trail ==
+ * 
+ * Displays an immutable chronological log of every movement for a controlled substance.
+ * Enforces logical isolation via the hospitalId wall.
+ */
 export function TransactionLogDialog({ substance, isOpen, onOpenChange }: TransactionLogDialogProps) {
-  const log = mockControlledSubstanceLog.filter(l => l.substanceId === substance.substanceId);
+  const { user } = useAuth();
+  const firestore = useFirestore();
+
+  // LIVE QUERY: Fetch history for THIS substance in THIS facility
+  const logQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId || !substance.substanceId) return null;
+    return query(
+        collection(firestore, 'controlled_substance_logs'),
+        where('hospitalId', '==', user.hospitalId),
+        where('substanceId', '==', substance.substanceId),
+        orderBy('date', 'desc'),
+        limit(50)
+    );
+  }, [firestore, user?.hospitalId, substance.substanceId]);
+
+  const { data: logs, isLoading } = useCollection<ControlledSubstanceLog>(logQuery);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Transaction Log: {substance.name} ({substance.strength})</DialogTitle>
+          <div className="flex items-center gap-2 mb-2 text-primary">
+            <History className="h-5 w-5" />
+            <DialogTitle>Chain of Custody: {substance.name}</DialogTitle>
+          </div>
           <DialogDescription>
-            An immutable audit trail for all transactions involving this substance.
+            Permanent, legal audit trail for {substance.strength} {substance.form}.
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-md border mt-4">
+        
+        <div className="mt-4 rounded-xl border overflow-hidden shadow-inner bg-muted/5">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Qty Change</TableHead>
-                <TableHead>New Balance</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Patient</TableHead>
-                <TableHead>Reason</TableHead>
+                <TableHead className="text-[10px] font-black uppercase pl-6">Timestamp</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Action</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Delta</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Balance</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Clinician</TableHead>
+                <TableHead className="text-[10px] font-black uppercase pr-6 text-right">Context</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {log.length > 0 ? (
-                log
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map(entry => (
-                    <TableRow key={entry.logId}>
-                      <TableCell className="font-mono text-xs">{format(new Date(entry.date), 'PPP p')}</TableCell>
-                      <TableCell>
-                        <Badge variant={getTransactionTypeVariant(entry.transactionType)}>{entry.transactionType}</Badge>
+              {isLoading ? (
+                  <TableRow><TableCell colSpan={6} className="h-32 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></TableCell></TableRow>
+              ) : logs && logs.length > 0 ? (
+                logs.map(entry => (
+                    <TableRow key={entry.id} className="hover:bg-muted/20 transition-colors">
+                      <TableCell className="font-mono text-[10px] pl-6 text-muted-foreground">
+                        {format(new Date(entry.date), 'MMM dd, HH:mm')}
                       </TableCell>
-                      <TableCell className={cn("font-mono", entry.quantityChange > 0 ? 'text-green-600' : 'text-red-600')}>
+                      <TableCell>
+                        <Badge variant={getTransactionTypeVariant(entry.transactionType)} className="text-[9px] uppercase font-black tracking-widest px-2 py-0">
+                            {entry.transactionType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className={cn("font-black font-mono text-right text-xs", entry.quantityChange > 0 ? 'text-green-600' : 'text-red-600')}>
                         {entry.quantityChange > 0 ? `+${entry.quantityChange}` : entry.quantityChange}
                       </TableCell>
-                      <TableCell className="font-mono">{entry.currentQuantity}</TableCell>
-                      <TableCell>{getUserName(entry.userId)}</TableCell>
+                      <TableCell className="font-black font-mono text-right text-xs bg-muted/30">{entry.currentQuantity}</TableCell>
                       <TableCell>
-                        {entry.patientId ? (
-                            <Link href={`/dashboard/patients/${entry.patientId}`} className="hover:underline text-primary">
-                                {entry.patientId}
-                            </Link>
-                        ) : 'N/A'}
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1 text-[10px] font-bold">
+                                <User className="h-2.5 w-2.5" /> {entry.userId.split('_')[1] || 'Primary'}
+                            </div>
+                            {entry.witnessId && (
+                                <div className="flex items-center gap-1 text-[9px] font-bold text-orange-600">
+                                    <UserCheck className="h-2.5 w-2.5" /> Witness: {entry.witnessId.split('_')[1]}
+                                </div>
+                            )}
+                        </div>
                       </TableCell>
-                      <TableCell>{entry.reason}</TableCell>
+                      <TableCell className="text-right pr-6">
+                        <div className="max-w-[150px] ml-auto">
+                            <p className="text-[10px] text-muted-foreground italic truncate">"{entry.reason}"</p>
+                            {entry.patientId && (
+                                <p className="text-[9px] font-black text-primary uppercase mt-0.5">Pt: {entry.patientId.split('_MRN')[1]}</p>
+                            )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    No transaction history found for this item.
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic">
+                    No secure log entries found for this substance.
                   </TableCell>
                 </TableRow>
               )}

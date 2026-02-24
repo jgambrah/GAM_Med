@@ -21,7 +21,6 @@ service cloud.firestore {
 
     /**
      * @description Fetches the hospitalId for the currently logged-in user.
-     * In a production JWT-based SaaS, this would use request.auth.token.hospitalId.
      */
     function getMyHospitalId() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
@@ -49,17 +48,14 @@ service cloud.firestore {
     // Referral Module Rules (The SaaS Window)
     // --------------------------------------------------------------------
     match /referrals/{referralId} {
-      // A hospital can see a referral if they are the SENDER or the RECEIVER
       allow read: if isSignedIn() && (
         resource.data.fromHospitalId == getMyHospitalId() || 
         resource.data.toHospitalId == getMyHospitalId() ||
         isSuperAdmin()
       );
 
-      // Any staff member can create a referral stamped with their own hospital
       allow create: if isSignedIn() && request.resource.data.fromHospitalId == getMyHospitalId();
 
-      // Only the receiving hospital can 'Accept' or 'Reject' the status
       allow update: if isSignedIn() && (
         resource.data.toHospitalId == getMyHospitalId() ||
         isSuperAdmin()
@@ -92,6 +88,28 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------------
+    // Narcotic Control (High Security)
+    // --------------------------------------------------------------------
+
+    match /controlled_substances/{substanceId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
+                   (getMyRole() == 'pharmacist' || getMyRole() == 'admin');
+    }
+
+    match /controlled_substance_logs/{logId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow create: if isSignedIn() && isSameHospital(request.resource.data) && 
+                    (getMyRole() == 'pharmacist' || getMyRole() == 'admin' || getMyRole() == 'doctor');
+      // Logs are immutable: no update or delete allowed
+      allow update, delete: if false;
+    }
+
+    function getMyRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // --------------------------------------------------------------------
     // Clinical & Operational Modules
     // --------------------------------------------------------------------
 
@@ -110,26 +128,6 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
-    match /medication_records/{medId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /prescriptions/{presId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /radiology_orders/{orderId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /appointments/{apptId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patient_id));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
     match /ot_sessions/{sessionId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
@@ -140,32 +138,6 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
-    match /medical_equipment/{equipId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /invoices/{invId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /transactions/{txId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /mortality_records/{mortId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    match /diagnoses/{diagId} {
-      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
-    }
-
-    // Default catch-all for any other collections
     match /{collection}/{docId} {
       allow read, write: if isSignedIn() && (isSuperAdmin() || isSameHospital(resource.data));
     }
