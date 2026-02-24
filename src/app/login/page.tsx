@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where, limit, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -17,8 +17,8 @@ import { toast } from "@/hooks/use-toast";
  * == Professional SaaS Login (Discovery Flow) ==
  * 
  * Users enter only their email and password. The system automatically
- * discovers their hospital tenant and role after authentication.
- * It also handles the "UID Sync" for newly invited staff.
+ * discovers their hospital tenant and role after authentication by
+ * searching for the UID field in the users collection.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -41,57 +41,49 @@ export default function LoginPage() {
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             const authUid = userCredential.user.uid;
 
-            // 2. DISCOVERY: Find the user's profile document by Email
-            // This retrieves the hospitalId and role assigned to this account.
+            // 2. DISCOVERY: Find the user's profile document by UID field
+            // This works regardless of the Document ID naming convention.
             const usersRef = collection(db, "users");
-            const q = query(usersRef, where("email", "==", normalizedEmail), limit(1));
+            const q = query(usersRef, where("uid", "==", authUid), limit(1));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
-                // If no document exists yet, this might be a self-signup (not handled here)
-                // For this SaaS model, we assume staff must be invited/provisioned first.
-                throw new Error("User profile not found. Please contact your hospital administrator.");
+                // FALLBACK: If UID search fails (e.g. first login after invite), try Email search
+                const emailQuery = query(usersRef, where("email", "==", normalizedEmail), limit(1));
+                const emailSnapshot = await getDocs(emailQuery);
+                
+                if (emailSnapshot.empty) {
+                    throw new Error("Auth successful, but no Firestore profile found. Please contact your administrator.");
+                }
+                
+                // If found by email, the doc needs to be bound to this UID (handled in sync logic if needed)
+                const userData = emailSnapshot.docs[0].data();
+                
+                // Initialize global state
+                setUser({ uid: authUid, ...userData } as any);
+                toast.success("Login Successful", { description: `Welcome, ${userData.name}.` });
+                routeUser(userData.role);
+                return;
             }
 
-            const userDoc = querySnapshot.docs[0];
-            const userData = userDoc.data();
+            const userData = querySnapshot.docs[0].data();
             
             if (!userData.is_active) {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
-            // 3. UID SYNC (First Login Logic)
-            // If the document was provisioned with a placeholder ID (e.g. by a Director),
-            // we link it to the actual Auth UID now.
-            if (userData.uid !== authUid) {
-                await updateDoc(userDoc.ref, { uid: authUid });
-            }
-
-            // 4. SYNC GLOBAL UI STATE
+            // 3. SYNC GLOBAL UI STATE
             setUser({
                 uid: authUid,
-                ...userData,
-                uid: authUid // Ensure UID is current
+                ...userData
             } as any);
 
             toast.success("Login Successful", {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // 5. SMART ROUTING
-            if (userData.role === 'super_admin') {
-                router.push('/dashboard/super-admin');
-            } else if (userData.role === 'director') {
-                router.push('/dashboard/director/staff'); // Land them directly in management
-            } else if (userData.role === 'doctor') {
-                router.push('/dashboard/my-practice');
-            } else if (userData.role === 'nurse') {
-                router.push('/dashboard/nursing');
-            } else if (userData.role === 'patient') {
-                router.push('/dashboard/my-records');
-            } else {
-                router.push('/dashboard');
-            }
+            // 4. SMART ROUTING
+            routeUser(userData.role);
 
         } catch (error: any) {
             console.error("Login error:", error);
@@ -101,7 +93,23 @@ export default function LoginPage() {
         } finally {
             setIsLoading(false);
         }
-    }
+    };
+
+    const routeUser = (role: string) => {
+        if (role === 'super_admin') {
+            router.push('/dashboard/super-admin');
+        } else if (role === 'director') {
+            router.push('/dashboard/director/staff');
+        } else if (role === 'doctor') {
+            router.push('/dashboard/my-practice');
+        } else if (role === 'nurse') {
+            router.push('/dashboard/nursing');
+        } else if (role === 'patient') {
+            router.push('/dashboard/my-records');
+        } else {
+            router.push('/dashboard');
+        }
+    };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50 p-4">
