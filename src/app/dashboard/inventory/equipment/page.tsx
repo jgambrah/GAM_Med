@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -8,23 +7,23 @@ import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Microscope, AlertCircle, Loader2, PenTool, CheckCircle2 } from 'lucide-react';
+import { Monitor, Wind, BatteryCharging, AlertCircle, Wrench, Loader2, Microscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AddEquipmentDialog } from '@/components/inventory/add-equipment-dialog';
 import { format } from 'date-fns';
 import { MedicalEquipment } from '@/lib/types';
 
 /**
- * == SaaS Medical Equipment Dashboard ==
+ * == SaaS Medical Equipment & Bio-Med Dashboard ==
  * 
- * Clinical asset tracking for hospital machines.
- * Strictly isolated by hospitalId to prevent cross-tenant data leaks.
+ * Provides high-level visibility into the status and availability of 
+ * critical medical machinery. Strictly logically isolated by hospitalId.
  */
-export default function EquipmentRegistryPage() {
+export default function EquipmentInventoryPage() {
     const { user } = useAuth();
     const firestore = useFirestore();
 
-    // 1. LIVE QUERY: Listen for all capital assets in this hospital
+    // 1. LIVE QUERY: Listen for all medical equipment in this hospital
     const equipmentQuery = useMemoFirebase(() => {
         if (!firestore || !user?.hospitalId) return null;
         return query(
@@ -36,130 +35,130 @@ export default function EquipmentRegistryPage() {
 
     const { data: equipment, isLoading } = useCollection<MedicalEquipment>(equipmentQuery);
 
-    // Aggregate stats for KPIs
+    // 2. AGGREGATE KPIS: Real-time calculation from live data
     const stats = React.useMemo(() => {
-        if (!equipment) return { total: 0, maintenance: 0, faulty: 0 };
+        if (!equipment) return { 
+            ventilators: { available: 0, total: 0 }, 
+            oxygen: { available: 0, total: 0 }, 
+            maintenance: 0, 
+            faulty: 0 
+        };
+
         return equipment.reduce((acc, item) => {
-            acc.total++;
+            if (item.category === 'Ventilator') {
+                acc.ventilators.total++;
+                if (item.status === 'Available') acc.ventilators.available++;
+            }
+            if (item.category === 'Oxygen Tank') {
+                acc.oxygen.total++;
+                if (item.status === 'Available') acc.oxygen.available++;
+            }
             if (item.status === 'Maintenance') acc.maintenance++;
             if (item.status === 'Faulty') acc.faulty++;
             return acc;
-        }, { total: 0, maintenance: 0, faulty: 0 });
+        }, { 
+            ventilators: { available: 0, total: 0 }, 
+            oxygen: { available: 0, total: 0 }, 
+            maintenance: 0, 
+            faulty: 0 
+        });
     }, [equipment]);
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full min-h-[400px]">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="space-y-8">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                        <Microscope className="text-blue-600 h-8 w-8" />
-                        Medical Equipment Registry
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-slate-900">
+                        <Monitor className="text-blue-600 h-8 w-8" />
+                        Medical Equipment & Bio-Med
                     </h1>
                     <p className="text-muted-foreground">
-                        Capital asset tracking and maintenance for <strong>{user?.hospitalId}</strong>
+                        Capital asset tracking and machine maintenance for <strong>{user?.hospitalId}</strong>
                     </p>
                 </div>
                 <AddEquipmentDialog />
             </div>
 
-            {/* KPI Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="shadow-sm border-t-4 border-t-blue-500">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Assets</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-black">{stats.total}</div>
-                        <p className="text-[10px] text-muted-foreground uppercase mt-1 font-semibold">Tracked machines</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="shadow-sm border-t-4 border-t-orange-500">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-bold text-orange-700 uppercase tracking-wider flex items-center gap-2">
-                            <PenTool className="h-3 w-3" />
-                            In Maintenance
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-black text-orange-900">{stats.maintenance}</div>
-                        <p className="text-[10px] text-orange-700/70 mt-1 font-semibold uppercase">Periodic servicing</p>
-                    </CardContent>
-                </Card>
-
-                <Card className={stats.faulty > 0 ? "border-red-200 bg-red-50 shadow-md border-t-4 border-t-red-500" : "shadow-sm border-t-4 border-t-green-500"}>
-                    <CardHeader className="pb-2">
-                        <CardTitle className={stats.faulty > 0 ? "text-xs font-bold text-red-700 uppercase flex items-center gap-2" : "text-xs font-bold text-muted-foreground uppercase tracking-wider"}>
-                            {stats.faulty > 0 && <AlertCircle className="h-4 w-4 animate-pulse" />} 
-                            Faulty Equipment
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className={stats.faulty > 0 ? "text-3xl font-black text-red-700" : "text-3xl font-black text-green-600"}>
-                            {stats.faulty > 0 ? stats.faulty : "CLEAR"}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground uppercase mt-1 font-semibold">
-                            {stats.faulty > 0 ? "Requiring urgent repair" : "Systems operational"}
-                        </p>
-                    </CardContent>
-                </Card>
+            {/* Quick Stats: Critical Availability */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <StatCard 
+                    title="Ventilators" 
+                    available={stats.ventilators.available}
+                    total={stats.ventilators.total}
+                    icon={<Wind className="text-blue-500 h-5 w-5" />}
+                />
+                <StatCard 
+                    title="Oxygen Tanks" 
+                    available={stats.oxygen.available}
+                    total={stats.oxygen.total}
+                    icon={<BatteryCharging className="text-green-500 h-5 w-5" />}
+                />
+                <StatCard 
+                    title="Maintenance Due" 
+                    value={stats.maintenance}
+                    icon={<Wrench className="text-orange-500 h-5 w-5" />}
+                />
+                <StatCard 
+                    title="Faulty / Down" 
+                    value={stats.faulty}
+                    icon={<AlertCircle className="text-red-500 h-5 w-5" />}
+                />
             </div>
 
-            {/* Equipment Registry Table */}
-            <Card className="shadow-md overflow-hidden">
-                <CardHeader className="bg-muted/30 border-b">
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Facility Machine Inventory</CardTitle>
+            {/* Inventory Registry Table */}
+            <Card className="shadow-md overflow-hidden border-t-4 border-t-primary">
+                <CardHeader className="bg-muted/20 border-b">
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Facility Asset Registry</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="pl-6">Equipment Name</TableHead>
-                                <TableHead>Serial Number</TableHead>
+                                <TableHead className="pl-6">Serial Number</TableHead>
                                 <TableHead>Category</TableHead>
-                                <TableHead>Next Service</TableHead>
+                                <TableHead>Location</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right pr-6">Assignment</TableHead>
+                                <TableHead>Next Service</TableHead>
+                                <TableHead className="text-right pr-6">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {equipment && equipment.length > 0 ? (
                                 equipment.map((item) => (
                                     <TableRow key={item.id} className="hover:bg-muted/20 transition-colors">
-                                        <TableCell className="font-bold pl-6">{item.name}</TableCell>
-                                        <TableCell className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{item.serialNumber}</TableCell>
+                                        <TableCell className="font-mono text-xs font-bold pl-6 text-primary uppercase tracking-wider">
+                                            {item.serialNumber}
+                                        </TableCell>
+                                        <TableCell className="font-medium">{item.category}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground font-bold uppercase tracking-tighter">
+                                            {item.wardName || 'Central Store'}
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary" className="text-[9px] uppercase font-black">{item.category}</Badge>
+                                            <Badge 
+                                                variant={item.status === 'Available' ? 'secondary' : 'default'}
+                                                className={
+                                                    item.status === 'Available' ? 'bg-green-500 hover:bg-green-600 text-white border-none' : 
+                                                    item.status === 'In Use' ? 'bg-blue-500 hover:bg-blue-600 text-white border-none' :
+                                                    item.status === 'Maintenance' ? 'bg-orange-500 hover:bg-orange-600 text-white border-none' :
+                                                    'bg-red-500 hover:bg-red-600 text-white border-none'
+                                                }
+                                            >
+                                                {item.status.toUpperCase()}
+                                            </Badge>
                                         </TableCell>
                                         <TableCell className="text-xs font-medium">
                                             {item.nextMaintenance ? format(new Date(item.nextMaintenance), 'MMM dd, yyyy') : 'NOT SET'}
                                         </TableCell>
-                                        <TableCell>
-                                            <Badge className={
-                                                item.status === 'Available' ? 'bg-green-500 hover:bg-green-600 text-white' : 
-                                                item.status === 'In Use' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
-                                                item.status === 'Maintenance' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
-                                                'bg-red-500 hover:bg-red-600 text-white'
-                                            }>
-                                                {item.status.toUpperCase()}
-                                            </Badge>
-                                        </TableCell>
                                         <TableCell className="text-right pr-6">
-                                            {item.status === 'In Use' ? (
-                                                <div className="text-[10px] font-bold text-blue-700">
-                                                    PATIENT: {item.currentPatientName || item.currentPatientId}
-                                                </div>
-                                            ) : (
-                                                <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold">ASSIGN UNIT</Button>
-                                            )}
+                                            <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase">Manage</Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -178,5 +177,23 @@ export default function EquipmentRegistryPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+function StatCard({ title, available, total, value, icon }: { title: string, available?: number, total?: number, value?: number, icon: React.ReactNode }) {
+    return (
+        <Card className="shadow-sm border-none bg-card hover:shadow-md transition-all group">
+            <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">{title}</p>
+                    <h3 className="text-2xl font-black text-slate-900 leading-none">
+                        {value !== undefined ? value : `${available} / ${total}`}
+                    </h3>
+                </div>
+                <div className="p-3 bg-muted rounded-2xl group-hover:bg-primary/5 transition-colors">
+                    {icon}
+                </div>
+            </CardContent>
+        </Card>
     );
 }
