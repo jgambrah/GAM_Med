@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -40,6 +39,9 @@ const getStatusVariant = (status: Appointment['status']): "default" | "secondary
         case 'In-Consultation': return 'outline';
         case 'Completed': return 'secondary';
         case 'Cancelled': return 'destructive';
+        case 'confirmed': return 'default';
+        case 'completed': return 'secondary';
+        case 'cancelled': return 'destructive';
         default: return 'outline';
     }
 };
@@ -83,17 +85,17 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
             </TableHeader>
             <TableBody>
             {data.length > 0 ? (
-                data.sort((a,b) => a.timeSlot.localeCompare(b.timeSlot)).map((appt) => (
+                data.sort((a, b) => (a.timeSlot || '').localeCompare(b.timeSlot || '')).map((appt) => (
                 <TableRow key={appt.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-mono text-xs font-bold">
-                        {appt.timeSlot}
+                        {appt.timeSlot || appt.time_slot}
                     </TableCell>
                     <TableCell>
-                        <Link href={`/dashboard/patients/${appt.patientId}`} className="hover:underline text-primary font-bold">
-                            {appt.patientName}
+                        <Link href={`/dashboard/patients/${appt.patientId || appt.patient_id}`} className="hover:underline text-primary font-bold">
+                            {appt.patientName || appt.patient_name}
                         </Link>
                     </TableCell>
-                    <TableCell className="text-sm">Dr. {appt.doctorName}</TableCell>
+                    <TableCell className="text-sm">Dr. {appt.doctorName || appt.doctor_name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground italic truncate max-w-[150px]">
                         {appt.reason}
                     </TableCell>
@@ -102,7 +104,7 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
                     </TableCell>
                     <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                            {appt.status === 'Scheduled' && (
+                            {(appt.status === 'Scheduled' || appt.status === 'confirmed') && (
                                 <Button size="sm" variant="ghost" className="h-8 gap-1 text-[10px] uppercase font-bold" onClick={() => handleUpdateStatus(appt.id, 'Arrived')}>
                                     <UserCheck className="h-3.5 w-3.5" />
                                     Arrive
@@ -133,7 +135,7 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
                                     <DropdownMenuItem 
                                         className="text-destructive"
                                         onClick={() => handleUpdateStatus(appt.id, 'Cancelled')}
-                                        disabled={appt.status === 'Completed' || appt.status === 'Cancelled'}
+                                        disabled={appt.status === 'Completed' || appt.status === 'completed' || appt.status === 'Cancelled' || appt.status === 'cancelled'}
                                     >
                                         Cancel Appointment
                                     </DropdownMenuItem>
