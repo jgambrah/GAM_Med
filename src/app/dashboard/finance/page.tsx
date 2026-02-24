@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -59,19 +60,21 @@ export default function FinanceDashboardPage() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                    <Wallet className="h-8 w-8 text-green-600" />
-                    Hospital Finance Hub
-                </h1>
-                <p className="text-muted-foreground">
-                    Real-time financial performance for <strong>{user?.hospitalId}</strong>.
-                </p>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                        <Wallet className="h-8 w-8 text-green-600" />
+                        Hospital Finance Hub
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Real-time financial performance for <strong>{user?.hospitalId}</strong>.
+                    </p>
+                </div>
             </div>
 
             {/* Financial Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-green-50 border-green-200 shadow-sm">
+                <Card className="bg-green-50 border-green-200 shadow-sm border-t-4 border-t-green-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs text-green-700 font-bold uppercase tracking-wider flex items-center gap-2">
                             <TrendingUp className="h-3 w-3" />
@@ -80,11 +83,11 @@ export default function FinanceDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-black text-green-900">₵{stats.revenueToday.toLocaleString()}</div>
-                        <p className="text-[10px] text-green-700/70 mt-1 font-semibold">MTD COLLECTED REVENUE</p>
+                        <p className="text-[10px] text-green-700/70 mt-1 font-semibold uppercase">Real-time Collected Revenue</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-orange-50 border-orange-200 shadow-sm">
+                <Card className="bg-orange-50 border-orange-200 shadow-sm border-t-4 border-t-orange-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs text-orange-700 font-bold uppercase tracking-wider flex items-center gap-2">
                             <CreditCard className="h-3 w-3" />
@@ -93,29 +96,30 @@ export default function FinanceDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-black text-orange-900">₵{stats.pendingAmount.toLocaleString()}</div>
-                        <p className="text-[10px] text-orange-700/70 mt-1 font-semibold">TOTAL UNPAID INVOICES</p>
+                        <p className="text-[10px] text-orange-700/70 mt-1 font-semibold uppercase">Total Outstanding Invoices</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-blue-50 border-blue-200 shadow-sm">
+                <Card className="bg-blue-50 border-blue-200 shadow-sm border-t-4 border-t-blue-500">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs text-blue-700 font-bold uppercase tracking-wider flex items-center gap-2">
                             <Receipt className="h-3 w-3" />
-                            Transaction Volume
+                            Activity Count
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-black text-blue-900">{stats.count}</div>
-                        <p className="text-[10px] text-blue-700/70 mt-1 font-semibold">INVOICES GENERATED (RECENT)</p>
+                        <p className="text-[10px] text-blue-700/70 mt-1 font-semibold uppercase">Recent Invoices Generated</p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Recent Invoices Table */}
-            <Card className="shadow-md">
-                <CardHeader>
-                    <CardTitle className="text-lg">Recent Financial Transactions</CardTitle>
-                </CardHeader>
+            <Card className="shadow-md overflow-hidden">
+                <div className="p-4 border-b font-bold bg-muted/20 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    Recent Transactions Ledger
+                </div>
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader className="bg-muted/50">
@@ -140,17 +144,18 @@ export default function FinanceDashboardPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge 
+                                                variant={inv.status === 'Paid' ? 'secondary' : 'default'}
                                                 className={
                                                     inv.status === 'Paid' 
-                                                        ? 'bg-green-500 hover:bg-green-600 border-none' 
-                                                        : 'bg-orange-500 hover:bg-orange-600 border-none'
+                                                        ? 'bg-green-500 hover:bg-green-600 border-none text-white' 
+                                                        : 'bg-orange-500 hover:bg-orange-600 border-none text-white'
                                                 }
                                             >
                                                 {inv.status.toUpperCase()}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right text-xs text-muted-foreground pr-6 font-medium">
-                                            {inv.createdAt ? format(new Date(inv.createdAt), 'MMM dd, yyyy') : 'N/A'}
+                                            {inv.createdAt ? format(new Date(inv.createdAt.seconds * 1000), 'MMM dd, p') : 'N/A'}
                                         </TableCell>
                                     </TableRow>
                                 ))
