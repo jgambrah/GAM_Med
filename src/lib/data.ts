@@ -320,12 +320,27 @@ export const mockInventory: InventoryItem[] = [
     itemId: 'MED-001',
     hospitalId: 'hosp-1',
     name: 'Amlodipine 5mg',
-    type: 'Medication',
+    type: 'Anti-hypertensive',
+    unit: 'Tablet',
     reorderLevel: 100,
     currentQuantity: 450,
+    unitPrice: 1.50,
     batches: [
       { batchNumber: 'B-101', expiryDate: '2025-12-31T00:00:00Z', currentQuantity: 200, dateReceived: '2024-01-10T00:00:00Z' },
       { batchNumber: 'B-102', expiryDate: '2026-06-30T00:00:00Z', currentQuantity: 250, dateReceived: '2024-05-15T00:00:00Z' }
+    ]
+  },
+  {
+    itemId: 'MED-002',
+    hospitalId: 'hosp-1',
+    name: 'Paracetamol 500mg',
+    type: 'Analgesic',
+    unit: 'Tablet',
+    reorderLevel: 200,
+    currentQuantity: 8,
+    unitPrice: 0.50,
+    batches: [
+      { batchNumber: 'B-201', expiryDate: '2025-06-30T00:00:00Z', currentQuantity: 8, dateReceived: '2024-02-10T00:00:00Z' }
     ]
   }
 ];

@@ -449,6 +449,8 @@ export interface InventoryItem {
   type: string;
   reorderLevel: number;
   currentQuantity: number;
+  unitPrice: number;
+  unit?: string;
   batches?: { batchNumber: string; expiryDate: string; currentQuantity: number; dateReceived: string }[];
 }
 

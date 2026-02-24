@@ -15,7 +15,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { InventoryItem } from '@/lib/types';
-import { format } from 'date-fns';
 import { PackageSearch, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface InventoryTableProps {
@@ -55,13 +54,14 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border bg-white shadow-sm">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead>Item Name</TableHead>
+            <TableHead>Drug Name</TableHead>
             <TableHead>Category</TableHead>
             <TableHead className="text-right">Stock Level</TableHead>
+            <TableHead className="text-right">Unit Price</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -73,7 +73,10 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
                 <TableCell className="font-bold">{item.name}</TableCell>
                 <TableCell className="text-xs uppercase font-semibold text-muted-foreground">{item.type}</TableCell>
                 <TableCell className="text-right font-mono font-bold">
-                    {item.currentQuantity.toLocaleString()}
+                    {item.currentQuantity.toLocaleString()} {item.unit || ''}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                    ₵{item.unitPrice?.toFixed(2) || '0.00'}
                 </TableCell>
                 <TableCell>
                   {item.currentQuantity <= item.reorderLevel ? (
@@ -82,7 +85,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
                         Low Stock
                     </Badge>
                   ) : (
-                    <Badge variant="secondary">Optimal</Badge>
+                    <Badge className="bg-green-500 hover:bg-green-600 text-white border-none">In Stock</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
@@ -92,7 +95,7 @@ export function InventoryTable({ searchQuery }: InventoryTableProps) {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+              <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                 <PackageSearch className="h-12 w-12 mx-auto opacity-20 mb-2" />
                 <p>No inventory items found matching "{searchQuery}".</p>
               </TableCell>
