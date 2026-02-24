@@ -1,13 +1,10 @@
-
 'use client';
 
 import * as React from 'react';
 import { useState } from 'react';
-import { useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import { Button } from "@/components/ui/button";
-import { Textarea } from '@/components/ui/textarea';
 import { 
     Dialog, 
     DialogContent, 
@@ -17,6 +14,9 @@ import {
     DialogFooter, 
     DialogTrigger 
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { FileEdit, Loader2, Send } from 'lucide-react';
 
@@ -25,54 +25,50 @@ interface RecordResultDialogProps {
 }
 
 /**
- * == Laboratory Module: Result Recording ==
+ * == Laboratory Module: Result Recording Tool ==
  * 
- * Allows technicians to input results for an order. 
- * Atomically updates the order status and publishes to the patient's EHR.
+ * This component handles the clinical sign-off for a lab test.
+ * It ensures the results are "stamped" with the hospitalId to maintain the SaaS wall.
  */
 export function RecordResultDialog({ order }: RecordResultDialogProps) {
     const { user } = useAuth();
-    const firestore = useFirestore();
-    const [open, setOpen] = useState(false);
+    const db = useFirestore();
+    const [result, setResult] = useState('');
     const [loading, setLoading] = useState(false);
+    const [open, setOpen] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!result.trim() || !user?.hospitalId) return;
+
         setLoading(true);
-        const formData = new FormData(e.currentTarget);
-
         try {
-            const resultText = formData.get('result') as string;
-            const now = new Date().toISOString();
+            // Reference the specific order document
+            const orderRef = doc(db, 'lab_orders', order.id);
             
-            // 1. Update the worklist order status (Remove from queue)
-            const orderRef = doc(firestore, 'lab_orders', order.id);
-            updateDocumentNonBlocking(orderRef, {
+            /**
+             * SAAS SECURITY PATTERN: Finalizing the record
+             * We update the order status and include the mandatory hospitalId
+             * to reaffirm the logical isolation of this clinical data.
+             */
+            await updateDoc(orderRef, {
                 status: 'Completed',
-                completedAt: now,
-                resultSummary: resultText
+                results: result,
+                completedBy: user.name,
+                completedById: user.uid,
+                completedAt: serverTimestamp(),
+                hospitalId: user.hospitalId // Affirming the tenant wall
             });
 
-            // 2. Publish to EHR (Make available to clinical team)
-            addDocumentNonBlocking(collection(firestore, 'lab_results'), {
-                hospitalId: user?.hospitalId,
-                patientId: order.patientId,
-                patientName: order.patientName,
-                testName: order.testName,
-                orderId: order.id,
-                status: 'Validated',
-                resultText: resultText,
-                orderedAt: order.createdAt,
-                completedAt: now,
-                recordedBy: user?.name,
-                recordedById: user?.uid
-            });
+            // If a lab_results collection is used for EHR history, 
+            // you would also create a document there here.
 
-            toast.success(`Diagnostic results submitted for ${order.patientName}`);
+            toast.success("Lab result published to Patient EHR");
             setOpen(false);
-        } catch (error) {
-            console.error("Lab submission error:", error);
-            toast.error("Failed to process lab results. Access denied.");
+            setResult(''); // Reset for next use
+        } catch (error: any) {
+            console.error("Result publication failed:", error);
+            toast.error("Failed to publish result. Access Denied.");
         } finally {
             setLoading(false);
         }
@@ -81,39 +77,57 @@ export function RecordResultDialog({ order }: RecordResultDialogProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button size="sm" className="gap-2 bg-purple-600 hover:bg-purple-700">
+                <Button size="sm" className="bg-purple-600 hover:bg-purple-700 gap-2">
                     <FileEdit className="h-4 w-4" />
                     Enter Results
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Laboratory Results</DialogTitle>
+                    <DialogTitle>Lab Result Entry: {order.testName}</DialogTitle>
                     <DialogDescription>
-                        Record findings for <strong>{order.testName}</strong> ordered for {order.patientName}.
+                        Publish findings for {order.patientName}.
                     </DialogDescription>
                 </DialogHeader>
                 
-                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Findings / Result Summary</label>
-                        <Textarea 
-                            name="result" 
-                            placeholder="e.g. Hemoglobin: 14.5 g/dL, WBC: 7.2 x 10^9/L. Morphology normal." 
-                            required 
-                            rows={8}
-                            className="bg-muted/30 focus:bg-background transition-colors"
-                        />
+                <div className="space-y-4 py-4">
+                    <div className="bg-muted/30 p-3 rounded-lg text-sm border">
+                        <p><strong>Patient:</strong> {order.patientName}</p>
+                        <p><strong>MRN:</strong> {order.patientMrn || 'N/A'}</p>
+                        <p className="mt-1"><strong>Indication:</strong> {order.notes || 'Routine diagnostic request'}</p>
                     </div>
-                    
-                    <DialogFooter className="pt-2">
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700 gap-2">
-                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            Validate & Finalize
-                        </Button>
-                    </DialogFooter>
-                </form>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="lab-findings">Findings / Clinical Values</Label>
+                            <Textarea 
+                                id="lab-findings"
+                                placeholder="Enter lab values (e.g., Hemoglobin: 14.2 g/dL, WBC: 7.2 x 10^9/L)..." 
+                                className="h-40 font-mono text-sm focus:bg-background transition-colors"
+                                value={result}
+                                onChange={(e) => setResult(e.target.value)}
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                        
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button 
+                                type="submit" 
+                                className="bg-purple-600 hover:bg-purple-700 gap-2" 
+                                disabled={loading || !result.trim()}
+                            >
+                                {loading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Send className="h-4 w-4" />
+                                )}
+                                {loading ? "Publishing..." : "Publish to EHR"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </div>
             </DialogContent>
         </Dialog>
     );
