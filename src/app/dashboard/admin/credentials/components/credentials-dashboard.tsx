@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -13,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
 
 type License = NonNullable<User['licenses']>[number];
 type Certification = NonNullable<User['certifications']>[number];
@@ -32,10 +32,14 @@ const getStatus = (expiryDate: string): 'Active' | 'Expiring Soon' | 'Expired' =
 };
 
 export function CredentialsDashboard() {
+  const { user: currentUser } = useAuth();
   const [statusFilter, setStatusFilter] = React.useState('All');
   
+  // SaaS LOGIC: Only process users for THIS hospital
   const allCredentials = React.useMemo<FlatCredential[]>(() => {
-    return allUsers.flatMap(user => {
+    const hospitalUsers = allUsers.filter(u => u.hospitalId === currentUser?.hospitalId);
+    
+    return hospitalUsers.flatMap(user => {
       const licenses = (user.licenses || []).map(lic => ({
         ...lic,
         type: 'License' as const,
@@ -52,7 +56,7 @@ export function CredentialsDashboard() {
       }));
       return [...licenses, ...certs];
     });
-  }, []);
+  }, [currentUser?.hospitalId]);
   
   const filteredCredentials = React.useMemo(() => {
     if (statusFilter === 'All') return allCredentials;
@@ -109,7 +113,7 @@ export function CredentialsDashboard() {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
                     <CardTitle>Credential Expiry Report</CardTitle>
-                    <CardDescription>A sortable list of all staff credentials.</CardDescription>
+                    <CardDescription>A sortable list of all staff credentials for <strong>{currentUser?.hospitalId}</strong>.</CardDescription>
                 </div>
                 <div className="w-full sm:w-[200px]">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -157,7 +161,7 @@ export function CredentialsDashboard() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
                       No credentials match the selected filter.
                     </TableCell>
                   </TableRow>

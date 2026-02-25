@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -26,21 +25,28 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
 
 export function LedgerDetailTable() {
+  const { user } = useAuth();
   const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
   const [entries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
   
-  const [selectedAccountId, setSelectedAccountId] = React.useState<string | undefined>(accounts[0]?.accountId);
+  // SaaS LOGIC: Filter by hospitalId
+  const hospitalAccounts = React.useMemo(() => {
+    return accounts.filter(acc => acc.hospitalId === user?.hospitalId);
+  }, [accounts, user?.hospitalId]);
+
+  const [selectedAccountId, setSelectedAccountId] = React.useState<string | undefined>(hospitalAccounts[0]?.accountId);
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
 
-  const account = accounts.find((acc) => acc.accountId === selectedAccountId);
+  const account = hospitalAccounts.find((acc) => acc.accountId === selectedAccountId);
   
   const filteredAccountEntries = React.useMemo(() => {
     if (!account) return [];
     return entries
-        .filter((entry) => entry.accountId === account.accountId)
+        .filter((entry) => entry.accountId === account.accountId && entry.hospitalId === user?.hospitalId)
         .filter((entry) => {
             if (!startDate && !endDate) return true;
             const entryDate = parseISO(entry.date);
@@ -49,7 +55,7 @@ export function LedgerDetailTable() {
             return true;
         })
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [entries, account, startDate, endDate]);
+  }, [entries, account, startDate, endDate, user?.hospitalId]);
 
   const handlePrint = () => {
     window.print();
@@ -57,8 +63,6 @@ export function LedgerDetailTable() {
   
   const getOpeningBalance = () => {
         if (!account) return 0;
-        // This is a simplification. A real opening balance would be calculated
-        // based on transactions before the first one displayed.
         const isDebitType = ['Asset', 'Expense'].includes(account.accountType);
         const firstEntry = filteredAccountEntries[0];
         if (!firstEntry) return account.balance;
@@ -67,7 +71,6 @@ export function LedgerDetailTable() {
         return isDebitType ? (account.balance - firstEntryChange) : (account.balance + firstEntryChange);
   }
 
-  // A more accurate running balance calculation
    const entriesWithBalance = React.useMemo(() => {
     if (!account) return [];
     return filteredAccountEntries.reduce((acc, entry) => {
@@ -109,28 +112,28 @@ export function LedgerDetailTable() {
         <CardHeader className="no-print">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div className="w-full sm:w-1/3">
-                    <Label htmlFor="account-select">Select Ledger Account</Label>
+                    <Label htmlFor="account-select" className="text-xs font-bold uppercase">Select Ledger Account</Label>
                     <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
                         <SelectTrigger id="account-select">
                             <SelectValue placeholder="Select an account..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {accounts.map(acc => <SelectItem key={acc.accountId} value={acc.accountId}>{acc.accountName} ({acc.accountCode})</SelectItem>)}
+                            {hospitalAccounts.map(acc => <SelectItem key={acc.accountId} value={acc.accountId}>{acc.accountName} ({acc.accountCode})</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="flex items-end gap-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="start-date">Start Date</Label>
-                        <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                        <Label htmlFor="start-date" className="text-xs font-bold uppercase">From</Label>
+                        <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9" />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="end-date">End Date</Label>
-                        <Input id="end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                        <Label htmlFor="end-date" className="text-xs font-bold uppercase">To</Label>
+                        <Input id="end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9" />
                     </div>
-                    <Button onClick={handlePrint} variant="outline">
+                    <Button onClick={handlePrint} variant="outline" className="h-9">
                     <Printer className="h-4 w-4 mr-2" />
-                    Print Ledger
+                    Print
                     </Button>
                 </div>
             </div>
@@ -139,13 +142,14 @@ export function LedgerDetailTable() {
             <CardHeader>
             <CardTitle>Transaction History: {account?.accountName || 'No Account Selected'}</CardTitle>
             <CardDescription>
-                A log of all debits and credits for this account. Current balance: <strong>₵{account && typeof account.balance === 'number' ? account.balance.toFixed(2) : '0.00'}</strong>
+                Detailed audit trail for account code: {account?.accountCode}. 
+                Current facility: <strong>{user?.hospitalId}</strong>
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-hidden">
                 <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/50">
                     <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
@@ -155,23 +159,23 @@ export function LedgerDetailTable() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow className="font-bold bg-muted/50">
+                    <TableRow className="font-bold bg-muted/30">
                         <TableCell colSpan={4} className="text-right">Opening Balance</TableCell>
                         <TableCell className="text-right font-mono">₵{openingBalance.toFixed(2)}</TableCell>
                     </TableRow>
                     {entriesWithBalance.length > 0 ? (
                         entriesWithBalance.map((entry) => (
-                            <TableRow key={entry.entryId}>
-                                <TableCell>{format(new Date(entry.date), 'PPP')}</TableCell>
-                                <TableCell>{entry.description}</TableCell>
-                                <TableCell className="text-right font-mono">{entry.debit ? `₵${entry.debit.toFixed(2)}` : '-'}</TableCell>
-                                <TableCell className="text-right font-mono">{entry.credit ? `₵${entry.credit.toFixed(2)}` : '-'}</TableCell>
-                                <TableCell className="text-right font-mono">₵{entry.balance.toFixed(2)}</TableCell>
+                            <TableRow key={entry.entryId} className="hover:bg-muted/10">
+                                <TableCell className="text-xs">{format(new Date(entry.date), 'MM/dd/yyyy')}</TableCell>
+                                <TableCell className="text-sm font-medium">{entry.description}</TableCell>
+                                <TableCell className="text-right font-mono text-xs">{entry.debit ? `₵${entry.debit.toFixed(2)}` : '-'}</TableCell>
+                                <TableCell className="text-right font-mono text-xs">{entry.credit ? `₵${entry.credit.toFixed(2)}` : '-'}</TableCell>
+                                <TableCell className="text-right font-mono text-xs font-bold">₵{entry.balance.toFixed(2)}</TableCell>
                             </TableRow>
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
+                            <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
                                 No transactions found for this period.
                             </TableCell>
                         </TableRow>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -6,6 +5,7 @@ import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { mockLedgerAccounts } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { LedgerAccount } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ReportProps {
   period: string;
@@ -20,7 +20,7 @@ const SectionRow = ({ title, value, isSub = false, isTotal = false }: { title: s
         <TableCell className={`${isSub ? 'pl-8' : 'font-semibold'} ${isTotal ? 'text-right' : ''}`}>
             {title}
         </TableCell>
-        <TableCell className="text-right font-mono">{value ? formatCurrency(value) : ''}</TableCell>
+        <TableCell className="text-right font-mono">{value !== undefined ? formatCurrency(value) : ''}</TableCell>
         <TableCell></TableCell>
     </TableRow>
 );
@@ -43,11 +43,17 @@ const TotalRow = ({ label, value }: { label: string, value: number }) => (
 
 
 export function BalanceSheet({ period }: ReportProps) {
+    const { user } = useAuth();
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
     
-    const assets = accounts.filter(acc => acc.accountType === 'Asset' && acc.isSubLedger);
-    const liabilities = accounts.filter(acc => acc.accountType === 'Liability' && acc.isSubLedger);
-    const equity = accounts.filter(acc => acc.accountType === 'Equity' && !acc.isSubLedger);
+    // SaaS LOGIC: Filter by hospitalId
+    const hospitalAccounts = React.useMemo(() => {
+        return accounts.filter(acc => acc.hospitalId === user?.hospitalId);
+    }, [accounts, user?.hospitalId]);
+
+    const assets = hospitalAccounts.filter(acc => acc.accountType === 'Asset' && acc.isSubLedger);
+    const liabilities = hospitalAccounts.filter(acc => acc.accountType === 'Liability' && acc.isSubLedger);
+    const equity = hospitalAccounts.filter(acc => acc.accountType === 'Equity' && !acc.isSubLedger);
 
     const totalAssets = assets.reduce((sum, acc) => sum + acc.balance, 0);
     const totalLiabilities = liabilities.reduce((sum, acc) => sum + acc.balance, 0);

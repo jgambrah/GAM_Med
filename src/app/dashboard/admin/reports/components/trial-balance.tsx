@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -6,6 +5,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { mockLedgerAccounts } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { LedgerAccount } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ReportProps {
   period: string;
@@ -16,19 +16,25 @@ const formatCurrency = (amount: number) => {
 };
 
 export function TrialBalance({ period }: ReportProps) {
+    const { user } = useAuth();
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
+
+    // SaaS LOGIC: Filter by hospitalId
+    const hospitalAccounts = React.useMemo(() => {
+        return accounts.filter(acc => acc.hospitalId === user?.hospitalId);
+    }, [accounts, user?.hospitalId]);
 
     const debitAccountTypes = ['Asset', 'Expense'];
     
     let totalDebits = 0;
     let totalCredits = 0;
 
-    const accountEntries = accounts.map(acc => {
+    const accountEntries = hospitalAccounts.map(acc => {
         const isDebit = debitAccountTypes.includes(acc.accountType);
         if (isDebit) {
             totalDebits += acc.balance;
         } else {
-            totalCredits += Math.abs(acc.balance); // Credits are typically positive values representing liabilities/equity/revenue
+            totalCredits += Math.abs(acc.balance);
         }
         return {
             ...acc,
@@ -40,7 +46,7 @@ export function TrialBalance({ period }: ReportProps) {
   return (
     <div className="rounded-md border">
         <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
                 <TableRow>
                     <TableHead>Account Code</TableHead>
                     <TableHead>Account Name</TableHead>
@@ -49,14 +55,18 @@ export function TrialBalance({ period }: ReportProps) {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {accountEntries.map(account => (
+                {accountEntries.length > 0 ? accountEntries.map(account => (
                     <TableRow key={account.accountId}>
-                        <TableCell>{account.accountCode}</TableCell>
-                        <TableCell>{account.accountName}</TableCell>
+                        <TableCell className="font-mono text-xs">{account.accountCode}</TableCell>
+                        <TableCell className="font-medium text-sm">{account.accountName}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(account.debit)}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(account.credit)}</TableCell>
                     </TableRow>
-                ))}
+                )) : (
+                    <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">No ledger balances found.</TableCell>
+                    </TableRow>
+                )}
             </TableBody>
             <TableFooter>
                 <TableRow className="font-bold text-lg bg-muted/50">
