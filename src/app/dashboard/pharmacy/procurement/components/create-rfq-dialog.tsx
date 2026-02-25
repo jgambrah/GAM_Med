@@ -77,8 +77,7 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
             timestamp: now, 
             action: 'Created',
             performedBy: user?.name || 'System',
-            activity: 'Request for Quotation initialized.',
-            notes: 'Initial creation.'
+            notes: 'Request for Quotation initialized.'
         },
         { 
             id: `log-2-${Date.now()}`,
@@ -87,13 +86,13 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
             timestamp: new Date(Date.now() + 1000).toISOString(), 
             action: 'Sent to Vendor',
             performedBy: user?.name || 'System',
-            activity: 'Supplier notifications dispatched.',
-            notes: 'Automated workflow.'
+            notes: 'Automated supplier notifications dispatched.'
         },
     ];
     
     const newRfq: RequestForQuotation = {
       rfqId: rfqId,
+      id: rfqId,
       hospitalId: user?.hospitalId || '',
       title: values.title,
       dateCreated: now,
@@ -106,6 +105,10 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
       })),
       quotes: [],
       activityLog: initialActivity,
+      createdAt: now,
+      createdBy: user?.name || 'Unknown',
+      closingDate: values.deadline,
+      vendorIds: [],
     };
     onRfqCreated(newRfq);
     toast.success(`Request for Quotation "${values.title}" has been created.`);

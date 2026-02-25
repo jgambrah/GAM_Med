@@ -68,7 +68,7 @@ export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
         fromHospitalId: user.hospitalId,
         fromHospitalName: (user as any).hospitalName || "Source Facility",
         toHospitalId: values.hospitalId,
-        toHospitalName: "Target Facility", // Placeholder for actual facility name
+        toHospitalName: "Target Facility", 
         referringProvider: values.referringProvider,
         referralDate: new Date().toISOString(),
         patientName: values.patientName,

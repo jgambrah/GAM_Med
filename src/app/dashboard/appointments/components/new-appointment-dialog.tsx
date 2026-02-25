@@ -117,7 +117,7 @@ export function NewAppointmentDialog({
         addDocumentNonBlocking(collection(firestore, 'appointments'), appointmentData);
 
         toast.success(isEditing ? 'Appointment Rescheduled' : 'Appointment Confirmed', {
-            description: `Kofi Mensah is booked for ${values.appointmentDate} at ${values.appointmentTime}.`
+            description: `${patient?.full_name || 'Patient'} is booked for ${values.appointmentDate} at ${values.appointmentTime}.`
         });
 
         if (onAppointmentBooked) onAppointmentBooked(appointmentData as any);
@@ -133,7 +133,7 @@ export function NewAppointmentDialog({
       label: `${p.full_name} (MRN: ${p.mrn})`
   }));
 
-  const doctors = allUsers.filter(u => u.role === 'doctor');
+  const doctorsList = allUsers.filter(u => u.role === 'doctor');
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -187,7 +187,7 @@ export function NewAppointmentDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {doctors.map((d) => (
+                      {doctorsList.map((d) => (
                         <SelectItem key={d.uid} value={d.uid}>{d.name}</SelectItem>
                       ))}
                     </SelectContent>

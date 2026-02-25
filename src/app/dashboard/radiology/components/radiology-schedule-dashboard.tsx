@@ -68,9 +68,9 @@ export function RadiologyScheduleDashboard({ orders, setOrders, allPatients }: R
 
     const getEquipmentForOrder = (order: RadiologyOrder) => {
         const modality = order.modality;
-        if (modality === 'CT Scan') return radiologyEquipment.find(eq => eq.modality === 'CT Scan');
+        if (modality === 'CT Scan' || modality === 'CT') return radiologyEquipment.find(eq => eq.modality === 'CT Scan');
         if (modality === 'MRI') return radiologyEquipment.find(eq => eq.modality === 'MRI');
-        if (modality === 'X-Ray') return radiologyEquipment.find(eq => eq.modality === 'X-Ray');
+        if (modality === 'X-Ray' || modality === 'XRay') return radiologyEquipment.find(eq => eq.modality === 'X-Ray');
         if (modality === 'Ultrasound') return radiologyEquipment.find(eq => eq.modality === 'Ultrasound');
         return null;
     };

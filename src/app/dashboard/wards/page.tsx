@@ -101,9 +101,12 @@ export default function WardManagementPage() {
 function BedCard({ bed }: { bed: Bed }) {
     const firestore = useFirestore();
     
-    const statusColors = {
+    // Support for both PascalCase and lowercase status values from different data sources
+    const statusColors: any = {
         Available: "bg-green-50 border-green-200 text-green-700",
+        vacant: "bg-green-50 border-green-200 text-green-700",
         Occupied: "bg-blue-50 border-blue-200 text-blue-700 shadow-sm",
+        occupied: "bg-blue-50 border-blue-200 text-blue-700 shadow-sm",
         Cleaning: "bg-yellow-50 border-yellow-200 text-yellow-700 animate-pulse",
         Maintenance: "bg-red-50 border-red-200 text-red-700",
         Reserved: "bg-purple-50 border-purple-200 text-purple-700"
@@ -127,7 +130,7 @@ function BedCard({ bed }: { bed: Bed }) {
         <Card className={`relative overflow-hidden border-2 transition-all hover:scale-[1.02] ${config}`}>
             <CardContent className="p-4 flex flex-col items-center text-center space-y-3 min-h-[140px] justify-center">
                 <div className="absolute top-2 right-2 opacity-40">
-                   {bed.status === 'Occupied' ? <User size={14} /> : <BedIcon size={14} />}
+                   {(bed.status === 'Occupied' || bed.status === 'occupied') ? <User size={14} /> : <BedIcon size={14} />}
                 </div>
                 
                 <div className="space-y-0.5">
@@ -136,7 +139,7 @@ function BedCard({ bed }: { bed: Bed }) {
                 </div>
                 
                 <div className="py-1">
-                    {bed.status === 'Occupied' ? (
+                    {(bed.status === 'Occupied' || bed.status === 'occupied') ? (
                         <div className="space-y-1">
                             <p className="text-xs font-black truncate w-24 leading-none">{bed.currentPatientName}</p>
                             <p className="text-[8px] font-bold uppercase opacity-60">Admitted</p>
@@ -149,7 +152,7 @@ function BedCard({ bed }: { bed: Bed }) {
                 </div>
 
                 <div className="pt-1">
-                    {bed.status === 'Available' && <AssignBedDialog bedId={bed.id} bedNumber={bed.bedNumber} wardName={bed.wardName!} />}
+                    {(bed.status === 'Available' || bed.status === 'vacant') && <AssignBedDialog bedId={bed.id} bedNumber={bed.bedNumber} wardName={bed.wardName!} />}
                     {bed.status === 'Cleaning' && (
                         <Button 
                             size="sm" 

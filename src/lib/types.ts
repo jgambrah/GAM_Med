@@ -558,8 +558,8 @@ export interface RfqActivityLogEntry {
   action: 'Created' | 'Sent to Vendor' | 'Bid Received' | 'Awarded' | 'Cancelled';
   performedBy: string;
   timestamp: string;
-  activity: string;
   notes?: string;
+  activity?: string; // Legacy/Migration support
 }
 
 export interface RequestForQuotation {

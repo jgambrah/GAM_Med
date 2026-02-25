@@ -68,7 +68,7 @@ export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps)
           phone: values.contactPhone,
           address: values.address 
       },
-      paymentTerms: values.paymentTerms,
+      paymentTerms: values.paymentTerms as any,
     };
     
     onSupplierCreated(newSupplier);

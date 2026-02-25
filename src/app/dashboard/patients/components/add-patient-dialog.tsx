@@ -252,8 +252,10 @@ export function AddPatientDialog({
         dob: values.dob,
         gender: values.gender,
         patientType: values.patientType,
-        maritalStatus: values.maritalStatus,
-        occupation: values.occupation,
+        maritalStatus: values.maritalStatus || 'Single',
+        occupation: values.occupation || '',
+        ghanaCardId: values.ghanaCardId || '',
+        otherNames: values.otherNames || '',
         contact: {
           ...values.contact,
           email: values.contact.email ?? "",
@@ -274,8 +276,6 @@ export function AddPatientDialog({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         isTemporary: values.isTemporary,
-        otherNames: values.otherNames,
-        ghanaCardId: values.ghanaCardId,
       };
       if (onPatientAdded) {
         onPatientAdded(newPatient);
