@@ -348,7 +348,7 @@ function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (p
             <CardTitle>Performance Review History</CardTitle>
             <CardDescription>A log of all past performance appraisals.</CardDescription>
           </div>
-          <InitiateReviewDialog onReviewInitiated={handleReviewInitiated} />
+          <InitiateReviewDialog staffId={staff.staffId} onReviewInitiated={handleReviewInitiated} />
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
