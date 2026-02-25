@@ -552,8 +552,14 @@ export interface PurchaseOrder {
 }
 
 export interface RfqActivityLogEntry {
+  id?: string;
+  rfqId?: string;
+  hospitalId?: string;
+  action?: 'Created' | 'Sent to Vendor' | 'Bid Received' | 'Awarded' | 'Cancelled';
+  performedBy?: string;
   timestamp: string;
   activity: string;
+  notes?: string;
 }
 
 export interface RequestForQuotation {
@@ -562,10 +568,15 @@ export interface RequestForQuotation {
   title: string;
   dateCreated: string;
   deadline: string;
-  status: 'Open for Bids' | 'Closed';
-  items: { itemId: string; name: string; quantity: number }[];
+  status: 'Open for Bids' | 'Closed' | 'Draft' | 'Published' | 'Under Review' | 'Awarded';
+  items: { itemId: string; name: string; quantity: number; drugId?: string; drugName?: string; unit?: string }[];
   quotes?: Quote[];
   activityLog?: RfqActivityLogEntry[];
+  vendorIds?: string[];
+  createdAt?: string;
+  createdBy?: string;
+  closingDate?: string;
+  id?: string;
 }
 
 export interface Quote {
@@ -599,34 +610,6 @@ export interface Prescription {
   medications: PrescribedMedication[];
   dispensedBy?: string;
   dispensedAt?: string;
-}
-
-export interface User {
-  uid: string;
-  hospitalId: string;
-  email: string;
-  name: string;
-  role: 'super_admin' | 'director' | 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier';
-  is_active: boolean;
-  department?: string;
-  specialty?: string;
-  created_at: string;
-  last_login: string;
-  photoURL?: string;
-  patient_id?: string;
-  availability?: Record<string, string[]>;
-  isMfaEnabled?: boolean;
-  failedLoginAttempts?: number;
-  hodId?: string;
-  qualifications?: Qualification[];
-  certifications?: Certification[];
-  licenses?: License[];
-  employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
-  hireDate?: string;
-  leaveBalances?: Record<string, number>;
-  features?: string[];
-  phoneNumber?: string;
-  dateOfBirth?: string;
 }
 
 export interface PrescribedMedication {
@@ -1184,10 +1167,4 @@ export interface MyReportedIssue {
   description: string;
   item: string;
   status: string;
-}
-
-export interface FollowUpNote {
-  note: string;
-  userId: string;
-  date: string;
 }

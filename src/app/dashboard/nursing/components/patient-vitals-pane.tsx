@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,9 +17,6 @@ interface PatientVitalsPaneProps {
   patient: Patient;
 }
 
-/**
- * @deprecated This component is deprecated in favor of the new task-oriented dashboard.
- */
 export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
   const [carePlans, setCarePlans] = useLocalStorage<CarePlan[]>('carePlans', mockCarePlans);
   const carePlan = carePlans.find(cp => cp.patientId === patient.patient_id);

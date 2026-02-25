@@ -259,7 +259,6 @@ export function AddPatientDialog({
         gender: values.gender,
         maritalStatus: values.maritalStatus,
         occupation: values.occupation,
-        patientType: values.patientType,
         contact: {
           ...values.contact,
           email: values.contact.email ?? "",
@@ -272,7 +271,7 @@ export function AddPatientDialog({
         insurance: {
             provider_name: values.insurance?.providerName || '',
             policy_number: values.insurance?.policyNumber || '',
-            expiry_date: values.insurance?.expiryDate || '', // FIXED: Use camelCase source from values
+            expiry_date: values.insurance?.expiryDate || '',
             isActive: true,
         },
         is_admitted: false,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -67,6 +66,7 @@ export function ReceiveOrderDialog({ order, onOrderReceived }: ReceiveOrderDialo
     for (const item of values.items) {
       // Simulate the conceptual Cloud Function call
       await updateInventory({
+        hospitalId: user?.hospitalId || '',
         itemId: item.itemId,
         quantityChange: item.quantity,
         type: 'Restock',

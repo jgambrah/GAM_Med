@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -80,7 +79,6 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
       }
     }
     
-    // This is a conceptual call. In a real app, the server action would handle the file.
     const result = await submitLeaveRequest(values);
 
     if(result.success) {
@@ -89,10 +87,10 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
       if(onLeaveSubmitted) {
           const newRequest: LeaveRequest = {
             leaveId: `LR-${Date.now()}`,
-            hospitalId: user.hospitalId, // Added the mandatory SaaS stamp
+            hospitalId: user.hospitalId,
             staffId: user.uid,
             staffName: user.name,
-            hodId: user.hodId, // Correctly assign the HOD ID
+            hodId: user.hodId,
             leaveType: values.leaveType,
             startDate: values.startDate,
             endDate: values.endDate,

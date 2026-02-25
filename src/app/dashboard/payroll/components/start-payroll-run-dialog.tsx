@@ -203,7 +203,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" /> Start New Payroll Run
+          <Plus className="h-4 w-4 mr-2" /> Start New Payroll Run
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
