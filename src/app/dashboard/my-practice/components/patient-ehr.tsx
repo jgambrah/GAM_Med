@@ -102,11 +102,11 @@ export function PatientEHR({ patient }: PatientEHRProps) {
                     <AddNoteDialog patientId={patient.patient_id} onNoteAdded={() => {}} disabled={patient.status === 'deceased'} />
                     <OrderTestDialog 
                         patient={patient}
+                        onOrderCreated={() => {}}
                         disabled={patient.status === 'deceased'}
                     />
                      <OrderStudyDialog 
-                        patientId={patient.patient_id}
-                        patientName={patient.full_name}
+                        patient={patient}
                         onOrderCreated={() => {}}
                         disabled={patient.status === 'deceased'}
                      />
