@@ -272,7 +272,7 @@ export function AddPatientDialog({
         insurance: {
             provider_name: values.insurance?.providerName || '',
             policy_number: values.insurance?.policyNumber || '',
-            expiry_date: values.insurance?.expiry_date || '',
+            expiry_date: values.insurance?.expiryDate || '', // FIXED: Use camelCase source from values
             isActive: true,
         },
         is_admitted: false,
