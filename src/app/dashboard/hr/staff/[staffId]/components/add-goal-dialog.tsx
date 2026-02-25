@@ -28,12 +28,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DevelopmentGoal } from '@/lib/types';
 import { NewGoalSchema } from '@/lib/schemas';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddGoalDialogProps {
   onGoalAdded: (newGoal: DevelopmentGoal) => void;
 }
 
 export function AddGoalDialog({ onGoalAdded }: AddGoalDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
   const form = useForm<z.infer<typeof NewGoalSchema>>({
@@ -48,6 +50,7 @@ export function AddGoalDialog({ onGoalAdded }: AddGoalDialogProps) {
     // In a real app, this would call a server action.
     const newGoal: DevelopmentGoal = {
       goalId: `goal-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       description: values.description,
       targetDate: values.targetDate,
       status: 'Not Started',
