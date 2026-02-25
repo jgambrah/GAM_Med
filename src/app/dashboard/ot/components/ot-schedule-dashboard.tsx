@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -24,7 +23,7 @@ const mockOtSessions = [
         otRoomId: 'OT-1',
         procedureName: 'Appendectomy',
         patientName: 'John Doe',
-        leadSurgeonName: 'Dr. Evelyn Mensah',
+        surgeonName: 'Dr. Evelyn Mensah',
         startTime: new Date('2024-08-16T09:00:00Z'),
         endTime: new Date('2024-08-16T11:00:00Z'),
         status: 'Scheduled'
@@ -34,7 +33,7 @@ const mockOtSessions = [
         otRoomId: 'OT-1',
         procedureName: 'Hernia Repair',
         patientName: 'Jane Smith',
-        leadSurgeonName: 'Dr. Kofi Asante',
+        surgeonName: 'Dr. Kofi Asante',
         startTime: new Date('2024-08-16T12:00:00Z'),
         endTime: new Date('2024-08-16T14:30:00Z'),
         status: 'In Progress'
@@ -44,7 +43,7 @@ const mockOtSessions = [
         otRoomId: 'OT-3',
         procedureName: 'Knee Replacement',
         patientName: 'Kwame Owusu',
-        leadSurgeonName: 'Dr. Amina El-Rufai',
+        surgeonName: 'Dr. Amina El-Rufai',
         startTime: new Date('2024-08-16T10:00:00Z'),
         endTime: new Date('2024-08-16T13:00:00Z'),
         status: 'Scheduled'
@@ -119,13 +118,13 @@ export function OtScheduleDashboard() {
                                             >
                                                 <p className="font-bold truncate">{session.procedureName}</p>
                                                 <p className="truncate">{session.patientName}</p>
-                                                <p className="text-muted-foreground truncate">{session.leadSurgeonName}</p>
+                                                <p className="text-muted-foreground truncate">{session.surgeonName}</p>
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p className="font-semibold">{session.procedureName}</p>
                                             <p>Patient: {session.patientName}</p>
-                                            <p>Surgeon: {session.leadSurgeonName}</p>
+                                            <p>Surgeon: {session.surgeonName}</p>
                                             <p>Time: {format(session.startTime, 'p')} - {format(session.endTime, 'p')}</p>
                                             <p>Status: {session.status}</p>
                                         </TooltipContent>

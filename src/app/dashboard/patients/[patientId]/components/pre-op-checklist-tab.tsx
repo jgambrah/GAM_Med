@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -45,7 +44,7 @@ export function PreOpChecklistTab({ surgery }: PreOpChecklistTabProps) {
     return (
         <Card>
             <CardContent className="h-48 flex items-center justify-center">
-                <p className="text-muted-foreground">This patient has no upcoming surgery scheduled.</p>
+                <p className="text-muted-foreground">This patient has no upcoming or recent surgery scheduled.</p>
             </CardContent>
         </Card>
     );
@@ -58,7 +57,7 @@ export function PreOpChecklistTab({ surgery }: PreOpChecklistTabProps) {
         <CardDescription>
           For upcoming procedure: <strong>{surgery.procedureName}</strong> scheduled on {' '}
           <strong>{format(new Date(surgery.startTime), 'PPP p')}</strong> with {' '}
-          <strong>{surgery.leadSurgeonName}</strong>.
+          <strong>{surgery.surgeonName}</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
