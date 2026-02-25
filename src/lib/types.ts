@@ -755,27 +755,34 @@ export interface OTSession {
 
 export interface Referral {
   id?: string;
-  referral_id?: string; // Legacy field
+  referral_id: string;
   fromHospitalId: string;
   fromHospitalName: string;
   toHospitalId: string;
   toHospitalName?: string;
-  patientId: string;
+  patientId?: string;
   patientName: string;
   clinicalSummary: string;
+  reasonForReferral?: string; // Legacy/Mapping support
   status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed' | 'Pending Review' | 'Assigned' | 'Scheduled' | 'Pending Further Action';
   priority: 'Routine' | 'Urgent' | 'Emergency';
   doctorId: string;
   doctorName: string;
   createdAt: string;
-  updatedAt?: string;
-  created_at?: string;
-  updated_at?: string;
-  patientDetails?: any;
+  updatedAt: string;
+  created_at?: string; // Legacy compatibility
+  updated_at?: string; // Legacy compatibility
+  patientDetails: {
+    name: string;
+    phone: string;
+    dob: string;
+  };
   assignedDoctorId?: string;
   assignedDoctorName?: string;
   assignedDepartment?: string;
   notes?: string;
+  referringProvider: string;
+  referralDate: string;
 }
 
 export interface DietaryOrder {

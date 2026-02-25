@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -49,7 +48,7 @@ export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
   const form = useForm<z.infer<typeof ReferralSchema>>({
     resolver: zodResolver(ReferralSchema),
     defaultValues: {
-      hospitalId: user?.hospitalId || '',
+      hospitalId: '',
       referringProvider: '',
       patientName: '',
       patientPhone: '',
@@ -61,30 +60,33 @@ export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
     },
   });
 
-  React.useEffect(() => {
-    if (open && user) {
-        form.setValue('hospitalId', user.hospitalId);
-    }
-  }, [open, user, form]);
-
   const onSubmit = async (values: z.infer<typeof ReferralSchema>) => {
+    if (!user) return;
+
     const newReferral: Referral = {
         referral_id: `REF-${Date.now()}`,
-        hospitalId: values.hospitalId,
+        fromHospitalId: user.hospitalId,
+        fromHospitalName: (user as any).hospitalName || "Source Facility",
+        toHospitalId: values.hospitalId,
+        toHospitalName: "Target Facility", // Placeholder for actual facility name
         referringProvider: values.referringProvider,
         referralDate: new Date().toISOString(),
+        patientName: values.patientName,
         patientDetails: {
             name: values.patientName,
             phone: values.patientPhone,
             dob: values.patientDob,
         },
+        clinicalSummary: values.reasonForReferral,
         reasonForReferral: values.reasonForReferral,
         priority: values.priority,
         assignedDepartment: values.assignedDepartment,
         status: 'Pending Review',
         notes: values.notes,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        doctorId: user.uid,
+        doctorName: user.name,
     };
     
     onReferralAdded(newReferral);
@@ -113,35 +115,22 @@ export function AddReferralDialog({ onReferralAdded }: AddReferralDialogProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="referringProvider"
+                name="hospitalId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Referring Provider / Facility</FormLabel>
-                    <Input placeholder="e.g., Korle Bu Polyclinic" {...field} />
+                    <FormLabel>Destination Hospital ID</FormLabel>
+                    <Input placeholder="e.g., hosp-2" {...field} />
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name="assignedDepartment"
+                name="referringProvider"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Assigned Department</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a department" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Cardiology">Cardiology</SelectItem>
-                          <SelectItem value="Orthopedics">Orthopedics</SelectItem>
-                          <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-                          <SelectItem value="Neurology">Neurology</SelectItem>
-                          <SelectItem value="General Surgery">General Surgery</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <FormLabel>Referring Provider / Facility</FormLabel>
+                    <Input placeholder="e.g., Korle Bu Polyclinic" {...field} />
                     <FormMessage />
                   </FormItem>
                 )}
