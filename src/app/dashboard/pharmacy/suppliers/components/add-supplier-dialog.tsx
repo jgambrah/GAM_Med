@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -91,7 +90,7 @@ export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps)
         <DialogHeader>
           <DialogTitle>Add New Supplier</DialogTitle>
           <DialogDescription>
-            Enter the details for the new supplier or vendor.
+            Enter the details for the new supplier or vendor. Access is strictly scoped to {user?.hospitalId}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

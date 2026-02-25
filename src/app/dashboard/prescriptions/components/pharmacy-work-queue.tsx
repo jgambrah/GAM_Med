@@ -19,13 +19,17 @@ import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 
+interface PharmacyWorkQueueProps {
+  onDispense?: () => void;
+}
+
 /**
  * == Live Dispensing Engine ==
  * 
  * Lists all pending prescriptions for the current hospital.
  * Actions are performed in real-time and synced back to the patient EHR.
  */
-export function PharmacyWorkQueue() {
+export function PharmacyWorkQueue({ onDispense }: PharmacyWorkQueueProps) {
   const { user } = useAuth();
   const firestore = useFirestore();
 
@@ -54,6 +58,10 @@ export function PharmacyWorkQueue() {
     });
 
     toast.success(`Medications dispensed to ${patientName}`);
+    
+    if (onDispense) {
+        onDispense();
+    }
   };
 
   if (isLoading) {
