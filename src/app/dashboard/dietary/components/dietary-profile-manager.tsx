@@ -16,6 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useAuth } from '@/hooks/use-auth';
 
 const EditProfileSchema = z.object({
   allergies: z.string().optional(),
@@ -131,6 +132,7 @@ function ProfileDetail({ label, items }: { label: string, items?: string[] }) {
 
 
 export function DietaryProfileManager() {
+    const { user } = useAuth();
     const [selectedPatientId, setSelectedPatientId] = React.useState<string | undefined>(allPatients[0].patient_id);
     const [profiles, setProfiles] = React.useState<DietaryProfile[] | undefined>(mockDietaryProfiles);
 
@@ -151,6 +153,7 @@ export function DietaryProfileManager() {
         const newProfile: DietaryProfile = {
             profileId: selectedPatientId,
             patientId: selectedPatientId,
+            hospitalId: user?.hospitalId || '',
         };
 
         setProfiles(prev => [...(prev || []), newProfile]);
@@ -197,4 +200,3 @@ export function DietaryProfileManager() {
         </div>
     );
 }
-
