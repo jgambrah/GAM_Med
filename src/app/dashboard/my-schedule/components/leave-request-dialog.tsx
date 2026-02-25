@@ -89,6 +89,7 @@ export function LeaveRequestDialog({ onLeaveSubmitted }: LeaveRequestDialogProps
       if(onLeaveSubmitted) {
           const newRequest: LeaveRequest = {
             leaveId: `LR-${Date.now()}`,
+            hospitalId: user.hospitalId, // Added the mandatory SaaS stamp
             staffId: user.uid,
             staffName: user.name,
             hodId: user.hodId, // Correctly assign the HOD ID
