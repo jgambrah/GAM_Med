@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -25,7 +26,6 @@ const getStatusVariant = (status: RadiologyOrder['status']): "default" | "second
 export function RadiologyTab({ patientId }: { patientId: string }) {
     const { user } = useAuth();
     
-    // In a real app, these would be Firestore queries.
     const [patientOrders] = useLocalStorage<RadiologyOrder[]>(
         'radiologyOrders', 
         mockRadiologyOrders

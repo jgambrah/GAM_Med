@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -61,10 +62,7 @@ export function ReceiveOrderDialog({ order, onOrderReceived }: ReceiveOrderDialo
   });
 
   const onSubmit = async (values: z.infer<typeof ReceiveOrderSchema>) => {
-    // In a real app, this would be a single server action that loops through items
-    // and calls the updateInventory function for each.
     for (const item of values.items) {
-      // Simulate the conceptual Cloud Function call
       await updateInventory({
         hospitalId: user?.hospitalId || '',
         itemId: item.itemId,
@@ -93,7 +91,7 @@ export function ReceiveOrderDialog({ order, onOrderReceived }: ReceiveOrderDialo
         <DialogHeader>
           <DialogTitle>Receive Stock for Order: {order.poId}</DialogTitle>
           <DialogDescription>
-            Enter the batch number and expiry date for each item received.
+            Enter the batch number and expiry date for each item received for <strong>{user?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -148,7 +149,7 @@ export function ManageQuotesDialog({ rfq, isOpen, onOpenChange, onQuoteUpdate, o
         hospitalId: quote.hospitalId,
         dateOrdered: new Date().toISOString(),
         status: 'Submitted',
-        orderedByUserId: 'pharma1', // Mocked user
+        orderedByUserId: 'pharma1', 
         supplierId: quote.supplierId,
         orderedItems: rfq.items.map(rfqItem => {
             const quoteItem = quote.items?.find(qi => qi.itemId === rfqItem.itemId);
@@ -163,7 +164,7 @@ export function ManageQuotesDialog({ rfq, isOpen, onOpenChange, onQuoteUpdate, o
     };
     
     onQuoteAwarded(rfq.rfqId, newPO);
-    toast.success(`Quote from ${quote.supplierName} has been awarded. PO ${newPO.poId} created.`);
+    toast.success(`Quote from ${quote.supplierName} has been awarded.`);
   };
 
   const handleAddQuote = (newQuote: Quote) => {

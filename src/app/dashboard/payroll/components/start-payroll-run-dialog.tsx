@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -95,10 +96,6 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
   });
 
   const onSubmit = async (values: z.infer<typeof StartPayrollRunSchema>) => {
-    // This is where the `startPayrollRun` Cloud Function would be called.
-    // It would then trigger the `processStaffPayroll` background function.
-    // For this prototype, we'll simulate the entire calculation process here.
-
     const currentHospitalId = user?.hospitalId || '';
     const newRunId = `PAY-${Date.now()}`;
     const newRun: PayrollRun = {
@@ -122,7 +119,6 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
 
     // Simulate background processing delay
     setTimeout(() => {
-        // --- This block simulates the `processStaffPayroll` background function ---
         const activeStaff = mockStaffProfiles.filter(s => s.employmentStatus === 'Active' && s.hospitalId === currentHospitalId);
         let totalGross = 0;
         let totalDeductionsAgg = 0;
@@ -136,7 +132,6 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             const totalAllowances = (staff.recurringAllowances || []).reduce((sum, alw) => sum + alw.amount, 0);
             const monthlyGrossPay = baseSalary + totalAllowances;
 
-            // Accurate statutory deductions for simulation
             const ssnitContributions = calculateSSNIT(monthlyGrossPay, mockPayrollConfig);
             const ssnitDeduction = ssnitContributions.employee;
             const taxAmount = calculateGHRATax(monthlyGrossPay, ssnitDeduction, mockPayrollConfig);
@@ -150,7 +145,6 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             totalNet += netPay;
             totalTaxesAgg += taxAmount;
 
-             // Aggregate for remittance report
             remittanceTotals['PAYE Tax'] = (remittanceTotals['PAYE Tax'] || 0) + taxAmount;
             remittanceTotals['SSNIT - Employee'] = (remittanceTotals['SSNIT - Employee'] || 0) + ssnitContributions.employee;
             remittanceTotals['SSNIT - Employer'] = (remittanceTotals['SSNIT - Employer'] || 0) + ssnitContributions.employer;
@@ -180,7 +174,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
 
         const finishedRun: PayrollRun = {
             ...newRun,
-            status: 'Review', // Move to 'Review' state after processing
+            status: 'Review',
             totalGrossPay: totalGross,
             totalDeductions: totalDeductionsAgg,
             totalNetPay: totalNet,
@@ -189,11 +183,8 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
             totalEmployees: activeStaff.length,
         };
 
-        // Pass the calculated run and records back to the parent page
         onPayrollStarted(finishedRun, calculatedRecords);
-        // --- End of simulation ---
-
-    }, 3000); // 3-second delay
+    }, 3000);
 
     setOpen(false);
     form.reset();
@@ -210,7 +201,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         <DialogHeader>
           <DialogTitle>Start New Payroll Run</DialogTitle>
           <DialogDescription>
-            This will begin the automated process of calculating payroll for all active staff for the specified period.
+            This will begin the automated process of calculating payroll for all active staff at <strong>{user?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

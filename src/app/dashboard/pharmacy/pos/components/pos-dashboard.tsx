@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -23,19 +24,14 @@ interface CartItem {
   totalPrice: number;
 }
 
-// In a real app, this would be a more sophisticated lookup.
-// For now, we'll use the 'private' tier as the default for POS sales.
 const getPrice = (itemId: string): number => {
     const item = initialInventory.find(i => i.itemId === itemId);
     const privateTier = mockPricingTables.find(t => t.pricingId === 'private');
-    
-    // A more robust check for billing code in the rate card
-    const billingCode = item?.itemId; // Assuming itemId is the billing code
+    const billingCode = item?.itemId; 
     if (billingCode && privateTier && privateTier.rate_card[billingCode]) {
         return privateTier.rate_card[billingCode];
     }
-    // Fallback or default price if not found
-    return item ? 10 : 0; // A dummy fallback
+    return item ? 10 : 0;
 }
 
 export function PointOfSaleDashboard() {
@@ -58,7 +54,7 @@ export function PointOfSaleDashboard() {
 
     const existingCartItem = cart.find(item => item.itemId === selectedItem);
     if (existingCartItem) {
-      toast.info('Item is already in the cart. You can adjust the quantity below.');
+      toast.info('Item is already in the cart.');
       return;
     }
     
@@ -77,7 +73,7 @@ export function PointOfSaleDashboard() {
     };
 
     setCart(prevCart => [...prevCart, newItem]);
-    setSelectedItem(undefined); // Reset the combobox
+    setSelectedItem(undefined);
   };
   
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
@@ -101,20 +97,18 @@ export function PointOfSaleDashboard() {
         return;
     }
 
-    // In a real app, this would call a server action `generateOverTheCounterInvoice(cart)`
-    // which would create an invoice and return it. For this prototype, we simulate it.
     const mockInvoice: Invoice = {
       invoiceId: `POS-INV-${Date.now()}`,
       hospitalId: user?.hospitalId || '',
-      patientId: 'OTC-CUSTOMER', // Generic ID for over-the-counter sales
+      patientId: 'OTC-CUSTOMER', 
       patientName: 'Over-the-Counter Customer',
       patientType: 'private',
       issueDate: new Date().toISOString(),
       dueDate: new Date().toISOString(),
       billedItems: cart.map(item => ({
-        serviceType: 'Medication', // or 'Supply'
+        serviceType: 'Pharmacy Retail',
         linkedServiceId: item.itemId,
-        billingCode: item.itemId,
+        billingCode: 'PHARM-OTC',
         price: item.totalPrice,
       })),
       subtotal: subtotal,
@@ -130,7 +124,7 @@ export function PointOfSaleDashboard() {
     };
     
     setFinalizedInvoice(mockInvoice);
-    toast.success("Invoice Generated: Proceed to payment for the generated invoice.");
+    toast.success("Invoice Generated");
   };
 
   return (
@@ -139,7 +133,7 @@ export function PointOfSaleDashboard() {
       <CardHeader>
         <CardTitle>Point of Sale (POS)</CardTitle>
         <CardDescription>
-          For over-the-counter sales of medications and supplies.
+          Over-the-counter sales for <strong>{user?.hospitalId}</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -224,7 +218,7 @@ export function PointOfSaleDashboard() {
             </Button>
             {finalizedInvoice && (
                 <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Invoice {finalizedInvoice.invoiceId} is ready.</p>
+                    <p className="text-sm text-muted-foreground my-2">Invoice {finalizedInvoice.invoiceId} is ready.</p>
                      <PaymentDialog invoice={finalizedInvoice} />
                 </div>
             )}

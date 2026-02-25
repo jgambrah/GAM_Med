@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -47,7 +48,7 @@ export function BillingTab({ patient }: BillingTabProps) {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Financial Records</CardTitle>
-                        <CardDescription>A history of all invoices issued to this patient.</CardDescription>
+                        <CardDescription>A history of all invoices issued to this patient at <strong>{user?.hospitalId}</strong>.</CardDescription>
                     </div>
                     {canGenerateInvoice && <GenerateInvoiceDialog patient={{ ...patient, id: patient.id || patient.patient_id } as any} />}
                 </CardHeader>

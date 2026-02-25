@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -118,15 +119,24 @@ function CreateOrEditAllowanceDialog({
 }
 
 export function PayrollAllowancesDashboard() {
+  const { user } = useAuth();
   const [allowances, setAllowances] = useLocalStorage<Allowance[]>('allowances', mockAllowances);
 
+  // SaaS LOGIC: Filter by hospitalId
+  const hospitalAllowances = React.useMemo(() => {
+    if (!user) return [];
+    return allowances.filter(a => a.hospitalId === user.hospitalId);
+  }, [allowances, user]);
+
   const handleSave = (allowanceToSave: Allowance) => {
-    const exists = allowances.some(a => a.allowanceId === allowanceToSave.allowanceId);
-    if (exists) {
-      setAllowances(prev => prev.map(a => a.allowanceId === allowanceToSave.allowanceId ? allowanceToSave : a));
-    } else {
-      setAllowances(prev => [...prev, allowanceToSave]);
-    }
+    setAllowances(prev => {
+        const exists = prev.some(a => a.allowanceId === allowanceToSave.allowanceId);
+        if (exists) {
+            return prev.map(a => a.allowanceId === allowanceToSave.allowanceId ? allowanceToSave : a);
+        } else {
+            return [...prev, allowanceToSave];
+        }
+    });
   };
 
   return (
@@ -135,7 +145,7 @@ export function PayrollAllowancesDashboard() {
         <div>
           <CardTitle>Allowance Configuration</CardTitle>
           <CardDescription>
-            Define standard allowances that can be applied to staff salaries.
+            Define standard allowances that can be applied to staff salaries for your facility.
           </CardDescription>
         </div>
         <CreateOrEditAllowanceDialog onSave={handleSave}>
@@ -152,31 +162,39 @@ export function PayrollAllowancesDashboard() {
               <TableRow>
                 <TableHead>Allowance Name</TableHead>
                 <TableHead>Taxable</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {allowances.map((allowance) => (
-                <TableRow key={allowance.allowanceId}>
-                  <TableCell className="font-medium">{allowance.name}</TableCell>
-                  <TableCell>
-                    {allowance.isTaxable ? (
-                      <span className="flex items-center text-green-600">
-                        <CheckCircle className="h-4 w-4 mr-2" /> Yes
-                      </span>
-                    ) : (
-                      <span className="flex items-center text-muted-foreground">
-                        <XCircle className="h-4 w-4 mr-2" /> No
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <CreateOrEditAllowanceDialog allowance={allowance} onSave={handleSave}>
-                      <Button variant="outline" size="sm">Edit</Button>
-                    </CreateOrEditAllowanceDialog>
-                  </TableCell>
+              {hospitalAllowances.length > 0 ? (
+                hospitalAllowances.map((allowance) => (
+                    <TableRow key={allowance.allowanceId}>
+                    <TableCell className="font-medium">{allowance.name}</TableCell>
+                    <TableCell>
+                        {allowance.isTaxable ? (
+                        <span className="flex items-center text-green-600">
+                            <CheckCircle className="h-4 w-4 mr-2" /> Yes
+                        </span>
+                        ) : (
+                        <span className="flex items-center text-muted-foreground">
+                            <XCircle className="h-4 w-4 mr-2" /> No
+                        </span>
+                        )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <CreateOrEditAllowanceDialog allowance={allowance} onSave={handleSave}>
+                        <Button variant="outline" size="sm">Edit</Button>
+                        </CreateOrEditAllowanceDialog>
+                    </TableCell>
+                    </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                        No custom allowances defined for your hospital.
+                    </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>

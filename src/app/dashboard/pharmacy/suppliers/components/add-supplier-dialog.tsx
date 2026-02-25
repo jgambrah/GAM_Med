@@ -29,17 +29,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { NewSupplierSchema } from '@/lib/schemas';
 import { z } from 'zod';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddSupplierDialogProps {
     onSupplierCreated: (newSupplier: Supplier) => void;
 }
 
 export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
   const form = useForm<z.infer<typeof NewSupplierSchema>>({
     resolver: zodResolver(NewSupplierSchema),
     defaultValues: {
+        hospitalId: user?.hospitalId || '',
         name: '',
         contactPerson: '',
         contactEmail: '',
@@ -49,9 +52,16 @@ export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps)
     }
   });
 
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
+
   const onSubmit = (values: z.infer<typeof NewSupplierSchema>) => {
     const newSupplier: Supplier = {
       supplierId: `SUP-${Date.now()}`,
+      hospitalId: values.hospitalId,
       name: values.name,
       contactInfo: { 
           person: values.contactPerson,

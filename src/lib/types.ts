@@ -552,11 +552,11 @@ export interface PurchaseOrder {
 }
 
 export interface RfqActivityLogEntry {
-  id?: string;
-  rfqId?: string;
-  hospitalId?: string;
-  action?: 'Created' | 'Sent to Vendor' | 'Bid Received' | 'Awarded' | 'Cancelled';
-  performedBy?: string;
+  id: string;
+  rfqId: string;
+  hospitalId: string;
+  action: 'Created' | 'Sent to Vendor' | 'Bid Received' | 'Awarded' | 'Cancelled';
+  performedBy: string;
   timestamp: string;
   activity: string;
   notes?: string;
@@ -568,7 +568,7 @@ export interface RequestForQuotation {
   title: string;
   dateCreated: string;
   deadline: string;
-  status: 'Open for Bids' | 'Closed' | 'Draft' | 'Published' | 'Under Review' | 'Awarded';
+  status: 'Draft' | 'Published' | 'Under Review' | 'Awarded' | 'Closed' | 'Open for Bids';
   items: { itemId: string; name: string; quantity: number; drugId?: string; drugName?: string; unit?: string }[];
   quotes?: Quote[];
   activityLog?: RfqActivityLogEntry[];

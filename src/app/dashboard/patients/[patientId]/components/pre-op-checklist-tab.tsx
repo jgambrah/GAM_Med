@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,7 +9,6 @@ import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 
-// In a real app, this would be fetched from the `surgical_cases` document.
 const mockChecklistItems = [
   { id: 'consent', label: 'Consent Form Signed & Witnessed' },
   { id: 'npo', label: 'NPO (Nil Per Os) Status Confirmed' },
@@ -26,7 +26,7 @@ interface PreOpChecklistTabProps {
 export function PreOpChecklistTab({ surgery }: PreOpChecklistTabProps) {
   const { user } = useAuth();
   const [checklist, setChecklist] = React.useState<Record<string, boolean>>({
-    'consent': true, // Mocking some as already completed
+    'consent': true,
     'npo': true,
   });
 
@@ -34,8 +34,6 @@ export function PreOpChecklistTab({ surgery }: PreOpChecklistTabProps) {
 
   const handleCheckChange = (itemId: string, isChecked: boolean) => {
     if (!canEdit) return;
-
-    // In a real app, this would call a server action `updatePreOpChecklistItem(caseId, itemId, isChecked)`
     setChecklist(prev => ({ ...prev, [itemId]: isChecked }));
     toast.info(`Checklist item updated by ${user?.name}.`);
   };

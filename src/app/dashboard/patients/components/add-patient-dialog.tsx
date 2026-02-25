@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -237,7 +238,6 @@ export function AddPatientDialog({
       });
 
       const fullName = `${values.firstName} ${values.lastName}`;
-      const fullNameLowercase = fullName.toLowerCase();
       const phoneSearch = values.contact.primaryPhone.replace(/\D/g, '');
 
       const newPatient: Patient = {
@@ -248,7 +248,7 @@ export function AddPatientDialog({
         first_name: values.firstName,
         last_name: values.lastName,
         full_name: fullName,
-        full_name_lowercase: fullNameLowercase,
+        full_name_lowercase: fullName.toLowerCase(),
         phone_search: phoneSearch,
         dob: values.dob,
         gender: values.gender,
