@@ -54,6 +54,7 @@ interface NewAppointmentDialogProps {
   onOpenChange?: (isOpen: boolean) => void;
   appointmentToReschedule?: Appointment | null;
   patientId?: string;
+  doctorId?: string;
   onAppointmentBooked?: (newAppointment: Appointment) => void;
 }
 
@@ -62,6 +63,7 @@ export function NewAppointmentDialog({
   onOpenChange, 
   appointmentToReschedule,
   patientId,
+  doctorId,
   onAppointmentBooked,
 }: NewAppointmentDialogProps) {
   const [internalOpen, setOpen] = React.useState(false);
@@ -80,7 +82,7 @@ export function NewAppointmentDialog({
       patientId: patientId || '',
       appointmentDate: '',
       appointmentTime: '',
-      doctorId: '',
+      doctorId: doctorId || '',
       reason: '',
     },
   });
@@ -89,8 +91,9 @@ export function NewAppointmentDialog({
     if (dialogOpen && user) {
         form.setValue('hospitalId', user.hospitalId);
         if (patientId) form.setValue('patientId', patientId);
+        if (doctorId) form.setValue('doctorId', doctorId);
     }
-  }, [dialogOpen, user, patientId, form]);
+  }, [dialogOpen, user, patientId, doctorId, form]);
 
   const onSubmit = async (values: z.infer<typeof NewAppointmentSchema>) => {
     if (!firestore || !user) return;
@@ -179,7 +182,7 @@ export function NewAppointmentDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs">Practitioner</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="bg-muted/30">
                         <SelectValue placeholder="Select doctor" />
