@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -33,6 +32,7 @@ import { LedgerAccount, StaffExpenseClaim } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { mockLedgerAccounts } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddClaimDialogProps {
   onClaimSubmitted: (newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId' | 'claimType'>) => void;
@@ -49,6 +49,7 @@ const fileToDataUrl = (file: File): Promise<string> => {
 
 export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const { user } = useAuth();
   const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
 
   const formSchema = NewStaffClaimSchema;
@@ -56,11 +57,18 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       amount: 0,
       description: '',
       expenseAccountId: '',
     },
   });
+
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
   
   const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
 
@@ -80,6 +88,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
       
       const newClaim: Omit<StaffExpenseClaim, 'staffId' | 'staffName' | 'hodId' | 'claimType'> = {
         claimId: `SEC-${Date.now()}`,
+        hospitalId: values.hospitalId,
         amount: values.amount,
         description: values.description,
         expenseAccountId: values.expenseAccountId,
@@ -177,7 +186,7 @@ export function AddClaimDialog({ onClaimSubmitted }: AddClaimDialogProps) {
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
                             onChange={(event) => {
-                                onChange(event.target.files && event.target.files[0]);
+                                onChange(event.target.files);
                             }}
                         />
                     </FormControl>
