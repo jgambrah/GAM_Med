@@ -52,9 +52,13 @@ const getClaimStatusVariant = (status: Claim['status']): "default" | "secondary"
     }
 }
 
-function InvoiceManagementTab() {
+function InvoiceManagementTab({ hospitalId }: { hospitalId: string }) {
     const [selectedInvoice, setSelectedInvoice] = React.useState<Invoice | null>(null);
     
+    const hospitalInvoices = React.useMemo(() => {
+        return mockInvoices.filter(inv => inv.hospitalId === hospitalId);
+    }, [hospitalId]);
+
     return (
         <>
             <div className="rounded-md border">
@@ -70,7 +74,7 @@ function InvoiceManagementTab() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {mockInvoices.map((invoice) => (
+                        {hospitalInvoices.map((invoice) => (
                             <TableRow key={invoice.invoiceId}>
                                 <TableCell className="font-medium">{invoice.invoiceId}</TableCell>
                                 <TableCell>
@@ -106,21 +110,25 @@ function InvoiceManagementTab() {
     );
 }
 
-function ClaimsTrackingTab() {
+function ClaimsTrackingTab({ hospitalId }: { hospitalId: string }) {
     const [selectedClaim, setSelectedClaim] = React.useState<Claim | null>(null);
     const [statusFilter, setStatusFilter] = React.useState('All');
     const [providerFilter, setProviderFilter] = React.useState('All');
     
-    const uniqueProviders = ['All', ...Array.from(new Set(mockClaims.map(c => c.providerId)))];
+    const hospitalClaims = React.useMemo(() => {
+        return mockClaims.filter(c => c.hospitalId === hospitalId);
+    }, [hospitalId]);
+
+    const uniqueProviders = ['All', ...Array.from(new Set(hospitalClaims.map(c => c.providerId)))];
     const claimStatuses: (Claim['status'] | 'All')[] = ['All', 'Paid', 'Submitted', 'Denied'];
 
     const filteredClaims = React.useMemo(() => {
-        return mockClaims.filter(claim => {
+        return hospitalClaims.filter(claim => {
             const statusMatch = statusFilter === 'All' || claim.status === statusFilter;
             const providerMatch = providerFilter === 'All' || claim.providerId === providerFilter;
             return statusMatch && providerMatch;
         });
-    }, [statusFilter, providerFilter]);
+    }, [hospitalClaims, statusFilter, providerFilter]);
 
 
     return (
@@ -216,22 +224,31 @@ const PostingSchema = z.object({
     path: ["chequeNumber"],
 });
 
-function PaymentReconciliationTab() {
+function PaymentReconciliationTab({ hospitalId }: { hospitalId: string }) {
     const { user } = useAuth();
     const [postingInfo, setPostingInfo] = React.useState<{ amount: number; description: string } | null>(null);
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
     const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
 
+    const hospitalInvoices = React.useMemo(() => {
+        return mockInvoices.filter(inv => inv.hospitalId === hospitalId);
+    }, [hospitalId]);
+
+    const hospitalPayments = React.useMemo(() => {
+        return mockPayments.filter(p => p.hospitalId === hospitalId);
+    }, [hospitalId]);
+
     const form = useForm<z.infer<typeof LogPaymentSchema>>({
         resolver: zodResolver(LogPaymentSchema),
         defaultValues: {
+            hospitalId: hospitalId,
             invoiceId: '',
             amount: 0,
             paymentMethod: 'Cash',
         },
     });
 
-    const unpaidInvoices = mockInvoices
+    const unpaidInvoices = hospitalInvoices
         .filter(inv => inv.status === 'Pending Payment' || inv.status === 'Overdue')
         .map(inv => ({
             value: inv.invoiceId,
@@ -242,12 +259,12 @@ function PaymentReconciliationTab() {
 
     React.useEffect(() => {
         if (selectedInvoiceId) {
-            const invoice = mockInvoices.find(inv => inv.invoiceId === selectedInvoiceId);
+            const invoice = hospitalInvoices.find(inv => inv.invoiceId === selectedInvoiceId);
             if (invoice) {
                 form.setValue('amount', invoice.amountDue);
             }
         }
-    }, [selectedInvoiceId, form]);
+    }, [selectedInvoiceId, form, hospitalInvoices]);
 
     const handlePostToLedger = async (values: z.infer<typeof PostingSchema>) => {
         const { debitAccountId, creditAccountId, amount, paymentMethod, chequeNumber } = values;
@@ -275,8 +292,8 @@ function PaymentReconciliationTab() {
                 finalDescription = `${finalDescription} (Bank Transfer)`;
             }
 
-            const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-            const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+            const newDebitEntry: LedgerEntry = { hospitalId: hospitalId, entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+            const newCreditEntry: LedgerEntry = { hospitalId: hospitalId, entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
             
             setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 
@@ -405,7 +422,7 @@ function PaymentReconciliationTab() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {mockPayments.map((payment) => (
+                                {hospitalPayments.map((payment) => (
                                     <TableRow key={payment.transactionId}>
                                         <TableCell className="font-medium">{payment.transactionId}</TableCell>
                                         <TableCell>{payment.invoiceId}</TableCell>
@@ -441,12 +458,15 @@ function PaymentReconciliationTab() {
 
 
 export function BillingDashboard() {
+  const { user } = useAuth();
+  const hospitalId = user?.hospitalId || '';
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Accounts Receivable</CardTitle>
         <CardDescription>
-          A high-level overview of the hospital's financial status.
+          A high-level overview of the hospital's financial status for {hospitalId}.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -457,13 +477,13 @@ export function BillingDashboard() {
                 <TabsTrigger value="reconciliation">Payment Reconciliation</TabsTrigger>
             </TabsList>
             <TabsContent value="invoices" className="mt-4">
-                <InvoiceManagementTab />
+                <InvoiceManagementTab hospitalId={hospitalId} />
             </TabsContent>
              <TabsContent value="claims" className="mt-4">
-                <ClaimsTrackingTab />
+                <ClaimsTrackingTab hospitalId={hospitalId} />
             </TabsContent>
              <TabsContent value="reconciliation" className="mt-4">
-                <PaymentReconciliationTab />
+                <PaymentReconciliationTab hospitalId={hospitalId} />
             </TabsContent>
         </Tabs>
       </CardContent>

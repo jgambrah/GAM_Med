@@ -22,6 +22,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts'
 import { mockInfectionReports, mockEfficacyReports, allAdmissions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { InfectionDrilldownDialog } from './components/infection-drilldown-dialog';
+import { useAuth } from '@/hooks/use-auth';
 
 const efficacyChartConfig: ChartConfig = {
   averageEfficacy: {
@@ -30,16 +31,32 @@ const efficacyChartConfig: ChartConfig = {
 };
 
 export default function ClinicalReportsPage() {
+  const { user } = useAuth();
+  const hospitalId = user?.hospitalId || '';
   const [drilldownData, setDrilldownData] = React.useState<{ ward: string; count: number } | null>(null);
 
+  const hospitalAdmissions = React.useMemo(() => {
+    return allAdmissions.filter(a => a.hospitalId === hospitalId);
+  }, [hospitalId]);
+
   const readmissionRate = React.useMemo(() => {
-    const readmissions = allAdmissions.filter(a => a.readmissionFlag).length;
-    const totalAdmissions = allAdmissions.length;
+    const readmissions = hospitalAdmissions.filter(a => a.readmission_flag || a.readmissionFlag).length;
+    const totalAdmissions = hospitalAdmissions.length;
     return totalAdmissions > 0 ? (readmissions / totalAdmissions) * 100 : 0;
-  }, []);
+  }, [hospitalAdmissions]);
   
-  const infectionReport = mockInfectionReports[0];
-  const efficacyReports = mockEfficacyReports;
+  const infectionReport = React.useMemo(() => {
+    return mockInfectionReports.find(r => r.hospitalId === hospitalId) || {
+        month: 'N/A',
+        ratePer1000Days: 0,
+        infectionCount: 0,
+        breakdownByWard: {}
+    };
+  }, [hospitalId]);
+
+  const efficacyReports = React.useMemo(() => {
+    return mockEfficacyReports.filter(r => r.hospitalId === hospitalId);
+  }, [hospitalId]);
 
   // Placeholder for patient satisfaction data
   const patientSatisfactionScore = 88.5;
@@ -50,7 +67,7 @@ export default function ClinicalReportsPage() {
        <div>
         <h1 className="text-3xl font-bold">Clinical Quality Dashboard</h1>
         <p className="text-muted-foreground">
-            A high-level overview of key clinical performance indicators.
+            A high-level overview of key clinical performance indicators for <strong>{hospitalId}</strong>.
         </p>
       </div>
 

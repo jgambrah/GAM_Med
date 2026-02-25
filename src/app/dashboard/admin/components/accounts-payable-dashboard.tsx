@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -55,6 +56,7 @@ const getBillStatusVariant = (status: Bill['status']): "default" | "secondary" |
 }
 
 function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => void }) {
+    const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -64,8 +66,8 @@ function PayBillDialog({ bill, onBillAccrued }: { bill: Bill, onBillAccrued: (bi
     const [expenseAccountId, setExpenseAccountId] = React.useState('');
     const [payableAccountId, setPayableAccountId] = React.useState(''); 
 
-    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
-    const apSubAccounts = accounts.filter(acc => acc.accountCode.startsWith('20'));
+    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense' && acc.hospitalId === user?.hospitalId);
+    const apSubAccounts = accounts.filter(acc => acc.accountCode.startsWith('20') && acc.hospitalId === user?.hospitalId);
 
     const { subtotal, netPayment, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = bill.totalAmount;
@@ -230,6 +232,7 @@ function CircleSelect({ value, onValueChange, options }: { value: string, onValu
 }
 
 function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, onClaimAccrued: (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => void }) {
+    const { user } = useAuth();
     const [open, setOpen] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [whtRate, setWhtRate] = React.useState('0');
@@ -238,7 +241,7 @@ function PayClaimDialog({ claim, onClaimAccrued }: { claim: StaffExpenseClaim, o
     const [accounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
     const [expenseAccountId, setExpenseAccountId] = React.useState(claim.expenseAccountId);
     
-    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense');
+    const expenseAccounts = accounts.filter(acc => acc.accountType === 'Expense' && acc.hospitalId === user?.hospitalId);
     
      const { subtotal, whtAmount } = React.useMemo(() => {
         let calculatedSubtotal = claim.amount;
@@ -539,17 +542,22 @@ const PostingSchema = z.object({
 
 export function AccountsPayableDashboard() {
   const { user } = useAuth();
+  const hospitalId = user?.hospitalId || '';
   const [postingInfo, setPostingInfo] = React.useState<{ debitAccountId: string, creditAccountId: string, amount: number; description: string; onPostComplete: () => void } | null>(null);
   const [bills, setBills] = useLocalStorage<Bill[]>('bills', initialBills);
   const [allStaffClaims, setAllStaffClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', initialClaims);
   const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', initialAccounts);
   const [entries, setEntries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', initialEntries);
 
-  const totalPayables = bills
+  const hospitalBills = React.useMemo(() => bills.filter(b => b.hospitalId === hospitalId), [bills, hospitalId]);
+  const hospitalClaims = React.useMemo(() => allStaffClaims.filter(c => c.hospitalId === hospitalId), [allStaffClaims, hospitalId]);
+  const hospitalPayroll = React.useMemo(() => mockPayrollRuns.filter(r => r.hospitalId === hospitalId), [hospitalId]);
+
+  const totalPayables = hospitalBills
     .filter(b => b.status === 'Pending' || b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
-  const overduePayables = bills
+  const overduePayables = hospitalBills
     .filter(b => b.status === 'Overdue')
     .reduce((sum, bill) => sum + bill.totalAmount, 0);
 
@@ -579,8 +587,8 @@ export function AccountsPayableDashboard() {
             finalDescription = `${finalDescription} (Bank Transfer)`;
         }
 
-        const newDebitEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
-        const newCreditEntry: LedgerEntry = { hospitalId: user?.hospitalId || 'hosp-1', entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
+        const newDebitEntry: LedgerEntry = { hospitalId: hospitalId, entryId: `entry-${Date.now()}-dr`, accountId: debitAccountId, date: now, description: finalDescription, debit: amount };
+        const newCreditEntry: LedgerEntry = { hospitalId: hospitalId, entryId: `entry-${Date.now()}-cr`, accountId: creditAccountId, date: now, description: finalDescription, credit: amount };
         
         setEntries(prev => [...prev, newDebitEntry, newCreditEntry]);
 
@@ -605,7 +613,7 @@ export function AccountsPayableDashboard() {
 
 
   const handleBillAccrued = async (billId: string, expenseAccId: string, payableAccId: string, subtotal: number, whtAmount: number) => {
-     const bill = bills.find(b => b.billId === billId);
+     const bill = hospitalBills.find(b => b.billId === billId);
     if (!bill) return;
 
     await handlePostToLedger({
@@ -620,7 +628,7 @@ export function AccountsPayableDashboard() {
   };
   
   const handleClaimAccrued = async (claimId: string, expenseAccountId: string, subtotal: number, whtAmount: number) => {
-      const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
+      const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050' && acc.hospitalId === hospitalId);
       if (!staffPayableAccount) {
           toast.error("Staff Payable Account (2050) not found.");
           return;
@@ -649,8 +657,8 @@ export function AccountsPayableDashboard() {
     let amount: number;
     let onPostComplete: () => void;
 
-    const cashAccount = accounts.find(acc => acc.accountCode === '1010');
-    const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040');
+    const cashAccount = accounts.find(acc => acc.accountCode === '1010' && acc.hospitalId === hospitalId);
+    const whtPayableAccount = accounts.find(acc => acc.accountCode === '2040' && acc.hospitalId === hospitalId);
 
     if (!cashAccount || !whtPayableAccount) {
         toast.error("A required ledger account is missing (Cash or WHT Payable).");
@@ -658,7 +666,7 @@ export function AccountsPayableDashboard() {
     }
     
     if ('claimId' in item) { // It's a StaffExpenseClaim
-        const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050');
+        const staffPayableAccount = accounts.find(acc => acc.accountCode === '2050' && acc.hospitalId === hospitalId);
         if (!staffPayableAccount) {
             toast.error("Staff Payable Account (2050) not found.");
             return;
@@ -681,7 +689,7 @@ export function AccountsPayableDashboard() {
             };
         }
     } else { // It's a Bill
-        const supplierPayableAccount = accounts.find(acc => acc.accountCode === '2011');
+        const supplierPayableAccount = accounts.find(acc => acc.accountCode === '2011' && acc.hospitalId === hospitalId);
         if (!supplierPayableAccount) {
             toast.error("Trade Payables Account (2011) not found.");
             return;
@@ -749,9 +757,9 @@ export function AccountsPayableDashboard() {
                      <span className="text-muted-foreground">₵</span>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">₵{mockPayrollRuns[0]?.totalNetPay.toFixed(2) || '0.00'}</div>
+                    <div className="text-2xl font-bold">₵{hospitalPayroll[0]?.totalNetPay.toFixed(2) || '0.00'}</div>
                     <p className="text-xs text-muted-foreground">
-                       Net pay for {mockPayrollRuns[0]?.payPeriod}.
+                       Net pay for {hospitalPayroll[0]?.payPeriod}.
                     </p>
                 </CardContent>
             </Card>
@@ -769,10 +777,10 @@ export function AccountsPayableDashboard() {
                 </CardHeader>
                 <CardContent>
                      <TabsContent value="vendor-bills">
-                        <VendorBillsTab bills={bills} setBills={setBills} onBillAccrued={handleBillAccrued} handlePostPayment={handlePostPayment} />
+                        <VendorBillsTab bills={hospitalBills} setBills={setBills} onBillAccrued={handleBillAccrued} handlePostPayment={handlePostPayment} />
                     </TabsContent>
                     <TabsContent value="staff-claims">
-                        <StaffClaimsTab allClaims={allStaffClaims} setAllClaims={setAllStaffClaims} onClaimAccrued={handleClaimAccrued} handlePostPayment={handlePostPayment}/>
+                        <StaffClaimsTab allClaims={hospitalClaims} setAllClaims={setAllStaffClaims} onClaimAccrued={handleClaimAccrued} handlePostPayment={handlePostPayment}/>
                     </TabsContent>
                 </CardContent>
             </Tabs>
