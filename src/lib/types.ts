@@ -551,6 +551,11 @@ export interface PurchaseOrder {
   totalAmount: number;
 }
 
+export interface RfqActivityLogEntry {
+  timestamp: string;
+  activity: string;
+}
+
 export interface RequestForQuotation {
   rfqId: string;
   hospitalId: string;
@@ -560,7 +565,7 @@ export interface RequestForQuotation {
   status: 'Open for Bids' | 'Closed';
   items: { itemId: string; name: string; quantity: number }[];
   quotes?: Quote[];
-  activityLog?: { timestamp: string; activity: string }[];
+  activityLog?: RfqActivityLogEntry[];
 }
 
 export interface Quote {
