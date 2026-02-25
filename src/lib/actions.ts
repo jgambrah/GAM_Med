@@ -13,7 +13,7 @@ import { sendWelcomeEmail } from './mail-service';
  * Uses the composite ID pattern: {hospitalId}_MRN{mrn}
  */
 export async function addPatient(values: z.infer<typeof PatientSchema>) {
-  const customId = `${values.hospitalId}_MRN${values.mrn.trim().toUpperCase()}`;
+  const customId = `${values.hospitalId}_MRN${(values.mrn || '').trim().toUpperCase()}`;
   console.log(`Server Action: Registering new patient with custom ID ${customId} for hospital ${values.hospitalId}.`);
 
   await new Promise((resolve) => setTimeout(resolve, 1000));
