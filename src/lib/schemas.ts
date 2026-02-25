@@ -11,6 +11,8 @@ export const PatientSchema = z.object({
   dob: z.string().min(1, "Date of birth is required"),
   gender: z.enum(['Male', 'Female', 'Other']),
   patientType: z.enum(['private', 'corporate', 'public']),
+  maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed"]).optional(),
+  occupation: z.string().optional(),
   contact: z.object({
     primaryPhone: z.string().min(10),
     alternatePhone: z.string().optional(),
