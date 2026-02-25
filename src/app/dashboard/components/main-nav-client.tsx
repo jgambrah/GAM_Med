@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -41,7 +40,20 @@ import {
     FileText,
     Building,
     BookHeart,
-    Globe
+    Globe,
+    UserCog,
+    UserPlus,
+    FolderSearch,
+    Zap,
+    Package,
+    TrendingUp,
+    LayoutGrid,
+    Microscope,
+    Monitor,
+    FileSpreadsheet,
+    ListTodo,
+    Inbox,
+    ShieldAlert
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -65,7 +77,7 @@ export function MainNavClient() {
     );
 
     return mockAlerts.filter(alert => 
-        myPatientIds.has(alert.patientId) && 
+        myPatientIds.has(alert.patientId || '') && 
         alert.severity === 'Critical' && 
         !alert.isAcknowledged
     ).length;
@@ -80,10 +92,58 @@ export function MainNavClient() {
       roles: allRoles,
     },
     {
+      href: '/dashboard/super-admin/pulse',
+      label: 'Platform Pulse',
+      icon: Zap,
+      roles: ['super_admin'],
+    },
+    {
       href: '/dashboard/super-admin',
-      label: 'Platform Operations',
+      label: 'Hospital Management',
       icon: Globe,
       roles: ['super_admin'],
+    },
+    {
+      href: '/dashboard/director/analytics',
+      label: 'Executive Insights',
+      icon: TrendingUp,
+      roles: ['director'],
+    },
+    {
+      href: '/dashboard/reception/register-patient',
+      label: 'Register Patient',
+      icon: UserPlus,
+      roles: ['director', 'admin', 'receptionist'],
+    },
+    {
+      href: '/dashboard/reception/referrals',
+      label: 'Incoming Referrals',
+      icon: Inbox,
+      roles: ['director', 'admin', 'receptionist'],
+    },
+    {
+      href: '/dashboard/records/all-patients',
+      label: 'Patient Directory',
+      icon: FolderSearch,
+      roles: ['director', 'admin', 'doctor', 'nurse', 'receptionist'],
+    },
+    {
+      href: '/dashboard/records/compliance',
+      label: 'Statutory Returns',
+      icon: FileSpreadsheet,
+      roles: ['director', 'admin'],
+    },
+    {
+      href: '/dashboard/director/staff',
+      label: 'Staff Management',
+      icon: UserCog,
+      roles: ['director'],
+    },
+    {
+      href: '/dashboard/admin/staff',
+      label: 'Facility Staff',
+      icon: Users,
+      roles: ['admin'],
     },
     {
       href: '/dashboard/nursing',
@@ -93,15 +153,45 @@ export function MainNavClient() {
     },
     {
       href: '/dashboard/patients',
-      label: 'Patients',
-      icon: Users,
+      label: 'Clinical Workbench',
+      icon: Stethoscope,
       roles: ['director', 'admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'],
     },
     {
+      href: '/dashboard/finance',
+      label: 'Finance Hub',
+      icon: Wallet,
+      roles: ['director', 'admin', 'billing_clerk'],
+    },
+    {
+      href: '/dashboard/wards',
+      label: 'Ward Management',
+      icon: LayoutGrid,
+      roles: ['director', 'admin', 'doctor', 'nurse'],
+    },
+    {
       href: '/dashboard/beds',
-      label: 'Beds',
+      label: 'Facility Census',
       icon: BedDouble,
       roles: ['director', 'admin', 'doctor', 'nurse'],
+    },
+    {
+      href: '/dashboard/inventory',
+      label: 'Medical Supplies',
+      icon: Package,
+      roles: ['director', 'admin', 'pharmacist', 'space_manager'],
+    },
+    {
+      href: '/dashboard/inventory/equipment',
+      label: 'Medical Equipment',
+      icon: Microscope,
+      roles: ['director', 'admin', 'pharmacist', 'nurse'],
+    },
+    {
+      href: '/dashboard/surgery',
+      label: 'OT Status Board',
+      icon: Monitor,
+      roles: ['director', 'admin', 'doctor', 'ot_coordinator'],
     },
     {
       href: '/dashboard/appointments',
@@ -214,7 +304,7 @@ export function MainNavClient() {
     {
         href: '/dashboard/pharmacy/controlled-substances',
         label: 'Controlled Substances',
-        icon: ShieldCheck,
+        icon: ShieldAlert,
         roles: ['director', 'admin', 'pharmacist'],
     },
     {
@@ -228,6 +318,12 @@ export function MainNavClient() {
         label: 'Space Management',
         icon: Building,
         roles: ['director', 'admin'],
+    },
+    {
+      href: '/dashboard/my-practice/schedule',
+      label: 'My Daily Schedule',
+      icon: ListTodo,
+      roles: ['doctor'],
     },
     {
       href: '/dashboard/my-practice',
@@ -263,7 +359,7 @@ export function MainNavClient() {
   ];
 
   const accessibleItems = menuItems.filter(item => user && item.roles.includes(user.role)).sort((a, b) => {
-    const order = ['/dashboard', '/dashboard/super-admin', '/dashboard/supplier', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/beds', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
+    const order = ['/dashboard', '/dashboard/super-admin/pulse', '/dashboard/super-admin', '/dashboard/director/analytics', '/dashboard/reception/register-patient', '/dashboard/reception/referrals', '/dashboard/records/all-patients', '/dashboard/records/compliance', '/dashboard/director/staff', '/dashboard/admin/staff', '/dashboard/my-practice/schedule', '/dashboard/my-practice', '/dashboard/nursing', '/dashboard/appointments', '/dashboard/messages', '/dashboard/my-records', '/dashboard/my-records/health-library', '/dashboard/my-billing', `/dashboard/hr/staff/${user?.uid}`, '/dashboard/my-claims', '/dashboard/my-leave', '/dashboard/patients', '/dashboard/finance', '/dashboard/wards', '/dashboard/beds', '/dashboard/inventory', '/dashboard/inventory/equipment', '/dashboard/surgery', '/dashboard/ot', '/dashboard/pharmacy', '/dashboard/pharmacy/controlled-substances', '/dashboard/pharmacy/suppliers', '/dashboard/lab', '/dashboard/lab/reports', '/dashboard/radiology', '/dashboard/dietary', '/dashboard/referrals', '/dashboard/approvals', '/dashboard/my-schedule', '/dashboard/payroll', '/dashboard/hr', '/dashboard/space-management', '/dashboard/admin'];
     return order.indexOf(a.href) - order.indexOf(b.href);
   });
 

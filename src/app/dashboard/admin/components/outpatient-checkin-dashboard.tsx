@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -65,6 +64,11 @@ export function OutpatientCheckinDashboard() {
         case 'confirmed': return 'default';
         case 'completed': return 'secondary';
         case 'cancelled': return 'destructive';
+        case 'Scheduled': return 'default';
+        case 'Arrived': return 'secondary';
+        case 'In-Consultation': return 'outline';
+        case 'Completed': return 'secondary';
+        case 'Cancelled': return 'destructive';
         default: return 'outline';
     }
   }
@@ -94,7 +98,7 @@ export function OutpatientCheckinDashboard() {
             <TableBody>
               {todaysOutpatientAppointments.length > 0 ? (
                 todaysOutpatientAppointments.map((appt) => (
-                  <TableRow key={appt.appointment_id}>
+                  <TableRow key={appt.id}>
                     <TableCell className="font-medium">
                       {appt.appointment_date ? format(new Date(appt.appointment_date), 'p') : 'N/A'}
                     </TableCell>
@@ -112,16 +116,16 @@ export function OutpatientCheckinDashboard() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleUpdateStatus(appt.appointment_id || '', 'completed')}
-                        disabled={appt.status === 'completed' || appt.status === 'cancelled'}
+                        onClick={() => handleUpdateStatus(appt.id, 'completed')}
+                        disabled={appt.status === 'completed' || appt.status === 'cancelled' || appt.status === 'Completed' || appt.status === 'Cancelled'}
                       >
                         Check-in
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleUpdateStatus(appt.appointment_id || '', 'cancelled')}
-                        disabled={appt.status === 'completed' || appt.status === 'cancelled'}
+                        onClick={() => handleUpdateStatus(appt.id, 'cancelled')}
+                        disabled={appt.status === 'completed' || appt.status === 'cancelled' || appt.status === 'Completed' || appt.status === 'Cancelled'}
                         >
                         Cancel
                       </Button>

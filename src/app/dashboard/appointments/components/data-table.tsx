@@ -24,7 +24,7 @@ import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { toast } from '@/hooks/use-toast';
 import { useFirestore, updateDocumentNonBlocking } from '@/firebase';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { NewAppointmentDialog } from './new-appointment-dialog';
 import { AppointmentDetailDialog } from './appointment-detail-dialog';
 
@@ -85,17 +85,17 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
             </TableHeader>
             <TableBody>
             {data.length > 0 ? (
-                data.sort((a, b) => (a.timeSlot || '').localeCompare(b.timeSlot || '')).map((appt) => (
+                data.sort((a, b) => (a.time_slot || '').localeCompare(b.time_slot || '')).map((appt) => (
                 <TableRow key={appt.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-mono text-xs font-bold">
-                        {appt.timeSlot || appt.time_slot}
+                        {appt.time_slot}
                     </TableCell>
                     <TableCell>
-                        <Link href={`/dashboard/patients/${appt.patientId || appt.patient_id}`} className="hover:underline text-primary font-bold">
-                            {appt.patientName || appt.patient_name}
+                        <Link href={`/dashboard/patients/${appt.patient_id}`} className="hover:underline text-primary font-bold">
+                            {appt.patient_name}
                         </Link>
                     </TableCell>
-                    <TableCell className="text-sm">Dr. {appt.doctorName || appt.doctor_name}</TableCell>
+                    <TableCell className="text-sm">Dr. {appt.doctor_name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground italic truncate max-w-[150px]">
                         {appt.reason}
                     </TableCell>
