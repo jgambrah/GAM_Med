@@ -195,7 +195,6 @@ const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.Elemen
 
 
 function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | null }) {
-    const staffPosition = mockPositions.find(p => p.title.toLowerCase() === staff.role.toLowerCase());
     const isSelf = staff.uid === user?.uid;
     const canEdit = user?.role === 'admin';
 
@@ -391,7 +390,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
     )
 }
 
-function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
+function PerformanceTab({ staffId, staff, setStaff }: { staffId: string, staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
   const [reviews, setReviews] = React.useState<PerformanceReview[]>(
     mockPerformanceReviews.filter(r => r.employeeId === staff.staffId)
   );
@@ -438,7 +437,7 @@ function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (p
             <CardTitle>Performance Review History</CardTitle>
             <CardDescription>A log of all past performance appraisals.</CardDescription>
           </div>
-          <InitiateReviewDialog onReviewInitiated={handleReviewInitiated} />
+          <InitiateReviewDialog staffId={staffId} onReviewInitiated={handleReviewInitiated} />
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -588,7 +587,6 @@ export default function StaffProfilePage() {
     notFound();
   }
 
-  const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
   const isSelf = staff.uid === user?.uid;
 
   const handleMfaEnabled = () => {
@@ -606,7 +604,7 @@ export default function StaffProfilePage() {
         <div>
           <h1 className="text-3xl font-bold">{staff.name}</h1>
           <p className="text-muted-foreground">
-            {staffPosition?.title || 'No Position Assigned'} - ID: {staff.uid}
+            ID: {staff.uid}
           </p>
         </div>
       </div>
@@ -620,10 +618,10 @@ export default function StaffProfilePage() {
             {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
          <TabsContent value="profile" className="mt-4">
-            <ProfileDetailsTab staff={staff} user={user} />
+            <ProfileDetailsTab staff={staff} user={user} setStaff={setStaff} />
         </TabsContent>
          <TabsContent value="performance" className="mt-4">
-            <PerformanceTab staff={staffProfile} setStaff={setStaffProfile as any} />
+            <PerformanceTab staffId={staffId} staff={staffProfile} setStaff={setStaffProfile as any} />
         </TabsContent>
          <TabsContent value="training" className="mt-4">
             <TrainingTab staff={staffProfile} setStaff={setStaffProfile as any} />

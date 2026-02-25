@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -21,21 +22,25 @@ import { allUsers } from '@/lib/data';
 import { Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { PerformanceReview } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 const InitiateReviewSchema = z.object({
   reviewerId: z.string().min(1, 'A reviewer must be selected.'),
   ratingPeriodStart: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid start date is required." }),
   ratingPeriodEnd: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid end date is required." }),
+  nextReviewDate: z.string().optional(),
 }).refine(data => new Date(data.ratingPeriodEnd) > new Date(data.ratingPeriodStart), {
     message: "End date must be after start date.",
     path: ["ratingPeriodEnd"],
 });
 
 interface InitiateReviewDialogProps {
+  staffId: string;
   onReviewInitiated: (newReview: PerformanceReview) => void;
 }
 
-export function InitiateReviewDialog({ onReviewInitiated }: InitiateReviewDialogProps) {
+export function InitiateReviewDialog({ staffId, onReviewInitiated }: InitiateReviewDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   
   const form = useForm<z.infer<typeof InitiateReviewSchema>>({
@@ -44,6 +49,7 @@ export function InitiateReviewDialog({ onReviewInitiated }: InitiateReviewDialog
       reviewerId: '',
       ratingPeriodStart: '',
       ratingPeriodEnd: '',
+      nextReviewDate: '',
     },
   });
 
@@ -55,9 +61,10 @@ export function InitiateReviewDialog({ onReviewInitiated }: InitiateReviewDialog
     // In a real app, this would call a server action.
     const newReview: PerformanceReview = {
       reviewId: `rev-${Date.now()}`,
-      employeeId: '', // This would be passed as a prop
+      hospitalId: user?.hospitalId || '',
+      employeeId: staffId || '',
       reviewerId: values.reviewerId,
-      dateOfReview: '',
+      dateOfReview: new Date().toISOString(),
       ratingPeriodStart: new Date(values.ratingPeriodStart).toISOString(),
       ratingPeriodEnd: new Date(values.ratingPeriodEnd).toISOString(),
       overallRating: 'Pending',
@@ -65,7 +72,7 @@ export function InitiateReviewDialog({ onReviewInitiated }: InitiateReviewDialog
       areasForDevelopment: '',
       goalsAchieved: [],
       trainingRecommendations: '',
-      nextReviewDate: '',
+      nextReviewDate: values.nextReviewDate || '',
     };
     onReviewInitiated(newReview);
     toast.success('Performance review has been initiated.');
@@ -141,6 +148,19 @@ export function InitiateReviewDialog({ onReviewInitiated }: InitiateReviewDialog
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="nextReviewDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Scheduled Next Review (Optional)</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
