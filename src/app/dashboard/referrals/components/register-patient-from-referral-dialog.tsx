@@ -43,7 +43,7 @@ export function RegisterPatientFromReferralDialog({ referral, isOpen, onOpenChan
         const phoneSearch = phone.replace(/\D/g, '');
 
         const newPatient: Patient = {
-            patient_id: `P-${Date.now()}`,
+            patient_id: `${user?.hospitalId || 'hosp-1'}_P-${Date.now()}`,
             hospitalId: user?.hospitalId || '',
             mrn: `MRN-${Date.now().toString().slice(-6)}`,
             title: '',

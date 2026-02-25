@@ -268,7 +268,7 @@ export function AddPatientDialog({
         insurance: {
             provider_name: values.insurance?.providerName || '',
             policy_number: values.insurance?.policyNumber || '',
-            expiry_date: values.insurance?.expiryDate || '',
+            expiry_date: values.insurance?.expiry_date || '',
             isActive: true,
         },
         is_admitted: false,

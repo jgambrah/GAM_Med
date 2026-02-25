@@ -101,8 +101,8 @@ export default function WardManagementPage() {
 function BedCard({ bed }: { bed: Bed }) {
     const firestore = useFirestore();
     
-    // Support for both PascalCase and lowercase status values from different data sources
-    const statusColors: any = {
+    // Fixed indexing type safety for bed statuses
+    const statusColors: Record<string, string> = {
         Available: "bg-green-50 border-green-200 text-green-700",
         vacant: "bg-green-50 border-green-200 text-green-700",
         Occupied: "bg-blue-50 border-blue-200 text-blue-700 shadow-sm",
