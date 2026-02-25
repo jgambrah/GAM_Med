@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -24,6 +23,7 @@ import { mockSuppliers, mockInventory } from '@/lib/data';
 import { PurchaseOrder, Quote, RequestForQuotation, Supplier } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 const QuoteItemSchema = z.object({
   itemId: z.string(),
@@ -36,6 +36,7 @@ const NewQuoteSchema = z.object({
 });
 
 function AddQuoteForm({ rfq, onQuoteAdded }: { rfq: RequestForQuotation, onQuoteAdded: (newQuote: Quote) => void }) {
+  const { user } = useAuth();
   const [suppliers] = useLocalStorage<Supplier[]>('suppliers', mockSuppliers);
 
   const form = useForm<z.infer<typeof NewQuoteSchema>>({
@@ -62,6 +63,7 @@ function AddQuoteForm({ rfq, onQuoteAdded }: { rfq: RequestForQuotation, onQuote
 
     const newQuote: Quote = {
       quoteId: `Q-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       supplierId: values.supplierId,
       supplierName: supplier.name,
       dateSubmitted: new Date().toISOString(),
@@ -143,6 +145,7 @@ export function ManageQuotesDialog({ rfq, isOpen, onOpenChange, onQuoteUpdate, o
 
     const newPO: PurchaseOrder = {
         poId: `PO-${Date.now()}`,
+        hospitalId: quote.hospitalId,
         dateOrdered: new Date().toISOString(),
         status: 'Submitted',
         orderedByUserId: 'pharma1', // Mocked user
