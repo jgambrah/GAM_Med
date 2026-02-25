@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -78,7 +77,7 @@ export function MainNavClient() {
     );
 
     return mockAlerts.filter(alert => 
-        myPatientIds.has(alert.patientId) && 
+        myPatientIds.has(alert.patientId || '') && 
         alert.severity === 'Critical' && 
         !alert.isAcknowledged
     ).length;
