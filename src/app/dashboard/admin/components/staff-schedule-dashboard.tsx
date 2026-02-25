@@ -19,24 +19,37 @@ import {
 import { Label } from '@/components/ui/label';
 import { allUsers } from '@/lib/data';
 import { ScheduleCalendar } from '../../my-schedule/components/schedule-calendar';
+import { useAuth } from '@/hooks/use-auth';
 
+/**
+ * == Staff Schedule Viewer (Administrative) ==
+ * 
+ * Allows directors/admins to view schedules for clinical staff within their facility.
+ * Enforces the SaaS Wall by filtering the staff list by hospitalId.
+ */
 export function StaffScheduleDashboard() {
+  const { user } = useAuth();
   const [selectedDoctorId, setSelectedDoctorId] = React.useState<string | null>(null);
-  const doctors = allUsers.filter(u => u.role === 'doctor');
+
+  // SaaS LOGIC: Only show doctors belonging to this facility
+  const hospitalDoctors = React.useMemo(() => {
+    if (!user) return [];
+    return allUsers.filter(u => u.role === 'doctor' && u.hospitalId === user.hospitalId);
+  }, [user]);
 
   React.useEffect(() => {
-    // Select the first doctor by default
-    if (doctors.length > 0 && !selectedDoctorId) {
-      setSelectedDoctorId(doctors[0].uid);
+    // Select the first doctor by default if one exists
+    if (hospitalDoctors.length > 0 && !selectedDoctorId) {
+      setSelectedDoctorId(hospitalDoctors[0].uid);
     }
-  }, [doctors, selectedDoctorId]);
+  }, [hospitalDoctors, selectedDoctorId]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Global Staff Schedule Viewer</CardTitle>
         <CardDescription>
-          Select a doctor to view and manage their weekly schedule.
+          Select a doctor to view and manage their weekly schedule for <strong>{user?.hospitalId}</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -47,7 +60,7 @@ export function StaffScheduleDashboard() {
                     <SelectValue placeholder="Select a doctor..." />
                 </SelectTrigger>
                 <SelectContent>
-                    {doctors.map(doc => (
+                    {hospitalDoctors.map(doc => (
                         <SelectItem key={doc.uid} value={doc.uid}>
                             {doc.name}
                         </SelectItem>
@@ -59,8 +72,8 @@ export function StaffScheduleDashboard() {
         {selectedDoctorId ? (
             <ScheduleCalendar />
         ) : (
-            <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg">
-                <p className="text-muted-foreground">Please select a doctor to view their schedule.</p>
+            <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/10">
+                <p className="text-muted-foreground italic text-sm">No doctors registered for your facility.</p>
             </div>
         )}
 

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -31,7 +30,8 @@ import { FacilityZonesDashboard } from './components/facility-zones-dashboard';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { AddAssetDialog } from './components/add-asset-dialog';
 import { UtilitiesDashboard } from './components/utilities-dashboard';
-
+import { useAuth } from '@/hooks/use-auth';
+import { PackageSearch } from 'lucide-react';
 
 const getStatusVariant = (status: Asset['status']): "secondary" | "default" | "destructive" | "outline" => {
     switch (status) {
@@ -44,12 +44,19 @@ const getStatusVariant = (status: Asset['status']): "secondary" | "default" | "d
 }
 
 function AssetCatalog() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [assets, setAssets] = React.useState<Asset[]>(mockResources);
+  const [assets, setAssets] = React.useState<Asset[]>([]);
+
+  // SaaS LOGIC: Only show assets for this hospital
+  const hospitalResources = React.useMemo(() => {
+    if (!user) return [];
+    return mockResources.filter(r => r.hospitalId === user.hospitalId);
+  }, [user]);
 
   React.useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
-    const filtered = mockResources.filter(asset => 
+    const filtered = hospitalResources.filter(asset => 
       asset.name.toLowerCase().includes(lowercasedQuery) ||
       asset.assetId.toLowerCase().includes(lowercasedQuery) ||
       (asset.serialNumber && asset.serialNumber.toLowerCase().includes(lowercasedQuery)) ||
@@ -57,7 +64,7 @@ function AssetCatalog() {
       asset.department.toLowerCase().includes(lowercasedQuery)
     );
     setAssets(filtered);
-  }, [searchQuery]);
+  }, [searchQuery, hospitalResources]);
 
   const handleAssetCreated = (newAsset: Asset) => {
     setAssets(prev => [newAsset, ...prev]);
@@ -82,7 +89,7 @@ function AssetCatalog() {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                  <div>
                     <CardTitle>Asset Register</CardTitle>
-                    <CardDescription>A comprehensive list of all hospital assets and equipment.</CardDescription>
+                    <CardDescription>A comprehensive list of all hospital assets and equipment for <strong>{user?.hospitalId}</strong>.</CardDescription>
                  </div>
                  <div className="flex gap-2">
                     <Input
@@ -109,30 +116,39 @@ function AssetCatalog() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assets.map((asset) => (
-                  <TableRow key={asset.assetId} className={cn(getRowClass(asset))}>
-                    <TableCell className="font-medium">{asset.name}</TableCell>
-                    <TableCell>{asset.department}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(asset.status)}>
-                        {asset.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                        {asset.purchaseCost ? `₵${asset.purchaseCost.toFixed(2)}` : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                        {asset.currentBookValue ? `₵${asset.currentBookValue.toFixed(2)}` : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/admin/resources/${asset.assetId}`}>
-                          View Details
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {assets.length > 0 ? (
+                    assets.map((asset) => (
+                    <TableRow key={asset.assetId} className={cn(getRowClass(asset))}>
+                        <TableCell className="font-medium">{asset.name}</TableCell>
+                        <TableCell>{asset.department}</TableCell>
+                        <TableCell>
+                        <Badge variant={getStatusVariant(asset.status)}>
+                            {asset.status}
+                        </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                            {asset.purchaseCost ? `₵${asset.purchaseCost.toFixed(2)}` : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                            {asset.currentBookValue ? `₵${asset.currentBookValue.toFixed(2)}` : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/dashboard/admin/resources/${asset.assetId}`}>
+                            View Details
+                            </Link>
+                        </Button>
+                        </TableCell>
+                    </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                            <PackageSearch className="h-12 w-12 mx-auto opacity-20 mb-2" />
+                            <p>No assets found for your facility.</p>
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -143,9 +159,17 @@ function AssetCatalog() {
 
 
 export default function ResourceListPage() {
-  const totalAssets = mockResources.length;
-  const operationalAssets = mockResources.filter(r => r.status === 'Operational').length;
-  const maintenanceAssets = mockResources.filter(r => r.status === 'Under Maintenance' || r.status === 'Needs Repair').length;
+  const { user } = useAuth();
+  
+  // SaaS LOGIC: Only calculate stats for this hospital
+  const hospitalResources = React.useMemo(() => {
+    if (!user) return [];
+    return mockResources.filter(r => r.hospitalId === user.hospitalId);
+  }, [user]);
+
+  const totalAssets = hospitalResources.length;
+  const operationalAssets = hospitalResources.filter(r => r.status === 'Operational').length;
+  const maintenanceAssets = hospitalResources.filter(r => r.status === 'Under Maintenance' || r.status === 'Needs Repair').length;
 
   return (
     <div className="space-y-6">
@@ -153,7 +177,7 @@ export default function ResourceListPage() {
             <div>
                 <h1 className="text-3xl font-bold">Asset &amp; Facilities Management</h1>
                 <p className="text-muted-foreground">
-                View assets, equipment, and manage facility zones.
+                View assets, equipment, and manage facility zones for <strong>{user?.hospitalId}</strong>.
                 </p>
             </div>
              <AddMaintenanceRequestDialog />

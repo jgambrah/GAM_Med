@@ -22,7 +22,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
-import { DatabaseBackup, RotateCw } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 // Mock data for past backups
 const mockBackupHistory = [
@@ -46,7 +47,14 @@ const mockBackupHistory = [
   },
 ];
 
+/**
+ * == Tenant Data Resilience Dashboard ==
+ * 
+ * Monitors the automated backup status for the specific hospital tenant.
+ * Provides a manual trigger for ad-hoc resilience points.
+ */
 export function BackupDashboard() {
+  const { user } = useAuth();
   const [backups, setBackups] = React.useState(mockBackupHistory);
   const [isBackingUp, setIsBackingUp] = React.useState(false);
   const lastBackup = backups[0];
@@ -54,22 +62,22 @@ export function BackupDashboard() {
   const handleManualBackup = async () => {
     setIsBackingUp(true);
     toast.info('Manual backup initiated...', {
-      description: 'This may take a few minutes.',
+      description: `Targeting facility vault: ${user?.hospitalId}`,
     });
 
-    // Simulate the backup process
+    // Simulate the backup process (Cloud Storage snapshot)
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     const newBackup = {
-      backupId: `backup-${Date.now()}`,
+      backupId: `manual-snap-${Date.now()}`,
       timestamp: new Date().toISOString(),
       status: 'Success' as 'Success' | 'Failed',
       triggeredBy: 'Manual',
     };
     
     setBackups([newBackup, ...backups]);
-    toast.success('Manual Backup Completed', {
-      description: 'The database has been successfully backed up.',
+    toast.success('Facility Backup Completed', {
+      description: 'Your hospital data has been successfully snapshotted.',
     });
     setIsBackingUp(false);
   };
@@ -80,23 +88,23 @@ export function BackupDashboard() {
 
   return (
     <div className="grid gap-6 md:grid-cols-1">
-        <Card>
+        <Card className="border-t-4 border-t-primary">
             <CardHeader>
-                <CardTitle>Backup Status</CardTitle>
+                <CardTitle>Data Resilience: {user?.hospitalId}</CardTitle>
                 <CardDescription>
-                    Monitor and manage automated database backups.
+                    Monitor and manage automated database backups for your facility.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/5">
                     <div>
-                        <p className="text-sm font-medium">Last Backup Status</p>
+                        <p className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Last Backup Status</p>
                         <Badge variant={getStatusVariant(lastBackup.status)} className="mt-1">
                             {lastBackup.status}
                         </Badge>
                     </div>
                      <div>
-                        <p className="text-sm font-medium">Last Backup Time</p>
+                        <p className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Last Backup Time</p>
                         <p className="font-semibold">{format(new Date(lastBackup.timestamp), 'PPP p')}</p>
                     </div>
                 </div>
@@ -104,15 +112,15 @@ export function BackupDashboard() {
             <CardFooter>
                  <Button onClick={handleManualBackup} disabled={isBackingUp}>
                     <RotateCw className={`mr-2 h-4 w-4 ${isBackingUp ? 'animate-spin' : ''}`} />
-                    {isBackingUp ? 'Backup in Progress...' : 'Run Manual Backup'}
+                    {isBackingUp ? 'Snapshot in Progress...' : 'Trigger Manual Snapshot'}
                 </Button>
             </CardFooter>
         </Card>
         
       <Card>
         <CardHeader>
-          <CardTitle>Backup History</CardTitle>
-          <CardDescription>A log of all recent backup attempts.</CardDescription>
+          <CardTitle>Resilience Audit Log</CardTitle>
+          <CardDescription>A log of all recent backup attempts for your tenant.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -122,7 +130,7 @@ export function BackupDashboard() {
                   <TableHead>Timestamp</TableHead>
                   <TableHead>Triggered By</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Backup ID</TableHead>
+                  <TableHead>Snapshot ID</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -135,7 +143,7 @@ export function BackupDashboard() {
                             {backup.status}
                         </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{backup.backupId}</TableCell>
+                    <TableCell className="font-mono text-[10px] opacity-60 uppercase">{backup.backupId}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -19,6 +19,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/use-auth';
 
 const DetailItem = ({ label, value, children }: { label: string; value?: string | number | null; children?: React.ReactNode }) => (
     <div>
@@ -46,7 +47,6 @@ function WarrantyAlert({ warrantyEndDate }: { warrantyEndDate?: string }) {
     if (daysToExpiry > 60 || daysToExpiry < 0) return null;
 
     const isExpiringSoon = daysToExpiry <= 30;
-    const variant = isExpiringSoon ? 'destructive' : 'default';
 
     return (
         <Card className={cn(
@@ -66,18 +66,29 @@ function WarrantyAlert({ warrantyEndDate }: { warrantyEndDate?: string }) {
     );
 }
 
+/**
+ * == SaaS Asset Detail Viewer ==
+ * 
+ * Displays the full lifecycle data for a specific machine.
+ * Enforces logical isolation by verifying the asset belongs to the user's hospitalId.
+ */
 export default function AssetDetailPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useParams();
   const assetId = params.assetId as string;
 
-  const asset = mockResources.find((r) => r.assetId === assetId);
-  const maintenanceHistory = mockWorkOrders.filter((req) => req.assetId === assetId);
-  const depreciationHistory = mockDepreciationRecords.filter((rec) => rec.assetId === assetId);
+  const asset = React.useMemo(() => {
+    return mockResources.find((r) => r.assetId === assetId);
+  }, [assetId]);
 
-  if (!asset) {
+  // SAAS SECURITY CHECK: Prevent cross-tenant direct URL access
+  if (!asset || (user && asset.hospitalId !== user.hospitalId)) {
     notFound();
   }
+
+  const maintenanceHistory = mockWorkOrders.filter((req) => req.assetId === assetId);
+  const depreciationHistory = mockDepreciationRecords.filter((rec) => rec.assetId === assetId);
 
   return (
     <div className="space-y-6">
@@ -89,7 +100,7 @@ export default function AssetDetailPage() {
         <div>
             <h1 className="text-3xl font-bold">{asset.name}</h1>
             <p className="text-muted-foreground">
-                {asset.type} - ID: {asset.assetId}
+                {asset.type} - ID: {asset.assetId} | Facility: <strong>{asset.hospitalId}</strong>
             </p>
         </div>
       </div>
@@ -150,7 +161,7 @@ export default function AssetDetailPage() {
                         <TableHeader>
                             <TableRow>
                             <TableHead>Date</TableHead>
-                            <TableHead>Type</TableHead>
+                            <TableHead>Priority</TableHead>
                             <TableHead>Description</TableHead>
                             <TableHead>Status</TableHead>
                             </TableRow>
@@ -199,12 +210,12 @@ export default function AssetDetailPage() {
                         </TableHeader>
                         <TableBody>
                             {depreciationHistory.length > 0 ? (
-                                depreciationHistory.map(rec => (
-                                    <TableRow key={rec.recordId}>
+                                depreciationHistory.map((rec, i) => (
+                                    <TableRow key={i}>
                                         <TableCell>{format(parseISO(rec.dateCalculated), 'PPP')}</TableCell>
                                         <TableCell>{rec.period}</TableCell>
                                         <TableCell className="text-right font-mono">₵{rec.depreciationAmount.toFixed(2)}</TableCell>
-                                        <TableCell className="text-right font-mono">₵{rec.bookValue.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right font-mono font-bold">₵{rec.bookValue.toFixed(2)}</TableCell>
                                     </TableRow>
                                 ))
                             ) : (
