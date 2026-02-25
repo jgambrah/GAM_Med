@@ -3,11 +3,11 @@
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews } from '@/lib/data';
+import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockPerformanceReviews, mockLeaveRequests } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield } from 'lucide-react';
-import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal } from '@/lib/types';
+import { ChevronLeft, Plus, Trash2, Download, WalletCards } from 'lucide-react';
+import { StaffProfile, PayrollRecord, Allowance, Deduction, User as UserType, PerformanceReview, TrainingCourse, DevelopmentGoal, LeaveRequest } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -26,16 +26,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
-import { NewGoalSchema, LogTrainingSchema } from '@/lib/schemas';
 import { InitiateReviewDialog } from './components/initiate-review-dialog';
 import { EnableMfaDialog } from './components/enable-mfa-dialog';
 import { LogTrainingDialog } from './components/log-training-dialog';
 import { AddGoalDialog } from './components/add-goal-dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LeaveTab } from './components/leave-tab';
+import { ProfileDetailsTab } from './components/profile-details-tab';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -87,7 +88,7 @@ function AddRecurringItemDialog({ staff, itemType, onAdded }: { staff: UserType,
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{itemType} Type</FormLabel>
+                  <FormLabel>{itemType}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -185,101 +186,11 @@ function PayrollHistoryTab({ staffId }: { staffId: string }) {
     );
 }
 
-const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string; value?: string | null; children?: React.ReactNode }) => (
-    <div>
-        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Icon className="h-4 w-4" />{label}</div>
-        {value && <div className="text-base font-semibold ml-6">{value}</div>}
-        {children && <div className="ml-6">{children}</div>}
-    </div>
-);
-
-
-function ProfileDetailsTab({ staff, user }: { staff: UserType, user: UserType | null }) {
-    const isSelf = staff.uid === user?.uid;
-    const canEdit = user?.role === 'admin';
-
-    const getExpiryColor = (dateString: string) => {
-        const daysToExpiry = differenceInDays(parseISO(dateString), new Date());
-        if (daysToExpiry < 0) return 'text-destructive font-semibold';
-        if (daysToExpiry <= 60) return 'text-yellow-600 font-semibold';
-        return '';
-    };
-
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Personal & Contact</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <DetailItem icon={User} label="Name" value={staff.name} />
-                        <DetailItem icon={Mail} label="Email" value={staff.email} />
-                        <DetailItem icon={Phone} label="Phone" value={staff.phoneNumber} />
-                        <DetailItem icon={CalendarDays} label="Date of Birth" value={staff.dateOfBirth ? format(parseISO(staff.dateOfBirth), 'PPP') : 'N/A'} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Employment Details</CardTitle>
-                    </CardHeader>
-                     <CardContent className="space-y-4">
-                        <DetailItem icon={Building} label="Department" value={staff.department} />
-                        <DetailItem icon={User} label="Role" value={staff.role} />
-                        <DetailItem icon={CalendarDays} label="Hire Date" value={staff.hireDate ? format(parseISO(staff.hireDate), 'PPP') : 'N/A'} />
-                     </CardContent>
-                </Card>
-            </div>
-             <div className="lg:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Qualifications & Credentials</CardTitle>
-                        {canEdit && <Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4" /> Add</Button>}
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div>
-                             <h4 className="font-semibold text-md flex items-center gap-2 mb-2"><GraduationCap className="h-5 w-5" />Qualifications</h4>
-                             {staff.qualifications?.length ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {staff.qualifications.map((q, i) => <li key={i}>{q.degree} - {q.institution} ({q.graduationYear})</li>)}
-                                </ul>
-                             ): <div className="text-sm text-muted-foreground">No qualifications on file.</div>}
-                        </div>
-                        <Separator />
-                         <div>
-                             <h4 className="font-semibold text-md flex items-center gap-2 mb-2"><BadgeCheck className="h-5 w-5" />Certifications</h4>
-                             {staff.certifications?.length ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {staff.certifications.map((c, i) => (
-                                         <li key={i}>{c.name} (Expires: <span className={getExpiryColor(c.expiryDate!)}>{format(parseISO(c.expiryDate!), 'PPP')}</span>)</li>
-                                    ))}
-                                </ul>
-                             ): <div className="text-sm text-muted-foreground">No certifications on file.</div>}
-                        </div>
-                        <Separator />
-                         <div>
-                             <h4 className="font-semibold text-md flex items-center gap-2 mb-2"><FileText className="h-5 w-5" />Licenses</h4>
-                             {staff.licenses?.length ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {staff.licenses.map((l, i) => (
-                                        <li key={i}>{l.type} - {l.licenseNumber} (Expires: <span className={getExpiryColor(l.expiryDate)}>{format(parseISO(l.expiryDate), 'PPP')}</span>)</li>
-                                    ))}
-                                </ul>
-                             ): <div className="text-sm text-muted-foreground">No licenses on file.</div>}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    )
-}
-
-
-function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispatch<React.SetStateAction<UserType | undefined>> }) {
+function SalaryTab({ staff, user }: { staff: UserType, user: UserType | null }) {
     const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
     
-    // For prototype, we need to find the full staff profile to get allowances/deductions
     const fullProfile = mockStaffProfiles.find(p => p.staffId === staff.uid);
+    const canEdit = user?.role === 'admin';
 
     const handleAddAllowance = (name: string, amount: number) => {
         // This is a mock update. In a real app, you'd call a server action.
@@ -305,7 +216,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                     <CardTitle>Salary & Allowances</CardTitle>
                     <CardDescription>Manage recurring payments and benefits.</CardDescription>
                 </div>
-                <AddRecurringItemDialog staff={staff} itemType="Allowance" onAdded={handleAddAllowance} />
+                {canEdit && <AddRecurringItemDialog staff={staff} itemType="Allowance" onAdded={handleAddAllowance} />}
                 </CardHeader>
                 <CardContent>
                 <div className="rounded-md border">
@@ -314,7 +225,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableRow>
                         <TableHead>Item</TableHead>
                         <TableHead className="text-right">Monthly Amount (₵)</TableHead>
-                        <TableHead>Actions</TableHead>
+                        {canEdit && <TableHead>Actions</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -323,13 +234,13 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableCell className="text-right">
                             {((staffPosition?.baseAnnualSalary || 0) / 12).toFixed(2)}
                         </TableCell>
-                        <TableCell></TableCell>
+                        {canEdit && <TableCell></TableCell>}
                         </TableRow>
                         {fullProfile.recurringAllowances.map((allowance) => (
                         <TableRow key={allowance.name}>
                             <TableCell>{allowance.name}</TableCell>
                             <TableCell className="text-right">{allowance.amount.toFixed(2)}</TableCell>
-                            <TableCell>
+                            {canEdit && <TableCell>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -338,7 +249,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                             >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                            </TableCell>
+                            </TableCell>}
                         </TableRow>
                         ))}
                     </TableBody>
@@ -352,7 +263,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                     <CardTitle>Recurring Deductions</CardTitle>
                     <CardDescription>Manage recurring deductions from salary.</CardDescription>
                 </div>
-                <AddRecurringItemDialog staff={staff} itemType="Deduction" onAdded={handleAddDeduction} />
+                {canEdit && <AddRecurringItemDialog staff={staff} itemType="Deduction" onAdded={handleAddDeduction} />}
                 </CardHeader>
                 <CardContent>
                 <div className="rounded-md border">
@@ -361,7 +272,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableRow>
                         <TableHead>Item</TableHead>
                         <TableHead className="text-right">Monthly Amount (₵)</TableHead>
-                        <TableHead>Actions</TableHead>
+                        {canEdit && <TableHead>Actions</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -369,7 +280,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                         <TableRow key={deduction.name}>
                             <TableCell>{deduction.name}</TableCell>
                             <TableCell className="text-right">{deduction.amount.toFixed(2)}</TableCell>
-                            <TableCell>
+                            {canEdit && <TableCell>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -378,7 +289,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
                             >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                            </TableCell>
+                            </TableCell>}
                         </TableRow>
                         ))}
                     </TableBody>
@@ -390,7 +301,7 @@ function SalaryTab({ staff, setStaff }: { staff: UserType, setStaff: React.Dispa
     )
 }
 
-function PerformanceTab({ staffId, staff, setStaff }: { staffId: string, staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
+function PerformanceTab({ staff, setStaff }: { staff: StaffProfile, setStaff: (profile: StaffProfile) => void }) {
   const [reviews, setReviews] = React.useState<PerformanceReview[]>(
     mockPerformanceReviews.filter(r => r.employeeId === staff.staffId)
   );
@@ -437,7 +348,7 @@ function PerformanceTab({ staffId, staff, setStaff }: { staffId: string, staff: 
             <CardTitle>Performance Review History</CardTitle>
             <CardDescription>A log of all past performance appraisals.</CardDescription>
           </div>
-          <InitiateReviewDialog staffId={staffId} onReviewInitiated={handleReviewInitiated} />
+          <InitiateReviewDialog onReviewInitiated={handleReviewInitiated} />
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -570,27 +481,43 @@ export default function StaffProfilePage() {
   const params = useParams();
   const { user } = useAuth();
   const staffId = params.staffId as string;
-
-  const [staff, setStaff] = React.useState<UserType | undefined>(
-    allUsers.find((p) => p.uid === staffId)
-  );
   
+  const [allUsersData, setAllUsers] = useLocalStorage<UserType[]>('allUsers', allUsers);
+  const [staffProfiles, setStaffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
+
+  const staff = allUsersData.find((p) => p.uid === staffId);
+  const staffProfile = staffProfiles.find(p => p.staffId === staffId);
+
   const [isMfaDialogOpen, setIsMfaDialogOpen] = React.useState(false);
-
-
-  const [staffProfile, setStaffProfile] = React.useState<StaffProfile | undefined>(
-      mockStaffProfiles.find(p => p.staffId === staffId)
-  );
+  
+  const setStaff = (updater: React.SetStateAction<UserType | undefined>) => {
+    setAllUsers(prev => prev.map(u => u.uid === staffId ? (typeof updater === 'function' ? updater(u) as UserType : updater) as UserType : u));
+  };
+  
+  const setStaffProfileState = (updater: React.SetStateAction<StaffProfile | undefined>) => {
+     setStaffProfiles(prev => prev.map(p => p.staffId === staffId ? (typeof updater === 'function' ? updater(p) as StaffProfile : updater) as StaffProfile : p));
+  }
 
 
   if (!staff || !staffProfile) {
-    notFound();
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="flex gap-2">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
   }
 
+  const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
   const isSelf = staff.uid === user?.uid;
 
   const handleMfaEnabled = () => {
-      // In a real app, this would re-fetch the user data or update the state.
       setStaff(prev => prev ? { ...prev, isMfaEnabled: true } : undefined);
   }
 
@@ -604,7 +531,7 @@ export default function StaffProfilePage() {
         <div>
           <h1 className="text-3xl font-bold">{staff.name}</h1>
           <p className="text-muted-foreground">
-            ID: {staff.uid}
+            {staffPosition?.title || 'No Position Assigned'} - ID: {staff.uid}
           </p>
         </div>
       </div>
@@ -615,19 +542,23 @@ export default function StaffProfilePage() {
             <TabsTrigger value="performance">Performance & Goals</TabsTrigger>
             <TabsTrigger value="training">Training</TabsTrigger>
             <TabsTrigger value="payroll">Payroll</TabsTrigger>
+            <TabsTrigger value="leave">Leave Management</TabsTrigger>
             {isSelf && <TabsTrigger value="security">Security</TabsTrigger>}
         </TabsList>
          <TabsContent value="profile" className="mt-4">
             <ProfileDetailsTab staff={staff} user={user} setStaff={setStaff} />
         </TabsContent>
          <TabsContent value="performance" className="mt-4">
-            <PerformanceTab staffId={staffId} staff={staffProfile} setStaff={setStaffProfile as any} />
+            <PerformanceTab staff={staffProfile} setStaff={setStaffProfileState as any} />
         </TabsContent>
          <TabsContent value="training" className="mt-4">
-            <TrainingTab staff={staffProfile} setStaff={setStaffProfile as any} />
+            <TrainingTab staff={staffProfile} setStaff={setStaffProfileState as any} />
+        </TabsContent>
+        <TabsContent value="leave" className="mt-4">
+            <LeaveTab staffProfile={staffProfile} setStaffProfile={setStaffProfileState as any} user={user} />
         </TabsContent>
         <TabsContent value="payroll" className="mt-4">
-            <SalaryTab staff={staff} setStaff={setStaff} />
+            <SalaryTab staff={staff} user={user} />
             <div className="mt-6">
                  <PayrollHistoryTab staffId={staff.uid} />
             </div>
