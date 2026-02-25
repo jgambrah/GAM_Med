@@ -28,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 function CreateOrEditPositionDialog({ 
   position, 
@@ -38,6 +39,7 @@ function CreateOrEditPositionDialog({
   onSave: (newPosition: Position) => void,
   children: React.ReactNode
 }) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState(position?.title || '');
   const [baseAnnualSalary, setBaseAnnualSalary] = React.useState(position?.baseAnnualSalary || 0);
@@ -63,6 +65,7 @@ function CreateOrEditPositionDialog({
 
     const newPosition: Position = {
       positionId: isEditing ? position.positionId : `POS-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       title,
       baseAnnualSalary,
     };
@@ -175,19 +178,31 @@ function ApplySalaryIncreaseDialog({ positions, onIncreaseApplied }: { positions
   }
 
 export function PositionsDashboard() {
-  const [positions, setPositions] = useLocalStorage<Position[]>('positions', mockPositions);
+  const { user } = useAuth();
+  const [allPositions, setAllPositions] = useLocalStorage<Position[]>('positions', mockPositions);
+
+  const hospitalPositions = React.useMemo(() => {
+    if (!user) return [];
+    return allPositions.filter(p => p.hospitalId === user.hospitalId);
+  }, [allPositions, user]);
 
   const handleSave = (positionToSave: Position) => {
-    const exists = positions.some(p => p.positionId === positionToSave.positionId);
-    if (exists) {
-        setPositions(prev => prev.map(p => p.positionId === positionToSave.positionId ? positionToSave : p));
-    } else {
-        setPositions(prev => [...prev, positionToSave]);
-    }
+    setAllPositions(prev => {
+        const exists = prev.some(p => p.positionId === positionToSave.positionId);
+        if (exists) {
+            return prev.map(p => p.positionId === positionToSave.positionId ? positionToSave : p);
+        } else {
+            return [...prev, positionToSave];
+        }
+    });
   };
   
   const handleIncreaseApplied = (updatedPositions: Position[]) => {
-    setPositions(updatedPositions);
+    // Only update the positions for the current hospital in the global list
+    setAllPositions(prev => {
+        const otherHospitalsPositions = prev.filter(p => p.hospitalId !== user?.hospitalId);
+        return [...otherHospitalsPositions, ...updatedPositions];
+    });
   };
 
   return (
@@ -196,15 +211,15 @@ export function PositionsDashboard() {
         <div>
           <CardTitle>Positions & Salary Grades</CardTitle>
           <CardDescription>
-            Define job roles and their corresponding base annual salaries.
+            Define job roles and their corresponding base annual salaries for your facility.
           </CardDescription>
         </div>
         <div className="flex gap-2">
-            <ApplySalaryIncreaseDialog positions={positions} onIncreaseApplied={handleIncreaseApplied} />
+            <ApplySalaryIncreaseDialog positions={hospitalPositions} onIncreaseApplied={handleIncreaseApplied} />
             <CreateOrEditPositionDialog onSave={handleSave}>
-               <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create New Position
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Position
               </Button>
             </CreateOrEditPositionDialog>
         </div>
@@ -220,17 +235,25 @@ export function PositionsDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {positions.map((position) => (
-                <TableRow key={position.positionId}>
-                  <TableCell className="font-medium">{position.title}</TableCell>
-                  <TableCell className="text-right font-mono">{position.baseAnnualSalary.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <CreateOrEditPositionDialog position={position} onSave={handleSave}>
-                      <Button variant="outline" size="sm">Edit</Button>
-                    </CreateOrEditPositionDialog>
-                  </TableCell>
+              {hospitalPositions.length > 0 ? (
+                hospitalPositions.map((position) => (
+                    <TableRow key={position.positionId}>
+                    <TableCell className="font-medium">{position.title}</TableCell>
+                    <TableCell className="text-right font-mono">{position.baseAnnualSalary.toFixed(2)}</TableCell>
+                    <TableCell>
+                        <CreateOrEditPositionDialog position={position} onSave={handleSave}>
+                        <Button variant="outline" size="sm">Edit</Button>
+                        </CreateOrEditPositionDialog>
+                    </TableCell>
+                    </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                        No positions defined for your hospital.
+                    </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
