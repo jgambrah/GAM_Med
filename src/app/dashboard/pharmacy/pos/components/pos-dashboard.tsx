@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -15,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { Invoice, InventoryItem } from '@/lib/types';
 import { PaymentDialog } from '@/app/dashboard/patients/[patientId]/components/payment-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 interface CartItem {
   itemId: string;
@@ -40,6 +39,7 @@ const getPrice = (itemId: string): number => {
 }
 
 export function PointOfSaleDashboard() {
+  const { user } = useAuth();
   const [cart, setCart] = React.useState<CartItem[]>([]);
   const [selectedItem, setSelectedItem] = React.useState<string | undefined>();
   const [finalizedInvoice, setFinalizedInvoice] = React.useState<Invoice | null>(null);
@@ -105,6 +105,7 @@ export function PointOfSaleDashboard() {
     // which would create an invoice and return it. For this prototype, we simulate it.
     const mockInvoice: Invoice = {
       invoiceId: `POS-INV-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       patientId: 'OTC-CUSTOMER', // Generic ID for over-the-counter sales
       patientName: 'Over-the-Counter Customer',
       patientType: 'private',
