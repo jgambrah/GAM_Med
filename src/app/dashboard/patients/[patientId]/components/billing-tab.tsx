@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -11,13 +9,13 @@ import { format } from 'date-fns';
 import { GenerateInvoiceDialog } from './generate-invoice-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { mockInvoices as allMockInvoices, mockPayments } from '@/lib/data';
-import { Invoice, Receipt } from '@/lib/types';
+import { Invoice, Patient, Receipt } from '@/lib/types';
 import { PaymentDialog } from './payment-dialog';
 import { Download, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 interface BillingTabProps {
-    patientId: string;
+    patient: Patient;
 }
 
 
@@ -30,8 +28,9 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
     }
 }
 
-export function BillingTab({ patientId }: BillingTabProps) {
+export function BillingTab({ patient }: BillingTabProps) {
     const { user } = useAuth();
+    const patientId = patient.patient_id;
     const canGenerateInvoice = user?.role === 'admin' || user?.role === 'billing_clerk';
 
     const mockInvoices = allMockInvoices.filter(i => i.patientId === patientId);
@@ -50,7 +49,7 @@ export function BillingTab({ patientId }: BillingTabProps) {
                         <CardTitle>Invoices</CardTitle>
                         <CardDescription>A history of all invoices issued to this patient.</CardDescription>
                     </div>
-                    {canGenerateInvoice && <GenerateInvoiceDialog patientId={patientId} />}
+                    {canGenerateInvoice && <GenerateInvoiceDialog patient={{ ...patient, id: patient.id || patient.patient_id } as any} />}
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">

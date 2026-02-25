@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -25,7 +24,7 @@ export default function MyBillingPage() {
                     View your invoices and account summary.
                 </p>
             </div>
-            <BillingTab patientId={user.patient_id} />
+            <BillingTab patient={user as any} />
         </div>
     )
 }
