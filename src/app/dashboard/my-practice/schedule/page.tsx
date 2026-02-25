@@ -112,7 +112,7 @@ export default function DoctorSchedulePage() {
                                         {app.status === 'Arrived' && (
                                             <Button 
                                                 size="sm" 
-                                                onClick={() => handleUpdateStatus(app.id, 'In-Consultation', app.patientName)}
+                                                onClick={() => handleUpdateStatus(app.id, 'In-Consultation', app.patientName || 'Patient')}
                                                 className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-bold"
                                             >
                                                 <PlayCircle className="mr-2 h-4 w-4" />
@@ -123,7 +123,7 @@ export default function DoctorSchedulePage() {
                                             <Button 
                                                 size="sm" 
                                                 variant="outline"
-                                                onClick={() => handleUpdateStatus(app.id, 'Completed', app.patientName)}
+                                                onClick={() => handleUpdateStatus(app.id, 'Completed', app.patientName || 'Patient')}
                                                 className="border-green-600 text-green-700 hover:bg-green-50 h-8 text-xs font-bold"
                                             >
                                                 <CheckCircle2 className="mr-2 h-4 w-4" />
