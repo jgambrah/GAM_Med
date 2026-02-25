@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -61,7 +60,7 @@ function AppointmentDetailDialog({ appointment, trigger }: AppointmentDetailDial
   };
   
   const canJoinCall = differenceInMinutes(new Date(appointment.appointment_date), now) <= 15;
-  const canCancel = isFuture(new Date(appointment.appointment_date)) && (appointment.status === 'scheduled' || appointment.status === 'confirmed');
+  const canCancel = isFuture(new Date(appointment.appointment_date)) && (appointment.status === 'Scheduled' || appointment.status === 'confirmed');
   
   return (
     <Dialog>
@@ -82,7 +81,7 @@ function AppointmentDetailDialog({ appointment, trigger }: AppointmentDetailDial
           <p><strong>Notes:</strong> {appointment.notes || 'N/A'}</p>
         </div>
          <DialogFooter className="sm:justify-between">
-          <Button variant="destructive" onClick={() => handleCancel(appointment.appointment_id)} disabled={!canCancel}>
+          <Button variant="destructive" onClick={() => handleCancel(appointment.appointment_id || '')} disabled={!canCancel}>
             Cancel Appointment
           </Button>
           {appointment.isVirtual ? (
@@ -130,7 +129,7 @@ export function PatientAppointmentCalendar({ appointments }: { appointments: App
             <div key={dayIndex} className={cn("border-r p-2 space-y-2 overflow-y-auto", isToday(day) && "bg-muted/50")}>
               {dailyAppointments.map(appt => (
                  <AppointmentDetailDialog 
-                    key={appt.appointment_id} 
+                    key={appt.appointment_id || appt.id} 
                     appointment={appt}
                     trigger={
                       <TooltipProvider>
