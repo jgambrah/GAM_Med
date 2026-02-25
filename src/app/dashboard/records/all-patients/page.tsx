@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -32,7 +33,7 @@ export default function PatientList() {
         return query(
             collection(db, "patients"),
             where("hospitalId", "==", hospitalId),
-            orderBy("createdAt", "desc")
+            orderBy("created_at", "desc")
         );
     }, [db, hospitalId]);
 
@@ -74,7 +75,7 @@ export default function PatientList() {
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right text-muted-foreground">
-                                        {p.createdAt ? format(new Date(p.createdAt), 'PPP') : 'N/A'}
+                                        {p.created_at ? format(new Date(p.created_at), 'PPP') : 'N/A'}
                                     </TableCell>
                                 </TableRow>
                             ))

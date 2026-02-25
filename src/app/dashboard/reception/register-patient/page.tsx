@@ -65,8 +65,8 @@ export default function RegisterPatient() {
                 full_name_lowercase: fullName.toLowerCase(),
                 phone_search: formData.phone.replace(/\D/g, ''),
                 hospitalId: hospitalId, // THE CRITICAL SAAS TAG
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
+                created_at: serverTimestamp(),
+                updated_at: serverTimestamp(),
                 status: 'outpatient',
                 is_admitted: false
             });
