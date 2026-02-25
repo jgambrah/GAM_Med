@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -124,8 +123,8 @@ export function TransferPatientDialog({ patient, currentBedId, disabled }: Trans
                     </FormControl>
                     <SelectContent>
                       {vacantBeds.map((b) => (
-                        <SelectItem key={b.bed_id} value={b.bed_id}>
-                          {b.bed_id} ({b.wardName})
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.bedNumber} ({b.wardName})
                         </SelectItem>
                       ))}
                     </SelectContent>
