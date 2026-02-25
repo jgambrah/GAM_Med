@@ -69,12 +69,11 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
     const rfqId = `RFQ-${Date.now()}`;
     const now = new Date().toISOString();
     
-    // 1. Create the activity logs using the proper SaaS interface
     const initialActivity: RfqActivityLogEntry[] = [
         { 
             id: `log-1-${Date.now()}`,
             rfqId: rfqId,
-            hospitalId: values.hospitalId,
+            hospitalId: user?.hospitalId || '',
             timestamp: now, 
             action: 'Created',
             performedBy: user?.name || 'System',
@@ -84,7 +83,7 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
         { 
             id: `log-2-${Date.now()}`,
             rfqId: rfqId,
-            hospitalId: values.hospitalId,
+            hospitalId: user?.hospitalId || '',
             timestamp: new Date(Date.now() + 1000).toISOString(), 
             action: 'Sent to Vendor',
             performedBy: user?.name || 'System',
@@ -93,10 +92,9 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
         },
     ];
     
-    // 2. Build the main RFQ object (ensure hospitalId is here too)
     const newRfq: RequestForQuotation = {
       rfqId: rfqId,
-      hospitalId: values.hospitalId,
+      hospitalId: user?.hospitalId || '',
       title: values.title,
       dateCreated: now,
       deadline: values.deadline,

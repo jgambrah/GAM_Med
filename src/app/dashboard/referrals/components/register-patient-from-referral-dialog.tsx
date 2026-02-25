@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Referral, Patient } from '@/lib/types';
 import { format } from 'date-fns';
 import { UserPlus, FileText } from 'lucide-react';
-import { addPatient } from '@/lib/actions';
+import { useAuth } from '@/hooks/use-auth';
 
 interface RegisterPatientFromReferralDialogProps {
   referral: Referral;
@@ -30,25 +30,34 @@ const DetailItem = ({ label, value }: { label: string; value?: string | null }) 
 );
 
 export function RegisterPatientFromReferralDialog({ referral, isOpen, onOpenChange, onPatientRegistered }: RegisterPatientFromReferralDialogProps) {
+    const { user } = useAuth();
     const [isRegistering, setIsRegistering] = React.useState(false);
 
     const handleRegister = async () => {
         setIsRegistering(true);
-        // This is a simplified registration. In a real app, you'd open the full
-        // AddPatientDialog pre-filled with this information.
         
+        const firstName = referral.patientDetails.name.split(' ')[0];
+        const lastName = referral.patientDetails.name.split(' ').slice(1).join(' ') || 'Referral';
+        const fullName = `${firstName} ${lastName}`;
+        const phone = referral.patientDetails.phone || '';
+        const phoneSearch = phone.replace(/\D/g, '');
+
         const newPatient: Patient = {
             patient_id: `P-${Date.now()}`,
+            hospitalId: user?.hospitalId || '',
+            mrn: `MRN-${Date.now().toString().slice(-6)}`,
             title: '',
-            first_name: referral.patientDetails.name.split(' ')[0],
-            last_name: referral.patientDetails.name.split(' ').slice(1).join(' '),
-            full_name: referral.patientDetails.name,
-            dob: referral.patientDetails.dob,
-            gender: 'Other', // Assuming default, would be in full form
-            patientType: 'private', // Default
+            first_name: firstName,
+            last_name: lastName,
+            full_name: fullName,
+            full_name_lowercase: fullName.toLowerCase(),
+            phone_search: phoneSearch,
+            dob: referral.patientDetails.dob || '1990-01-01',
+            gender: 'Other', 
+            patientType: 'private',
             contact: {
-                primaryPhone: referral.patientDetails.phone,
-                email: '',
+                primaryPhone: phone,
+                email: referral.patientDetails.email || '',
                 address: { street: '', city: '', region: '', country: 'Ghana' }
             },
             emergency_contact: { name: '', relationship: '', phone: '' },

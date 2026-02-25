@@ -60,7 +60,7 @@ export function AddSupplierDialog({ onSupplierCreated }: AddSupplierDialogProps)
   const onSubmit = (values: z.infer<typeof NewSupplierSchema>) => {
     const newSupplier: Supplier = {
       supplierId: `SUP-${Date.now()}`,
-      hospitalId: values.hospitalId,
+      hospitalId: user?.hospitalId || '',
       name: values.name,
       contactInfo: { 
           person: values.contactPerson,

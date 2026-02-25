@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -115,7 +114,6 @@ export function NewAppointmentDialog({
             createdAt: new Date().toISOString(),
         };
 
-        // SaaS Wall Implementation: Stamped write
         addDocumentNonBlocking(collection(firestore, 'appointments'), appointmentData);
 
         toast.success(isEditing ? 'Appointment Rescheduled' : 'Appointment Confirmed', {

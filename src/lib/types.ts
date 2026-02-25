@@ -776,6 +776,8 @@ export interface Referral {
     name: string;
     phone: string;
     dob: string;
+    gender?: string;
+    email?: string;
   };
   assignedDoctorId?: string;
   assignedDoctorName?: string;

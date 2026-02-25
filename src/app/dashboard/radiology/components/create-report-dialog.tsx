@@ -53,12 +53,7 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
   });
 
   const onSubmit = async (values: z.infer<typeof ReportSchema>) => {
-    // In a real app, this would call the `processRadReport` Cloud Function.
-    // The function would also handle the PDF upload to a secure storage bucket.
-    console.log("Uploaded file (conceptual):", values.reportPdf);
-    
-    // SAAS INTEGRITY: Inject the mandatory hospitalId into the report submission
-    const result = await submitRadiologyReport(order.orderId, {
+    const result = await submitRadiologyReport(order.orderId || order.id, {
       hospitalId: user?.hospitalId || '',
       impression: values.impression,
       findings: values.findings,
@@ -80,8 +75,8 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
           impression: values.impression,
           findings: values.findings,
         },
-        reportPdfUrl: '/mock-report.pdf', // Link to the mock PDF for demonstration
-        pacsLink: '/mock-pacs-viewer.html', // Link to the mock PACS viewer
+        reportPdfUrl: '/mock-report.pdf',
+        pacsLink: '/mock-pacs-viewer.html',
         isFinal: true,
       };
 
