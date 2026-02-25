@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -28,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import { PayrollRun, PayrollRecord, StaffProfile, PayrollConfiguration, Position } from '@/lib/types';
 import { mockStaffProfiles, mockPayrollConfig, mockPositions } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
 
 const StartPayrollRunSchema = z.object({
   payPeriod: z.string().min(1, { message: 'Pay period is required.' }),
@@ -83,6 +83,7 @@ const calculateGHRATax = (monthlyGross: number, ssnitContribution: number, confi
 
 
 export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
 
   const form = useForm<z.infer<typeof StartPayrollRunSchema>>({
@@ -98,9 +99,11 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
     // It would then trigger the `processStaffPayroll` background function.
     // For this prototype, we'll simulate the entire calculation process here.
 
+    const currentHospitalId = user?.hospitalId || '';
     const newRunId = `PAY-${Date.now()}`;
     const newRun: PayrollRun = {
         runId: newRunId,
+        hospitalId: currentHospitalId,
         payPeriod: values.payPeriod,
         payDate: values.payDate,
         status: 'Processing',
@@ -110,7 +113,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
         totalTaxes: 0,
         totalEmployees: 0,
         deductionTotals: {},
-        initiatedByUserId: 'admin1',
+        initiatedByUserId: user?.uid || '',
         createdAt: new Date().toISOString(),
     };
 
@@ -120,7 +123,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
     // Simulate background processing delay
     setTimeout(() => {
         // --- This block simulates the `processStaffPayroll` background function ---
-        const activeStaff = mockStaffProfiles.filter(s => s.employmentStatus === 'Active');
+        const activeStaff = mockStaffProfiles.filter(s => s.employmentStatus === 'Active' && s.hospitalId === currentHospitalId);
         let totalGross = 0;
         let totalDeductionsAgg = 0;
         let totalNet = 0;
@@ -162,6 +165,7 @@ export function StartPayrollRunDialog({ onPayrollStarted }: StartPayrollRunDialo
 
             const record: PayrollRecord = {
                 recordId: `pr-${newRunId}-${staff.staffId}`,
+                hospitalId: currentHospitalId,
                 staffId: staff.staffId,
                 staffName: `${staff.firstName} ${staff.lastName}`,
                 grossPay: monthlyGrossPay,
