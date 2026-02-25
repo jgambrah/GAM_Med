@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
 export const PatientSchema = z.object({
-  hospitalId: z.string().min(1, "Hospital ID is required"),
+  hospitalId: z.string().optional(),
   mrn: z.string().optional(), // Optional for emergency/temporary generation
   title: z.string().optional(),
-  firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
-  lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
-  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date of birth is required." }),
+  firstName: z.string().min(2, "First name is required"),
+  lastName: z.string().min(2, "Last name is required"),
+  otherNames: z.string().optional(),
+  ghanaCardId: z.string().optional(),
+  dob: z.string().min(1, "Date of birth is required"),
   gender: z.enum(['Male', 'Female', 'Other']),
   patientType: z.enum(['private', 'corporate', 'public']),
   contact: z.object({
@@ -32,7 +34,7 @@ export const PatientSchema = z.object({
   consent: z.boolean().refine(val => val === true, {
     message: "Consent is required.",
   }),
-  isTemporary: z.boolean().default(false),
+  isTemporary: z.boolean().optional(),
 });
 
 export const NewBedSchema = z.object({

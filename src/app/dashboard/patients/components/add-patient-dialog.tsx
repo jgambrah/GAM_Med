@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -67,10 +66,10 @@ export function AddPatientDialog({
         hospitalId: patientToEdit.hospitalId,
         mrn: patientToEdit.mrn,
         title: patientToEdit.title,
-        firstName: patientToEdit.first_name,
-        lastName: patientToEdit.last_name,
-        otherNames: patientToEdit.otherNames,
-        ghanaCardId: patientToEdit.ghanaCardId,
+        firstName: (patientToEdit as any).firstName || patientToEdit.first_name,
+        lastName: (patientToEdit as any).lastName || patientToEdit.last_name,
+        otherNames: patientToEdit.otherNames || '',
+        ghanaCardId: patientToEdit.ghanaCardId || '',
         dob: patientToEdit.dob,
         gender: patientToEdit.gender,
         maritalStatus: patientToEdit.maritalStatus,
@@ -145,10 +144,10 @@ export function AddPatientDialog({
         hospitalId: patientToEdit.hospitalId,
         mrn: patientToEdit.mrn,
         title: patientToEdit.title,
-        firstName: patientToEdit.first_name,
-        lastName: patientToEdit.last_name,
-        otherNames: patientToEdit.otherNames,
-        ghanaCardId: patientToEdit.ghanaCardId,
+        firstName: (patientToEdit as any).firstName || patientToEdit.first_name,
+        lastName: (patientToEdit as any).lastName || patientToEdit.last_name,
+        otherNames: patientToEdit.otherNames || '',
+        ghanaCardId: patientToEdit.ghanaCardId || '',
         dob: patientToEdit.dob,
         gender: patientToEdit.gender,
         maritalStatus: patientToEdit.maritalStatus,
@@ -211,7 +210,8 @@ export function AddPatientDialog({
     }
     
     // 2. CONSTRUCT COMPOSITE DOCUMENT ID
-    const customPatientId = `${values.hospitalId}_MRN${finalMrn}`;
+    const hospitalId = values.hospitalId || user?.hospitalId || 'hosp-1';
+    const customPatientId = `${hospitalId}_MRN${finalMrn}`;
 
     if (isEditing) {
       console.log('Updating patient:', values);
@@ -229,7 +229,7 @@ export function AddPatientDialog({
       }
 
       // 4. CALL SERVER ACTION
-      const result = await addPatientAction({ ...values, mrn: finalMrn });
+      const result = await addPatientAction({ ...values, mrn: finalMrn, hospitalId });
       
       if (!result.success) {
         toast.error(`Error: ${result.message || 'Failed to add patient.'}`);
@@ -247,7 +247,7 @@ export function AddPatientDialog({
 
       const newPatient: Patient = {
         patient_id: customPatientId,
-        hospitalId: values.hospitalId,
+        hospitalId: hospitalId,
         mrn: finalMrn,
         title: values.title ?? "",
         first_name: values.firstName,
@@ -280,6 +280,8 @@ export function AddPatientDialog({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         isTemporary: values.isTemporary,
+        otherNames: values.otherNames,
+        ghanaCardId: values.ghanaCardId,
       };
       if (onPatientAdded) {
         onPatientAdded(newPatient);
@@ -385,6 +387,17 @@ export function AddPatientDialog({
                     <FormItem>
                       <FormLabel>Other Names (Optional)</FormLabel>
                       <Input {...field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="ghanaCardId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ghana Card ID (Optional)</FormLabel>
+                      <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
                       <FormMessage />
                     </FormItem>
                   )}
