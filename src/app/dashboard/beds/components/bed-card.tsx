@@ -60,8 +60,9 @@ const statusConfig = {
 };
 
 export function BedCard({ bed }: BedCardProps) {
-  const config = statusConfig[bed.status] || statusConfig.Available;
-  const isOccupied = bed.status === 'Occupied' && bed.currentPatientId;
+  // Use a type cast to any to allow flexible status strings while maintaining safety with fallback
+  const config = (statusConfig as any)[bed.status] || statusConfig.Available;
+  const isOccupied = (bed.status === 'Occupied' || bed.status === 'occupied') && bed.currentPatientId;
 
   const cardInner = (
     <Card className={cn('flex flex-col h-full overflow-hidden border-2 transition-all cursor-default', config.color)}>
@@ -78,9 +79,9 @@ export function BedCard({ bed }: BedCardProps) {
             <p className="text-[11px] font-bold text-slate-900 line-clamp-1 leading-tight">
                 {bed.currentPatientName || 'Patient Record'}
             </p>
-            {bed.occupiedSince && (
+            {(bed.occupiedSince || bed.occupied_since) && (
                 <p className="text-[9px] text-muted-foreground mt-0.5 uppercase font-bold">
-                    Since: {new Date(bed.occupiedSince).toLocaleDateString()}
+                    Since: {new Date(bed.occupiedSince || bed.occupied_since!).toLocaleDateString()}
                 </p>
             )}
           </div>

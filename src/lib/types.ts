@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Updated types for the GamMed ERP System.
  * Ensures all financial and clinical entities are properly defined for the Billing Dashboard.
@@ -1150,4 +1149,10 @@ export interface MyReportedIssue {
   description: string;
   item: string;
   status: string;
+}
+
+export interface FollowUpNote {
+  note: string;
+  userId: string;
+  date: string;
 }
