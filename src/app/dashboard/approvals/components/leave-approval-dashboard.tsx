@@ -22,17 +22,23 @@ import { LeaveRequest, StaffProfile } from '@/lib/types';
 
 export function LeaveApprovalDashboard() {
   const { user } = useAuth();
-  // Use the shared local storage key to see all leave requests
   const [allLeaveRequests, setAllLeaveRequests] = useLocalStorage<LeaveRequest[]>('allLeaveRequests', mockLeaveRequests);
   const [staffProfiles, setStaffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
   
-  // Admins see all pending requests, HODs only see requests assigned to them.
-  const pendingRequests = allLeaveRequests.filter(c => {
-    if (user?.role === 'admin') {
-      return c.status === 'Pending';
-    }
-    return c.hodId === user?.uid && c.status === 'Pending';
-  });
+  // SaaS LOGIC: Filter by hospitalId first
+  const pendingRequests = React.useMemo(() => {
+    if (!user) return [];
+    return allLeaveRequests.filter(c => {
+        // Must belong to the same hospital
+        if (c.hospitalId !== user.hospitalId) return false;
+
+        // Admins/Directors see all pending requests in their hospital, HODs only see requests assigned to them.
+        if (user.role === 'admin' || user.role === 'director') {
+            return c.status === 'Pending';
+        }
+        return c.hodId === user.uid && c.status === 'Pending';
+    });
+  }, [allLeaveRequests, user]);
 
   const handleApprove = async (requestId: string) => {
     const request = allLeaveRequests.find(req => req.leaveId === requestId);
@@ -72,7 +78,6 @@ export function LeaveApprovalDashboard() {
   
   const handleReject = async (requestId: string) => {
      toast.error(`Leave request ${requestId} has been rejected.`);
-    // Update local storage state
     setAllLeaveRequests(prev => prev.map(req => req.leaveId === requestId ? { ...req, status: 'Rejected' } : req));
   };
 
@@ -117,8 +122,8 @@ export function LeaveApprovalDashboard() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
-                You have no pending leave requests to approve.
+              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
+                You have no pending leave requests to approve for your facility.
               </TableCell>
             </TableRow>
           )}

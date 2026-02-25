@@ -15,7 +15,7 @@ function LeaveBalances() {
     const [staffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
     
     // Find the specific profile from the potentially updated list in local storage
-    const profile = staffProfiles.find(p => p.staffId === user?.uid);
+    const profile = staffProfiles.find(p => p.staffId === user?.uid && p.hospitalId === user?.hospitalId);
     
     // Mock balances if not found in profile for demo purposes
     const balances = profile?.leaveBalances || {
@@ -48,7 +48,8 @@ export default function MyLeavePage() {
 
   const myLeaveRequests = React.useMemo(() => {
     if (!user) return [];
-    return allLeaveRequests.filter(c => c.staffId === user.uid);
+    // SaaS LOGIC: Filter by staffId AND hospitalId
+    return allLeaveRequests.filter(c => c.staffId === user.uid && c.hospitalId === user.hospitalId);
   }, [user, allLeaveRequests]);
 
 
@@ -62,7 +63,7 @@ export default function MyLeavePage() {
         <div>
           <h1 className="text-3xl font-bold">My Leave</h1>
           <p className="text-muted-foreground">
-            Request and track your leave of absence.
+            Request and track your leave of absence from <strong>{user?.hospitalId}</strong>.
           </p>
         </div>
         <LeaveRequestDialog onLeaveSubmitted={handleRequestSubmitted} />

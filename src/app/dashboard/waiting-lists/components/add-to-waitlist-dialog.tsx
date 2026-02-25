@@ -39,6 +39,7 @@ import { NewWaitingListSchema } from '@/lib/schemas';
 import { allPatients as initialPatients } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Patient, WaitingListEntry } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 
 const mockServices = [
@@ -53,12 +54,20 @@ interface AddToWaitlistDialogProps {
 }
 
 export function AddToWaitlistDialog({ onPatientAdded }: AddToWaitlistDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+
+  // SaaS LOGIC: Only allow adding patients from the current hospital
+  const hospitalPatients = React.useMemo(() => {
+    if (!user) return [];
+    return allPatients.filter(p => p.hospitalId === user.hospitalId);
+  }, [allPatients, user]);
 
   const form = useForm<z.infer<typeof NewWaitingListSchema>>({
     resolver: zodResolver(NewWaitingListSchema),
     defaultValues: {
+      hospitalId: user?.hospitalId || '',
       patientId: '',
       requestedService: '',
       priority: 'Routine',
@@ -66,7 +75,13 @@ export function AddToWaitlistDialog({ onPatientAdded }: AddToWaitlistDialogProps
     },
   });
 
-  const patientOptions = allPatients.map(p => ({
+  React.useEffect(() => {
+    if (open && user) {
+        form.setValue('hospitalId', user.hospitalId);
+    }
+  }, [open, user, form]);
+
+  const patientOptions = hospitalPatients.map(p => ({
       value: p.patient_id,
       label: `${p.full_name} (${p.patient_id})`
   }));
@@ -89,7 +104,7 @@ export function AddToWaitlistDialog({ onPatientAdded }: AddToWaitlistDialogProps
         <DialogHeader>
           <DialogTitle>Add Patient to Waiting List</DialogTitle>
           <DialogDescription>
-            Fill in the details for the patient and the service they are waiting for.
+            Fill in the details for the patient and the service they are waiting for. This will be scoped to <strong>{user?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

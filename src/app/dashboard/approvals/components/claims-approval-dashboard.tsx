@@ -77,22 +77,27 @@ function RejectClaimDialog({ claimId, onRejected }: { claimId: string, onRejecte
 
 export function ClaimsApprovalDashboard() {
   const { user } = useAuth();
-  // Use the shared key to see all claims
   const [allClaims, setAllClaims] = useLocalStorage<StaffExpenseClaim[]>('allStaffClaims', mockStaffClaims);
 
-  // Admins see all pending claims, HODs only see claims assigned to them.
-  const pendingClaims = allClaims.filter(c => {
-    if (user?.role === 'admin') {
-      return c.approvalStatus === 'Pending HOD';
-    }
-    return c.hodId === user?.uid && c.approvalStatus === 'Pending HOD';
-  });
+  // SaaS LOGIC: Filter by hospitalId first
+  const pendingClaims = React.useMemo(() => {
+    if (!user) return [];
+    return allClaims.filter(c => {
+        // Must belong to the same hospital
+        if (c.hospitalId !== user.hospitalId) return false;
+
+        // Admins see all pending claims in their hospital, HODs only see claims assigned to them.
+        if (user.role === 'admin' || user.role === 'director') {
+            return c.approvalStatus === 'Pending HOD';
+        }
+        return c.hodId === user.uid && c.approvalStatus === 'Pending HOD';
+    });
+  }, [allClaims, user]);
 
   const handleApprove = async (claimId: string) => {
     const result = await approveStaffClaim(claimId);
     if(result.success) {
         toast.success(`Claim ${claimId} has been approved and sent to accounts for payment.`);
-        // Update the local storage state
         setAllClaims(prev => prev.map(c => c.claimId === claimId ? { ...c, approvalStatus: 'Approved' } : c));
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
@@ -103,7 +108,6 @@ export function ClaimsApprovalDashboard() {
     const result = await rejectStaffClaim(claimId, reason);
      if(result.success) {
         toast.error(`Claim ${claimId} has been rejected.`);
-         // Update the local storage state
         setAllClaims(prev => prev.map(c => c.claimId === claimId ? { ...c, approvalStatus: 'Rejected', rejectionReason: reason } : c));
     } else {
         toast.error(result.message || 'An unexpected error occurred.');
@@ -140,8 +144,8 @@ export function ClaimsApprovalDashboard() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
-                You have no pending claims to approve.
+              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
+                You have no pending claims to approve for your facility.
               </TableCell>
             </TableRow>
           )}

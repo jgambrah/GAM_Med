@@ -40,6 +40,7 @@ import { AddCredentialDialog } from './components/add-credential-dialog';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LeaveTab } from './components/leave-tab';
+import { ProfileDetailsTab } from './components/profile-details-tab';
 
 const ItemSchema = z.object({
   name: z.string().min(1, 'You must select an item.'),
@@ -189,122 +190,14 @@ function PayrollHistoryTab({ staffId }: { staffId: string }) {
     );
 }
 
-const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string; value?: string | null; children?: React.ReactNode }) => (
-    <div>
-        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Icon className="h-4 w-4" />{label}</div>
-        {value && <div className="text-base font-semibold ml-6">{value}</div>}
-        {children && <div className="ml-6">{children}</div>}
-    </div>
-);
-
-
-function ProfileDetailsTab({ staff, user, setStaff }: { staff: UserType, user: UserType | null, setStaff: React.Dispatch<React.SetStateAction<UserType | undefined>> }) {
-    const isSelf = staff.uid === user?.uid;
-    const canEdit = user?.role === 'admin';
-
-    const getExpiryColor = (dateString?: string) => {
-        if (!dateString) return '';
-        const daysToExpiry = differenceInDays(parseISO(dateString), new Date());
-        if (daysToExpiry < 0) return 'text-destructive font-semibold';
-        if (daysToExpiry <= 60) return 'text-yellow-600 font-semibold';
-        return '';
-    };
-
-    const handleCredentialAdded = (type: 'qualifications' | 'certifications' | 'licenses', data: any) => {
-        setStaff(prev => {
-            if (!prev) return undefined;
-            const existingCredentials = prev[type as keyof UserType] || [];
-            return {
-                ...prev,
-                [type]: [...(existingCredentials as any[]), data],
-            }
-        });
-    }
-
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Personal & Contact</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <DetailItem icon={UserIcon} label="Name" value={staff.name} />
-                        <DetailItem icon={Mail} label="Email" value={staff.email} />
-                        <DetailItem icon={Phone} label="Phone" value={staff.phoneNumber} />
-                        <DetailItem icon={CalendarDays} label="Date of Birth" value={staff.dateOfBirth ? format(parseISO(staff.dateOfBirth), 'PPP') : 'N/A'} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Employment Details</CardTitle>
-                    </CardHeader>
-                     <CardContent className="space-y-4">
-                        <DetailItem icon={Building} label="Department" value={staff.department} />
-                        <DetailItem icon={UserIcon} label="Role" value={staff.role} />
-                        <DetailItem icon={CalendarDays} label="Hire Date" value={staff.hireDate ? format(parseISO(staff.hireDate), 'PPP') : 'N/A'} />
-                     </CardContent>
-                </Card>
-            </div>
-             <div className="lg:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Qualifications & Credentials</CardTitle>
-                        {canEdit && <AddCredentialDialog onCredentialAdded={handleCredentialAdded} />}
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div>
-                             <h4 className="font-semibold text-md flex items-center gap-2 mb-2"><GraduationCap className="h-5 w-5" />Qualifications</h4>
-                             {staff.qualifications?.length ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {staff.qualifications.map((q, i) => <li key={i}>{q.degree} - {q.institution} ({q.graduationYear})</li>)}
-                                </ul>
-                             ): <div className="text-sm text-muted-foreground">No qualifications on file.</div>}
-                        </div>
-                        <Separator />
-                         <div>
-                             <h4 className="font-semibold text-md flex items-center gap-2 mb-2"><BadgeCheck className="h-5 w-5" />Certifications</h4>
-                             {staff.certifications?.length ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {staff.certifications.map((c, i) => (
-                                         <li key={i}>{c.name} (Expires: <span className={getExpiryColor(c.expiryDate)}>{c.expiryDate ? format(parseISO(c.expiryDate), 'PPP') : 'N/A'}</span>)</li>
-                                    ))}
-                                </ul>
-                             ): <div className="text-sm text-muted-foreground">No certifications on file.</div>}
-                        </div>
-                        <Separator />
-                         <div>
-                             <h4 className="font-semibold text-md flex items-center gap-2 mb-2"><FileText className="h-5 w-5" />Licenses</h4>
-                             {staff.licenses?.length ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {staff.licenses.map((l, i) => (
-                                        <li key={i}>{l.type} - {l.licenseNumber} (Expires: <span className={getExpiryColor(l.expiryDate)}>{format(parseISO(l.expiryDate), 'PPP')}</span>)</li>
-                                    ))}
-                                </ul>
-                             ): <div className="text-sm text-muted-foreground">No licenses on file.</div>}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    )
-}
-
-
 function SalaryTab({ staff, user }: { staff: UserType, user: UserType | null }) {
     const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
     
     const fullProfile = mockStaffProfiles.find(p => p.staffId === staff.uid);
     const canEdit = user?.role === 'admin';
 
-    const handleAddAllowance = (name: string, amount: number) => {
-        // This is a mock update. In a real app, you'd call a server action.
-    };
-    
-    const handleAddDeduction = (name: string, amount: number) => {
-        // This is a mock update. In a real app, you'd call a server action.
-    };
-
+    const handleAddAllowance = (name: string, amount: number) => {};
+    const handleAddDeduction = (name: string, amount: number) => {};
     const handleRemoveAllowance = (allowanceName: string) => {};
     const handleRemoveDeduction = (deductionName: string) => {};
 
@@ -609,14 +502,14 @@ export default function StaffProfilePage() {
       <div className="space-y-4">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-8 w-1/4" />
-        <div className="flex gap-2">
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-8 w-24" />
-        </div>
         <Skeleton className="h-96 w-full" />
       </div>
     );
+  }
+
+  // SAAS SECURITY CHECK: Ensure staff member belongs to the same hospital
+  if (user && staff.hospitalId !== user.hospitalId) {
+    notFound();
   }
 
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
@@ -636,7 +529,7 @@ export default function StaffProfilePage() {
         <div>
           <h1 className="text-3xl font-bold">{staff.name}</h1>
           <p className="text-muted-foreground">
-            {staffPosition?.title || 'No Position Assigned'} - ID: {staff.uid}
+            {staffPosition?.title || 'No Position Assigned'} - ID: {staff.uid} | Facility: <strong>{staff.hospitalId}</strong>
           </p>
         </div>
       </div>
