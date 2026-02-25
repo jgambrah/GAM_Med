@@ -66,8 +66,8 @@ export function AddPatientDialog({
         hospitalId: patientToEdit.hospitalId,
         mrn: patientToEdit.mrn,
         title: patientToEdit.title,
-        firstName: (patientToEdit as any).firstName || patientToEdit.first_name,
-        lastName: (patientToEdit as any).lastName || patientToEdit.last_name,
+        firstName: patientToEdit.first_name,
+        lastName: patientToEdit.last_name,
         otherNames: patientToEdit.otherNames || '',
         ghanaCardId: patientToEdit.ghanaCardId || '',
         dob: patientToEdit.dob,
@@ -144,8 +144,8 @@ export function AddPatientDialog({
         hospitalId: patientToEdit.hospitalId,
         mrn: patientToEdit.mrn,
         title: patientToEdit.title,
-        firstName: (patientToEdit as any).firstName || patientToEdit.first_name,
-        lastName: (patientToEdit as any).lastName || patientToEdit.last_name,
+        firstName: patientToEdit.first_name,
+        lastName: patientToEdit.last_name,
         otherNames: patientToEdit.otherNames || '',
         ghanaCardId: patientToEdit.ghanaCardId || '',
         dob: patientToEdit.dob,
@@ -196,7 +196,6 @@ export function AddPatientDialog({
   };
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    // 1. Handle Temporary ID generation if MRN is missing
     let finalMrn = values.mrn?.trim().toUpperCase() || '';
     if (values.isTemporary && !finalMrn) {
         const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
@@ -209,7 +208,6 @@ export function AddPatientDialog({
         return;
     }
     
-    // 2. CONSTRUCT COMPOSITE DOCUMENT ID
     const hospitalId = values.hospitalId || user?.hospitalId || 'hosp-1';
     const customPatientId = `${hospitalId}_MRN${finalMrn}`;
 
@@ -218,7 +216,6 @@ export function AddPatientDialog({
       toast.success('Patient updated successfully (simulated).');
       if (onPatientUpdated) onPatientUpdated();
     } else {
-      // 3. ATOMIC UNIQUENESS CHECK
       const existingPatient = allPatients.find(p => p.patient_id === customPatientId);
       
       if (existingPatient) {
@@ -228,7 +225,6 @@ export function AddPatientDialog({
           return;
       }
 
-      // 4. CALL SERVER ACTION
       const result = await addPatientAction({ ...values, mrn: finalMrn, hospitalId });
       
       if (!result.success) {
@@ -240,7 +236,6 @@ export function AddPatientDialog({
           description: `Generated Record ID: ${customPatientId}`
       });
 
-      // 5. DATA PREPARATION: Prepare searchable normalized fields
       const fullName = `${values.firstName} ${values.lastName}`;
       const fullNameLowercase = fullName.toLowerCase();
       const phoneSearch = values.contact.primaryPhone.replace(/\D/g, '');
@@ -253,10 +248,11 @@ export function AddPatientDialog({
         first_name: values.firstName,
         last_name: values.lastName,
         full_name: fullName,
-        full_name_lowercase: fullNameLowercase, // Store for case-insensitive prefix search
-        phone_search: phoneSearch, // Store for high-performance digits-only lookup
+        full_name_lowercase: fullNameLowercase,
+        phone_search: phoneSearch,
         dob: values.dob,
         gender: values.gender,
+        patientType: values.patientType,
         maritalStatus: values.maritalStatus,
         occupation: values.occupation,
         contact: {
