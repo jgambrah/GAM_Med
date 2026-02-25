@@ -249,6 +249,9 @@ export const allAppointments: Appointment[] = [
     doctor_id: 'hosp-1_e.mensah@gammed.com',
     doctor_name: 'Dr. Evelyn Mensah',
     appointment_date: new Date('2024-08-16T10:30:00.000Z').toISOString(),
+    time_slot: '10:30 AM',
+    reason: 'Follow-up cardiology consultation',
+    createdAt: now.toISOString(),
     end_time: new Date('2024-08-16T11:00:00.000Z').toISOString(),
     duration: 30,
     type: 'follow-up',
@@ -443,7 +446,6 @@ export const mockRadiologyOrders: RadiologyOrder[] = [
     test_name: 'Chest X-Ray',
     modality: 'X-Ray',
     indication: 'Persistent cough',
-    studyIds: ['Chest X-Ray'],
     status: 'Pending Scheduling',
     priority: 2,
   }
