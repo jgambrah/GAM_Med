@@ -57,7 +57,9 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
     // The function would also handle the PDF upload to a secure storage bucket.
     console.log("Uploaded file (conceptual):", values.reportPdf);
     
+    // SAAS INTEGRITY: Inject the mandatory hospitalId into the report submission
     const result = await submitRadiologyReport(order.orderId, {
+      hospitalId: user?.hospitalId || '',
       impression: values.impression,
       findings: values.findings,
     });
@@ -69,6 +71,7 @@ export function CreateReportDialog({ order, onReportSubmitted }: CreateReportDia
       
       const newReport: RadiologyReport = {
         reportId: order.orderId,
+        hospitalId: user?.hospitalId || '',
         orderId: order.orderId,
         patientId: order.patientId,
         radiologistId: user?.uid || 'rad1',
