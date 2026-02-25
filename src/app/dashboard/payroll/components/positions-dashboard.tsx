@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -28,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/use-auth';
 
 function CreateOrEditPositionDialog({ 
   position, 
@@ -38,9 +37,10 @@ function CreateOrEditPositionDialog({
   onSave: (newPosition: Position) => void,
   children: React.ReactNode
 }) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [title, setTitle] = React.useState('');
-  const [baseAnnualSalary, setBaseAnnualSalary] = React.useState(0);
+  const [title, setTitle] = React.useState(position?.title || '');
+  const [baseAnnualSalary, setBaseAnnualSalary] = React.useState(position?.baseAnnualSalary || 0);
   const isEditing = !!position;
 
   React.useEffect(() => {
@@ -62,7 +62,8 @@ function CreateOrEditPositionDialog({
     }
 
     const newPosition: Position = {
-      positionId: isEditing ? position.positionId : `POS-${Date.now()}`,
+      positionId: isEditing ? (position?.positionId || '') : `POS-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       title,
       baseAnnualSalary,
     };

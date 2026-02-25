@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 
 function CreateOrEditAllowanceDialog({ 
@@ -40,6 +40,7 @@ function CreateOrEditAllowanceDialog({
   onSave: (newAllowance: Allowance) => void,
   children: React.ReactNode
 }) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const [isTaxable, setIsTaxable] = React.useState(false);
@@ -64,7 +65,8 @@ function CreateOrEditAllowanceDialog({
     }
 
     const newAllowance: Allowance = {
-      allowanceId: isEditing ? allowance.allowanceId : `ALW-${Date.now()}`,
+      allowanceId: isEditing ? (allowance?.allowanceId || '') : `ALW-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       name,
       isTaxable,
     };

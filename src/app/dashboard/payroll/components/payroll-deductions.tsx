@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -28,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useAuth } from '@/hooks/use-auth';
 
 function CreateOrEditDeductionDialog({ 
   deduction, 
@@ -38,6 +38,7 @@ function CreateOrEditDeductionDialog({
   onSave: (newDeduction: Deduction) => void,
   children: React.ReactNode
 }) {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const isEditing = !!deduction;
@@ -59,7 +60,8 @@ function CreateOrEditDeductionDialog({
     }
 
     const newDeduction: Deduction = {
-      id: isEditing ? deduction.id : `DED-${Date.now()}`,
+      id: isEditing ? (deduction?.id || '') : `DED-${Date.now()}`,
+      hospitalId: user?.hospitalId || '',
       name,
     };
 
