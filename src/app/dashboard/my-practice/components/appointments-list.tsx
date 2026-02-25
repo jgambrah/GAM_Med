@@ -53,7 +53,7 @@ export function AppointmentsList({ onAppointmentSelect }: AppointmentsListProps)
     }, [allAppointments, user]);
     
     const handleSelect = (appointment: Appointment) => {
-        setSelectedAppointmentId(appointment.appointment_id);
+        setSelectedAppointmentId(appointment.appointment_id || null);
         onAppointmentSelect(appointment);
     }
     
