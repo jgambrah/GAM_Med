@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -57,7 +58,7 @@ export function RadiologyTab({ patientId }: { patientId: string }) {
                         <TableBody>
                             {ordersForPatient.length > 0 ? (
                                 ordersForPatient.map((order) => {
-                                    const report = patientReports.find(r => r.orderId === order.id);
+                                    const report = patientReports.find(r => r.orderId === order.id || r.orderId === order.orderId);
                                     return (
                                         <TableRow key={order.id}>
                                             <TableCell className="font-medium">{order.test_name}</TableCell>

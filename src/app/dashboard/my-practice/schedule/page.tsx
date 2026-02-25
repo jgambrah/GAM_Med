@@ -1,16 +1,18 @@
+
 'use client';
 
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, orderBy, doc, serverTimestamp } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, PlayCircle, CheckCircle2, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Appointment } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 /**
  * == Doctor Module: Daily Schedule Board ==
@@ -145,8 +147,4 @@ export default function DoctorSchedulePage() {
             </div>
         </div>
     );
-}
-
-function cn(...classes: any[]) {
-    return classes.filter(Boolean).join(' ');
 }

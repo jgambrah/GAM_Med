@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockTrainingCourses, mockPerformanceReviews, mockLeaveRequests } from '@/lib/data';
+import { mockStaffProfiles, mockAllowances, mockDeductions, mockPositions, mockPayrollRuns, mockPayrollRecords, allUsers, mockPerformanceReviews, mockLeaveRequests } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, Plus, Trash2, Download, Building, Mail, Phone, User as UserIcon, GraduationCap, BadgeCheck, FileText, CalendarDays, Shield, Edit } from 'lucide-react';
