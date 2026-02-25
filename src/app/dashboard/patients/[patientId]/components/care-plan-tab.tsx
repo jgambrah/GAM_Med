@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -11,15 +10,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CarePlan } from '@/lib/types';
+import { CarePlan, Patient } from '@/lib/types';
 import { CarePlanSchema } from '@/lib/schemas';
-import { updateCarePlan } from '@/lib/actions';
 import { Pencil, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { format, parseISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
-function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePlan?: CarePlan | null, patientId: string, onSave: (plan: CarePlan) => void }) {
+function CreateOrUpdateCarePlanDialog({ carePlan, patient, onSave }: { carePlan?: CarePlan | null, patient: Patient, onSave: (plan: CarePlan) => void }) {
     const [open, setOpen] = React.useState(false);
     const { user } = useAuth();
     const isEditing = !!carePlan;
@@ -27,6 +25,7 @@ function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePla
     const form = useForm<z.infer<typeof CarePlanSchema>>({
         resolver: zodResolver(CarePlanSchema),
         defaultValues: {
+            hospitalId: user?.hospitalId || '',
             goals: carePlan?.goal || '',
             interventions: carePlan?.interventions.join('\n') || '',
             status: carePlan?.status || 'Active',
@@ -36,12 +35,13 @@ function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePla
     React.useEffect(() => {
         if (open) {
             form.reset({
+                hospitalId: user?.hospitalId || '',
                 goals: carePlan?.goal || '',
                 interventions: carePlan?.interventions.join('\n') || '',
                 status: carePlan?.status || 'Active',
             })
         }
-    }, [open, carePlan, form]);
+    }, [open, carePlan, form, user]);
 
 
     const onSubmit = async (values: z.infer<typeof CarePlanSchema>) => {
@@ -52,7 +52,8 @@ function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePla
 
         const planData: CarePlan = {
             planId: carePlan?.planId || `plan-${Date.now()}`,
-            patientId: carePlan?.patientId || patientId,
+            hospitalId: values.hospitalId,
+            patientId: patient.patient_id,
             title: carePlan?.title || `${values.status} Care Plan`,
             goal: values.goals,
             interventions: values.interventions.split('\n').filter(Boolean),
@@ -154,7 +155,7 @@ function CreateOrUpdateCarePlanDialog({ carePlan, patientId, onSave }: { carePla
     )
 }
 
-export function CarePlanTab({ carePlan, onPlanSaved, patientId }: { carePlan?: CarePlan | null, onPlanSaved: (plan: CarePlan) => void, patientId: string }) {
+export function CarePlanTab({ carePlan, onPlanSaved, patient }: { carePlan?: CarePlan | null, onPlanSaved: (plan: CarePlan) => void, patient: Patient }) {
     const { user } = useAuth();
     const canEdit = user?.role === 'nurse' || user?.role === 'doctor';
 
@@ -163,7 +164,7 @@ export function CarePlanTab({ carePlan, onPlanSaved, patientId }: { carePlan?: C
             <Card>
                 <CardContent className="h-48 flex flex-col items-center justify-center text-center">
                     <p className="text-muted-foreground mb-4">No active care plan found for this patient.</p>
-                    {canEdit && <CreateOrUpdateCarePlanDialog patientId={patientId} onSave={onPlanSaved} />}
+                    {canEdit && <CreateOrUpdateCarePlanDialog patient={patient} onSave={onPlanSaved} />}
                 </CardContent>
             </Card>
         );
@@ -178,7 +179,7 @@ export function CarePlanTab({ carePlan, onPlanSaved, patientId }: { carePlan?: C
                         Last updated on {format(parseISO(carePlan.updatedAt), 'PPP p')}
                     </CardDescription>
                 </div>
-                {canEdit && <CreateOrUpdateCarePlanDialog carePlan={carePlan} patientId={carePlan.patientId} onSave={onPlanSaved} />}
+                {canEdit && <CreateOrUpdateCarePlanDialog carePlan={carePlan} patient={patient} onSave={onPlanSaved} />}
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-2">

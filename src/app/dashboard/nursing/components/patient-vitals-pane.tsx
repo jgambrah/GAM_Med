@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -66,10 +65,10 @@ export function PatientVitalsPane({ patient }: PatientVitalsPaneProps) {
               <VitalsTab patientId={patient.patient_id} />
             </TabsContent>
             <TabsContent value="medications">
-              <MedicationsTab patientId={patient.patient_id} />
+              <MedicationsTab patient={patient} />
             </TabsContent>
             <TabsContent value="care-plan">
-              <CarePlanTab carePlan={carePlan} onPlanSaved={handlePlanSaved} patientId={patient.patient_id} />
+              <CarePlanTab carePlan={carePlan} onPlanSaved={handlePlanSaved} patient={patient} />
             </TabsContent>
             <TabsContent value="notes">
               <ClinicalNotesTab patientId={patient.patient_id} />
