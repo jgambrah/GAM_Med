@@ -57,11 +57,11 @@ export function RadiologyTab({ patientId }: { patientId: string }) {
                         <TableBody>
                             {ordersForPatient.length > 0 ? (
                                 ordersForPatient.map((order) => {
-                                    const report = patientReports.find(r => r.orderId === order.orderId);
+                                    const report = patientReports.find(r => r.orderId === order.id);
                                     return (
-                                        <TableRow key={order.orderId}>
-                                            <TableCell className="font-medium">{order.studyIds.join(', ')}</TableCell>
-                                            <TableCell>{format(new Date(order.dateOrdered), 'PPP')}</TableCell>
+                                        <TableRow key={order.id}>
+                                            <TableCell className="font-medium">{order.test_name}</TableCell>
+                                            <TableCell>{format(new Date(order.created_at), 'PPP')}</TableCell>
                                             <TableCell><Badge variant={getStatusVariant(order.status)}>{order.status}</Badge></TableCell>
                                             <TableCell className="text-right space-x-2">
                                                  <Button 

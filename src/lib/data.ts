@@ -241,6 +241,7 @@ export const allAdmissions: Admission[] = [
 
 export const allAppointments: Appointment[] = [
   {
+    id: 'AP-001',
     appointment_id: 'AP-001',
     hospitalId: 'hosp-1',
     patient_id: 'hosp-1_MRN123456',
@@ -284,6 +285,7 @@ export const mockNotes: ClinicalNote[] = [
 
 export const mockDiagnoses: Diagnosis[] = [
   {
+    id: 'D-001',
     diagnosisId: 'D-001',
     hospitalId: 'hosp-1',
     patientId: 'hosp-1_MRN123456',
@@ -404,6 +406,7 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
 
 export const mockLabResults: LabResult[] = [
   {
+    id: 'L-001',
     testId: 'L-001',
     hospitalId: 'hosp-1',
     patientId: 'hosp-1_MRN123456',
@@ -427,12 +430,19 @@ export const mockLabResults: LabResult[] = [
 
 export const mockRadiologyOrders: RadiologyOrder[] = [
   {
+    id: 'RAD-001',
     orderId: 'RAD-001',
     hospitalId: 'hosp-1',
     patientId: 'hosp-1_MRN123456',
     patientName: 'Kwame Owusu',
+    patientMrn: '123456',
     doctorId: 'hosp-1_e.mensah@gammed.com',
+    doctorName: 'Dr. Evelyn Mensah',
     dateOrdered: now.toISOString(),
+    created_at: now.toISOString(),
+    test_name: 'Chest X-Ray',
+    modality: 'X-Ray',
+    indication: 'Persistent cough',
     studyIds: ['Chest X-Ray'],
     status: 'Pending Scheduling',
     priority: 2,
@@ -490,8 +500,8 @@ export const mockResources: Asset[] = [
 ];
 
 export const allBeds: Bed[] = [
-  { bed_id: 'C-101', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'occupied', current_patient_id: 'hosp-1_MRN123456', occupied_since: '2024-07-28T10:30:00Z', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() },
-  { bed_id: 'C-102', hospitalId: 'hosp-1', wardName: 'Cardiology', room_number: '10', status: 'vacant', cleaningNeeded: false, created_at: now.toISOString(), updated_at: now.toISOString() }
+  { id: 'C-101', bed_id: 'C-101', hospitalId: 'hosp-1', wardName: 'Cardiology', wardId: 'ward-1', bedNumber: 'Bed 101', room_number: '10', status: 'occupied', current_patient_id: 'hosp-1_MRN123456', currentPatientId: 'hosp-1_MRN123456', occupied_since: '2024-07-28T10:30:00Z', occupiedSince: '2024-07-28T10:30:00Z', cleaningNeeded: false, type: 'Manual', created_at: now.toISOString(), createdAt: now.toISOString(), updated_at: now.toISOString(), updatedAt: now.toISOString() },
+  { id: 'C-102', bed_id: 'C-102', hospitalId: 'hosp-1', wardName: 'Cardiology', wardId: 'ward-1', bedNumber: 'Bed 102', room_number: '10', status: 'vacant', current_patient_id: null, currentPatientId: null, cleaningNeeded: false, type: 'Manual', created_at: now.toISOString(), createdAt: now.toISOString(), updated_at: now.toISOString(), updatedAt: now.toISOString() }
 ];
 
 export const mockFacilityZones: FacilityZone[] = [

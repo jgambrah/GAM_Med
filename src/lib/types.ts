@@ -596,6 +596,34 @@ export interface Prescription {
   dispensedAt?: string;
 }
 
+export interface User {
+  uid: string;
+  hospitalId: string;
+  email: string;
+  name: string;
+  role: 'super_admin' | 'director' | 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier';
+  is_active: boolean;
+  department?: string;
+  specialty?: string;
+  created_at: string;
+  last_login: string;
+  photoURL?: string;
+  patient_id?: string;
+  availability?: Record<string, string[]>;
+  isMfaEnabled?: boolean;
+  failedLoginAttempts?: number;
+  hodId?: string;
+  qualifications?: Qualification[];
+  certifications?: Certification[];
+  licenses?: License[];
+  employmentStatus?: 'Active' | 'Inactive' | 'On Leave';
+  hireDate?: string;
+  leaveBalances?: Record<string, number>;
+  features?: string[];
+  phoneNumber?: string;
+  dateOfBirth?: string;
+}
+
 export interface PrescribedMedication {
   medicationId: string;
   name: string;
@@ -682,11 +710,13 @@ export interface RadiologyOrder {
   patientId: string;
   patientName: string;
   patientMrn: string;
+  test_name: string;
   modality: string;
   indication: string;
   doctorId: string;
   doctorName: string;
   dateOrdered: string;
+  created_at: string;
   status: 'Pending' | 'Scheduled' | 'Awaiting Report' | 'Completed' | 'Pending Scheduling';
   scheduledDateTime?: string;
   clinicalNotes?: string;
