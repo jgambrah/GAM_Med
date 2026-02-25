@@ -67,15 +67,36 @@ export function CreateRfqDialog({ onRfqCreated }: CreateRfqDialogProps) {
   });
 
   const onSubmit = (values: z.infer<typeof NewRfqSchema>) => {
+    const rfqId = `RFQ-${Date.now()}`;
     const now = new Date().toISOString();
     
+    // 1. Create the activity logs using the proper SaaS interface
     const initialActivity: RfqActivityLogEntry[] = [
-        { timestamp: now, activity: 'RFQ Created' },
-        { timestamp: new Date(Date.now() + 1000).toISOString(), activity: 'Supplier notifications sent' },
+        { 
+            id: `log-1-${Date.now()}`,
+            rfqId: rfqId,
+            hospitalId: values.hospitalId,
+            timestamp: now, 
+            action: 'Created',
+            performedBy: user?.name || 'System',
+            activity: 'Request for Quotation initialized.',
+            notes: 'Initial creation.'
+        },
+        { 
+            id: `log-2-${Date.now()}`,
+            rfqId: rfqId,
+            hospitalId: values.hospitalId,
+            timestamp: new Date(Date.now() + 1000).toISOString(), 
+            action: 'Sent to Vendor',
+            performedBy: user?.name || 'System',
+            activity: 'Supplier notifications dispatched.',
+            notes: 'Automated workflow.'
+        },
     ];
     
+    // 2. Build the main RFQ object (ensure hospitalId is here too)
     const newRfq: RequestForQuotation = {
-      rfqId: `RFQ-${Date.now()}`,
+      rfqId: rfqId,
       hospitalId: values.hospitalId,
       title: values.title,
       dateCreated: now,
