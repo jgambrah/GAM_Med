@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -165,6 +163,7 @@ export default function MessagesPage() {
 
         const newMessage: Message = {
             messageId: `msg-${Date.now()}`,
+            hospitalId: user.hospitalId,
             senderId: user.uid,
             senderName: user.name,
             receiverId: selectedConversationId,

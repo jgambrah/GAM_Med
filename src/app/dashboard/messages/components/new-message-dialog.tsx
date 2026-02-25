@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -88,6 +86,7 @@ export function NewMessageDialog({ onMessageSent }: NewMessageDialogProps) {
 
     const newMessage: Message = {
       messageId: `msg-${Date.now()}`,
+      hospitalId: user.hospitalId,
       senderId: user.uid,
       senderName: user.name,
       receiverId: values.recipientId,
