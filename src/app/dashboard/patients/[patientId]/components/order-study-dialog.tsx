@@ -75,6 +75,7 @@ export function OrderStudyDialog({ patient, disabled, onOrderCreated }: OrderStu
         patientName: patient.full_name,
         patientMrn: patient.mrn,
         hospitalId: user.hospitalId, // Mandatory SaaS Stamp
+        test_name: values.modality, // Map modality to test_name for display
         modality: values.modality,
         indication: values.indication,
         priority: values.priority,

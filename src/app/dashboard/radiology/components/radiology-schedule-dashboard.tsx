@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -68,13 +67,13 @@ export function RadiologyScheduleDashboard({ orders, setOrders, allPatients }: R
     const getPatientName = (patientId: string) => allPatients.find(p => p.patient_id === patientId)?.full_name || 'Unknown Patient';
 
     const getEquipmentForOrder = (order: RadiologyOrder) => {
-        const studyType = order.studyIds[0].split('-')[0]; // e.g., 'CT' from 'CT-Chest'
-        if (studyType === 'CT') return radiologyEquipment.find(eq => eq.modality === 'CT Scan');
-        if (studyType === 'MRI') return radiologyEquipment.find(eq => eq.modality === 'MRI');
-        if (studyType === 'XRay') return radiologyEquipment.find(eq => eq.modality === 'X-Ray');
-        if (studyType === 'US') return radiologyEquipment.find(eq => eq.modality === 'Ultrasound');
-        return undefined;
-    }
+        const modality = order.modality;
+        if (modality === 'CT Scan') return radiologyEquipment.find(eq => eq.modality === 'CT Scan');
+        if (modality === 'MRI') return radiologyEquipment.find(eq => eq.modality === 'MRI');
+        if (modality === 'X-Ray') return radiologyEquipment.find(eq => eq.modality === 'X-Ray');
+        if (modality === 'Ultrasound') return radiologyEquipment.find(eq => eq.modality === 'Ultrasound');
+        return null;
+    };
 
     const handleMarkAsPerformed = (orderId: string) => {
         setOrders(prevOrders => prevOrders.map(o => 
@@ -115,13 +114,13 @@ export function RadiologyScheduleDashboard({ orders, setOrders, allPatients }: R
                                                 )}
                                                 style={calculateGridPosition(order.scheduledDateTime!, 60) as React.CSSProperties}
                                             >
-                                                <p className="font-bold truncate">{order.studyIds.join(', ')}</p>
+                                                <p className="font-bold truncate">{order.test_name}</p>
                                                 <p className="truncate">{getPatientName(order.patientId)}</p>
                                                 <p className="text-muted-foreground truncate">Order: {order.orderId}</p>
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent className="space-y-2">
-                                            <p className="font-semibold">{order.studyIds.join(', ')}</p>
+                                            <p className="font-semibold">{order.test_name}</p>
                                             <p>Patient: {getPatientName(order.patientId)}</p>
                                             {order.scheduledDateTime && <p>Time: {format(new Date(order.scheduledDateTime), 'p')}</p>}
                                             <p>Status: {order.status}</p>

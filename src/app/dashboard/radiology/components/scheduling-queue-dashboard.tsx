@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -51,7 +50,7 @@ export function SchedulingQueueDashboard({ orders, setOrders }: SchedulingQueueD
             <TableHead>Date Ordered</TableHead>
             <TableHead>Patient</TableHead>
             <TableHead>Ordering Doctor</TableHead>
-            <TableHead>Requested Studies</TableHead>
+            <TableHead>Requested Study</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -66,7 +65,7 @@ export function SchedulingQueueDashboard({ orders, setOrders }: SchedulingQueueD
                   </Link>
                 </TableCell>
                 <TableCell>{getDoctorName(order.doctorId)}</TableCell>
-                <TableCell>{order.studyIds.join(', ')}</TableCell>
+                <TableCell>{order.test_name}</TableCell>
                 <TableCell>
                     <ScheduleStudyDialog order={order} onScheduled={handleScheduled} />
                 </TableCell>

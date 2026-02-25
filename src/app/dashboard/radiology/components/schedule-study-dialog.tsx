@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -57,7 +56,7 @@ export function ScheduleStudyDialog({ order, onScheduled }: ScheduleStudyDialogP
         <DialogHeader>
           <DialogTitle>Schedule Imaging Study</DialogTitle>
           <DialogDescription>
-            Select a date and time for {patientName}'s study: {order.studyIds.join(', ')}.
+            Select a date and time for {patientName}'s study: {order.test_name}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

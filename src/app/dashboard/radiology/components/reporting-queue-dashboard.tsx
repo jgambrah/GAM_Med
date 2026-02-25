@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -50,7 +49,7 @@ export function ReportingQueueDashboard({ allPatients }: ReportingQueueDashboard
           <TableRow>
             <TableHead>Study Date</TableHead>
             <TableHead>Patient</TableHead>
-            <TableHead>Requested Studies</TableHead>
+            <TableHead>Study Type</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -64,7 +63,7 @@ export function ReportingQueueDashboard({ allPatients }: ReportingQueueDashboard
                     {order.patientName || getPatientName(order.patientId)}
                   </Link>
                 </TableCell>
-                <TableCell>{order.studyIds.join(', ')}</TableCell>
+                <TableCell>{order.test_name}</TableCell>
                 <TableCell>
                     <CreateReportDialog order={order} onReportSubmitted={() => handleReportSubmitted(order.orderId)} />
                 </TableCell>
