@@ -53,6 +53,7 @@ export const NewAppointmentSchema = z.object({
   type: z.enum(['consultation', 'follow-up', 'procedure']),
   isVirtual: z.boolean().default(false),
   resourceId: z.string().optional(),
+  reason: z.string().optional(),
 });
 
 export const BedAllocationSchema = z.object({
