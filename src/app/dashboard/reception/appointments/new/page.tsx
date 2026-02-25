@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 
@@ -19,6 +19,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Loader2 } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { Patient, User as UserType } from '@/lib/types';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const BookingSchema = z.object({
   patientId: z.string().min(1, "Please select a patient"),
