@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { CalendarDays, Clock, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export function ExtendTrialDialog({ hospital }: { hospital: any }) {
     const firestore = useFirestore();
@@ -37,11 +36,10 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
             newExpiry.setDate(newExpiry.getDate() + days);
 
             // 2. Update Firestore (The SaaS Extension Logic)
-            // Use hospital.id (from doc.id) or hospital.hospitalId
             const hospitalRef = doc(firestore, 'hospitals', hospital.id || hospital.hospitalId);
             await updateDoc(hospitalRef, {
                 trialEndsAt: Timestamp.fromDate(newExpiry),
-                subscriptionStatus: 'trialing', // This unlocks the app automatically if it was expired
+                subscriptionStatus: 'trialing', // This unlocks the app automatically
                 isActive: true,
                 status: 'active'
             });
