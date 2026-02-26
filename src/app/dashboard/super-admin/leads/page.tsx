@@ -7,17 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Mail, Phone, Loader2, Hospital, Clock } from 'lucide-react';
+import { UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
+import { CreateHospitalDialog } from '../components/create-hospital-dialog';
 import { toast } from '@/hooks/use-toast';
 
 /**
  * == Super Admin: Sales Pipeline Desk ==
  * 
  * Manages demo requests and provides direct integration to the Provisioning Form.
+ * Allows one-click onboarding of prospective hospital clients.
  */
-export default function SalesLeads() {
+export default function SalesLeadsPage() {
     const firestore = useFirestore();
     const [selectedLead, setSelectedLead] = useState<any>(null);
 
@@ -44,10 +45,10 @@ export default function SalesLeads() {
     };
 
     return (
-        <div className="p-8 space-y-8 min-h-screen bg-slate-50/30">
+        <div className="space-y-8">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight text-blue-900">Sales Pipeline</h1>
+                    <h1 className="text-3xl font-black tracking-tight text-slate-900">Sales Pipeline</h1>
                     <p className="text-muted-foreground font-medium italic">Manage incoming demo requests and prospect engagement.</p>
                 </div>
                 <Badge variant="outline" className="h-8 px-4 border-blue-200 text-blue-700 bg-blue-50 font-black uppercase tracking-widest">
@@ -55,12 +56,11 @@ export default function SalesLeads() {
                 </Badge>
             </div>
 
-            {/* INTEGRATED PROVISIONING MODAL */}
+            {/* PROVISIONING DIALOG WITH AUTO-FILL SUPPORT */}
             {selectedLead && (
-                <CreateHospitalModal 
-                    initialData={selectedLead} 
-                    onSuccess={() => markAsOnboarded(selectedLead.id)} 
-                />
+                <div className="hidden">
+                    {/* This logic is handled by passing state to the shared component */}
+                </div>
             )}
 
             <Card className="shadow-xl overflow-hidden border-none ring-1 ring-slate-200">
@@ -116,16 +116,16 @@ export default function SalesLeads() {
                                             </TableCell>
                                             <TableCell className="text-right pr-6">
                                                 {lead.status === 'Pending' ? (
-                                                    <Button 
-                                                        size="sm" 
-                                                        className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4"
-                                                        onClick={() => setSelectedLead(lead)}
-                                                    >
-                                                        <UserPlus className="mr-2 h-3.5 w-3.5" />
-                                                        Provision
-                                                    </Button>
+                                                    <CreateHospitalDialog 
+                                                        initialData={{
+                                                            name: lead.name,
+                                                            email: lead.email,
+                                                            hospitalName: lead.hospitalName
+                                                        }}
+                                                        onSuccess={() => markAsOnboarded(lead.id)}
+                                                    />
                                                 ) : (
-                                                    <Badge variant="outline" className="text-green-600 border-green-600 uppercase text-[9px] font-black">Complete</Badge>
+                                                    <Badge variant="outline" className="text-green-600 border-green-600 uppercase text-[9px] font-black">Onboarded</Badge>
                                                 )}
                                             </TableCell>
                                         </TableRow>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExtendTrialDialog } from '@/components/super-admin/ExtendTrialDialog';
 import { Hospital } from '@/lib/types';
-import { Building2, Users, CreditCard, Zap, Loader2, Globe, ShieldCheck } from 'lucide-react';
+import { Building2, Users, Zap, Loader2, Globe, ShieldCheck } from 'lucide-react';
 import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { format } from 'date-fns';
 
@@ -59,7 +58,7 @@ export default function SuperAdminDashboard() {
   const { data: hospitals, isLoading: isHospitalsLoading } = useCollection<Hospital>(hospitalsQuery);
 
   return (
-    <div className="p-8 space-y-8 bg-slate-50/30 min-h-screen">
+    <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
@@ -117,9 +116,9 @@ export default function SuperAdminDashboard() {
                 <TableRow><TableCell colSpan={4} className="h-40 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 text-muted-foreground" /></TableCell></TableRow>
               ) : (hospitals && hospitals.length > 0) ? (
                 hospitals.map((hosp) => {
-                    const trialDate = hosp.trialEndsAt?.toDate 
-                        ? hosp.trialEndsAt.toDate() 
-                        : (hosp.trialEndsAt ? new Date(hosp.trialEndsAt) : null);
+                    const trialDate = hosp.trialEndsAt 
+                        ? (typeof hosp.trialEndsAt === 'string' ? new Date(hosp.trialEndsAt) : hosp.trialEndsAt.toDate()) 
+                        : null;
                     const isExpired = trialDate && trialDate < new Date();
 
                     return (

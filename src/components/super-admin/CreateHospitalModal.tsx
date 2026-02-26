@@ -24,13 +24,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Building2, Loader2 } from 'lucide-react';
+import { Plus, Building2, Loader2, UserPlus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { sendStaffInvitationEmail } from '@/lib/actions';
 
 const CreateHospitalSchema = z.object({
   hospitalName: z.string().min(3, 'Hospital name must be at least 3 characters'),
@@ -53,7 +51,7 @@ interface CreateHospitalModalProps {
  * == Super Admin: Tenant Provisioning Tool ==
  * 
  * This component handles the creation of new hospital tenants.
- * Includes AUTO-FILL logic for seamless provisioning from sales leads.
+ * Supports auto-fill from Sales Leads for rapid onboarding.
  */
 export default function CreateHospitalModal({ initialData, onSuccess }: CreateHospitalModalProps) {
   const [open, setOpen] = React.useState(false);
@@ -72,17 +70,16 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
     },
   });
 
-  // AUTO-FILL LOGIC: If initialData is provided (from a lead), fill the form and open modal
+  // AUTO-FILL LOGIC: Reset form when initialData changes
   React.useEffect(() => {
     if (initialData) {
       form.reset({
         hospitalName: initialData.hospitalName || '',
         directorName: initialData.name || '',
         directorEmail: initialData.email || '',
-        directorPassword: '', // Password must still be set manually for security
+        directorPassword: '',
         subscriptionTier: 'clinic-starter',
       });
-      setOpen(true);
     }
   }, [initialData, form]);
 
@@ -92,20 +89,18 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
       const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
       const now = new Date().toISOString();
 
-      // Trial logic
-      const trialDurationDays = 30;
+      // Set 30-day trial
       const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + trialDurationDays);
+      trialEndDate.setDate(trialEndDate.getDate() + 30);
 
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
       const batch = writeBatch(db);
 
+      // 1. Create Director Profile
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
-      const userRef = doc(db, 'users', userDocId);
-      
-      batch.set(userRef, {
+      batch.set(doc(db, 'users', userDocId), {
         uid: uid,
         email: values.directorEmail.toLowerCase().trim(),
         hospitalId: newHospitalId,
@@ -116,13 +111,12 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
         last_login: now,
       });
 
-      const hospitalRef = doc(db, 'hospitals', newHospitalId);
-      batch.set(hospitalRef, {
+      // 2. Create Hospital Master Record
+      batch.set(doc(db, 'hospitals', newHospitalId), {
         hospitalId: newHospitalId,
         name: values.hospitalName,
         slug: newHospitalId,
         status: 'active',
-        planId: 'trial', 
         subscriptionStatus: 'trialing',
         trialEndsAt: trialEndDate.toISOString(),
         subscriptionTier: values.subscriptionTier,
@@ -131,8 +125,8 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
         ownerEmail: values.directorEmail,
       });
 
-      const roleRef = doc(db, 'roles_admin', uid);
-      batch.set(roleRef, {
+      // 3. Set Role Marker
+      batch.set(doc(db, 'roles_admin', uid), {
         uid: uid,
         hospitalId: newHospitalId,
         assignedAt: now,
@@ -140,15 +134,8 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
 
       await batch.commit();
 
-      await sendStaffInvitationEmail({
-          email: values.directorEmail,
-          name: values.directorName,
-          hospitalName: values.hospitalName,
-          role: 'Medical Director'
-      });
-
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active with a 30-day trial.`
+        description: `${values.hospitalName} dashboard is now active.`
       });
       
       setOpen(false);
@@ -156,9 +143,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error("Provisioning failed:", error);
-      toast.error("Provisioning Failed", {
-        description: error.message || "An error occurred."
-      });
+      toast.error("Provisioning Failed", { description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +152,12 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {!initialData && (
+        {initialData ? (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4">
+                <UserPlus className="mr-2 h-3.5 w-3.5" />
+                Provision
+            </Button>
+        ) : (
             <Button className="bg-blue-600 hover:bg-blue-700 shadow-md">
                 <Plus className="h-4 w-4 mr-2" />
                 New Hospital
@@ -181,7 +171,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
             <DialogTitle>Register New Facility</DialogTitle>
           </div>
           <DialogDescription>
-            Onboard a new hospital tenant. They will start on a 30-day trial.
+            Onboard a new hospital tenant. Evaluation trial will last 30 days.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -235,12 +225,10 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
               name="subscriptionTier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Plan (Post-Trial)</FormLabel>
+                  <FormLabel>Plan Tier</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="clinic-starter">Clinic Starter</SelectItem>

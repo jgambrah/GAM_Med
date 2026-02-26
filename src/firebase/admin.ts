@@ -1,45 +1,37 @@
 import * as admin from 'firebase-admin';
 
 /**
- * == Build-Safe Firebase Admin Singleton ==
+ * == Robust Firebase Admin Singleton ==
  * 
- * Provides secure server-side access to Firebase services.
- * Resilience: Performs an explicit check for environment variables to prevent 
- * Vercel build-time crashes (Error: Service account object must contain a string "project_id").
+ * Ensures the Admin SDK is initialized only once using environment variables.
+ * Handles private key newline formatting required for Vercel deployment.
  */
-
-let adminApp: admin.app.App | null = null;
 
 const projectId = process.env.FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
 if (!admin.apps.length) {
-  // 1. HARD ENFORCEMENT: Only initialize if all critical environment variables are available.
-  // This prevents crashes during Vercel's static site generation (build time).
   if (projectId && clientEmail && privateKey) {
     try {
-        adminApp = admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: projectId,
-                clientEmail: clientEmail,
-                privateKey: privateKey.replace(/\\n/g, '\n'),
-            }),
-            databaseURL: `https://${projectId}.firebaseio.com`,
-        });
-    } catch (error) {
-        console.error("Firebase Admin initialization failed at runtime:", error);
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey: privateKey.replace(/\\n/g, '\n'),
+        }),
+        databaseURL: `https://${projectId}.firebaseio.com`,
+      });
+      console.log('Firebase Admin Initialized Successfully');
+    } catch (error: any) {
+      console.error('Firebase Admin Initialization Error:', error.stack);
     }
   } else {
-    // Quietly log missing variables during build, but don't crash.
     if (process.env.NODE_ENV === 'production') {
-        console.warn("Firebase Admin SDK: Initialization skipped due to missing environment variables during build analysis.");
+      console.warn("Firebase Admin SDK: Initialization skipped. Missing environment variables.");
     }
   }
-} else {
-  adminApp = admin.app();
 }
 
-// 2. EXPORT SDKs (Safety fallback to null to prevent undefined crashes)
-export const adminDb = (adminApp ? adminApp.firestore() : null) as admin.firestore.Firestore;
-export const adminAuth = (adminApp ? adminApp.auth() : null) as admin.auth.Auth;
+export const adminDb = admin.firestore();
+export const adminAuth = admin.auth();
