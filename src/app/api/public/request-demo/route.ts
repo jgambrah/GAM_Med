@@ -4,24 +4,22 @@ import { NextResponse } from 'next/server';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * == Public API: Lead Capture Handler ==
+ * == Public API: Demo Request Lead Capture ==
  * 
- * Securely processes demo requests from the landing page.
- * Authenticates with Resend using environment variables to trigger
- * a stylized lead notification email.
+ * Securely handles incoming demo requests and routes them to the Platform Owner.
  */
 export async function POST(req: Request) {
     try {
         const { name, email, hospital, phone } = await req.json();
 
-        // Validate basic fields
-        if (!name || !email || !hospital) {
-            return new NextResponse("Missing required lead information", { status: 400 });
+        if (!process.env.RESEND_API_KEY) {
+            console.error("RESEND_API_KEY is missing from environment variables.");
+            return NextResponse.json({ error: "Email service misconfigured" }, { status: 500 });
         }
 
         await resend.emails.send({
-            from: 'GamMed Leads <onboarding@resend.dev>', // Verified Resend domain for testing
-            to: 'jamesgambrah@gmail.com',
+            from: 'GamMed Leads <onboarding@resend.dev>', // Note: Use verified domain in production
+            to: 'jamesgambrah@gmail.com', // Primary Sales Lead Target
             subject: `New Demo Request: ${hospital}`,
             html: `
                 <div style="font-family: sans-serif; padding: 20px; color: #333;">
@@ -30,10 +28,10 @@ export async function POST(req: Request) {
                         <p style="margin: 0 0 10px 0;"><strong>Prospect Name:</strong> ${name}</p>
                         <p style="margin: 0 0 10px 0;"><strong>Facility:</strong> ${hospital}</p>
                         <p style="margin: 0 0 10px 0;"><strong>Work Email:</strong> <a href="mailto:${email}">${email}</a></p>
-                        <p style="margin: 0;"><strong>Contact Phone:</strong> ${phone || 'Not Provided'}</p>
+                        <p style="margin: 0;"><strong>Contact Phone:</strong> ${phone}</p>
                     </div>
                     <p style="font-size: 0.85rem; color: #6b7280; margin-top: 25px;">
-                        This request was sent from the public landing page.
+                        This request was submitted via the "Request Demo" form on the GamMed portal.
                     </p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
                     <p style="font-size: 0.75rem; color: #9ca3af; text-align: center;">
@@ -45,7 +43,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
-        console.error("API Error (request-demo):", error);
+        console.error("API Route Error:", error);
         return new NextResponse(error.message, { status: 500 });
     }
 }

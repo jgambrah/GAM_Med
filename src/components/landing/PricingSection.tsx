@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Loader2, ShieldCheck } from 'lucide-react';
+import { Check, ShieldCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
