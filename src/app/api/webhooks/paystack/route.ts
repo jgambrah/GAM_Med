@@ -1,4 +1,3 @@
-
 import { adminDb, adminAuth } from '@/firebase/admin';
 import { sendWelcomeEmail } from '@/lib/mail-service';
 import crypto from 'crypto';
@@ -8,7 +7,7 @@ import crypto from 'crypto';
  * 
  * Listens for successful Paystack charges and handles:
  * 1. New Hospital Provisioning (from landing page)
- * 2. Subscription Upgrades/Renewals (from dashboard paywall)
+ * 2. Subscription Upgrades/Renewals (clears the SubscriptionLock)
  */
 export async function POST(req: Request) {
     const body = await req.text();
@@ -32,6 +31,7 @@ export async function POST(req: Request) {
         try {
             if (hospitalId) {
                 // == CASE A: SUBSCRIPTION UPGRADE / RENEWAL ==
+                // This removes the trial restrictions immediately
                 await adminDb.collection('hospitals').doc(hospitalId).update({
                     subscriptionStatus: 'active',
                     planId: planId,
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
                     subscriptionNextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                     status: 'active',
                     isActive: true,
-                    trialEndsAt: null 
+                    trialEndsAt: null // Trial over, now a paid seat
                 });
 
                 console.log(`Subscription Upgraded for: ${hospitalId}`);

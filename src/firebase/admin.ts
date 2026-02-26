@@ -1,4 +1,3 @@
-
 import * as admin from 'firebase-admin';
 
 /**
@@ -34,7 +33,7 @@ if (!admin.apps.length) {
   } else {
     // Quietly log missing variables during build, but don't crash.
     if (process.env.NODE_ENV === 'production') {
-        console.warn("Firebase Admin SDK: Initialization skipped due to missing environment variables.");
+        console.warn("Firebase Admin SDK: Initialization skipped due to missing environment variables during build analysis.");
     }
   }
 } else {
@@ -42,5 +41,6 @@ if (!admin.apps.length) {
 }
 
 // 2. EXPORT SDKs (Safety fallback to null to prevent undefined crashes)
-export const adminDb = adminApp ? adminApp.firestore() : null as any;
-export const adminAuth = adminApp ? adminApp.auth() : null as any;
+// Type casting helps avoid errors in components that assume the SDK is always present
+export const adminDb = (adminApp ? adminApp.firestore() : null) as admin.firestore.Firestore;
+export const adminAuth = (adminApp ? adminApp.auth() : null) as admin.auth.Auth;
