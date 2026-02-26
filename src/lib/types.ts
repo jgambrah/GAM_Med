@@ -613,7 +613,7 @@ export interface Prescription {
   dispensedAt?: string;
 }
 
-export interface Per-patient e-Prescribing {
+export interface PrescribedMedication {
   medicationId: string;
   name: string;
   dosage: string;
@@ -1177,12 +1177,4 @@ export interface MyReportedIssue {
   description: string;
   item: string;
   status: string;
-}
-
-export interface PrescribedMedication {
-  medicationId: string;
-  name: string;
-  dosage: string;
-  frequency: string;
-  quantity_to_dispense: number;
 }
