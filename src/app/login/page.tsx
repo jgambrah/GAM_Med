@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -18,8 +19,7 @@ import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
  * == Professional SaaS Login (Discovery Flow) ==
  * 
  * Users enter only their email and password. The system automatically
- * discovers their hospital tenant and role after authentication by
- * searching for the UID field in the users collection.
+ * discovers their hospital tenant and role after authentication.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -47,7 +47,10 @@ export default function LoginPage() {
             const q = query(usersRef, where("uid", "==", authUid), limit(1));
             const querySnapshot = await getDocs(q);
 
+            let userData;
+
             if (querySnapshot.empty) {
+                // Try searching by email as fallback
                 const emailQuery = query(usersRef, where("email", "==", normalizedEmail), limit(1));
                 const emailSnapshot = await getDocs(emailQuery);
                 
@@ -55,19 +58,16 @@ export default function LoginPage() {
                     throw new Error("Auth successful, but no Firestore profile found. Please contact your administrator.");
                 }
                 
-                const userData = emailSnapshot.docs[0].data();
-                setUser({ uid: authUid, ...userData } as any);
-                toast.success("Login Successful", { description: `Welcome, ${userData.name}.` });
-                routeUser(userData.role);
-                return;
+                userData = emailSnapshot.docs[0].data();
+            } else {
+                userData = querySnapshot.docs[0].data();
             }
-
-            const userData = querySnapshot.docs[0].data();
             
             if (!userData.is_active) {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
+            // Set global auth state
             setUser({
                 uid: authUid,
                 ...userData
@@ -77,7 +77,15 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            routeUser(userData.role);
+            // 3. ROLE-BASED REDIRECTION
+            // Only the Platform Owner (Super Admin) goes to the Command Centre
+            if (userData.role === 'super_admin') {
+                router.push('/dashboard/super-admin');
+            } else {
+                // Marcus (Director) and all other facility staff land on the main dashboard
+                // This prevents landing on Super Admin pages which triggers demo_requests permission errors.
+                router.push('/dashboard');
+            }
 
         } catch (error: any) {
             console.error("Login error:", error);
@@ -86,22 +94,6 @@ export default function LoginPage() {
             });
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const routeUser = (role: string) => {
-        if (role === 'super_admin') {
-            router.push('/dashboard/super-admin');
-        } else if (role === 'director') {
-            router.push('/dashboard/director/staff');
-        } else if (role === 'doctor') {
-            router.push('/dashboard/my-practice');
-        } else if (role === 'nurse') {
-            router.push('/dashboard/nursing');
-        } else if (role === 'patient') {
-            router.push('/dashboard/my-records');
-        } else {
-            router.push('/dashboard');
         }
     };
 
