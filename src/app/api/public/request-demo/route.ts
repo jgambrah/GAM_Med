@@ -5,74 +5,60 @@ import { NextResponse } from 'next/server';
 /**
  * == SaaS Lead Capture API ==
  * 
- * Securely logs landing page demo requests into the platform's central registry.
- * Triggers a stylized notification to the platform owner's Gmail Hub.
+ * Securely handles "Request Demo" submissions from the landing page.
+ * 1. Logs the prospect to the platform-wide demo_requests collection.
+ * 2. Notifies the Platform Owner via stylized email.
  */
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { name, email, hospital, phone } = body;
+        // Build-safe lazy initialization
+        const { adminDb } = getAdminServices();
+        const { name, email, hospital, phone } = await req.json();
 
-        // 1. Initialize Admin Services (Build-safe getter)
-        let adminDb;
-        try {
-            const services = getAdminServices();
-            adminDb = services.adminDb;
-        } catch (e: any) {
-            console.error("SERVICE_UNAVAILABLE:", e.message);
-            return NextResponse.json({ error: "Backend service unavailable", diagnostic: e.message }, { status: 503 });
+        if (!process.env.RESEND_API_KEY) {
+            return NextResponse.json({ error: "Email provider configuration missing" }, { status: 500 });
         }
 
-        // 2. Record Lead in Central Repository
-        try {
-            await adminDb.collection('demo_requests').add({
-                name,
-                email: email.toLowerCase().trim(),
-                hospitalName: hospital,
-                phone,
-                status: 'Pending',
-                requestedAt: new Date().toISOString(),
-            });
-        } catch (dbError: any) {
-            console.error("FIRESTORE_WRITE_FAILURE:", dbError.message);
-            return NextResponse.json({ error: "Lead logging failed" }, { status: 500 });
-        }
+        const resend = new Resend(process.env.RESEND_API_KEY);
 
-        // 3. Notify Platform Owner via Resend (Gmail Hub)
-        try {
-            if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
-            
-            const resend = new Resend(process.env.RESEND_API_KEY);
-            await resend.emails.send({
-                from: 'GamMed Lead Hub <onboarding@resend.dev>', 
-                to: 'jamesgambrah@gmail.com',
-                reply_to: email,
-                subject: `🚨 NEW DEMO REQUEST: ${hospital}`,
-                html: `
-                    <div style="font-family: sans-serif; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px;">
-                        <h2 style="color: #2563eb; margin-top: 0;">New Sales Prospect</h2>
-                        <p>A new demo request has been logged in your Command Centre.</p>
-                        <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
-                            <p style="margin: 0 0 8px 0;"><strong>Facility:</strong> ${hospital}</p>
-                            <p style="margin: 0 0 8px 0;"><strong>Contact:</strong> ${name}</p>
-                            <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${email}</p>
-                            <p style="margin: 0;"><strong>Phone:</strong> ${phone}</p>
-                        </div>
-                        <p style="font-size: 12px; color: #64748b;">
-                            Provision this facility via your Super Admin dashboard to start their 30-day evaluation.
-                        </p>
-                    </div>
-                `
-            });
-        } catch (mailError: any) {
-            console.warn("NOTIFICATION_FAILURE:", mailError.message);
-            // Non-critical: lead is already saved in DB
-        }
+        // 1. SAVE LEAD TO REGISTRY
+        await adminDb.collection('demo_requests').add({
+            name,
+            email: email.toLowerCase().trim(),
+            hospitalName: hospital,
+            phone,
+            status: 'Pending',
+            requestedAt: new Date().toISOString(),
+        });
+
+        // 2. NOTIFY PLATFORM OWNER
+        // Using the Resend onboarding verified address for reliability in prototype
+        await resend.emails.send({
+            from: 'GamMed Leads <onboarding@resend.dev>', 
+            to: 'jamesgambrah@gmail.com',
+            reply_to: email,
+            subject: `🚨 NEW SALES LEAD: ${hospital}`,
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+                    <h2 style="color: #2563eb;">New Demo Request</h2>
+                    <p><strong>Hospital:</strong> ${hospital}</p>
+                    <p><strong>Contact:</strong> ${name}</p>
+                    <p><strong>Email:</strong> ${email}</p>
+                    <p><strong>Phone:</strong> ${phone}</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                    <p style="font-size: 0.8rem; color: #666;">This lead has been logged in the Super Admin dashboard.</p>
+                </div>
+            `
+        });
 
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error("GLOBAL_API_ERROR:", error.message);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("LEAD_CAPTURE_CRASH:", error.message);
+        // We report the diagnostic at the API level for Vercel logging
+        return NextResponse.json({ 
+            error: "Service Unavailable", 
+            diagnostic: error.message 
+        }, { status: 503 });
     }
 }
