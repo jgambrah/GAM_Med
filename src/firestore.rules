@@ -42,11 +42,11 @@ service cloud.firestore {
     }
 
     /**
-     * @description Helper: Check if hospital has the required feature plan
+     * @description SAAS FEATURE GATING: Check if hospital has the required feature plan
      */
     function hasFeature(slug) {
-      let hospitalId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
-      let plan = get(/databases/$(database)/documents/hospitals/$(hospitalId)).data.subscriptionTier;
+      let hId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
+      let plan = get(/databases/$(database)/documents/hospitals/$(hId)).data.subscriptionTier;
       
       // Logic: Enterprise has all slugs. Professional has most. Starter has few.
       return (plan == 'enterprise') || 

@@ -25,7 +25,7 @@ const chartConfig: ChartConfig = {
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function LabReportsPage() {
-    // Safety check for production build prerendering: provide fallback if mock data is missing
+    // PRERENDER SAFETY: Add fallback for undefined report data to prevent build failure
     const reportData = (mockLabReports && mockLabReports.length > 0) ? mockLabReports[0] : {
         testVolumes: [],
         turnaroundTimes: [],

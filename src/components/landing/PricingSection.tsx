@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from '@/hooks/use-toast';
 
 interface PricingPlan {
   id: string;
@@ -17,22 +18,54 @@ interface PricingPlan {
   cta: string;
 }
 
-/**
- * == Dynamic SaaS Pricing Section ==
- * 
- * Fetches commercial tiers directly from Firestore. 
- * Allows the Platform Owner to update prices and features instantly from the Command Centre.
- */
 export function PricingSection() {
   const firestore = useFirestore();
 
-  // LIVE QUERY: Fetch all pricing plans from the public register
   const pricingQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'pricing_plans'), orderBy('name', 'asc'));
   }, [firestore]);
 
   const { data: plans, isLoading } = useCollection<PricingPlan>(pricingQuery);
+
+  const handlePayment = async (plan: PricingPlan) => {
+    // 1. Ask for contact context (Simple prompt for demo)
+    const email = window.prompt("Enter your administrator email:");
+    const hospitalName = window.prompt("Enter your Hospital/Clinic name:");
+    
+    if (!email || !hospitalName) return;
+
+    // 2. Extract numeric amount from string (e.g., "₦150,000" -> 150000)
+    const numericPrice = parseInt(plan.price.replace(/[^\d]/g, ''));
+    if (isNaN(numericPrice)) {
+        toast.info("Custom Quote Required", { description: "Please contact sales for Enterprise pricing." });
+        return;
+    }
+
+    toast.loading("Initializing Paystack Checkout...");
+
+    try {
+        const res = await fetch('/api/payments/initialize', {
+            method: 'POST',
+            body: JSON.stringify({
+                email,
+                amount: numericPrice,
+                planId: plan.id,
+                hospitalName
+            }),
+        });
+
+        const data = await res.json();
+        if (data.status) {
+            // Redirect to Paystack Checkout
+            window.location.href = data.data.authorization_url;
+        } else {
+            throw new Error("Payment failed to initialize");
+        }
+    } catch (error) {
+        toast.error("Initialization Failed", { description: "Could not reach payment provider." });
+    }
+  };
 
   return (
     <section id="pricing" className="py-24 bg-white scroll-mt-16">
@@ -53,7 +86,6 @@ export function PricingSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
           {isLoading ? (
-            // Loading Skeletons
             [1, 2, 3].map((i) => (
               <div key={i} className="p-8 border rounded-3xl space-y-6">
                 <Skeleton className="h-8 w-1/2" />
@@ -103,6 +135,7 @@ export function PricingSection() {
 
                 <Button 
                   variant={plan.isPopular ? 'default' : 'outline'} 
+                  onClick={() => handlePayment(plan)}
                   className={`w-full h-14 text-base font-black uppercase tracking-widest rounded-2xl shadow-md group-hover:scale-[1.02] transition-transform ${
                     plan.isPopular ? 'bg-blue-600 hover:bg-blue-700' : 'border-2'
                   }`}

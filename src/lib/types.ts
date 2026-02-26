@@ -97,7 +97,7 @@ export interface User {
   features?: string[];
   phoneNumber?: string;
   dateOfBirth?: string;
-  hospitalPlanSlugs?: string[]; // Added for feature gating
+  hospitalPlanSlugs?: string[]; 
 }
 
 export interface Patient {
@@ -180,7 +180,6 @@ export interface Appointment {
   telemedicineLink?: string;
   notes?: string;
   type?: string;
-  // Legacy camelCase fields kept for backward compatibility during migration
   patientId?: string;
   patientName?: string;
   doctorId?: string;
@@ -561,7 +560,7 @@ export interface RfqActivityLogEntry {
   performedBy: string;
   timestamp: string;
   notes?: string;
-  activity?: string; // Legacy/Migration support
+  activity?: string; 
 }
 
 export interface RequestForQuotation {
@@ -615,7 +614,7 @@ export interface Prescription {
 }
 
 export interface PrescribedMedication {
-  grid?: string; // Legacy field
+  grid?: string;
   medicationId: string;
   name: string;
   dosage: string;
@@ -766,15 +765,15 @@ export interface Referral {
   patientId?: string;
   patientName: string;
   clinicalSummary: string;
-  reasonForReferral?: string; // Legacy/Mapping support
+  reasonForReferral?: string; 
   status: 'Pending' | 'Accepted' | 'Rejected' | 'Completed' | 'Pending Review' | 'Assigned' | 'Scheduled' | 'Pending Further Action';
   priority: 'Routine' | 'Urgent' | 'Emergency';
   doctorId: string;
   doctorName: string;
   createdAt: string;
   updatedAt: string;
-  created_at?: string; // Legacy compatibility
-  updated_at?: string; // Legacy compatibility
+  created_at?: string; 
+  updated_at?: string; 
   patientDetails: {
     name: string;
     phone: string;
