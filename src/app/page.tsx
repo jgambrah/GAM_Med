@@ -14,6 +14,10 @@ import { PricingSection } from '@/components/landing/PricingSection';
  * Hospital Directors by highlighting security, efficiency, and clinical depth.
  */
 export default function LandingPage() {
+  const scrollToPricing = () => {
+    document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-white text-slate-900 scroll-smooth">
       {/* Navigation */}
@@ -43,8 +47,8 @@ export default function LandingPage() {
           <Button size="lg" className="bg-blue-600 text-lg h-14 px-8 font-bold shadow-xl hover:bg-blue-700" asChild>
             <Link href="/login">Get Started Now <ChevronRight className="ml-2 h-5 w-5" /></Link>
           </Button>
-          <Button size="lg" variant="outline" className="text-lg h-14 px-8 font-bold border-2" asChild>
-            <a href="#pricing">View Pricing</a>
+          <Button size="lg" variant="outline" className="text-lg h-14 px-8 font-bold border-2" onClick={scrollToPricing}>
+            View Pricing
           </Button>
         </div>
       </section>

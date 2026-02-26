@@ -2,37 +2,29 @@ import { NextResponse } from 'next/server';
 import { sendDemoRequestEmail } from '@/lib/mail-service';
 
 /**
- * == SaaS Public API: Demo Request Handler ==
+ * == Public Lead Capture API ==
  * 
- * Securely processes demo requests from the landing page and triggers
- * internal notifications via the mail service.
+ * Secure endpoint to process demo requests from the landing page.
+ * Leverages the server-side mail service to notify the platform owner.
  */
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { name, email, hospital, phone } = body;
 
-        // Validation
         if (!name || !email || !hospital || !phone) {
-            return NextResponse.json(
-                { success: false, message: 'Missing required fields' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Trigger the internal notification email
-        const result = await sendDemoRequestEmail({ name, email, hospital, phone });
+        const emailResult = await sendDemoRequestEmail({ name, email, hospital, phone });
 
-        if (result.success) {
-            return NextResponse.json({ success: true, message: 'Request processed' });
+        if (emailResult.success) {
+            return NextResponse.json({ success: true });
         } else {
-            throw new Error('Email service failed');
+            return NextResponse.json({ error: 'Failed to send notification' }, { status: 500 });
         }
     } catch (error: any) {
-        console.error('Demo request API error:', error);
-        return NextResponse.json(
-            { success: false, message: error.message || 'Internal server error' },
-            { status: 500 }
-        );
+        console.error("Demo request API error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
