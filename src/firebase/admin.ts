@@ -1,29 +1,25 @@
 import * as admin from 'firebase-admin';
 
-/**
- * == Build-Safe & Sanitized Firebase Admin Provider ==
- * 
- * Provides lazy-loaded access to Firebase Admin services.
- * This prevents build-time crashes when environment variables are missing during static analysis.
- */
+// This variable will hold our error if initialization fails
+let initError: string | null = null;
 
-function getAdminApp() {
-  if (admin.apps.length > 0) {
-    return admin.apps[0];
-  }
+function initializeAdmin() {
+  // Return existing app if already initialized
+  if (admin.apps.length > 0) return admin.apps[0];
 
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-  // During Next.js build/static analysis, env vars might be missing.
   if (!serviceAccountVar) {
+    initError = "FIREBASE_SERVICE_ACCOUNT variable is missing in Vercel Settings.";
     return null;
   }
 
   try {
-    // 1. Remove any potential surrounding quotes or whitespace added by Vercel
+    // 1. Clean the string (Remove any surrounding quotes or whitespace added by Vercel)
     const sanitizedJson = serviceAccountVar.trim().replace(/^['"]|['"]$/g, '');
     const serviceAccount = JSON.parse(sanitizedJson);
 
+    // 2. Initialize
     return admin.initializeApp({
       credential: admin.credential.cert({
         projectId: serviceAccount.project_id,
@@ -33,27 +29,26 @@ function getAdminApp() {
       }),
     });
   } catch (error: any) {
-    console.error("ADMIN_INIT_FAILURE:", error.message);
+    initError = "JSON_PARSE_ERROR: " + error.message;
+    console.error("ADMIN_INIT_FAILURE:", initError);
     return null;
   }
 }
 
-/**
- * == Database Getter (Build-Safe) ==
- */
-export function getAdminDb() {
-  const app = getAdminApp();
-  return app ? admin.firestore() : null as unknown as admin.firestore.Firestore;
-}
+const app = initializeAdmin();
 
 /**
- * == Auth Getter (Build-Safe) ==
+ * == Admin Services Getter ==
+ * 
+ * Provides a secure way to access Admin SDK services.
+ * Throws a descriptive error if initialization failed, helping with Vercel debugging.
  */
-export function getAdminAuth() {
-  const app = getAdminApp();
-  return app ? admin.auth() : null as unknown as admin.auth.Auth;
-}
-
-// Global constants for legacy support (will be null during build)
-export const adminDb = getAdminDb();
-export const adminAuth = getAdminAuth();
+export const getAdminServices = () => {
+    if (!app) {
+        throw new Error(initError || "Firebase Admin SDK failed to initialize. Check environment variables.");
+    }
+    return {
+        adminDb: admin.firestore(),
+        adminAuth: admin.auth()
+    };
+};

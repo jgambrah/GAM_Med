@@ -1,4 +1,4 @@
-import { getAdminDb, getAdminAuth } from '@/firebase/admin';
+import { getAdminServices } from '@/firebase/admin';
 import { sendWelcomeEmail } from '@/lib/mail-service';
 import crypto from 'crypto';
 
@@ -12,8 +12,6 @@ import crypto from 'crypto';
 export async function POST(req: Request) {
     const body = await req.text();
     const signature = req.headers.get('x-paystack-signature');
-    const db = getAdminDb();
-    const auth = getAdminAuth();
 
     if (!process.env.PAYSTACK_SECRET_KEY) {
         return new Response('Configuration Error', { status: 500 });
@@ -24,7 +22,13 @@ export async function POST(req: Request) {
         return new Response('Unauthorized', { status: 401 });
     }
 
-    if (!db || !auth) {
+    let adminDb, adminAuth;
+    try {
+        const services = getAdminServices();
+        adminDb = services.adminDb;
+        adminAuth = services.adminAuth;
+    } catch (e) {
+        console.error("Webhook Admin Init Failed:", e);
         return new Response('Service Unavailable', { status: 503 });
     }
 
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
         try {
             if (hospitalId) {
                 // == CASE A: SUBSCRIPTION UPGRADE / RENEWAL ==
-                await db.collection('hospitals').doc(hospitalId).update({
+                await adminDb.collection('hospitals').doc(hospitalId).update({
                     subscriptionStatus: 'active',
                     planId: planId,
                     subscriptionTier: planId, 
@@ -57,7 +61,7 @@ export async function POST(req: Request) {
                 const trialEndDate = new Date();
                 trialEndDate.setDate(trialEndDate.getDate() + 30);
 
-                await db.collection('hospitals').doc(newHospitalId).set({
+                await adminDb.collection('hospitals').doc(newHospitalId).set({
                     hospitalId: newHospitalId,
                     name: hospitalName,
                     slug: newHospitalId,
@@ -72,19 +76,14 @@ export async function POST(req: Request) {
                 });
 
                 const tempPass = "Welcome" + Math.floor(1000 + Math.random() * 9000);
-                const userRecord = await auth.createUser({
+                const userRecord = await adminAuth.createUser({
                     email: email,
                     password: tempPass,
                     displayName: "Medical Director"
                 });
 
-                await auth.setCustomUserClaims(userRecord.uid, { 
-                    hospitalId: newHospitalId, 
-                    role: 'director' 
-                });
-
                 const userDocId = `${newHospitalId}_${email.toLowerCase().trim()}`;
-                await db.collection('users').doc(userDocId).set({
+                await adminDb.collection('users').doc(userDocId).set({
                     uid: userRecord.uid,
                     email: email.toLowerCase().trim(),
                     name: "Medical Director",
