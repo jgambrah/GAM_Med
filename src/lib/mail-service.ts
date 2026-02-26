@@ -37,3 +37,33 @@ export const sendWelcomeEmail = async (to: string, name: string, hospitalName: s
     return { success: false, error };
   }
 };
+
+/**
+ * Sends a notification email to the platform owner when a new demo is requested.
+ */
+export const sendDemoRequestEmail = async (data: { name: string, email: string, hospital: string, phone: string }) => {
+  try {
+    await resend.emails.send({
+      from: 'GamMed Growth <onboarding@resend.dev>',
+      to: 'ceo@gammed.com', // In production, this should be your sales/admin email
+      subject: `New Demo Request: ${data.hospital}`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #2563eb;">New Lead from Landing Page</h2>
+          <p>A new hospital director has requested a demo of the GamMed platform.</p>
+          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Hospital:</strong> ${data.hospital}</p>
+            <p><strong>Work Email:</strong> ${data.email}</p>
+            <p><strong>Phone:</strong> ${data.phone}</p>
+          </div>
+          <p style="font-size: 0.8rem; color: #999;">This lead was generated from the public landing page.</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Resend Demo Request Error:", error);
+    return { success: false, error };
+  }
+};

@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, Activity, Users, BarChart3, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
 
 /**
  * == GamMed Marketing Landing Page ==
@@ -24,7 +25,7 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link href="/login" className="text-sm font-medium hover:text-blue-600 transition-colors">Login</Link>
-          <Button className="bg-blue-600 hover:bg-blue-700 font-bold shadow-sm">Request Demo</Button>
+          <RequestDemoDialog />
         </div>
       </nav>
 
