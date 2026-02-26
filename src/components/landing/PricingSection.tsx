@@ -29,13 +29,11 @@ export function PricingSection() {
   const { data: plans, isLoading } = useCollection<PricingPlan>(pricingQuery);
 
   const handlePayment = async (plan: PricingPlan) => {
-    // 1. Ask for contact context (Simple prompt for demo)
     const email = window.prompt("Enter your administrator email:");
     const hospitalName = window.prompt("Enter your Hospital/Clinic name:");
     
     if (!email || !hospitalName) return;
 
-    // 2. Extract numeric amount from string (e.g., "₦150,000" -> 150000)
     const numericPrice = parseInt(plan.price.replace(/[^\d]/g, ''));
     if (isNaN(numericPrice)) {
         toast.info("Custom Quote Required", { description: "Please contact sales for Enterprise pricing." });
@@ -57,7 +55,6 @@ export function PricingSection() {
 
         const data = await res.json();
         if (data.status) {
-            // Redirect to Paystack Checkout
             window.location.href = data.data.authorization_url;
         } else {
             throw new Error("Payment failed to initialize");
@@ -79,8 +76,7 @@ export function PricingSection() {
             Simple, Transparent Pricing
           </h2>
           <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
-            Choose the plan that fits your facility size. No hidden fees. 
-            All plans include <strong>logical data isolation</strong> as standard.
+            Choose the plan that fits your facility size. All plans include <strong>logical data isolation</strong> as standard.
           </p>
         </div>
 

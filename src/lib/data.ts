@@ -580,10 +580,6 @@ export const mockLabReports: LabReport[] = [
   }
 ];
 
-// --------------------------------------------------------------------
-// == EMPTY PLACEHOLDERS ==
-// --------------------------------------------------------------------
-
 export const mockReferrals: Referral[] = [];
 export const mockBills: Bill[] = [];
 export const mockStaffClaims: StaffExpenseClaim[] = [];

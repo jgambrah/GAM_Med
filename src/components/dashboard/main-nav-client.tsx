@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -419,11 +418,8 @@ export function MainNavClient() {
     if (user.role === 'super_admin') return true;
 
     // Feature Gating: Check if the hospital plan supports this feature slug
-    // If no slug is defined, assume basic access (always visible if role permits)
     if (!item.slug || item.slug === 'home') return true;
 
-    // hospitalPlanSlugs would be part of the user object retrieved from the 'users' doc
-    // which is stamped during the login/discovery phase.
     return user.hospitalPlanSlugs?.includes(item.slug);
 
   }).sort((a, b) => {

@@ -40,6 +40,18 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    /**
+     * @description SAAS FEATURE GATING: Check if hospital has the required feature plan
+     */
+    function hasFeature(slug) {
+      let hId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
+      let plan = get(/databases/$(database)/documents/hospitals/$(hId)).data.subscriptionTier;
+      
+      return (plan == 'enterprise') || 
+             (plan == 'professional' && slug in ['ehr', 'vitals', 'appointments', 'billing', 'pharmacy', 'lab', 'wards', 'inventory', 'nursing']) ||
+             (plan == 'clinic-starter' && slug in ['ehr', 'vitals', 'appointments', 'billing']);
+    }
+
     // --------------------------------------------------------------------
     // Global Bypass for Super Admin
     // --------------------------------------------------------------------
@@ -93,7 +105,7 @@ service cloud.firestore {
     match /patients/{patientId} {
       allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
       allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin() || isPatient(patientId));
-      allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId());
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId()) && hasFeature('ehr');
       allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
       allow delete: if isAdmin() && isSameHospital(resource.data);
     }
@@ -105,12 +117,12 @@ service cloud.firestore {
     match /facilities/{facilityId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
-                   (getMyRole() == 'director' || getMyRole() == 'admin' || getMyRole() == 'space_manager');
+                   (getMyRole() == 'director' || getMyRole() == 'admin' || getMyRole() == 'space_manager') && hasFeature('inventory');
     }
 
     match /facility_bookings/{bookingId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('inventory');
     }
 
     // --------------------------------------------------------------------
@@ -120,13 +132,13 @@ service cloud.firestore {
     match /controlled_substances/{substanceId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
-                   (getMyRole() == 'pharmacist' || getMyRole() == 'admin');
+                   (getMyRole() == 'pharmacist' || getMyRole() == 'admin') && hasFeature('narcotics');
     }
 
     match /controlled_substance_logs/{logId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow create: if isSignedIn() && isSameHospital(request.resource.data) && 
-                    (getMyRole() == 'pharmacist' || getMyRole() == 'admin' || getMyRole() == 'doctor');
+                    (getMyRole() == 'pharmacist' || getMyRole() == 'admin' || getMyRole() == 'doctor') && hasFeature('narcotics');
       allow update, delete: if false;
     }
 
@@ -136,27 +148,27 @@ service cloud.firestore {
 
     match /vitals/{vitalId} {
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('vitals');
     }
 
     match /clinical_notes/{noteId} {
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('ehr');
     }
 
     match /lab_orders/{orderId} {
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('lab');
     }
 
     match /ot_sessions/{sessionId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+      allow read: if isSignedIn() && isSameHospital(resource.data) && hasFeature('surgery');
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('surgery');
     }
 
     match /dietary_orders/{orderId} {
       allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('nursing');
     }
 
     match /{collection}/{docId} {
