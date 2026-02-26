@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Building2 } from 'lucide-react';
+import { Plus, Building2, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sendStaffInvitationEmail } from '@/lib/actions';
 
@@ -256,7 +256,8 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-                {isSubmitting ? 'Provisioning...' : 'Confirm & Provision'}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Confirm & Provision
               </Button>
             </DialogFooter>
           </form>

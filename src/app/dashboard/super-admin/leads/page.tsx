@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, Phone, UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
+import { UserPlus, Mail, Phone, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { toast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ import { toast } from '@/hooks/use-toast';
  * 
  * Manages demo requests and provides direct integration to the Provisioning Form.
  */
-export default function SalesLeadsDesk() {
+export default function SalesLeads() {
     const firestore = useFirestore();
     const [selectedLead, setSelectedLead] = useState<any>(null);
 
@@ -29,18 +29,16 @@ export default function SalesLeadsDesk() {
 
     const { data: leads, isLoading } = useCollection(leadsQuery);
 
-    const handleProvisionClick = (lead: any) => {
-        setSelectedLead(lead);
-    };
-
-    const handleProvisionSuccess = async () => {
-        if (selectedLead && firestore) {
-            // Update the lead status to "Onboarded"
-            const leadRef = doc(firestore, 'demo_requests', selectedLead.id);
-            await updateDoc(leadRef, {
+    const markAsOnboarded = async (leadId: string) => {
+        if (!firestore) return;
+        try {
+            await updateDoc(doc(firestore, 'demo_requests', leadId), { 
                 status: 'Onboarded',
                 updatedAt: serverTimestamp()
             });
+            toast.success("Lead Status Updated");
+        } catch (e) {
+            toast.error("Failed to update status");
         }
         setSelectedLead(null);
     };
@@ -56,6 +54,14 @@ export default function SalesLeadsDesk() {
                     {leads?.length || 0} Total Leads
                 </Badge>
             </div>
+
+            {/* INTEGRATED PROVISIONING MODAL */}
+            {selectedLead && (
+                <CreateHospitalModal 
+                    initialData={selectedLead} 
+                    onSuccess={() => markAsOnboarded(selectedLead.id)} 
+                />
+            )}
 
             <Card className="shadow-xl overflow-hidden border-none ring-1 ring-slate-200">
                 <CardHeader className="bg-slate-900 text-white pb-6">
@@ -79,15 +85,14 @@ export default function SalesLeadsDesk() {
                                 <TableRow>
                                     <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Hospital / Facility</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest">Contact Person</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Email & Phone</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
-                                    <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Actions</TableHead>
+                                    <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {leads && leads.length > 0 ? (
                                     leads.map((lead: any) => (
-                                        <TableRow key={lead.id} className="hover:bg-slate-50/80 transition-colors border-b last:border-0 h-20">
+                                        <TableRow key={lead.id} className="hover:bg-slate-50/80 transition-colors h-20">
                                             <TableCell className="pl-6">
                                                 <p className="font-black text-slate-900 text-base">{lead.hospitalName}</p>
                                                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase mt-1">
@@ -96,42 +101,38 @@ export default function SalesLeadsDesk() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <p className="font-bold text-sm text-slate-700">{lead.name}</p>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    <p className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                                                        <Mail size={12} className="text-blue-500" /> {lead.email}
-                                                    </p>
-                                                    <p className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                                                        <Phone size={12} className="text-green-500" /> {lead.phone}
-                                                    </p>
+                                                <div className="text-sm">
+                                                    <p className="font-bold text-slate-700">{lead.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{lead.email}</p>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge 
-                                                    variant={lead.status === 'Pending' ? 'destructive' : lead.status === 'Onboarded' ? 'secondary' : 'default'}
+                                                    variant={lead.status === 'Pending' ? 'destructive' : 'default'}
                                                     className="text-[9px] font-black uppercase tracking-widest px-2"
                                                 >
                                                     {lead.status}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right pr-6">
-                                                <Button 
-                                                    size="sm" 
-                                                    className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4"
-                                                    disabled={lead.status === 'Onboarded'}
-                                                    onClick={() => handleProvisionClick(lead)}
-                                                >
-                                                    <UserPlus className="mr-2 h-3.5 w-3.5" />
-                                                    Provision
-                                                </Button>
+                                                {lead.status === 'Pending' ? (
+                                                    <Button 
+                                                        size="sm" 
+                                                        className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4"
+                                                        onClick={() => setSelectedLead(lead)}
+                                                    >
+                                                        <UserPlus className="mr-2 h-3.5 w-3.5" />
+                                                        Provision
+                                                    </Button>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-green-600 border-green-600 uppercase text-[9px] font-black">Complete</Badge>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-40 text-center">
+                                        <TableCell colSpan={4} className="h-40 text-center">
                                             <div className="flex flex-col items-center justify-center opacity-30">
                                                 <Hospital className="h-12 w-12 mb-2" />
                                                 <p className="text-sm font-medium tracking-tighter">No demo requests in the pipeline.</p>
@@ -144,12 +145,6 @@ export default function SalesLeadsDesk() {
                     )}
                 </CardContent>
             </Card>
-
-            {/* SHARED MODAL: Provisioning Form */}
-            <CreateHospitalModal 
-                initialData={selectedLead} 
-                onSuccess={handleProvisionSuccess} 
-            />
         </div>
     );
 }

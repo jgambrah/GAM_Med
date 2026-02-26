@@ -41,6 +41,5 @@ if (!admin.apps.length) {
 }
 
 // 2. EXPORT SDKs (Safety fallback to null to prevent undefined crashes)
-// Type casting helps avoid errors in components that assume the SDK is always present
 export const adminDb = (adminApp ? adminApp.firestore() : null) as admin.firestore.Firestore;
 export const adminAuth = (adminApp ? adminApp.auth() : null) as admin.auth.Auth;
