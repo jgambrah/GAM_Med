@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Save, Tag, Loader2, CreditCard } from 'lucide-react';
  * == Super Admin: Pricing & Commercial Strategy Manager ==
  * 
  * Provides real-time control over the platform's public pricing tiers.
- * Change made here are instantly reflected on the landing page via Firestore synchronization.
+ * Changes made here are instantly reflected on the landing page via Firestore synchronization.
  */
 export default function PricingManager() {
     const firestore = useFirestore();
@@ -38,8 +38,15 @@ export default function PricingManager() {
                 id: 'clinic-starter',
                 name: 'Clinic Starter',
                 price: '₦50,000',
-                description: 'Perfect for small private practices.',
-                features: ['Patient Records', 'Vital Tracking', '10 Staff Accounts'],
+                description: 'Perfect for small private clinics and specialized practices.',
+                features: [
+                    'Basic Patient EHR', 
+                    'Vital Signs Log', 
+                    'Appointment Scheduling', 
+                    'Basic Invoicing', 
+                    'Limit: 10 Staff Accounts'
+                ],
+                slugs: ['ehr', 'vitals', 'appointments', 'billing'],
                 isPopular: false,
                 cta: 'Start Trial'
             },
@@ -47,8 +54,16 @@ export default function PricingManager() {
                 id: 'professional',
                 name: 'Professional',
                 price: '₦150,000',
-                description: 'Full-scale management for hospitals.',
-                features: ['Pharmacy & Lab', 'Inpatient Ward', 'Unlimited Staff'],
+                description: 'Full-scale management for general hospitals and multi-department facilities.',
+                features: [
+                    'Everything in Starter',
+                    'Full Pharmacy Module',
+                    'Laboratory Information System (LIS)',
+                    'Inpatient & Bed Management',
+                    'Inventory & Procurement',
+                    'Nursing Station Task Queue'
+                ],
+                slugs: ['ehr', 'vitals', 'appointments', 'billing', 'pharmacy', 'lab', 'wards', 'inventory', 'nursing'],
                 isPopular: true,
                 cta: 'Get Started'
             },
@@ -56,8 +71,18 @@ export default function PricingManager() {
                 id: 'enterprise',
                 name: 'Enterprise',
                 price: 'Custom',
-                description: 'Advanced features for medical centers.',
-                features: ['Surgical Module', 'Radiology Integration', '24/7 Support'],
+                description: 'Advanced features for teaching hospitals and medical centers.',
+                features: [
+                    'Everything in Professional',
+                    'Surgical & OT Management',
+                    'Radiology (PACS) Imaging',
+                    'Government Compliance Reporting',
+                    'Narcotics/Controlled Substances Log',
+                    'Executive BI Analytics',
+                    'Multi-Branch Management',
+                    'Priority 24/7 Support'
+                ],
+                slugs: ['ehr', 'vitals', 'appointments', 'billing', 'pharmacy', 'lab', 'wards', 'inventory', 'nursing', 'surgery', 'radiology', 'compliance', 'narcotics', 'analytics'],
                 isPopular: false,
                 cta: 'Contact Sales'
             }
@@ -118,7 +143,7 @@ export default function PricingManager() {
                             className="bg-blue-600 font-bold"
                         >
                             {isInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Setup Default Pricing Plans
+                            Setup Default Tiered Plans
                         </Button>
                     </CardContent>
                 </Card>
@@ -129,10 +154,10 @@ export default function PricingManager() {
                             <CardHeader className={plan.isPopular ? "bg-primary/5" : ""}>
                                 <CardTitle className="text-lg flex justify-between items-center font-black uppercase tracking-tight">
                                     {plan.name}
-                                    {plan.isPopular && <Tag className="h-4 w-4 text-primary fill-current" />}
+                                    {plan.isPopular && <Tag className="h-4 w-4 text-blue-500 fill-current" />}
                                 </CardTitle>
                                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest">
-                                    Firestore ID: {plan.id}
+                                    ID: {plan.id}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6 pt-6">
@@ -160,7 +185,7 @@ export default function PricingManager() {
                                 </div>
                                 
                                 <div className="pt-6 border-t border-dashed">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase mb-3 tracking-widest">Active Tier Features</p>
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase mb-3 tracking-widest">Tier Features ({plan.slugs?.length || 0})</p>
                                     <ul className="space-y-2">
                                         {plan.features?.map((f: string, i: number) => (
                                             <li key={i} className="text-xs font-bold text-slate-600 flex items-start gap-2 leading-relaxed">
