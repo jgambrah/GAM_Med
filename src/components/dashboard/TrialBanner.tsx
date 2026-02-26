@@ -58,8 +58,9 @@ export function TrialBanner() {
                 size="sm" 
                 className="h-7 text-[10px] font-black uppercase tracking-widest text-slate-900 bg-white hover:bg-slate-100"
                 onClick={() => {
-                    // Navigate to billing or scroll to pricing
-                    window.location.href = '#pricing';
+                    // Logic to navigate to billing section or pricing
+                    const pricing = document.getElementById('pricing');
+                    if (pricing) pricing.scrollIntoView({ behavior: 'smooth' });
                 }}
             >
                 <Zap className="mr-1.5 h-3 w-3 fill-current text-blue-600" />

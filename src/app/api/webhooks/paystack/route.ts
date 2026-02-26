@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         try {
             if (hospitalId) {
                 // == CASE A: SUBSCRIPTION UPGRADE / RENEWAL ==
-                // The hospital already exists, we just remove the trial lock.
+                // The hospital already exists, we remove the trial lock.
                 await adminDb.collection('hospitals').doc(hospitalId).update({
                     subscriptionStatus: 'active',
                     planId: planId,
@@ -41,7 +41,8 @@ export async function POST(req: Request) {
                     lastPaymentDate: now.toISOString(),
                     subscriptionNextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                     status: 'active',
-                    isActive: true
+                    isActive: true,
+                    trialEndsAt: null // Clear trial date upon payment
                 });
 
                 console.log(`Subscription Upgraded for: ${hospitalId}`);
