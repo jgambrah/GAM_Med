@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { FileDown, Play, Share2, ShieldCheck, Loader2 } from 'lucide-react';
 import { mockSavedReports } from '@/lib/data';
