@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -7,7 +6,7 @@ import { ChartContainer, ChartConfig, ChartTooltip, ChartTooltipContent } from '
 import { Bar, BarChart, CartesianGrid, XAxis, LabelList, Line, LineChart, Pie, PieChart, Cell } from 'recharts';
 import { mockLabReports } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const chartConfig: ChartConfig = {
@@ -26,7 +25,17 @@ const chartConfig: ChartConfig = {
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function LabReportsPage() {
+    // Safety check for production build prerendering
     const reportData = mockLabReports[0];
+
+    if (!reportData) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96 space-y-4">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-muted-foreground font-medium">Compiling laboratory metrics...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -143,6 +152,3 @@ export default function LabReportsPage() {
         </div>
     );
 }
-
-
-    

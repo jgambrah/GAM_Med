@@ -163,6 +163,8 @@ export const allPatients: Patient[] = [
     dob: '1985-05-20',
     gender: 'Male',
     patientType: 'private',
+    maritalStatus: 'Married',
+    occupation: 'Software Engineer',
     contact: {
       primaryPhone: '+233241234567',
       email: 'k.owusu@email.com',
@@ -189,6 +191,8 @@ export const allPatients: Patient[] = [
     dob: '1992-11-05',
     gender: 'Female',
     patientType: 'corporate',
+    maritalStatus: 'Single',
+    occupation: 'Marketing Manager',
     contact: {
       primaryPhone: '+233241999888',
       email: 'a.mensah@email.com',
@@ -550,6 +554,32 @@ export const mockAuditLogs: AuditLog[] = [
   }
 ];
 
+export const mockLabReports: LabReport[] = [
+  {
+    reportId: 'REP-001',
+    hospitalId: 'hosp-1',
+    month: 'August 2024',
+    testVolumes: [
+      { testName: 'FBC', volume: 120 },
+      { testName: 'Malaria RDT', volume: 85 },
+      { testName: 'UEC', volume: 45 },
+      { testName: 'Lipid Profile', volume: 30 },
+    ],
+    turnaroundTimes: [
+      { testName: 'FBC', avgTAT: 2.5 },
+      { testName: 'Malaria RDT', avgTAT: 0.5 },
+      { testName: 'UEC', avgTAT: 4.0 },
+      { testName: 'Lipid Profile', avgTAT: 6.0 },
+    ],
+    abnormalResultTrends: [
+      { testName: 'FBC', abnormalPercentage: 15 },
+      { testName: 'Malaria RDT', abnormalPercentage: 40 },
+      { testName: 'UEC', abnormalPercentage: 10 },
+      { testName: 'Lipid Profile', abnormalPercentage: 25 },
+    ]
+  }
+];
+
 // --------------------------------------------------------------------
 // == EMPTY PLACEHOLDERS ==
 // --------------------------------------------------------------------
@@ -584,7 +614,6 @@ export const mockImmunizationRecords: ImmunizationRecord[] = [];
 export const mockLabTestCatalog: LabTest[] = [];
 export const mockRadiologyStudies: RadiologyStudy[] = [];
 export const mockRadiologyReports: RadiologyReport[] = [];
-export const mockLabReports: LabReport[] = [];
 export const mockResourceBookings: ResourceBooking[] = [];
 export const mockInfectionReports: InfectionReport[] = [];
 export const mockEfficacyReports: EfficacyReport[] = [];
