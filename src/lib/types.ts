@@ -116,6 +116,8 @@ export interface Patient {
   dob: string;
   gender: 'Male' | 'Female' | 'Other';
   patientType: 'private' | 'corporate' | 'public';
+  maritalStatus?: "Single" | "Married" | "Divorced" | "Widowed";
+  occupation?: string;
   contact: {
     primaryPhone: string;
     alternatePhone?: string;
