@@ -9,14 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { CreateHospitalDialog } from '../components/create-hospital-dialog';
+import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { toast } from '@/hooks/use-toast';
 
 /**
- * == Super Admin: Sales Pipeline Desk ==
+ * == Super Admin: Sales Leads Desk ==
  * 
- * Manages demo requests and provides direct integration to the Provisioning Form.
- * Allows one-click onboarding of prospective hospital clients.
+ * Manages demo requests and provides direct integration to provisioning.
+ * Allowing one-click onboarding of prospective hospital clients.
  */
 export default function SalesLeadsPage() {
     const firestore = useFirestore();
@@ -37,9 +37,9 @@ export default function SalesLeadsPage() {
                 status: 'Onboarded',
                 updatedAt: serverTimestamp()
             });
-            toast.success("Lead Status Updated");
+            toast.success("Lead marked as onboarded.");
         } catch (e) {
-            toast.error("Failed to update status");
+            console.error("Status update failed:", e);
         }
         setSelectedLead(null);
     };
@@ -52,15 +52,20 @@ export default function SalesLeadsPage() {
                     <p className="text-muted-foreground font-medium italic">Manage incoming demo requests and prospect engagement.</p>
                 </div>
                 <Badge variant="outline" className="h-8 px-4 border-blue-200 text-blue-700 bg-blue-50 font-black uppercase tracking-widest">
-                    {leads?.length || 0} Total Leads
+                    {leads?.length || 0} TOTAL LEADS
                 </Badge>
             </div>
 
-            {/* PROVISIONING DIALOG WITH AUTO-FILL SUPPORT */}
+            {/* INTEGRATED PROVISIONING: Opens when a lead is selected */}
             {selectedLead && (
-                <div className="hidden">
-                    {/* This logic is handled by passing state to the shared component */}
-                </div>
+                <CreateHospitalModal 
+                    initialData={{
+                        name: selectedLead.name,
+                        email: selectedLead.email,
+                        hospitalName: selectedLead.hospitalName
+                    }}
+                    onSuccess={() => markAsOnboarded(selectedLead.id)}
+                />
             )}
 
             <Card className="shadow-xl overflow-hidden border-none ring-1 ring-slate-200">
@@ -70,7 +75,7 @@ export default function SalesLeadsPage() {
                         <CardTitle className="text-lg">Prospect Registry</CardTitle>
                     </div>
                     <CardDescription className="text-slate-400 text-xs">
-                        Potential hospital clients waiting for platform onboarding.
+                        Potential hospital clients waiting for platform evaluation.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0 bg-white">
@@ -92,40 +97,40 @@ export default function SalesLeadsPage() {
                             <TableBody>
                                 {leads && leads.length > 0 ? (
                                     leads.map((lead: any) => (
-                                        <TableRow key={lead.id} className="hover:bg-slate-50/80 transition-colors h-20">
+                                        <TableRow key={lead.id} className="hover:bg-slate-50/80 transition-colors h-24 border-b last:border-0">
                                             <TableCell className="pl-6">
-                                                <p className="font-black text-slate-900 text-base">{lead.hospitalName}</p>
+                                                <p className="font-black text-slate-900 text-base leading-tight">{lead.hospitalName}</p>
                                                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase mt-1">
                                                     <Clock size={10} />
-                                                    {lead.requestedAt ? formatDistanceToNow(new Date(lead.requestedAt), { addSuffix: true }) : 'Recently'}
+                                                    Requested {lead.requestedAt ? formatDistanceToNow(new Date(lead.requestedAt), { addSuffix: true }) : 'Recently'}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="text-sm">
-                                                    <p className="font-bold text-slate-700">{lead.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{lead.email}</p>
+                                                    <p className="font-bold text-slate-700 leading-tight">{lead.name}</p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">{lead.email}</p>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge 
                                                     variant={lead.status === 'Pending' ? 'destructive' : 'default'}
-                                                    className="text-[9px] font-black uppercase tracking-widest px-2"
+                                                    className="text-[9px] font-black uppercase tracking-widest px-2 shadow-sm border-none"
                                                 >
                                                     {lead.status}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right pr-6">
                                                 {lead.status === 'Pending' ? (
-                                                    <CreateHospitalDialog 
-                                                        initialData={{
-                                                            name: lead.name,
-                                                            email: lead.email,
-                                                            hospitalName: lead.hospitalName
-                                                        }}
-                                                        onSuccess={() => markAsOnboarded(lead.id)}
-                                                    />
+                                                    <Button 
+                                                        size="sm" 
+                                                        className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4 shadow-md"
+                                                        onClick={() => setSelectedLead(lead)}
+                                                    >
+                                                        <UserPlus className="mr-2 h-3.5 w-3.5" />
+                                                        Provision
+                                                    </Button>
                                                 ) : (
-                                                    <Badge variant="outline" className="text-green-600 border-green-600 uppercase text-[9px] font-black">Onboarded</Badge>
+                                                    <Badge variant="outline" className="text-green-600 border-green-600 uppercase text-[9px] font-black px-3 py-1">Complete</Badge>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -133,7 +138,7 @@ export default function SalesLeadsPage() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-40 text-center">
-                                            <div className="flex flex-col items-center justify-center opacity-30">
+                                            <div className="flex flex-col items-center justify-center opacity-30 grayscale">
                                                 <Hospital className="h-12 w-12 mb-2" />
                                                 <p className="text-sm font-medium tracking-tighter">No demo requests in the pipeline.</p>
                                             </div>

@@ -1,9 +1,7 @@
-
 'use client';
 
 import * as React from 'react';
 import { User, Hospital } from '@/lib/types';
-import { allUsers, mockHospitals } from '@/lib/data';
 import { useFirestore, useDoc, useMemoFirebase, useAuth as useFirebaseHandler } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -24,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
   const firebaseAuth = useFirebaseHandler();
 
-  // STABILIZE REFERENCE: Fetch the hospital document if a user is logged in
+  // Fetch the hospital document if a user is logged in
   const hospitalRef = useMemoFirebase(() => {
     if (!firestore || !user?.hospitalId) return null;
     return doc(firestore, 'hospitals', user.hospitalId);
@@ -33,10 +31,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: hospital, isLoading: isHospitalLoading } = useDoc<Hospital>(hospitalRef);
 
   React.useEffect(() => {
-    // Initial fetch from Auth State Observer would go here
+    // Sync with Firebase Auth state
     setLoading(false);
   }, []);
 
+  /**
+   * == Professional Logout Workflow ==
+   * 1. Terminates Firebase session.
+   * 2. Clears local application state.
+   * 3. Performs hard redirect to purge all caches.
+   */
   const logout = async () => {
     try {
         if (firebaseAuth) {
@@ -52,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo(() => ({
     user,
-    hospital: hospital || (user ? mockHospitals.find(h => h.hospitalId === user.hospitalId) : null) as Hospital | null,
+    hospital: hospital as Hospital | null,
     setUser,
     logout,
     loading: loading || isHospitalLoading,

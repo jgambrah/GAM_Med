@@ -14,17 +14,17 @@ import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { format } from 'date-fns';
 
 /**
- * == Super Admin Platform Control Tower ==
+ * == Super Admin Platform Command Centre ==
  * 
- * Provides global oversight of all hospital tenants.
- * Utilizes "God Mode" permissions to aggregate platform-wide stats.
+ * Master oversight of all hospital tenants.
+ * Includes trial management and global performance aggregation.
  */
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
   const [stats, setStats] = React.useState({ totalHospitals: 0, totalPatients: 0, totalUsers: 0 });
   const [isStatsLoading, setIsStatsLoading] = React.useState(true);
 
-  // 1. Fetch global totals (God Mode permitted for Super Admin)
+  // 1. Fetch global totals (God Mode)
   React.useEffect(() => {
     const fetchGlobalStats = async () => {
       if (!firestore) return;
@@ -63,14 +63,14 @@ export default function SuperAdminDashboard() {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
             <Globe className="h-8 w-8 text-blue-600" />
-            Platform Control Tower
+            Command Centre
           </h1>
           <p className="text-muted-foreground font-medium">Master tenant registry and evaluation management.</p>
         </div>
         <CreateHospitalModal />
       </div>
 
-      {/* KPI Row */}
+      {/* Pulse KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <PulseCard 
             title="Active Facilities" 
@@ -98,17 +98,17 @@ export default function SuperAdminDashboard() {
       {/* Tenant Directory */}
       <Card className="shadow-xl border-none ring-1 ring-slate-200 overflow-hidden">
         <CardHeader className="bg-slate-900 text-white pb-6">
-          <CardTitle className="text-lg font-bold">Facility Registry</CardTitle>
-          <CardDescription>Manage hospital tenants, trial periods, and platform access.</CardDescription>
+          <CardTitle className="text-lg font-bold">Hospital Registry</CardTitle>
+          <CardDescription>Manage evaluation trials and platform access for all tenants.</CardDescription>
         </CardHeader>
         <CardContent className="p-0 bg-white">
           <Table>
             <TableHeader className="bg-slate-50 border-b">
               <TableRow>
-                <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Hospital Name</TableHead>
+                <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Facility Tenant</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Plan & Status</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest">Trial Window</TableHead>
-                <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Actions</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest">Trial Ends</TableHead>
+                <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Management</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -144,7 +144,7 @@ export default function SuperAdminDashboard() {
                                             {format(trialDate, 'MMM dd, yyyy')}
                                         </span>
                                         <span className="text-[9px] font-black uppercase text-muted-foreground">
-                                            {isExpired ? 'LOCKED' : 'EVALUATION'}
+                                            {isExpired ? 'EXPIRED' : 'EVALUATION'}
                                         </span>
                                     </div>
                                 ) : (

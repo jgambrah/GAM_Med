@@ -50,7 +50,7 @@ interface CreateHospitalModalProps {
 /**
  * == Super Admin: Tenant Provisioning Tool ==
  * 
- * This component handles the creation of new hospital tenants.
+ * Handles the creation of new hospital tenants.
  * Supports auto-fill from Sales Leads for rapid onboarding.
  */
 export default function CreateHospitalModal({ initialData, onSuccess }: CreateHospitalModalProps) {
@@ -70,7 +70,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
     },
   });
 
-  // AUTO-FILL LOGIC: Reset form when initialData changes
+  // AUTO-FILL LOGIC: If a lead is selected, populate and open the form.
   React.useEffect(() => {
     if (initialData) {
       form.reset({
@@ -80,6 +80,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
         directorPassword: '',
         subscriptionTier: 'clinic-starter',
       });
+      setOpen(true);
     }
   }, [initialData, form]);
 
@@ -89,21 +90,22 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
       const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
       const now = new Date().toISOString();
 
-      // Set 30-day trial
+      // Set 30-day trial window
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 30);
 
+      // Create Director in Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
       const batch = writeBatch(db);
 
-      // 1. Create Director Profile
+      // 1. Create Director Profile (Logical isolation: {hospitalId}_{email})
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
       batch.set(doc(db, 'users', userDocId), {
         uid: uid,
-        email: values.directorEmail.toLowerCase().trim(),
         hospitalId: newHospitalId,
+        email: values.directorEmail.toLowerCase().trim(),
         role: 'director',
         name: values.directorName,
         is_active: true,
@@ -125,7 +127,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
         ownerEmail: values.directorEmail,
       });
 
-      // 3. Set Role Marker
+      // 3. Set Role Marker for Security Rules
       batch.set(doc(db, 'roles_admin', uid), {
         uid: uid,
         hospitalId: newHospitalId,
@@ -153,9 +155,9 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {initialData ? (
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4 shadow-md">
                 <UserPlus className="mr-2 h-3.5 w-3.5" />
-                Provision
+                Provision Lead
             </Button>
         ) : (
             <Button className="bg-blue-600 hover:bg-blue-700 shadow-md">
@@ -171,7 +173,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
             <DialogTitle>Register New Facility</DialogTitle>
           </div>
           <DialogDescription>
-            Onboard a new hospital tenant. Evaluation trial will last 30 days.
+            Provision a new tenant. Evaluation trial will last 30 days.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -182,7 +184,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Hospital Name</FormLabel>
-                  <FormControl><Input placeholder="e.g., City General" {...field} /></FormControl>
+                  <FormControl><Input placeholder="e.g., Accra General" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -215,7 +217,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Temporary Password</FormLabel>
-                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormControl><Input type="password" placeholder="Min 8 chars" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -243,9 +245,9 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
             
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 h-11 px-8">
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Confirm & Provision
+                Finalize & Provision
               </Button>
             </DialogFooter>
           </form>

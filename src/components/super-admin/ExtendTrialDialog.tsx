@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -16,6 +15,12 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { CalendarDays, Clock, Loader2 } from 'lucide-react';
 
+/**
+ * == Super Admin: Trial Extension Desk ==
+ * 
+ * Allows the Platform Owner to grant grace periods or extended evaluations
+ * to hospital tenants. Granting an extension automatically unlocks the app.
+ */
 export function ExtendTrialDialog({ hospital }: { hospital: any }) {
     const firestore = useFirestore();
     const [loading, setLoading] = React.useState(false);
@@ -26,7 +31,7 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
         setLoading(true);
         try {
             // 1. Calculate new expiry date
-            // Handle both Firestore Timestamps and ISO strings
+            // Start from current expiry OR right now if already expired
             const currentExpiry = hospital.trialEndsAt?.toDate 
                 ? hospital.trialEndsAt.toDate() 
                 : (hospital.trialEndsAt ? new Date(hospital.trialEndsAt) : new Date());
@@ -36,11 +41,11 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
             const newExpiry = new Date(baseDate);
             newExpiry.setDate(newExpiry.getDate() + days);
 
-            // 2. Update Firestore (The SaaS Extension Logic)
+            // 2. Update Firestore (Atomic SaaS Wall Unlock)
             const hospitalRef = doc(firestore, 'hospitals', hospital.id || hospital.hospitalId);
             await updateDoc(hospitalRef, {
                 trialEndsAt: Timestamp.fromDate(newExpiry),
-                subscriptionStatus: 'trialing', // This unlocks the app automatically
+                subscriptionStatus: 'trialing', // Immediately clears the lockout overlay
                 isActive: true,
                 status: 'active'
             });
@@ -51,7 +56,7 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
             setOpen(false);
         } catch (error) {
             console.error("Trial extension failed:", error);
-            toast.error("Process Failed", { description: "You don't have permission to modify tenant subscriptions." });
+            toast.error("Process Failed", { description: "Insufficient permissions to modify tenant subscriptions." });
         } finally {
             setLoading(false);
         }
@@ -72,8 +77,6 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
                     </div>
                     <DialogDescription className="text-xs font-medium">
                         Adjust the evaluation period for <strong>{hospital.name}</strong>.
-                        <br />
-                        Current Expiry: <span className="font-bold text-slate-900">{hospital.trialEndsAt ? (hospital.trialEndsAt.toDate ? hospital.trialEndsAt.toDate().toLocaleDateString() : new Date(hospital.trialEndsAt).toLocaleDateString()) : 'Not Set'}</span>
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -99,7 +102,7 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
                         <CalendarDays className="mr-3 h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" /> 
                         <div className="text-left">
                             <p className="text-sm">Add +14 Days</p>
-                            <p className="text-[10px] font-medium text-muted-foreground uppercase">Standard Extension</p>
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase">Extended Test</p>
                         </div>
                     </Button>
                     <Button 
@@ -116,7 +119,7 @@ export function ExtendTrialDialog({ hospital }: { hospital: any }) {
                 </div>
                 
                 <div className="pt-4 border-t">
-                    <p className="text-[9px] text-center text-muted-foreground italic">
+                    <p className="text-[9px] text-center text-muted-foreground italic leading-relaxed">
                         Extension takes effect immediately. The facility dashboard will unlock automatically.
                     </p>
                 </div>

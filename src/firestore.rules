@@ -73,7 +73,7 @@ service cloud.firestore {
     }
 
     match /hospitals/{hospId} {
-      allow get: if true; // Allow public discovery for tenant identification
+      allow get: if true; // CRITICAL: Allow public discovery for tenant identification
       allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
       allow list: if isSuperAdmin();
       allow update: if isSuperAdmin();
