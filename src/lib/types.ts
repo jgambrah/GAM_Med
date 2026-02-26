@@ -1178,3 +1178,11 @@ export interface MyReportedIssue {
   item: string;
   status: string;
 }
+
+export interface PerPatientEPrescribing {
+  medicationId: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  quantity_to_dispense: number;
+}
