@@ -26,6 +26,7 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function LabReportsPage() {
     // PRERENDER SAFETY: Provide a robust fallback for static generation.
+    // If mockLabReports is empty or undefined, provide empty arrays to prevent crashes.
     const reportData = (mockLabReports && mockLabReports.length > 0) ? mockLabReports[0] : {
         testVolumes: [],
         turnaroundTimes: [],
