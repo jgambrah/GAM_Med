@@ -1,46 +1,39 @@
-import { Resend } from 'resend';
-import { NextResponse } from 'next/server';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { adminDb } from '@/firebase/admin';
+import { sendDemoRequestEmail } from '@/lib/mail-service';
 
 /**
- * == SaaS Lead Generation API ==
+ * == SaaS Lead Capture API ==
  * 
- * Secure route to process "Request Demo" submissions from the landing page.
- * Authenticates with Resend to notify the platform owner immediately.
+ * Processes public demo requests. It creates an immutable lead record 
+ * in Firestore for the Command Centre and triggers a notification email.
  */
 export async function POST(req: Request) {
     try {
         const { name, email, hospital, phone } = await req.json();
 
-        if (!name || !email || !hospital) {
-            return new NextResponse('Missing required fields', { status: 400 });
+        if (!adminDb) {
+            return Response.json({ error: "Backend not initialized" }, { status: 500 });
         }
 
-        // Send notification to the Platform CEO
-        await resend.emails.send({
-            from: 'GamMed Leads <system@resend.dev>', // Note: Use verified domain in production
-            to: 'jamesgambrah@gmail.com', // YOUR TARGET EMAIL
-            subject: `New Sales Lead: ${hospital}`,
-            html: `
-                <div style="font-family: sans-serif; padding: 20px; color: #333;">
-                    <h2 style="color: #2563eb;">New Demo Request Received</h2>
-                    <p>A prospective client has requested a platform demonstration.</p>
-                    <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <p><strong>Name:</strong> ${name}</p>
-                        <p><strong>Hospital:</strong> ${hospital}</p>
-                        <p><strong>Work Email:</strong> ${email}</p>
-                        <p><strong>Phone:</strong> ${phone}</p>
-                    </div>
-                    <hr style="border: none; border-top: 1px solid #eee;" />
-                    <p style="font-size: 0.8rem; color: #999;">This lead was captured from the GamMed Login/Landing Page.</p>
-                </div>
-            `
+        // 1. SAVE TO FIRESTORE: The Command Centre Lead Source
+        // This allows the CEO to manage and provision leads in a central dashboard.
+        await adminDb.collection('demo_requests').add({
+            name,
+            email: email.toLowerCase().trim(),
+            hospitalName: hospital,
+            phone,
+            status: 'Pending', // Default status for new leads
+            requestedAt: new Date().toISOString(),
+            source: 'Landing Page'
         });
 
-        return NextResponse.json({ success: true });
+        // 2. SEND NOTIFICATION EMAIL: 
+        // Stylized email sent to the platform owner via Resend.
+        await sendDemoRequestEmail({ name, email, hospital, phone });
+
+        return Response.json({ success: true });
     } catch (error: any) {
-        console.error('Lead capture failed:', error);
-        return new NextResponse(error.message, { status: 500 });
+        console.error("Lead Capture Error:", error);
+        return Response.json({ error: error.message }, { status: 500 });
     }
 }

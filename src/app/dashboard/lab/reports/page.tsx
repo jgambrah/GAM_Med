@@ -26,7 +26,6 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function LabReportsPage() {
     // PRERENDER SAFETY: Provide a robust fallback for static generation.
-    // If mockLabReports is empty or undefined, provide empty arrays to prevent crashes.
     const reportData = (mockLabReports && mockLabReports.length > 0) ? mockLabReports[0] : {
         testVolumes: [],
         turnaroundTimes: [],
@@ -77,7 +76,7 @@ export default function LabReportsPage() {
                                 <CartesianGrid vertical={false} />
                                 <XAxis dataKey="testName" tickLine={false} tickMargin={10} axisLine={false} />
                                 <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                                <Bar dataKey="volume" fill="hsl(var(--primary))" radius={8}>
+                                < Bar dataKey="volume" fill="hsl(var(--primary))" radius={8}>
                                     <LabelList
                                         position="top"
                                         offset={12}

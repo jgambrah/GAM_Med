@@ -1,10 +1,11 @@
 import * as admin from 'firebase-admin';
 
 /**
- * == Firebase Admin Singleton ==
+ * == Build-Safe Firebase Admin Singleton ==
  * 
  * Provides secure server-side access to Firebase services.
- * Resilience: Checks for presence of environment variables to prevent build-time crashes.
+ * Resilience: Performs a conditional check for project_id to prevent crashes 
+ * during Next.js static page generation (Collecting page data phase).
  */
 
 const firebaseAdminConfig = {
@@ -14,17 +15,17 @@ const firebaseAdminConfig = {
 };
 
 if (!admin.apps.length) {
-  // Only initialize if all required keys are present.
-  // This prevents build errors on Vercel if keys aren't set in the build environment.
+  // Only initialize if the required project_id is present.
+  // This satisfies the Vercel build worker requirements for static export.
   if (firebaseAdminConfig.projectId && firebaseAdminConfig.clientEmail && firebaseAdminConfig.privateKey) {
     admin.initializeApp({
       credential: admin.credential.cert(firebaseAdminConfig),
       databaseURL: `https://${firebaseAdminConfig.projectId}.firebaseio.com`,
     });
   } else {
-    // Log a warning if we are in production but keys are missing
-    if (process.env.NODE_ENV === 'production') {
-      console.warn("Firebase Admin SDK not initialized: Missing environment variables.");
+    // Log a warning in development, but avoid crashing the build worker
+    if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+      console.warn("Firebase Admin SDK not initialized: Missing project_id environment variable.");
     }
   }
 }
