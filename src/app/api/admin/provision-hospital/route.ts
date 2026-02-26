@@ -52,14 +52,14 @@ export async function POST(req: Request) {
 
         // 4. THE "SAAS STAMP" (Custom JWT Claims)
         // This is the gold standard for SaaS security. The hospitalId is baked 
-        // into the user's signed identity token.
+        // into the user's signed identity token. This allows immediate, secure access.
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
         });
 
         // 5. CREATE USER PROFILE (Logical Mapping)
-        // docId is the UID for O(1) lookup performance in security rules
+        // UID is used as doc ID for O(1) lookups in security rules.
         await adminDb.collection('users').doc(userRecord.uid).set({
             uid: userRecord.uid,
             email: directorEmail.toLowerCase(),
@@ -72,6 +72,7 @@ export async function POST(req: Request) {
         });
 
         // 6. CREATE ROLE MARKER (Security Fallback)
+        // Required for database rules that lookup role assignments.
         await adminDb.collection('roles_admin').doc(userRecord.uid).set({
             uid: userRecord.uid,
             hospitalId: hospitalId,

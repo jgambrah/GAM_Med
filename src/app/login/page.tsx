@@ -40,6 +40,15 @@ export default function LoginPage() {
         try {
             // 1. AUTHENTICATE with Firebase Auth
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+            
+            /**
+             * == CRITICAL SAAS FIX: Token Sync ==
+             * When a Director is provisioned, their claims (hospitalId) are set on the server.
+             * We force refresh the token here to ensure the client-side session picks up the
+             * "SaaS Stamp" immediately, avoiding permission errors on first login.
+             */
+            await userCredential.user.getIdToken(true);
+
             const authUid = userCredential.user.uid;
 
             // 2. DISCOVERY: Find the user's profile document by UID field
@@ -55,7 +64,7 @@ export default function LoginPage() {
                 const emailSnapshot = await getDocs(emailQuery);
                 
                 if (emailSnapshot.empty) {
-                    throw new Error("Auth successful, but no Firestore profile found. Please contact your administrator.");
+                    throw new Error("Auth successful, but no Firestore profile found. Please contact GamMed support.");
                 }
                 
                 userData = emailSnapshot.docs[0].data();
@@ -78,12 +87,11 @@ export default function LoginPage() {
             });
 
             // 3. ROLE-BASED REDIRECTION
-            // Only the Platform Owner (Super Admin) goes to the Command Centre
+            // Directors and Staff land on the main dashboard where the SaaS Wall is active.
+            // Only the Platform Owner goes to the global Command Centre.
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {
-                // Marcus (Director) and all other facility staff land on the main dashboard
-                // This prevents landing on Super Admin pages which triggers demo_requests permission errors.
                 router.push('/dashboard');
             }
 
