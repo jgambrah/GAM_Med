@@ -1,3 +1,4 @@
+
 import { getAdminServices } from '@/firebase/admin';
 import { sendWelcomeEmail } from '@/lib/mail-service';
 import crypto from 'crypto';
@@ -13,11 +14,11 @@ export async function POST(req: Request) {
     const body = await req.text();
     const signature = req.headers.get('x-paystack-signature');
 
-    if (!process.env.PAYSTACK_SECRET_KEY) {
+    if (!process.env.FB_PRIVATE_KEY) {
         return new Response('Configuration Error', { status: 500 });
     }
 
-    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY).update(body).digest('hex');
+    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || '').update(body).digest('hex');
     if (hash !== signature) {
         return new Response('Unauthorized', { status: 401 });
     }
@@ -80,25 +81,29 @@ export async function POST(req: Request) {
                 
                 // 2. Create Auth User
                 const userRecord = await adminAuth.createUser({
-                    email: email,
+                    email: email.toLowerCase(),
                     password: tempPass,
                     displayName: "Medical Director"
                 });
 
-                // 3. Create User Profile (Composite ID)
-                const userDocId = `${newHospitalId}_${email.toLowerCase().trim()}`;
-                await adminDb.collection('users').doc(userDocId).set({
+                // 3. SET CUSTOM CLAIMS (The SaaS Stamp)
+                await adminAuth.setCustomUserClaims(userRecord.uid, {
+                    hospitalId: newHospitalId,
+                    role: 'director'
+                });
+
+                // 4. Create User Profile
+                await adminDb.collection('users').doc(userRecord.uid).set({
                     uid: userRecord.uid,
                     email: email.toLowerCase().trim(),
                     name: "Medical Director",
                     hospitalId: newHospitalId,
                     role: 'director',
                     is_active: true,
-                    created_at: now.toISOString(),
-                    last_login: now.toISOString()
+                    created_at: now.toISOString()
                 });
 
-                // 4. Create Role Marker (UID Keyed - CRITICAL for Rules)
+                // 5. Create Role Marker (Necessary for rules fallback)
                 await adminDb.collection('roles_admin').doc(userRecord.uid).set({
                     uid: userRecord.uid,
                     hospitalId: newHospitalId,

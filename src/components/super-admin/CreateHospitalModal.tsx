@@ -1,12 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, writeBatch } from 'firebase/firestore';
-import { useFirestore, useAuth } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -50,14 +48,12 @@ interface CreateHospitalModalProps {
 /**
  * == Super Admin: Tenant Provisioning Tool ==
  * 
- * Handles the creation of new hospital tenants.
- * Supports auto-fill from Sales Leads for rapid onboarding.
+ * Triggers the server-side provisioning API to create a new hospital.
+ * This ensures the Director is correctly "Stamped" with Custom Claims.
  */
 export default function CreateHospitalModal({ initialData, onSuccess }: CreateHospitalModalProps) {
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const db = useFirestore();
-  const auth = useAuth();
 
   const form = useForm<z.infer<typeof CreateHospitalSchema>>({
     resolver: zodResolver(CreateHospitalSchema),
@@ -70,7 +66,6 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
     },
   });
 
-  // AUTO-FILL LOGIC: If a lead is selected, populate and open the form.
   React.useEffect(() => {
     if (initialData) {
       form.reset({
@@ -87,57 +82,20 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
     try {
-      const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
-      const now = new Date().toISOString();
-
-      // Set 30-day trial window
-      const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 30);
-
-      // Create Director in Firebase Auth
-      const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
-      const uid = cred.user.uid;
-
-      const batch = writeBatch(db);
-
-      // 1. Create Director Profile (Logical isolation: {hospitalId}_{email})
-      const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
-      batch.set(doc(db, 'users', userDocId), {
-        uid: uid,
-        hospitalId: newHospitalId,
-        email: values.directorEmail.toLowerCase().trim(),
-        role: 'director',
-        name: values.directorName,
-        is_active: true,
-        created_at: now,
-        last_login: now,
+      const response = await fetch('/api/admin/provision-hospital', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values)
       });
 
-      // 2. Create Hospital Master Record
-      batch.set(doc(db, 'hospitals', newHospitalId), {
-        hospitalId: newHospitalId,
-        name: values.hospitalName,
-        slug: newHospitalId,
-        status: 'active',
-        subscriptionStatus: 'trialing',
-        trialEndsAt: trialEndDate.toISOString(),
-        subscriptionTier: values.subscriptionTier,
-        isActive: true,
-        createdAt: now,
-        ownerEmail: values.directorEmail,
-      });
+      const result = await response.json();
 
-      // 3. Set Role Marker for Security Rules
-      batch.set(doc(db, 'roles_admin', uid), {
-        uid: uid,
-        hospitalId: newHospitalId,
-        assignedAt: now,
-      });
-
-      await batch.commit();
+      if (!response.ok) {
+          throw new Error(result.error || "Failed to provision facility");
+      }
 
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} dashboard is now active.`
+        description: `${values.hospitalName} is now active with ID: ${result.hospitalId}`
       });
       
       setOpen(false);
