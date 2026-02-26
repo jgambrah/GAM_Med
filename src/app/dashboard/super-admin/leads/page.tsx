@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, Phone, UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
+import { Mail, Phone, UserPlus, CheckCircle, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 /**
@@ -19,7 +19,7 @@ import { formatDistanceToNow } from 'date-fns';
 export default function SalesLeadsDesk() {
     const firestore = useFirestore();
 
-    // 1. LIVE QUERY: Listen for demo requests
+    // 1. LIVE QUERY: Listen for demo requests across the platform
     const leadsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
         return query(collection(firestore, "demo_requests"), orderBy("requestedAt", "desc"));
