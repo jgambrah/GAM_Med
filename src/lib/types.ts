@@ -1077,6 +1077,7 @@ export interface VitalsLog {
   vitalId: string;
   hospitalId: string;
   patientId: string;
+  bloodpressure: string;
   bloodPressure: string;
   heartRate: string;
   temperature: string;
