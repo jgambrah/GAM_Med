@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, Phone, UserPlus, CheckCircle, Loader2, Hospital, Clock } from 'lucide-react';
+import { Mail, Phone, UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 /**

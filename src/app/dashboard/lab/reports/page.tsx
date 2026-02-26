@@ -32,15 +32,6 @@ export default function LabReportsPage() {
         abnormalResultTrends: []
     };
 
-    if (!mockLabReports || mockLabReports.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-96 space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-muted-foreground font-medium">Compiling laboratory metrics...</p>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">

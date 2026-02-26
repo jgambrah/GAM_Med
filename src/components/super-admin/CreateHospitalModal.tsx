@@ -67,22 +67,17 @@ export default function CreateHospitalModal() {
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
     try {
-      // 1. Generate a unique ID (e.g., "city-general-1234")
       const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
       const now = new Date().toISOString();
 
-      // 2. Create the Director in Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
-      // 3. Atomically provision documents via a Firestore Batch
       const batch = writeBatch(db);
 
-      // Pattern: {hospitalId}_{email} - The SaaS isolation anchor for user profiles
       const userDocId = `${newHospitalId}_${values.directorEmail.toLowerCase().trim()}`;
       const userRef = doc(db, 'users', userDocId);
       
-      // "STAMP" the Director with the Hospital ID
       batch.set(userRef, {
         uid: uid,
         email: values.directorEmail.toLowerCase().trim(),
@@ -94,7 +89,6 @@ export default function CreateHospitalModal() {
         last_login: now,
       });
 
-      // "STAMP" the Hospital Master Record
       const hospitalRef = doc(db, 'hospitals', newHospitalId);
       batch.set(hospitalRef, {
         hospitalId: newHospitalId,
@@ -106,7 +100,6 @@ export default function CreateHospitalModal() {
         ownerEmail: values.directorEmail,
       });
 
-      // "STAMP" the Admin Role Marker (DBAC for Security Rules)
       const roleRef = doc(db, 'roles_admin', uid);
       batch.set(roleRef, {
         uid: uid,
@@ -116,7 +109,6 @@ export default function CreateHospitalModal() {
 
       await batch.commit();
 
-      // 4. Automated Onboarding Email
       await sendStaffInvitationEmail({
           email: values.directorEmail,
           name: values.directorName,
@@ -125,7 +117,7 @@ export default function CreateHospitalModal() {
       });
 
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active. The Director has been notified via email.`
+        description: `${values.hospitalName} is now active.`
       });
       
       setOpen(false);
@@ -133,7 +125,7 @@ export default function CreateHospitalModal() {
     } catch (error: any) {
       console.error("Provisioning failed:", error);
       toast.error("Provisioning Failed", {
-        description: error.message || "An error occurred during hospital registration."
+        description: error.message || "An error occurred."
       });
     } finally {
       setIsSubmitting(false);
@@ -155,7 +147,7 @@ export default function CreateHospitalModal() {
             <DialogTitle>Register New Facility</DialogTitle>
           </div>
           <DialogDescription>
-            Onboard a new hospital tenant and its primary Medical Director.
+            Onboard a new hospital tenant.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -166,18 +158,7 @@ export default function CreateHospitalModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Hospital Name</FormLabel>
-                  <FormControl><Input placeholder="e.g., City General Hospital" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="directorName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Director Full Name</FormLabel>
-                  <FormControl><Input placeholder="Dr. James Smith" {...field} /></FormControl>
+                  <FormControl><Input placeholder="e.g., City General" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -187,7 +168,7 @@ export default function CreateHospitalModal() {
               name="directorEmail"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Director Email (Login)</FormLabel>
+                  <FormLabel>Director Email</FormLabel>
                   <FormControl><Input type="email" placeholder="director@facility.com" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -199,7 +180,7 @@ export default function CreateHospitalModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Temporary Password</FormLabel>
-                  <FormControl><Input type="password" placeholder="Set a temporary password" {...field} /></FormControl>
+                  <FormControl><Input type="password" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -209,11 +190,11 @@ export default function CreateHospitalModal() {
               name="subscriptionTier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Onboarding Plan</FormLabel>
+                  <FormLabel>Plan</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a plan" />
+                        <SelectValue />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -227,13 +208,6 @@ export default function CreateHospitalModal() {
               )}
             />
             
-            <div className="p-3 rounded-md bg-yellow-50 border border-yellow-200 flex gap-3">
-                <ShieldAlert className="h-5 w-5 text-yellow-600 shrink-0" />
-                <p className="text-xs text-yellow-700">
-                    <strong>Notice:</strong> Provisioning a new hospital will sign you out. You must log back in as CEO to continue platform tasks.
-                </p>
-            </div>
-
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>

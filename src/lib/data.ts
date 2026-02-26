@@ -587,8 +587,6 @@ export const mockClaims: Claim[] = [];
 export const mockPayments: FinancialTransaction[] = [];
 export const mockWaitingList: WaitingListEntry[] = [];
 export const mockLeaveRequests: LeaveRequest[] = [];
-export const mockPayrollRuns: PayrollRun[] = [];
-export const mockPayrollRecords: PayrollRecord[] = [];
 export const mockOtSessions: OTSession[] = [];
 export const mockDietaryProfiles: DietaryProfile[] = [];
 export const mockMealOrders: MealOrder[] = [];
@@ -645,3 +643,6 @@ export const mockPricingTables: PricingTable[] = [
   { pricingId: 'private', hospitalId: 'hosp-1', description: 'Standard Private Patient Pricing', rate_card: { 'A001': 150, 'L001': 80 } },
   { pricingId: 'corporate', hospitalId: 'hosp-1', description: 'Insurance/Corporate Partner Pricing', rate_card: { 'A001': 120, 'L001': 65 } }
 ];
+
+export const mockPayrollRuns: PayrollRun[] = [];
+export const mockPayrollRecords: PayrollRecord[] = [];
