@@ -114,8 +114,6 @@ export interface Patient {
   ghanaCardId?: string;
   dob: string;
   gender: 'Male' | 'Female' | 'Other';
-  maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
-  occupation?: string;
   patientType: 'private' | 'corporate' | 'public';
   contact: {
     primaryPhone: string;
