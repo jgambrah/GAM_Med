@@ -14,15 +14,21 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
+    /**
+     * @description Checks if the user is a registered Admin or Director for any hospital.
+     */
     function isAdmin() {
       return isSignedIn() && (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || isSuperAdmin());
     }
 
     /**
-     * @description Fetches the hospitalId for the currently logged-in user.
+     * @description Fetches the hospitalId from the user's role marker.
+     * This bypasses the composite ID issue in the main users collection.
      */
     function getMyHospitalId() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
+      let adminDoc = get(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      let staffDoc = get(/databases/$(database)/documents/roles_staff/$(request.auth.uid));
+      return adminDoc != null ? adminDoc.data.hospitalId : staffDoc.data.hospitalId;
     }
 
     /**
@@ -36,16 +42,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.patientId == patientId;
     }
 
-    function getMyRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
     /**
      * @description SAAS FEATURE GATING: Check if hospital has the required feature plan
      */
     function hasFeature(slug) {
-      let hId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
-      let plan = get(/databases/$(database)/documents/hospitals/$(hId)).data.subscriptionTier;
+      let hId = getMyHospitalId();
+      let hospitalDoc = get(/databases/$(database)/documents/hospitals/$(hId));
+      let plan = hospitalDoc.data.subscriptionTier;
       
       return (plan == 'enterprise') || 
              (plan == 'professional' && slug in ['ehr', 'vitals', 'appointments', 'billing', 'pharmacy', 'lab', 'wards', 'inventory', 'nursing']) ||
@@ -60,7 +63,7 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------------
-    // Public Discovery & Leads (Discovery Flow)
+    // Public Discovery & Leads
     // --------------------------------------------------------------------
     match /pricing_plans/{planId} {
       allow read: if true;
@@ -68,19 +71,19 @@ service cloud.firestore {
     }
 
     match /demo_requests/{leadId} {
-      allow create: if true; // Allow landing page to submit leads
-      allow read, write: if isSuperAdmin();
+      allow create: if true; 
+      allow read: if isAdmin(); // FIX: Allow Directors/Admins to view leads
+      allow write: if isSuperAdmin();
     }
 
     match /hospitals/{hospId} {
-      allow get: if true; // CRITICAL: Allow public discovery for tenant identification
-      allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
+      allow get: if true; 
       allow list: if isSuperAdmin();
       allow update: if isSuperAdmin();
     }
 
     // --------------------------------------------------------------------
-    // Referral Module Rules (The SaaS Window)
+    // Referral Module Rules
     // --------------------------------------------------------------------
     match /referrals/{referralId} {
       allow read: if isSignedIn() && (
@@ -98,7 +101,7 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------------
-    // Primary Tenant Collections (Strict Isolation)
+    // Primary Tenant Collections
     // --------------------------------------------------------------------
 
     match /users/{userId} {
@@ -114,38 +117,6 @@ service cloud.firestore {
       allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId()) && hasFeature('ehr');
       allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
       allow delete: if isAdmin() && isSameHospital(resource.data);
-    }
-
-    // --------------------------------------------------------------------
-    // Space & Facility Management
-    // --------------------------------------------------------------------
-
-    match /facilities/{facilityId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
-                   (getMyRole() == 'director' || getMyRole() == 'admin' || getMyRole() == 'space_manager') && hasFeature('inventory');
-    }
-
-    match /facility_bookings/{bookingId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('inventory');
-    }
-
-    // --------------------------------------------------------------------
-    // Narcotic Control (High Security)
-    // --------------------------------------------------------------------
-
-    match /controlled_substances/{substanceId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
-                   (getMyRole() == 'pharmacist' || getMyRole() == 'admin') && hasFeature('narcotics');
-    }
-
-    match /controlled_substance_logs/{logId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow create: if isSignedIn() && isSameHospital(request.resource.data) && 
-                    (getMyRole() == 'pharmacist' || getMyRole() == 'admin' || getMyRole() == 'doctor') && hasFeature('narcotics');
-      allow update, delete: if false;
     }
 
     // --------------------------------------------------------------------
