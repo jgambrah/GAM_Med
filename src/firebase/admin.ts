@@ -4,35 +4,42 @@ import * as admin from 'firebase-admin';
  * == Build-Safe Firebase Admin Singleton ==
  * 
  * Provides secure server-side access to Firebase services.
- * Resilience: Performs a conditional check for required credentials to prevent crashes 
- * during Next.js static page generation (Collecting page data phase) on Vercel.
+ * Resilience: Performs an explicit check for environment variables to prevent 
+ * Vercel build-time crashes (Error: Service account object must contain a string "project_id").
  */
 
-const firebaseAdminConfig = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-};
+let adminApp: admin.app.App | null = null;
 
 if (!admin.apps.length) {
-  // Only initialize if the required project_id is present.
-  // This satisfies the Vercel build worker requirements for static export.
-  if (firebaseAdminConfig.projectId && firebaseAdminConfig.clientEmail && firebaseAdminConfig.privateKey) {
+  // 1. HARD ENFORCEMENT: Only initialize if all critical environment variables are available.
+  // During Vercel's static page analysis phase, these might be missing.
+  if (
+    process.env.FIREBASE_PROJECT_ID && 
+    process.env.FIREBASE_CLIENT_EMAIL && 
+    process.env.FIREBASE_PRIVATE_KEY
+  ) {
     try {
-        admin.initializeApp({
-            credential: admin.credential.cert(firebaseAdminConfig),
-            databaseURL: `https://${firebaseAdminConfig.projectId}.firebaseio.com`,
+        adminApp = admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: process.env.FIREBASE_PROJECT_ID,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            }),
+            databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
         });
     } catch (error) {
         console.error("Firebase Admin initialization failed at runtime:", error);
     }
   } else {
-    // Log a warning in development, but avoid crashing the build worker
+    // Graceful Skip: Avoid throwing an error during build phase
     if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-      console.warn("Firebase Admin SDK not initialized: Missing project_id environment variable.");
+      console.warn("Firebase Admin SDK skipped initialization: Environment variables not provided.");
     }
   }
+} else {
+  adminApp = admin.app();
 }
 
-export const adminDb = admin.apps.length ? admin.firestore() : null as any;
-export const adminAuth = admin.apps.length ? admin.auth() : null as any;
+// 2. EXPORT SDKs (Safety fallback to null for build-time safety)
+export const adminDb = adminApp ? adminApp.firestore() : null as any;
+export const adminAuth = adminApp ? adminApp.auth() : null as any;

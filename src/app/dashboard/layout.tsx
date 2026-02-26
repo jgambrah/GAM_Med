@@ -15,6 +15,7 @@ import { TenantProvider } from '@/hooks/use-tenant';
 import { AiAssistant } from '@/components/dashboard/ai-assistant';
 import { useSubscriptionGuard } from '@/hooks/use-subscription-guard';
 import { SubscriptionLock } from '@/components/dashboard/SubscriptionLock';
+import { TrialBanner } from '@/components/dashboard/TrialBanner';
 
 export default function DashboardLayout({
   children,
@@ -48,6 +49,9 @@ export default function DashboardLayout({
           </SidebarContent>
         </Sidebar>
         <SidebarInset>
+          {/* Trial Countdown Banner */}
+          <TrialBanner />
+          
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
             <SidebarTrigger className="sm:hidden" />
             <div className="flex-1" />
