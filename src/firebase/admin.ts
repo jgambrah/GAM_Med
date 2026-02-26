@@ -40,7 +40,6 @@ function getAdminApp() {
 
 /**
  * == Database Getter ==
- * Returns the Firestore Admin instance or null if initialization failed.
  */
 export function getAdminDb() {
   const app = getAdminApp();
@@ -49,13 +48,12 @@ export function getAdminDb() {
 
 /**
  * == Auth Getter ==
- * Returns the Auth Admin instance or null if initialization failed.
  */
 export function getAdminAuth() {
   const app = getAdminApp();
   return app ? admin.auth() : null as unknown as admin.auth.Auth;
 }
 
-// Export constants for simpler cases (typed as non-null for convenience in some files)
+// Export constants for simpler cases (Note: these will be null during build)
 export const adminDb = getAdminDb();
 export const adminAuth = getAdminAuth();
