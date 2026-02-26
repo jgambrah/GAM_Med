@@ -2,84 +2,165 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * DOCUMENTATION: Firestore Security Rules
-     *
-     * Core Philosophy:
-     * This ruleset implements a "Public Read, Admin Write" model for marketing and pricing data. 
-     * It is designed to allow the Landing Page to remain dynamic by fetching data directly 
-     * from Firestore, while strictly protecting against unauthorized modifications.
-     *
-     * Data Structure:
-     * All pricing data is stored in a top-level `/pricing_plans` collection. Each document 
-     * represents a tier (e.g., 'clinic-starter', 'professional').
-     *
-     * Key Security Decisions:
-     * 1. Public Accessibility: Since pricing plans are intended for a public landing page, 
-     *    read access (get/list) is granted to all users, including those not signed in.
-     * 2. Administrative Control: Write operations are restricted to users who have an 
-     *    entry in the `/roles_admin` collection. This provides a centralized way to 
-     *    manage administrative privileges without cluttering the data documents.
-     * 3. Relational Integrity: On creation, the rules enforce that the internal 'id' field 
-     *    of a pricing plan matches the Firestore document ID to ensure consistency.
-     * 4. Update Safety: Critical identifiers are made immutable during updates to prevent 
-     *    accidental data corruption or orphaned records.
-     */
+    // --------------------------------------------------------------------
+    // Helper Functions for Multi-Tenant Isolation (The SaaS Wall)
+    // --------------------------------------------------------------------
 
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the authenticated user has administrative privileges 
-     * by looking up their UID in the roles_admin collection.
-     */
+    function isSuperAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    }
+
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || isSuperAdmin());
     }
 
-    // --- Collection Rules ---
+    /**
+     * @description Fetches the hospitalId for the currently logged-in user.
+     */
+    function getMyHospitalId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId;
+    }
 
     /**
-     * @description Rules for pricing plans which are displayed on the public landing page.
-     * @path /pricing_plans/{planId}
-     * @allow (get, list) Any user, even unauthenticated, to view pricing.
-     * @allow (create, update, delete) Only users with an admin record in /roles_admin.
-     * @deny (write) Any non-admin user attempting to change price or features.
-     * @principle Public consumption with restrictive, role-based administrative writes.
+     * @description Checks if the document belongs to the user's hospital.
      */
+    function isSameHospital(docData) {
+      return isSignedIn() && (docData.hospitalId == getMyHospitalId() || isSuperAdmin());
+    }
+
+    function isPatient(patientId) {
+      return isSignedIn() && request.auth.token.patientId == patientId;
+    }
+
+    function getMyRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // --------------------------------------------------------------------
+    // Global Bypass for Super Admin
+    // --------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // --------------------------------------------------------------------
+    // Public Pricing Plans (Public Read, Super Admin Write)
+    // --------------------------------------------------------------------
     match /pricing_plans/{planId} {
-      
-      // Reads are public for the Landing Page
-      allow get, list: if true;
-
-      // Writes require Admin privileges
-      allow create: if isAdmin() && request.resource.data.id == planId;
-      
-      allow update: if isAdmin() 
-                    && resource != null 
-                    && request.resource.data.id == resource.data.id;
-
-      allow delete: if isAdmin() && resource != null;
+      allow read: if true;
+      allow write: if isSuperAdmin();
     }
 
-    /**
-     * @description Rules for the admin roles collection used for authorization.
-     * @path /roles_admin/{userId}
-     * @allow (get) Any signed-in user to check their own admin status.
-     * @deny (list, write) All client-side operations to prevent privilege escalation.
-     * @principle Closed, read-only role mapping for security bootstrapping.
-     */
-    match /roles_admin/{userId} {
-      // Users can check their own status, but cannot list or modify roles from the client.
-      allow get: if isSignedIn() && request.auth.uid == userId;
-      allow list, create, update, delete: if false;
+    // --------------------------------------------------------------------
+    // Referral Module Rules (The SaaS Window)
+    // --------------------------------------------------------------------
+    match /referrals/{referralId} {
+      allow read: if isSignedIn() && (
+        resource.data.fromHospitalId == getMyHospitalId() || 
+        resource.data.toHospitalId == getMyHospitalId() ||
+        isSuperAdmin()
+      );
+
+      allow create: if isSignedIn() && request.resource.data.fromHospitalId == getMyHospitalId();
+
+      allow update: if isSignedIn() && (
+        resource.data.toHospitalId == getMyHospitalId() ||
+        isSuperAdmin()
+      );
     }
 
+    // --------------------------------------------------------------------
+    // Primary Tenant Collections (Strict Isolation)
+    // --------------------------------------------------------------------
+
+    match /hospitals/{hospId} {
+      allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
+      allow get: if isSignedIn();
+      allow list: if isSuperAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSameHospital(resource.data));
+      allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow create: if isSignedIn() && isAdmin() && request.resource.data.hospitalId == getMyHospitalId();
+      allow update: if isSignedIn() && (request.auth.uid == userId || (isAdmin() && isSameHospital(resource.data)));
+    }
+
+    match /patients/{patientId} {
+      allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin() || isPatient(patientId));
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId());
+      allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow delete: if isAdmin() && isSameHospital(resource.data);
+    }
+
+    // --------------------------------------------------------------------
+    // Space & Facility Management
+    // --------------------------------------------------------------------
+
+    match /facilities/{facilityId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
+                   (getMyRole() == 'director' || getMyRole() == 'admin' || getMyRole() == 'space_manager');
+    }
+
+    match /facility_bookings/{bookingId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    // --------------------------------------------------------------------
+    // Narcotic Control (High Security)
+    // --------------------------------------------------------------------
+
+    match /controlled_substances/{substanceId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && 
+                   (getMyRole() == 'pharmacist' || getMyRole() == 'admin');
+    }
+
+    match /controlled_substance_logs/{logId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow create: if isSignedIn() && isSameHospital(request.resource.data) && 
+                    (getMyRole() == 'pharmacist' || getMyRole() == 'admin' || getMyRole() == 'doctor');
+      allow update, delete: if false;
+    }
+
+    // --------------------------------------------------------------------
+    // Clinical & Operational Modules
+    // --------------------------------------------------------------------
+
+    match /vitals/{vitalId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /clinical_notes/{noteId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /lab_orders/{orderId} {
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /ot_sessions/{sessionId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /dietary_orders/{orderId} {
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /{collection}/{docId} {
+      allow read, write: if isSignedIn() && (isSuperAdmin() || isSameHospital(resource.data));
+    }
   }
 }
