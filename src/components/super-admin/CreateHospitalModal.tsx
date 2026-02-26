@@ -46,6 +46,7 @@ const CreateHospitalSchema = z.object({
  * This component handles the creation of new hospital tenants.
  * It atomically provisions the Hospital record, the Director's profile,
  * and the DBAC role marker, "stamping" them with a shared hospitalId.
+ * Updated to include Automatic 30-Day Free Trial logic.
  */
 export default function CreateHospitalModal() {
   const [open, setOpen] = React.useState(false);
@@ -69,6 +70,11 @@ export default function CreateHospitalModal() {
     try {
       const newHospitalId = values.hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
       const now = new Date().toISOString();
+
+      // Trial logic
+      const trialDurationDays = 30;
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + trialDurationDays);
 
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
@@ -95,7 +101,11 @@ export default function CreateHospitalModal() {
         name: values.hospitalName,
         slug: newHospitalId,
         status: 'active',
+        planId: 'trial', 
+        subscriptionStatus: 'trialing',
+        trialEndsAt: trialEndDate.toISOString(),
         subscriptionTier: values.subscriptionTier,
+        isActive: true,
         createdAt: now,
         ownerEmail: values.directorEmail,
       });
@@ -117,7 +127,7 @@ export default function CreateHospitalModal() {
       });
 
       toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active.`
+        description: `${values.hospitalName} is now active with a 30-day trial.`
       });
       
       setOpen(false);
@@ -147,7 +157,7 @@ export default function CreateHospitalModal() {
             <DialogTitle>Register New Facility</DialogTitle>
           </div>
           <DialogDescription>
-            Onboard a new hospital tenant.
+            Onboard a new hospital tenant. They will start on a 30-day trial.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -190,7 +200,7 @@ export default function CreateHospitalModal() {
               name="subscriptionTier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Plan</FormLabel>
+                  <FormLabel>Plan (Post-Trial)</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>

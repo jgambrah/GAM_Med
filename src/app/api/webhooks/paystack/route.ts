@@ -7,6 +7,7 @@ import crypto from 'crypto';
  * 
  * Listens for successful Paystack charges and automatically provisions 
  * the new hospital tenant and Medical Director account.
+ * Updated to include Automatic 30-Day Free Trial logic.
  */
 export async function POST(req: Request) {
     const body = await req.text();
@@ -32,16 +33,24 @@ export async function POST(req: Request) {
         const hospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
         const now = new Date();
 
+        // Automatic 30-Day Trial Logic
+        const trialDurationDays = 30;
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + trialDurationDays);
+
         try {
-            // A. Create the Hospital Record (The SaaS Isolation Anchor)
+            // A. Create the Hospital Record (Trial logic applied)
             await adminDb.collection('hospitals').doc(hospitalId).set({
                 hospitalId: hospitalId,
                 name: hospitalName,
                 slug: hospitalId,
-                subscriptionTier: planId,
+                planId: 'trial', 
+                subscriptionStatus: 'trialing',
+                trialEndsAt: trialEndDate.toISOString(),
+                subscriptionTier: planId, // The plan they actually paid for (starts after trial)
                 isActive: true,
                 status: 'active',
-                createdAt: now,
+                createdAt: now.toISOString(),
                 ownerEmail: email
             });
 

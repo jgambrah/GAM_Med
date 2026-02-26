@@ -66,9 +66,13 @@ export interface Hospital {
   slug: string;
   status: 'active' | 'suspended';
   subscriptionTier: 'clinic-starter' | 'professional' | 'enterprise';
+  planId?: 'trial' | 'clinic-starter' | 'professional' | 'enterprise';
+  subscriptionStatus?: 'trialing' | 'active' | 'expired';
+  trialEndsAt?: string;
   createdAt: string;
   isInternal?: boolean;
   ownerEmail?: string;
+  isActive?: boolean;
 }
 
 export interface User {
