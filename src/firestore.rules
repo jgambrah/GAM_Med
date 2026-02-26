@@ -68,13 +68,12 @@ service cloud.firestore {
     }
 
     match /demo_requests/{leadId} {
-      allow create: if true; // Allow anyone to submit a lead
+      allow create: if true; // Allow landing page to submit leads
       allow read, write: if isSuperAdmin();
     }
 
     match /hospitals/{hospId} {
-      // allow get: if true; // Allow discovery for login and branding
-      allow get: if true; 
+      allow get: if true; // Allow public discovery for tenant identification
       allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
       allow list: if isSuperAdmin();
       allow update: if isSuperAdmin();

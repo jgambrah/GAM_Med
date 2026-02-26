@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,7 +28,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Building2, ShieldAlert } from 'lucide-react';
+import { Plus, Building2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sendStaffInvitationEmail } from '@/lib/actions';
 
@@ -41,15 +40,22 @@ const CreateHospitalSchema = z.object({
   subscriptionTier: z.enum(['clinic-starter', 'professional', 'enterprise']),
 });
 
+interface CreateHospitalModalProps {
+    initialData?: {
+        name: string;
+        hospitalName: string;
+        email: string;
+    } | null;
+    onSuccess?: () => void;
+}
+
 /**
  * == Super Admin: Tenant Provisioning Tool ==
  * 
  * This component handles the creation of new hospital tenants.
- * It atomically provisions the Hospital record, the Director's profile,
- * and the DBAC role marker, "stamping" them with a shared hospitalId.
- * Updated to include Automatic 30-Day Free Trial logic.
+ * Includes AUTO-FILL logic for seamless provisioning from sales leads.
  */
-export default function CreateHospitalModal() {
+export default function CreateHospitalModal({ initialData, onSuccess }: CreateHospitalModalProps) {
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const db = useFirestore();
@@ -65,6 +71,20 @@ export default function CreateHospitalModal() {
       subscriptionTier: 'clinic-starter',
     },
   });
+
+  // AUTO-FILL LOGIC: If initialData is provided (from a lead), fill the form and open modal
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        hospitalName: initialData.hospitalName || '',
+        directorName: initialData.name || '',
+        directorEmail: initialData.email || '',
+        directorPassword: '', // Password must still be set manually for security
+        subscriptionTier: 'clinic-starter',
+      });
+      setOpen(true);
+    }
+  }, [initialData, form]);
 
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
@@ -133,6 +153,7 @@ export default function CreateHospitalModal() {
       
       setOpen(false);
       form.reset();
+      if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error("Provisioning failed:", error);
       toast.error("Provisioning Failed", {
@@ -146,10 +167,12 @@ export default function CreateHospitalModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-600 hover:bg-blue-700 shadow-md">
-          <Plus className="h-4 w-4 mr-2" />
-          New Hospital
-        </Button>
+        {!initialData && (
+            <Button className="bg-blue-600 hover:bg-blue-700 shadow-md">
+                <Plus className="h-4 w-4 mr-2" />
+                New Hospital
+            </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -187,6 +210,17 @@ export default function CreateHospitalModal() {
             />
             <FormField
               control={form.control}
+              name="directorName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Director Full Name</FormLabel>
+                  <FormControl><Input placeholder="Dr. John Doe" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="directorPassword"
               render={({ field }) => (
                 <FormItem>
@@ -202,7 +236,7 @@ export default function CreateHospitalModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Plan (Post-Trial)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue />
@@ -221,7 +255,7 @@ export default function CreateHospitalModal() {
             
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
                 {isSubmitting ? 'Provisioning...' : 'Confirm & Provision'}
               </Button>
             </DialogFooter>

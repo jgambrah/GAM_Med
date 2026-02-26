@@ -1,31 +1,49 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Mail, Phone, UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * == Super Admin: Sales Pipeline Desk ==
  * 
- * Provides a live view of all 'Request for Demo' leads captured via the landing page.
- * Allows the Platform Owner to review and eventually provision new hospital tenants.
+ * Manages demo requests and provides direct integration to the Provisioning Form.
  */
 export default function SalesLeadsDesk() {
     const firestore = useFirestore();
+    const [selectedLead, setSelectedLead] = useState<any>(null);
 
-    // 1. LIVE QUERY: Listen for demo requests across the platform
+    // 1. LIVE QUERY: Listen for demo requests
     const leadsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
         return query(collection(firestore, "demo_requests"), orderBy("requestedAt", "desc"));
     }, [firestore]);
 
     const { data: leads, isLoading } = useCollection(leadsQuery);
+
+    const handleProvisionClick = (lead: any) => {
+        setSelectedLead(lead);
+    };
+
+    const handleProvisionSuccess = async () => {
+        if (selectedLead && firestore) {
+            // Update the lead status to "Onboarded"
+            const leadRef = doc(firestore, 'demo_requests', selectedLead.id);
+            await updateDoc(leadRef, {
+                status: 'Onboarded',
+                updatedAt: serverTimestamp()
+            });
+        }
+        setSelectedLead(null);
+    };
 
     return (
         <div className="p-8 space-y-8 min-h-screen bg-slate-50/30">
@@ -92,14 +110,19 @@ export default function SalesLeadsDesk() {
                                             </TableCell>
                                             <TableCell>
                                                 <Badge 
-                                                    variant={lead.status === 'Pending' ? 'destructive' : 'secondary'}
+                                                    variant={lead.status === 'Pending' ? 'destructive' : lead.status === 'Onboarded' ? 'secondary' : 'default'}
                                                     className="text-[9px] font-black uppercase tracking-widest px-2"
                                                 >
                                                     {lead.status}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right pr-6">
-                                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4">
+                                                <Button 
+                                                    size="sm" 
+                                                    className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest h-9 px-4"
+                                                    disabled={lead.status === 'Onboarded'}
+                                                    onClick={() => handleProvisionClick(lead)}
+                                                >
                                                     <UserPlus className="mr-2 h-3.5 w-3.5" />
                                                     Provision
                                                 </Button>
@@ -121,6 +144,12 @@ export default function SalesLeadsDesk() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* SHARED MODAL: Provisioning Form */}
+            <CreateHospitalModal 
+                initialData={selectedLead} 
+                onSuccess={handleProvisionSuccess} 
+            />
         </div>
     );
 }
