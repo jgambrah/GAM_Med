@@ -14,9 +14,6 @@ function initializeAdmin() {
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (!serviceAccountVar) {
-    if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
-      console.warn("Firebase Admin SDK: FIREBASE_SERVICE_ACCOUNT is missing.");
-    }
     return null;
   }
 
@@ -40,7 +37,11 @@ function initializeAdmin() {
  */
 export const getAdminDb = () => {
   const app = initializeAdmin();
-  if (!app) return null as unknown as admin.firestore.Firestore;
+  if (!app) {
+    // During build time, if credentials aren't here, we return a proxy/null
+    // to prevent immediate crashes, but API routes will throw if they call it.
+    return null as unknown as admin.firestore.Firestore;
+  }
   return admin.firestore();
 };
 
@@ -49,10 +50,12 @@ export const getAdminDb = () => {
  */
 export const getAdminAuth = () => {
   const app = initializeAdmin();
-  if (!app) return null as unknown as admin.auth.Auth;
+  if (!app) {
+    return null as unknown as admin.auth.Auth;
+  }
   return admin.auth();
 };
 
-// Legacy exports for compatibility (will return null if not initialized)
+// Legacy singleton exports (Evaluated at runtime call by lazy pattern)
 export const adminDb = getAdminDb();
 export const adminAuth = getAdminAuth();
