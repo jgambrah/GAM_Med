@@ -72,7 +72,7 @@ export default function LabReportsPage() {
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={chartConfig} className="min-h-[300px]">
-                            <BarChart data={reportData.testVolumes} accessibilityLayer>
+                            <BarChart data={reportData.testVolumes || []} accessibilityLayer>
                                 <CartesianGrid vertical={false} />
                                 <XAxis dataKey="testName" tickLine={false} tickMargin={10} axisLine={false} />
                                 <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
@@ -104,7 +104,7 @@ export default function LabReportsPage() {
                             <PieChart>
                                 <ChartTooltip content={<ChartTooltipContent nameKey="testName" hideLabel />} />
                                 <Pie 
-                                    data={reportData.abnormalResultTrends} 
+                                    data={reportData.abnormalResultTrends || []} 
                                     dataKey="abnormalPercentage" 
                                     nameKey="testName" 
                                     cx="50%" 
@@ -112,7 +112,7 @@ export default function LabReportsPage() {
                                     outerRadius={100} 
                                     label={({ name, abnormalPercentage }) => `${name.split(' ')[0]}: ${abnormalPercentage}%`}
                                 >
-                                     {reportData.abnormalResultTrends.map((entry, index) => (
+                                     {(reportData.abnormalResultTrends || []).map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
@@ -128,7 +128,7 @@ export default function LabReportsPage() {
                 </CardHeader>
                 <CardContent>
                     <ChartContainer config={chartConfig} className="min-h-[300px]">
-                        <LineChart data={reportData.turnaroundTimes} accessibilityLayer
+                        <LineChart data={reportData.turnaroundTimes || []} accessibilityLayer
                           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
                         >
                             <CartesianGrid vertical={false} />
