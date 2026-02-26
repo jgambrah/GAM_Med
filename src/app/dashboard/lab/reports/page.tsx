@@ -25,10 +25,14 @@ const chartConfig: ChartConfig = {
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function LabReportsPage() {
-    // Safety check for production build prerendering
-    const reportData = mockLabReports[0];
+    // Safety check for production build prerendering: provide fallback if mock data is missing
+    const reportData = mockLabReports && mockLabReports.length > 0 ? mockLabReports[0] : {
+        testVolumes: [],
+        turnaroundTimes: [],
+        abnormalResultTrends: []
+    };
 
-    if (!reportData) {
+    if (!mockLabReports || mockLabReports.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-96 space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
