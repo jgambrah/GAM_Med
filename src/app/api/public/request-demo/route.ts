@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { sendDemoRequestEmail } from '@/lib/mail-service';
 
 /**
- * == Public Lead Capture API ==
+ * == Public Lead Capture Endpoint ==
  * 
- * Secure endpoint to process demo requests from the landing page.
- * Leverages the server-side mail service to notify the platform owner.
+ * Securely processes demo requests from the landing page.
+ * Triggers an email notification to the platform owner using Resend.
  */
 export async function POST(req: Request) {
     try {
@@ -13,15 +13,16 @@ export async function POST(req: Request) {
         const { name, email, hospital, phone } = body;
 
         if (!name || !email || !hospital || !phone) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        const emailResult = await sendDemoRequestEmail({ name, email, hospital, phone });
+        // Trigger secure server-side email dispatch
+        const result = await sendDemoRequestEmail({ name, email, hospital, phone });
 
-        if (emailResult.success) {
+        if (result.success) {
             return NextResponse.json({ success: true });
         } else {
-            return NextResponse.json({ error: 'Failed to send notification' }, { status: 500 });
+            return NextResponse.json({ error: "Email dispatch failed" }, { status: 500 });
         }
     } catch (error: any) {
         console.error("Demo request API error:", error);
