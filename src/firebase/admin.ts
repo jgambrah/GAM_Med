@@ -15,7 +15,7 @@ function initializeAdmin() {
   }
 
   try {
-    // 1. Clean the string (Remove any surrounding quotes or whitespace added by Vercel)
+    // 1. Clean the string (Remove any potential surrounding quotes or whitespace added by Vercel)
     const sanitizedJson = serviceAccountVar.trim().replace(/^['"]|['"]$/g, '');
     const serviceAccount = JSON.parse(sanitizedJson);
 
