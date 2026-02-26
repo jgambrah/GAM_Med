@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -27,7 +26,7 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function LabReportsPage() {
     // Safety check for production build prerendering: provide fallback if mock data is missing
-    const reportData = mockLabReports && mockLabReports.length > 0 ? mockLabReports[0] : {
+    const reportData = (mockLabReports && mockLabReports.length > 0) ? mockLabReports[0] : {
         testVolumes: [],
         turnaroundTimes: [],
         abnormalResultTrends: []

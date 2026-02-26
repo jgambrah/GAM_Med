@@ -615,6 +615,7 @@ export interface Prescription {
 }
 
 export interface PrescribedMedication {
+  grid?: string; // Legacy field
   medicationId: string;
   name: string;
   dosage: string;
