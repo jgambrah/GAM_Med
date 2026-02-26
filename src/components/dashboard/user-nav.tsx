@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -65,9 +66,12 @@ export function UserNav() {
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer">
+        <DropdownMenuItem 
+            onClick={() => logout()} 
+            className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+        >
           <LogOut className="mr-2 h-4 w-4" />
-          Log out
+          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

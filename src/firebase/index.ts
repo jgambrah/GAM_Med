@@ -1,3 +1,4 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -19,7 +20,7 @@ export function initializeFirebase() {
     } catch (e) {
       // Only warn in production because it's normal to use the firebaseConfig to initialize
       // during development or non-Firebase environments.
-      if (process.env.NODE_ENV === "production") {
+      if (process.env.NODE_ENV === "production" && !process.env.FIREBASE_CONFIG) {
         console.warn('Automatic initialization failed. Falling back to firebase config object.');
       }
       firebaseApp = initializeApp(firebaseConfig);
