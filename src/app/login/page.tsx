@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -38,20 +37,20 @@ export default function LoginPage() {
         const normalizedEmail = email.toLowerCase().trim();
 
         try {
-            // 1. AUTHENTICATE with Firebase Auth
+            // A. Sign in with Email/Password
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
             /**
              * == CRITICAL SAAS FIX: Token Sync ==
-             * When a Director is provisioned, their claims (hospitalId) are set on the server.
-             * We force refresh the token here to ensure the client-side session picks up the
-             * "SaaS Stamp" immediately, avoiding permission errors on first login.
+             * B. THE MAGIC LINE: Force the browser to get the new 'hospitalId' stamp.
+             * This pulls the server-side custom claims (baked during provisioning) into 
+             * the client-side session immediately, avoiding permission errors.
              */
             await userCredential.user.getIdToken(true);
 
             const authUid = userCredential.user.uid;
 
-            // 2. DISCOVERY: Find the user's profile document by UID field
+            // C. DISCOVERY: Find the user's profile document by UID field
             const usersRef = collection(db, "users");
             const q = query(usersRef, where("uid", "==", authUid), limit(1));
             const querySnapshot = await getDocs(q);
@@ -64,7 +63,7 @@ export default function LoginPage() {
                 const emailSnapshot = await getDocs(emailQuery);
                 
                 if (emailSnapshot.empty) {
-                    throw new Error("Auth successful, but no Firestore profile found. Please contact GamMed support.");
+                    throw new Error("Auth successful, but no Firestore profile found. Please contact support.");
                 }
                 
                 userData = emailSnapshot.docs[0].data();
@@ -86,9 +85,7 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // 3. ROLE-BASED REDIRECTION
-            // Directors and Staff land on the main dashboard where the SaaS Wall is active.
-            // Only the Platform Owner goes to the global Command Centre.
+            // D. REDIRECTION: Send to correct room
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {
@@ -97,7 +94,7 @@ export default function LoginPage() {
 
         } catch (error: any) {
             console.error("Login error:", error);
-            toast.error("Login Failed", {
+            toast.error("Access Error", {
                 description: error.message || "Invalid email or password."
             });
         } finally {

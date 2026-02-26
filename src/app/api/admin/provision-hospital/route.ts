@@ -1,4 +1,3 @@
-
 import { getAdminServices } from '@/firebase/admin';
 import { NextResponse } from 'next/server';
 
