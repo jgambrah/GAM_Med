@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
-    const { email, amount, planId, hospitalName } = await req.json();
-
     try {
+        const { email, amount, planId, hospitalName } = await req.json();
+
         const response = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',
             headers: {
@@ -12,15 +12,12 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 email,
-                amount: amount * 100, // Paystack uses Kobo/Pesewas (multiply by 100)
+                amount: amount * 100, // Paystack uses Kobo/Pesewas
                 callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment-success`,
                 metadata: {
                     planId,
                     hospitalName,
-                    custom_fields: [
-                        { display_name: "Hospital", variable_name: "hospital", value: hospitalName },
-                        { display_name: "Plan", variable_name: "plan", value: planId }
-                    ]
+                    email // Pass the email here so the webhook can find it
                 }
             }),
         });
