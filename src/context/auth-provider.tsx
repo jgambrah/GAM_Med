@@ -33,10 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: hospital, isLoading: isHospitalLoading } = useDoc<Hospital>(hospitalRef);
 
   React.useEffect(() => {
-    // In a real SaaS app, the user is retrieved from the Firebase Auth observer.
-    // For this prototype, we'll use the first user from our mock data.
-    const defaultUser = allUsers[0]; 
-    setUser(defaultUser);
+    // Initial fetch from Auth State Observer would go here
     setLoading(false);
   }, []);
 

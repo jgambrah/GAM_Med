@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PricingSection } from '@/components/landing/PricingSection';

@@ -1,3 +1,4 @@
+
 import { adminDb, adminAuth } from '@/firebase/admin';
 import { sendWelcomeEmail } from '@/lib/mail-service';
 import crypto from 'crypto';
@@ -17,7 +18,6 @@ export async function POST(req: Request) {
         return new Response('Configuration Error', { status: 500 });
     }
 
-    // 1. SECURITY: Verify Paystack Signature
     const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY).update(body).digest('hex');
     if (hash !== signature) {
         return new Response('Unauthorized', { status: 401 });
@@ -25,7 +25,6 @@ export async function POST(req: Request) {
 
     const event = JSON.parse(body);
 
-    // 2. LOGIC: Process Successful Payment
     if (event.event === 'charge.success') {
         const { hospitalId, hospitalName, planId, email } = event.data.metadata;
         const now = new Date();
@@ -33,26 +32,24 @@ export async function POST(req: Request) {
         try {
             if (hospitalId) {
                 // == CASE A: SUBSCRIPTION UPGRADE / RENEWAL ==
-                // The hospital already exists, we remove the trial lock.
                 await adminDb.collection('hospitals').doc(hospitalId).update({
                     subscriptionStatus: 'active',
                     planId: planId,
-                    subscriptionTier: planId, // Sync tier with paid plan
+                    subscriptionTier: planId, 
                     lastPaymentDate: now.toISOString(),
                     subscriptionNextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                     status: 'active',
                     isActive: true,
-                    trialEndsAt: null // Clear trial date upon payment
+                    trialEndsAt: null 
                 });
 
                 console.log(`Subscription Upgraded for: ${hospitalId}`);
 
             } else if (hospitalName && email) {
                 // == CASE B: NEW TENANT PROVISIONING ==
-                // Generate a unique tenant slug
                 const newHospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-                // Create the Hospital Record (Start with 30-day trial metadata)
+                // Initial 30-day trial logic
                 const trialEndDate = new Date();
                 trialEndDate.setDate(trialEndDate.getDate() + 30);
 
@@ -63,14 +60,13 @@ export async function POST(req: Request) {
                     planId: 'trial', 
                     subscriptionStatus: 'trialing',
                     trialEndsAt: trialEndDate.toISOString(),
-                    subscriptionTier: planId, // The plan they paid for (starts after trial)
+                    subscriptionTier: planId, 
                     isActive: true,
                     status: 'active',
                     createdAt: now.toISOString(),
                     ownerEmail: email
                 });
 
-                // Create the Medical Director in Firebase Auth
                 const tempPass = "Welcome" + Math.floor(1000 + Math.random() * 9000);
                 const userRecord = await adminAuth.createUser({
                     email: email,
@@ -78,13 +74,11 @@ export async function POST(req: Request) {
                     displayName: "Medical Director"
                 });
 
-                // Stamp SaaS Identity: Set Custom Claims for Rule enforcement
                 await adminAuth.setCustomUserClaims(userRecord.uid, { 
                     hospitalId: newHospitalId, 
                     role: 'director' 
                 });
 
-                // Create Firestore Profile
                 const userDocId = `${newHospitalId}_${email.toLowerCase().trim()}`;
                 await adminDb.collection('users').doc(userDocId).set({
                     uid: userRecord.uid,
@@ -97,7 +91,6 @@ export async function POST(req: Request) {
                     last_login: now.toISOString()
                 });
 
-                // Notify Director via stylized email
                 await sendWelcomeEmail(email, "Director", hospitalName, tempPass, "Medical Director");
 
                 console.log(`Auto-Provisioning Complete for: ${hospitalName} (${newHospitalId})`);

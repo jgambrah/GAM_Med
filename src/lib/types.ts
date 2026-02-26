@@ -63,13 +63,14 @@ export interface LabResult {
 
 export interface Hospital {
   hospitalId: string;
+  id?: string;
   name: string;
   slug: string;
   status: 'active' | 'suspended';
   subscriptionTier: 'clinic-starter' | 'professional' | 'enterprise';
   planId?: 'trial' | 'clinic-starter' | 'professional' | 'enterprise';
   subscriptionStatus?: 'trialing' | 'active' | 'expired';
-  trialEndsAt?: any; // Firestore Timestamp or string
+  trialEndsAt?: any; // Firestore Timestamp or ISO string
   createdAt: string;
   isInternal?: boolean;
   ownerEmail?: string;

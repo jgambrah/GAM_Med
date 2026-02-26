@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -99,7 +100,7 @@ export default function SuperAdminDashboard() {
       <Card className="shadow-xl border-none ring-1 ring-slate-200 overflow-hidden">
         <CardHeader className="bg-slate-900 text-white pb-6">
           <CardTitle className="text-lg font-bold">Facility Registry</CardTitle>
-          <CardDescription className="text-slate-400">Manage hospital tenants, trial periods, and platform access.</CardDescription>
+          <CardDescription>Manage hospital tenants, trial periods, and platform access.</CardDescription>
         </CardHeader>
         <CardContent className="p-0 bg-white">
           <Table>

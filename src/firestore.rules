@@ -100,7 +100,7 @@ service cloud.firestore {
 
     match /hospitals/{hospId} {
       allow create: if isSignedIn() && (hospId == 'GAMMED_HQ' || isSuperAdmin());
-      allow get: if true; // Fix: Allow public fetch for tenant discovery and branding
+      allow get: if true; // Allow public discovery for login and branding
       allow list: if isSuperAdmin();
     }
 

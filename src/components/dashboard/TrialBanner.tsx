@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -58,7 +59,6 @@ export function TrialBanner() {
                 size="sm" 
                 className="h-7 text-[10px] font-black uppercase tracking-widest text-slate-900 bg-white hover:bg-slate-100"
                 onClick={() => {
-                    // Logic to navigate to billing section or pricing
                     const pricing = document.getElementById('pricing');
                     if (pricing) pricing.scrollIntoView({ behavior: 'smooth' });
                 }}

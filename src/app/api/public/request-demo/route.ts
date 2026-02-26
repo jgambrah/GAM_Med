@@ -1,45 +1,42 @@
 
+import { NextResponse } from 'next/server';
 import { adminDb } from '@/firebase/admin';
 import { sendDemoRequestEmail } from '@/lib/mail-service';
-import { NextResponse } from 'next/server';
 
 /**
  * == SaaS Lead Capture API ==
  * 
- * Public endpoint to receive "Request Demo" submissions from the landing page.
- * Logic:
- * 1. Logs the lead into Firestore for the Super Admin dashboard.
- * 2. Triggers an email notification to platform owners.
+ * Securely logs prospective hospital leads into Firestore
+ * and triggers an internal notification email.
  */
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { name, email, hospital, phone } = body;
 
-        if (!name || !email || !hospital) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        if (!adminDb) {
+            throw new Error("Firestore Admin SDK not initialized");
         }
 
-        // 1. Log Lead in Firestore (Internal CRM)
-        // Access restricted to Super Admin via Security Rules
-        if (adminDb) {
-            await adminDb.collection('demo_requests').add({
-                name,
-                email,
-                hospitalName: hospital,
-                phone,
-                status: 'Pending',
-                requestedAt: new Date().toISOString(),
-                source: 'Landing Page'
-            });
-        }
+        const leadId = `lead-${Date.now()}`;
+        
+        // 1. Log Prospect in Firestore (Platform Registry)
+        await adminDb.collection('demo_requests').doc(leadId).set({
+            id: leadId,
+            name,
+            email,
+            hospitalName: hospital,
+            phone,
+            status: 'Pending',
+            requestedAt: new Date().toISOString()
+        });
 
-        // 2. Notify Platform Owner via stylized email
+        // 2. Notify Platform CEO via stylised email
         await sendDemoRequestEmail({ name, email, hospital, phone });
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
-        console.error("Lead Capture Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("Demo Request Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
