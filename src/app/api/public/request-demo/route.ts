@@ -1,61 +1,64 @@
-import { adminDb } from '@/firebase/admin';
+import { getAdminDb } from '@/firebase/admin';
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
 /**
- * == Public Lead Capture API (Gmail Hub) ==
+ * == Professional Lead Capture API ==
  * 
- * Receives prospective hospital leads from the landing page.
- * 1. Logs the request in Firestore for the Super Admin Command Centre.
- * 2. Sends a notification to the platform owner's Gmail.
+ * Optimized for reliable Gmail notifications via Resend and secure 
+ * Firestore logging for the Super Admin dashboard.
  */
 export async function POST(req: Request) {
-    // Initialize Resend inside the handler to ensure it captures the current process.env
     const resend = new Resend(process.env.RESEND_API_KEY);
+    const db = getAdminDb();
 
     try {
         const { name, email, hospital, phone } = await req.json();
 
-        // 1. ENVIRONMENT VALIDATION
-        const missing = [];
-        if (!process.env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
-        if (!process.env.FIREBASE_PRIVATE_KEY) missing.push("FIREBASE_PRIVATE_KEY");
-        
-        if (missing.length > 0) {
-            console.error("CRITICAL: Missing environment variables for demo request:", missing);
-            return NextResponse.json({ 
-                error: "Configuration Error", 
-                details: `Missing keys: ${missing.join(', ')}` 
-            }, { status: 500 });
+        // 1. Configuration Check
+        if (!process.env.RESEND_API_KEY) {
+            console.error("CRITICAL: RESEND_API_KEY is missing");
+            return NextResponse.json({ error: "Service Configuration Error" }, { status: 500 });
         }
 
-        // 2. SAVE LEAD TO FIRESTORE (Source for Command Centre)
-        await adminDb.collection('demo_requests').add({
+        if (!db) {
+            console.error("CRITICAL: Firebase Admin not initialized");
+            return NextResponse.json({ error: "Registry Service Error" }, { status: 500 });
+        }
+
+        // 2. Log prospect to Firestore (The Command Centre Source)
+        await db.collection('demo_requests').add({
             name,
-            email: email.toLowerCase(),
+            email: email.toLowerCase().trim(),
             hospitalName: hospital,
             phone,
             status: 'Pending',
             requestedAt: new Date(),
         });
 
-        // 3. SEND ALERT TO PLATFORM OWNER (Gmail Hub)
+        // 3. Send Notification to Administrator Gmail
+        // USES: onboarding@resend.dev until custom domain is verified
         await resend.emails.send({
-            // NOTE: Must use 'onboarding@resend.dev' until custom domain is verified
             from: 'GamMed System <onboarding@resend.dev>', 
-            to: 'jamesgambrah@gmail.com', // Primary Admin Hub
+            to: 'jamesgambrah@gmail.com',
             reply_to: email, 
             subject: `🚨 NEW DEMO REQUEST: ${hospital}`,
             html: `
-                <div style="font-family: sans-serif; border: 1px solid #e2e8f0; padding: 20px; border-radius: 10px;">
-                    <h2 style="color: #2563eb;">New Sales Lead from Landing Page</h2>
-                    <p><strong>Hospital:</strong> ${hospital}</p>
-                    <p><strong>Contact Person:</strong> ${name}</p>
-                    <p><strong>Email:</strong> ${email}</p>
-                    <p><strong>Phone:</strong> ${phone}</p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                    <p style="font-size: 12px; color: #64748b;">
-                        Log in to your Command Centre to provision this hospital account.
+                <div style="font-family: sans-serif; border: 1px solid #e2e8f0; padding: 30px; border-radius: 16px; color: #1e293b;">
+                    <h2 style="color: #2563eb; margin-top: 0;">New Sales Lead</h2>
+                    <p style="font-size: 16px; margin-bottom: 20px;">A new healthcare facility has requested a platform demonstration.</p>
+                    
+                    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #f1f5f9;">
+                        <p style="margin: 0 0 8px 0;"><strong>Facility:</strong> ${hospital}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Contact:</strong> ${name}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${email}</p>
+                        <p style="margin: 0;"><strong>Phone:</strong> ${phone}</p>
+                    </div>
+                    
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                    
+                    <p style="font-size: 12px; color: #64748b; text-align: center;">
+                        Open your <a href="https://gammed.vercel.app/dashboard/super-admin/leads" style="color: #2563eb; font-weight: bold;">Super Admin Dashboard</a> to provision this facility.
                     </p>
                 </div>
             `
@@ -64,10 +67,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error("DEMO_REQUEST_CRASH:", error.message);
-        return NextResponse.json({ 
-            error: "Internal Server Error", 
-            details: error.message 
-        }, { status: 500 });
+        console.error("DEMO_REQUEST_API_ERROR:", error.message);
+        return NextResponse.json({ error: "Process Failed", message: error.message }, { status: 500 });
     }
 }

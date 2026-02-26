@@ -1,4 +1,4 @@
-import { adminDb, adminAuth } from '@/firebase/admin';
+import { getAdminDb, getAdminAuth } from '@/firebase/admin';
 import { sendWelcomeEmail } from '@/lib/mail-service';
 import crypto from 'crypto';
 
@@ -12,6 +12,8 @@ import crypto from 'crypto';
 export async function POST(req: Request) {
     const body = await req.text();
     const signature = req.headers.get('x-paystack-signature');
+    const db = getAdminDb();
+    const auth = getAdminAuth();
 
     if (!process.env.PAYSTACK_SECRET_KEY) {
         return new Response('Configuration Error', { status: 500 });
@@ -20,6 +22,10 @@ export async function POST(req: Request) {
     const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY).update(body).digest('hex');
     if (hash !== signature) {
         return new Response('Unauthorized', { status: 401 });
+    }
+
+    if (!db || !auth) {
+        return new Response('Service Unavailable', { status: 503 });
     }
 
     const event = JSON.parse(body);
@@ -31,8 +37,7 @@ export async function POST(req: Request) {
         try {
             if (hospitalId) {
                 // == CASE A: SUBSCRIPTION UPGRADE / RENEWAL ==
-                // This removes the trial restrictions immediately
-                await adminDb.collection('hospitals').doc(hospitalId).update({
+                await db.collection('hospitals').doc(hospitalId).update({
                     subscriptionStatus: 'active',
                     planId: planId,
                     subscriptionTier: planId, 
@@ -40,7 +45,7 @@ export async function POST(req: Request) {
                     subscriptionNextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                     status: 'active',
                     isActive: true,
-                    trialEndsAt: null // Trial over, now a paid seat
+                    trialEndsAt: null 
                 });
 
                 console.log(`Subscription Upgraded for: ${hospitalId}`);
@@ -49,11 +54,10 @@ export async function POST(req: Request) {
                 // == CASE B: NEW TENANT PROVISIONING ==
                 const newHospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-                // Initial 30-day trial logic
                 const trialEndDate = new Date();
                 trialEndDate.setDate(trialEndDate.getDate() + 30);
 
-                await adminDb.collection('hospitals').doc(newHospitalId).set({
+                await db.collection('hospitals').doc(newHospitalId).set({
                     hospitalId: newHospitalId,
                     name: hospitalName,
                     slug: newHospitalId,
@@ -68,19 +72,19 @@ export async function POST(req: Request) {
                 });
 
                 const tempPass = "Welcome" + Math.floor(1000 + Math.random() * 9000);
-                const userRecord = await adminAuth.createUser({
+                const userRecord = await auth.createUser({
                     email: email,
                     password: tempPass,
                     displayName: "Medical Director"
                 });
 
-                await adminAuth.setCustomUserClaims(userRecord.uid, { 
+                await auth.setCustomUserClaims(userRecord.uid, { 
                     hospitalId: newHospitalId, 
                     role: 'director' 
                 });
 
                 const userDocId = `${newHospitalId}_${email.toLowerCase().trim()}`;
-                await adminDb.collection('users').doc(userDocId).set({
+                await db.collection('users').doc(userDocId).set({
                     uid: userRecord.uid,
                     email: email.toLowerCase().trim(),
                     name: "Medical Director",
@@ -93,7 +97,7 @@ export async function POST(req: Request) {
 
                 await sendWelcomeEmail(email, "Director", hospitalName, tempPass, "Medical Director");
 
-                console.log(`Auto-Provisioning Complete for: ${hospitalName} (${newHospitalId})`);
+                console.log(`Auto-Provisioning Complete: ${newHospitalId}`);
             }
 
         } catch (error) {
