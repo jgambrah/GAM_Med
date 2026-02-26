@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
  * == Build-Safe & Sanitized Firebase Admin Provider ==
  * 
  * Provides lazy-loaded access to Firebase Admin services.
- * This prevents build-time crashes when environment variables are missing.
+ * This prevents build-time crashes when environment variables are missing during static analysis.
  */
 
 function getAdminApp() {
@@ -39,7 +39,7 @@ function getAdminApp() {
 }
 
 /**
- * == Database Getter ==
+ * == Database Getter (Build-Safe) ==
  */
 export function getAdminDb() {
   const app = getAdminApp();
@@ -47,13 +47,13 @@ export function getAdminDb() {
 }
 
 /**
- * == Auth Getter ==
+ * == Auth Getter (Build-Safe) ==
  */
 export function getAdminAuth() {
   const app = getAdminApp();
   return app ? admin.auth() : null as unknown as admin.auth.Auth;
 }
 
-// Export constants for simpler cases (Note: these will be null during build)
+// Global constants for legacy support (will be null during build)
 export const adminDb = getAdminDb();
 export const adminAuth = getAdminAuth();
