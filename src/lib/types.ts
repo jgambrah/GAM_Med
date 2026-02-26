@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Updated types for the GamMed ERP System.
  * Ensures all financial and clinical entities are properly defined for the Billing Dashboard.
