@@ -3,43 +3,40 @@ import * as admin from 'firebase-admin';
 /**
  * == Build-Safe Firebase Admin Provider ==
  * 
- * This module ensures the Admin SDK is initialized only when needed (Lazy Init).
- * This prevents crashes during build-time static analysis on platforms like Vercel,
- * where environment variables might not be present until runtime.
+ * This module handles the initialization of the Firebase Admin SDK using a single
+ * environment variable containing the service account JSON. It uses lazy initialization
+ * to prevent build-time crashes during Vercel's static analysis.
  */
 
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
 function initializeAdmin() {
-  if (admin.apps.length) return admin.apps[0];
+  if (admin.apps.length > 0) return admin.apps[0];
 
-  if (!projectId || !clientEmail || !privateKey) {
-    // Only warn during runtime, ignore during build
+  const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+  if (!serviceAccountVar) {
     if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
-      console.warn("Firebase Admin SDK: Initialization skipped. Required environment variables are missing.");
+      console.warn("Firebase Admin SDK: FIREBASE_SERVICE_ACCOUNT is missing.");
     }
     return null;
   }
 
   try {
+    const serviceAccount = JSON.parse(serviceAccountVar);
     return admin.initializeApp({
       credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, '\n'),
+        projectId: serviceAccount.project_id,
+        clientEmail: serviceAccount.client_email,
+        privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
       }),
     });
   } catch (error: any) {
-    console.error('Firebase Admin Initialization Error:', error.stack);
+    console.error('Firebase Admin Initialization Error:', error.message);
     return null;
   }
 }
 
 /**
  * Provides access to Firestore with lazy-loading.
- * Prevents "default app does not exist" errors during build time.
  */
 export const getAdminDb = () => {
   const app = initializeAdmin();
