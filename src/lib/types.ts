@@ -68,7 +68,7 @@ export interface Hospital {
   subscriptionTier: 'clinic-starter' | 'professional' | 'enterprise';
   planId?: 'trial' | 'clinic-starter' | 'professional' | 'enterprise';
   subscriptionStatus?: 'trialing' | 'active' | 'expired';
-  trialEndsAt?: string;
+  trialEndsAt?: any; // Firestore Timestamp or string
   createdAt: string;
   isInternal?: boolean;
   ownerEmail?: string;

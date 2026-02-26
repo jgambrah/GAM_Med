@@ -4,8 +4,8 @@ import * as admin from 'firebase-admin';
  * == Build-Safe Firebase Admin Singleton ==
  * 
  * Provides secure server-side access to Firebase services.
- * Resilience: Performs a conditional check for project_id to prevent crashes 
- * during Next.js static page generation (Collecting page data phase).
+ * Resilience: Performs a conditional check for required credentials to prevent crashes 
+ * during Next.js static page generation (Collecting page data phase) on Vercel.
  */
 
 const firebaseAdminConfig = {
@@ -18,10 +18,14 @@ if (!admin.apps.length) {
   // Only initialize if the required project_id is present.
   // This satisfies the Vercel build worker requirements for static export.
   if (firebaseAdminConfig.projectId && firebaseAdminConfig.clientEmail && firebaseAdminConfig.privateKey) {
-    admin.initializeApp({
-      credential: admin.credential.cert(firebaseAdminConfig),
-      databaseURL: `https://${firebaseAdminConfig.projectId}.firebaseio.com`,
-    });
+    try {
+        admin.initializeApp({
+            credential: admin.credential.cert(firebaseAdminConfig),
+            databaseURL: `https://${firebaseAdminConfig.projectId}.firebaseio.com`,
+        });
+    } catch (error) {
+        console.error("Firebase Admin initialization failed at runtime:", error);
+    }
   } else {
     // Log a warning in development, but avoid crashing the build worker
     if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
