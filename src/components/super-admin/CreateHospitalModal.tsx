@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Building2, ShieldAlert } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sendStaffInvitationEmail } from '@/lib/actions';
 
 const CreateHospitalSchema = z.object({
@@ -36,6 +37,7 @@ const CreateHospitalSchema = z.object({
   directorName: z.string().min(3, 'Director full name is required'),
   directorEmail: z.string().email('Invalid email address'),
   directorPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  subscriptionTier: z.enum(['clinic-starter', 'professional', 'enterprise']),
 });
 
 /**
@@ -58,6 +60,7 @@ export default function CreateHospitalModal() {
       directorName: '',
       directorEmail: '',
       directorPassword: '',
+      subscriptionTier: 'clinic-starter',
     },
   });
 
@@ -69,7 +72,6 @@ export default function CreateHospitalModal() {
       const now = new Date().toISOString();
 
       // 2. Create the Director in Firebase Auth
-      // NOTE: Creating a new user via the client SDK will automatically sign you out.
       const cred = await createUserWithEmailAndPassword(auth, values.directorEmail, values.directorPassword);
       const uid = cred.user.uid;
 
@@ -99,7 +101,7 @@ export default function CreateHospitalModal() {
         name: values.hospitalName,
         slug: newHospitalId,
         status: 'active',
-        subscriptionTier: 'basic',
+        subscriptionTier: values.subscriptionTier,
         createdAt: now,
         ownerEmail: values.directorEmail,
       });
@@ -115,7 +117,6 @@ export default function CreateHospitalModal() {
       await batch.commit();
 
       // 4. Automated Onboarding Email
-      // This sends the welcome instructions to the new Director
       await sendStaffInvitationEmail({
           email: values.directorEmail,
           name: values.directorName,
@@ -199,6 +200,28 @@ export default function CreateHospitalModal() {
                 <FormItem>
                   <FormLabel>Temporary Password</FormLabel>
                   <FormControl><Input type="password" placeholder="Set a temporary password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="subscriptionTier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Onboarding Plan</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a plan" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="clinic-starter">Clinic Starter</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

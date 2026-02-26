@@ -65,7 +65,7 @@ export interface Hospital {
   name: string;
   slug: string;
   status: 'active' | 'suspended';
-  subscriptionTier: 'basic' | 'premium';
+  subscriptionTier: 'clinic-starter' | 'professional' | 'enterprise';
   createdAt: string;
   isInternal?: boolean;
   ownerEmail?: string;

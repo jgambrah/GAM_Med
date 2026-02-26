@@ -15,7 +15,7 @@ const chartConfig: ChartConfig = {
     },
     avgTAT: {
         label: 'Avg. Turnaround (Hours)',
-        color: 'hsl(var(--primary))'
+        color: 'hsl(var(--chart-1))'
     },
     abnormalPercentage: {
         label: 'Abnormal %'

@@ -12,7 +12,7 @@ export const mockHospitals: Hospital[] = [
     name: 'GamMed Platform Operations',
     slug: 'gammed-internal',
     status: 'active',
-    subscriptionTier: 'premium',
+    subscriptionTier: 'enterprise',
     createdAt: new Date('2020-01-01').toISOString(),
   },
   {
@@ -20,7 +20,7 @@ export const mockHospitals: Hospital[] = [
     name: 'City General Hospital',
     slug: 'city-general',
     status: 'active',
-    subscriptionTier: 'premium',
+    subscriptionTier: 'professional',
     createdAt: new Date('2020-01-01').toISOString(),
   },
   {
@@ -28,7 +28,7 @@ export const mockHospitals: Hospital[] = [
     name: 'St. Mary Specialized Clinic',
     slug: 'st-mary',
     status: 'active',
-    subscriptionTier: 'basic',
+    subscriptionTier: 'clinic-starter',
     createdAt: new Date('2021-06-15').toISOString(),
   }
 ];
