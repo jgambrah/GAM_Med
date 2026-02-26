@@ -224,6 +224,7 @@ export interface Ward {
 
 export interface Bed {
   id: string;
+  bed_id?: string;
   hospitalId: string;
   wardId: string;
   bedNumber: string;
@@ -612,7 +613,7 @@ export interface Prescription {
   dispensedAt?: string;
 }
 
-export interface PrescribedMedication {
+export interface Per-patient e-Prescribing {
   medicationId: string;
   name: string;
   dosage: string;
@@ -1176,4 +1177,12 @@ export interface MyReportedIssue {
   description: string;
   item: string;
   status: string;
+}
+
+export interface PrescribedMedication {
+  medicationId: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  quantity_to_dispense: number;
 }
