@@ -1,32 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogDescription, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogTrigger 
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { 
+    Form, 
+    FormControl, 
+    FormField, 
+    FormItem, 
+    FormLabel, 
+    FormMessage 
+} from '@/components/ui/form';
 import { toast } from "@/hooks/use-toast";
+import { Loader2, Send } from 'lucide-react';
 
+const DemoRequestSchema = z.object({
+    name: z.string().min(3, "Please enter your full name"),
+    hospital: z.string().min(3, "Please enter the facility name"),
+    email: z.string().email("Invalid work email address"),
+    phone: z.string().min(10, "Please enter a valid phone number"),
+});
+
+/**
+ * == SaaS Lead Generation: Demo Request Dialog ==
+ * 
+ * This component collects potential client details and submits them to the
+ * secure public API route for processing.
+ */
 export function RequestDemoDialog() {
-    const [loading, setLoading] = useState(false);
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = React.useState(false);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setLoading(true);
-        const formData = new FormData(e.currentTarget);
-        
-        const data = {
-            name: formData.get('name'),
-            email: formData.get('email'),
-            hospital: formData.get('hospital'),
-            phone: formData.get('phone'),
-        };
+    const form = useForm<z.infer<typeof DemoRequestSchema>>({
+        resolver: zodResolver(DemoRequestSchema),
+        defaultValues: {
+            name: '',
+            hospital: '',
+            email: '',
+            phone: '',
+        },
+    });
 
+    const onSubmit = async (values: z.infer<typeof DemoRequestSchema>) => {
         try {
             const res = await fetch('/api/public/request-demo', {
                 method: 'POST',
-                body: JSON.stringify(data),
+                body: JSON.stringify(values),
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -35,49 +65,102 @@ export function RequestDemoDialog() {
                     description: "Dr. Gambrah will contact you shortly to schedule your demo."
                 });
                 setOpen(false);
+                form.reset();
             } else {
-                throw new Error("Failed to send");
+                throw new Error("Failed to send request");
             }
         } catch (err) {
-            toast.error("Something went wrong. Please try again.");
-        } finally {
-            setLoading(false);
+            toast.error("Process Failed", {
+                description: "Something went wrong. Please try again or contact us directly."
+            });
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 font-bold shadow-sm">
+                <Button className="bg-blue-600 hover:bg-blue-700 font-bold shadow-md">
                     Request Demo
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Schedule a GamMed Demo</DialogTitle>
-                    <DialogDescription>Enter your details and our team will reach out to show you the platform.</DialogDescription>
+                    <div className="flex items-center gap-2 mb-2 text-blue-600">
+                        <Send className="h-5 w-5" />
+                        <DialogTitle>Schedule a GamMed Demo</DialogTitle>
+                    </div>
+                    <DialogDescription>
+                        Enter your professional details and our team will reach out to showcase the platform for your facility.
+                    </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input id="name" name="name" placeholder="Dr. John Doe" required />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="hospital">Hospital / Clinic Name</Label>
-                        <Input id="hospital" name="hospital" placeholder="City Medical Center" required />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">Work Email</Label>
-                        <Input id="email" name="email" type="email" placeholder="name@hospital.com" required />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input id="phone" name="phone" type="tel" placeholder="+233..." required />
-                    </div>
-                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
-                        {loading ? "Sending Request..." : "Request Demo"}
-                    </Button>
-                </form>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs font-bold uppercase">Full Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Dr. John Doe" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="hospital"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs font-bold uppercase">Hospital / Clinic Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="City Medical Center" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs font-bold uppercase">Work Email</FormLabel>
+                                    <FormControl>
+                                        <Input type="email" placeholder="name@hospital.com" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs font-bold uppercase">Phone Number</FormLabel>
+                                    <FormControl>
+                                        <Input type="tel" placeholder="+233..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <Button 
+                            type="submit" 
+                            className="w-full bg-blue-600 hover:bg-blue-700 font-bold h-11" 
+                            disabled={form.formState.isSubmitting}
+                        >
+                            {form.formState.isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Sending...
+                                </>
+                            ) : "Submit Request"}
+                        </Button>
+                    </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );

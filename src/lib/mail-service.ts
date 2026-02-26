@@ -44,20 +44,25 @@ export const sendWelcomeEmail = async (to: string, name: string, hospitalName: s
 export const sendDemoRequestEmail = async (data: { name: string, email: string, hospital: string, phone: string }) => {
   try {
     await resend.emails.send({
-      from: 'GamMed Growth <onboarding@resend.dev>',
-      to: 'ceo@gammed.com', // In production, this should be your sales/admin email
+      from: 'GamMed Leads <onboarding@resend.dev>',
+      to: 'jamesgambrah@gmail.com', // Primary Lead Recipient
       subject: `New Demo Request: ${data.hospital}`,
       html: `
-        <div style="font-family: sans-serif; padding: 20px; color: #333;">
-          <h2 style="color: #2563eb;">New Lead from Landing Page</h2>
-          <p>A new hospital director has requested a demo of the GamMed platform.</p>
-          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Name:</strong> ${data.name}</p>
-            <p><strong>Hospital:</strong> ${data.hospital}</p>
-            <p><strong>Work Email:</strong> ${data.email}</p>
-            <p><strong>Phone:</strong> ${data.phone}</p>
+        <div style="font-family: sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+          <h2 style="color: #2563eb; margin-bottom: 20px;">New Sales Lead for GamMed</h2>
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 10px 0;"><strong>Prospect Name:</strong> ${data.name}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Facility:</strong> ${data.hospital}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Work Email:</strong> <a href="mailto:${data.email}">${data.email}</a></p>
+            <p style="margin: 0;"><strong>Contact Phone:</strong> ${data.phone}</p>
           </div>
-          <p style="font-size: 0.8rem; color: #999;">This lead was generated from the public landing page.</p>
+          <p style="font-size: 0.85rem; color: #6b7280; margin-top: 25px;">
+            This request was submitted via the "Request Demo" form on the GamMed landing page.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 0.75rem; color: #9ca3af; text-align: center;">
+            &copy; 2024 Gam It Services System Notifications
+          </p>
         </div>
       `,
     });
