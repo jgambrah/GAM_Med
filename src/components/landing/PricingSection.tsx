@@ -20,6 +20,7 @@ interface PricingPlan {
 
 export function PricingSection() {
   const firestore = useFirestore();
+  const [isInitializing, setIsInitializing] = React.useState(false);
 
   const pricingQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -28,19 +29,30 @@ export function PricingSection() {
 
   const { data: plans, isLoading } = useCollection<PricingPlan>(pricingQuery);
 
+  /**
+   * == SaaS Subscription Flow ==
+   * 
+   * Triggers the secure Paystack checkout process.
+   * Captures intent and hospital metadata for the auto-provisioning webhook.
+   */
   const handlePayment = async (plan: PricingPlan) => {
     const email = window.prompt("Enter your administrator email:");
     const hospitalName = window.prompt("Enter your Hospital/Clinic name:");
     
     if (!email || !hospitalName) return;
 
+    // Convert string price (e.g. "₦50,000") to number 50000
     const numericPrice = parseInt(plan.price.replace(/[^\d]/g, ''));
+    
     if (isNaN(numericPrice)) {
-        toast.info("Custom Quote Required", { description: "Please contact sales for Enterprise pricing." });
+        toast.info("Custom Quote Required", { 
+            description: "Please contact sales for Enterprise pricing arrangements." 
+        });
         return;
     }
 
-    toast.loading("Initializing Paystack Checkout...");
+    setIsInitializing(true);
+    toast.loading("Opening Secure Payment Window...");
 
     try {
         const res = await fetch('/api/payments/initialize', {
@@ -55,12 +67,14 @@ export function PricingSection() {
 
         const data = await res.json();
         if (data.status) {
-            window.location.href = data.data.authorization_url;
+            window.location.href = data.data.authorization_url; // Redirect to Paystack
         } else {
-            throw new Error("Payment failed to initialize");
+            throw new Error(data.message || "Payment failed to initialize");
         }
     } catch (error) {
-        toast.error("Initialization Failed", { description: "Could not reach payment provider." });
+        toast.error("Checkout Failed", { description: "Could not reach the payment gateway. Please try again." });
+    } finally {
+        setIsInitializing(false);
     }
   };
 
@@ -111,9 +125,9 @@ export function PricingSection() {
                   <p className="text-sm text-slate-500 mt-2 font-medium leading-relaxed">{plan.description}</p>
                   <div className="mt-8 flex items-baseline gap-1">
                     <span className="text-4xl font-black text-slate-900 tracking-tighter">{plan.price}</span>
-                    {plan.price.includes('₦') || plan.price.includes('₵') ? (
+                    {(plan.price.includes('₦') || plan.price.includes('₵')) && (
                         <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">/ Month</span>
-                    ) : null}
+                    )}
                   </div>
                 </div>
 
@@ -132,17 +146,18 @@ export function PricingSection() {
                 <Button 
                   variant={plan.isPopular ? 'default' : 'outline'} 
                   onClick={() => handlePayment(plan)}
+                  disabled={isInitializing}
                   className={`w-full h-14 text-base font-black uppercase tracking-widest rounded-2xl shadow-md group-hover:scale-[1.02] transition-transform ${
                     plan.isPopular ? 'bg-blue-600 hover:bg-blue-700' : 'border-2'
                   }`}
                 >
-                  {plan.cta}
+                  {isInitializing ? <Loader2 className="h-5 w-5 animate-spin" /> : plan.cta}
                 </Button>
               </div>
             ))
           ) : (
             <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl bg-muted/5">
-                <p className="text-muted-foreground font-bold">Loading latest offers...</p>
+                <p className="text-muted-foreground font-bold">Latest offers currently being updated. Please check back shortly.</p>
             </div>
           )}
         </div>

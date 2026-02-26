@@ -410,16 +410,17 @@ export function MainNavClient() {
   const accessibleItems = menuItems.filter(item => {
     if (!user) return false;
     
-    // Check Role Access
+    // 1. Role Access Control
     const hasRole = item.roles.includes(user.role);
     if (!hasRole) return false;
 
     // Super Admin bypasses feature gating
     if (user.role === 'super_admin') return true;
 
-    // Feature Gating: Check if the hospital plan supports this feature slug
+    // 2. SaaS Feature Gating: Check if hospital plan supports this feature slug
     if (!item.slug || item.slug === 'home') return true;
 
+    // Ensure hospitalPlanSlugs exists on the user object (set during login from hospital data)
     return user.hospitalPlanSlugs?.includes(item.slug);
 
   }).sort((a, b) => {

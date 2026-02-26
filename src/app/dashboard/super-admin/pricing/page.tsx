@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Save, Tag, Loader2 } from 'lucide-react';
+import { Save, Tag, Loader2, Plus } from 'lucide-react';
 
 export default function PricingManager() {
     const firestore = useFirestore();
@@ -138,7 +138,7 @@ export default function PricingManager() {
                                     {plan.name}
                                     {plan.isPopular && <Tag className="h-4 w-4 text-blue-500" />}
                                 </CardTitle>
-                                <CardDescription className="text-xs uppercase font-bold tracking-widest">Slugs: {plan.slugs?.join(', ')}</CardDescription>
+                                <CardDescription className="text-xs uppercase font-bold tracking-widest truncate">Slugs: {plan.slugs?.join(', ')}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4 pt-4">
                                 <div className="space-y-2">
