@@ -3,8 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Activity, Users, BarChart3, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Activity, BarChart3, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
+import { PricingSection } from '@/components/landing/PricingSection';
 
 /**
  * == GamMed Marketing Landing Page ==
@@ -14,7 +15,7 @@ import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
  */
 export default function LandingPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-white text-slate-900">
+    <div className="flex flex-col min-h-screen bg-white text-slate-900 scroll-smooth">
       {/* Navigation */}
       <nav className="flex items-center justify-between px-6 py-4 border-b">
         <div className="flex items-center gap-2">
@@ -42,7 +43,9 @@ export default function LandingPage() {
           <Button size="lg" className="bg-blue-600 text-lg h-14 px-8 font-bold shadow-xl hover:bg-blue-700" asChild>
             <Link href="/login">Get Started Now <ChevronRight className="ml-2 h-5 w-5" /></Link>
           </Button>
-          <Button size="lg" variant="outline" className="text-lg h-14 px-8 font-bold border-2">View Pricing</Button>
+          <Button size="lg" variant="outline" className="text-lg h-14 px-8 font-bold border-2" asChild>
+            <a href="#pricing">View Pricing</a>
+          </Button>
         </div>
       </section>
 
@@ -66,6 +69,9 @@ export default function LandingPage() {
           />
         </div>
       </section>
+
+      {/* Pricing Section */}
+      <PricingSection />
 
       {/* Trust Section */}
       <section className="py-24 px-6 text-center max-w-4xl mx-auto space-y-8">
