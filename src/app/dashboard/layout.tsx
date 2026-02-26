@@ -14,9 +14,7 @@ import { MainNavClient } from '@/components/dashboard/main-nav-client';
 import { TenantProvider } from '@/hooks/use-tenant';
 import { AiAssistant } from '@/components/dashboard/ai-assistant';
 import { useSubscriptionGuard } from '@/hooks/use-subscription-guard';
-import { ShieldAlert, CreditCard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { SubscriptionLock } from '@/components/dashboard/SubscriptionLock';
 
 export default function DashboardLayout({
   children,
@@ -25,28 +23,14 @@ export default function DashboardLayout({
 }) {
   const { isExpired } = useSubscriptionGuard();
 
+  // THE SAAS PAYWALL:
+  // If the trial is expired, we render the Lock component instead of the dashboard.
+  // This is the absolute logical separation for trial management.
   if (isExpired) {
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
-            <div className="max-w-md w-full p-8 bg-white rounded-3xl shadow-2xl border-t-8 border-t-red-600 space-y-6">
-                <ShieldAlert className="h-16 w-16 text-red-600 mx-auto" />
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Trial Period Expired</h1>
-                <p className="text-slate-500 font-medium leading-relaxed">
-                    Your 30-day free trial has concluded. To continue accessing your patient records and clinical modules, please upgrade to a professional plan.
-                </p>
-                <div className="pt-4 space-y-3">
-                    <Button asChild className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-bold">
-                        <Link href="/#pricing">
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            View Upgrade Plans
-                        </Link>
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
-                        Your data remains securely stored and isolated.
-                    </p>
-                </div>
-            </div>
-        </div>
+        <TenantProvider>
+            <SubscriptionLock />
+        </TenantProvider>
     );
   }
 
