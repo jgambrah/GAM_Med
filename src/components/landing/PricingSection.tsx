@@ -43,10 +43,10 @@ export function PricingSection() {
             <span>Multi-Tenant Enterprise Architecture</span>
           </div>
           <h2 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tighter">
-            Transparent Scaling for Every Facility.
+            Simple, Transparent Pricing
           </h2>
           <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
-            Choose the diagnostic and administrative capacity that fits your hospital's volume. 
+            Choose the plan that fits your facility size. No hidden fees. 
             All plans include <strong>logical data isolation</strong> as standard.
           </p>
         </div>
@@ -83,7 +83,7 @@ export function PricingSection() {
                   <p className="text-sm text-slate-500 mt-2 font-medium leading-relaxed">{plan.description}</p>
                   <div className="mt-8 flex items-baseline gap-1">
                     <span className="text-4xl font-black text-slate-900 tracking-tighter">{plan.price}</span>
-                    {plan.price.includes('₵') || plan.price.includes('₦') ? (
+                    {plan.price.includes('₦') || plan.price.includes('₵') ? (
                         <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">/ Month</span>
                     ) : null}
                   </div>
@@ -94,7 +94,7 @@ export function PricingSection() {
                   <ul className="space-y-3">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3 text-sm font-semibold text-slate-600">
-                        <Check className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                        <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
                         {feature}
                       </li>
                     ))}
@@ -113,8 +113,7 @@ export function PricingSection() {
             ))
           ) : (
             <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl bg-muted/5">
-                <Loader2 className="h-10 w-10 animate-spin mx-auto text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground font-bold">Initializing dynamic pricing registry...</p>
+                <p className="text-muted-foreground font-bold">Loading latest offers...</p>
             </div>
           )}
         </div>

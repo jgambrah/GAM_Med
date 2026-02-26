@@ -240,7 +240,7 @@ export interface Bed {
   cleaningNeeded?: boolean;
   createdAt: string;
   created_at?: string;
-  updatedAt: string;
+  updatedAt?: string;
   updated_at?: string;
 }
 
