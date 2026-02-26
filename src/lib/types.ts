@@ -97,6 +97,7 @@ export interface User {
   features?: string[];
   phoneNumber?: string;
   dateOfBirth?: string;
+  hospitalPlanSlugs?: string[]; // Added for feature gating
 }
 
 export interface Patient {
