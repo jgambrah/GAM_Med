@@ -37,29 +37,31 @@ export default function DashboardLayout({
 
   return (
     <TenantProvider>
-      <SidebarProvider>
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center justify-between p-4">
-              <h2 className="text-lg font-bold tracking-tight text-primary">GamMed</h2>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <MainNavClient />
-          </SidebarContent>
-        </Sidebar>
-        <SidebarInset>
-          {/* Trial Countdown Banner */}
-          <TrialBanner />
-          
-          <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
-            <SidebarTrigger className="sm:hidden" />
-            <div className="flex-1" />
-            <UserNav />
-          </header>
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
-        </SidebarInset>
-      </SidebarProvider>
+      <div className="flex flex-col min-h-screen">
+        {/* Very top banner for active trials */}
+        <TrialBanner />
+        
+        <SidebarProvider>
+          <Sidebar>
+            <SidebarHeader>
+              <div className="flex items-center justify-between p-4">
+                <h2 className="text-lg font-bold tracking-tight text-primary">GamMed</h2>
+              </div>
+            </SidebarHeader>
+            <SidebarContent>
+              <MainNavClient />
+            </SidebarContent>
+          </Sidebar>
+          <SidebarInset>
+            <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
+              <SidebarTrigger className="sm:hidden" />
+              <div className="flex-1" />
+              <UserNav />
+            </header>
+            <main className="flex-1 p-4 sm:p-6">{children}</main>
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
       <AiAssistant />
     </TenantProvider>
   );

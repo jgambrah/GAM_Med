@@ -32,9 +32,7 @@ if (!admin.apps.length) {
     }
   } else {
     // Graceful Skip: Avoid throwing an error during build phase
-    if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-      console.warn("Firebase Admin SDK skipped initialization: Environment variables not provided.");
-    }
+    // This handles the Vercel "Collecting page data" step
   }
 } else {
   adminApp = admin.app();
