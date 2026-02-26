@@ -3,11 +3,11 @@ import { sendWelcomeEmail } from '@/lib/mail-service';
 import crypto from 'crypto';
 
 /**
- * == SaaS Auto-Provisioning Webhook ==
+ * == SaaS Auto-Provisioning & Upgrade Webhook ==
  * 
- * Listens for successful Paystack charges and automatically provisions 
- * the new hospital tenant and Medical Director account.
- * Updated to include Automatic 30-Day Free Trial logic.
+ * Listens for successful Paystack charges and handles:
+ * 1. New Hospital Provisioning (from landing page)
+ * 2. Subscription Upgrades/Renewals (from dashboard paywall)
  */
 export async function POST(req: Request) {
     const body = await req.text();
@@ -25,66 +25,82 @@ export async function POST(req: Request) {
 
     const event = JSON.parse(body);
 
-    // 2. LOGIC: Provision on Successful Payment
+    // 2. LOGIC: Process Successful Payment
     if (event.event === 'charge.success') {
-        const { hospitalName, planId, email } = event.data.metadata;
-        
-        // Generate a unique tenant slug
-        const hospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
+        const { hospitalId, hospitalName, planId, email } = event.data.metadata;
         const now = new Date();
 
-        // Automatic 30-Day Trial Logic
-        const trialDurationDays = 30;
-        const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + trialDurationDays);
-
         try {
-            // A. Create the Hospital Record (Trial logic applied)
-            await adminDb.collection('hospitals').doc(hospitalId).set({
-                hospitalId: hospitalId,
-                name: hospitalName,
-                slug: hospitalId,
-                planId: 'trial', 
-                subscriptionStatus: 'trialing',
-                trialEndsAt: trialEndDate.toISOString(),
-                subscriptionTier: planId, // The plan they actually paid for (starts after trial)
-                isActive: true,
-                status: 'active',
-                createdAt: now.toISOString(),
-                ownerEmail: email
-            });
+            if (hospitalId) {
+                // == CASE A: SUBSCRIPTION UPGRADE / RENEWAL ==
+                // The hospital already exists, we just remove the trial lock.
+                await adminDb.collection('hospitals').doc(hospitalId).update({
+                    subscriptionStatus: 'active',
+                    planId: planId,
+                    subscriptionTier: planId, // Sync tier with paid plan
+                    lastPaymentDate: now.toISOString(),
+                    subscriptionNextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    status: 'active',
+                    isActive: true
+                });
 
-            // B. Create the Medical Director in Firebase Auth
-            const tempPass = "Welcome" + Math.floor(1000 + Math.random() * 9000);
-            const userRecord = await adminAuth.createUser({
-                email: email,
-                password: tempPass,
-                displayName: "Medical Director"
-            });
+                console.log(`Subscription Upgraded for: ${hospitalId}`);
 
-            // C. Stamp SaaS Identity: Set Custom Claims for Rule enforcement
-            await adminAuth.setCustomUserClaims(userRecord.uid, { 
-                hospitalId: hospitalId, 
-                role: 'director' 
-            });
+            } else if (hospitalName && email) {
+                // == CASE B: NEW TENANT PROVISIONING ==
+                // Generate a unique tenant slug
+                const newHospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-            // D. Create Firestore Profile
-            const userDocId = `${hospitalId}_${email.toLowerCase().trim()}`;
-            await adminDb.collection('users').doc(userDocId).set({
-                uid: userRecord.uid,
-                email: email.toLowerCase().trim(),
-                name: "Medical Director",
-                hospitalId: hospitalId,
-                role: 'director',
-                is_active: true,
-                created_at: now.toISOString(),
-                last_login: now.toISOString()
-            });
+                // Create the Hospital Record (Start with 30-day trial metadata)
+                const trialEndDate = new Date();
+                trialEndDate.setDate(trialEndDate.getDate() + 30);
 
-            // E. Notify Director via stylized email
-            await sendWelcomeEmail(email, "Director", hospitalName, tempPass, "Medical Director");
+                await adminDb.collection('hospitals').doc(newHospitalId).set({
+                    hospitalId: newHospitalId,
+                    name: hospitalName,
+                    slug: newHospitalId,
+                    planId: 'trial', 
+                    subscriptionStatus: 'trialing',
+                    trialEndsAt: trialEndDate.toISOString(),
+                    subscriptionTier: planId, // The plan they paid for (starts after trial)
+                    isActive: true,
+                    status: 'active',
+                    createdAt: now.toISOString(),
+                    ownerEmail: email
+                });
 
-            console.log(`Auto-Provisioning Complete for: ${hospitalName} (${hospitalId})`);
+                // Create the Medical Director in Firebase Auth
+                const tempPass = "Welcome" + Math.floor(1000 + Math.random() * 9000);
+                const userRecord = await adminAuth.createUser({
+                    email: email,
+                    password: tempPass,
+                    displayName: "Medical Director"
+                });
+
+                // Stamp SaaS Identity: Set Custom Claims for Rule enforcement
+                await adminAuth.setCustomUserClaims(userRecord.uid, { 
+                    hospitalId: newHospitalId, 
+                    role: 'director' 
+                });
+
+                // Create Firestore Profile
+                const userDocId = `${newHospitalId}_${email.toLowerCase().trim()}`;
+                await adminDb.collection('users').doc(userDocId).set({
+                    uid: userRecord.uid,
+                    email: email.toLowerCase().trim(),
+                    name: "Medical Director",
+                    hospitalId: newHospitalId,
+                    role: 'director',
+                    is_active: true,
+                    created_at: now.toISOString(),
+                    last_login: now.toISOString()
+                });
+
+                // Notify Director via stylized email
+                await sendWelcomeEmail(email, "Director", hospitalName, tempPass, "Medical Director");
+
+                console.log(`Auto-Provisioning Complete for: ${hospitalName} (${newHospitalId})`);
+            }
 
         } catch (error) {
             console.error("Critical Provisioning Failure:", error);

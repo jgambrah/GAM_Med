@@ -73,6 +73,8 @@ export interface Hospital {
   isInternal?: boolean;
   ownerEmail?: string;
   isActive?: boolean;
+  subscriptionNextDueDate?: string;
+  lastPaymentDate?: string;
 }
 
 export interface User {
