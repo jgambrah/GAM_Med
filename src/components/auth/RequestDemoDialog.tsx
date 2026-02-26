@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -79,8 +80,8 @@ export function RequestDemoDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 font-bold shadow-md">
-                    Request Demo
+                <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 font-bold shadow-sm">
+                    Request for Demo
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">

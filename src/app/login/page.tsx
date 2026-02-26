@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -12,6 +13,7 @@ import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
+import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
 
 /**
  * == Professional SaaS Login (Discovery Flow) ==
@@ -42,13 +44,11 @@ export default function LoginPage() {
             const authUid = userCredential.user.uid;
 
             // 2. DISCOVERY: Find the user's profile document by UID field
-            // This works regardless of the Document ID naming convention.
             const usersRef = collection(db, "users");
             const q = query(usersRef, where("uid", "==", authUid), limit(1));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
-                // FALLBACK: If UID search fails (e.g. first login after invite), try Email search
                 const emailQuery = query(usersRef, where("email", "==", normalizedEmail), limit(1));
                 const emailSnapshot = await getDocs(emailQuery);
                 
@@ -56,10 +56,7 @@ export default function LoginPage() {
                     throw new Error("Auth successful, but no Firestore profile found. Please contact your administrator.");
                 }
                 
-                // If found by email, the doc needs to be bound to this UID (handled in sync logic if needed)
                 const userData = emailSnapshot.docs[0].data();
-                
-                // Initialize global state
                 setUser({ uid: authUid, ...userData } as any);
                 toast.success("Login Successful", { description: `Welcome, ${userData.name}.` });
                 routeUser(userData.role);
@@ -72,7 +69,6 @@ export default function LoginPage() {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
-            // 3. SYNC GLOBAL UI STATE
             setUser({
                 uid: authUid,
                 ...userData
@@ -82,7 +78,6 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // 4. SMART ROUTING
             routeUser(userData.role);
 
         } catch (error: any) {
@@ -113,52 +108,59 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50 p-4">
-        <Card className="mx-auto max-w-sm w-full shadow-lg border-t-4 border-t-primary">
-            <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl text-center font-bold">GamMed Sign In</CardTitle>
-                <CardDescription className="text-center">
-                    Access your secure hospital portal
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={handleLogin} className="grid gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                            id="email"
-                            type="email"
-                            placeholder="name@facility.com"
-                            required
-                            autoComplete="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="password">Password</Label>
-                            <Link href="#" className="text-sm text-primary hover:underline">Forgot password?</Link>
+        <div className="mx-auto max-w-sm w-full space-y-6">
+            <Card className="shadow-lg border-t-4 border-t-primary">
+                <CardHeader className="space-y-1">
+                    <CardTitle className="text-2xl text-center font-bold">GamMed Sign In</CardTitle>
+                    <CardDescription className="text-center">
+                        Access your secure hospital portal
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleLogin} className="grid gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="name@facility.com"
+                                required
+                                autoComplete="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                disabled={isLoading}
+                            />
                         </div>
-                        <Input 
-                            id="password" 
-                            type="password" 
-                            required 
-                            autoComplete="current-password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <Button type="submit" className="w-full mt-2 h-11" disabled={isLoading}>
-                        {isLoading ? "Verifying..." : "Sign In"}
-                    </Button>
-                </form>
+                        <div className="grid gap-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password">Password</Label>
+                                <Link href="#" className="text-sm text-primary hover:underline">Forgot password?</Link>
+                            </div>
+                            <Input 
+                                id="password" 
+                                type="password" 
+                                required 
+                                autoComplete="current-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                        <Button type="submit" className="w-full mt-2 h-11" disabled={isLoading}>
+                            {isLoading ? "Verifying..." : "Sign In"}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+            
+            <div className="text-center space-y-4">
+                <p className="text-sm text-muted-foreground font-medium italic">New healthcare facility interested in GamMed?</p>
+                <RequestDemoDialog />
                 <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
                     <p>&copy; 2024 Gam It Services. All rights reserved.</p>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     </div>
   );
 }

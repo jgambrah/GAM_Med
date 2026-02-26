@@ -1,31 +1,39 @@
+
 import { NextResponse } from 'next/server';
 import { sendDemoRequestEmail } from '@/lib/mail-service';
 
 /**
- * Public API Route: Handle Demo Requests
+ * == Public API: Demo Request Processor ==
  * 
- * This endpoint processes leads from the landing page. It validates 
- * the input and utilizes the mail-service to notify the platform owner.
+ * Handles lead generation submissions from the landing and login pages.
+ * Triggers an automated notification to the platform owner.
  */
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         
         // Basic validation
-        if (!body.name || !body.email || !body.hospital || !body.phone) {
-            return new NextResponse("Missing required fields", { status: 400 });
+        if (!body.email || !body.name || !body.hospital) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const result = await sendDemoRequestEmail(body);
+        // Trigger the internal mail service
+        const emailResult = await sendDemoRequestEmail({
+            name: body.name,
+            email: body.email,
+            hospital: body.hospital,
+            phone: body.phone || 'N/A'
+        });
 
-        if (result.success) {
-            return NextResponse.json({ success: true });
-        } else {
-            console.error("Mail service failure:", result.error);
-            return new NextResponse("Internal Server Error: Failed to send lead notification.", { status: 500 });
+        if (!emailResult.success) {
+            console.error('Email dispatch failed:', emailResult.error);
+            // We still return success to the user to avoid friction, 
+            // but log the error for internal monitoring.
         }
+
+        return NextResponse.json({ success: true });
     } catch (error: any) {
-        console.error("API Route Error (request-demo):", error);
-        return new NextResponse(error.message || "Internal Server Error", { status: 500 });
+        console.error('API Error (request-demo):', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
