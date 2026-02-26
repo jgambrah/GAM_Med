@@ -1,406 +1,52 @@
-
 {
   "entities": {
-    "UserProfile": {
+    "PricingPlan": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserProfile",
+      "title": "PricingPlan",
       "type": "object",
-      "description": "Stores user profile information, including roles and links to specific domain entities like Patient or HealthcareProvider, complementing Firebase Authentication.",
+      "description": "Represents a pricing plan for the hospital management system, including its name, price, features, and other promotional details.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "firebaseUid": {
-          "type": "string",
-          "description": "The unique user ID provided by Firebase Authentication. (Relationship: UserProfile 1:1 Firebase Authentication User)"
-        },
-        "email": {
-          "type": "string",
-          "description": "User's email address.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "User's primary contact phone number."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "User's first name."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "User's last name."
-        },
-        "role": {
-          "type": "string",
-          "description": "Assigned role for the user (e.g., Patient, Doctor, Nurse, Pharmacist, Admin, SuperAdmin).",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "patientProfileId": {
-          "type": "string",
-          "description": "Reference to the Patient entity if this user is a patient. (Relationship: UserProfile 1:1 Patient)"
-        },
-        "healthcareProviderProfileId": {
-          "type": "string",
-          "description": "Reference to the HealthcareProvider entity if this user is a healthcare professional. (Relationship: UserProfile 1:1 HealthcareProvider)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "firebaseUid",
-        "firstName",
-        "lastName",
-        "role",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Patient": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Patient",
-      "type": "object",
-      "description": "Stores comprehensive demographic and administrative information for a patient within MedFlow GH.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Patient entity (often referred to as Unique Patient ID)."
-        },
-        "userProfileId": {
-          "type": "string",
-          "description": "Reference to the UserProfile entity if this patient has an associated user account. (Relationship: Patient 1:1 UserProfile)"
-        },
-        "firstName": {
-          "type": "string",
-          "description": "Patient's first name."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "Patient's last name."
-        },
-        "dateOfBirth": {
-          "type": "string",
-          "description": "Patient's date of birth.",
-          "format": "date"
-        },
-        "gender": {
-          "type": "string",
-          "description": "Patient's gender.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "contactNumber": {
-          "type": "string",
-          "description": "Patient's primary contact phone number."
-        },
-        "email": {
-          "type": "string",
-          "description": "Patient's email address.",
-          "format": "email"
-        },
-        "address": {
-          "type": "string",
-          "description": "Patient's residential address."
-        },
-        "ghanaCardId": {
-          "type": "string",
-          "description": "Patient's Ghana Card identification number, as per local regulations."
-        },
-        "bloodGroup": {
-          "type": "string",
-          "description": "Patient's blood group.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "allergies": {
-          "type": "array",
-          "description": "A list of patient's known allergies.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "emergencyContactName": {
-          "type": "string",
-          "description": "Name of the patient's emergency contact."
-        },
-        "emergencyContactNumber": {
-          "type": "string",
-          "description": "Phone number of the patient's emergency contact."
-        },
-        "emergencyContactRelationship": {
-          "type": "string",
-          "description": "Relationship of the emergency contact to the patient (e.g., 'Spouse', 'Parent', 'Sibling')."
-        },
-        "registrationDate": {
-          "type": "string",
-          "description": "Date and time when the patient was registered in the system.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "Current administrative status of the patient (e.g., 'Active', 'Discharged', 'Deceased').",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the patient record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the patient record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "dateOfBirth",
-        "gender",
-        "contactNumber",
-        "ghanaCardId",
-        "registrationDate",
-        "status",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "HealthcareProvider": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "HealthcareProvider",
-      "type": "object",
-      "description": "Stores detailed professional information for all healthcare professionals (doctors, nurses, pharmacists) at MedFlow GH.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the HealthcareProvider entity."
-        },
-        "userProfileId": {
-          "type": "string",
-          "description": "Reference to the associated UserProfile entity. (Relationship: HealthcareProvider 1:1 UserProfile)"
-        },
-        "firstName": {
-          "type": "string",
-          "description": "Healthcare provider's first name."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "Healthcare provider's last name."
-        },
-        "type": {
-          "type": "string",
-          "description": "The professional type of the healthcare provider.",
-          "format": "enum",
-          "items": {
-            "type": "string"
-          }
-        },
-        "specialization": {
-          "type": "string",
-          "description": "Specific medical specialization (primarily for Doctors, e.g., 'Cardiology', 'Pediatrics')."
-        },
-        "licenseNumber": {
-          "type": "string",
-          "description": "Professional license or registration number."
-        },
-        "contactNumber": {
-          "type": "string",
-          "description": "Healthcare provider's contact phone number."
-        },
-        "email": {
-          "type": "string",
-          "description": "Healthcare provider's email address.",
-          "format": "email"
-        },
-        "departmentId": {
-          "type": "string",
-          "description": "Reference to the Department the healthcare provider belongs to. (Relationship: Department 1:N HealthcareProvider)"
-        },
-        "bio": {
-          "type": "string",
-          "description": "A short professional biography or description."
-        },
-        "isAvailable": {
-          "type": "boolean",
-          "description": "Indicates if the healthcare provider is currently available for appointments/consultations."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the healthcare provider record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the healthcare provider record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userProfileId",
-        "firstName",
-        "lastName",
-        "type",
-        "licenseNumber",
-        "departmentId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Department": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Department",
-      "type": "object",
-      "description": "Represents a medical department or unit within the MedFlow GH hospital structure.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Department entity."
+          "description": "Unique identifier for the PricingPlan entity."
         },
         "name": {
           "type": "string",
-          "description": "The official name of the department (e.g., 'Cardiology', 'Emergency Room')."
+          "description": "The name of the pricing plan (e.g., 'Clinic Starter', 'Professional', 'Enterprise')."
+        },
+        "price": {
+          "type": "string",
+          "description": "The price of the plan, formatted as a string (e.g., '₦150,000', '$500/month')."
         },
         "description": {
           "type": "string",
-          "description": "A brief description of the department's primary functions and services."
+          "description": "A brief description or tagline for the pricing plan."
         },
-        "headOfDepartmentId": {
-          "type": "string",
-          "description": "Reference to the HealthcareProvider who is currently the head of this department. (Relationship: Department 1:1 HealthcareProvider)"
+        "features": {
+          "type": "array",
+          "description": "A list of features included in this pricing plan.",
+          "items": {
+            "type": "string"
+          }
         },
-        "contactNumber": {
-          "type": "string",
-          "description": "Department's main contact phone number."
+        "isPopular": {
+          "type": "boolean",
+          "description": "Indicates whether this pricing plan is highlighted as popular."
         },
-        "email": {
+        "cta": {
           "type": "string",
-          "description": "Department's official email address.",
-          "format": "email"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the department record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the department record was last updated.",
-          "format": "date-time"
+          "description": "The call-to-action text associated with this pricing plan (e.g., 'Get Started', 'Contact Sales')."
         }
       },
       "required": [
         "id",
         "name",
-        "createdAt",
-        "updatedAt"
+        "price",
+        "description",
+        "features",
+        "isPopular",
+        "cta"
       ]
-    },
-    "Appointment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Appointment",
-      "type": "object",
-      "description": "SaaS stamped appointment for patient scheduling and queue management.",
-      "properties": {
-        "hospitalId": { "type": "string", "description": "Tenant ID for logical isolation." },
-        "patientId": { "type": "string", "description": "Patient's unique ID." },
-        "patientName": { "type": "string", "description": "Patient's full name." },
-        "doctorId": { "type": "string", "description": "Clinician's unique ID." },
-        "doctorName": { "type": "string", "description": "Clinician's full name." },
-        "appointmentDate": { "type": "string", "description": "Date of appointment (YYYY-MM-DD)." },
-        "timeSlot": { "type": "string", "description": "Scheduled time (e.g., 10:30 AM)." },
-        "status": {
-          "type": "string",
-          "enum": ["Scheduled", "Arrived", "In-Consultation", "Completed", "Cancelled"]
-        },
-        "reason": { "type": "string", "description": "Reason for the visit." },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["hospitalId", "patientId", "doctorId", "appointmentDate", "timeSlot", "status"]
-    },
-    "Referral": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Referral",
-      "type": "object",
-      "description": "Cross-tenant or internal patient referral record.",
-      "properties": {
-        "fromHospitalId": { "type": "string" },
-        "fromHospitalName": { "type": "string" },
-        "toHospitalId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "patientName": { "type": "string" },
-        "clinicalSummary": { "type": "string" },
-        "status": { "type": "string", "enum": ["Pending", "Accepted", "Rejected", "Completed"] },
-        "priority": { "type": "string", "enum": ["Routine", "Urgent", "Emergency"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["fromHospitalId", "toHospitalId", "patientId", "status", "priority"]
-    },
-    "ControlledSubstance": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ControlledSubstance",
-      "type": "object",
-      "description": "Narcotic inventory record for legal compliance.",
-      "properties": {
-        "hospitalId": { "type": "string" },
-        "name": { "type": "string" },
-        "strength": { "type": "string" },
-        "form": { "type": "string" },
-        "totalQuantity": { "type": "number" },
-        "unit": { "type": "string" }
-      },
-      "required": ["hospitalId", "name", "totalQuantity"]
-    },
-    "Facility": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Facility",
-      "type": "object",
-      "description": "Represents a physical room or space within the hospital.",
-      "properties": {
-        "hospitalId": { "type": "string" },
-        "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["Consultation", "Diagnostic", "Seminar", "Ward", "OT"] },
-        "capacity": { "type": "number" },
-        "isActive": { "type": "boolean" }
-      },
-      "required": ["hospitalId", "name", "type"]
-    },
-    "FacilityBooking": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FacilityBooking",
-      "type": "object",
-      "description": "A scheduled reservation for a specific facility.",
-      "properties": {
-        "hospitalId": { "type": "string" },
-        "facilityId": { "type": "string" },
-        "userId": { "type": "string" },
-        "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" },
-        "purpose": { "type": "string" },
-        "status": { "type": "string", "enum": ["Confirmed", "Pending", "Cancelled"] }
-      },
-      "required": ["hospitalId", "facilityId", "startTime", "endTime", "status"]
     }
   },
   "auth": {
@@ -412,37 +58,22 @@
   "firestore": {
     "structure": [
       {
-        "path": "/userProfiles/{firebaseUid}",
+        "path": "/pricing_plans/{planId}",
         "definition": {
-          "entityName": "UserProfile",
+          "entityName": "PricingPlan",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/backend/entities/PricingPlan"
           },
-          "description": "Stores user profile information.",
+          "description": "Stores publicly available pricing plan details. Each document's ID corresponds to the plan's unique identifier (e.g., 'clinic-starter'). Read access is granted to all users (authenticated and unauthenticated). Write access is restricted to administrators.",
           "params": [
             {
-              "name": "firebaseUid",
-              "description": "The unique Firebase Authentication User ID (UID)."
+              "name": "planId",
+              "description": "The unique identifier for a specific pricing plan (e.g., 'clinic-starter')."
             }
           ]
         }
-      },
-      {
-        "path": "/facilities/{facilityId}",
-        "definition": {
-          "entityName": "Facility",
-          "schema": { "$ref": "#/backend/entities/Facility" },
-          "description": "Hospital real estate assets."
-        }
-      },
-      {
-        "path": "/facility_bookings/{bookingId}",
-        "definition": {
-          "entityName": "FacilityBooking",
-          "schema": { "$ref": "#/backend/entities/FacilityBooking" },
-          "description": "Facility utilization schedules."
-        }
       }
-    ]
+    ],
+    "reasoning": "The recommended Firestore structure for pricing plans is a simple, top-level collection named 'pricing_plans'. Each document within this collection represents a single pricing plan, with its document ID mirroring the plan's unique identifier (e.g., 'clinic-starter', 'professional', 'enterprise'). This flat structure is ideal for data that needs to be publicly accessible and read-only for most users, while allowing administrative updates.\n\nThis structure achieves **Authorization Independence** by ensuring that all pricing plan data documents are self-contained and do not require fetching data from other collections or parent documents for read authorization. The data itself is designed to be public, meaning read access can be granted broadly without complex authorization logic or `get()` calls in security rules. For administrative write access, an independent check on a global administrator role (e.g., `exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))`) would be performed, maintaining atomicity and avoiding hierarchical dependencies. No denormalized authorization fields are needed within the `PricingPlan` documents themselves for read access, as the data's security posture is homogeneous and publicly readable.\n\nThe structure supports **QAPs (Rules are not Filters)** because all documents within the `pricing_plans` collection share the same security requirements: publicly readable. This allows `list` queries to be secure and efficient without requiring Firestore security rules to filter results. Any user, authenticated or unauthenticated, can securely retrieve all pricing plans, as intended by the requirement for dynamic content on a landing page."
   }
 }
