@@ -3,60 +3,76 @@ import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
 /**
- * == Lead Capture API with Detailed Diagnostics ==
+ * == SaaS Lead Capture API ==
  * 
- * Securely logs demo requests to Firestore and notifies the platform owner.
- * Catch block provides specific feedback if the Admin SDK or Resend fails.
+ * Securely logs landing page demo requests into the platform's central registry.
+ * Triggers a stylized notification to the platform owner's Gmail Hub.
  */
 export async function POST(req: Request) {
     try {
-        // 1. Attempt to get admin services (will throw diagnostic error if init failed)
-        const { adminDb } = getAdminServices();
-        
         const body = await req.json();
         const { name, email, hospital, phone } = body;
 
-        // 2. Log to Firestore
-        await adminDb.collection('demo_requests').add({
-            name,
-            email: email.toLowerCase().trim(),
-            hospitalName: hospital,
-            phone,
-            status: 'Pending',
-            requestedAt: new Date().toISOString(),
-        });
+        // 1. Initialize Admin Services (Build-safe getter)
+        let adminDb;
+        try {
+            const services = getAdminServices();
+            adminDb = services.adminDb;
+        } catch (e: any) {
+            console.error("SERVICE_UNAVAILABLE:", e.message);
+            return NextResponse.json({ error: "Backend service unavailable", diagnostic: e.message }, { status: 503 });
+        }
 
-        // 3. Send Notification via Resend
-        if (process.env.RESEND_API_KEY) {
+        // 2. Record Lead in Central Repository
+        try {
+            await adminDb.collection('demo_requests').add({
+                name,
+                email: email.toLowerCase().trim(),
+                hospitalName: hospital,
+                phone,
+                status: 'Pending',
+                requestedAt: new Date().toISOString(),
+            });
+        } catch (dbError: any) {
+            console.error("FIRESTORE_WRITE_FAILURE:", dbError.message);
+            return NextResponse.json({ error: "Lead logging failed" }, { status: 500 });
+        }
+
+        // 3. Notify Platform Owner via Resend (Gmail Hub)
+        try {
+            if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
+            
             const resend = new Resend(process.env.RESEND_API_KEY);
             await resend.emails.send({
-                from: 'GamMed System <onboarding@resend.dev>', 
+                from: 'GamMed Lead Hub <onboarding@resend.dev>', 
                 to: 'jamesgambrah@gmail.com',
                 reply_to: email,
-                subject: `🚨 NEW LEAD: ${hospital}`,
+                subject: `🚨 NEW DEMO REQUEST: ${hospital}`,
                 html: `
-                    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #2563eb;">New Sales Lead</h2>
-                        <p><strong>Hospital:</strong> ${hospital}</p>
-                        <p><strong>Contact:</strong> ${name}</p>
-                        <p><strong>Email:</strong> ${email}</p>
-                        <p><strong>Phone:</strong> ${phone}</p>
-                        <br />
-                        <p style="font-size: 12px; color: #666;">Log in to the Super Admin panel to provision this facility.</p>
+                    <div style="font-family: sans-serif; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px;">
+                        <h2 style="color: #2563eb; margin-top: 0;">New Sales Prospect</h2>
+                        <p>A new demo request has been logged in your Command Centre.</p>
+                        <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                            <p style="margin: 0 0 8px 0;"><strong>Facility:</strong> ${hospital}</p>
+                            <p style="margin: 0 0 8px 0;"><strong>Contact:</strong> ${name}</p>
+                            <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${email}</p>
+                            <p style="margin: 0;"><strong>Phone:</strong> ${phone}</p>
+                        </div>
+                        <p style="font-size: 12px; color: #64748b;">
+                            Provision this facility via your Super Admin dashboard to start their 30-day evaluation.
+                        </p>
                     </div>
                 `
             });
+        } catch (mailError: any) {
+            console.warn("NOTIFICATION_FAILURE:", mailError.message);
+            // Non-critical: lead is already saved in DB
         }
 
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error("DETAILED_DIAGNOSTIC:", error.message);
-        
-        // Return 503 with diagnostic info to help identify the specific credential issue
-        return NextResponse.json({ 
-            error: "Service Temporarily Unavailable", 
-            diagnostic: error.message 
-        }, { status: 503 });
+        console.error("GLOBAL_API_ERROR:", error.message);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

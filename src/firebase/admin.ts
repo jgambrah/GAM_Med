@@ -1,52 +1,52 @@
 import * as admin from 'firebase-admin';
 
-// This variable will hold our error if initialization fails
-let initError: string | null = null;
+// Local app instance to implement singleton pattern safely for build analysis
+let appInstance: admin.app.App | null = null;
 
 function initializeAdmin() {
-  // Return existing app if already initialized
-  if (admin.apps.length > 0) return admin.apps[0];
+  if (admin.apps.length > 0) return admin.app();
 
-  const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+  // 1. Get the 3 clean variables from .env.local
+  const projectId = process.env.FB_PROJECT_ID;
+  const clientEmail = process.env.FB_CLIENT_EMAIL;
+  const privateKey = process.env.FB_PRIVATE_KEY;
 
-  if (!serviceAccountVar) {
-    initError = "FIREBASE_SERVICE_ACCOUNT variable is missing in Vercel Settings.";
+  // 2. Safety check: During Next.js build, these might be missing. 
+  // We return null instead of crashing to allow static analysis to complete.
+  if (!projectId || !clientEmail || !privateKey) {
     return null;
   }
 
   try {
-    // 1. Clean the string (Remove any potential surrounding quotes or whitespace added by Vercel)
-    const sanitizedJson = serviceAccountVar.trim().replace(/^['"]|['"]$/g, '');
-    const serviceAccount = JSON.parse(sanitizedJson);
-
-    // 2. Initialize
     return admin.initializeApp({
       credential: admin.credential.cert({
-        projectId: serviceAccount.project_id,
-        clientEmail: serviceAccount.client_email,
-        // This handles both real newlines and escaped \n characters
-        privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
+        projectId: projectId,
+        clientEmail: clientEmail,
+        // The regex handles the escaped \n characters common in environment variable strings
+        privateKey: privateKey.replace(/\\n/g, '\n'),
       }),
     });
   } catch (error: any) {
-    initError = "JSON_PARSE_ERROR: " + error.message;
-    console.error("ADMIN_INIT_FAILURE:", initError);
+    console.error("Firebase Admin Critical Initialization Failure:", error.message);
     return null;
   }
 }
 
-const app = initializeAdmin();
-
 /**
- * == Admin Services Getter ==
+ * == Secure Admin Services Getter ==
  * 
- * Provides a secure way to access Admin SDK services.
- * Throws a descriptive error if initialization failed, helping with Vercel debugging.
+ * Provides lazy initialization of Admin SDK services.
+ * Ensures the app doesn't crash during Vercel's build-time static analysis.
  */
 export const getAdminServices = () => {
-    if (!app) {
-        throw new Error(initError || "Firebase Admin SDK failed to initialize. Check environment variables.");
+    if (!appInstance) {
+        appInstance = initializeAdmin();
     }
+    
+    if (!appInstance) {
+        throw new Error("Firebase Admin SDK is not initialized. Ensure FB_PROJECT_ID, FB_CLIENT_EMAIL, and FB_PRIVATE_KEY are set in Vercel.");
+    }
+
     return {
         adminDb: admin.firestore(),
         adminAuth: admin.auth()
