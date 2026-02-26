@@ -3,9 +3,8 @@ import * as admin from 'firebase-admin';
 /**
  * == Build-Safe & Sanitized Firebase Admin Provider ==
  * 
- * This module handles the initialization of the Firebase Admin SDK using a single
- * environment variable containing the service account JSON. It includes an aggressive
- * sanitization layer to handle Vercel's string handling of long JSON blobs.
+ * Provides lazy-loaded access to Firebase Admin services.
+ * This prevents build-time crashes when environment variables are missing.
  */
 
 function getAdminApp() {
@@ -16,9 +15,7 @@ function getAdminApp() {
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   // During Next.js build/static analysis, env vars might be missing.
-  // We log a warning instead of throwing to prevent build-time crashes.
   if (!serviceAccountVar) {
-    console.warn("FIREBASE_SERVICE_ACCOUNT is missing. Initialization skipped (normal during build).");
     return null;
   }
 
@@ -41,10 +38,24 @@ function getAdminApp() {
   }
 }
 
-// Initialize the app
-const app = getAdminApp();
+/**
+ * == Database Getter ==
+ * Returns the Firestore Admin instance or null if initialization failed.
+ */
+export function getAdminDb() {
+  const app = getAdminApp();
+  return app ? admin.firestore() : null as unknown as admin.firestore.Firestore;
+}
 
-// Export services. Note: These will be null if initialization failed (e.g. during build)
-// API routes must handle potential null values or ensure they run only when initialized.
-export const adminDb = app ? admin.firestore() : null as unknown as admin.firestore.Firestore;
-export const adminAuth = app ? admin.auth() : null as unknown as admin.auth.Auth;
+/**
+ * == Auth Getter ==
+ * Returns the Auth Admin instance or null if initialization failed.
+ */
+export function getAdminAuth() {
+  const app = getAdminApp();
+  return app ? admin.auth() : null as unknown as admin.auth.Auth;
+}
+
+// Export constants for simpler cases (typed as non-null for convenience in some files)
+export const adminDb = getAdminDb();
+export const adminAuth = getAdminAuth();

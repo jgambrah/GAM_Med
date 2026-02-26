@@ -1,76 +1,66 @@
-import { adminDb } from '@/firebase/admin';
+import { getAdminDb } from '@/firebase/admin';
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
 /**
- * == SaaS Lead Capture API (With Tracing) ==
+ * == Lead Capture API (The Gmail Hub) ==
  * 
- * Securely logs prospective leads and notifies the platform owner.
- * Includes explicit try/catch blocks for Firestore and Resend to aid debugging.
+ * 1. Validates Resend & Firestore connectivity.
+ * 2. Logs the prospect into the Super Admin registry.
+ * 3. Sends an immediate alert to the platform owner's Gmail.
  */
 export async function POST(req: Request) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     try {
-        const body = await req.json();
-        const { name, email, hospital, phone } = body;
+        const { name, email, hospital, phone } = await req.json();
+        const db = getAdminDb();
 
-        console.log(`Starting lead capture for: ${hospital}`);
-
-        // 1. Validate Admin SDK
-        if (!adminDb) {
-            console.error("❌ ADMIN_SDK_ERROR: Database service unavailable (adminDb is null)");
-            return NextResponse.json({ error: "Database service unavailable" }, { status: 500 });
+        // Safety: Ensure Database is available
+        if (!db) {
+            console.error("Database service unavailable (check FIREBASE_SERVICE_ACCOUNT)");
+            return NextResponse.json({ error: "Database service unavailable" }, { status: 503 });
         }
 
-        // 2. Test Firestore Connection
-        try {
-            await adminDb.collection('demo_requests').add({
-                name,
-                email: email.toLowerCase(),
-                hospitalName: hospital,
-                phone,
-                status: 'Pending',
-                requestedAt: new Date(),
-            });
-            console.log("✅ Firestore save successful");
-        } catch (dbError: any) {
-            console.error("❌ FIRESTORE_ERROR:", dbError.message);
-            return NextResponse.json({ error: "Database save failed", detail: dbError.message }, { status: 500 });
-        }
+        // 1. Save Lead to Firestore (The Command Centre Source)
+        await db.collection('demo_requests').add({
+            name,
+            email: email.toLowerCase(),
+            hospitalName: hospital,
+            phone,
+            status: 'Pending',
+            requestedAt: new Date().toISOString(),
+        });
 
-        // 3. Test Resend Connection
-        try {
-            if (!process.env.RESEND_API_KEY) {
-                throw new Error("RESEND_API_KEY is missing");
-            }
-            
-            const resend = new Resend(process.env.RESEND_API_KEY);
-            await resend.emails.send({
-                from: 'GamMed System <onboarding@resend.dev>', 
-                to: 'jamesgambrah@gmail.com',
-                reply_to: email,
-                subject: `🚨 NEW LEAD: ${hospital}`,
-                html: `
-                    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #2563eb;">New Sales Lead</h2>
-                        <p><strong>Hospital:</strong> ${hospital}</p>
-                        <p><strong>Contact:</strong> ${name}</p>
-                        <p><strong>Email:</strong> ${email}</p>
-                        <p><strong>Phone:</strong> ${phone}</p>
-                        <br />
-                        <p style="font-size: 12px; color: #666;">Log in to the Command Centre to provision this account.</p>
-                    </div>
-                `
-            });
-            console.log("✅ Resend email sent");
-        } catch (mailError: any) {
-            console.error("❌ RESEND_ERROR:", mailError.message);
-            // We don't return 500 here because the lead is already safely saved in the database
-        }
+        // 2. Send the Lead to your Gmail
+        // Note: Using 'onboarding@resend.dev' ensures delivery without custom domain verification
+        await resend.emails.send({
+            from: 'GamMed System <onboarding@resend.dev>', 
+            to: 'jamesgambrah@gmail.com',
+            reply_to: email,
+            subject: `🚨 NEW DEMO REQUEST: ${hospital}`,
+            html: `
+                <div style="font-family: sans-serif; border: 1px solid #e2e8f0; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #2563eb; margin-bottom: 20px;">New Sales Lead from Landing Page</h2>
+                    <p><strong>Hospital:</strong> ${hospital}</p>
+                    <p><strong>Contact Person:</strong> ${name}</p>
+                    <p><strong>Email:</strong> ${email}</p>
+                    <p><strong>Phone:</strong> ${phone}</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                    <p style="font-size: 12px; color: #64748b;">
+                        Log in to your Command Centre to provision this hospital account.
+                    </p>
+                </div>
+            `
+        });
 
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error("GLOBAL_API_ERROR:", error.message);
-        return NextResponse.json({ error: "Internal Server Error", detail: error.message }, { status: 500 });
+        console.error("API_ROUTE_CRASH:", error.message);
+        return NextResponse.json({ 
+            error: "Internal Server Error", 
+            detail: error.message 
+        }, { status: 500 });
     }
 }
