@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
-import { FileDown, Play, Share2 } from 'lucide-react';
+import { FileDown, Play, Share2, ShieldCheck, Loader2 } from 'lucide-react';
 import { mockSavedReports } from '@/lib/data';
 import { SavedReport } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
@@ -26,11 +26,17 @@ const metricsOptions = [
     { id: 'avg', name: 'Average of a Field' },
 ];
 
+/**
+ * == SaaS Ad-hoc Report Builder ==
+ * 
+ * Allows directors to perform complex queries. 
+ * The system automatically injects the hospitalId to ensure 
+ * logical isolation of cross-sectional data.
+ */
 export default function CustomReportBuilderPage() {
     const { user } = useAuth();
     const [selectedSource, setSelectedSource] = React.useState('');
     const [selectedMetrics, setSelectedMetrics] = React.useState<string[]>([]);
-    const [selectedFilters, setSelectedFilters] = React.useState<any[]>([]);
     const [groupBy, setGroupBy] = React.useState('');
     const [results, setResults] = React.useState<any[] | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -38,70 +44,69 @@ export default function CustomReportBuilderPage() {
     const sourceFields = dataSources.find(ds => ds.id === selectedSource)?.fields || [];
     
     const handleRunReport = async (report?: SavedReport) => {
+        if (!user?.hospitalId) {
+            toast.error("Security Context Missing. Access Denied.");
+            return;
+        }
+
         const queryDetails = report ? report.queryDetails : { 
             collections: [selectedSource], 
             metrics: selectedMetrics, 
-            filters: selectedFilters, 
             groupBy,
-            hospitalId: user?.hospitalId // SaaS STAMP: Force tenant scoping
+            hospitalId: user.hospitalId // MANDATORY SAAS STAMP
         };
         
         if (!queryDetails.collections || queryDetails.collections.length === 0 || queryDetails.collections[0] === '') {
-            toast.error('Please select a data source and at least one metric.');
+            toast.error('Please select a data source.');
             return;
         }
+
         setIsLoading(true);
         setResults(null);
         
-        // In a real app, this would call the generateCustomReport Cloud Function with queryDetails
-        console.log('Running SaaS Scoped Report with:', queryDetails);
+        // CONCEPTUAL: In production, this calls a Cloud Function that executes 
+        // the query scoped by the hospitalId parameter.
+        console.log(`Executing Facility-Locked Query for ${user.hospitalId}:`, queryDetails);
         
         await new Promise(resolve => setTimeout(resolve, 1500)); 
         
         // Mock results strictly based on the user's hospital context
-        let mockResults = [];
-        if (queryDetails.collections[0] === 'admissions' && queryDetails.groupBy === 'ward') {
-            mockResults = [
-                { ward: 'Cardiology', count: 50 },
-                { ward: 'General Ward', count: 120 },
-                { ward: 'Maternity', count: 30 },
-            ];
-        } else {
-            mockResults = [
-                { result_1: 'Tenant Result A', result_2: 123 },
-                { result_1: 'Tenant Result B', result_2: 456 },
-            ];
-        }
+        const mockResults = [
+            { [queryDetails.groupBy || 'Dimension']: 'Facility Result A', value: 1250.00, count: 42 },
+            { [queryDetails.groupBy || 'Dimension']: 'Facility Result B', value: 3400.50, count: 18 },
+        ];
 
         setResults(mockResults);
         setIsLoading(false);
     };
 
-    const handleSaveReport = () => {
-        toast.success('Report template has been saved to your facility dashboard.');
-    };
-
-    // SaaS LOGIC: Only show reports for THIS user and potentially this facility
-    const userReports = mockSavedReports.filter(r => r.userId === user?.uid);
+    if (!user) return null;
 
     return (
         <div className="space-y-6">
-             <div>
-                <h1 className="text-3xl font-bold">Ad-hoc Report Builder</h1>
-                <p className="text-muted-foreground">
-                    Build and run custom queries for <strong>{user?.hospitalId}</strong>.
-                </p>
+             <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4">
+                <div>
+                    <h1 className="text-3xl font-black tracking-tight text-slate-900">Ad-hoc Insights Builder</h1>
+                    <p className="text-muted-foreground font-medium italic">
+                        Strategic data mining for <strong>{user.hospitalId}</strong>
+                    </p>
+                </div>
+                <Badge variant="outline" className="h-8 px-4 border-blue-200 text-blue-700 bg-blue-50 font-black uppercase tracking-widest">
+                    <ShieldCheck className="h-3 w-3 mr-2" />
+                    Logical Isolation Enabled
+                </Badge>
             </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">1</span>Data Source</CardTitle>
+                    <Card className="shadow-sm ring-1 ring-slate-200 border-none">
+                        <CardHeader className="bg-muted/30 pb-4">
+                            <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">1. Choose Dataset</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-6">
                              <Select onValueChange={setSelectedSource}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a data source..." />
+                                <SelectTrigger className="h-11 bg-white">
+                                    <SelectValue placeholder="Select Data Source" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {dataSources.map(ds => <SelectItem key={ds.id} value={ds.id}>{ds.name}</SelectItem>)}
@@ -109,41 +114,33 @@ export default function CustomReportBuilderPage() {
                             </Select>
                         </CardContent>
                     </Card>
-                     <Card>
-                        <CardHeader>
-                             <CardTitle className="flex items-center gap-2 text-base"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">2</span>Metrics & Filters</CardTitle>
+
+                     <Card className="shadow-sm ring-1 ring-slate-200 border-none">
+                        <CardHeader className="bg-muted/30 pb-4">
+                             <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">2. Aggregation Logic</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label className="text-xs font-bold uppercase">Metrics</Label>
-                                <div className="space-y-2 mt-2">
-                                    {metricsOptions.map(m => (
-                                        <div key={m.id} className="flex items-center space-x-2">
-                                            <Checkbox id={`metric-${m.id}`} onCheckedChange={(checked) => {
-                                                setSelectedMetrics(prev => checked ? [...prev, m.id] : prev.filter(p => p !== m.id))
-                                            }} />
-                                            <Label htmlFor={`metric-${m.id}`} className="font-normal text-sm">{m.name}</Label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="pt-2">
-                                <Label className="text-xs font-bold uppercase">Filters</Label>
-                                <div className="mt-2 space-y-2">
-                                    <Input placeholder="e.g., Status == 'Admitted'" disabled className="bg-muted/30" />
-                                     <Button variant="outline" size="sm" disabled className="w-full text-xs">Add Filter</Button>
-                                </div>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="space-y-2">
+                                {metricsOptions.map(m => (
+                                    <div key={m.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md transition-colors">
+                                        <Checkbox id={`metric-${m.id}`} onCheckedChange={(checked) => {
+                                            setSelectedMetrics(prev => checked ? [...prev, m.id] : prev.filter(p => p !== m.id))
+                                        }} />
+                                        <Label htmlFor={`metric-${m.id}`} className="text-xs font-bold text-slate-700">{m.name}</Label>
+                                    </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
-                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">3</span>Grouping</CardTitle>
+
+                     <Card className="shadow-sm ring-1 ring-slate-200 border-none">
+                        <CardHeader className="bg-muted/30 pb-4">
+                            <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">3. Visual Grouping</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-6">
                              <Select onValueChange={setGroupBy} disabled={!selectedSource}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Group results by..." />
+                                <SelectTrigger className="h-11 bg-white">
+                                    <SelectValue placeholder="Group Results By..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {sourceFields.map(field => <SelectItem key={field} value={field}>{field}</SelectItem>)}
@@ -154,45 +151,51 @@ export default function CustomReportBuilderPage() {
                 </div>
 
                 <div className="lg:col-span-3">
-                     <Card className="h-full">
-                        <CardHeader>
+                     <Card className="h-full shadow-lg border-none ring-1 ring-slate-200 overflow-hidden">
+                        <CardHeader className="bg-slate-900 text-white pb-6">
                              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                                 <div>
-                                    <CardTitle>Report Results</CardTitle>
-                                    <CardDescription>SaaS Isolation: Results are strictly scoped to {user?.hospitalId}.</CardDescription>
+                                    <CardTitle className="text-lg">Report Output</CardTitle>
+                                    <CardDescription className="text-slate-400 text-xs">Cross-sectional results strictly scoped to {user.hospitalId}.</CardDescription>
                                 </div>
                                 <div className="flex gap-2">
-                                     <Button variant="outline" onClick={handleSaveReport} disabled={!results} className="h-9 text-xs">
-                                        <FileDown className="h-4 w-4 mr-2" />
-                                        Save Template
-                                    </Button>
-                                    <Button onClick={() => handleRunReport()} disabled={isLoading} className="h-9 text-xs">
-                                        <Play className="h-4 w-4 mr-2" />
-                                        {isLoading ? 'Running...' : 'Run Report'}
+                                    <Button onClick={() => handleRunReport()} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest px-6">
+                                        {isLoading ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Play className="h-3 w-3 mr-2" />}
+                                        Run Query
                                     </Button>
                                 </div>
                              </div>
                         </CardHeader>
-                        <CardContent>
-                            {isLoading && <p className="text-center py-12 text-muted-foreground animate-pulse">Querying facility records...</p>}
+                        <CardContent className="pt-8">
+                            {isLoading && (
+                                <div className="h-96 flex flex-col items-center justify-center text-center">
+                                    <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
+                                    <p className="text-sm font-bold text-slate-900 uppercase tracking-widest animate-pulse">Querying Facility Vault...</p>
+                                </div>
+                            )}
                             {!isLoading && !results && (
-                                <div className="h-96 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg bg-muted/10 opacity-50">
-                                    <Play className="h-12 w-12 mb-4" />
-                                    <p className="text-sm font-medium">Configure your metrics and click 'Run Report' to begin.</p>
+                                <div className="h-96 flex flex-col items-center justify-center text-center p-8 border-4 border-dashed rounded-3xl bg-muted/5 opacity-40">
+                                    <Play className="h-16 w-16 mb-4 text-slate-300" />
+                                    <h3 className="text-xl font-bold text-slate-900">Ready to Query</h3>
+                                    <p className="text-sm text-muted-foreground mt-2">Configure your metrics and click 'Run Query' to begin data mining.</p>
                                 </div>
                             )}
                             {results && (
-                                <div className="rounded-md border">
+                                <div className="rounded-xl border overflow-hidden">
                                     <Table>
-                                        <TableHeader className="bg-muted/50">
+                                        <TableHeader className="bg-slate-50">
                                             <TableRow>
-                                                {Object.keys(results[0]).map(key => <TableHead key={key} className="text-[10px] font-black uppercase tracking-widest">{key}</TableHead>)}
+                                                {Object.keys(results[0]).map(key => (
+                                                    <TableHead key={key} className="text-[10px] font-black uppercase tracking-widest">{key}</TableHead>
+                                                ))}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {results.map((row, index) => (
-                                                <TableRow key={index}>
-                                                    {Object.values(row).map((value, i) => <TableCell key={i} className="text-sm font-medium">{value as any}</TableCell>)}
+                                                <TableRow key={index} className="hover:bg-muted/20">
+                                                    {Object.values(row).map((value, i) => (
+                                                        <TableCell key={i} className="font-bold text-sm">{typeof value === 'number' ? `₵${value.toLocaleString()}` : (value as any)}</TableCell>
+                                                    ))}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -203,46 +206,6 @@ export default function CustomReportBuilderPage() {
                     </Card>
                 </div>
             </div>
-
-             <Card>
-                <CardHeader>
-                    <CardTitle>Saved Reports Library</CardTitle>
-                    <CardDescription>Re-run your frequently used custom reports.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader className="bg-muted/50">
-                                <TableRow>
-                                    <TableHead>Report Name</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {userReports.length > 0 ? userReports.map(report => (
-                                    <TableRow key={report.reportId}>
-                                        <TableCell className="font-medium">{report.reportName}</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">{report.description}</TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Button size="sm" onClick={() => handleRunReport(report)}>
-                                                <Play className="h-4 w-4 mr-2" /> Run
-                                            </Button>
-                                            <Button size="sm" variant="outline" disabled>
-                                                <Share2 className="h-4 w-4 mr-2" /> Share
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground italic">No saved report templates found.</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
         </div>
     );
 }

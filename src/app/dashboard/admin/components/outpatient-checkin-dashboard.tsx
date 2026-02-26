@@ -18,45 +18,51 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { allAppointments } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
 import { Appointment } from '@/lib/types';
 import { format } from 'date-fns';
-import { updateOutpatientStatus } from '@/lib/actions';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/use-auth';
+import { toast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 /**
- * == Conceptual Code: Outpatient Check-in Dashboard ==
- *
- * This component serves as the UI for managing daily outpatient flow.
+ * == SaaS Outpatient Flow Management ==
+ * 
+ * Manages daily outpatient arrivals. Every query is strictly isolated 
+ * to the current hospitalId.
  */
 export function OutpatientCheckinDashboard() {
   const { user } = useAuth();
+  const firestore = useFirestore();
+  const todayStr = new Date().toISOString().split('T')[0];
 
-  /**
-   * == SaaS DATA QUERY ==
-   * In a production application, this would be a real-time Firestore query filtered by hospitalId.
-   */
-  const todaysOutpatientAppointments = React.useMemo(() => {
-    if (!user) return [];
-    return allAppointments.filter(
-        (appt) => 
-            appt.hospitalId === user.hospitalId &&
-            appt?.type !== 'procedure' && 
-            appt.appointment_date && new Date(appt.appointment_date).toDateString() === new Date().toDateString()
+  // 1. LIVE QUERY: Listen for today's appointments for THIS hospital
+  const apptQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.hospitalId) return null;
+    return query(
+        collection(firestore, 'appointments'),
+        where('hospitalId', '==', user.hospitalId),
+        where('appointmentDate', '==', todayStr),
+        where('status', 'in', ['Scheduled', 'confirmed'])
     );
-  }, [user]);
+  }, [firestore, user?.hospitalId, todayStr]);
 
-  /**
-   * == FUNCTION TO HANDLE STATUS UPDATES ==
-   */
-  const handleUpdateStatus = async (appointmentId: string, newStatus: Appointment['status']) => {
-    const result = await updateOutpatientStatus(appointmentId, newStatus);
-    if (result.success) {
-        alert(`Appointment status updated to '${newStatus}' (simulated).`);
-    } else {
-        alert(`Error: ${result.message}`);
-    }
+  const { data: appointments, isLoading } = useCollection<Appointment>(apptQuery);
+
+  const handleUpdateStatus = async (id: string, status: Appointment['status'], patientName: string) => {
+    if (!firestore) return;
+    
+    const apptRef = doc(firestore, 'appointments', id);
+    updateDocumentNonBlocking(apptRef, { 
+        status, 
+        updatedAt: serverTimestamp() 
+    });
+
+    toast.success(`Check-in Successful`, {
+        description: `${patientName} has been marked as Arrived.`
+    });
   };
 
   const getStatusVariant = (status: Appointment['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -73,69 +79,64 @@ export function OutpatientCheckinDashboard() {
     }
   }
 
+  if (isLoading) {
+      return (
+          <div className="flex items-center justify-center h-48">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+      );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Today's Outpatient Appointments</CardTitle>
         <CardDescription>
-          A list of all scheduled outpatient visits for today.
+          Live check-in queue for <strong>{user?.hospitalId}</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Time</TableHead>
                 <TableHead>Patient</TableHead>
                 <TableHead>Doctor</TableHead>
-                <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right pr-6">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {todaysOutpatientAppointments.length > 0 ? (
-                todaysOutpatientAppointments.map((appt) => (
+              {appointments && appointments.length > 0 ? (
+                appointments.map((appt) => (
                   <TableRow key={appt.id}>
-                    <TableCell className="font-medium">
-                      {appt.appointment_date ? format(new Date(appt.appointment_date), 'p') : 'N/A'}
+                    <TableCell className="font-mono text-xs font-bold">
+                      {appt.time_slot || appt.timeSlot}
                     </TableCell>
                     <TableCell>
-                        <Link href={`/dashboard/patients/${appt.patient_id}`} className="hover:underline">
-                            {appt.patient_name}
+                        <Link href={`/dashboard/patients/${appt.patient_id}`} className="hover:underline font-bold">
+                            {appt.patient_name || appt.patientName}
                         </Link>
                     </TableCell>
-                    <TableCell>{appt.doctor_name}</TableCell>
-                    <TableCell>{appt.type}</TableCell>
+                    <TableCell className="text-sm">Dr. {appt.doctor_name || appt.doctorName}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(appt.status)}>{appt.status}</Badge>
+                      <Badge variant={getStatusVariant(appt.status)} className="text-[10px] uppercase font-black">{appt.status}</Badge>
                     </TableCell>
-                    <TableCell className="space-x-2">
+                    <TableCell className="text-right pr-6">
                       <Button 
-                        variant="outline" 
                         size="sm"
-                        onClick={() => handleUpdateStatus(appt.id, 'completed')}
-                        disabled={appt.status === 'completed' || appt.status === 'cancelled' || appt.status === 'Completed' || appt.status === 'Cancelled'}
+                        onClick={() => handleUpdateStatus(appt.id, 'Arrived', appt.patient_name || appt.patientName || 'Patient')}
                       >
-                        Check-in
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleUpdateStatus(appt.id, 'cancelled')}
-                        disabled={appt.status === 'completed' || appt.status === 'cancelled' || appt.status === 'Completed' || appt.status === 'Cancelled'}
-                        >
-                        Cancel
+                        Mark Arrived
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    No outpatient appointments scheduled for today.
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
+                    No pending outpatient arrivals for today.
                   </TableCell>
                 </TableRow>
               )}

@@ -23,20 +23,27 @@ import { CreateLedgerAccountDialog } from '../reports/components/create-ledger-a
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '@/app/dashboard/patients/components/delete-confirmation-dialog';
 import { useAuth } from '@/hooks/use-auth';
 
+/**
+ * == SaaS General Ledger: Chart of Accounts ==
+ * 
+ * Displays the structural financial framework for the hospital.
+ * Enforces strict logical isolation via the hospitalId wall.
+ */
 export function ChartOfAccountsTable({ hideHeader = false }: { hideHeader?: boolean }) {
     const { user } = useAuth();
     const [accounts, setAccounts] = useLocalStorage<LedgerAccount[]>('ledgerAccounts', mockLedgerAccounts);
     const [entries] = useLocalStorage<LedgerEntry[]>('ledgerEntries', mockLedgerEntries);
     const [accountToDelete, setAccountToDelete] = React.useState<LedgerAccount | null>(null);
 
-    // SaaS LOGIC: Only show accounts for the current facility
+    // SaaS LOGIC: Only show accounts for the current facility (MANDATORY WALL)
     const hospitalAccounts = React.useMemo(() => {
-        return accounts.filter(acc => acc.hospitalId === user?.hospitalId);
+        if (!user?.hospitalId) return [];
+        return accounts.filter(acc => acc.hospitalId === user.hospitalId);
     }, [accounts, user?.hospitalId]);
 
     const organizedAccounts = React.useMemo(() => {
@@ -78,19 +85,13 @@ export function ChartOfAccountsTable({ hideHeader = false }: { hideHeader?: bool
   
   const handleAttemptDelete = (account: LedgerAccount) => {
     if (Math.abs(account.balance) > 0.001) {
-      toast.error('Cannot delete account with a non-zero balance.');
+      toast.error('Financial Restriction', { description: 'Cannot delete account with a non-zero balance.' });
       return;
     }
     
     const hasTransactions = entries.some(entry => entry.accountId === account.accountId);
     if (hasTransactions) {
-        toast.error('Cannot delete an account with existing transactions.');
-        return;
-    }
-
-    const hasChildren = hospitalAccounts.some(child => child.parentAccountId === account.accountId);
-    if (hasChildren) {
-        toast.error('Cannot delete a control account that has sub-ledgers.');
+        toast.error('Audit Restriction', { description: 'Cannot delete an account with existing transactions.' });
         return;
     }
 
@@ -100,76 +101,80 @@ export function ChartOfAccountsTable({ hideHeader = false }: { hideHeader?: bool
   const handleConfirmDelete = () => {
     if (!accountToDelete) return;
     setAccounts(prev => prev.filter(acc => acc.accountId !== accountToDelete.accountId));
-    toast.success(`Account "${accountToDelete.accountName}" has been deleted.`);
+    toast.success(`Account Deleted`, { description: `"${accountToDelete.accountName}" removed from registry.` });
     setAccountToDelete(null);
   };
+
+  if (!user?.hospitalId) return null;
 
   return (
     <>
     <div className="space-y-6">
-      <Card>
+      <Card className="shadow-md border-none ring-1 ring-slate-200 overflow-hidden">
         {!hideHeader && (
-          <CardHeader className="flex flex-row justify-between items-center">
+          <CardHeader className="flex flex-row justify-between items-center bg-muted/20 border-b">
             <div>
-              <CardTitle>Chart of Accounts</CardTitle>
-              <CardDescription>A structural view of all financial accounts for <strong>{user?.hospitalId}</strong>.</CardDescription>
+              <CardTitle className="text-lg">Facility Chart of Accounts</CardTitle>
+              <CardDescription className="text-xs font-bold uppercase tracking-widest">Structural Ledger Scoping: <strong>{user.hospitalId}</strong></CardDescription>
             </div>
             <CreateLedgerAccountDialog onAccountCreated={handleAccountCreated} />
           </CardHeader>
         )}
-        <CardContent className={hideHeader ? "pt-6" : ""}>
-          <div className="rounded-md border">
+        <CardContent className={hideHeader ? "pt-6" : "pt-6"}>
+          <div className="rounded-xl border bg-white overflow-hidden">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead>Account Code</TableHead>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Balance (₵)</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase pl-6">Code</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase">Account Name</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
+                  <TableHead className="text-right text-[10px] font-black uppercase">Balance (₵)</TableHead>
+                  <TableHead className="text-right pr-6 text-[10px] font-black uppercase">Management</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {organizedAccounts.length > 0 ? organizedAccounts.map((account) => (
                     <React.Fragment key={`${account.accountId}-fragment`}>
-                        <TableRow className="bg-muted/50 font-semibold">
-                            <TableCell>{account.accountCode}</TableCell>
+                        <TableRow className="bg-muted/10 font-bold group">
+                            <TableCell className="pl-6 font-mono text-xs">{account.accountCode}</TableCell>
                             <TableCell className="flex items-center gap-2">
-                                <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`} className="hover:underline">
+                                <Link href={`/dashboard/admin/chart-of-accounts/${account.accountId}`} className="hover:underline text-primary">
                                     <span>{account.accountName}</span>
                                 </Link>
-                                <Badge variant="secondary">Control Account</Badge>
+                                <Badge variant="outline" className="text-[8px] font-black uppercase h-4 bg-white">Control</Badge>
                             </TableCell>
-                            <TableCell>{account.accountType}</TableCell>
-                            <TableCell className="text-right font-mono">{typeof account.balance === 'number' ? account.balance.toFixed(2) : '0.00'}</TableCell>
-                            <TableCell className="text-right space-x-2">
-                                <CreateLedgerAccountDialog 
-                                    onAccountCreated={handleAccountCreated} 
-                                    parentAccountId={account.accountId}
-                                    trigger={
-                                        <Button variant="outline" size="sm">
-                                            Add Sub-Ledger
-                                        </Button>
-                                    }
-                                />
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAttemptDelete(account)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                            <TableCell className="text-[10px] font-bold text-muted-foreground uppercase">{account.accountType}</TableCell>
+                            <TableCell className="text-right font-black font-mono text-slate-900">₵{account.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                            <TableCell className="text-right pr-6 space-x-2">
+                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <CreateLedgerAccountDialog 
+                                        onAccountCreated={handleAccountCreated} 
+                                        parentAccountId={account.accountId}
+                                        trigger={
+                                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase">
+                                                Sub-Ledger
+                                            </Button>
+                                        }
+                                    />
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAttemptDelete(account)}>
+                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
+                                </div>
                             </TableCell>
                         </TableRow>
                         {account.children.map(child => (
-                            <TableRow key={child.accountId}>
-                                <TableCell className="pl-8">{child.accountCode}</TableCell>
-                                 <TableCell className="pl-8">
-                                    <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`} className="hover:underline">
+                            <TableRow key={child.accountId} className="hover:bg-muted/5 transition-colors border-l-4 border-l-transparent hover:border-l-primary">
+                                <TableCell className="pl-12 font-mono text-[10px] text-muted-foreground">{child.accountCode}</TableCell>
+                                 <TableCell className="pl-12">
+                                    <Link href={`/dashboard/admin/chart-of-accounts/${child.accountId}`} className="hover:underline text-sm font-medium">
                                         {child.accountName}
                                     </Link>
                                 </TableCell>
-                                <TableCell>{child.accountType}</TableCell>
-                                <TableCell className="text-right font-mono">{typeof child.balance === 'number' ? child.balance.toFixed(2) : '0.00'}</TableCell>
-                                 <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAttemptDelete(child)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                <TableCell className="text-[9px] font-bold text-muted-foreground uppercase">{child.accountType}</TableCell>
+                                <TableCell className="text-right font-bold font-mono text-xs">₵{child.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                 <TableCell className="text-right pr-6">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10" onClick={() => handleAttemptDelete(child)}>
+                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
@@ -177,8 +182,11 @@ export function ChartOfAccountsTable({ hideHeader = false }: { hideHeader?: bool
                     </React.Fragment>
                 )) : (
                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                            No ledger accounts found for your facility.
+                        <TableCell colSpan={5} className="h-32 text-center">
+                            <div className="flex flex-col items-center justify-center opacity-30">
+                                <ShieldCheck className="h-12 w-12 mb-2" />
+                                <p className="text-sm font-medium">Registry initialized for {user.hospitalId}. Add your first account.</p>
+                            </div>
                         </TableCell>
                     </TableRow>
                 )}

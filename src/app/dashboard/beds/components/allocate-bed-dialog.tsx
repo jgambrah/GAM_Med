@@ -51,7 +51,7 @@ const BedAllocationSchema = z.object({
  * == Clinical Operations: Atomic Inpatient Admission ==
  * 
  * This tool performs a high-fidelity admission. It atomically:
- * 1. Creates an 'admission' document (SaaS Stamped).
+ * 1. Creates an 'admission' record stamped with the SaaS hospitalId.
  * 2. Updates 'patient' record to 'is_admitted'.
  * 3. Updates 'bed' record to 'Occupied' with denormalized patient data.
  */
@@ -60,22 +60,34 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
   const firestore = useFirestore();
   const [open, setOpen] = React.useState(false);
 
-  // 1. DATA SOURCES: Fetch unadmitted patients, vacant beds, and doctors
+  // 1. DATA SOURCES: Fetch unadmitted patients, vacant beds, and doctors for THIS facility
   const patientsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.hospitalId) return null;
-    return query(collection(firestore, 'patients'), where('hospitalId', '==', user.hospitalId), where('is_admitted', '==', false));
+    return query(
+        collection(firestore, 'patients'), 
+        where('hospitalId', '==', user.hospitalId), 
+        where('is_admitted', '==', false)
+    );
   }, [firestore, user?.hospitalId]);
   const { data: patients } = useCollection<Patient>(patientsQuery);
 
   const bedsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.hospitalId) return null;
-    return query(collection(firestore, 'beds'), where('hospitalId', '==', user.hospitalId), where('status', '==', 'Available'));
+    return query(
+        collection(firestore, 'beds'), 
+        where('hospitalId', '==', user.hospitalId), 
+        where('status', 'in', ['Available', 'vacant'])
+    );
   }, [firestore, user?.hospitalId]);
   const { data: availableBeds } = useCollection<Bed>(bedsQuery);
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.hospitalId) return null;
-    return query(collection(firestore, 'users'), where('hospitalId', '==', user.hospitalId), where('role', '==', 'doctor'));
+    return query(
+        collection(firestore, 'users'), 
+        where('hospitalId', '==', user.hospitalId), 
+        where('role', '==', 'doctor')
+    );
   }, [firestore, user?.hospitalId]);
   const { data: doctors } = useCollection<UserType>(doctorsQuery);
 
@@ -103,7 +115,7 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
     try {
         const batch = writeBatch(firestore);
         
-        const selectedPatient = patients?.find(p => p.id === values.patientId);
+        const selectedPatient = patients?.find(p => p.patient_id === values.patientId || p.id === values.patientId);
         const selectedBed = availableBeds?.find(b => b.id === values.bedId);
         const selectedDoctor = doctors?.find(d => d.uid === values.attendingDoctorId);
 
@@ -112,9 +124,9 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
         batch.set(admissionRef, {
             id: admissionRef.id,
             admission_id: `ADM-${Date.now()}`,
-            hospitalId: user.hospitalId,
+            hospitalId: user.hospitalId, // MANDATORY SAAS WALL
             patientId: values.patientId,
-            patientName: selectedPatient?.full_name,
+            patientName: selectedPatient?.full_name || 'Inpatient',
             type: 'Inpatient',
             admissionDate: serverTimestamp(),
             reasonForVisit: values.reasonForAdmission,
@@ -176,7 +188,7 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
             <DialogTitle>Triage & Admission</DialogTitle>
           </div>
           <DialogDescription>
-            Assign a patient to an available unit. This will atomically update the census.
+            Assign a patient to an available unit for <strong>{user?.hospitalId}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -195,7 +207,7 @@ export function AllocateBedDialog({ patientId, disabled }: { patientId?: string,
                         </FormControl>
                         <SelectContent>
                         {patients?.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.full_name} ({p.mrn})</SelectItem>
+                            <SelectItem key={p.patient_id} value={p.patient_id}>{p.full_name} ({p.mrn})</SelectItem>
                         ))}
                         </SelectContent>
                     </Select>
