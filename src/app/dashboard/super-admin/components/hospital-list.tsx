@@ -12,10 +12,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Hospital } from '@/lib/types';
-import { MoreHorizontal, Building2, ShieldCheck, CreditCard, Loader2, ShieldAlert, Monitor } from 'lucide-react';
+import { MoreHorizontal, Building2, ShieldCheck, CreditCard, Loader2, ShieldAlert, Monitor, Wrench } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { ExtendTrialDialog } from '@/components/super-admin/ExtendTrialDialog';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * == Super Admin: Global Tenant Registry ==
@@ -38,23 +39,46 @@ export function HospitalList() {
   const { user } = useAuth();
 
   const hospitalsQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    
-    const hospitalsRef = collection(db, 'hospitals');
-    
-    // Super Admin sees everything. God Mode active.
-    if (user.role === 'super_admin') {
-        return query(hospitalsRef, orderBy('createdAt', 'desc'));
-    }
-    
-    // THE SAAS WALL: Filter by hospitalId for logical isolation
-    return query(
-        hospitalsRef, 
-        where("hospitalId", "==", user.hospitalId)
-    );
+    if (!user || user.role !== 'super_admin') return null;
+    return query(collection(db, 'hospitals'), orderBy('createdAt', 'desc'));
   }, [db, user]);
 
   const { data: hospitals, isLoading } = useCollection<Hospital>(hospitalsQuery);
+
+  /**
+   * == IDENTITY REPAIR (FOR HOMELESS USERS) ==
+   * This manual trigger fixes users (like Marcus) whose security tokens
+   * are missing the required 'hospitalId' claim.
+   */
+  const handleRepairIdentity = async (hospitalId: string, email: string) => {
+    try {
+        toast.loading(`Repairing identity for ${email}...`);
+        
+        // 1. Find the UID for the email
+        const q = query(collection(db, "users"), where("email", "==", email));
+        const snap = await getDocs(q);
+        
+        if (snap.empty) throw new Error("No user profile found for this owner email.");
+        const uid = snap.docs[0].data().uid;
+
+        // 2. Call the Repair API
+        const res = await fetch('/api/admin/repair-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, hospitalId, role: 'director' })
+        });
+
+        if (!res.ok) throw new Error("API call failed.");
+
+        toast.dismiss();
+        toast.success("Identity Repaired", {
+            description: `Claims synced for ${email}. Ask the user to log in again.`
+        });
+    } catch (e: any) {
+        toast.dismiss();
+        toast.error("Repair Failed", { description: e.message });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -149,6 +173,15 @@ export function HospitalList() {
                                 <DropdownMenuItem className="rounded-lg font-bold text-xs py-2.5 cursor-pointer">
                                     <Monitor className="mr-2 h-4 w-4 text-blue-500" /> Launch Facility Console
                                 </DropdownMenuItem>
+                                
+                                {/* REPAIR BUTTON FOR EXISTING DIRECTORS */}
+                                <DropdownMenuItem 
+                                    className="rounded-lg font-bold text-xs py-2.5 cursor-pointer text-blue-600"
+                                    onClick={() => handleRepairIdentity(hospital.hospitalId, hospital.ownerEmail || '')}
+                                >
+                                    <Wrench className="mr-2 h-4 w-4" /> Repair Identity Stamp
+                                </DropdownMenuItem>
+
                                 <DropdownMenuItem className="rounded-lg font-bold text-xs py-2.5 cursor-pointer">
                                     <CreditCard className="mr-2 h-4 w-4 text-green-500" /> Billing & Revenue History
                                 </DropdownMenuItem>

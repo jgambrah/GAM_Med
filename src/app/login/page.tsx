@@ -15,7 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
 
 /**
- * == Professional SaaS Login (Discovery Flow) ==
+ * == Professional SaaS Login (The Token Handshake) ==
  * 
  * Implements the "Classic Token Sync" fix to ensure custom claims (SaaS Stamps)
  * are pulled from the server into the browser immediately upon sign-in.
@@ -50,7 +50,10 @@ export default function LoginPage() {
                 await userCredential.user.getIdToken(true);
             }
 
-            // C. DISCOVERY: Find the user's profile document by UID field using exact required syntax
+            /**
+             * == USER DISCOVERY (SPECIFIC SYNTAX REQUIRED) ==
+             * C. Find the user's profile document by UID field using exact required syntax
+             */
             const q = query(collection(db, "users"), where("uid", "==", auth.currentUser!.uid));
             const querySnapshot = await getDocs(q);
 
