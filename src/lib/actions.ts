@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -10,17 +9,17 @@ import { sendWelcomeEmail } from './mail-service';
 
 /**
  * Server Action to register a new patient.
- * Uses the composite ID pattern: {hospitalId}_MRN{mrn}
+ * Note: Actual sequential MRN generation is handled by client-side 
+ * transactions to ensure atomic incrementing per facility.
  */
 export async function addPatient(values: z.infer<typeof PatientSchema>) {
-  const customId = `${values.hospitalId}_MRN${(values.mrn || '').trim().toUpperCase()}`;
-  console.log(`Server Action: Registering new patient with custom ID ${customId} for hospital ${values.hospitalId}.`);
+  console.log(`Server Action: Initializing registration flow for hospital ${values.hospitalId}.`);
 
   await new Promise((resolve) => setTimeout(resolve, 1000));
   
   revalidatePath('/dashboard/patients');
 
-  return { success: true, message: 'Patient registered successfully.' };
+  return { success: true, message: 'Patient registration processed.' };
 }
 
 /**
