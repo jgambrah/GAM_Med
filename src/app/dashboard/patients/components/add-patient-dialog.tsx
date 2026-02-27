@@ -40,7 +40,8 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
 import { doc, runTransaction, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldCheck, Tag } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -55,7 +56,7 @@ interface AddPatientDialogProps {
  * This component handles the registration of new patients.
  * It implements the "Counter Pattern" using Firestore Transactions to ensure
  * every patient receives a unique, sequential MRN (Medical Record Number).
- * Now supports facility-specific prefixes (e.g., MMH-1001).
+ * The UI is read-only for MRNs to prevent clinical duplicates.
  */
 export function AddPatientDialog({
   patientToEdit,
@@ -144,8 +145,6 @@ export function AddPatientDialog({
     },
   });
 
-  const isTemporary = form.watch('isTemporary');
-
    React.useEffect(() => {
     if (patientToEdit) {
       setOpen(true);
@@ -217,7 +216,6 @@ export function AddPatientDialog({
         let finalMrn = values.mrn;
 
         if (isEditing && patientToEdit) {
-            // Logic for updating existing patient
             const patientRef = doc(db, "patients", patientToEdit.patient_id);
             const fullName = `${values.firstName} ${values.lastName}`;
             
@@ -241,18 +239,15 @@ export function AddPatientDialog({
             const hospitalRef = doc(db, "hospitals", hospitalId);
 
             finalMrn = await runTransaction(db, async (transaction) => {
-                // a) Get the Hospital Document for the branding prefix
                 const hospitalSnap = await transaction.get(hospitalRef);
                 const prefix = hospitalSnap.exists() ? (hospitalSnap.data().prefix || 'MRN') : 'MRN';
 
-                // b) Get the current sequence count
                 const counterSnap = await transaction.get(counterRef);
                 let newCount = 1001; 
                 if (counterSnap.exists()) {
                     newCount = (counterSnap.data().lastSequence || 1000) + 1;
                 }
 
-                // c) Formulate the chronological identifier
                 const generatedMrn = `${prefix}-${newCount}`;
                 transaction.set(counterRef, { lastSequence: newCount }, { merge: true });
                 return generatedMrn;
@@ -337,20 +332,17 @@ export function AddPatientDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <FormField
-                  control={form.control}
-                  name="mrn"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Manual MRN (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Leave blank for auto-generation" {...field} disabled={!isEditing} />
-                      </FormControl>
-                      <FormDescription>System will generate branded MRN if left blank.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-center justify-between">
+                    <div className="space-y-0.5">
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Medical Record Number</p>
+                        <p className="text-sm font-mono font-black text-blue-600 uppercase">
+                            {isEditing ? patientToEdit?.mrn : "Auto-Generated"}
+                        </p>
+                    </div>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black uppercase py-0.5 tracking-tighter">
+                        System Assigned
+                    </Badge>
+                </div>
                  <FormField
                     control={form.control}
                     name="isTemporary"
@@ -363,10 +355,10 @@ export function AddPatientDialog({
                         />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                        <FormLabel className="text-yellow-800">
+                        <FormLabel className="text-yellow-800 font-bold">
                             Emergency / Temporary Record
                         </FormLabel>
-                        <FormDescription className="text-yellow-700/80">
+                        <FormDescription className="text-yellow-700/80 text-[10px]">
                             Create a record for immediate care. Reconcile details later.
                         </FormDescription>
                         </div>
