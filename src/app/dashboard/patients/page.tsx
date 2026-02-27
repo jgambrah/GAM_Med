@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -14,125 +13,93 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Patient } from '@/lib/types';
-import { allPatients } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { Loader2, Users } from 'lucide-react';
 
+/**
+ * == Clinical Workbench: Patient Management ==
+ * 
+ * Browse, register, and manage patient records.
+ * Enforces logical isolation via the hospitalId filter (The SaaS Wall).
+ */
 export default function PatientsPage() {
   const { user } = useAuth();
+  const db = useFirestore();
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [storedPatients, setStoredPatients] = useLocalStorage<Patient[]>('patients', allPatients);
-  const [filteredPatients, setFilteredPatients] = React.useState<Patient[]>([]);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
-  /**
-   * == SAAS GOLDEN RULE: DOUBLE-FILTER PATTERN (WITH PRE-NORMALIZED FIELDS) ==
-   * This implementation ensures that search results are ALWAYS scoped to the 
-   * current hospital first. It utilizes 'Data Preparation' fields like 
-   * full_name_lowercase and phone_search for high-performance filtering.
-   */
-  const handleSearch = useDebouncedCallback((query: string) => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
-    // 1. THE TENANT WALL: Always filter by hospitalId first
-    const hospitalPatients = storedPatients.filter(p => p.hospitalId === user.hospitalId);
-    
-    if (!query) {
-      setFilteredPatients(hospitalPatients);
-    } else {
-      const lowercasedQuery = query.toLowerCase().trim();
-      // Prepare searchable version of input query (digits only for phone search)
-      const digitsOnlyQuery = query.replace(/\D/g, '');
+  // 1. THE SAAS WALL: Filter all patients by the current hospitalId
+  const patientsQuery = useMemoFirebase(() => {
+    if (!db || !user?.hospitalId) return null;
+    return query(
+        collection(db, "patients"),
+        where("hospitalId", "==", user.hospitalId),
+        orderBy("created_at", "desc"),
+        limit(100)
+    );
+  }, [db, user?.hospitalId]);
 
-      const filtered = hospitalPatients.filter((patient) => {
-          // A) Direct ID/MRN Match (Standard NoSQL PK pattern)
-          const matchesId = patient.patient_id.toLowerCase().includes(lowercasedQuery);
-          
-          // B) Optimized Case-Insensitive Prefix Search (using prepared field)
-          const matchesName = patient.full_name_lowercase?.startsWith(lowercasedQuery);
+  const { data: allPatients, isLoading } = useCollection<Patient>(patientsQuery);
 
-          // C) High-Performance Phone Search (using pre-stripped digits field)
-          const matchesPhone = digitsOnlyQuery !== '' && patient.phone_search?.includes(digitsOnlyQuery);
+  // 2. Local Search Filtering
+  const filteredPatients = React.useMemo(() => {
+    if (!allPatients) return [];
+    if (!searchQuery) return allPatients;
 
-          return matchesId || matchesName || matchesPhone;
-      });
-      setFilteredPatients(filtered);
-    }
-
-    setIsLoading(false);
-  }, 300);
-
-  const onSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    handleSearch(e.target.value);
-  };
-
-  // Effect to update filtered list when storedPatients or user changes
-  React.useEffect(() => {
-    if (user) {
-        handleSearch(searchQuery);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storedPatients, user]);
-  
-  const handlePatientAdded = (newPatient: Patient) => {
-    setStoredPatients(prev => [newPatient, ...prev]);
-  }
-
-  const handlePatientDeleted = (patientId: string) => {
-    setStoredPatients(prev => prev.filter(p => p.patient_id !== patientId));
-  }
-  
-  const handlePatientUpdated = () => {
-    const updatedPatients = JSON.parse(localStorage.getItem('patients') || '[]');
-    setStoredPatients(updatedPatients);
-  }
+    const lowerQuery = searchQuery.toLowerCase().trim();
+    return allPatients.filter(p => 
+        p.full_name?.toLowerCase().includes(lowerQuery) ||
+        p.mrn?.toLowerCase().includes(lowerQuery) ||
+        p.patient_id?.toLowerCase().includes(lowerQuery) ||
+        p.phone_search?.includes(lowerQuery.replace(/\D/g, ''))
+    );
+  }, [allPatients, searchQuery]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Patient Management</h1>
-          <p className="text-muted-foreground">
-            Browse, register, and manage patient records.
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Users className="h-8 w-8 text-blue-600" />
+            Patient Management
+          </h1>
+          <p className="text-muted-foreground font-medium italic">
+            Clinical registry for <strong>{user?.hospitalId}</strong>
           </p>
         </div>
-        <AddPatientDialog onPatientAdded={handlePatientAdded} />
+        <AddPatientDialog />
       </div>
-      <Card>
-        <CardHeader>
+
+      <Card className="shadow-md border-none ring-1 ring-slate-200">
+        <CardHeader className="bg-muted/20 border-b">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
              <div>
-                <CardTitle>Patient List</CardTitle>
-                <CardDescription>
-                    A list of all registered patients in the system.
-                </CardDescription>
+                <CardTitle className="text-lg">Facility Registry</CardTitle>
+                <CardDescription>A centralized view of all patients belonging to your hospital.</CardDescription>
              </div>
-             <div className="w-full sm:w-auto">
+             <div className="w-full sm:w-80">
                 <Input
-                    placeholder="Search by name, ID, or phone..."
+                    placeholder="Search by name, MRN, or phone..."
                     value={searchQuery}
-                    onChange={onSearchInputChange}
-                    className="max-w-sm"
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-background shadow-sm"
                 />
              </div>
           </div>
         </CardHeader>
-        <CardContent>
-           {error && <p className="text-center text-destructive">{error}</p>}
+        <CardContent className="pt-6">
            {isLoading ? (
-             <div className="h-24 flex items-center justify-center">
-                <p className="text-muted-foreground">Searching...</p>
+             <div className="h-40 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <Loader2 className="h-8 w-8 animate-spin opacity-20" />
+                <p className="text-xs font-black uppercase tracking-widest">Syncing EHR Data...</p>
              </div>
            ) : (
              <PatientTable 
                 data={filteredPatients} 
-                onPatientUpdated={handlePatientUpdated} 
-                onPatientDeleted={handlePatientDeleted}
+                onPatientUpdated={() => {}} 
+                onPatientDeleted={() => {}}
              />
            )}
         </CardContent>

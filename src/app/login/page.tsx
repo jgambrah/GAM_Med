@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -14,6 +13,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
 import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
+import { Loader2 } from 'lucide-react';
 
 /**
  * == Enterprise SaaS Login (The Handshake) ==
@@ -44,19 +44,19 @@ export default function LoginPage() {
             /**
              * == CRITICAL SAAS FIX: Token Sync ==
              * 2. FORCE REFRESH THE STAMP (Identity Card)
-             * This pulls the server-side custom claims (baked during provisioning) into 
-             * the client-side session immediately, avoiding permission errors for new Directors.
+             * This pulls the server-side custom claims into the client session immediately.
              */
             if (userCredential.user) {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. Handshake Delay: Wait for global identity propagation
+            // 3. Propagation Delay: Ensure global identity sync
             await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
              * == USER DISCOVERY (DIRECT GET) ==
-             * 4. Fetch the profile directly by UID to satisfy "allow get: if request.auth.uid == userId"
+             * 4. Fetch the profile directly by UID to satisfy rule: "allow get: if request.auth.uid == userId"
+             * This bypasses 'list' permission issues during the initial handshake.
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             
@@ -73,9 +73,9 @@ export default function LoginPage() {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
-            // Set global auth state for the context provider
+            // Set global auth state
             setUser({
-                uid: userCredential.user.uid,
+                uid: auth.currentUser.uid,
                 ...userData
             } as any);
 
@@ -83,14 +83,10 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            /**
-             * == REDIRECTION GUARD ==
-             * 5. Success! Route correctly based on the fresh Identity Stamp.
-             */
+            // 5. Success! Route correctly based on the fresh Identity Stamp.
             if (userData.role === 'super_admin') {
-                router.push('/dashboard/super-admin');
+                router.push('/dashboard/super-admin/pulse');
             } else {
-                // Directors and staff go to the facility dashboard
                 router.push('/dashboard');
             }
 
@@ -107,17 +103,17 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50 p-4">
         <div className="mx-auto max-w-sm w-full space-y-6">
-            <Card className="shadow-lg border-t-4 border-t-primary">
-                <CardHeader className="space-y-1">
+            <Card className="shadow-lg border-t-4 border-t-primary overflow-hidden">
+                <CardHeader className="space-y-1 bg-white border-b">
                     <CardTitle className="text-2xl text-center font-bold">GamMed Sign In</CardTitle>
-                    <CardDescription className="text-center">
-                        Access your secure hospital portal
+                    <CardDescription className="text-center text-xs uppercase font-black tracking-widest text-muted-foreground">
+                        Secure Hospital Portal
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                     <form onSubmit={handleLogin} className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">Work Email</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -127,12 +123,13 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 disabled={isLoading}
+                                className="bg-muted/20"
                             />
                         </div>
                         <div className="grid gap-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Password</Label>
-                                <Link href="#" className="text-sm text-primary hover:underline">Forgot password?</Link>
+                                <Link href="#" className="text-xs font-bold text-primary hover:underline">Reset?</Link>
                             </div>
                             <Input 
                                 id="password" 
@@ -142,10 +139,11 @@ export default function LoginPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 disabled={isLoading}
+                                className="bg-muted/20"
                             />
                         </div>
-                        <Button type="submit" className="w-full mt-2 h-11" disabled={isLoading}>
-                            {isLoading ? "Verifying..." : "Sign In"}
+                        <Button type="submit" className="w-full mt-2 h-11 font-bold shadow-md" disabled={isLoading}>
+                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Sign In"}
                         </Button>
                     </form>
                 </CardContent>
@@ -154,8 +152,8 @@ export default function LoginPage() {
             <div className="text-center space-y-4">
                 <p className="text-sm text-muted-foreground font-medium italic">New healthcare facility interested in GamMed?</p>
                 <RequestDemoDialog />
-                <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
-                    <p>&copy; 2024 Gam It Services. All rights reserved.</p>
+                <div className="mt-6 border-t pt-4 text-center text-[10px] text-muted-foreground uppercase font-black tracking-widest opacity-40">
+                    <p>&copy; 2024 Gam It Services</p>
                 </div>
             </div>
         </div>
