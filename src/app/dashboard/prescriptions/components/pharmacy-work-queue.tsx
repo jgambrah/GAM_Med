@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Prescription } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, orderBy, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 
@@ -56,6 +56,30 @@ export function PharmacyWorkQueue({ onDispense }: PharmacyWorkQueueProps) {
         dispensedBy: user?.name,
         dispensedAt: new Date().toISOString()
     });
+
+    // == NHIS AUTOMATIC CLAIM GENERATION ==
+    const pres = prescriptions?.find(p => p.id === prescriptionId);
+    if (pres) {
+        const patientRef = doc(firestore, 'patients', pres.patientId);
+        getDoc(patientRef).then((snap) => {
+            if (snap.exists()) {
+                const patientData = snap.data();
+                if (patientData.patientType === 'public') {
+                    addDocumentNonBlocking(collection(firestore, "nhis_claims"), {
+                        hospitalId: user?.hospitalId,
+                        patientId: pres.patientId,
+                        patientName: patientData.full_name,
+                        nhisNumber: patientData.insurance?.nhisNumber || 'N/A',
+                        amount: 120, // Mock drug tariff based on dispensed items
+                        status: 'Pending',
+                        diagnosisCode: 'ICD-10', // Placeholder
+                        serviceDate: new Date().toISOString(),
+                        createdAt: serverTimestamp()
+                    });
+                }
+            }
+        });
+    }
 
     toast.success(`Medications dispensed to ${patientName}`);
     

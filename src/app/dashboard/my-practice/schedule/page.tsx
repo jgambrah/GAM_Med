@@ -1,10 +1,9 @@
-
 'use client';
 
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, doc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, orderBy, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +49,32 @@ export default function DoctorSchedulePage() {
             updatedAt: serverTimestamp()
         });
 
+        // == NHIS AUTOMATIC CLAIM GENERATION ==
+        if (newStatus === 'Completed') {
+            const appt = appointments?.find(a => a.id === appointmentId);
+            if (appt) {
+                const patientRef = doc(firestore, 'patients', appt.patientId || appt.patient_id);
+                getDoc(patientRef).then((snap) => {
+                    if (snap.exists()) {
+                        const patientData = snap.data();
+                        if (patientData.patientType === 'public') {
+                            addDocumentNonBlocking(collection(firestore, "nhis_claims"), {
+                                hospitalId: user?.hospitalId,
+                                patientId: appt.patientId || appt.patient_id,
+                                patientName: patientData.full_name,
+                                nhisNumber: patientData.insurance?.nhisNumber || 'N/A',
+                                amount: 50, // Standard Consultation Tariff
+                                status: 'Pending',
+                                diagnosisCode: 'ICD-10', 
+                                serviceDate: new Date().toISOString(),
+                                createdAt: serverTimestamp()
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
         if (newStatus === 'In-Consultation') {
             toast.success(`Started consultation with ${patientName}`);
         } else if (newStatus === 'Completed') {
@@ -89,12 +114,12 @@ export default function DoctorSchedulePage() {
                                 <div className="flex items-center gap-6">
                                     <div className="text-center min-w-[80px] bg-slate-100 p-2 rounded-lg border">
                                         <Clock size={14} className="mx-auto text-muted-foreground mb-1" />
-                                        <span className="text-xs font-black font-mono">{app.timeSlot}</span>
+                                        <span className="text-xs font-black font-mono">{app.timeSlot || app.time_slot}</span>
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-slate-900 flex items-center gap-2">
                                             <User size={14} className="text-muted-foreground" />
-                                            {app.patientName}
+                                            {app.patientName || app.patient_name}
                                         </h4>
                                         <p className="text-xs text-muted-foreground mt-0.5 italic">
                                             "{app.reason || 'General Consultation'}"
@@ -114,7 +139,7 @@ export default function DoctorSchedulePage() {
                                         {app.status === 'Arrived' && (
                                             <Button 
                                                 size="sm" 
-                                                onClick={() => handleUpdateStatus(app.id, 'In-Consultation', app.patientName || 'Patient')}
+                                                onClick={() => handleUpdateStatus(app.id, 'In-Consultation', app.patientName || app.patient_name || 'Patient')}
                                                 className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-bold"
                                             >
                                                 <PlayCircle className="mr-2 h-4 w-4" />
@@ -125,7 +150,7 @@ export default function DoctorSchedulePage() {
                                             <Button 
                                                 size="sm" 
                                                 variant="outline"
-                                                onClick={() => handleUpdateStatus(app.id, 'Completed', app.patientName || 'Patient')}
+                                                onClick={() => handleUpdateStatus(app.id, 'Completed', app.patientName || app.patient_name || 'Patient')}
                                                 className="border-green-600 text-green-700 hover:bg-green-50 h-8 text-xs font-bold"
                                             >
                                                 <CheckCircle2 className="mr-2 h-4 w-4" />

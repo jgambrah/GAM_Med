@@ -23,8 +23,8 @@ import { Appointment } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 import { toast } from '@/hooks/use-toast';
-import { useFirestore, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { doc, getDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { NewAppointmentDialog } from './new-appointment-dialog';
 import { AppointmentDetailDialog } from './appointment-detail-dialog';
 
@@ -60,6 +60,32 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
             status: newStatus,
             updatedAt: new Date().toISOString()
         });
+
+        // == NHIS AUTOMATIC CLAIM GENERATION ==
+        if (newStatus === 'Completed' || newStatus === 'completed') {
+            const appt = data.find(a => a.id === appointmentId);
+            if (appt) {
+                const patientRef = doc(firestore, 'patients', appt.patient_id);
+                getDoc(patientRef).then((snap) => {
+                    if (snap.exists()) {
+                        const patientData = snap.data();
+                        if (patientData.patientType === 'public') {
+                            addDocumentNonBlocking(collection(firestore, "nhis_claims"), {
+                                hospitalId: user?.hospitalId,
+                                patientId: appt.patient_id,
+                                patientName: patientData.full_name,
+                                nhisNumber: patientData.insurance?.nhisNumber || 'N/A',
+                                amount: 50, // Standard Consultation Tariff
+                                status: 'Pending',
+                                diagnosisCode: 'ICD-10', // Placeholder
+                                serviceDate: new Date().toISOString(),
+                                createdAt: serverTimestamp()
+                            });
+                        }
+                    }
+                });
+            }
+        }
 
         toast.success(`Patient status updated to ${newStatus}.`);
     }
