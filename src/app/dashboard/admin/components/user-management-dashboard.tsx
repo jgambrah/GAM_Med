@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { allUsers } from '@/lib/data';
 import { User } from '@/lib/types';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, UserSearch } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +33,7 @@ import { AddUserDialog } from '../../hr/components/add-user-dialog';
 import { ChangeRoleDialog } from './change-role-dialog';
 import { ChangeEmailDialog } from './change-email-dialog';
 import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
 
 export function UserManagementDashboard() {
   const { user: currentUser } = useAuth();
@@ -42,7 +43,7 @@ export function UserManagementDashboard() {
 
   // SaaS LOGIC: Always filter staff by the current hospitalId.
   React.useEffect(() => {
-    if (currentUser) {
+    if (currentUser?.hospitalId) {
         setUsers(allUsers.filter(u => u.hospitalId === currentUser.hospitalId));
     }
   }, [currentUser]);
@@ -58,7 +59,6 @@ export function UserManagementDashboard() {
 
   const handleEmailChanged = (oldId: string, newUser: User) => {
     setUsers(prev => {
-        // Remove old document entry and add new document entry
         const filtered = prev.filter(u => u.uid !== oldId);
         return [newUser, ...filtered];
     });
@@ -68,62 +68,73 @@ export function UserManagementDashboard() {
   return (
     <>
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between bg-muted/10 border-b">
         <div>
-          <CardTitle>User Management</CardTitle>
+          <CardTitle className="text-lg">User Management</CardTitle>
           <CardDescription>
-            Staff members belonging to your hospital and their assigned roles.
+            Manage staff credentials and access levels for <strong>{currentUser?.hospitalId}</strong>.
           </CardDescription>
         </div>
         <AddUserDialog onUserCreated={handleUserCreated} existingUsers={users} />
       </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
+      <CardContent className="pt-6">
+        <div className="rounded-md border bg-white">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.uid}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell className="capitalize">{user.role.replace('_', ' ')}</TableCell>
+              {users.length > 0 ? users.map((user) => (
+                <TableRow key={user.uid} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="font-bold text-slate-900">{user.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{user.email}</TableCell>
+                  <TableCell className="capitalize text-xs font-semibold">{user.role.replace('_', ' ')}</TableCell>
                   <TableCell>
-                    <Badge variant={user.is_active ? 'secondary' : 'outline'}>
+                    <Badge variant={user.is_active ? 'secondary' : 'outline'} className="text-[10px] uppercase font-black">
                       {user.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right pr-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                        <Button aria-haspopup="true" size="icon" variant="ghost" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => setSelectedUserForRole(user)}>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Actions</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/hr/staff/${user.uid}`} className="cursor-pointer">
+                            <UserSearch className="mr-2 h-4 w-4" /> View Full Profile
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedUserForRole(user)} className="cursor-pointer">
                           Change Role
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSelectedUserForEmail(user)}>
-                          Change Email
+                        <DropdownMenuItem onClick={() => setSelectedUserForEmail(user)} className="cursor-pointer">
+                          Update Email/ID
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          {user.is_active ? 'Deactivate User' : 'Activate User'}
+                        <DropdownMenuItem className="text-destructive cursor-pointer">
+                          {user.is_active ? 'Revoke Access' : 'Restore Access'}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic">
+                    No staff records found for your facility.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

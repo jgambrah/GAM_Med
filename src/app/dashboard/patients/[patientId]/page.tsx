@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -19,7 +20,7 @@ import { Patient } from '@/lib/types';
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
-  const { user } = useAuth();
+  const { user, loading: isAuthLoading } = useAuth();
   const firestore = useFirestore();
 
   // STABILIZE REFERENCE: Use useMemoFirebase to prevent infinite loops with the useDoc hook.
@@ -28,9 +29,26 @@ export default function PatientDetailPage() {
     return doc(firestore, 'patients', patientId);
   }, [firestore, patientId]);
 
-  const { data: patient, isLoading } = useDoc<Patient>(patientRef);
+  const { data: patient, isLoading: isDocLoading } = useDoc<Patient>(patientRef);
 
-  if (isLoading) {
+  // SAAS SECURITY WALL: 
+  // We only trigger notFound if the document is loaded and definitely doesn't belong 
+  // to the user's hospital. We wait for auth to finish resolving to avoid false 404s.
+  React.useEffect(() => {
+    if (!isDocLoading && !isAuthLoading) {
+        if (!patient) {
+            notFound();
+        }
+        if (user && patient && patient.hospitalId !== user.hospitalId) {
+            // Check for Super Admin bypass
+            if (user.role !== 'super_admin') {
+                notFound();
+            }
+        }
+    }
+  }, [patient, user, isDocLoading, isAuthLoading]);
+
+  if (isDocLoading || isAuthLoading) {
     return (
       <div className="p-8 space-y-6">
         <div className="flex items-center gap-4">
@@ -42,11 +60,7 @@ export default function PatientDetailPage() {
     );
   }
 
-  // SAAS SECURITY WALL: 
-  // Even if the URL is correct, if the patient doesn't belong to the user's hospital, block access.
-  if (!patient || (user && patient.hospitalId !== user.hospitalId)) {
-    notFound();
-  }
+  if (!patient) return null;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4">
