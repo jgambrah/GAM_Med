@@ -76,7 +76,7 @@ service cloud.firestore {
 
     match /hospitals/{hospId} {
       allow get: if true; 
-      allow list: if isSignedIn(); // Allow authenticated discovery for referrals
+      allow list: if isSignedIn(); 
       allow write: if isSuperAdmin();
       
       match /counters/{counterId} {
@@ -136,6 +136,18 @@ service cloud.firestore {
     }
 
     match /diagnoses/{diagId} {
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /medication_records/{medId} {
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
+    }
+
+    match /prescriptions/{presId} {
       allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);

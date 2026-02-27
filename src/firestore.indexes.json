@@ -51,6 +51,15 @@
       ]
     },
     {
+      "collectionGroup": "medication_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "patientId", "order": "ASCENDING" },
+        { "fieldPath": "prescribedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "vitals",
       "queryScope": "COLLECTION",
       "fields": [
