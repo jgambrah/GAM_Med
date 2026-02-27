@@ -24,16 +24,13 @@ import { Badge } from '@/components/ui/badge';
 export default function StaffProfilePage() {
   const router = useRouter();
   const params = useParams();
-  const staffId = params.staffId as string;
+  const rawStaffId = params?.staffId as string;
+  const staffId = React.useMemo(() => 
+    rawStaffId ? decodeURIComponent(rawStaffId) : null, 
+  [rawStaffId]);
+
   const { user: currentUser, loading: isAuthLoading } = useAuth();
   const firestore = useFirestore();
-
-  // DEBUG: Track the exact Staff ID being looked up
-  React.useEffect(() => {
-    if (staffId) {
-      console.log("Searching for Staff Record ID:", staffId);
-    }
-  }, [staffId]);
 
   // 1. Fetch live staff profile from Firestore
   const staffRef = useMemoFirebase(() => {
@@ -45,13 +42,14 @@ export default function StaffProfilePage() {
 
   // 2. SAAS SECURITY WALL
   const isAuthorized = React.useMemo(() => {
-    if (isAuthLoading || isDocLoading) return true; // Assume true while loading
-    if (!currentUser || !staff) return false;
+    if (isAuthLoading || isDocLoading) return true; 
+    if (!currentUser || !staff) return true; // Assume true while loading
     if (currentUser.role === 'super_admin') return true;
     return staff.hospitalId === currentUser.hospitalId;
   }, [currentUser, staff, isAuthLoading, isDocLoading]);
 
-  if (isAuthLoading || isDocLoading || !firestore) {
+  // 3. LOADING STATE
+  if (isAuthLoading || isDocLoading || !firestore || !staffId) {
     return (
       <div className="space-y-6 p-8">
         <div className="flex items-center gap-3">
@@ -68,12 +66,8 @@ export default function StaffProfilePage() {
     );
   }
 
-  if (!staff && !error) {
-    console.error("Staff Lookup Failure: Document not found for ID", staffId);
-    return notFound();
-  }
-
-  if (!isAuthorized || error) {
+  // 4. ERROR / AUTH STATE
+  if (error || !isAuthorized) {
     return (
         <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 bg-destructive/5 rounded-2xl border-2 border-dashed border-destructive/20 m-6">
             <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
@@ -86,6 +80,11 @@ export default function StaffProfilePage() {
             </Button>
         </div>
     );
+  }
+
+  // 5. NOT FOUND STATE
+  if (!staff) {
+    return notFound();
   }
 
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
