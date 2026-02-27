@@ -1,11 +1,15 @@
 import * as admin from 'firebase-admin';
 
 /**
- * == Clean Admin SDK Provisioning ==
+ * == Diagnostic-First Admin SDK ==
  * 
  * Uses individual environment variables to bypass JSON parsing issues.
- * Implements lazy-initialization to ensure build-safety on Vercel.
+ * Implements lazy-initialization and diagnostic error tracking to 
+ * provide clear feedback in Vercel logs.
  */
+
+let initError: string | null = null;
+
 function initializeAdmin() {
   if (admin.apps.length > 0) return admin.app();
 
@@ -13,9 +17,12 @@ function initializeAdmin() {
   const clientEmail = process.env.FB_CLIENT_EMAIL;
   const privateKey = process.env.FB_PRIVATE_KEY;
 
-  // Safety check: During build or if missing, don't crash the server process
   if (!projectId || !clientEmail || !privateKey) {
-    console.warn("Firebase Admin credentials partially missing. Returning null for build-time safety.");
+    const missing = [];
+    if (!projectId) missing.push("FB_PROJECT_ID");
+    if (!clientEmail) missing.push("FB_CLIENT_EMAIL");
+    if (!privateKey) missing.push("FB_PRIVATE_KEY");
+    initError = "Missing Admin Credentials: " + missing.join(', ');
     return null;
   }
 
@@ -29,7 +36,7 @@ function initializeAdmin() {
       }),
     });
   } catch (error: any) {
-    console.error("ADMIN_INIT_CRASH:", error.message);
+    initError = "ADMIN_INIT_CRASH: " + error.message;
     return null;
   }
 }
@@ -43,7 +50,7 @@ const app = initializeAdmin();
  */
 export const getAdminServices = () => {
     if (!app) {
-        throw new Error("Firebase Admin SDK not initialized. Ensure FB_PROJECT_ID, FB_CLIENT_EMAIL, and FB_PRIVATE_KEY are set.");
+        throw new Error(initError || "Unknown Admin Init Error");
     }
 
     return {

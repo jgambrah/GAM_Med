@@ -51,7 +51,8 @@ export default function LoginPage() {
             }
 
             // C. DISCOVERY: Find the user's profile document by UID field
-            const q = query(collection(db, "users"), where("uid", "==", userCredential.user.uid));
+            // Requirement: Use auth.currentUser.uid for the discovery query
+            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser?.uid));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
@@ -77,12 +78,13 @@ export default function LoginPage() {
             /**
              * == REDIRECTION GUARD ==
              * D. Ensure Directors never land on Super Admin pages.
+             * This resolves the demo_requests permission errors.
              */
             if (userData.role === 'super_admin') {
-                // ONLY James (CEO) is allowed to go here
+                // Dr. James (CEO) only
                 router.push('/dashboard/super-admin');
             } else {
-                // Marcus (Director) and everyone else goes here
+                // Marcus (Director) and all clinical staff
                 router.push('/dashboard');
             }
 

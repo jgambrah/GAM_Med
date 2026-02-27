@@ -2,11 +2,11 @@ import { getAdminServices } from '@/firebase/admin';
 import { NextResponse } from 'next/server';
 
 /**
- * == Enterprise Provisioning Engine ==
+ * == Automated Hospital Provisioning Engine ==
  * 
  * This API performs the atomic "Handover" of a new hospital tenant.
- * It ensures the Director is "Stamped" with a Hospital ID in their JWT
- * and that all required security markers are created in Firestore.
+ * It creates the "Room" (Hospital ID), "Stamps" the Director with JWT Claims,
+ * and sets up mandatory security markers.
  */
 export async function POST(req: Request) {
     try {
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // 1. GENERATE UNIQUE HOSPITAL ID (The "Room")
+        // 1. AUTOMATICALLY GENERATE THE HOSPITAL ID (The "Room")
         // Example: "City General" -> "city-general-1234"
         const hospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
         const now = new Date().toISOString();
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
             status: 'active',
             subscriptionStatus: 'trialing',
             subscriptionTier: subscriptionTier || 'clinic-starter',
-            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 Days
+            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             isActive: true,
             createdAt: now,
             ownerEmail: directorEmail.toLowerCase()
@@ -50,15 +50,13 @@ export async function POST(req: Request) {
         }
 
         // 4. THE "SAAS STAMP" (Custom JWT Claims)
-        // This is the gold standard for SaaS security. The hospitalId is baked 
-        // into the user's signed identity token. This allows immediate, secure access.
+        // This locks the user into their hospital room at the token level.
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
         });
 
         // 5. CREATE USER PROFILE (Logical Mapping)
-        // UID is used as doc ID for fallback discovery
         await adminDb.collection('users').doc(userRecord.uid).set({
             uid: userRecord.uid,
             email: directorEmail.toLowerCase().trim(),
