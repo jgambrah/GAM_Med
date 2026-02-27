@@ -92,7 +92,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
           throw new Error(result.error || "Failed to provision facility");
       }
 
-      // SUCCESS: Show the password to the CEO (Backup tool)
+      // CEO BACKUP: Show the password to you immediately in case email fails
       alert(`
         HOSPITAL CREATED SUCCESSFULLY!
         ------------------------------

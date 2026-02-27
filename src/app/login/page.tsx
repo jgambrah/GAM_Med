@@ -50,7 +50,7 @@ export default function LoginPage() {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. Small delay to ensure database/claims propagation is ready
+            // 3. Small delay to ensure database/claims propagation is ready (800ms handshake)
             await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
@@ -63,7 +63,7 @@ export default function LoginPage() {
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
-                throw new Error("Account found but profile missing. Please contact support.");
+                throw new Error("Account found but profile missing. Please contact platform support.");
             }
 
             const userData = querySnapshot.docs[0].data();
