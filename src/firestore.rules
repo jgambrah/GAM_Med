@@ -2,10 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------------------------------------------
-    // Helper Functions for Multi-Tenant Isolation (The SaaS Wall)
-    // --------------------------------------------------------------------
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -17,10 +13,6 @@ service cloud.firestore {
       );
     }
 
-    /**
-     * @description Fetches the hospitalId for the currently logged-in user.
-     * Uses ternary logic to avoid 'if/let' syntax which is illegal in rules functions.
-     */
     function getMyHospitalId() {
       return request.auth.token.hospitalId != null 
         ? request.auth.token.hospitalId 
@@ -48,16 +40,10 @@ service cloud.firestore {
       return isSignedIn() && (request.auth.token.patientId == patientId || request.auth.token.patient_id == patientId);
     }
 
-    // --------------------------------------------------------------------
-    // Global Bypass for Super Admin
-    // --------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
 
-    // --------------------------------------------------------------------
-    // Public Discovery & Leads
-    // --------------------------------------------------------------------
     match /pricing_plans/{planId} {
       allow read: if true;
       allow write: if isSuperAdmin();
@@ -75,13 +61,7 @@ service cloud.firestore {
       allow update: if isSuperAdmin();
     }
 
-    // --------------------------------------------------------------------
-    // Primary Tenant Collections
-    // --------------------------------------------------------------------
-
     match /users/{userDocId} {
-      // Allow users to query for their own profile via UID field during login handshake
-      // Also allow admins to see staff within their hospital
       allow list: if isSignedIn() && (
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId())
@@ -105,10 +85,6 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
       allow update: if isSignedIn() && isSameHospital(resource.data);
     }
-
-    // --------------------------------------------------------------------
-    // Clinical & Operational Modules
-    // --------------------------------------------------------------------
 
     match /vitals/{vitalId} {
       allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
@@ -134,7 +110,6 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
 
-    // Generic fallback for other logically isolated documents
     match /{collection}/{docId} {
       allow read, write: if isSignedIn() && (isSuperAdmin() || (resource.data.hospitalId == getMyHospitalId() || request.resource.data.hospitalId == getMyHospitalId()));
     }

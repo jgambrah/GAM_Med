@@ -87,18 +87,18 @@ const staffRoles: User['role'][] = [
 
 // ─── Category Types ───────────────────────────────────────────────────────────
 type MenuCategory =
-  | 'general'       // Dashboard + Messages — always visible
-  | 'platform'      // Super-admin only
-  | 'my_practice'   // Doctor-specific quick links
-  | 'clinical'      // All patient-facing workflows
-  | 'diagnostics'   // Lab, Radiology
-  | 'theatre'       // OT, Surgery
-  | 'pharmacy'      // Pharmacy + Controlled substances
-  | 'finance'       // Finance hub, billing, payroll
-  | 'admin'         // Staff, HR, approvals, compliance
-  | 'logistics'     // Inventory, Equipment, Suppliers, Space
-  | 'personal'      // Profile, Leave, Claims, Patient portal
-  | 'supplier';     // Supplier portal
+  | 'general'       
+  | 'platform'      
+  | 'my_practice'   
+  | 'clinical'      
+  | 'diagnostics'   
+  | 'theatre'       
+  | 'pharmacy'      
+  | 'finance'       
+  | 'admin'         
+  | 'logistics'     
+  | 'personal'      
+  | 'supplier';     
 
 // ─── Menu Item Schema ─────────────────────────────────────────────────────────
 type MenuItem = {
@@ -114,7 +114,6 @@ export function MainNavClient() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  // ── Critical alert badge for doctors ───────────────────────────────────────
   const criticalAlertCount = React.useMemo(() => {
     if (!user || user.role !== 'doctor') return 0;
     const myPatientIds = new Set(
@@ -130,69 +129,56 @@ export function MainNavClient() {
     ).length;
   }, [user]);
 
-  // ── Menu Definitions ────────────────────────────────────────────────────────
   const menuItems: MenuItem[] = [
-    // GENERAL
     { href: '/dashboard', label: 'Dashboard', icon: Home, roles: allRoles, category: 'general' },
     { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare, roles: allRoles, category: 'general' },
 
-    // PLATFORM HQ
     { href: '/dashboard/super-admin/pulse', label: 'Platform Pulse', icon: Zap, roles: ['super_admin'], category: 'platform' },
     { href: '/dashboard/super-admin/leads', label: 'Sales Leads', icon: Inbox, roles: ['super_admin'], category: 'platform' },
     { href: '/dashboard/super-admin/pricing', label: 'Pricing Control', icon: CreditCard, roles: ['super_admin'], category: 'platform' },
     { href: '/dashboard/super-admin', label: 'Hospital Registry', icon: Globe, roles: ['super_admin'], category: 'platform' },
 
-    // MY PRACTICE (for doctors)
     { href: '/dashboard/my-practice', label: 'Practice Workbench', icon: Stethoscope, roles: ['doctor'], category: 'my_practice', badge: criticalAlertCount > 0 ? criticalAlertCount.toString() : undefined },
     { href: '/dashboard/my-practice/schedule', label: 'Daily Schedule', icon: ListTodo, roles: ['doctor'], category: 'my_practice' },
     { href: '/dashboard/my-schedule', label: 'Shift Calendar', icon: CalendarClock, roles: ['doctor'], category: 'my_practice' },
 
-    // CLINICAL OPS
     { href: '/dashboard/reception/register-patient', label: 'Register Patient', icon: UserPlus, roles: ['director', 'admin', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/reception/referrals', label: 'Incoming Referrals', icon: Inbox, roles: ['director', 'admin', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/records/all-patients', label: 'Patient Directory', icon: FolderSearch, roles: ['director', 'admin', 'doctor', 'nurse', 'receptionist'], category: 'clinical' },
-    { href: '/dashboard/patients', label: 'Clinical Workbench', icon: Stethoscope, roles: ['director', 'admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'], category: 'clinical' },
+    { href: '/dashboard/patients', label: 'Clinical Workbench', icon: Stethoscope, roles: ['director', 'admin', 'doctor', 'nurse'], category: 'clinical', badge: criticalAlertCount > 0 ? criticalAlertCount.toString() : undefined },
     { href: '/dashboard/nursing', label: 'Nursing Station', icon: ClipboardCheck, roles: ['nurse'], category: 'clinical' },
     { href: '/dashboard/wards', label: 'Ward Management', icon: LayoutGrid, roles: ['director', 'admin', 'doctor', 'nurse'], category: 'clinical' },
     { href: '/dashboard/beds', label: 'Facility Census', icon: BedDouble, roles: ['director', 'admin', 'doctor', 'nurse'], category: 'clinical' },
-    { href: '/dashboard/appointments', label: 'Appointments', icon: Calendar, roles: ['director', 'admin', 'doctor', 'patient', 'receptionist', 'billing_clerk'], category: 'clinical' },
-    { href: '/dashboard/waiting-lists', label: 'Waiting Lists', icon: Clock, roles: ['director', 'admin', 'receptionist'], category: 'clinical' },
+    { href: '/dashboard/appointments', label: 'Appointments', icon: Calendar, roles: ['director', 'admin', 'doctor', 'patient', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/referrals', label: 'Referrals Out', icon: Send, roles: ['director', 'admin', 'doctor'], category: 'clinical' },
-    { href: '/dashboard/dietary', label: 'Dietary', icon: Apple, roles: ['director', 'admin', 'dietitian', 'nurse', 'doctor'], category: 'clinical' },
+    { href: '/dashboard/dietary', label: 'Dietary', icon: Apple, roles: ['director', 'admin', 'dietitian', 'nurse'], category: 'clinical' },
     { href: '/dashboard/director/analytics', label: 'Executive Insights', icon: TrendingUp, roles: ['director'], category: 'clinical' },
 
-    // DIAGNOSTICS
     { href: '/dashboard/lab', label: 'Laboratory', icon: Beaker, roles: ['lab_technician', 'doctor'], category: 'diagnostics' },
-    { href: '/dashboard/lab/reports', label: 'Lab Reports', icon: BarChart, roles: ['director', 'admin', 'lab_technician', 'doctor'], category: 'diagnostics' },
-    { href: '/dashboard/radiology', label: 'Radiology', icon: Scan, roles: ['director', 'admin', 'doctor', 'radiologist', 'receptionist'], category: 'diagnostics' },
+    { href: '/dashboard/lab/reports', label: 'Lab Reports', icon: BarChart, roles: ['director', 'admin', 'lab_technician'], category: 'diagnostics' },
+    { href: '/dashboard/radiology', label: 'Radiology', icon: Scan, roles: ['director', 'admin', 'doctor', 'radiologist'], category: 'diagnostics' },
 
-    // THEATRE
     { href: '/dashboard/surgery', label: 'OT Status Board', icon: Monitor, roles: ['director', 'admin', 'doctor', 'ot_coordinator'], category: 'theatre' },
     { href: '/dashboard/ot', label: 'OT Schedule', icon: Scissors, roles: ['director', 'admin', 'doctor', 'ot_coordinator'], category: 'theatre' },
 
-    // PHARMACY
-    { href: '/dashboard/pharmacy', label: 'Dispensary', icon: Pill, roles: ['director', 'admin', 'pharmacist', 'doctor', 'nurse', 'billing_clerk'], category: 'pharmacy' },
+    { href: '/dashboard/pharmacy', label: 'Dispensary', icon: Pill, roles: ['director', 'admin', 'pharmacist', 'doctor', 'nurse'], category: 'pharmacy' },
     { href: '/dashboard/pharmacy/controlled-substances', label: 'Narcotics Register', icon: ShieldAlert, roles: ['director', 'admin', 'pharmacist'], category: 'pharmacy' },
 
-    // FINANCE
     { href: '/dashboard/finance', label: 'Finance Hub', icon: Wallet, roles: ['director', 'admin', 'billing_clerk'], category: 'finance' },
-    { href: '/dashboard/payroll', label: 'Payroll', icon: Wallet, roles: ['director', 'admin'], category: 'finance' },
+    { href: '/dashboard/payroll', label: 'Payroll', icon: CreditCard, roles: ['director', 'admin'], category: 'finance' },
     { href: '/dashboard/approvals', label: 'Approvals', icon: CheckSquare, roles: ['director', 'admin', 'doctor'], category: 'finance' },
 
-    // ADMIN & HR
     { href: '/dashboard/admin', label: 'Admin Panel', icon: LayoutDashboard, roles: ['director', 'admin'], category: 'admin' },
     { href: '/dashboard/hr', label: 'Human Resources', icon: Briefcase, roles: ['director', 'admin'], category: 'admin' },
     { href: '/dashboard/director/staff', label: 'Staff Management', icon: UserCog, roles: ['director'], category: 'admin' },
     { href: '/dashboard/admin/staff', label: 'Facility Staff', icon: Users, roles: ['admin'], category: 'admin' },
     { href: '/dashboard/records/compliance', label: 'Statutory Returns', icon: FileSpreadsheet, roles: ['director', 'admin'], category: 'admin' },
 
-    // LOGISTICS
-    { href: '/dashboard/inventory', label: 'Medical Supplies', icon: Package, roles: ['director', 'admin', 'pharmacist', 'space_manager'], category: 'logistics' },
+    { href: '/dashboard/inventory', label: 'Medical Supplies', icon: Package, roles: ['director', 'admin', 'pharmacist'], category: 'logistics' },
     { href: '/dashboard/inventory/equipment', label: 'Medical Equipment', icon: Microscope, roles: ['director', 'admin', 'nurse'], category: 'logistics' },
     { href: '/dashboard/pharmacy/suppliers', label: 'Suppliers', icon: Truck, roles: ['director', 'admin', 'pharmacist'], category: 'logistics' },
     { href: '/dashboard/space-management', label: 'Space Management', icon: Building, roles: ['director', 'admin'], category: 'logistics' },
 
-    // MY PORTAL
     { href: `/dashboard/hr/staff/${user?.uid}`, label: 'My Profile', icon: Contact, roles: staffRoles, category: 'personal' },
     { href: '/dashboard/my-claims', label: 'My Claims', icon: Receipt, roles: staffRoles, category: 'personal' },
     { href: '/dashboard/my-leave', label: 'My Leave', icon: CalendarOff, roles: staffRoles, category: 'personal' },
@@ -200,11 +186,9 @@ export function MainNavClient() {
     { href: '/dashboard/my-records/health-library', label: 'Health Library', icon: BookHeart, roles: ['patient'], category: 'personal' },
     { href: '/dashboard/my-billing', label: 'My Billing', icon: CreditCard, roles: ['patient'], category: 'personal' },
 
-    // SUPPLIER
     { href: '/dashboard/supplier', label: 'Supplier Portal', icon: Truck, roles: ['supplier'], category: 'supplier' },
   ];
 
-  // ── Accessible Items Filtering ───────────────────────────────────────────────
   const accessibleItems = React.useMemo(() => {
     if (!user) return [];
     
@@ -217,7 +201,6 @@ export function MainNavClient() {
     });
   }, [user]);
 
-  // ── Group Configuration ──────────────────────────────────────────────────────
   const categories: {
     id: MenuCategory;
     label: string;
@@ -245,7 +228,6 @@ export function MainNavClient() {
         const catItems = accessibleItems.filter(i => i.category === cat.id);
         if (catItems.length === 0) return null;
 
-        // Non-collapsible Fixed Group
         if (!cat.collapsible) {
           return (
             <SidebarGroup key={cat.id} className="p-0 mb-4">
@@ -280,8 +262,7 @@ export function MainNavClient() {
           );
         }
 
-        // Collapsible Operational Group
-        const hasActiveChild = catItems.some(i => pathname.startsWith(i.href));
+        const hasActiveChild = catItems.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
         const shouldDefaultOpen = hasActiveChild || cat.defaultOpen;
 
         return (

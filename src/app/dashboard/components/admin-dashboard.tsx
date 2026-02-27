@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -25,18 +24,11 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-/**
- * == Core Strategic Dashboard: Admin/Director View ==
- * 
- * Aggregates live facility metrics from Firestore.
- * Enforces logical isolation via the SaaS hospitalId wall.
- */
 export function AdminDashboard() {
   const { user } = useAuth();
   const firestore = useFirestore();
   const hospitalId = user?.hospitalId || '';
 
-  // 1. LIVE SAAS QUERIES: Fetch facility-locked data
   const invQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(collection(firestore, "invoices"), where("hospitalId", "==", hospitalId));
@@ -61,7 +53,6 @@ export function AdminDashboard() {
   }, [firestore, hospitalId]);
   const { data: staff, isLoading: isUsersLoading } = useCollection<UserType>(usersQuery);
 
-  // 2. AGGREGATE CALCULATIONS
   const metrics = React.useMemo(() => {
     const totalRevenue = invoices?.filter(i => i.status === 'Paid').reduce((sum, i) => sum + (i.grandTotal || 0), 0) || 0;
     const arBalance = invoices?.filter(i => i.status !== 'Paid' && i.status !== 'Void').reduce((sum, i) => sum + (i.amountDue || 0), 0) || 0;

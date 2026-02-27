@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -21,18 +20,11 @@ import { TrendingUp, Users, Activity, CreditCard, Loader2, ShieldCheck } from 'l
 import { Badge } from '@/components/ui/badge';
 import { Invoice, Patient, Diagnosis } from '@/lib/types';
 
-/**
- * == Director Module: Executive BI Analytics ==
- * 
- * Aggregates clinical and financial metadata into high-level strategic charts.
- * strictly logically isolated via the hospitalId wall.
- */
 export default function DirectorAnalyticsPage() {
     const { user } = useAuth();
     const firestore = useFirestore();
     const hospitalId = user?.hospitalId || '';
 
-    // 1. LIVE SAAS QUERIES: Fetch relevant datasets
     const invQuery = useMemoFirebase(() => {
         if (!firestore || !hospitalId) return null;
         return query(collection(firestore, "invoices"), where("hospitalId", "==", hospitalId), limit(500));
@@ -51,18 +43,15 @@ export default function DirectorAnalyticsPage() {
     }, [firestore, hospitalId]);
     const { data: diagnoses, isLoading: isDiagLoading } = useCollection<Diagnosis>(diagQuery);
 
-    // 2. ANALYTICS AGGREGATION
     const analytics = React.useMemo(() => {
         const totalRevenue = invoices?.filter(i => i.status === 'Paid').reduce((sum, i) => sum + (i.grandTotal || 0), 0) || 0;
         
-        // Mock revenue trend based on existing logs for visualization
         const revenueTrend = [
             { month: 'Jun', amount: totalRevenue * 0.2 },
             { month: 'Jul', amount: totalRevenue * 0.3 },
             { month: 'Aug', amount: totalRevenue * 0.5 },
         ];
 
-        // Aggregate Clinical Prevalence from live diagnoses
         const prevalenceMap: Record<string, number> = {};
         diagnoses?.forEach(d => {
             prevalenceMap[d.diagnosisText] = (prevalenceMap[d.diagnosisText] || 0) + 1;
@@ -103,7 +92,6 @@ export default function DirectorAnalyticsPage() {
                 </Badge>
             </div>
 
-            {/* High-Level KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <InsightCard 
                     title="Gross Revenue" 
@@ -132,7 +120,6 @@ export default function DirectorAnalyticsPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Revenue Growth Trend */}
                 <Card className="shadow-lg border-none ring-1 ring-slate-200 overflow-hidden">
                     <CardHeader className="bg-slate-900 text-white pb-6">
                         <CardTitle className="text-lg font-bold">Revenue Distribution (GHS)</CardTitle>
@@ -166,7 +153,6 @@ export default function DirectorAnalyticsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Top Clinical Diagnoses */}
                 <Card className="shadow-lg border-none ring-1 ring-slate-200 overflow-hidden">
                     <CardHeader className="bg-slate-900 text-white pb-6">
                         <CardTitle className="text-lg font-bold">Morbidity Prevalence</CardTitle>
