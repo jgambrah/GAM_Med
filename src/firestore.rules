@@ -76,8 +76,8 @@ service cloud.firestore {
 
     match /hospitals/{hospId} {
       allow get: if true; 
-      allow list: if isSuperAdmin();
-      allow update: if isSuperAdmin();
+      allow list: if isSignedIn(); // Allow authenticated discovery for referrals
+      allow write: if isSuperAdmin();
       
       match /counters/{counterId} {
         allow read, write: if isSignedIn() && (request.auth.token.hospitalId == hospId || getMyHospitalId() == hospId || isSuperAdmin());
