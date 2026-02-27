@@ -1206,3 +1206,28 @@ export interface PerPatientEPrescribing {
   frequency: string;
   quantity_to_dispense: number;
 }
+
+export interface OTSession {
+  id: string;
+  sessionId: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  patientMrn?: string;
+  otRoomId: string;
+  procedureName: string;
+  leadSurgeonId: string;
+  surgeonName: string;
+  anesthetistName?: string;
+  startTime: string;
+  endTime: string;
+  actualStartTime?: any;
+  actualEndTime?: any;
+  status: 'Scheduled' | 'In-Progress' | 'Post-Op' | 'Completed' | 'Canceled';
+  priority: 'Emergency' | 'Elective' | 'Urgent';
+  recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
+  recoveryRoomEntryTime?: string;
+  notes?: string;
+  createdAt: any;
+  updatedAt: any;
+}
