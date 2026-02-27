@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -72,8 +73,8 @@ export default function PatientDetailPage() {
     );
   }
 
-  // 6. NOT FOUND STATE: Only show this if we are 100% sure loading is finished and data is null
-  if (!patient && !isDocLoading) {
+  // 6. NOT FOUND STATE: Explicitly narrow the patient type to resolve build error
+  if (!patient) {
     return (
         <div className="flex flex-col items-center justify-center h-[70vh] text-center p-8">
             <Search className="h-16 w-16 text-slate-300 mb-4" />
@@ -84,7 +85,7 @@ export default function PatientDetailPage() {
     );
   }
 
-  // 7. SUCCESS: Finally render the EHR
+  // 7. SUCCESS: Finally render the EHR with guaranteed patient data
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
       <div className="flex-grow overflow-hidden">
