@@ -95,10 +95,11 @@ export interface Hospital {
 
 export interface User {
   uid: string;
+  id?: string;
   hospitalId: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'director' | 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier';
+  role: 'super_admin' | 'director' | 'admin' | 'doctor' | 'nurse' | 'pharmacist' | 'patient' | 'billing_clerk' | 'lab_technician' | 'ot_coordinator' | 'receptionist' | 'radiologist' | 'dietitian' | 'housekeeping' | 'space_manager' | 'supplier' | 'staff';
   is_active: boolean;
   department?: string;
   specialty?: string;

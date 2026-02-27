@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -60,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hospitalId: '',
             created_at: new Date().toISOString(),
             last_login: new Date().toISOString()
-        } as User);
+        } as unknown as User);
       }
       setIsProfileLoading(false);
     }, (err) => {
@@ -82,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
         if (firebaseAuth) {
-            await signOut(firebaseAuth);
+            await firebaseAuth.signOut();
         }
         setProfile(null);
         window.location.href = "/login";
