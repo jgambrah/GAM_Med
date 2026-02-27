@@ -1,8 +1,7 @@
-
 'use client';
 
 import * as React from 'react';
-import Link from "next/next/link";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -51,13 +50,13 @@ export default function LoginPage() {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. Propagation Delay: Ensure global identity sync
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // 3. Small delay to ensure global identity systems are in sync
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             /**
              * == USER DISCOVERY (SEARCH BY UID) ==
              * Since our document IDs are composite (hospital_email), we must query for the profile
-             * where the 'uid' field matches Marcus's Auth ID.
+             * where the 'uid' field matches the user's Auth ID.
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             

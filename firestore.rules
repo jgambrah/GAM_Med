@@ -11,20 +11,21 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) ||
+        request.auth.token.role == 'super_admin'
+      );
     }
 
     /**
      * @description Fetches the hospitalId for the currently logged-in user.
-     * Priorities: 1. Custom Claims (JWT) | 2. Role Registry Fallback
      */
     function getMyHospitalId() {
-      // Priority 1: Trusted Custom Claims (Most secure and performant)
       if (request.auth.token.hospitalId != null) {
         return request.auth.token.hospitalId;
       }
       
-      // Priority 2: Firestore Lookups (Fallback for un-stamped legacy accounts)
+      // Fallback: Check role registry documents
       let adminPath = /databases/$(database)/documents/roles_admin/$(request.auth.uid);
       if (exists(adminPath)) {
         return get(adminPath).data.hospitalId;
@@ -38,39 +39,22 @@ service cloud.firestore {
       return null;
     }
 
-    /**
-     * @description Checks if the user is a registered Admin or Director.
-     */
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || 
         request.auth.token.role == 'director' ||
+        request.auth.token.role == 'admin' ||
         isSuperAdmin()
       );
     }
 
-    /**
-     * @description Checks if the document belongs to the user's hospital.
-     */
     function isSameHospital(docData) {
-      return isSignedIn() && (docData.hospitalId == getMyHospitalId() || isSuperAdmin());
+      let myHospId = getMyHospitalId();
+      return isSignedIn() && (docData.hospitalId == myHospId || isSuperAdmin());
     }
 
     function isPatient(patientId) {
       return isSignedIn() && request.auth.token.patientId == patientId;
-    }
-
-    /**
-     * @description SAAS FEATURE GATING: Check if hospital has the required feature plan
-     */
-    function hasFeature(slug) {
-      let hId = getMyHospitalId();
-      let hospitalDoc = get(/databases/$(database)/documents/hospitals/$(hId));
-      let plan = hospitalDoc.data.subscriptionTier;
-      
-      return (plan == 'enterprise') || 
-             (plan == 'professional' && slug in ['ehr', 'vitals', 'appointments', 'billing', 'pharmacy', 'lab', 'wards', 'inventory', 'nursing']) ||
-             (plan == 'clinic-starter' && slug in ['ehr', 'vitals', 'appointments', 'billing']);
     }
 
     // --------------------------------------------------------------------
@@ -101,40 +85,35 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------------
-    // Referral Module Rules
-    // --------------------------------------------------------------------
-    match /referrals/{referralId} {
-      allow read: if isSignedIn() && (
-        resource.data.fromHospitalId == getMyHospitalId() || 
-        resource.data.toHospitalId == getMyHospitalId() ||
-        isSuperAdmin()
-      );
-
-      allow create: if isSignedIn() && request.resource.data.fromHospitalId == getMyHospitalId();
-
-      allow update: if isSignedIn() && (
-        resource.data.toHospitalId == getMyHospitalId() ||
-        isSuperAdmin()
-      );
-    }
-
-    // --------------------------------------------------------------------
     // Primary Tenant Collections
     // --------------------------------------------------------------------
 
-    match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isSameHospital(resource.data));
-      allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+    match /users/{userDocId} {
+      // Allow users to query for their own profile via UID field
+      allow list: if isSignedIn() && (
+        (request.query.limit <= 100 && request.query.filters.size() >= 1) && (
+          (request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
+          isSameHospital(resource.data)
+        )
+      );
+      allow get: if isSignedIn() && (request.auth.uid == resource.data.uid || isSameHospital(resource.data));
       allow create: if isSignedIn() && isAdmin() && request.resource.data.hospitalId == getMyHospitalId();
-      allow update: if isSignedIn() && (request.auth.uid == userId || (isAdmin() && isSameHospital(resource.data)));
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.uid || (isAdmin() && isSameHospital(resource.data)));
     }
 
     match /patients/{patientId} {
-      allow list: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
-      allow get: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin() || isPatient(patientId));
-      allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId()) && hasFeature('ehr');
-      allow update: if isSignedIn() && (isSameHospital(resource.data) || isSuperAdmin());
+      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow get: if isSignedIn() && (isSameHospital(resource.data) || isPatient(patientId));
+      allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId());
+      allow update: if isSignedIn() && isSameHospital(resource.data);
       allow delete: if isAdmin() && isSameHospital(resource.data);
+    }
+
+    match /appointments/{apptId} {
+      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow get: if isSignedIn() && isSameHospital(resource.data);
+      allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
+      allow update: if isSignedIn() && isSameHospital(resource.data);
     }
 
     // --------------------------------------------------------------------
@@ -142,32 +121,32 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     match /vitals/{vitalId} {
+      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('vitals');
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /clinical_notes/{noteId} {
+      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('ehr');
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /lab_orders/{orderId} {
+      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('lab');
+      allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
-    match /ot_sessions/{sessionId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data) && hasFeature('surgery');
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('surgery');
+    match /invoices/{invId} {
+      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
 
-    match /dietary_orders/{orderId} {
-      allow read: if isSignedIn() && isSameHospital(resource.data);
-      allow write: if isSignedIn() && isSameHospital(request.resource.data) && hasFeature('nursing');
-    }
-
+    // Generic fallback for other logically isolated documents
     match /{collection}/{docId} {
-      allow read, write: if isSignedIn() && (isSuperAdmin() || isSameHospital(resource.data));
+      allow read, write: if isSignedIn() && (isSuperAdmin() || (resource.data.hospitalId == getMyHospitalId() || request.resource.data.hospitalId == getMyHospitalId()));
     }
   }
 }

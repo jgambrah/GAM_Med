@@ -149,6 +149,7 @@ export function MainNavClient() {
 
     // CLINICAL OPS
     { href: '/dashboard/reception/register-patient', label: 'Register Patient', icon: UserPlus, roles: ['director', 'admin', 'receptionist'], category: 'clinical' },
+    { href: '/dashboard/reception/referrals', label: 'Incoming Referrals', icon: Inbox, roles: ['director', 'admin', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/records/all-patients', label: 'Patient Directory', icon: FolderSearch, roles: ['director', 'admin', 'doctor', 'nurse', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/patients', label: 'Clinical Workbench', icon: Stethoscope, roles: ['director', 'admin', 'doctor', 'nurse', 'billing_clerk', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/nursing', label: 'Nursing Station', icon: ClipboardCheck, roles: ['nurse'], category: 'clinical' },
@@ -156,10 +157,13 @@ export function MainNavClient() {
     { href: '/dashboard/beds', label: 'Facility Census', icon: BedDouble, roles: ['director', 'admin', 'doctor', 'nurse'], category: 'clinical' },
     { href: '/dashboard/appointments', label: 'Appointments', icon: Calendar, roles: ['director', 'admin', 'doctor', 'billing_clerk', 'patient', 'receptionist'], category: 'clinical' },
     { href: '/dashboard/waiting-lists', label: 'Waiting Lists', icon: Clock, roles: ['director', 'admin', 'receptionist'], category: 'clinical' },
+    { href: '/dashboard/referrals', label: 'Referrals Out', icon: Send, roles: ['director', 'admin', 'doctor'], category: 'clinical' },
     { href: '/dashboard/dietary', label: 'Dietary', icon: Apple, roles: ['director', 'admin', 'dietitian', 'nurse', 'doctor'], category: 'clinical' },
+    { href: '/dashboard/director/analytics', label: 'Executive Insights', icon: TrendingUp, roles: ['director'], category: 'clinical' },
 
     // DIAGNOSTICS
     { href: '/dashboard/lab', label: 'Laboratory', icon: Beaker, roles: ['lab_technician', 'doctor'], category: 'diagnostics' },
+    { href: '/dashboard/lab/reports', label: 'Lab Reports', icon: BarChart, roles: ['director', 'admin', 'lab_technician', 'doctor'], category: 'diagnostics' },
     { href: '/dashboard/radiology', label: 'Radiology', icon: Scan, roles: ['director', 'admin', 'doctor', 'receptionist', 'radiologist'], category: 'diagnostics' },
 
     // THEATRE
@@ -178,11 +182,14 @@ export function MainNavClient() {
     // ADMIN & HR
     { href: '/dashboard/admin', label: 'Admin Panel', icon: LayoutDashboard, roles: ['director', 'admin'], category: 'admin' },
     { href: '/dashboard/hr', label: 'Human Resources', icon: Briefcase, roles: ['director', 'admin'], category: 'admin' },
+    { href: '/dashboard/director/staff', label: 'Staff Management', icon: UserCog, roles: ['director'], category: 'admin' },
+    { href: '/dashboard/admin/staff', label: 'Facility Staff', icon: Users, roles: ['admin'], category: 'admin' },
     { href: '/dashboard/records/compliance', label: 'Statutory Returns', icon: FileSpreadsheet, roles: ['director', 'admin'], category: 'admin' },
 
     // LOGISTICS
     { href: '/dashboard/inventory', label: 'Medical Supplies', icon: Package, roles: ['director', 'admin', 'pharmacist', 'space_manager'], category: 'logistics' },
     { href: '/dashboard/inventory/equipment', label: 'Medical Equipment', icon: Microscope, roles: ['director', 'admin', 'pharmacist', 'nurse'], category: 'logistics' },
+    { href: '/dashboard/pharmacy/suppliers', label: 'Suppliers', icon: Truck, roles: ['director', 'admin', 'pharmacist'], category: 'logistics' },
     { href: '/dashboard/space-management', label: 'Space Management', icon: Building, roles: ['director', 'admin'], category: 'logistics' },
 
     // MY PORTAL
@@ -202,15 +209,19 @@ export function MainNavClient() {
     if (!user) return [];
     
     return menuItems.filter(item => {
+      // Fix: Explicit string cast to prevent TypeScript narrowing issues with the literal union
+      const userRoleStr = user.role as string;
+      const isSuperAdmin = userRoleStr === 'super_admin';
+      
       // Platform HQ pages restricted to super_admin only
       const isPlatformPage = item.href.startsWith('/dashboard/super-admin');
-      if (isPlatformPage) return (user.role as string) === 'super_admin';
+      if (isPlatformPage) return isSuperAdmin;
 
       // Bypass role check for Super Admin on everything else
-      if ((user.role as string) === 'super_admin') return true;
+      if (isSuperAdmin) return true;
 
       // standard role check
-      return (item.roles as string[]).includes(user.role);
+      return (item.roles as string[]).includes(userRoleStr);
     });
   }, [user]);
 
@@ -229,9 +240,9 @@ export function MainNavClient() {
     { id: 'diagnostics', label: 'Diagnostics', icon: Microscope, collapsible: true, defaultOpen: true },
     { id: 'theatre', label: 'Theatre (OT)', icon: Scissors, collapsible: true, defaultOpen: false },
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill, collapsible: true, defaultOpen: false },
-    { id: 'finance', label: 'Finance', icon: Wallet, collapsible: true, defaultOpen: false },
-    { id: 'admin', label: 'Admin & Compliance', icon: ShieldCheck, collapsible: true, defaultOpen: false },
-    { id: 'logistics', label: 'Logistics & Space', icon: Package, collapsible: true, defaultOpen: false },
+    { id: 'finance', label: 'Finance & Revenue', icon: Wallet, collapsible: true, defaultOpen: false },
+    { id: 'admin', label: 'Admin & HR', icon: ShieldCheck, collapsible: true, defaultOpen: false },
+    { id: 'logistics', label: 'Inventory & Space', icon: Package, collapsible: true, defaultOpen: false },
     { id: 'personal', label: 'My Portal', icon: UserIcon, collapsible: true, defaultOpen: false },
     { id: 'supplier', label: 'Supplier Portal', icon: Truck, collapsible: false },
   ];
