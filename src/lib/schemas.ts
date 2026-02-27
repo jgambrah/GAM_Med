@@ -13,6 +13,9 @@ export const PatientSchema = z.object({
   religion: z.string().optional(),
   ghanaCardId: z.string().optional(),
   patientType: z.enum(["private", "corporate", "public"]),
+  nhisNumber: z.string().optional(),
+  nhisExpiryDate: z.string().optional(),
+  fingerprintVerified: z.boolean().default(false),
   contact: z.object({
     primaryPhone: z.string().min(10, "Phone number must be at least 10 digits"),
     alternatePhone: z.string().optional(),

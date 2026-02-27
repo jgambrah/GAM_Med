@@ -40,10 +40,12 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
 import { doc, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
-import { Loader2, ShieldCheck, UserPlus, Phone, Home, HeartPulse, Shield } from 'lucide-react';
+import { Loader2, ShieldCheck, UserPlus, Phone, Home, HeartPulse, Shield, CreditCard, AlertTriangle, Fingerprint } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { isBefore, parseISO, startOfDay } from 'date-fns';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -86,10 +88,13 @@ export function AddPatientDialog({
         ghanaCardId: patientToEdit.ghanaCardId || '',
         dob: patientToEdit.dob,
         gender: patientToEdit.gender,
-        maritalStatus: patientToEdit.maritalStatus,
+        maritalStatus: patientToEdit.maritalStatus as any,
         occupation: patientToEdit.occupation || '',
         religion: patientToEdit.religion || '',
         patientType: patientToEdit.patientType,
+        nhisNumber: patientToEdit.insurance?.nhisNumber || '',
+        nhisExpiryDate: patientToEdit.insurance?.nhisExpiryDate || '',
+        fingerprintVerified: patientToEdit.insurance?.fingerprintVerified || false,
         contact: {
             primaryPhone: patientToEdit.contact.primaryPhone,
             alternatePhone: patientToEdit.contact.alternatePhone,
@@ -123,6 +128,9 @@ export function AddPatientDialog({
       occupation: '',
       religion: '',
       patientType: "private",
+      nhisNumber: '',
+      nhisExpiryDate: '',
+      fingerprintVerified: false,
       contact: {
         primaryPhone: '',
         alternatePhone: '',
@@ -146,6 +154,10 @@ export function AddPatientDialog({
     },
   });
 
+  const patientType = form.watch('patientType');
+  const nhisExpiry = form.watch('nhisExpiryDate');
+  const isExpired = nhisExpiry && isBefore(parseISO(nhisExpiry), startOfDay(new Date()));
+
    React.useEffect(() => {
     if (patientToEdit) {
       setOpen(true);
@@ -158,10 +170,13 @@ export function AddPatientDialog({
         ghanaCardId: patientToEdit.ghanaCardId || '',
         dob: patientToEdit.dob,
         gender: patientToEdit.gender,
-        maritalStatus: patientToEdit.maritalStatus,
+        maritalStatus: patientToEdit.maritalStatus as any,
         occupation: patientToEdit.occupation || '',
         religion: patientToEdit.religion || '',
         patientType: patientToEdit.patientType,
+        nhisNumber: patientToEdit.insurance?.nhisNumber || '',
+        nhisExpiryDate: patientToEdit.insurance?.nhisExpiryDate || '',
+        fingerprintVerified: patientToEdit.insurance?.fingerprintVerified || false,
         contact: {
             primaryPhone: patientToEdit.contact.primaryPhone,
             alternatePhone: patientToEdit.contact.alternatePhone,
@@ -222,6 +237,14 @@ export function AddPatientDialog({
                 full_name: fullName,
                 full_name_lowercase: fullName.toLowerCase(),
                 phone_search: values.contact.primaryPhone.replace(/\D/g, ''),
+                insurance: {
+                    provider_name: values.patientType === 'public' ? 'NHIS' : '',
+                    policy_number: values.nhisNumber || '',
+                    nhisNumber: values.nhisNumber || '',
+                    nhisExpiryDate: values.nhisExpiryDate || '',
+                    fingerprintVerified: values.fingerprintVerified,
+                    isActive: !isExpired,
+                },
                 updated_at: new Date().toISOString(),
             }, { merge: true });
 
@@ -263,7 +286,7 @@ export function AddPatientDialog({
                 dob: values.dob,
                 gender: values.gender,
                 patientType: values.patientType,
-                maritalStatus: values.maritalStatus,
+                maritalStatus: values.maritalStatus as any,
                 occupation: values.occupation,
                 religion: values.religion,
                 ghanaCardId: values.ghanaCardId,
@@ -287,10 +310,13 @@ export function AddPatientDialog({
                 nextOfKin: values.nextOfKin,
                 clinical: values.clinical,
                 insurance: {
-                    provider_name: '',
-                    policy_number: '',
-                    expiry_date: '',
-                    isActive: true,
+                    provider_name: values.patientType === 'public' ? 'NHIS' : '',
+                    policy_number: values.nhisNumber || '',
+                    nhisNumber: values.nhisNumber || '',
+                    nhisExpiryDate: values.nhisExpiryDate || '',
+                    fingerprintVerified: values.fingerprintVerified,
+                    expiry_date: values.nhisExpiryDate || '',
+                    isActive: !isExpired,
                 },
                 is_admitted: false,
                 status: 'active',
@@ -516,7 +542,7 @@ export function AddPatientDialog({
                 <section className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-bold">
                         <ShieldCheck className="h-4 w-4" />
-                        <h4 className="text-sm uppercase tracking-widest">2. Identification (Ghana Context)</h4>
+                        <h4 className="text-sm uppercase tracking-widest">2. Identification & Type</h4>
                     </div>
                     <Separator />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -552,11 +578,76 @@ export function AddPatientDialog({
                     </div>
                 </section>
 
-                {/* 3. CONTACT INFORMATION */}
+                {/* 3. INSURANCE & COVERAGE (Conditional for NHIS) */}
+                {patientType === 'public' && (
+                    <section className="space-y-4 p-4 rounded-xl border border-blue-200 bg-blue-50/30">
+                        <div className="flex items-center gap-2 text-blue-700 font-bold">
+                            <CreditCard className="h-4 w-4" />
+                            <h4 className="text-sm uppercase tracking-widest">3. Insurance & Coverage (NHIS)</h4>
+                        </div>
+                        <Separator className="bg-blue-200" />
+                        
+                        {isExpired && (
+                            <div className="bg-red-50 border border-red-200 p-3 rounded-lg flex items-center gap-3 text-red-700 text-xs font-bold animate-pulse">
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                <span>ATTENTION: NHIS Card is expired. Verify validity before treatment.</span>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="nhisNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs">NHIS Number</FormLabel>
+                                        <FormControl><Input placeholder="8-digit NHIS ID" className="h-9 bg-white" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="nhisExpiryDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs">NHIS Expiry Date</FormLabel>
+                                        <FormControl><Input type="date" className="h-9 bg-white" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        
+                        <FormField
+                            control={form.control}
+                            name="fingerprintVerified"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border bg-white p-3 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-xs flex items-center gap-2">
+                                            <Fingerprint className="h-3 w-3 text-blue-600" />
+                                            Biometric Verification
+                                        </FormLabel>
+                                        <FormDescription className="text-[10px]">Was fingerprint verified at the kiosk?</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Switch
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                    </section>
+                )}
+
+                {/* 4. CONTACT INFORMATION */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-bold">
                         <Phone className="h-4 w-4" />
-                        <h4 className="text-sm uppercase tracking-widest">3. Contact Information</h4>
+                        <h4 className="text-sm uppercase tracking-widest">{patientType === 'public' ? '4' : '3'}. Contact Information</h4>
                     </div>
                     <Separator />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -625,11 +716,11 @@ export function AddPatientDialog({
                     </div>
                 </section>
 
-                {/* 4. EMERGENCY CONTACT */}
+                {/* 5. EMERGENCY CONTACT */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-bold">
                         <Home className="h-4 w-4" />
-                        <h4 className="text-sm uppercase tracking-widest">4. Emergency Contact (Next of Kin)</h4>
+                        <h4 className="text-sm uppercase tracking-widest">{patientType === 'public' ? '5' : '4'}. Emergency Contact</h4>
                     </div>
                     <Separator />
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -674,11 +765,11 @@ export function AddPatientDialog({
                     </div>
                 </section>
 
-                {/* 5. CLINICAL BASELINE */}
+                {/* 6. CLINICAL BASELINE */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-bold">
                         <HeartPulse className="h-4 w-4" />
-                        <h4 className="text-sm uppercase tracking-widest">5. Clinical Baseline</h4>
+                        <h4 className="text-sm uppercase tracking-widest">{patientType === 'public' ? '6' : '5'}. Clinical Baseline</h4>
                     </div>
                     <Separator />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

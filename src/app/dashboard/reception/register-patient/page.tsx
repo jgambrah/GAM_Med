@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShieldCheck, UserPlus, Phone, Home, HeartPulse, Shield } from 'lucide-react';
+import { Loader2, ShieldCheck, UserPlus, Phone, Home, HeartPulse, Shield, CreditCard, AlertTriangle, Fingerprint } from 'lucide-react';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,8 @@ import { Separator } from '@/components/ui/separator';
 import { PatientSchema } from '@/lib/schemas';
 import { Patient } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { isBefore, parseISO, startOfDay } from 'date-fns';
 
 const titles = ["Mr", "Mrs", "Ms", "Dr", "Rev", "Prof", "Master", "Miss"];
 const maritalStatuses = ["Single", "Married", "Divorced", "Widowed", "Separated"];
@@ -53,6 +55,9 @@ export default function RegisterPatientPage() {
             occupation: '',
             religion: '',
             patientType: "private",
+            nhisNumber: '',
+            nhisExpiryDate: '',
+            fingerprintVerified: false,
             contact: {
                 primaryPhone: '',
                 alternatePhone: '',
@@ -75,6 +80,10 @@ export default function RegisterPatientPage() {
             isTemporary: false,
         },
     });
+
+    const patientType = form.watch('patientType');
+    const nhisExpiry = form.watch('nhisExpiryDate');
+    const isExpired = nhisExpiry && isBefore(parseISO(nhisExpiry), startOfDay(new Date()));
 
     React.useEffect(() => {
         if (hospitalId) {
@@ -123,7 +132,7 @@ export default function RegisterPatientPage() {
                 dob: values.dob,
                 gender: values.gender,
                 patientType: values.patientType,
-                maritalStatus: values.maritalStatus,
+                maritalStatus: values.maritalStatus as any,
                 occupation: values.occupation,
                 religion: values.religion,
                 ghanaCardId: values.ghanaCardId,
@@ -146,6 +155,15 @@ export default function RegisterPatientPage() {
                 },
                 nextOfKin: values.nextOfKin,
                 clinical: values.clinical,
+                insurance: {
+                    provider_name: values.patientType === 'public' ? 'NHIS' : '',
+                    policy_number: values.nhisNumber || '',
+                    nhisNumber: values.nhisNumber || '',
+                    nhisExpiryDate: values.nhisExpiryDate || '',
+                    fingerprintVerified: values.fingerprintVerified,
+                    expiry_date: values.nhisExpiryDate || '',
+                    isActive: !isExpired,
+                },
                 is_admitted: false,
                 status: 'active',
                 created_at: new Date().toISOString(),
@@ -368,11 +386,76 @@ export default function RegisterPatientPage() {
                                 </div>
                             </section>
 
-                            {/* SECTION 3: CONTACT */}
+                            {/* SECTION 3: INSURANCE (Conditional for NHIS) */}
+                            {patientType === 'public' && (
+                                <section className="space-y-6 p-6 rounded-2xl border border-blue-200 bg-blue-50/30 shadow-inner">
+                                    <div className="flex items-center gap-2 text-blue-700 font-bold">
+                                        <CreditCard className="h-4 w-4" />
+                                        <h4 className="text-sm uppercase tracking-widest">3. Insurance & Coverage (NHIS)</h4>
+                                    </div>
+                                    <Separator className="bg-blue-200" />
+                                    
+                                    {isExpired && (
+                                        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-700 text-sm font-bold animate-pulse">
+                                            <AlertTriangle className="h-5 w-5 shrink-0" />
+                                            <span>NHIS CARD EXPIRED: Triage as "Private" until renewal is confirmed.</span>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <FormField
+                                            control={form.control}
+                                            name="nhisNumber"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-xs font-bold uppercase text-blue-800">NHIS Membership Number</FormLabel>
+                                                    <FormControl><Input placeholder="8-digit ID" className="h-11 bg-white border-blue-200 font-mono text-lg" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="nhisExpiryDate"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-xs font-bold uppercase text-blue-800">Card Expiry Date</FormLabel>
+                                                    <FormControl><Input type="date" className="h-11 bg-white border-blue-200" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    
+                                    <FormField
+                                        control={form.control}
+                                        name="fingerprintVerified"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-xl border border-blue-200 bg-white p-4 shadow-sm">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                                                        <Fingerprint className="h-4 w-4 text-blue-600" />
+                                                        Biometric Verification Status
+                                                    </FormLabel>
+                                                    <FormDescription className="text-xs">Mark as verified if kiosk authentication succeeded.</FormDescription>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </section>
+                            )}
+
+                            {/* SECTION 4: CONTACT */}
                             <section className="space-y-6">
                                 <div className="flex items-center gap-2 text-primary font-bold">
                                     <Phone className="h-4 w-4" />
-                                    <h4 className="text-sm uppercase tracking-widest">3. Contact Information</h4>
+                                    <h4 className="text-sm uppercase tracking-widest">{patientType === 'public' ? '4' : '3'}. Contact Information</h4>
                                 </div>
                                 <Separator />
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -452,11 +535,11 @@ export default function RegisterPatientPage() {
                                 </div>
                             </section>
 
-                            {/* SECTION 4: NEXT OF KIN */}
+                            {/* SECTION 5: NEXT OF KIN */}
                             <section className="space-y-6">
                                 <div className="flex items-center gap-2 text-primary font-bold">
                                     <Home className="h-4 w-4" />
-                                    <h4 className="text-sm uppercase tracking-widest">4. Next of Kin (Emergency)</h4>
+                                    <h4 className="text-sm uppercase tracking-widest">{patientType === 'public' ? '5' : '4'}. Next of Kin (Emergency)</h4>
                                 </div>
                                 <Separator />
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -501,11 +584,11 @@ export default function RegisterPatientPage() {
                                 </div>
                             </section>
 
-                            {/* SECTION 5: CLINICAL BASELINE */}
+                            {/* SECTION 6: CLINICAL BASELINE */}
                             <section className="space-y-6">
                                 <div className="flex items-center gap-2 text-primary font-bold">
                                     <HeartPulse className="h-4 w-4" />
-                                    <h4 className="text-sm uppercase tracking-widest">5. Clinical Baseline</h4>
+                                    <h4 className="text-sm uppercase tracking-widest">{patientType === 'public' ? '6' : '5'}. Clinical Baseline</h4>
                                 </div>
                                 <Separator />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

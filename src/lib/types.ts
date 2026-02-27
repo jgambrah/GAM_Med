@@ -158,6 +158,9 @@ export interface Patient {
     policy_number: string;
     isActive: boolean;
     expiry_date: string;
+    nhisNumber?: string;
+    nhisExpiryDate?: string;
+    fingerprintVerified?: boolean;
   };
   allergies?: string[];
   medicalHistory?: {
