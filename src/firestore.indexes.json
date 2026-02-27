@@ -60,6 +60,22 @@
       ]
     },
     {
+      "collectionGroup": "dietary_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "radiology_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "dateOrdered", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "controlled_substance_logs",
       "queryScope": "COLLECTION",
       "fields": [
