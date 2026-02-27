@@ -39,7 +39,7 @@ import { Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
-import { doc, runTransaction, serverTimestamp, setDoc, collection } from 'firebase/firestore';
+import { doc, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 

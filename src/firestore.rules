@@ -133,6 +133,16 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
 
+    match /referrals/{refId} {
+      allow list: if isSignedIn() && (
+        (request.query.filters.size() >= 1 && request.query.filters[0].field == "toHospitalId" && request.query.filters[0].value == getMyHospitalId()) ||
+        (request.query.filters.size() >= 1 && request.query.filters[0].field == "fromHospitalId" && request.query.filters[0].value == getMyHospitalId())
+      );
+      allow get: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId());
+      allow create: if isSignedIn() && request.resource.data.fromHospitalId == getMyHospitalId();
+      allow update: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId());
+    }
+
     match /{collection}/{docId} {
       allow read, write: if isSignedIn() && (isSuperAdmin() || (resource.data.hospitalId == getMyHospitalId() || request.resource.data.hospitalId == getMyHospitalId()));
     }
