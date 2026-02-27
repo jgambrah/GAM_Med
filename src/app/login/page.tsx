@@ -55,7 +55,8 @@ export default function LoginPage() {
 
             /**
              * == USER DISCOVERY (SEARCH BY UID) ==
-             * We must specify a limit(1) to satisfy security rules that guard against broad list scans.
+             * We use a list query with a UID filter. Firestore rules explicitly allow this 
+             * for the login handshake.
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             

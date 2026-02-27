@@ -91,8 +91,8 @@ service cloud.firestore {
     match /users/{userDocId} {
       // Allow users to query for their own profile via UID field during login handshake
       allow list: if isSignedIn() && (
-        (request.query.filters.size() == 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
-        isSameHospital(resource.data)
+        (request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
+        (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId())
       );
       allow get: if isSignedIn() && (request.auth.uid == resource.data.uid || isSameHospital(resource.data));
       allow create: if isSignedIn() && isAdmin() && request.resource.data.hospitalId == getMyHospitalId();
@@ -100,7 +100,7 @@ service cloud.firestore {
     }
 
     match /patients/{patientId} {
-      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow get: if isSignedIn() && (isSameHospital(resource.data) || isPatient(patientId));
       allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId());
       allow update: if isSignedIn() && isSameHospital(resource.data);
@@ -108,7 +108,7 @@ service cloud.firestore {
     }
 
     match /appointments/{apptId} {
-      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow get: if isSignedIn() && isSameHospital(resource.data);
       allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
       allow update: if isSignedIn() && isSameHospital(resource.data);
@@ -119,25 +119,25 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     match /vitals/{vitalId} {
-      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /clinical_notes/{noteId} {
-      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /lab_orders/{orderId} {
-      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /invoices/{invId} {
-      allow list: if isSignedIn() && (request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
