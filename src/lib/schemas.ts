@@ -40,6 +40,12 @@ export const PatientSchema = z.object({
   isTemporary: z.boolean().optional(),
 });
 
+export const NewWardSchema = z.object({
+  hospitalId: z.string().min(1),
+  name: z.string().min(2, "Ward name is required"),
+  type: z.enum(['General', 'ICU', 'Pediatric', 'Maternity', 'Surgical', 'Isolation', 'Emergency']),
+});
+
 export const NewBedSchema = z.object({
   hospitalId: z.string().min(1),
   wardId: z.string().min(1, "Ward ID is required"),
