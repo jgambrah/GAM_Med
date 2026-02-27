@@ -50,14 +50,6 @@ interface AddPatientDialogProps {
     onPatientUpdated?: () => void;
 }
 
-/**
- * == Enterprise Patient Onboarding: Atomic ID Generation ==
- * 
- * This component handles the registration of new patients.
- * It implements the "Counter Pattern" using Firestore Transactions to ensure
- * every patient receives a unique, sequential MRN (Medical Record Number).
- * Manual entry is disabled to prevent clinical duplicates.
- */
 export function AddPatientDialog({
   patientToEdit,
   onOpenChange,
@@ -185,7 +177,6 @@ export function AddPatientDialog({
         isTemporary: patientToEdit.isTemporary || false,
       });
     } else {
-        setOpen(false);
         if (user) {
             form.setValue('hospitalId', user.hospitalId);
         }
@@ -238,18 +229,15 @@ export function AddPatientDialog({
 
             // 2. RUN THE TRANSACTION TO GET THE BRANDED SEQUENTIAL ID
             const generatedMrn = await runTransaction(db, async (transaction) => {
-                // A. Get Facility Prefix (e.g., MMH)
                 const hospSnap = await transaction.get(hospitalRef);
                 const prefix = hospSnap.exists() ? (hospSnap.data().prefix || 'MRN') : 'MRN';
 
-                // B. Get and Increment Sequence
                 const counterSnap = await transaction.get(counterRef);
                 let nextNum = 1001; 
                 if (counterSnap.exists()) {
                     nextNum = (counterSnap.data().lastValue || 1000) + 1;
                 }
 
-                // C. Update counter
                 transaction.set(counterRef, { lastValue: nextNum }, { merge: true });
                 
                 return `${prefix}-${nextNum}`;
@@ -332,7 +320,7 @@ export function AddPatientDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
               
-              {/* SYSTEM GENERATED MRN DISPLAY */}
+              {/* SYSTEM GENERATED MRN INDICATOR */}
               <div className="bg-muted/50 border border-input p-3 rounded-lg flex items-center justify-between mb-4">
                   <div>
                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Medical Record Number</p>
@@ -341,7 +329,7 @@ export function AddPatientDialog({
                       </p>
                   </div>
                   <Badge variant="secondary" className="text-[10px] uppercase tracking-tighter">
-                      {isEditing ? "Locked Record" : "Branded Sequence"}
+                      Branded Sequence
                   </Badge>
               </div>
 
