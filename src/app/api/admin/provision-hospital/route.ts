@@ -6,15 +6,21 @@ import { NextResponse } from 'next/server';
  * == Fault-Tolerant Enterprise Provisioning Engine ==
  * 
  * This API performs the atomic "Handover" of a new hospital tenant.
- * It is designed to be resilient to email delivery failures.
+ * It is designed to be resilient to email delivery failures and data mismatches.
  */
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { name, email, directorName } = body;
+        
+        // SAFE DESTRUCTURING: Prevent .toLowerCase() crashes on undefined
+        const { 
+            name = "", 
+            email = "", 
+            directorName = "" 
+        } = body;
 
-        if (!email) {
-            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+        if (!email || !name) {
+            return NextResponse.json({ error: "Hospital name and Director email are required." }, { status: 400 });
         }
 
         const normalizedEmail = email.toLowerCase().trim();
@@ -110,6 +116,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ 
             success: true, 
             hospitalId,
+            tempPassword,
             message: "Hospital provisioned and identity stamped successfully." 
         });
 

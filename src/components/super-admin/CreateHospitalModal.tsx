@@ -72,7 +72,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
     
-    // ENSURE THESE NAMES: name, email, directorName
+    // ENSURE THESE NAMES: name, email, directorName (Synchronized with Backend API)
     const payload = {
         name: values.hospitalName,         // The Hospital Name
         email: values.directorEmail,       // The Director's Email
