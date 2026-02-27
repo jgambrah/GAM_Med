@@ -42,6 +42,15 @@
       ]
     },
     {
+      "collectionGroup": "diagnoses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "patientId", "order": "ASCENDING" },
+        { "fieldPath": "diagnosedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "vitals",
       "queryScope": "COLLECTION",
       "fields": [
@@ -73,6 +82,46 @@
       "fields": [
         { "fieldPath": "hospitalId", "order": "ASCENDING" },
         { "fieldPath": "dateOrdered", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ot_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "startTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inventory_assets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "purchase_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "mortality_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "dateOfDeath", "order": "DESCENDING" }
       ]
     },
     {
