@@ -1,16 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { PatientEHR } from '../../my-practice/components/patient-ehr';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Patient } from '@/lib/types';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
 
 /**
  * == Live SaaS Patient Electronic Medical Record ==
@@ -35,8 +34,6 @@ export default function PatientDetailPage() {
   const { data: patient, isLoading: isDocLoading, error } = useDoc<Patient>(patientRef);
 
   // SAAS SECURITY WALL
-  // We handle the access check in the render logic to prevent premature 404s
-  // during hydration or session synchronization.
   const isAuthorized = React.useMemo(() => {
     if (isAuthLoading || isDocLoading) return true; // Assume true while loading
     if (!user || !patient) return false;
@@ -44,22 +41,26 @@ export default function PatientDetailPage() {
     return patient.hospitalId === user.hospitalId;
   }, [user, patient, isAuthLoading, isDocLoading]);
 
-  if (isDocLoading || isAuthLoading) {
+  // 1. Loading State (Auth or Doc)
+  if (isAuthLoading || isDocLoading || !firestore) {
     return (
       <div className="p-8 space-y-6">
-        <Skeleton className="h-12 w-64" />
+        <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary opacity-20" />
+            <Skeleton className="h-10 w-64" />
+        </div>
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-[500px] w-full" />
       </div>
     );
   }
 
-  // 1. If document definitely doesn't exist
+  // 2. If document definitely doesn't exist (Only check after loading is false)
   if (!patient && !error) {
     return notFound();
   }
 
-  // 2. If access is denied by rules or SaaS logic
+  // 3. If access is denied by rules or SaaS logic
   if (!isAuthorized || error) {
     return (
         <div className="flex flex-col items-center justify-center h-[70vh] text-center p-8 bg-destructive/5 rounded-3xl border-2 border-dashed border-destructive/20 m-6">

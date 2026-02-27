@@ -8,7 +8,8 @@ import { ChevronLeft, Loader2, ShieldAlert } from 'lucide-react';
 import { StaffProfile, User as UserType } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LeaveTab } from './components/leave-tab';
 import { ProfileDetailsTab } from './components/profile-details-tab';
@@ -23,37 +24,33 @@ import { Badge } from '@/components/ui/badge';
 export default function StaffProfilePage() {
   const router = useRouter();
   const params = useParams();
-  const { user: currentUser } = useAuth();
   const staffId = params.staffId as string;
-  
-  const [allUsersData, setAllUsers] = useLocalStorage<UserType[]>('allUsers', allUsers);
-  const [staffProfiles, setStaffProfiles] = useLocalStorage<StaffProfile[]>('staffProfiles', mockStaffProfiles);
+  const { user: currentUser, loading: isAuthLoading } = useAuth();
+  const firestore = useFirestore();
 
-  const staff = allUsersData.find((p) => p.uid === staffId);
-  const staffProfile = staffProfiles.find(p => p.staffId === staffId);
+  // 1. Fetch live staff profile from Firestore
+  const staffRef = useMemoFirebase(() => {
+    if (!firestore || !staffId) return null;
+    return doc(firestore, 'users', staffId);
+  }, [firestore, staffId]);
 
-  // SAAS SECURITY WALL: 
-  // Prevent cross-tenant record viewing via direct URL navigation.
-  if (staff && currentUser && staff.hospitalId !== currentUser.hospitalId) {
-    return (
-        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 bg-destructive/5 rounded-2xl border-2 border-dashed border-destructive/20">
-            <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
-            <h2 className="text-xl font-black text-destructive uppercase tracking-tighter">Tenant Access Violation</h2>
-            <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                You do not have permission to view personnel records belonging to another healthcare facility. 
-                This attempt has been logged in the platform security audit.
-            </p>
-            <Button variant="outline" className="mt-6 font-bold" onClick={() => router.back()}>
-                Return to Safe Zone
-            </Button>
-        </div>
-    );
-  }
+  const { data: staff, isLoading: isDocLoading, error } = useDoc<UserType>(staffRef);
 
-  if (!staff || !staffProfile) {
+  // 2. SAAS SECURITY WALL
+  const isAuthorized = React.useMemo(() => {
+    if (isAuthLoading || isDocLoading) return true; // Assume true while loading
+    if (!currentUser || !staff) return false;
+    if (currentUser.role === 'super_admin') return true;
+    return staff.hospitalId === currentUser.hospitalId;
+  }, [currentUser, staff, isAuthLoading, isDocLoading]);
+
+  if (isAuthLoading || isDocLoading || !firestore) {
     return (
       <div className="space-y-6 p-8">
-        <Skeleton className="h-12 w-64" />
+        <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin opacity-20" />
+            <Skeleton className="h-12 w-64" />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Skeleton className="h-48 w-full rounded-xl" />
             <Skeleton className="h-48 w-full rounded-xl" />
@@ -64,16 +61,41 @@ export default function StaffProfilePage() {
     );
   }
 
-  const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
-  const isSelf = staff.uid === currentUser?.uid;
-
-  const setStaff = (updater: React.SetStateAction<UserType | undefined>) => {
-    setAllUsers(prev => prev.map(u => u.uid === staffId ? (typeof updater === 'function' ? updater(u) as UserType : updater) as UserType : u));
-  };
-  
-  const setStaffProfileState = (updater: React.SetStateAction<StaffProfile | undefined>) => {
-     setStaffProfiles(prev => prev.map(p => p.staffId === staffId ? (typeof updater === 'function' ? updater(p) as StaffProfile : updater) as StaffProfile : p));
+  if (!staff && !error) {
+    return notFound();
   }
+
+  if (!isAuthorized || error) {
+    return (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 bg-destructive/5 rounded-2xl border-2 border-dashed border-destructive/20 m-6">
+            <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+            <h2 className="text-xl font-black text-destructive uppercase tracking-tighter">Tenant Access Violation</h2>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                You do not have permission to view personnel records belonging to another healthcare facility.
+            </p>
+            <Button variant="outline" className="mt-6 font-bold" onClick={() => router.back()}>
+                Return to Safe Zone
+            </Button>
+        </div>
+    );
+  }
+
+  const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
+
+  // Mock staff profile for secondary HR data (Leave, Performance)
+  // In a real app, this would also be a Firestore hook
+  const staffProfile: StaffProfile = {
+      staffId: staff.uid,
+      hospitalId: staff.hospitalId,
+      firstName: staff.name.split(' ')[0],
+      lastName: staff.name.split(' ')[1] || '',
+      positionId: staffPosition?.positionId || '',
+      department: staff.department || 'Clinical',
+      employmentStatus: 'Active',
+      recurringAllowances: [],
+      recurringDeductions: [],
+      leaveBalances: staff.leaveBalances || { 'Annual Leave': 20, 'Sick Leave': 10 }
+  };
 
   return (
     <div className="space-y-6">
@@ -103,7 +125,7 @@ export default function StaffProfilePage() {
             <TabsTrigger value="payroll">Compensation</TabsTrigger>
         </TabsList>
          <TabsContent value="profile" className="mt-6">
-            <ProfileDetailsTab staff={staff} user={currentUser} setStaff={setStaff} />
+            <ProfileDetailsTab staff={staff} user={currentUser} setStaff={() => {}} />
         </TabsContent>
          <TabsContent value="performance" className="mt-6">
             <div className="p-12 text-center border-2 border-dashed rounded-2xl opacity-40">
@@ -111,7 +133,7 @@ export default function StaffProfilePage() {
             </div>
         </TabsContent>
         <TabsContent value="leave" className="mt-6">
-            <LeaveTab staffProfile={staffProfile} setStaffProfile={setStaffProfileState as any} user={currentUser} />
+            <LeaveTab staffProfile={staffProfile} setStaffProfile={() => {}} user={currentUser} />
         </TabsContent>
         <TabsContent value="payroll" className="mt-6">
             <div className="p-12 text-center border-2 border-dashed rounded-2xl opacity-40">

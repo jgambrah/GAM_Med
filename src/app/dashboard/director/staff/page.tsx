@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -123,7 +122,7 @@ export default function StaffManagement() {
                                                     <DropdownMenuContent align="end" className="w-48">
                                                         <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Management</DropdownMenuLabel>
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={`/dashboard/hr/staff/${member.uid || member.id}`} className="cursor-pointer">
+                                                            <Link href={`/dashboard/hr/staff/${member.id}`} className="cursor-pointer">
                                                                 <UserSearch className="mr-2 h-4 w-4" /> View Details
                                                             </Link>
                                                         </DropdownMenuItem>
