@@ -93,7 +93,7 @@ service cloud.firestore {
         (request.query.filters.uid == request.auth.uid) ||
         (request.query.filters.hospitalId == getMyHospitalId())
       );
-      allow get: if isSignedIn() && (request.auth.uid == resource.data.uid || isSameHospital(resource.data));
+      allow get: if isSignedIn() && (request.auth.uid == userDocId || request.auth.uid == resource.data.uid || isSameHospital(resource.data));
       allow create: if isSignedIn() && isAdmin() && request.resource.data.hospitalId == getMyHospitalId();
       allow update: if isSignedIn() && (request.auth.uid == resource.data.uid || (isAdmin() && isSameHospital(resource.data)));
     }

@@ -60,6 +60,15 @@
       ]
     },
     {
+      "collectionGroup": "prescriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "datePrescribed", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "vitals",
       "queryScope": "COLLECTION",
       "fields": [
