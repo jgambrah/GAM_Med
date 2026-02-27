@@ -19,24 +19,16 @@ service cloud.firestore {
 
     /**
      * @description Fetches the hospitalId for the currently logged-in user.
+     * Uses Custom Claims if available, else falls back to role registry lookup.
      */
     function getMyHospitalId() {
-      if (request.auth.token.hospitalId != null) {
-        return request.auth.token.hospitalId;
-      }
-      
-      // Fallback: Check role registry documents
-      let adminPath = /databases/$(database)/documents/roles_admin/$(request.auth.uid);
-      if (exists(adminPath)) {
-        return get(adminPath).data.hospitalId;
-      }
-      
-      let staffPath = /databases/$(database)/documents/roles_staff/$(request.auth.uid);
-      if (exists(staffPath)) {
-        return get(staffPath).data.hospitalId;
-      }
-      
-      return null;
+      return request.auth.token.hospitalId != null 
+        ? request.auth.token.hospitalId 
+        : (exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) 
+          ? get(/databases/$(database)/documents/roles_admin/$(request.auth.uid)).data.hospitalId 
+          : (exists(/databases/$(database)/documents/roles_staff/$(request.auth.uid)) 
+            ? get(/databases/$(database)/documents/roles_staff/$(request.auth.uid)).data.hospitalId 
+            : null));
     }
 
     function isAdmin() {
@@ -49,8 +41,7 @@ service cloud.firestore {
     }
 
     function isSameHospital(docData) {
-      let myHospId = getMyHospitalId();
-      return isSignedIn() && (docData.hospitalId == myHospId || isSuperAdmin());
+      return isSignedIn() && (docData.hospitalId == getMyHospitalId() || isSuperAdmin());
     }
 
     function isPatient(patientId) {
