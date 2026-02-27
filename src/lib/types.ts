@@ -3,6 +3,20 @@
  * Ensures all financial and clinical entities are properly defined for the Billing Dashboard.
  */
 
+export interface NhisClaim {
+  id: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  nhisNumber: string;
+  amount: number;
+  status: 'Pending' | 'Submitted' | 'Vetted' | 'Approved' | 'Paid' | 'Rejected';
+  diagnosisCode: string;
+  serviceDate: string;
+  createdAt: any;
+  updatedAt?: any;
+}
+
 export interface Facility {
   id: string;
   hospitalId: string;

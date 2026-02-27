@@ -7,16 +7,16 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Hourglass, CheckCircle2, XCircle, Landmark, Loader2, TrendingUp } from 'lucide-react';
+import { FileText, Hourglass, CheckCircle2, XCircle, Landmark, Loader2, TrendingUp, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { NhisClaim } from '@/lib/types';
 
 /**
- * == NHIS Claims & Tracking Dashboard ==
+ * == NHIS Claims & Tracking Hub ==
  * 
- * Provides a high-fidelity workspace for the NHIS Coordinator.
- * Tracks the statutory reimbursement cycle from the government.
- * Strictly logically isolated via the hospitalId SaaS Wall.
+ * Provides high-fidelity oversight of statutory government claims.
+ * Every claim is logically isolated via the hospitalId SaaS Wall.
  */
 export default function NHISTrackingPage() {
     const { user } = useAuth();
@@ -33,14 +33,14 @@ export default function NHISTrackingPage() {
         );
     }, [firestore, hospitalId]);
 
-    const { data: claims, isLoading } = useCollection(claimsQuery);
+    const { data: claims, isLoading } = useCollection<NhisClaim>(claimsQuery);
 
-    const calculateTotal = (items: any[] | null) => {
+    const calculateTotal = (items: NhisClaim[] | null) => {
         if (!items) return 0;
-        return items.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+        return items.reduce((acc, curr) => acc + (parseFloat(curr.amount as any) || 0), 0);
     };
 
-    const filterBy = (items: any[] | null, status: string) => {
+    const filterBy = (items: NhisClaim[] | null, status: string) => {
         if (!items) return 0;
         return items.filter(i => i.status === status).length;
     };
@@ -72,27 +72,33 @@ export default function NHISTrackingPage() {
             </div>
 
             {/* Claim Status Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <StatusCard 
                     title="Pending Submission" 
                     count={filterBy(claims, 'Pending')} 
                     icon={<FileText className="text-slate-500" />} 
-                    sub="Unprocessed Batches"
+                    sub="Awaiting Batching"
                 />
                 <StatusCard 
                     title="Under Review" 
                     count={filterBy(claims, 'Submitted')} 
                     icon={<Hourglass className="text-orange-500" />} 
-                    sub="Awaiting Vetting"
+                    sub="Submitted to NHIA"
                 />
                 <StatusCard 
-                    title="Vetted & Approved" 
+                    title="Vetted" 
+                    count={filterBy(claims, 'Vetted')} 
+                    icon={<ShieldCheck className="text-blue-500" />} 
+                    sub="Audit Complete"
+                />
+                <StatusCard 
+                    title="Approved" 
                     count={filterBy(claims, 'Approved')} 
                     icon={<CheckCircle2 className="text-green-600" />} 
                     sub="Pending Disbursement"
                 />
                 <StatusCard 
-                    title="Rejected / Returned" 
+                    title="Rejected" 
                     count={filterBy(claims, 'Rejected')} 
                     icon={<XCircle className="text-red-600" />} 
                     sub="Action Required"
@@ -103,7 +109,7 @@ export default function NHISTrackingPage() {
             <Card className="shadow-xl border-none ring-1 ring-slate-200 overflow-hidden">
                 <CardHeader className="bg-slate-900 text-white pb-6">
                     <CardTitle className="text-lg font-bold">NHIS Claims Register</CardTitle>
-                    <CardDescription className="text-slate-400 text-xs">A comprehensive ledger of all statutory claims submitted to the National Health Insurance Authority.</CardDescription>
+                    <CardDescription className="text-slate-400 text-xs">Official ledger of G-DRG tariff claims scoped to this facility.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0 bg-white">
                     <Table>
@@ -112,36 +118,37 @@ export default function NHISTrackingPage() {
                                 <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Claim ID</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Patient / NHIS ID</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Service Date</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-widest">Diagnosis</TableHead>
-                                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Amount (₵)</TableHead>
-                                <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Status</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest">Diagnosis (ICD-10)</TableHead>
+                                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Tariff Amount (₵)</TableHead>
+                                <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Claim Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {claims && claims.length > 0 ? (
-                                claims.map((claim: any) => (
+                                claims.map((claim) => (
                                     <TableRow key={claim.id} className="hover:bg-slate-50 transition-colors border-b last:border-0 h-16">
                                         <TableCell className="pl-6 font-mono text-[10px] font-bold text-muted-foreground uppercase">
                                             {claim.id.slice(0, 8)}
                                         </TableCell>
                                         <TableCell>
-                                            <p className="font-bold text-slate-900">{claim.patientName}</p>
-                                            <p className="text-[10px] font-mono text-blue-600 font-bold">{claim.nhisNumber}</p>
+                                            <p className="font-bold text-slate-900 text-xs">{claim.patientName}</p>
+                                            <p className="text-[9px] font-mono text-blue-600 font-bold tracking-tight">{claim.nhisNumber}</p>
                                         </TableCell>
-                                        <TableCell className="text-xs font-medium">
+                                        <TableCell className="text-[11px] font-medium text-slate-600">
                                             {claim.serviceDate ? format(new Date(claim.serviceDate), 'MMM dd, yyyy') : 'N/A'}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className="text-[9px] font-bold uppercase border-slate-200 bg-slate-50">
-                                                {claim.diagnosisCode || 'ICD-10 TBD'}
+                                                {claim.diagnosisCode || 'PENDING'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right font-black font-mono text-slate-900">
-                                            ₵{parseFloat(claim.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            ₵{parseFloat(claim.amount as any).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
                                             <Badge className={cn(
-                                                "text-[9px] font-black uppercase tracking-tighter",
+                                                "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 shadow-sm border-none",
+                                                claim.status === 'Paid' ? "bg-emerald-500" :
                                                 claim.status === 'Approved' ? "bg-green-500" :
                                                 claim.status === 'Rejected' ? "bg-red-500" :
                                                 claim.status === 'Submitted' ? "bg-blue-500" : "bg-slate-500"
@@ -166,11 +173,11 @@ export default function NHISTrackingPage() {
                 </CardContent>
             </Card>
 
-            {/* Financial Tip */}
+            {/* Operational Guidance */}
             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center gap-4">
                 <TrendingUp className="h-5 w-5 text-blue-600" />
                 <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                    <strong>Coordination Tip:</strong> Reconcile rejected claims within 48 hours to minimize the reimbursement cycle. Use the <strong>Clinical Returns</strong> module to ensure ICD-10 coding accuracy.
+                    <strong>Coordination Tip:</strong> Reconcile <strong>Rejected</strong> claims within 48 hours to minimize the reimbursement cycle. Use the <strong>Clinical Returns</strong> module to ensure ICD-10 coding accuracy before final NHIA submission.
                 </p>
             </div>
         </div>

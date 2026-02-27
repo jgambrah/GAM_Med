@@ -133,6 +133,12 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
 
+    match /nhis_claims/{claimId} {
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow read: if isSignedIn() && isSameHospital(resource.data);
+      allow write: if isSignedIn() && isSameHospital(request.resource.data) && (isAdmin() || request.auth.token.role == 'billing_clerk');
+    }
+
     match /referrals/{refId} {
       allow list: if isSignedIn() && (
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "toHospitalId" && request.query.filters[0].value == getMyHospitalId()) ||
