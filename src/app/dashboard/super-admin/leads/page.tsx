@@ -24,7 +24,7 @@ export default function SalesLeadsPage() {
     const [selectedLead, setSelectedLead] = useState<any>(null);
 
     // 1. LIVE QUERY: Listen for demo requests
-    // SAAS GUARD: The query is set to null for non-admins to prevent Method:List errors
+    // SAAS GUARD: Wrap query in role check to prevent "Spy Queries" causing 500 errors for Marcus
     const leadsQuery = useMemoFirebase(() => {
         if (!firestore || user?.role !== 'super_admin') return null;
         return query(collection(firestore, "demo_requests"), orderBy("requestedAt", "desc"));
@@ -46,7 +46,7 @@ export default function SalesLeadsPage() {
         setSelectedLead(null);
     };
 
-    // UI GUARD: If Marcus accidentally navigates here, show a clean "Not Authorized" screen instead of a crash
+    // UI GUARD: Explicitly block rendering for non-CEO users
     if (user?.role !== 'super_admin') {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 bg-muted/20 rounded-2xl border-2 border-dashed">

@@ -4,12 +4,14 @@ import * as React from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Users, Building2, CreditCard, Zap, Server } from 'lucide-react';
+import { Activity, Users, Building2, CreditCard, Zap, Server, Globe } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function PlatformPulsePage() {
+    const { user } = useAuth();
     const firestore = useFirestore();
     const [stats, setStats] = React.useState({
         hospitals: 0,
@@ -20,9 +22,10 @@ export default function PlatformPulsePage() {
     const [isStatsLoading, setIsStatsLoading] = React.useState(true);
 
     // 1. Fetch Global Totals (One-time fetch)
+    // SAAS GUARD: Add explicit role check to prevent "Spy Queries" for Directors
     React.useEffect(() => {
         const fetchTotals = async () => {
-            if (!firestore) return;
+            if (!firestore || user?.role !== 'super_admin') return;
             try {
                 const [hSnap, pSnap, uSnap] = await Promise.all([
                     getDocs(collection(firestore, "hospitals")),
@@ -43,20 +46,31 @@ export default function PlatformPulsePage() {
             }
         };
         fetchTotals();
-    }, [firestore]);
+    }, [firestore, user?.role]);
 
     // 2. Global Activity Feed (Live Subscription)
-    // As Super Admin, our rules allow us to query the entire 'patients' collection without hospitalId filters.
+    // SAAS GUARD: Return null if the user is not the Super Admin to prevent list errors
     const activityQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || user?.role !== 'super_admin') return null;
         return query(
             collection(firestore, "patients"), 
             orderBy("createdAt", "desc"), 
             limit(10)
         );
-    }, [firestore]);
+    }, [firestore, user?.role]);
 
     const { data: recentPatients, isLoading: isActivityLoading } = useCollection(activityQuery);
+
+    // UI GUARD: Prevent Marcus from seeing platform pulse
+    if (user?.role !== 'super_admin') {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 opacity-40">
+                <Globe className="h-16 w-16 mb-4" />
+                <h2 className="text-xl font-bold">Access Restricted</h2>
+                <p className="text-sm">This console is reserved for platform administrators.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 min-h-full">
