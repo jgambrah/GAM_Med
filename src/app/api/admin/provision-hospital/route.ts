@@ -51,6 +51,7 @@ export async function POST(req: Request) {
 
         // 4. THE "SAAS STAMP" (Custom JWT Claims)
         // This locks the user into their hospital room at the token level.
+        // This is pulled into the browser session via getIdToken(true) in LoginPage.
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 

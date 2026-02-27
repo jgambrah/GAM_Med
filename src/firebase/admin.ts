@@ -4,8 +4,8 @@ import * as admin from 'firebase-admin';
  * == Diagnostic-First Admin SDK ==
  * 
  * Uses individual environment variables to bypass JSON parsing issues.
- * Implements lazy-initialization and diagnostic error tracking to 
- * provide clear feedback in Vercel logs.
+ * Implements lazy-initialization to provide clear feedback and avoid
+ * build-time crashes during static analysis.
  */
 
 let initError: string | null = null;
@@ -41,6 +41,7 @@ function initializeAdmin() {
   }
 }
 
+// Lazy-init the app reference
 const app = initializeAdmin();
 
 /**
