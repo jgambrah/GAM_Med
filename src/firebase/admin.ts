@@ -59,3 +59,8 @@ export const getAdminServices = () => {
         adminAuth: admin.auth()
     };
 };
+
+// Export individual services for cleaner imports in API routes
+const services = app ? { db: admin.firestore(), auth: admin.auth() } : null;
+export const adminDb = services?.db!;
+export const adminAuth = services?.auth!;

@@ -54,7 +54,7 @@ export default function LoginPage() {
              * == USER DISCOVERY (REQUIRED SYNTAX) ==
              * C. Find the user's profile document by UID field using exact required syntax
              */
-            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser.uid));
+            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser!.uid));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
@@ -84,6 +84,7 @@ export default function LoginPage() {
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {
+                // Directors and all other staff land here
                 router.push('/dashboard');
             }
 
@@ -102,7 +103,7 @@ export default function LoginPage() {
         <div className="mx-auto max-w-sm w-full space-y-6">
             <Card className="shadow-lg border-t-4 border-t-primary">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl text-center font-bold">GamMed Sign In</CardTitle>
+                    <CardTitle className="text-2xl text-center font-bold">MedFlow GH Sign In</CardTitle>
                     <CardDescription className="text-center">
                         Access your secure hospital portal
                     </CardDescription>
@@ -145,7 +146,7 @@ export default function LoginPage() {
             </Card>
             
             <div className="text-center space-y-4">
-                <p className="text-sm text-muted-foreground font-medium italic">New healthcare facility interested in GamMed?</p>
+                <p className="text-sm text-muted-foreground font-medium italic">New healthcare facility interested in MedFlow GH?</p>
                 <RequestDemoDialog />
                 <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
                     <p>&copy; 2024 Gam It Services. All rights reserved.</p>
