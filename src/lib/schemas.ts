@@ -1,37 +1,35 @@
 import { z } from 'zod';
 
 export const PatientSchema = z.object({
-  hospitalId: z.string().optional(),
-  mrn: z.string().optional(), // Optional for emergency/temporary generation
-  title: z.string().optional(),
+  hospitalId: z.string().min(1),
+  title: z.string().min(1, "Title is required"),
   firstName: z.string().min(2, "First name is required"),
   lastName: z.string().min(2, "Last name is required"),
   otherNames: z.string().optional(),
-  ghanaCardId: z.string().optional(),
   dob: z.string().min(1, "Date of birth is required"),
-  gender: z.enum(['Male', 'Female', 'Other']),
-  patientType: z.enum(['private', 'corporate', 'public']),
-  maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed"]).optional(),
+  gender: z.enum(["Male", "Female", "Other"]),
+  maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed", "Separated"]),
   occupation: z.string().optional(),
+  religion: z.string().optional(),
+  ghanaCardId: z.string().optional(),
+  patientType: z.enum(["private", "corporate", "public"]),
   contact: z.object({
-    primaryPhone: z.string().min(10),
+    primaryPhone: z.string().min(10, "Phone number must be at least 10 digits"),
     alternatePhone: z.string().optional(),
     email: z.string().email().optional().or(z.literal('')),
-    address: z.object({
-      street: z.string().min(1),
-      city: z.string().min(1),
-      region: z.string().min(1),
-    }),
+    address: z.string().min(5, "Residential address is required"),
+    city: z.string().min(1, "City/Town is required"),
+    region: z.string().min(1, "Region is required"),
   }),
-  emergencyContact: z.object({
-    name: z.string().min(2),
-    relationship: z.string().min(2),
-    phone: z.string().min(10),
+  nextOfKin: z.object({
+    name: z.string().min(2, "Next of Kin name is required"),
+    relationship: z.string().min(1, "Relationship is required"),
+    phone: z.string().min(10, "Phone number must be at least 10 digits"),
   }),
-  insurance: z.object({
-    providerName: z.string().optional(),
-    policyNumber: z.string().optional(),
-    expiryDate: z.string().optional(),
+  clinical: z.object({
+    bloodGroup: z.string().optional(),
+    genotype: z.string().optional(),
+    allergies: z.string().optional(),
   }).optional(),
   consent: z.boolean().refine(val => val === true, {
     message: "Consent is required.",

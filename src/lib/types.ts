@@ -124,8 +124,9 @@ export interface Patient {
   dob: string;
   gender: 'Male' | 'Female' | 'Other';
   patientType: 'private' | 'corporate' | 'public';
-  maritalStatus?: "Single" | "Married" | "Divorced" | "Widowed";
+  maritalStatus?: "Single" | "Married" | "Divorced" | "Widowed" | "Separated";
   occupation?: string;
+  religion?: string;
   contact: {
     primaryPhone: string;
     alternatePhone?: string;
@@ -141,6 +142,16 @@ export interface Patient {
     name: string;
     relationship: string;
     phone: string;
+  };
+  nextOfKin?: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
+  clinical?: {
+    bloodGroup?: string;
+    genotype?: string;
+    allergies?: string;
   };
   insurance?: {
     provider_name: string;
@@ -735,32 +746,6 @@ export interface RadiologyReport {
   pacsLink?: string;
   reportPdfUrl?: string;
   isFinal: boolean;
-}
-
-export interface OTSession {
-  id: string;
-  sessionId: string;
-  hospitalId: string;
-  patientId: string;
-  patientName: string;
-  patientMrn?: string;
-  procedureName: string;
-  surgeonId: string;
-  surgeonName: string;
-  anesthetistName: string;
-  otRoomId: string;
-  status: 'Scheduled' | 'In-Progress' | 'Post-Op' | 'Completed' | 'Cancelled';
-  startTime: string;
-  estimatedDuration: number;
-  priority: 'Emergency' | 'Elective' | 'Urgent';
-  actualStartTime?: any;
-  actualEndTime?: any;
-  recoveryStatus?: 'Monitoring' | 'Stable' | 'Discharged';
-  recoveryRoomEntryTime?: string;
-  dischargeFromRecoveryTime?: string;
-  updatedAt?: any;
-  createdAt?: any;
-  notes?: string;
 }
 
 export interface Referral {
