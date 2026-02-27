@@ -12,6 +12,7 @@ import { Hospital } from '@/lib/types';
 import { Building2, Users, Zap, Loader2, Globe, ShieldCheck } from 'lucide-react';
 import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { format } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 
 /**
  * == Super Admin Platform Command Centre ==
@@ -20,14 +21,16 @@ import { format } from 'date-fns';
  * Includes trial management and global performance aggregation.
  */
 export default function SuperAdminDashboard() {
+  const { user } = useAuth();
   const firestore = useFirestore();
   const [stats, setStats] = React.useState({ totalHospitals: 0, totalPatients: 0, totalUsers: 0 });
   const [isStatsLoading, setIsStatsLoading] = React.useState(true);
 
   // 1. Fetch global totals (God Mode)
+  // SAAS GUARD: Only fetch if the user is authorized.
   React.useEffect(() => {
     const fetchGlobalStats = async () => {
-      if (!firestore) return;
+      if (!firestore || user?.role !== 'super_admin') return;
       try {
         const [hSnap, pSnap, uSnap] = await Promise.all([
           getDocs(collection(firestore, "hospitals")),
@@ -47,15 +50,26 @@ export default function SuperAdminDashboard() {
       }
     };
     fetchGlobalStats();
-  }, [firestore]);
+  }, [firestore, user?.role]);
 
   // 2. Real-time Tenant Registry
+  // SAAS GUARD: Prevent unauthorized list queries.
   const hospitalsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || user?.role !== 'super_admin') return null;
     return query(collection(firestore, "hospitals"), orderBy("createdAt", "desc"));
-  }, [firestore]);
+  }, [firestore, user?.role]);
 
   const { data: hospitals, isLoading: isHospitalsLoading } = useCollection<Hospital>(hospitalsQuery);
+
+  if (user?.role !== 'super_admin') {
+    return (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 opacity-40">
+            <Globe className="h-16 w-16 mb-4" />
+            <h2 className="text-xl font-bold">Access Restricted</h2>
+            <p className="text-sm">This console is reserved for platform administrators.</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

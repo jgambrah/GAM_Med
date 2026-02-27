@@ -11,6 +11,7 @@ import { UserPlus, Loader2, Hospital, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import CreateHospitalModal from '@/components/super-admin/CreateHospitalModal';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 /**
  * == Super Admin: Sales Leads Desk ==
@@ -19,14 +20,17 @@ import { toast } from '@/hooks/use-toast';
  * Allowing one-click onboarding of prospective hospital clients.
  */
 export default function SalesLeadsPage() {
+    const { user } = useAuth();
     const firestore = useFirestore();
     const [selectedLead, setSelectedLead] = useState<any>(null);
 
     // 1. LIVE QUERY: Listen for demo requests
+    // SAAS GUARD: Only run this query if the user is the Super Admin.
+    // This prevents "Missing or insufficient permissions" errors for Directors.
     const leadsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || user?.role !== 'super_admin') return null;
         return query(collection(firestore, "demo_requests"), orderBy("requestedAt", "desc"));
-    }, [firestore]);
+    }, [firestore, user?.role]);
 
     const { data: leads, isLoading } = useCollection(leadsQuery);
 
@@ -43,6 +47,16 @@ export default function SalesLeadsPage() {
         }
         setSelectedLead(null);
     };
+
+    if (user?.role !== 'super_admin') {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 opacity-40">
+                <Hospital className="h-16 w-16 mb-4" />
+                <h2 className="text-xl font-bold">Unauthorized Access</h2>
+                <p className="text-sm">Only the platform CEO can manage sales leads.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8">
