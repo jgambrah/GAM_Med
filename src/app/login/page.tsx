@@ -85,7 +85,7 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // D. REDIRECTION: Send to correct room
+            // D. REDIRECTION: Send to correct dashboard
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {

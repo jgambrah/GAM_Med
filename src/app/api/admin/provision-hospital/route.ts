@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         // 3. PROVISION THE DIRECTOR (Auth)
         let userRecord;
         try {
-            userRecord = await adminAuth.getUserByEmail(directorEmail);
+            userRecord = await adminAuth.getUserByEmail(directorEmail.toLowerCase());
         } catch {
             // Create user if they don't exist
             userRecord = await adminAuth.createUser({
@@ -58,10 +58,12 @@ export async function POST(req: Request) {
         });
 
         // 5. CREATE USER PROFILE (Logical Mapping)
-        // UID is used as doc ID for O(1) lookups in security rules.
-        await adminDb.collection('users').doc(userRecord.uid).set({
+        // UID is used as doc ID for fallback discovery, but composite ID is standard.
+        // We set the document using the composite ID for registry consistency.
+        const userDocId = `${hospitalId}_${directorEmail.toLowerCase().trim()}`;
+        await adminDb.collection('users').doc(userDocId).set({
             uid: userRecord.uid,
-            email: directorEmail.toLowerCase(),
+            email: directorEmail.toLowerCase().trim(),
             name: directorName,
             role: 'director',
             hospitalId: hospitalId,
