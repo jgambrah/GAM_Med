@@ -122,12 +122,12 @@ service cloud.firestore {
 
     match /wards/{wardId} {
       allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
-      allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
+      allow read, write: if isSignedIn() && (isSuperAdmin() || (request.resource.data.hospitalId == getMyHospitalId() || resource.data.hospitalId == getMyHospitalId()));
     }
 
     match /beds/{bedId} {
       allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
-      allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
+      allow read, write: if isSignedIn() && (isSuperAdmin() || (request.resource.data.hospitalId == getMyHospitalId() || resource.data.hospitalId == getMyHospitalId()));
     }
 
     match /vitals/{vitalId} {

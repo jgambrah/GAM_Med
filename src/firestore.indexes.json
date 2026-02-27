@@ -120,6 +120,22 @@
       ]
     },
     {
+      "collectionGroup": "wards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "beds",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "bedNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "inventory",
       "queryScope": "COLLECTION",
       "fields": [
