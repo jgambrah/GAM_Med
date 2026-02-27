@@ -41,7 +41,8 @@ service cloud.firestore {
     }
 
     function isSameHospital(docData) {
-      return isSignedIn() && (docData.hospitalId == getMyHospitalId() || isSuperAdmin());
+      let myHospId = getMyHospitalId();
+      return isSignedIn() && (docData.hospitalId == myHospId || isSuperAdmin());
     }
 
     function isPatient(patientId) {
@@ -74,7 +75,6 @@ service cloud.firestore {
       allow list: if isSuperAdmin();
       allow update: if isSuperAdmin();
       
-      // Counter Pattern for Chronological MRNs
       match /counters/{counterId} {
         allow read, write: if isSignedIn() && (request.auth.token.hospitalId == hospId || getMyHospitalId() == hospId || isSuperAdmin());
       }
@@ -109,6 +109,16 @@ service cloud.firestore {
       allow update: if isSignedIn() && isSameHospital(resource.data);
     }
 
+    match /wards/{wardId} {
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
+    }
+
+    match /beds/{bedId} {
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
+    }
+
     match /vitals/{vitalId} {
       allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
@@ -127,6 +137,16 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
+    match /radiology_orders/{orderId} {
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
+    }
+
+    match /dietary_orders/{orderId} {
+      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
+    }
+
     match /invoices/{invId} {
       allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
@@ -137,8 +157,6 @@ service cloud.firestore {
       allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId()) && (isAdmin() || request.auth.token.role == 'billing_clerk' || isSuperAdmin());
       allow read: if isSignedIn() && isSameHospital(resource.data) && (isAdmin() || request.auth.token.role == 'billing_clerk' || isSuperAdmin());
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && (isAdmin() || request.auth.token.role == 'billing_clerk' || isSuperAdmin());
-      
-      // Allow any signed-in user (like a Doctor) to auto-generate a claim during service completion
       allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
     }
 
@@ -153,6 +171,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId() || isSuperAdmin());
     }
 
+    // Generic fallback for other logically isolated documents
     match /{collection}/{docId} {
       allow read, write: if isSignedIn() && (isSuperAdmin() || (resource.data.hospitalId == getMyHospitalId() || request.resource.data.hospitalId == getMyHospitalId()));
     }
