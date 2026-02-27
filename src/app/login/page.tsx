@@ -46,19 +46,22 @@ export default function LoginPage() {
              * This pulls the server-side custom claims (baked during provisioning) into 
              * the client-side session immediately, avoiding permission errors.
              */
-            await userCredential.user.getIdToken(true);
-
-            const authUid = userCredential.user.uid;
+            if (userCredential.user) {
+                await userCredential.user.getIdToken(true);
+            }
 
             // C. DISCOVERY: Find the user's profile document by UID field
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("uid", "==", authUid), limit(1));
+            // Requirement: Use exactly: query(collection(db, "users"), where("uid", "==", auth.currentUser.uid))
+            if (!auth.currentUser) throw new Error("Authentication failed to initialize session.");
+            
+            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser.uid));
             const querySnapshot = await getDocs(q);
 
             let userData;
 
             if (querySnapshot.empty) {
-                // Try searching by email as fallback
+                // Try searching by email as fallback for newly invited users
+                const usersRef = collection(db, "users");
                 const emailQuery = query(usersRef, where("email", "==", normalizedEmail), limit(1));
                 const emailSnapshot = await getDocs(emailQuery);
                 
@@ -77,7 +80,7 @@ export default function LoginPage() {
 
             // Set global auth state
             setUser({
-                uid: authUid,
+                uid: auth.currentUser.uid,
                 ...userData
             } as any);
 

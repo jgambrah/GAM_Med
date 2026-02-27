@@ -9,7 +9,7 @@ import * as admin from 'firebase-admin';
 function initializeAdmin() {
   if (admin.apps.length > 0) return admin.app();
 
-  // 1. Get the 3 clean variables from .env.local
+  // 1. Get the 3 clean variables from .env.local (Vercel Environment Variables)
   const projectId = process.env.FB_PROJECT_ID;
   const clientEmail = process.env.FB_CLIENT_EMAIL;
   const privateKey = process.env.FB_PRIVATE_KEY;
