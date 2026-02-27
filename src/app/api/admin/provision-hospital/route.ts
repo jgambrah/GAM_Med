@@ -3,34 +3,27 @@ import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
 /**
- * == Automated Enterprise Provisioning Engine (Fault-Tolerant) ==
+ * == Fault-Tolerant Enterprise Provisioning Engine ==
  * 
  * This API performs the atomic "Handover" of a new hospital tenant.
- * 1. Generates unique SaaS Hospital ID.
- * 2. Generates secure temporary password.
- * 3. Provisions Hospital Master Record.
- * 4. Stacks "SaaS Stamp" (Custom JWT Claims) onto Director.
- * 5. Dispatches Welcome Email with credentials (Safe Wrapper).
+ * It is designed to be resilient to email delivery failures.
  */
 export async function POST(req: Request) {
     try {
-        const { name, email, directorName } = await req.json();
-        const normalizedEmail = email.toLowerCase().trim();
+        const body = await req.json();
+        const { name, email, directorName } = body;
 
-        if (!name || !email) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        if (!email) {
+            return NextResponse.json({ error: "Email is required" }, { status: 400 });
         }
 
-        // 1. Generate SaaS Hospital ID
+        const normalizedEmail = email.toLowerCase().trim();
         const hospitalId = name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
-        const now = new Date().toISOString();
-
-        // 2. Generate a Temporary Password
         const tempPassword = "GamMed-" + Math.random().toString(36).slice(-8).toUpperCase();
 
-        console.log(`Starting provisioning for ${normalizedEmail} at facility ${hospitalId}...`);
+        console.log(`Starting provisioning for ${normalizedEmail}...`);
 
-        // 3. Create the Hospital Master Document
+        // 1. Create the Hospital Master Record
         await adminDb.collection('hospitals').doc(hospitalId).set({
             hospitalId: hospitalId,
             name: name,
@@ -40,11 +33,11 @@ export async function POST(req: Request) {
             subscriptionTier: 'clinic-starter',
             trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             isActive: true,
-            createdAt: now,
+            createdAt: new Date().toISOString(),
             ownerEmail: normalizedEmail
         });
 
-        // 4. Create the Director (Auth)
+        // 2. Create the Director (Auth)
         let userRecord;
         try {
             userRecord = await adminAuth.createUser({
@@ -60,14 +53,13 @@ export async function POST(req: Request) {
             throw authError;
         }
 
-        // 5. THE "SAAS STAMP" (Custom JWT Claims)
-        // Locking the executive into their facility room at the identity level
+        // 3. THE "SAAS STAMP" (Custom JWT Claims)
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
         });
 
-        // 6. CREATE USER PROFILE (Logical Mapping)
+        // 4. Create User Profile Document
         await adminDb.collection('users').doc(userRecord.uid).set({
             uid: userRecord.uid,
             email: normalizedEmail,
@@ -76,28 +68,27 @@ export async function POST(req: Request) {
             hospitalId: hospitalId,
             hospitalName: name,
             is_active: true,
-            created_at: now
+            created_at: new Date().toISOString()
         });
 
-        // 7. CREATE ROLE MARKER (Security Fallback for rules)
+        // 5. Create Role Marker (Necessary for rules fallback)
         await adminDb.collection('roles_admin').doc(userRecord.uid).set({
             uid: userRecord.uid,
             hospitalId: hospitalId,
-            assignedAt: now
+            assignedAt: new Date().toISOString()
         });
 
-        // 8. SEND WELCOME EMAIL (Fault Tolerant Wrapper)
+        // 6. SEND WELCOME EMAIL (Fault Tolerant)
         try {
             const resend = new Resend(process.env.RESEND_API_KEY);
             await resend.emails.send({
-                from: 'GamMed Support <onboarding@resend.dev>', // Note: Use onboarding@resend.dev until domain verified
+                from: 'GamMed Support <onboarding@resend.dev>', 
                 to: normalizedEmail,
                 subject: `Welcome to GamMed - Your Hospital Portal is Ready`,
                 html: `
                     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 12px;">
                         <h2 style="color: #2563eb;">Welcome, ${directorName}!</h2>
                         <p>Your hospital management system for <strong>${name}</strong> has been successfully provisioned.</p>
-                        <p>You can now log in and begin setting up your facility, doctors, and staff.</p>
                         
                         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
                             <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gam-med.vercel.app'}/login">Open Portal</a></p>
@@ -107,14 +98,13 @@ export async function POST(req: Request) {
 
                         <p style="font-size: 13px; color: #64748b;">For security, please change your password immediately after your first login.</p>
                         <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                        <p style="font-size: 12px; color: #94a3b8;">This is an automated message from Gam It Services Platform Support.</p>
+                        <p style="font-size: 12px; color: #94a3b8;">This is an automated message from Gam It Services Support.</p>
                     </div>
                 `
             });
             console.log(`Success: Welcome email sent to ${normalizedEmail}`);
         } catch (emailErr: any) {
             console.warn("EMAIL_SEND_FAILURE (Handover complete but notification failed):", emailErr.message);
-            // Non-blocking failure: Hospital was created correctly, we don't throw error to UI
         }
 
         return NextResponse.json({ 

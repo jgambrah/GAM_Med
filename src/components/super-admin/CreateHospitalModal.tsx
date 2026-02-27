@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -32,7 +31,6 @@ const CreateHospitalSchema = z.object({
   hospitalName: z.string().min(3, 'Hospital name must be at least 3 characters'),
   directorName: z.string().min(3, 'Director full name is required'),
   directorEmail: z.string().email('Invalid email address'),
-  directorPassword: z.string().min(8, 'Password must be at least 8 characters'),
   subscriptionTier: z.enum(['clinic-starter', 'professional', 'enterprise']),
 });
 
@@ -45,12 +43,6 @@ interface CreateHospitalModalProps {
     onSuccess?: () => void;
 }
 
-/**
- * == Super Admin: Tenant Provisioning Tool ==
- * 
- * Triggers the server-side provisioning API to create a new hospital.
- * This ensures the Director is correctly "Stamped" with Custom Claims.
- */
 export default function CreateHospitalModal({ initialData, onSuccess }: CreateHospitalModalProps) {
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -61,7 +53,6 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
       hospitalName: '',
       directorName: '',
       directorEmail: '',
-      directorPassword: '',
       subscriptionTier: 'clinic-starter',
     },
   });
@@ -72,7 +63,6 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
         hospitalName: initialData.hospitalName || '',
         directorName: initialData.name || '',
         directorEmail: initialData.email || '',
-        directorPassword: '',
         subscriptionTier: 'clinic-starter',
       });
       setOpen(true);
@@ -81,11 +71,19 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
 
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
+    
+    // ENSURE THESE NAMES: name, email, directorName
+    const payload = {
+        name: values.hospitalName,         // The Hospital Name
+        email: values.directorEmail,       // The Director's Email
+        directorName: values.directorName  // The Director's Full Name
+    };
+
     try {
       const response = await fetch('/api/admin/provision-hospital', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values)
+          body: JSON.stringify(payload)
       });
 
       const result = await response.json();
@@ -94,8 +92,8 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
           throw new Error(result.error || "Failed to provision facility");
       }
 
-      toast.success("Facility Provisioned", {
-        description: `${values.hospitalName} is now active with ID: ${result.hospitalId}`
+      toast.success("Hospital Provisioned Successfully!", {
+        description: `${values.hospitalName} is now active.`
       });
       
       setOpen(false);
@@ -103,7 +101,7 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error("Provisioning failed:", error);
-      toast.error("Provisioning Failed", { description: error.message });
+      toast.error("Provisioning Error", { description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -165,17 +163,6 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
                 <FormItem>
                   <FormLabel>Director Full Name</FormLabel>
                   <FormControl><Input placeholder="Dr. John Doe" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="directorPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Temporary Password</FormLabel>
-                  <FormControl><Input type="password" placeholder="Min 8 chars" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

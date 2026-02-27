@@ -60,7 +60,7 @@ export default function LoginPage() {
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
-                throw new Error("Auth successful, but no Firestore profile found. Please contact support.");
+                throw new Error("Profile not found. Please contact support.");
             }
 
             const userData = querySnapshot.docs[0].data();
@@ -105,7 +105,7 @@ export default function LoginPage() {
         <div className="mx-auto max-w-sm w-full space-y-6">
             <Card className="shadow-lg border-t-4 border-t-primary">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl text-center font-bold">MedFlow GH Sign In</CardTitle>
+                    <CardTitle className="text-2xl text-center font-bold">GamMed Sign In</CardTitle>
                     <CardDescription className="text-center">
                         Access your secure hospital portal
                     </CardDescription>
@@ -148,7 +148,7 @@ export default function LoginPage() {
             </Card>
             
             <div className="text-center space-y-4">
-                <p className="text-sm text-muted-foreground font-medium italic">New healthcare facility interested in MedFlow GH?</p>
+                <p className="text-sm text-muted-foreground font-medium italic">New healthcare facility interested in GamMed?</p>
                 <RequestDemoDialog />
                 <div className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
                     <p>&copy; 2024 Gam It Services. All rights reserved.</p>
