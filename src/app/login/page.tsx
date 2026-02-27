@@ -37,12 +37,12 @@ export default function LoginPage() {
         const normalizedEmail = email.toLowerCase().trim();
 
         try {
-            // A. Sign in with Email/Password
+            // 1. Sign in with Email/Password
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
             /**
              * == CRITICAL SAAS FIX: Token Sync ==
-             * B. THE MAGIC LINE: Force the browser to get the new 'hospitalId' stamp.
+             * 2. FORCE REFRESH THE STAMP (Identity Card)
              * This pulls the server-side custom claims (baked during provisioning) into 
              * the client-side session immediately, avoiding permission errors.
              */
@@ -50,9 +50,12 @@ export default function LoginPage() {
                 await userCredential.user.getIdToken(true);
             }
 
+            // 3. Small delay to ensure database/claims propagation is ready
+            await new Promise(resolve => setTimeout(resolve, 800));
+
             /**
              * == USER DISCOVERY (REQUIRED SYNTAX) ==
-             * C. Find the user's profile document by UID field using exact required syntax
+             * 4. Find the user's profile document by UID field using exact required syntax
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             
@@ -60,7 +63,7 @@ export default function LoginPage() {
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
-                throw new Error("Profile not found. Please contact support.");
+                throw new Error("Account found but profile missing. Please contact support.");
             }
 
             const userData = querySnapshot.docs[0].data();
@@ -81,17 +84,17 @@ export default function LoginPage() {
 
             /**
              * == REDIRECTION GUARD ==
-             * D. Ensure Directors never land on Super Admin pages.
+             * 5. Success! Route correctly
              */
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {
-                // Directors and all other staff land here
+                // Marcus and other staff go to the facility dashboard
                 router.push('/dashboard');
             }
 
         } catch (error: any) {
-            console.error("Login error:", error);
+            console.error("LOGIN_ERROR:", error.message);
             toast.error("Access Error", {
                 description: error.message || "Invalid email or password."
             });
