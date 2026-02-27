@@ -1,14 +1,15 @@
+
 'use client';
 
 import * as React from 'react';
-import Link from "next/link";
+import Link from "next/next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -54,20 +55,21 @@ export default function LoginPage() {
             await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
-             * == USER DISCOVERY (DIRECT GET) ==
-             * 4. Fetch the profile directly by UID to satisfy rule: "allow get: if request.auth.uid == userId"
-             * This bypasses 'list' permission issues during the initial handshake.
+             * == USER DISCOVERY (SEARCH BY UID) ==
+             * Since our document IDs are composite (hospital_email), we must query for the profile
+             * where the 'uid' field matches Marcus's Auth ID.
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             
-            const userDocRef = doc(db, "users", auth.currentUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("uid", "==", auth.currentUser.uid));
+            const querySnap = await getDocs(q);
 
-            if (!userDocSnap.exists()) {
+            if (querySnap.empty) {
                 throw new Error("Account found but profile missing. Please contact platform support.");
             }
 
-            const userData = userDocSnap.data();
+            const userData = querySnap.docs[0].data();
             
             if (!userData.is_active) {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
