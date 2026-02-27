@@ -172,8 +172,8 @@ export function AddPatientDialog({
         },
         nextOfKin: {
             name: patientToEdit.nextOfKin?.name || '',
-            relationship: patientToKin?.relationship || '',
-            phone: patientToKin?.phone || ''
+            relationship: patientToEdit.nextOfKin?.relationship || '',
+            phone: patientToEdit.nextOfKin?.phone || ''
         },
         clinical: {
             bloodGroup: patientToEdit.clinical?.bloodGroup || '',

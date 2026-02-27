@@ -632,6 +632,14 @@ export interface Prescription {
   dispensedAt?: string;
 }
 
+export interface Medication {
+  medicationId: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  quantity_to_dispense: number;
+}
+
 export interface PrescribedMedication {
   grid?: string;
   medicationId: string;
