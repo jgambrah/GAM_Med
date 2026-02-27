@@ -18,7 +18,6 @@ export async function POST(req: Request) {
         }
 
         // 1. AUTOMATICALLY GENERATE THE HOSPITAL ID (The "Room")
-        // Example: "City General" -> "city-general-1234"
         const hospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
         const now = new Date().toISOString();
 
@@ -41,7 +40,6 @@ export async function POST(req: Request) {
         try {
             userRecord = await adminAuth.getUserByEmail(directorEmail.toLowerCase());
         } catch {
-            // Create user if they don't exist
             userRecord = await adminAuth.createUser({
                 email: directorEmail.toLowerCase(),
                 password: directorPassword || "WelcomeGamMed123!",
@@ -50,8 +48,7 @@ export async function POST(req: Request) {
         }
 
         // 4. THE "SAAS STAMP" (Custom JWT Claims)
-        // This locks the user into their hospital room at the token level.
-        // This is pulled into the browser session via getIdToken(true) in LoginPage.
+        // This is the CRITICAL fix: locking Marcus into his room at the identity level.
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
@@ -70,7 +67,6 @@ export async function POST(req: Request) {
         });
 
         // 6. CREATE ROLE MARKER (Security Fallback)
-        // Required for database rules that lookup role assignments.
         await adminDb.collection('roles_admin').doc(userRecord.uid).set({
             uid: userRecord.uid,
             hospitalId: hospitalId,

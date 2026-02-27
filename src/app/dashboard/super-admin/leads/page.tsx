@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,7 +17,6 @@ import { useAuth } from '@/hooks/use-auth';
  * == Super Admin: Sales Leads Desk ==
  * 
  * Manages demo requests and provides direct integration to provisioning.
- * Allowing one-click onboarding of prospective hospital clients.
  */
 export default function SalesLeadsPage() {
     const { user } = useAuth();
@@ -25,8 +24,7 @@ export default function SalesLeadsPage() {
     const [selectedLead, setSelectedLead] = useState<any>(null);
 
     // 1. LIVE QUERY: Listen for demo requests
-    // SAAS GUARD: Only run this query if the user is the Super Admin.
-    // This prevents "Missing or insufficient permissions" errors for Directors.
+    // SAAS GUARD: The query is set to null for non-admins to prevent Method:List errors
     const leadsQuery = useMemoFirebase(() => {
         if (!firestore || user?.role !== 'super_admin') return null;
         return query(collection(firestore, "demo_requests"), orderBy("requestedAt", "desc"));
@@ -48,12 +46,13 @@ export default function SalesLeadsPage() {
         setSelectedLead(null);
     };
 
+    // UI GUARD: If Marcus accidentally navigates here, show a clean "Not Authorized" screen instead of a crash
     if (user?.role !== 'super_admin') {
         return (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 opacity-40">
-                <Hospital className="h-16 w-16 mb-4" />
-                <h2 className="text-xl font-bold">Unauthorized Access</h2>
-                <p className="text-sm">Only the platform CEO can manage sales leads.</p>
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 bg-muted/20 rounded-2xl border-2 border-dashed">
+                <Hospital className="h-16 w-16 mb-4 text-muted-foreground opacity-40" />
+                <h2 className="text-xl font-black uppercase tracking-widest text-muted-foreground">Access Restricted</h2>
+                <p className="text-sm text-muted-foreground mt-2">Only platform administrators can manage the sales pipeline.</p>
             </div>
         );
     }
@@ -70,7 +69,6 @@ export default function SalesLeadsPage() {
                 </Badge>
             </div>
 
-            {/* INTEGRATED PROVISIONING: Opens when a lead is selected */}
             {selectedLead && (
                 <CreateHospitalModal 
                     initialData={{
