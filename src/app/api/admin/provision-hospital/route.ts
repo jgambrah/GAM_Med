@@ -16,35 +16,35 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 export async function POST(req: Request) {
     try {
-        const { hospitalName, directorName, directorEmail, subscriptionTier } = await req.json();
-        const normalizedEmail = directorEmail.toLowerCase().trim();
+        const { name, email, directorName } = await req.json();
+        const normalizedEmail = email.toLowerCase().trim();
 
-        if (!hospitalName || !directorEmail) {
+        if (!name || !email) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // 1. AUTOMATICALLY GENERATE THE HOSPITAL ID (The "Room")
-        const hospitalId = hospitalName.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
+        // 1. Generate SaaS Hospital ID
+        const hospitalId = name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
         const now = new Date().toISOString();
 
-        // 2. GENERATE A TEMPORARY PASSWORD
-        const tempPassword = "MedFlow-" + Math.random().toString(36).slice(-8).toUpperCase();
+        // 2. Generate a Temporary Password
+        const tempPassword = "GamMed-" + Math.random().toString(36).slice(-8).toUpperCase();
 
-        // 3. CREATE THE HOSPITAL MASTER DOCUMENT
+        // 3. Create the Hospital Master Document
         await adminDb.collection('hospitals').doc(hospitalId).set({
             hospitalId: hospitalId,
-            name: hospitalName,
+            name: name,
             slug: hospitalId,
             status: 'active',
             subscriptionStatus: 'trialing',
-            subscriptionTier: subscriptionTier || 'clinic-starter',
+            subscriptionTier: 'clinic-starter',
             trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             isActive: true,
             createdAt: now,
             ownerEmail: normalizedEmail
         });
 
-        // 4. PROVISION THE DIRECTOR (Auth)
+        // 4. Create the Director (Auth)
         let userRecord;
         try {
             userRecord = await adminAuth.getUserByEmail(normalizedEmail);
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
             name: directorName,
             role: 'director',
             hospitalId: hospitalId,
-            hospitalName: hospitalName,
+            hospitalName: name,
             is_active: true,
             created_at: now
         });
@@ -84,24 +84,24 @@ export async function POST(req: Request) {
 
         // 8. SEND WELCOME EMAIL VIA RESEND
         await resend.emails.send({
-            from: 'MedFlow Support <onboarding@resend.dev>', // Update to your domain later
+            from: 'GamMed Support <onboarding@resend.dev>', // Update to your domain later
             to: normalizedEmail,
-            subject: `Welcome to MedFlow GH - Your Hospital Portal is Ready`,
+            subject: `Welcome to GamMed - Your Hospital Portal is Ready`,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 12px;">
                     <h2 style="color: #2563eb;">Welcome, ${directorName}!</h2>
-                    <p>Your hospital management system for <strong>${hospitalName}</strong> has been successfully provisioned.</p>
+                    <p>Your hospital management system for <strong>${name}</strong> has been successfully provisioned.</p>
                     <p>You can now log in and begin setting up your facility, doctors, and staff.</p>
                     
                     <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
-                        <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://medflow-gh.vercel.app'}/login">Open Portal</a></p>
+                        <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gam-med.vercel.app'}/login">Open Portal</a></p>
                         <p style="margin: 10px 0 0 0; font-size: 14px;"><strong>User ID (Email):</strong> ${normalizedEmail}</p>
                         <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Temporary Password:</strong> <code style="background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">${tempPassword}</code></p>
                     </div>
 
                     <p style="font-size: 13px; color: #64748b;">For security, please change your password immediately after your first login.</p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                    <p style="font-size: 12px; color: #94a3b8;">This is an automated message from MedFlow GH Platform Support.</p>
+                    <p style="font-size: 12px; color: #94a3b8;">This is an automated message from Gam It Services Platform Support.</p>
                 </div>
             `
         });

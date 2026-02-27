@@ -54,7 +54,9 @@ export default function LoginPage() {
              * == USER DISCOVERY (REQUIRED SYNTAX) ==
              * C. Find the user's profile document by UID field using exact required syntax
              */
-            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser!.uid));
+            if (!auth.currentUser) throw new Error("Authentication failed.");
+            
+            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser.uid));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
