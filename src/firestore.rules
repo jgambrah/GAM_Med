@@ -90,8 +90,8 @@ service cloud.firestore {
 
     match /users/{userDocId} {
       allow list: if isSignedIn() && (
-        (request.query.limit <= 100 && request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
-        (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId())
+        (request.query.filters.uid == request.auth.uid) ||
+        (request.query.filters.hospitalId == getMyHospitalId())
       );
       allow get: if isSignedIn() && (request.auth.uid == resource.data.uid || isSameHospital(resource.data));
       allow create: if isSignedIn() && isAdmin() && request.resource.data.hospitalId == getMyHospitalId();
@@ -99,7 +99,7 @@ service cloud.firestore {
     }
 
     match /patients/{patientId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow get: if isSignedIn() && (isSameHospital(resource.data) || isPatient(patientId));
       allow create: if isSignedIn() && (isAdmin() || request.resource.data.hospitalId == getMyHospitalId());
       allow update: if isSignedIn() && isSameHospital(resource.data);
@@ -107,123 +107,123 @@ service cloud.firestore {
     }
 
     match /appointments/{apptId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow get: if isSignedIn() && isSameHospital(resource.data);
       allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
       allow update: if isSignedIn() && isSameHospital(resource.data);
     }
 
     match /wards/{wardId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /beds/{bedId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /vitals/{vitalId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /clinical_notes/{noteId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /diagnoses/{diagId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /lab_orders/{orderId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data);
     }
 
     match /radiology_orders/{orderId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /dietary_orders/{orderId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /ot_sessions/{sessionId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /inventory/{itemId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /inventory_assets/{itemId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /medical_equipment/{itemId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /purchase_orders/{poId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /invoices/{invId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && (isSameHospital(resource.data) || isPatient(resource.data.patientId));
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
 
     match /nhis_claims/{claimId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read: if isSignedIn() && isSameHospital(resource.data);
       allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
       allow write: if isSignedIn() && isSameHospital(resource.data) && (isAdmin() || request.auth.token.role == 'billing_clerk');
     }
 
     match /mortality_records/{recId} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /controlled_substances/{sid} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /controlled_substance_logs/{lid} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /facilities/{fid} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /facility_bookings/{bid} {
-      allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);
     }
 
     match /referrals/{refId} {
       allow list: if isSignedIn() && (
-        (request.query.filters.size() >= 1 && request.query.filters[0].field == "toHospitalId" && request.query.filters[0].value == getMyHospitalId()) ||
-        (request.query.filters.size() >= 1 && request.query.filters[0].field == "fromHospitalId" && request.query.filters[0].value == getMyHospitalId()) ||
+        (request.query.filters.toHospitalId == getMyHospitalId()) ||
+        (request.query.filters.fromHospitalId == getMyHospitalId()) ||
         isSuperAdmin()
       );
       allow get: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId() || isSuperAdmin());
