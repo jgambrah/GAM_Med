@@ -39,7 +39,7 @@ import { Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
-import { doc, runTransaction, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, runTransaction, setDoc, serverTimestamp, collection } from 'firebase/firestore';
 import { Loader2, ShieldCheck, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -213,8 +213,6 @@ export function AddPatientDialog({
     }
 
     try {
-        let finalMrn = values.mrn;
-
         if (isEditing && patientToEdit) {
             const patientRef = doc(db, "patients", patientToEdit.patient_id);
             const fullName = `${values.firstName} ${values.lastName}`;
@@ -234,25 +232,32 @@ export function AddPatientDialog({
             toast.success("Patient Record Updated");
             if (onPatientUpdated) onPatientUpdated();
         } else {
-            // Logic for NEW patient with Atomic MRN Generation & Custom Prefix
-            const counterRef = doc(db, "hospitals", hospitalId, "counters", "patients");
+            // 1. Reference the unique counter for THIS hospital
+            const counterRef = doc(db, "hospitals", hospitalId, "counters", "patient_sequence");
             const hospitalRef = doc(db, "hospitals", hospitalId);
 
-            finalMrn = await runTransaction(db, async (transaction) => {
+            // 2. RUN THE TRANSACTION TO GET THE NEXT NUMBER
+            const finalMrn = await runTransaction(db, async (transaction) => {
                 const hospitalSnap = await transaction.get(hospitalRef);
                 const prefix = hospitalSnap.exists() ? (hospitalSnap.data().prefix || 'MRN') : 'MRN';
 
                 const counterSnap = await transaction.get(counterRef);
-                let newCount = 1001; 
+                
+                let nextNum = 1001; // Start at 1001 for a professional look
                 if (counterSnap.exists()) {
-                    newCount = (counterSnap.data().lastSequence || 1000) + 1;
+                    nextNum = (counterSnap.data().lastValue || 1000) + 1;
                 }
 
-                const generatedMrn = `${prefix}-${newCount}`;
-                transaction.set(counterRef, { lastSequence: newCount }, { merge: true });
+                // Formulate the MRN string (using hospital prefix if available)
+                const generatedMrn = `${prefix}-${nextNum}`;
+
+                // Update the counter in the database for the next registration
+                transaction.set(counterRef, { lastValue: nextNum }, { merge: true });
+                
                 return generatedMrn;
             });
 
+            // 3. Use the generated MRN to create the patient (Pattern: hosp-1_MRN-1001)
             const customPatientId = `${hospitalId}_${finalMrn}`;
             const patientRef = doc(db, "patients", customPatientId);
             const fullName = `${values.firstName} ${values.lastName}`;
@@ -260,7 +265,7 @@ export function AddPatientDialog({
             const newPatientData: Patient = {
                 patient_id: customPatientId,
                 hospitalId: hospitalId,
-                mrn: finalMrn!,
+                mrn: finalMrn, // <--- SYSTEM GENERATED
                 title: values.title ?? "",
                 first_name: values.firstName,
                 last_name: values.lastName,
@@ -298,17 +303,14 @@ export function AddPatientDialog({
 
             await setDoc(patientRef, newPatientData);
 
-            toast.success(`Patient Registered`, {
-                description: `Unique identity generated: ${finalMrn}`
-            });
-
+            toast.success(`Registration Successful! MRN: ${finalMrn}`);
             if (onPatientAdded) onPatientAdded(newPatientData);
         }
 
         handleOpenChange(false);
     } catch (error: any) {
         console.error("Registration Error:", error);
-        toast.error("System Error", { description: "Failed to generate unique MRN. Please try again." });
+        toast.error("Error generating MRN. Please check your connection.");
     } finally {
         setLoading(false);
     }
@@ -333,13 +335,13 @@ export function AddPatientDialog({
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Medical Record Number</p>
-                        <p className="text-sm font-mono font-black text-blue-600 uppercase">
-                            {isEditing ? patientToEdit?.mrn : "Auto-Generated"}
+                    <div>
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Medical Record Number</p>
+                        <p className="text-sm font-mono font-bold text-blue-600">
+                            {isEditing ? patientToEdit?.mrn : "AUTO-GENERATED"}
                         </p>
                     </div>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black uppercase py-0.5 tracking-tighter">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                         System Assigned
                     </Badge>
                 </div>
