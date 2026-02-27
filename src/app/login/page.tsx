@@ -89,7 +89,7 @@ export default function LoginPage() {
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {
-                // Marcus and other staff go to the facility dashboard
+                // Directors and staff go to the facility dashboard
                 router.push('/dashboard');
             }
 

@@ -24,7 +24,7 @@ export default function SalesLeadsPage() {
     const [selectedLead, setSelectedLead] = useState<any>(null);
 
     // 1. LIVE QUERY: Listen for demo requests
-    // SAAS GUARD: Wrap query in role check to prevent "Spy Queries" causing 500 errors for Marcus
+    // SAAS GUARD: Only run this query if the user is the Super Admin (The CEO)
     const leadsQuery = useMemoFirebase(() => {
         if (!firestore || user?.role !== 'super_admin') return null;
         return query(collection(firestore, "demo_requests"), orderBy("requestedAt", "desc"));

@@ -416,17 +416,19 @@ export function MainNavClient() {
   const accessibleItems = menuItems.filter(item => {
     if (!user) return false;
     
-    // 1. Role Access Control
-    const hasRole = item.roles.includes(user.role);
+    // CEO sees everything
+    if (user.role === ('super_admin' as string)) {
+        return true;
+    }
+
+    // Role-based filtering for everyone else
+    const hasRole = (item.roles as string[]).includes(user.role);
     if (!hasRole) return false;
 
-    // Super Admin bypasses feature gating
-    if (user.role === 'super_admin') return true;
-
-    // 2. SaaS Feature Gating (Prototype simulation)
-    // Non-super-admins cannot see platform-level pages even if they bypass role check
+    // Platform protection: Non-super-admins cannot see platform-level pages 
+    // even if they bypass role check accidentally
     const isPlatformPage = item.href.startsWith('/dashboard/super-admin');
-    if (isPlatformPage && user.role !== 'super_admin') return false;
+    if (isPlatformPage) return false;
 
     return true; 
   }).sort((a, b) => {

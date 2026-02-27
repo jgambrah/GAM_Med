@@ -103,7 +103,7 @@ export async function POST(req: Request) {
                         </div>
 
                         <p style="font-size: 13px; color: #64748b;">For security, please change your password immediately after your first login.</p>
-                        <hr style="border: none; border-top: 1 solid #eee; margin: 30px 0;" />
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
                         <p style="font-size: 12px; color: #94a3b8;">This is an automated message from Gam It Services Support.</p>
                     </div>
                 `
