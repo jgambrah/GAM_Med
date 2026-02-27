@@ -19,7 +19,7 @@ service cloud.firestore {
 
     /**
      * @description Fetches the hospitalId for the currently logged-in user.
-     * Uses Custom Claims if available, else falls back to role registry lookup.
+     * Refactored to avoid 'if/let' which are illegal in rules functions.
      */
     function getMyHospitalId() {
       return request.auth.token.hospitalId != null 
