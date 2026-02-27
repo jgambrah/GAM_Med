@@ -76,7 +76,7 @@ service cloud.firestore {
       
       // Counter Pattern for Chronological MRNs
       match /counters/{counterId} {
-        allow read, write: if isSignedIn() && (getMyHospitalId() == hospId || isSuperAdmin());
+        allow read, write: if isSignedIn() && (request.auth.token.hospitalId == hospId || isSuperAdmin());
       }
     }
 

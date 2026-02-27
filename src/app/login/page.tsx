@@ -88,7 +88,7 @@ export default function LoginPage() {
              * 5. Success! Route correctly based on the fresh Identity Stamp.
              */
             if (userData.role === 'super_admin') {
-                router.push('/dashboard/super-admin/pulse');
+                router.push('/dashboard/super-admin');
             } else {
                 // Directors and staff go to the facility dashboard
                 router.push('/dashboard');
