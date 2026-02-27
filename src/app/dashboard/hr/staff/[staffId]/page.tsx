@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -28,6 +27,13 @@ export default function StaffProfilePage() {
   const staffId = params.staffId as string;
   const { user: currentUser, loading: isAuthLoading } = useAuth();
   const firestore = useFirestore();
+
+  // DEBUG: Track the exact Staff ID being looked up
+  React.useEffect(() => {
+    if (staffId) {
+      console.log("Searching for Staff Record ID:", staffId);
+    }
+  }, [staffId]);
 
   // 1. Fetch live staff profile from Firestore
   const staffRef = useMemoFirebase(() => {
@@ -63,6 +69,7 @@ export default function StaffProfilePage() {
   }
 
   if (!staff && !error) {
+    console.error("Staff Lookup Failure: Document not found for ID", staffId);
     return notFound();
   }
 

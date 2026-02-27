@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -14,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, AlertTriangle, Eye } from 'lucide-react';
+import { MoreHorizontal, Eye } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +35,7 @@ interface PatientTableProps {
  * == Patient Registry Table ==
  * 
  * Displays the list of patients with professional action menus.
- * Uses the 'id' field (Document ID) for navigation to ensure 100% reliability.
+ * Uses the absolute Document ID ('id') for navigation to ensure 100% reliability.
  */
 export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: PatientTableProps) {
   const [patientToEdit, setPatientToEdit] = React.useState<Patient | null>(null);
@@ -44,7 +43,7 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
 
   const handleDelete = () => {
     if (!patientToDelete) return;
-    onPatientDeleted(patientToDelete.id || patientToDelete.patient_id);
+    onPatientDeleted(patientToDelete.id!);
     setPatientToDelete(null);
     toast.success(`Patient record for ${patientToDelete.full_name} deleted.`);
   };
@@ -131,9 +130,7 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
     {patientToEdit && (
       <AddPatientDialog
         patientToEdit={patientToEdit}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setPatientToEdit(null);
-        }}
+        onOpenChange={(isOpen) => !isOpen && setPatientToEdit(null)}
         onPatientUpdated={onPatientUpdated}
       />
     )}
@@ -141,9 +138,7 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
     {patientToDelete && (
       <DeleteConfirmationDialog
         isOpen={!!patientToDelete}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setPatientToDelete(null);
-        }}
+        onOpenChange={(isOpen) => !isOpen && setPatientToDelete(null)}
         onConfirm={handleDelete}
         itemName={patientToDelete.full_name}
       />

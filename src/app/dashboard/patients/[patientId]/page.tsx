@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -25,6 +24,13 @@ export default function PatientDetailPage() {
   const patientId = params.patientId as string;
   const { user, loading: isAuthLoading } = useAuth();
   const firestore = useFirestore();
+
+  // DEBUG: Track the exact ID being looked up in the SaaS vault
+  React.useEffect(() => {
+    if (patientId) {
+      console.log("Searching for Patient ID in SaaS Vault:", patientId);
+    }
+  }, [patientId]);
 
   // STABILIZE REFERENCE
   const patientRef = useMemoFirebase(() => {
@@ -58,6 +64,7 @@ export default function PatientDetailPage() {
 
   // 2. If document definitely doesn't exist (Only check after loading is false)
   if (!patient && !error) {
+    console.error("Clinical Lookup Failure: Document not found for ID", patientId);
     return notFound();
   }
 
