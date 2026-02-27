@@ -209,17 +209,13 @@ export function MainNavClient() {
     if (!user) return [];
     
     return menuItems.filter(item => {
-      // Cast to string to avoid TypeScript narrowing issues with the literal union during role comparison
       const userRoleStr = user.role as string;
       
-      // Bypass role check for Super Admin on non-platform pages
       if (userRoleStr === 'super_admin') return true;
 
-      // Platform HQ pages restricted to super_admin only
       const isPlatformPage = item.href.startsWith('/dashboard/super-admin');
       if (isPlatformPage) return false;
 
-      // standard role check
       return (item.roles as string[]).includes(userRoleStr);
     });
   }, [user]);
@@ -247,16 +243,15 @@ export function MainNavClient() {
   ];
 
   return (
-    <SidebarMenu className="px-2 py-4">
+    <div className="flex flex-col gap-4 py-4">
       {categories.map((cat) => {
         const catItems = accessibleItems.filter(i => i.category === cat.id);
         if (catItems.length === 0) return null;
 
-        // FIXED GROUP
         if (!cat.collapsible) {
           return (
-            <SidebarGroup key={cat.id} className="p-0 mb-4">
-              <SidebarGroupLabel className="px-2 mb-1 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+            <SidebarGroup key={cat.id} className="p-0">
+              <SidebarGroupLabel className="px-4 mb-1 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
                 {cat.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -287,50 +282,47 @@ export function MainNavClient() {
           );
         }
 
-        // COLLAPSIBLE GROUP
-        const hasActiveChild = catItems.some(i => pathname.startsWith(i.href));
+        const hasActiveChild = catItems.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
         const shouldDefaultOpen = hasActiveChild || cat.defaultOpen;
 
         return (
-          <Collapsible key={cat.id} defaultOpen={shouldDefaultOpen} className="group/collapsible mb-2">
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton
-                  tooltip={cat.label}
-                  className="font-black text-xs text-slate-500 hover:text-primary transition-colors"
-                >
-                  <cat.icon className="h-4 w-4" />
-                  <span>{cat.label}</span>
+          <SidebarGroup key={cat.id} className="p-0">
+            <Collapsible defaultOpen={shouldDefaultOpen} className="group/collapsible">
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 text-[10px] font-black uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity cursor-pointer">
+                  {cat.label}
                   <ChevronDown className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
               <CollapsibleContent>
-                <SidebarMenuSub className="border-l-2 ml-4 mt-1 border-slate-100">
-                  {catItems.map((item) => (
-                    <SidebarMenuSubItem key={item.href}>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={pathname === item.href}
-                        className="h-9"
-                      >
-                        <Link href={item.href} className="flex items-center gap-2 font-bold text-[11px]">
-                          <item.icon className="h-3.5 w-3.5 opacity-60" />
-                          <span>{item.label}</span>
-                          {item.badge && (
-                            <span className="ml-auto bg-red-500 text-white font-black text-[9px] rounded-full px-1.5 py-0.5">
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
+                <SidebarGroupContent className="mt-1">
+                  <SidebarMenu>
+                    {catItems.map((item) => (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname === item.href}
+                          className="pl-6 font-bold text-xs"
+                        >
+                          <Link href={item.href}>
+                            <item.icon className="h-3.5 w-3.5 opacity-60" />
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {item.badge && (
+                          <SidebarMenuBadge className="bg-red-500 text-white font-black text-[9px]">
+                            {item.badge}
+                          </SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
               </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
+            </Collapsible>
+          </SidebarGroup>
         );
       })}
-    </SidebarMenu>
+    </div>
   );
 }
