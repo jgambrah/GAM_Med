@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -59,7 +58,7 @@ import {
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
 
-const allRoles: User['role'][] = ['super_admin', 'director', 'admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'space_manager', 'supplier'];
+const allRoles: User['role'][] = ['super_admin', 'director', 'admin', 'doctor', 'nurse', 'pharmacist', 'patient', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'housekeeping', 'space_manager', 'supplier'];
 const staffRoles: User['role'][] = ['director', 'admin', 'doctor', 'nurse', 'pharmacist', 'billing_clerk', 'lab_technician', 'ot_coordinator', 'receptionist', 'radiologist', 'dietitian', 'space_manager'];
 
 
@@ -67,7 +66,6 @@ export function MainNavClient() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  // In a real application, this would be a highly optimized, real-time query.
   const criticalAlertCount = React.useMemo(() => {
     if (!user || user.role !== 'doctor') return 0;
     
@@ -418,14 +416,13 @@ export function MainNavClient() {
     if (!user) return false;
     
     // 1. CEO / Super Admin Bypass
-    const isSuperAdmin = (user.role as string) === 'super_admin';
-    if (isSuperAdmin) return true;
+    if (user.role === 'super_admin') return true;
 
-    // 2. Role Access Control for everyone else
+    // 2. Role Access Control
     const hasRole = (item.roles as string[]).includes(user.role);
     if (!hasRole) return false;
 
-    // 3. Platform Protection (Ensures non-super-admins cannot see platform pages)
+    // 3. Platform Protection
     const isPlatformPage = item.href.startsWith('/dashboard/super-admin');
     if (isPlatformPage) return false;
 

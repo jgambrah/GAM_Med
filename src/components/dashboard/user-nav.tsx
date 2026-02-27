@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,17 +17,11 @@ import {
 } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { allUsers } from '@/lib/data';
-import { User } from '@/lib/types';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, Settings } from 'lucide-react';
 
 export function UserNav() {
-  const { user, setUser, logout } = useAuth();
+  const { user, logout } = useAuth();
 
-  const handleRoleChange = (selectedUser: User) => {
-    setUser(selectedUser);
-  };
-  
   if (!user) return null;
 
   return (
@@ -44,26 +37,25 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
+            <p className="text-sm font-bold leading-none">{user.name}</p>
+            <p className="text-[10px] leading-none text-muted-foreground mt-1">
               {user.email}
+            </p>
+            <p className="text-[10px] uppercase font-black tracking-tighter text-primary mt-2">
+              Role: {user.role.replace('_', ' ')}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-widest text-muted-foreground px-2 py-1.5">Simulation Role Switcher</DropdownMenuLabel>
-          {allUsers.slice(0, 5).map((roleUser) => (
-            <DropdownMenuItem
-              key={roleUser.uid}
-              onClick={() => handleRoleChange(roleUser)}
-              disabled={user.uid === roleUser.uid}
-              className="text-xs font-medium"
-            >
-              <UserIcon className="mr-2 h-3.5 w-3.5 opacity-50" />
-              {roleUser.name} ({roleUser.role})
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuItem className="text-xs font-medium cursor-pointer">
+            <UserIcon className="mr-2 h-3.5 w-3.5 opacity-50" />
+            Profile Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem className="text-xs font-medium cursor-pointer">
+            <Settings className="mr-2 h-3.5 w-3.5 opacity-50" />
+            Preferences
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
@@ -71,7 +63,7 @@ export function UserNav() {
             className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
         >
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
+          <span className="font-bold">Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
