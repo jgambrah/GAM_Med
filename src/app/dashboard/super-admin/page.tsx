@@ -27,7 +27,6 @@ export default function SuperAdminDashboard() {
   const [isStatsLoading, setIsStatsLoading] = React.useState(true);
 
   // 1. Fetch global totals (God Mode)
-  // SAAS GUARD: Only fetch if the user is authorized.
   React.useEffect(() => {
     const fetchGlobalStats = async () => {
       if (!firestore || user?.role !== 'super_admin') return;
@@ -53,7 +52,6 @@ export default function SuperAdminDashboard() {
   }, [firestore, user?.role]);
 
   // 2. Real-time Tenant Registry
-  // SAAS GUARD: Prevent unauthorized list queries.
   const hospitalsQuery = useMemoFirebase(() => {
     if (!firestore || user?.role !== 'super_admin') return null;
     return query(collection(firestore, "hospitals"), orderBy("createdAt", "desc"));

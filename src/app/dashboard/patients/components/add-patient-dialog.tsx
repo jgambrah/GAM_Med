@@ -232,32 +232,32 @@ export function AddPatientDialog({
             toast.success("Patient Record Updated");
             if (onPatientUpdated) onPatientUpdated();
         } else {
-            // 1. Reference the unique counter for THIS hospital
-            const counterRef = doc(db, "hospitals", hospitalId, "counters", "patient_sequence");
+            // 1. References for the Atomic Transaction
             const hospitalRef = doc(db, "hospitals", hospitalId);
+            const counterRef = doc(db, "hospitals", hospitalId, "counters", "patient_sequence");
 
-            // 2. RUN THE TRANSACTION TO GET THE NEXT NUMBER
+            // 2. RUN THE TRANSACTION TO GET THE BRANDED SEQUENTIAL ID
             const finalMrn = await runTransaction(db, async (transaction) => {
-                const hospitalSnap = await transaction.get(hospitalRef);
-                const prefix = hospitalSnap.exists() ? (hospitalSnap.data().prefix || 'MRN') : 'MRN';
+                // A. Get Facility Prefix (e.g., MAR)
+                const hospSnap = await transaction.get(hospitalRef);
+                const prefix = hospSnap.exists() ? (hospSnap.data().prefix || 'MRN') : 'MRN';
 
+                // B. Get and Increment Sequence
                 const counterSnap = await transaction.get(counterRef);
-                
-                let nextNum = 1001; // Start at 1001 for a professional look
+                let nextNum = 1001; 
                 if (counterSnap.exists()) {
                     nextNum = (counterSnap.data().lastValue || 1000) + 1;
                 }
 
-                // Formulate the MRN string (using hospital prefix if available)
                 const generatedMrn = `${prefix}-${nextNum}`;
 
-                // Update the counter in the database for the next registration
+                // C. Persist the increment
                 transaction.set(counterRef, { lastValue: nextNum }, { merge: true });
                 
                 return generatedMrn;
             });
 
-            // 3. Use the generated MRN to create the patient
+            // 3. Create the Patient Document (SaaS Stamped)
             const customPatientId = `${hospitalId}_${finalMrn}`;
             const patientRef = doc(db, "patients", customPatientId);
             const fullName = `${values.firstName} ${values.lastName}`;
@@ -265,7 +265,7 @@ export function AddPatientDialog({
             const newPatientData: Patient = {
                 patient_id: customPatientId,
                 hospitalId: hospitalId,
-                mrn: finalMrn, // <--- SYSTEM GENERATED
+                mrn: finalMrn, 
                 title: values.title ?? "",
                 first_name: values.firstName,
                 last_name: values.lastName,
@@ -310,7 +310,7 @@ export function AddPatientDialog({
         handleOpenChange(false);
     } catch (error: any) {
         console.error("Registration Error:", error);
-        toast.error("Error generating MRN. Please check your connection.");
+        toast.error("Registration Failed", { description: "An error occurred during secure ID generation." });
     } finally {
         setLoading(false);
     }
@@ -326,22 +326,23 @@ export function AddPatientDialog({
           <DialogDescription>
             {isEditing 
                 ? `Editing record for ${patientToEdit?.full_name}` 
-                : `New patient at ${user?.hospitalId}. Unique facility-prefixed MRN will be automatically generated.`
+                : `Provisioning a new patient chart for ${user?.hospitalId}. Branded MRN will be assigned.`
             }
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
+              {/* SYSTEM GENERATED MRN DISPLAY */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-center justify-between">
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-center justify-between shadow-sm">
                     <div>
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Medical Record Number</p>
-                        <p className="text-sm font-mono font-bold text-blue-600">
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Medical Record Number</p>
+                        <p className="text-sm font-mono font-black text-blue-600">
                             {isEditing ? patientToEdit?.mrn : "AUTO-GENERATED"}
                         </p>
                     </div>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-bold uppercase text-[9px]">
                         System Assigned
                     </Badge>
                 </div>
@@ -358,10 +359,10 @@ export function AddPatientDialog({
                         </FormControl>
                         <div className="space-y-1 leading-none">
                         <FormLabel className="text-yellow-800 font-bold">
-                            Emergency / Temporary Record
+                            Temporary / Emergency Record
                         </FormLabel>
                         <FormDescription className="text-yellow-700/80 text-[10px]">
-                            Create a record for immediate care. Reconcile details later.
+                            Immediate care registration. Formal details to be reconciled later.
                         </FormDescription>
                         </div>
                     </FormItem>
@@ -633,7 +634,7 @@ export function AddPatientDialog({
                     control={form.control}
                     name="consent"
                     render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-muted/5">
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-muted/5 shadow-inner">
                         <FormControl>
                         <Checkbox
                             checked={field.value}
@@ -641,12 +642,12 @@ export function AddPatientDialog({
                         />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                        <FormLabel>
-                            Patient Consent
+                        <FormLabel className="font-bold">
+                            Clinical Data Consent
                         </FormLabel>
                         <FormDescription className="text-xs">
                             I consent to the collection and processing of my personal and health data for medical purposes, in accordance with the Data Protection Act, 2012 (Act 843).
-                        </FormLabel>
+                        </FormDescription>
                         <FormMessage />
                         </div>
                     </FormItem>
@@ -656,8 +657,8 @@ export function AddPatientDialog({
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 min-w-[120px]">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : (isEditing ? 'Update Record' : 'Register Patient')}
+              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 min-w-[120px] font-bold">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : (isEditing ? 'Update Record' : 'Finalize Registration')}
               </Button>
             </DialogFooter>
           </form>

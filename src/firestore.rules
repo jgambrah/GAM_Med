@@ -76,7 +76,7 @@ service cloud.firestore {
       
       // Counter Pattern for Chronological MRNs
       match /counters/{counterId} {
-        allow read, write: if isSignedIn() && (request.auth.token.hospitalId == hospId || isSuperAdmin());
+        allow read, write: if isSignedIn() && (request.auth.token.hospitalId == hospId || getMyHospitalId() == hospId || isSuperAdmin());
       }
     }
 
@@ -85,7 +85,6 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     match /users/{userDocId} {
-      // Allow users to query for their own profile via UID field
       allow list: if isSignedIn() && (
         (request.query.limit <= 100 && request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId())
@@ -109,10 +108,6 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
       allow update: if isSignedIn() && isSameHospital(resource.data);
     }
-
-    // --------------------------------------------------------------------
-    // Clinical & Operational Modules
-    // --------------------------------------------------------------------
 
     match /vitals/{vitalId} {
       allow list: if isSignedIn() && (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId());
@@ -138,7 +133,6 @@ service cloud.firestore {
       allow write: if isSignedIn() && isSameHospital(request.resource.data) && isAdmin();
     }
 
-    // Generic fallback for other logically isolated documents
     match /{collection}/{docId} {
       allow read, write: if isSignedIn() && (isSuperAdmin() || (resource.data.hospitalId == getMyHospitalId() || request.resource.data.hospitalId == getMyHospitalId()));
     }
