@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -38,42 +38,42 @@ export default function LoginPage() {
         const normalizedEmail = email.toLowerCase().trim();
 
         try {
-            // 1. Log in with Email/Password
+            // 1. Sign in with Email/Password
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
-            // 2. FORCE REFRESH: Pull the server-side custom claims (SaaS Stamp) into the local session
+            /**
+             * == CRITICAL SAAS FIX: Token Sync ==
+             * 2. FORCE REFRESH THE STAMP (Identity Card)
+             * This pulls the server-side custom claims (baked during provisioning) into 
+             * the client-side session immediately, avoiding permission errors for new Directors.
+             */
             if (userCredential.user) {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. WAIT: Give the identity system a second to synchronize
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 3. Handshake Delay: Wait for global identity propagation
+            await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
-             * == USER DISCOVERY (SEARCH BY UID) ==
-             * Use the UID to find the user's composite profile document.
-             * This avoids "homeless" users whose hospitalId claim hasn't hit the token yet.
+             * == USER DISCOVERY (DIRECT GET) ==
+             * 4. Fetch the profile directly by UID to satisfy "allow get: if request.auth.uid == userId"
              */
-            const usersRef = collection(db, "users");
-            const q = query(
-                usersRef, 
-                where("uid", "==", userCredential.user.uid),
-                limit(1)
-            );
+            if (!auth.currentUser) throw new Error("Authentication failed.");
             
-            const querySnap = await getDocs(q);
+            const userDocRef = doc(db, "users", auth.currentUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
 
-            if (querySnap.empty) {
-                throw new Error("Login successful, but profile not found. Please contact platform support.");
+            if (!userDocSnap.exists()) {
+                throw new Error("Account found but profile missing. Please contact platform support.");
             }
 
-            const userData = querySnap.docs[0].data();
+            const userData = userDocSnap.data();
             
             if (!userData.is_active) {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
-            // Set global auth state
+            // Set global auth state for the context provider
             setUser({
                 uid: userCredential.user.uid,
                 ...userData
@@ -83,10 +83,14 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // 5. Success! Route correctly based on the Identity Stamp.
+            /**
+             * == REDIRECTION GUARD ==
+             * 5. Success! Route correctly based on the fresh Identity Stamp.
+             */
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin/pulse');
             } else {
+                // Directors and staff go to the facility dashboard
                 router.push('/dashboard');
             }
 
@@ -129,7 +133,7 @@ export default function LoginPage() {
                         <div className="grid gap-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Password</Label>
-                                <Link href="#" className="text-xs font-bold text-primary hover:underline">Reset?</Link>
+                                <Link href="#" className="text-xs font-bold text-primary hover:underline">Forgot password?</Link>
                             </div>
                             <Input 
                                 id="password" 
