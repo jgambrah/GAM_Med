@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
  * == Fault-Tolerant Enterprise Provisioning Engine ==
  * 
  * This API performs the atomic "Handover" of a new hospital tenant.
- * Now supports custom facility branding prefixes.
+ * Now automatically generates a 3-letter branded prefix for clinical IDs.
  */
 export async function POST(req: Request) {
     try {
@@ -17,25 +17,27 @@ export async function POST(req: Request) {
             name = "", 
             email = "", 
             directorName = "",
-            prefix = "MRN" // NEW: Branded ID Prefix
+            prefix: providedPrefix
         } = body;
 
         if (!email || !name) {
             return NextResponse.json({ error: "Hospital name and Director email are required." }, { status: 400 });
         }
 
+        // 1. Generate Prefix Automatically (e.g. "Marcus Memorial" -> "MAR")
+        const prefix = (providedPrefix || name.substring(0, 3)).toUpperCase();
         const normalizedEmail = email.toLowerCase().trim();
         const hospitalId = name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
         const tempPassword = "GamMed-" + Math.random().toString(36).slice(-8).toUpperCase();
 
         console.log(`Starting branded provisioning for ${normalizedEmail} with prefix ${prefix}...`);
 
-        // 1. Create the Hospital Master Record
+        // 2. Create the Hospital Master Record
         await adminDb.collection('hospitals').doc(hospitalId).set({
             hospitalId: hospitalId,
             name: name,
             slug: hospitalId,
-            prefix: prefix.toUpperCase(), // SAVE THE BRANDING STAMP
+            prefix: prefix, // THE BRANDING STAMP
             status: 'active',
             subscriptionStatus: 'trialing',
             subscriptionTier: 'clinic-starter',
@@ -45,7 +47,7 @@ export async function POST(req: Request) {
             ownerEmail: normalizedEmail
         });
 
-        // 2. Create the Director (Auth)
+        // 3. Create the Director (Auth)
         let userRecord;
         try {
             userRecord = await adminAuth.createUser({
@@ -61,13 +63,13 @@ export async function POST(req: Request) {
             throw authError;
         }
 
-        // 3. THE "SAAS STAMP" (Custom JWT Claims)
+        // 4. THE "SAAS STAMP" (Custom JWT Claims)
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
         });
 
-        // 4. Create User Profile Document
+        // 5. Create User Profile Document
         await adminDb.collection('users').doc(userRecord.uid).set({
             uid: userRecord.uid,
             email: normalizedEmail,
@@ -79,14 +81,14 @@ export async function POST(req: Request) {
             created_at: new Date().toISOString()
         });
 
-        // 5. Create Role Marker
+        // 6. Create Role Marker
         await adminDb.collection('roles_admin').doc(userRecord.uid).set({
             uid: userRecord.uid,
             hospitalId: hospitalId,
             assignedAt: new Date().toISOString()
         });
 
-        // 6. SEND WELCOME EMAIL (Fault Tolerant)
+        // 7. SEND WELCOME EMAIL (Fault Tolerant)
         try {
             const resend = new Resend(process.env.RESEND_API_KEY);
             await resend.emails.send({
@@ -97,7 +99,7 @@ export async function POST(req: Request) {
                     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 12px;">
                         <h2 style="color: #2563eb;">Welcome, ${directorName}!</h2>
                         <p>Your hospital management system for <strong>${name}</strong> has been successfully provisioned.</p>
-                        <p>Your facility is configured with the ID prefix: <strong>${prefix.toUpperCase()}</strong></p>
+                        <p>Your facility is configured with the clinical ID prefix: <strong>${prefix}</strong></p>
                         
                         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
                             <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gam-med.vercel.app'}/login">Open Portal</a></p>
