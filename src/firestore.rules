@@ -113,6 +113,13 @@ service cloud.firestore {
       allow update: if isSignedIn() && isSameHospital(resource.data);
     }
 
+    match /admissions/{admissionId} {
+      allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
+      allow get: if isSignedIn() && isSameHospital(resource.data);
+      allow create: if isSignedIn() && request.resource.data.hospitalId == getMyHospitalId();
+      allow update: if isSignedIn() && isSameHospital(resource.data);
+    }
+
     match /wards/{wardId} {
       allow list: if isSignedIn() && (request.query.filters.hospitalId == getMyHospitalId());
       allow read, write: if isSignedIn() && isSameHospital(resource.data || request.resource.data);

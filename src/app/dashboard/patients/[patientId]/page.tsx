@@ -21,7 +21,8 @@ import { Button } from '@/components/ui/button';
 export default function PatientDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const patientId = params.patientId as string;
+  // Ensure we extract the patientId safely
+  const patientId = params?.patientId as string;
   const { user, loading: isAuthLoading } = useAuth();
   const firestore = useFirestore();
 
@@ -33,23 +34,10 @@ export default function PatientDetailPage() {
 
   const { data: patient, isLoading: isDocLoading, error } = useDoc<Patient>(patientRef);
 
-  // LOGGING FOR DIAGNOSTICS
-  React.useEffect(() => {
-    if (!isDocLoading && !isAuthLoading) {
-        console.log("=== CLINICAL LOOKUP DIAGNOSTICS ===");
-        console.log("URL PatientID:", patientId);
-        console.log("Resolved Ref Path:", patientRef?.path);
-        console.log("Document Found in Vault:", !!patient);
-        console.log("Current User Facility:", user?.hospitalId);
-        if (patient) console.log("Patient Owner Facility:", patient.hospitalId);
-        if (error) console.error("Firestore Security/System Error:", error);
-    }
-  }, [patientId, patientRef, patient, user, isDocLoading, isAuthLoading, error]);
-
   // SAAS SECURITY WALL
   const isAuthorized = React.useMemo(() => {
     // Wait for everything to load before making a security determination
-    if (isAuthLoading || isDocLoading) return true; 
+    if (isAuthLoading || isDocLoading || !patientId) return true; 
     
     if (!user || !patient) return false;
     
@@ -58,10 +46,11 @@ export default function PatientDetailPage() {
     
     // THE WALL: Patient must belong to the logged-in user's facility
     return patient.hospitalId === user.hospitalId;
-  }, [user, patient, isAuthLoading, isDocLoading]);
+  }, [user, patient, isAuthLoading, isDocLoading, patientId]);
 
-  // 1. Loading State (Auth or Doc)
-  if (isAuthLoading || isDocLoading || !firestore) {
+  // 1. Loading State (Auth, Params, or Doc)
+  // We explicitly check !patientId to wait for Next.js router to settle
+  if (isAuthLoading || isDocLoading || !firestore || !patientId) {
     return (
       <div className="p-8 space-y-6">
         <div className="flex items-center gap-3">
