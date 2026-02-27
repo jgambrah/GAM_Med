@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -11,6 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import AddStaffModal from './AddStaffModal';
+import { MoreHorizontal, UserSearch } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 /**
  * == Hospital Director's Control Center ==
@@ -88,6 +99,7 @@ export default function StaffManagement() {
                             <TableHead>Email</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="w-[100px]">Access</TableHead>
+                            <TableHead className="text-right pr-6">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -116,11 +128,28 @@ export default function StaffManagement() {
                                             />
                                         )}
                                     </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Management</DropdownMenuLabel>
+                                                <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/hr/staff/${member.id}`} className="cursor-pointer">
+                                                        <UserSearch className="mr-2 h-4 w-4" /> View Full Profile
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                                     No staff members registered for this facility.
                                 </TableCell>
                             </TableRow>

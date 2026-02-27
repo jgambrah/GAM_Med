@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -156,7 +157,11 @@ export function AppointmentsDataTable({ data }: AppointmentsDataTableProps) {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuLabel>Manage Appointment</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => { setSelectedAppointment(appt); setDialog('view'); }}>View EHR</DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href={`/dashboard/patients/${appt.patient_id}`} className="cursor-pointer">
+                                            View Full EHR
+                                        </Link>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => { setSelectedAppointment(appt); setDialog('reschedule'); }}>Reschedule</DropdownMenuItem>
                                     <DropdownMenuItem 
                                         className="text-destructive"
