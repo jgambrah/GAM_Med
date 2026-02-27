@@ -1,4 +1,3 @@
-
 import { getAdminServices } from '@/firebase/admin';
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
@@ -7,18 +6,18 @@ import { NextResponse } from 'next/server';
  * == Fault-Tolerant Enterprise Provisioning Engine ==
  * 
  * This API performs the atomic "Handover" of a new hospital tenant.
- * It is designed to be resilient to email delivery failures and data mismatches.
+ * Now supports custom facility branding prefixes.
  */
 export async function POST(req: Request) {
     try {
         const { adminDb, adminAuth } = getAdminServices();
         const body = await req.json();
         
-        // SAFE DESTRUCTURING: Provide defaults to prevent .toLowerCase() crashes
         const { 
             name = "", 
             email = "", 
-            directorName = "" 
+            directorName = "",
+            prefix = "MRN" // NEW: Branded ID Prefix
         } = body;
 
         if (!email || !name) {
@@ -29,13 +28,14 @@ export async function POST(req: Request) {
         const hospitalId = name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
         const tempPassword = "GamMed-" + Math.random().toString(36).slice(-8).toUpperCase();
 
-        console.log(`Starting provisioning for ${normalizedEmail}...`);
+        console.log(`Starting branded provisioning for ${normalizedEmail} with prefix ${prefix}...`);
 
         // 1. Create the Hospital Master Record
         await adminDb.collection('hospitals').doc(hospitalId).set({
             hospitalId: hospitalId,
             name: name,
             slug: hospitalId,
+            prefix: prefix.toUpperCase(), // SAVE THE BRANDING STAMP
             status: 'active',
             subscriptionStatus: 'trialing',
             subscriptionTier: 'clinic-starter',
@@ -62,7 +62,6 @@ export async function POST(req: Request) {
         }
 
         // 3. THE "SAAS STAMP" (Custom JWT Claims)
-        // This is critical for Database Security Rules.
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
@@ -80,7 +79,7 @@ export async function POST(req: Request) {
             created_at: new Date().toISOString()
         });
 
-        // 5. Create Role Marker (Mandatory for rules fallback)
+        // 5. Create Role Marker
         await adminDb.collection('roles_admin').doc(userRecord.uid).set({
             uid: userRecord.uid,
             hospitalId: hospitalId,
@@ -98,6 +97,7 @@ export async function POST(req: Request) {
                     <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 12px;">
                         <h2 style="color: #2563eb;">Welcome, ${directorName}!</h2>
                         <p>Your hospital management system for <strong>${name}</strong> has been successfully provisioned.</p>
+                        <p>Your facility is configured with the ID prefix: <strong>${prefix.toUpperCase()}</strong></p>
                         
                         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
                             <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gam-med.vercel.app'}/login">Open Portal</a></p>
@@ -111,16 +111,15 @@ export async function POST(req: Request) {
                     </div>
                 `
             });
-            console.log(`Success: Welcome email sent to ${normalizedEmail}`);
         } catch (emailErr: any) {
-            console.warn("EMAIL_SEND_FAILURE (Handover complete but notification failed):", emailErr.message);
+            console.warn("EMAIL_SEND_FAILURE:", emailErr.message);
         }
 
         return NextResponse.json({ 
             success: true, 
             hospitalId,
             tempPassword,
-            message: "Hospital provisioned and identity stamped successfully." 
+            message: "Hospital provisioned and branded successfully." 
         });
 
     } catch (error: any) {

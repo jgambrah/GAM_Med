@@ -21,16 +21,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Building2, Loader2, UserPlus } from 'lucide-react';
+import { Plus, Building2, Loader2, UserPlus, Tag } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const CreateHospitalSchema = z.object({
   hospitalName: z.string().min(3, 'Hospital name must be at least 3 characters'),
   directorName: z.string().min(3, 'Director full name is required'),
   directorEmail: z.string().email('Invalid email address'),
+  prefix: z.string().min(2, 'Prefix must be 2-4 characters').max(4, 'Prefix must be 2-4 characters').toUpperCase(),
   subscriptionTier: z.enum(['clinic-starter', 'professional', 'enterprise']),
 });
 
@@ -53,16 +55,24 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
       hospitalName: '',
       directorName: '',
       directorEmail: '',
+      prefix: '',
       subscriptionTier: 'clinic-starter',
     },
   });
 
   React.useEffect(() => {
     if (initialData) {
+      // Auto-generate a prefix based on the name if possible
+      const words = initialData.hospitalName.split(' ');
+      const autoPrefix = words.length > 1 
+        ? (words[0][0] + words[1][0] + (words[2] ? words[2][0] : '')).toUpperCase()
+        : initialData.hospitalName.slice(0, 3).toUpperCase();
+
       form.reset({
         hospitalName: initialData.hospitalName || '',
         directorName: initialData.name || '',
         directorEmail: initialData.email || '',
+        prefix: autoPrefix,
         subscriptionTier: 'clinic-starter',
       });
       setOpen(true);
@@ -72,11 +82,11 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
   const onSubmit = async (values: z.infer<typeof CreateHospitalSchema>) => {
     setIsSubmitting(true);
     
-    // ENSURE THESE NAMES: name, email, directorName (Synchronized with Backend API)
     const payload = {
-        name: values.hospitalName,         // The Hospital Name
-        email: values.directorEmail,       // The Director's Email
-        directorName: values.directorName  // The Director's Full Name
+        name: values.hospitalName,         
+        email: values.directorEmail,       
+        directorName: values.directorName,
+        prefix: values.prefix.toUpperCase() // THE "BRANDING" STAMP
     };
 
     try {
@@ -92,19 +102,19 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
           throw new Error(result.error || "Failed to provision facility");
       }
 
-      // CEO BACKUP: Show the password to you immediately in case email fails
       alert(`
         HOSPITAL CREATED SUCCESSFULLY!
         ------------------------------
         Director: ${values.directorName}
         Email: ${values.directorEmail}
+        MRN Prefix: ${values.prefix}
         Temporary Password: ${result.tempPassword} 
         
         (Please copy this password and send it to the director in case the email is delayed).
       `);
 
       toast.success("Hospital Provisioned Successfully!", {
-        description: `${values.hospitalName} is now active.`
+        description: `${values.hospitalName} is now active with prefix ${values.prefix}.`
       });
       
       setOpen(false);
@@ -156,6 +166,43 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="prefix"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                            <Tag className="h-3 w-3" />
+                            MRN Prefix
+                        </FormLabel>
+                        <FormControl><Input placeholder="e.g. AGH" {...field} /></FormControl>
+                        <FormDescription className="text-[10px]">Used for sequential IDs (e.g. AGH-1001)</FormDescription>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="subscriptionTier"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Plan Tier</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <FormControl>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="clinic-starter">Clinic Starter</SelectItem>
+                            <SelectItem value="professional">Professional</SelectItem>
+                            <SelectItem value="enterprise">Enterprise</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
             <FormField
               control={form.control}
               name="directorEmail"
@@ -174,26 +221,6 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
                 <FormItem>
                   <FormLabel>Director Full Name</FormLabel>
                   <FormControl><Input placeholder="Dr. John Doe" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="subscriptionTier"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Plan Tier</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="clinic-starter">Clinic Starter</SelectItem>
-                      <SelectItem value="professional">Professional</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

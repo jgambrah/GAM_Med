@@ -55,6 +55,7 @@ interface AddPatientDialogProps {
  * This component handles the registration of new patients.
  * It implements the "Counter Pattern" using Firestore Transactions to ensure
  * every patient receives a unique, sequential MRN (Medical Record Number).
+ * Now supports facility-specific prefixes (e.g., MMH-1001).
  */
 export function AddPatientDialog({
   patientToEdit,
@@ -235,18 +236,24 @@ export function AddPatientDialog({
             toast.success("Patient Record Updated");
             if (onPatientUpdated) onPatientUpdated();
         } else {
-            // Logic for NEW patient with Atomic MRN Generation
+            // Logic for NEW patient with Atomic MRN Generation & Custom Prefix
             const counterRef = doc(db, "hospitals", hospitalId, "counters", "patients");
+            const hospitalRef = doc(db, "hospitals", hospitalId);
 
             finalMrn = await runTransaction(db, async (transaction) => {
+                // a) Get the Hospital Document for the branding prefix
+                const hospitalSnap = await transaction.get(hospitalRef);
+                const prefix = hospitalSnap.exists() ? (hospitalSnap.data().prefix || 'MRN') : 'MRN';
+
+                // b) Get the current sequence count
                 const counterSnap = await transaction.get(counterRef);
-                
-                let newCount = 1001; // Start at 1001
+                let newCount = 1001; 
                 if (counterSnap.exists()) {
                     newCount = (counterSnap.data().lastSequence || 1000) + 1;
                 }
 
-                const generatedMrn = `MRN-${newCount}`;
+                // c) Formulate the chronological identifier
+                const generatedMrn = `${prefix}-${newCount}`;
                 transaction.set(counterRef, { lastSequence: newCount }, { merge: true });
                 return generatedMrn;
             });
@@ -284,7 +291,7 @@ export function AddPatientDialog({
                 insurance: {
                     provider_name: values.insurance?.providerName || '',
                     policy_number: values.insurance?.policyNumber || '',
-                    expiry_date: values.insurance?.expiryDate || '',
+                    expiry_date: values.insurance?.expiry_date || '',
                     isActive: true,
                 },
                 is_admitted: false,
@@ -297,7 +304,7 @@ export function AddPatientDialog({
             await setDoc(patientRef, newPatientData);
 
             toast.success(`Patient Registered`, {
-                description: `Unique MRN generated: ${finalMrn}`
+                description: `Unique identity generated: ${finalMrn}`
             });
 
             if (onPatientAdded) onPatientAdded(newPatientData);
@@ -322,7 +329,7 @@ export function AddPatientDialog({
           <DialogDescription>
             {isEditing 
                 ? `Editing record for ${patientToEdit?.full_name}` 
-                : `New patient at ${user?.hospitalId}. MRN will be automatically generated.`
+                : `New patient at ${user?.hospitalId}. Unique facility-prefixed MRN will be automatically generated.`
             }
           </DialogDescription>
         </DialogHeader>
@@ -339,7 +346,7 @@ export function AddPatientDialog({
                       <FormControl>
                         <Input placeholder="Leave blank for auto-generation" {...field} disabled={!isEditing} />
                       </FormControl>
-                      <FormDescription>System will generate MRN if left blank.</FormDescription>
+                      <FormDescription>System will generate branded MRN if left blank.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

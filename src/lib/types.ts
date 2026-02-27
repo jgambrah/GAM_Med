@@ -65,6 +65,7 @@ export interface Hospital {
   id?: string;
   name: string;
   slug: string;
+  prefix?: string; // Custom prefix for MRNs (e.g., MMH)
   status: 'active' | 'suspended';
   subscriptionTier: 'clinic-starter' | 'professional' | 'enterprise';
   planId?: 'trial' | 'clinic-starter' | 'professional' | 'enterprise';
