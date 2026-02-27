@@ -68,6 +68,7 @@ import {
   Activity,
   User as UserIcon,
   ChevronDown,
+  Landmark,
 } from 'lucide-react';
 import type { User } from '@/lib/types';
 import { mockAlerts, allAdmissions } from '@/lib/data';
@@ -165,6 +166,7 @@ export function MainNavClient() {
     { href: '/dashboard/pharmacy/controlled-substances', label: 'Narcotics Register', icon: ShieldAlert, roles: ['director', 'admin', 'pharmacist'], category: 'pharmacy' },
 
     { href: '/dashboard/finance', label: 'Finance Hub', icon: Wallet, roles: ['director', 'admin', 'billing_clerk'], category: 'finance' },
+    { href: '/dashboard/finance/nhis', label: 'NHIS Claims', icon: Landmark, roles: ['director', 'admin', 'billing_clerk'], category: 'finance' },
     { href: '/dashboard/payroll', label: 'Payroll', icon: CreditCard, roles: ['director', 'admin'], category: 'finance' },
     { href: '/dashboard/approvals', label: 'Approvals', icon: CheckSquare, roles: ['director', 'admin', 'doctor'], category: 'finance' },
 
