@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bed as BedIcon, User, Loader2, LayoutGrid, ClipboardList, Activity, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Bed as BedIcon, User, Loader2, LayoutGrid, ClipboardList, Activity, ArrowRight, ShieldCheck, Plus } from 'lucide-react';
 import { AssignBedDialog } from '@/components/wards/assign-bed-dialog';
 import { AddWardDialog } from './components/add-ward-dialog';
 import { AddBedDialog } from '../beds/components/add-bed-dialog';
@@ -169,8 +169,13 @@ export default function WardManagementPage() {
                                         <BedControlCard key={bed.id} bed={bed} />
                                     ))}
                                     {wardBeds.length === 0 && (
-                                        <div className="col-span-full py-8 text-center border-2 border-dashed rounded-2xl bg-muted/5 opacity-40">
-                                            <p className="text-xs font-bold uppercase tracking-widest">No beds provisioned in this unit.</p>
+                                        <div className="col-span-full py-12 text-center border-2 border-dashed rounded-3xl bg-muted/5 flex flex-col items-center gap-3">
+                                            <BedIcon className="h-8 w-8 text-muted-foreground/30" />
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Unit Inventory Empty</p>
+                                                <p className="text-[10px] text-muted-foreground/70">No beds have been provisioned for this specific ward unit.</p>
+                                            </div>
+                                            <AddBedDialog />
                                         </div>
                                     )}
                                 </div>
@@ -181,8 +186,8 @@ export default function WardManagementPage() {
                     <div className="py-32 text-center border-4 border-dashed rounded-[2rem] bg-muted/5 flex flex-col items-center gap-4">
                         <ClipboardList className="h-16 w-16 text-muted-foreground/20" />
                         <div className="space-y-1">
-                            <h3 className="text-xl font-black text-slate-900">Your facility is currently empty</h3>
-                            <p className="text-muted-foreground text-sm font-medium">Use the "Add Ward" button above to begin building your facility structure.</p>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Facility Infrastructure Required</h3>
+                            <p className="text-muted-foreground text-sm font-medium">To begin clinical census tracking, you must first define your facility's Wards (Clinical Units).</p>
                         </div>
                         <AddWardDialog />
                     </div>
