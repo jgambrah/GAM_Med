@@ -25,13 +25,6 @@ export default function PatientDetailPage() {
   const { user, loading: isAuthLoading } = useAuth();
   const firestore = useFirestore();
 
-  // DEBUG: Track the exact ID being looked up in the SaaS vault
-  React.useEffect(() => {
-    if (patientId) {
-      console.log("Searching for Patient ID in SaaS Vault:", patientId);
-    }
-  }, [patientId]);
-
   // STABILIZE REFERENCE
   const patientRef = useMemoFirebase(() => {
     if (!patientId || !firestore) return null;
@@ -40,11 +33,30 @@ export default function PatientDetailPage() {
 
   const { data: patient, isLoading: isDocLoading, error } = useDoc<Patient>(patientRef);
 
+  // LOGGING FOR DIAGNOSTICS
+  React.useEffect(() => {
+    if (!isDocLoading && !isAuthLoading) {
+        console.log("=== CLINICAL LOOKUP DIAGNOSTICS ===");
+        console.log("URL PatientID:", patientId);
+        console.log("Resolved Ref Path:", patientRef?.path);
+        console.log("Document Found in Vault:", !!patient);
+        console.log("Current User Facility:", user?.hospitalId);
+        if (patient) console.log("Patient Owner Facility:", patient.hospitalId);
+        if (error) console.error("Firestore Security/System Error:", error);
+    }
+  }, [patientId, patientRef, patient, user, isDocLoading, isAuthLoading, error]);
+
   // SAAS SECURITY WALL
   const isAuthorized = React.useMemo(() => {
-    if (isAuthLoading || isDocLoading) return true; // Assume true while loading
+    // Wait for everything to load before making a security determination
+    if (isAuthLoading || isDocLoading) return true; 
+    
     if (!user || !patient) return false;
+    
+    // Platform CEO can see all charts for support purposes
     if (user.role === 'super_admin') return true;
+    
+    // THE WALL: Patient must belong to the logged-in user's facility
     return patient.hospitalId === user.hospitalId;
   }, [user, patient, isAuthLoading, isDocLoading]);
 
@@ -56,20 +68,36 @@ export default function PatientDetailPage() {
             <Loader2 className="h-5 w-5 animate-spin text-primary opacity-20" />
             <Skeleton className="h-10 w-64" />
         </div>
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-[500px] w-full" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-[500px] w-full rounded-xl" />
       </div>
     );
   }
 
-  // 2. If document definitely doesn't exist (Only check after loading is false)
-  if (!patient && !error) {
+  // 2. Handle System or Security Errors
+  if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[70vh] text-center p-8 bg-destructive/5 rounded-3xl border-2 border-dashed border-destructive/20 m-6">
+            <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+            <h2 className="text-xl font-black text-destructive uppercase tracking-tighter">Security Violation</h2>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                The database denied access to this record. This typically happens if the patient belongs to another facility or your session has expired.
+            </p>
+            <Button variant="outline" className="mt-6 font-bold" onClick={() => router.back()}>
+                Return to Directory
+            </Button>
+        </div>
+      );
+  }
+
+  // 3. Document Not Found
+  if (!patient) {
     console.error("Clinical Lookup Failure: Document not found for ID", patientId);
     return notFound();
   }
 
-  // 3. If access is denied by rules or SaaS logic
-  if (!isAuthorized || error) {
+  // 4. SaaS Isolation Check (If ID exists but belongs to another tenant)
+  if (!isAuthorized) {
     return (
         <div className="flex flex-col items-center justify-center h-[70vh] text-center p-8 bg-destructive/5 rounded-3xl border-2 border-dashed border-destructive/20 m-6">
             <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
@@ -88,7 +116,7 @@ export default function PatientDetailPage() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4">
       <div className="flex-grow overflow-hidden">
-        {/* Pass the live patient object to the workbench */}
+        {/* Pass the live patient object to the clinical workbench */}
         <PatientEHR patient={patient} />
       </div>
     </div>
