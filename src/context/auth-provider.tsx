@@ -41,23 +41,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // We need to find the user document. In our system, the ID is either the UID 
-    // or the composite {hospitalId}_{email}. We check the 'users' collection.
-    // To be most robust, we query for the document where 'uid' field matches authUser.uid
-    // but typically we can listen to the profile by its known ID if available.
-    
-    // For now, we listen to the document directly if we can resolve the ID, 
+    // We listen to the document directly if we can resolve the ID, 
     // otherwise we wait for the query logic in specific pages.
-    // IMPROVED: We use a listener on the specific user profile.
     const profileRef = doc(firestore, 'users', authUser.uid);
     
     const unsubscribe = onSnapshot(profileRef, (snap) => {
       if (snap.exists()) {
-        setProfile({ id: snap.id, uid: authUser.uid, ...snap.data() } as User);
+        // Use double assertion to satisfy strict overlap checks
+        setProfile({ id: snap.id, uid: authUser.uid, ...snap.data() } as unknown as User);
       } else {
-        // Fallback for composite IDs: we might need a query here if doc ID != uid
-        // For the prototype, we assume the uid field is enough to identify the user.
-        setProfile({ uid: authUser.uid, email: authUser.email, name: authUser.displayName } as any);
+        // Fallback for composite IDs if doc ID != uid
+        setProfile({ 
+            uid: authUser.uid, 
+            email: authUser.email || '', 
+            name: authUser.displayName || 'User',
+            role: 'staff',
+            is_active: true,
+            hospitalId: '',
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString()
+        } as User);
       }
       setIsProfileLoading(false);
     }, (err) => {

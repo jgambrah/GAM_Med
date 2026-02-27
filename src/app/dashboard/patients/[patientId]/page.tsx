@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -41,7 +42,7 @@ export default function PatientDetailPage() {
   // 3. SAAS SECURITY: Verify multi-tenant authorization
   const isAuthorized = React.useMemo(() => {
     if (isAuthLoading || isDocLoading) return true; // Wait for data
-    if (!patient || !user) return true; // Let the not-found or auth guard handle it
+    if (!patient || !user) return true; 
     if (user.role === 'super_admin') return true;
     return patient.hospitalId === user.hospitalId;
   }, [user, patient, isAuthLoading, isDocLoading]);
@@ -88,11 +89,12 @@ export default function PatientDetailPage() {
     );
   }
 
-  // 7. SUCCESS: Render the EHR with guaranteed non-null patient data
+  // 7. SUCCESS: Finally render the EHR
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
       <div className="flex-grow overflow-hidden">
-        <PatientEHR patient={patient} />
+        {/* Assert patient is non-null after the exhaustive checks above */}
+        <PatientEHR patient={patient!} />
       </div>
     </div>
   );
