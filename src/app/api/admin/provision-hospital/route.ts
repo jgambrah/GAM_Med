@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         
-        // SAFE DESTRUCTURING: Prevent .toLowerCase() crashes on undefined
+        // SAFE DESTRUCTURING: Provide defaults to prevent .toLowerCase() crashes
         const { 
             name = "", 
             email = "", 

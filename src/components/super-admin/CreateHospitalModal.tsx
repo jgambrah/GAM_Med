@@ -92,6 +92,17 @@ export default function CreateHospitalModal({ initialData, onSuccess }: CreateHo
           throw new Error(result.error || "Failed to provision facility");
       }
 
+      // SUCCESS: Show the password to the CEO (Backup tool)
+      alert(`
+        HOSPITAL CREATED SUCCESSFULLY!
+        ------------------------------
+        Director: ${values.directorName}
+        Email: ${values.directorEmail}
+        Temporary Password: ${result.tempPassword} 
+        
+        (Please copy this password and send it to the director in case the email is delayed).
+      `);
+
       toast.success("Hospital Provisioned Successfully!", {
         description: `${values.hospitalName} is now active.`
       });
