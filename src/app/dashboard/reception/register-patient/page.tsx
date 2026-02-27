@@ -20,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { PatientSchema } from '@/lib/schemas';
 import { Patient } from '@/lib/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const titles = ["Mr", "Mrs", "Ms", "Dr", "Rev", "Prof", "Master", "Miss"];
 const maritalStatuses = ["Single", "Married", "Divorced", "Widowed", "Separated"];
@@ -32,12 +33,6 @@ const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const genotypes = ["AA", "AS", "SS", "SC", "CC", "AC"];
 const kinRelationships = ["Spouse", "Parent", "Child", "Sibling", "Guardian", "Other"];
 
-/**
- * == Core Hospital Engine: Full Patient Registration Page ==
- * 
- * Provides a high-fidelity interface for the Reception Desk to register new patients.
- * Enforces atomic sequential ID generation and captures a complete clinical dataset.
- */
 export default function RegisterPatientPage() {
     const firestore = useFirestore();
     const { user } = useAuth();
@@ -81,7 +76,6 @@ export default function RegisterPatientPage() {
         },
     });
 
-    // Auto-sync hospital context
     React.useEffect(() => {
         if (hospitalId) {
             form.setValue('hospitalId', hospitalId);
@@ -98,7 +92,6 @@ export default function RegisterPatientPage() {
             const hospitalRef = doc(firestore, "hospitals", hospitalId);
             const counterRef = doc(firestore, "hospitals", hospitalId, "counters", "patient_sequence");
 
-            // 1. RUN THE ATOMIC TRANSACTION TO GET SEQUENTIAL MRN
             const generatedMrn = await runTransaction(firestore, async (transaction) => {
                 const hospSnap = await transaction.get(hospitalRef);
                 const prefix = hospSnap.exists() ? (hospSnap.data().prefix || 'MRN') : 'MRN';
@@ -113,7 +106,6 @@ export default function RegisterPatientPage() {
                 return `${prefix}-${nextNum}`;
             });
 
-            // 2. Create the Patient Record (Logical Isolation)
             const customPatientId = `${hospitalId}_${generatedMrn}`;
             const patientRef = doc(firestore, 'patients', customPatientId);
             const fullName = `${values.firstName} ${values.lastName}`;
@@ -163,10 +155,7 @@ export default function RegisterPatientPage() {
 
             await setDoc(patientRef, newPatientData);
 
-            toast.success(`Registration Successful! MRN: ${generatedMrn}`, {
-                description: `Patient ${fullName} has been added to the master index.`
-            });
-            
+            toast.success(`Registration Successful! MRN: ${generatedMrn}`);
             form.reset();
         } catch (error: any) {
             console.error("Registration Error:", error);
@@ -587,7 +576,7 @@ export default function RegisterPatientPage() {
                                 )}
                             />
 
-                            <div className="pt-10 flex justify-center">
+                            <div className="pt-10 flex justify-center pb-10">
                                 <Button 
                                     type="submit" 
                                     disabled={form.formState.isSubmitting} 

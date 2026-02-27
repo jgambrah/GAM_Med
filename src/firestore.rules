@@ -136,11 +136,12 @@ service cloud.firestore {
     match /referrals/{refId} {
       allow list: if isSignedIn() && (
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "toHospitalId" && request.query.filters[0].value == getMyHospitalId()) ||
-        (request.query.filters.size() >= 1 && request.query.filters[0].field == "fromHospitalId" && request.query.filters[0].value == getMyHospitalId())
+        (request.query.filters.size() >= 1 && request.query.filters[0].field == "fromHospitalId" && request.query.filters[0].value == getMyHospitalId()) ||
+        isSuperAdmin()
       );
-      allow get: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId());
+      allow get: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId() || isSuperAdmin());
       allow create: if isSignedIn() && request.resource.data.fromHospitalId == getMyHospitalId();
-      allow update: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId());
+      allow update: if isSignedIn() && (resource.data.toHospitalId == getMyHospitalId() || resource.data.fromHospitalId == getMyHospitalId() || isSuperAdmin());
     }
 
     match /{collection}/{docId} {

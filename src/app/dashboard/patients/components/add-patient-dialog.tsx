@@ -40,7 +40,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
 import { doc, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
-import { Loader2, ShieldCheck, UserPlus, Phone, Home, HeartPulse } from 'lucide-react';
+import { Loader2, ShieldCheck, UserPlus, Phone, Home, HeartPulse, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -348,11 +348,11 @@ export function AddPatientDialog({
                     <div>
                         <p className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Medical Record Number</p>
                         <p className="text-xl font-mono font-black text-blue-900">
-                            {isEditing ? patientToEdit?.mrn : "ASSIGNED ON SAVE"}
+                            {isEditing ? patientToEdit?.mrn : "AUTO-GENERATED"}
                         </p>
                     </div>
                     <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-tighter bg-white text-blue-700">
-                        Atomic Sequential ID
+                        Atomic Branded Sequence
                     </Badge>
                 </div>
 
@@ -384,7 +384,7 @@ export function AddPatientDialog({
                 {/* 1. PERSONAL DEMOGRAPHICS */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-2 text-primary font-bold">
-                        <UserPlus className="h-4 w-4" />
+                        <Shield className="h-4 w-4" />
                         <h4 className="text-sm uppercase tracking-widest">1. Personal Demographics</h4>
                     </div>
                     <Separator />
