@@ -40,7 +40,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore } from '@/firebase';
 import { doc, runTransaction, setDoc, serverTimestamp, collection } from 'firebase/firestore';
-import { Loader2, ShieldCheck, Tag } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface AddPatientDialogProps {
@@ -257,7 +257,7 @@ export function AddPatientDialog({
                 return generatedMrn;
             });
 
-            // 3. Use the generated MRN to create the patient (Pattern: hosp-1_MRN-1001)
+            // 3. Use the generated MRN to create the patient
             const customPatientId = `${hospitalId}_${finalMrn}`;
             const patientRef = doc(db, "patients", customPatientId);
             const fullName = `${values.firstName} ${values.lastName}`;
@@ -646,7 +646,7 @@ export function AddPatientDialog({
                         </FormLabel>
                         <FormDescription className="text-xs">
                             I consent to the collection and processing of my personal and health data for medical purposes, in accordance with the Data Protection Act, 2012 (Act 843).
-                        </FormDescription>
+                        </FormLabel>
                         <FormMessage />
                         </div>
                     </FormItem>

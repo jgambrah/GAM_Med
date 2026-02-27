@@ -38,12 +38,12 @@ export default function LoginPage() {
         const normalizedEmail = email.toLowerCase().trim();
 
         try {
-            // 1. Sign in with Email/Password
+            // 1. Log in with Email/Password
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
             /**
              * == CRITICAL SAAS FIX: Token Sync ==
-             * 2. FORCE REFRESH THE STAMP (Identity Card)
+             * 2. FORCE REFRESH: Grab the latest SaaS Badge from the server
              * This pulls the server-side custom claims (baked during provisioning) into 
              * the client-side session immediately, avoiding permission errors for new Directors.
              */
@@ -51,7 +51,7 @@ export default function LoginPage() {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. Handshake Delay: Wait for global identity propagation
+            // 3. WAIT: Give the database 800ms to "recognize" the identity propagation
             await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
@@ -85,18 +85,17 @@ export default function LoginPage() {
 
             /**
              * == REDIRECTION GUARD ==
-             * 5. Success! Route correctly based on the fresh Identity Stamp.
+             * 5. REDIRECT: James goes to Command Centre, Marcus goes to Hospital
              */
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');
             } else {
-                // Directors and staff go to the facility dashboard
                 router.push('/dashboard');
             }
 
         } catch (error: any) {
             console.error("LOGIN_ERROR:", error.message);
-            toast.error("Access Error", {
+            toast.error("Access Denied", {
                 description: error.message || "Invalid email or password."
             });
         } finally {

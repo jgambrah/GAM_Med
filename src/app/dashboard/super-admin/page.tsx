@@ -120,6 +120,7 @@ export default function SuperAdminDashboard() {
             <TableHeader className="bg-slate-50 border-b">
               <TableRow>
                 <TableHead className="pl-6 text-[10px] font-black uppercase tracking-widest">Facility Tenant</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest">Prefix</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Plan & Status</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Trial Ends</TableHead>
                 <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Management</TableHead>
@@ -127,7 +128,7 @@ export default function SuperAdminDashboard() {
             </TableHeader>
             <TableBody>
               {isHospitalsLoading ? (
-                <TableRow><TableCell colSpan={4} className="h-40 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-40 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 text-muted-foreground" /></TableCell></TableRow>
               ) : (hospitals && hospitals.length > 0) ? (
                 hospitals.map((hosp) => {
                     const trialDate = hosp.trialEndsAt 
@@ -140,6 +141,9 @@ export default function SuperAdminDashboard() {
                             <TableCell className="pl-6">
                                 <p className="font-black text-slate-900">{hosp.name}</p>
                                 <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">{hosp.hospitalId}</p>
+                            </TableCell>
+                            <TableCell className="font-mono font-bold text-blue-600">
+                                {hosp.prefix || 'MRN'}
                             </TableCell>
                             <TableCell>
                                 <div className="flex flex-col gap-1">
@@ -179,7 +183,7 @@ export default function SuperAdminDashboard() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-40 text-center text-muted-foreground italic">No facilities provisioned on the platform.</TableCell>
+                  <TableCell colSpan={5} className="h-40 text-center text-muted-foreground italic">No facilities provisioned on the platform.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -195,7 +199,7 @@ function PulseCard({ title, value, icon, color, isLoading }: any) {
         <Card className="shadow-sm border-none ring-1 ring-slate-200">
             <CardContent className="p-6 flex items-center justify-between">
                 <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">{title}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{title}</p>
                     {isLoading ? <div className="h-8 w-16 bg-muted animate-pulse rounded" /> : <h3 className={`text-2xl font-black ${color}`}>{value}</h3>}
                 </div>
                 <div className={`p-3 rounded-xl bg-slate-50 ${color}`}>{icon}</div>

@@ -85,9 +85,9 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     match /users/{userDocId} {
-      // Allow users to query for their own profile via UID field or hospitalId
+      // Allow users to query for their own profile via UID field
       allow list: if isSignedIn() && (
-        (request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
+        (request.query.limit <= 100 && request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId())
       );
       allow get: if isSignedIn() && (request.auth.uid == resource.data.uid || isSameHospital(resource.data));
