@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where, limit } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -17,8 +17,8 @@ import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
 /**
  * == Professional SaaS Login (Discovery Flow) ==
  * 
- * Users enter only their email and password. The system automatically
- * discovers their hospital tenant and role after authentication.
+ * Implements the "Classic Token Sync" fix to ensure custom claims (SaaS Stamps)
+ * are pulled from the server into the browser immediately upon sign-in.
  */
 export default function LoginPage() {
     const { setUser } = useGlobalAuth();
@@ -51,36 +51,22 @@ export default function LoginPage() {
             }
 
             // C. DISCOVERY: Find the user's profile document by UID field
-            // Requirement: Use exactly: query(collection(db, "users"), where("uid", "==", auth.currentUser.uid))
-            if (!auth.currentUser) throw new Error("Authentication failed to initialize session.");
-            
-            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser.uid));
+            const q = query(collection(db, "users"), where("uid", "==", userCredential.user.uid));
             const querySnapshot = await getDocs(q);
 
-            let userData;
-
             if (querySnapshot.empty) {
-                // Try searching by email as fallback for newly invited users
-                const usersRef = collection(db, "users");
-                const emailQuery = query(usersRef, where("email", "==", normalizedEmail), limit(1));
-                const emailSnapshot = await getDocs(emailQuery);
-                
-                if (emailSnapshot.empty) {
-                    throw new Error("Auth successful, but no Firestore profile found. Please contact support.");
-                }
-                
-                userData = emailSnapshot.docs[0].data();
-            } else {
-                userData = querySnapshot.docs[0].data();
+                throw new Error("Auth successful, but no Firestore profile found. Please contact support.");
             }
+
+            const userData = querySnapshot.docs[0].data();
             
             if (!userData.is_active) {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
             }
 
-            // Set global auth state
+            // Set global auth state for the context provider
             setUser({
-                uid: auth.currentUser.uid,
+                uid: userCredential.user.uid,
                 ...userData
             } as any);
 
@@ -88,10 +74,15 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // D. REDIRECTION: Send to correct dashboard
+            /**
+             * == REDIRECTION GUARD ==
+             * D. Ensure Directors never land on Super Admin pages.
+             */
             if (userData.role === 'super_admin') {
+                // ONLY James (CEO) is allowed to go here
                 router.push('/dashboard/super-admin');
             } else {
+                // Marcus (Director) and everyone else goes here
                 router.push('/dashboard');
             }
 

@@ -1,23 +1,21 @@
 import * as admin from 'firebase-admin';
 
 /**
- * == Clean Credential Provisioning ==
+ * == Clean Admin SDK Provisioning ==
  * 
- * This version uses individual environment variables to bypass JSON parsing
- * issues in Vercel. It provides clear diagnostics if a specific key is missing.
+ * Uses individual environment variables to bypass JSON parsing issues.
+ * Implements lazy-initialization to ensure build-safety on Vercel.
  */
 function initializeAdmin() {
   if (admin.apps.length > 0) return admin.app();
 
-  // 1. Get the 3 clean variables from .env.local (Vercel Environment Variables)
   const projectId = process.env.FB_PROJECT_ID;
   const clientEmail = process.env.FB_CLIENT_EMAIL;
   const privateKey = process.env.FB_PRIVATE_KEY;
 
-  // 2. Safety check: During Next.js build, these might be missing. 
-  // We return null instead of crashing to allow static analysis to complete.
+  // Safety check: During build or if missing, don't crash the server process
   if (!projectId || !clientEmail || !privateKey) {
-    console.warn("Firebase Admin credentials missing. Skipping initialization for build analysis.");
+    console.warn("Firebase Admin credentials partially missing. Returning null for build-time safety.");
     return null;
   }
 
@@ -26,12 +24,12 @@ function initializeAdmin() {
       credential: admin.credential.cert({
         projectId: projectId,
         clientEmail: clientEmail,
-        // The regex handles the escaped \n characters common in environment variable strings
+        // Sanitizes escaped newline characters for Vercel compatibility
         privateKey: privateKey.replace(/\\n/g, '\n'),
       }),
     });
   } catch (error: any) {
-    console.error("Firebase Admin Critical Initialization Failure:", error.message);
+    console.error("ADMIN_INIT_CRASH:", error.message);
     return null;
   }
 }
@@ -41,12 +39,11 @@ const app = initializeAdmin();
 /**
  * == Secure Admin Services Getter ==
  * 
- * Provides lazy initialization of Admin SDK services.
- * Ensures the app doesn't crash during Vercel's build-time static analysis.
+ * Provides runtime access to Firestore and Auth with diagnostic error reporting.
  */
 export const getAdminServices = () => {
     if (!app) {
-        throw new Error("Firebase Admin SDK is not initialized. Ensure FB_PROJECT_ID, FB_CLIENT_EMAIL, and FB_PRIVATE_KEY are set in Vercel.");
+        throw new Error("Firebase Admin SDK not initialized. Ensure FB_PROJECT_ID, FB_CLIENT_EMAIL, and FB_PRIVATE_KEY are set.");
     }
 
     return {
