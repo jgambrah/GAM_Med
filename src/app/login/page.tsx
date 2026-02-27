@@ -51,7 +51,7 @@ export default function LoginPage() {
             }
 
             // 3. Small delay to ensure global identity systems are in sync
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             /**
              * == USER DISCOVERY (SEARCH BY UID) ==

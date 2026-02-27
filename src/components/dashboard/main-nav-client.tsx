@@ -209,13 +209,13 @@ export function MainNavClient() {
     if (!user) return [];
     
     return menuItems.filter(item => {
-      // Fix: Explicit string cast to prevent TypeScript narrowing issues with the literal union
       const userRoleStr = user.role as string;
       const isSuperAdmin = userRoleStr === 'super_admin';
       
       // Platform HQ pages restricted to super_admin only
-      const isPlatformPage = item.href.startsWith('/dashboard/super-admin');
-      if (isPlatformPage) return isSuperAdmin;
+      if (item.href.startsWith('/dashboard/super-admin')) {
+        return isSuperAdmin;
+      }
 
       // Bypass role check for Super Admin on everything else
       if (isSuperAdmin) return true;
@@ -233,17 +233,17 @@ export function MainNavClient() {
     collapsible: boolean;
     defaultOpen?: boolean;
   }[] = [
-    { id: 'general', label: 'General', icon: Home, collapsible: false },
-    { id: 'platform', label: 'Platform HQ', icon: Globe, collapsible: false },
-    { id: 'my_practice', label: 'My Practice', icon: Stethoscope, collapsible: false },
-    { id: 'clinical', label: 'Clinical Ops', icon: Activity, collapsible: true, defaultOpen: true },
-    { id: 'diagnostics', label: 'Diagnostics', icon: Microscope, collapsible: true, defaultOpen: true },
-    { id: 'theatre', label: 'Theatre (OT)', icon: Scissors, collapsible: true, defaultOpen: false },
-    { id: 'pharmacy', label: 'Pharmacy', icon: Pill, collapsible: true, defaultOpen: false },
-    { id: 'finance', label: 'Finance & Revenue', icon: Wallet, collapsible: true, defaultOpen: false },
-    { id: 'admin', label: 'Admin & HR', icon: ShieldCheck, collapsible: true, defaultOpen: false },
-    { id: 'logistics', label: 'Inventory & Space', icon: Package, collapsible: true, defaultOpen: false },
-    { id: 'personal', label: 'My Portal', icon: UserIcon, collapsible: true, defaultOpen: false },
+    { id: 'general',      label: 'General',              icon: Home,           collapsible: false },
+    { id: 'platform',     label: 'Platform HQ',          icon: Globe,          collapsible: false },
+    { id: 'my_practice',  label: 'My Practice',          icon: Stethoscope,    collapsible: false },
+    { id: 'clinical',     label: 'Clinical Ops',         icon: Activity,       collapsible: true, defaultOpen: true },
+    { id: 'diagnostics',  label: 'Diagnostics',          icon: Microscope,     collapsible: true, defaultOpen: true },
+    { id: 'theatre',      label: 'Theatre (OT)',         icon: Scissors,       collapsible: true, defaultOpen: false },
+    { id: 'pharmacy',     label: 'Pharmacy',             icon: Pill,           collapsible: true, defaultOpen: false },
+    { id: 'finance',      label: 'Finance & Revenue',    icon: Wallet,         collapsible: true, defaultOpen: false },
+    { id: 'admin',        label: 'Admin & HR',           icon: ShieldCheck,    collapsible: true, defaultOpen: false },
+    { id: 'logistics',    label: 'Inventory & Space',    icon: Package,        collapsible: true, defaultOpen: false },
+    { id: 'personal',     label: 'My Portal',            icon: UserIcon,       collapsible: true, defaultOpen: false },
     { id: 'supplier',     label: 'Supplier Portal',      icon: Truck,          collapsible: false },
   ];
 
