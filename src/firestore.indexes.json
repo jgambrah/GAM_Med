@@ -17,6 +17,15 @@
       ]
     },
     {
+      "collectionGroup": "admissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hospitalId", "order": "ASCENDING" },
+        { "fieldPath": "patient_id", "order": "ASCENDING" },
+        { "fieldPath": "admission_date", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "invoices",
       "queryScope": "COLLECTION",
       "fields": [
@@ -83,7 +92,7 @@
       "fields": [
         { "fieldPath": "hospitalId", "order": "ASCENDING" },
         { "fieldPath": "patientId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "orderedAt", "order": "DESCENDING" }
       ]
     },
     {
