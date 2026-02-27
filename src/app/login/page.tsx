@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -55,19 +55,19 @@ export default function LoginPage() {
             await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
-             * == USER DISCOVERY (STRICT SYNTAX) ==
-             * 4. Find the user's profile document by UID field using precise required syntax
+             * == USER DISCOVERY (DIRECT GET) ==
+             * 4. Fetch the profile directly by UID to satisfy "allow get: if request.auth.uid == userId"
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             
-            const q = query(collection(db, "users"), where("uid", "==", auth.currentUser.uid));
-            const querySnapshot = await getDocs(q);
+            const userDocRef = doc(db, "users", auth.currentUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
 
-            if (querySnapshot.empty) {
+            if (!userDocSnap.exists()) {
                 throw new Error("Account found but profile missing. Please contact platform support.");
             }
 
-            const userData = querySnapshot.docs[0].data();
+            const userData = userDocSnap.data();
             
             if (!userData.is_active) {
                 throw new Error("Your account has been disabled. Please contact your administrator.");
