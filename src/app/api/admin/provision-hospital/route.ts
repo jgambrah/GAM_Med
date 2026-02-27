@@ -2,17 +2,15 @@ import { adminDb, adminAuth } from '@/firebase/admin';
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 /**
- * == Automated Enterprise Provisioning Engine ==
+ * == Automated Enterprise Provisioning Engine (Fault-Tolerant) ==
  * 
  * This API performs the atomic "Handover" of a new hospital tenant.
  * 1. Generates unique SaaS Hospital ID.
  * 2. Generates secure temporary password.
  * 3. Provisions Hospital Master Record.
  * 4. Stacks "SaaS Stamp" (Custom JWT Claims) onto Director.
- * 5. Dispatches Welcome Email with credentials.
+ * 5. Dispatches Welcome Email with credentials (Safe Wrapper).
  */
 export async function POST(req: Request) {
     try {
@@ -29,6 +27,8 @@ export async function POST(req: Request) {
 
         // 2. Generate a Temporary Password
         const tempPassword = "GamMed-" + Math.random().toString(36).slice(-8).toUpperCase();
+
+        console.log(`Starting provisioning for ${normalizedEmail} at facility ${hospitalId}...`);
 
         // 3. Create the Hospital Master Document
         await adminDb.collection('hospitals').doc(hospitalId).set({
@@ -47,13 +47,17 @@ export async function POST(req: Request) {
         // 4. Create the Director (Auth)
         let userRecord;
         try {
-            userRecord = await adminAuth.getUserByEmail(normalizedEmail);
-        } catch {
             userRecord = await adminAuth.createUser({
                 email: normalizedEmail,
                 password: tempPassword,
                 displayName: directorName
             });
+        } catch (authError: any) {
+            console.error("AUTH_ERROR:", authError.message);
+            if (authError.code === 'auth/email-already-in-use') {
+                return NextResponse.json({ error: "This email is already registered. Please delete the old account first." }, { status: 400 });
+            }
+            throw authError;
         }
 
         // 5. THE "SAAS STAMP" (Custom JWT Claims)
@@ -82,38 +86,45 @@ export async function POST(req: Request) {
             assignedAt: now
         });
 
-        // 8. SEND WELCOME EMAIL VIA RESEND
-        await resend.emails.send({
-            from: 'GamMed Support <onboarding@resend.dev>', // Update to your domain later
-            to: normalizedEmail,
-            subject: `Welcome to GamMed - Your Hospital Portal is Ready`,
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 12px;">
-                    <h2 style="color: #2563eb;">Welcome, ${directorName}!</h2>
-                    <p>Your hospital management system for <strong>${name}</strong> has been successfully provisioned.</p>
-                    <p>You can now log in and begin setting up your facility, doctors, and staff.</p>
-                    
-                    <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
-                        <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gam-med.vercel.app'}/login">Open Portal</a></p>
-                        <p style="margin: 10px 0 0 0; font-size: 14px;"><strong>User ID (Email):</strong> ${normalizedEmail}</p>
-                        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Temporary Password:</strong> <code style="background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">${tempPassword}</code></p>
-                    </div>
+        // 8. SEND WELCOME EMAIL (Fault Tolerant Wrapper)
+        try {
+            const resend = new Resend(process.env.RESEND_API_KEY);
+            await resend.emails.send({
+                from: 'GamMed Support <onboarding@resend.dev>', // Note: Use onboarding@resend.dev until domain verified
+                to: normalizedEmail,
+                subject: `Welcome to GamMed - Your Hospital Portal is Ready`,
+                html: `
+                    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 12px;">
+                        <h2 style="color: #2563eb;">Welcome, ${directorName}!</h2>
+                        <p>Your hospital management system for <strong>${name}</strong> has been successfully provisioned.</p>
+                        <p>You can now log in and begin setting up your facility, doctors, and staff.</p>
+                        
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #cbd5e1;">
+                            <p style="margin: 0; font-size: 14px;"><strong>Login URL:</strong> <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gam-med.vercel.app'}/login">Open Portal</a></p>
+                            <p style="margin: 10px 0 0 0; font-size: 14px;"><strong>User ID (Email):</strong> ${normalizedEmail}</p>
+                            <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Temporary Password:</strong> <code style="background: #e2e8f0; padding: 2px 4px; border-radius: 4px;">${tempPassword}</code></p>
+                        </div>
 
-                    <p style="font-size: 13px; color: #64748b;">For security, please change your password immediately after your first login.</p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                    <p style="font-size: 12px; color: #94a3b8;">This is an automated message from Gam It Services Platform Support.</p>
-                </div>
-            `
-        });
+                        <p style="font-size: 13px; color: #64748b;">For security, please change your password immediately after your first login.</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                        <p style="font-size: 12px; color: #94a3b8;">This is an automated message from Gam It Services Platform Support.</p>
+                    </div>
+                `
+            });
+            console.log(`Success: Welcome email sent to ${normalizedEmail}`);
+        } catch (emailErr: any) {
+            console.warn("EMAIL_SEND_FAILURE (Handover complete but notification failed):", emailErr.message);
+            // Non-blocking failure: Hospital was created correctly, we don't throw error to UI
+        }
 
         return NextResponse.json({ 
             success: true, 
             hospitalId,
-            message: "Hospital provisioned and Director welcomed successfully." 
+            message: "Hospital provisioned and identity stamped successfully." 
         });
 
     } catch (error: any) {
-        console.error("PROVISIONING_CRASH:", error.message);
+        console.error("PROVISIONING_CRITICAL_FAILURE:", error.message);
         return NextResponse.json({ 
             error: "Provisioning Failed", 
             detail: error.message 
