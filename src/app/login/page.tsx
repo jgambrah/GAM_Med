@@ -38,38 +38,33 @@ export default function LoginPage() {
         const normalizedEmail = email.toLowerCase().trim();
 
         try {
-            // 1. Sign in with Email/Password
+            // 1. Log in with Email/Password
             const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             
-            /**
-             * == CRITICAL SAAS FIX: Token Sync ==
-             * 2. FORCE REFRESH THE STAMP (Identity Card)
-             * This pulls the server-side custom claims into the client session immediately.
-             */
+            // 2. FORCE REFRESH: Pull the server-side custom claims (SaaS Stamp) into the local session
             if (userCredential.user) {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. Small delay to ensure global identity systems are in sync
+            // 3. WAIT: Give the identity system a second to synchronize
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             /**
              * == USER DISCOVERY (SEARCH BY UID) ==
-             * We use a list query with a UID filter. Firestore rules explicitly allow this 
-             * for the login handshake.
+             * Use the UID to find the user's composite profile document.
+             * This avoids "homeless" users whose hospitalId claim hasn't hit the token yet.
              */
-            if (!auth.currentUser) throw new Error("Authentication failed.");
-            
             const usersRef = collection(db, "users");
             const q = query(
                 usersRef, 
-                where("uid", "==", auth.currentUser.uid),
+                where("uid", "==", userCredential.user.uid),
                 limit(1)
             );
+            
             const querySnap = await getDocs(q);
 
             if (querySnap.empty) {
-                throw new Error("Account found but profile missing. Please contact platform support.");
+                throw new Error("Login successful, but profile not found. Please contact platform support.");
             }
 
             const userData = querySnap.docs[0].data();
@@ -80,7 +75,7 @@ export default function LoginPage() {
 
             // Set global auth state
             setUser({
-                uid: auth.currentUser.uid,
+                uid: userCredential.user.uid,
                 ...userData
             } as any);
 
@@ -88,7 +83,7 @@ export default function LoginPage() {
                 description: `Welcome back, ${userData.name}.`
             });
 
-            // 5. Success! Route correctly based on the fresh Identity Stamp.
+            // 5. Success! Route correctly based on the Identity Stamp.
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin/pulse');
             } else {

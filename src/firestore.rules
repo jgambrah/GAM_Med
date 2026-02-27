@@ -19,7 +19,7 @@ service cloud.firestore {
 
     /**
      * @description Fetches the hospitalId for the currently logged-in user.
-     * Refactored to avoid 'if/let' which are illegal in rules functions.
+     * Uses ternary logic to avoid 'if/let' syntax which is illegal in rules functions.
      */
     function getMyHospitalId() {
       return request.auth.token.hospitalId != null 
@@ -81,6 +81,7 @@ service cloud.firestore {
 
     match /users/{userDocId} {
       // Allow users to query for their own profile via UID field during login handshake
+      // Also allow admins to see staff within their hospital
       allow list: if isSignedIn() && (
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "uid" && request.query.filters[0].value == request.auth.uid) ||
         (request.query.filters.size() >= 1 && request.query.filters[0].field == "hospitalId" && request.query.filters[0].value == getMyHospitalId())
