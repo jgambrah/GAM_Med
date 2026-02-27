@@ -3190,3 +3190,16 @@ INFO: Detected non-HTTP/2 connection.
 [debug] [2026-02-27T11:25:35.085Z] Feb 27, 2026 11:25:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
  {"metadata":{"emulator":{"name":"firestore"},"message":"Feb 27, 2026 11:25:35 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected HTTP/2 connection.\n"}}
+[debug] [2026-02-27T11:25:42.603Z] <<< [apiv2][status] PUT http://127.0.0.1:8080/emulator/v1/projects/demo-app:securityRules 200
+[debug] [2026-02-27T11:25:42.607Z] <<< [apiv2][body] PUT http://127.0.0.1:8080/emulator/v1/projects/demo-app:securityRules {"issues":[{"sourcePosition":{"fileName":"security.rules","line":24,"column":7,"currentOffset":728,"endOffset":729},"description":"Unexpected 'if'.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":7,"currentOffset":889,"endOffset":891},"description":"Unexpected 'let'.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":23,"currentOffset":905,"endOffset":914},"description":"Missing 'match' keyword before path.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":33,"currentOffset":915,"endOffset":915},"description":"Forward slash '/' found where identifier or binding expected.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":34,"currentOffset":916,"endOffset":916},"description":"mismatched input '$' expecting {'{', '/', PATH_SEGMENT}","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":45,"currentOffset":927,"endOffset":936},"description":"Missing 'match' keyword before path.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":67,"currentOffset":949,"endOffset":949},"description":"Forward slash '/' found where identifier or binding expected.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":29,"column":68,"currentOffset":950,"endOffset":950},"description":"mismatched input '$' expecting {'{', '/', PATH_SEGMENT}","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":34,"column":7,"currentOffset":1070,"endOffset":1072},"description":"Unexpected 'let'.","severity":"ERROR"},{"sourcePosition":{"fileName":"security.rules","line":63,"column":5,"currentOffset":2021,"endOffset":2025},"description":"Unexpected 'match'.","severity":"ERROR"}]}
+[warn] ⚠  firestore.rules:24:7 - ERROR Unexpected 'if'. 
+[warn] ⚠  firestore.rules:29:7 - ERROR Unexpected 'let'. 
+[warn] ⚠  firestore.rules:29:23 - ERROR Missing 'match' keyword before path. 
+[warn] ⚠  firestore.rules:29:33 - ERROR Forward slash '/' found where identifier or binding expected. 
+[warn] ⚠  firestore.rules:29:34 - ERROR mismatched input '$' expecting {'{', '/', PATH_SEGMENT} 
+[warn] ⚠  firestore.rules:29:45 - ERROR Missing 'match' keyword before path. 
+[warn] ⚠  firestore.rules:29:67 - ERROR Forward slash '/' found where identifier or binding expected. 
+[warn] ⚠  firestore.rules:29:68 - ERROR mismatched input '$' expecting {'{', '/', PATH_SEGMENT} 
+[warn] ⚠  firestore.rules:34:7 - ERROR Unexpected 'let'. 
+[warn] ⚠  firestore.rules:63:5 - ERROR Unexpected 'match'. 
+[info] ✔  firestore: Rules updated. 

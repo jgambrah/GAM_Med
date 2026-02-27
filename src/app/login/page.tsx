@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth as useGlobalAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useFirestore, useAuth } from "@/firebase";
 import { toast } from "@/hooks/use-toast";
@@ -51,17 +51,20 @@ export default function LoginPage() {
             }
 
             // 3. Small delay to ensure global identity systems are in sync
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
              * == USER DISCOVERY (SEARCH BY UID) ==
-             * Since our document IDs are composite (hospital_email), we must query for the profile
-             * where the 'uid' field matches the user's Auth ID.
+             * We must specify a limit(1) to satisfy security rules that guard against broad list scans.
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             
             const usersRef = collection(db, "users");
-            const q = query(usersRef, where("uid", "==", auth.currentUser.uid));
+            const q = query(
+                usersRef, 
+                where("uid", "==", auth.currentUser.uid),
+                limit(1)
+            );
             const querySnap = await getDocs(q);
 
             if (querySnap.empty) {
