@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -15,7 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
 
 /**
- * == Professional SaaS Login (The Token Handshake) ==
+ * == Enterprise SaaS Login (The Handshake) ==
  * 
  * Implements the "Classic Token Sync" fix to ensure custom claims (SaaS Stamps)
  * are pulled from the server into the browser immediately upon sign-in.
@@ -44,18 +45,18 @@ export default function LoginPage() {
              * == CRITICAL SAAS FIX: Token Sync ==
              * 2. FORCE REFRESH THE STAMP (Identity Card)
              * This pulls the server-side custom claims (baked during provisioning) into 
-             * the client-side session immediately, avoiding permission errors.
+             * the client-side session immediately, avoiding permission errors for new Directors.
              */
             if (userCredential.user) {
                 await userCredential.user.getIdToken(true);
             }
 
-            // 3. Small delay to ensure database/claims propagation is ready (800ms handshake)
+            // 3. Handshake Delay: Wait for global identity propagation
             await new Promise(resolve => setTimeout(resolve, 800));
 
             /**
-             * == USER DISCOVERY (REQUIRED SYNTAX) ==
-             * 4. Find the user's profile document by UID field using exact required syntax
+             * == USER DISCOVERY (STRICT SYNTAX) ==
+             * 4. Find the user's profile document by UID field using precise required syntax
              */
             if (!auth.currentUser) throw new Error("Authentication failed.");
             
@@ -84,7 +85,7 @@ export default function LoginPage() {
 
             /**
              * == REDIRECTION GUARD ==
-             * 5. Success! Route correctly
+             * 5. Success! Route correctly based on the fresh Identity Stamp.
              */
             if (userData.role === 'super_admin') {
                 router.push('/dashboard/super-admin');

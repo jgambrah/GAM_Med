@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -416,17 +417,15 @@ export function MainNavClient() {
   const accessibleItems = menuItems.filter(item => {
     if (!user) return false;
     
-    // CEO sees everything
-    if (user.role === ('super_admin' as string)) {
-        return true;
-    }
+    // 1. CEO / Super Admin Bypass
+    const isSuperAdmin = (user.role as string) === 'super_admin';
+    if (isSuperAdmin) return true;
 
-    // Role-based filtering for everyone else
+    // 2. Role Access Control for everyone else
     const hasRole = (item.roles as string[]).includes(user.role);
     if (!hasRole) return false;
 
-    // Platform protection: Non-super-admins cannot see platform-level pages 
-    // even if they bypass role check accidentally
+    // 3. Platform Protection (Implicitly handles the TS narrowing issue)
     const isPlatformPage = item.href.startsWith('/dashboard/super-admin');
     if (isPlatformPage) return false;
 

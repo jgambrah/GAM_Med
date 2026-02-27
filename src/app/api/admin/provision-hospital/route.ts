@@ -1,4 +1,5 @@
-import { adminDb, adminAuth } from '@/firebase/admin';
+
+import { getAdminServices } from '@/firebase/admin';
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
@@ -10,6 +11,7 @@ import { NextResponse } from 'next/server';
  */
 export async function POST(req: Request) {
     try {
+        const { adminDb, adminAuth } = getAdminServices();
         const body = await req.json();
         
         // SAFE DESTRUCTURING: Provide defaults to prevent .toLowerCase() crashes
@@ -60,6 +62,7 @@ export async function POST(req: Request) {
         }
 
         // 3. THE "SAAS STAMP" (Custom JWT Claims)
+        // This is critical for Database Security Rules.
         await adminAuth.setCustomUserClaims(userRecord.uid, { 
             hospitalId: hospitalId, 
             role: 'director' 
@@ -77,7 +80,7 @@ export async function POST(req: Request) {
             created_at: new Date().toISOString()
         });
 
-        // 5. Create Role Marker (Necessary for rules fallback)
+        // 5. Create Role Marker (Mandatory for rules fallback)
         await adminDb.collection('roles_admin').doc(userRecord.uid).set({
             uid: userRecord.uid,
             hospitalId: hospitalId,
