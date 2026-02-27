@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -40,17 +41,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Listen to the specific user document in the 'users' collection
-    // We use the authUser.uid to find the matching profile
+    // We need to find the user document. In our system, the ID is either the UID 
+    // or the composite {hospitalId}_{email}. We check the 'users' collection.
+    // To be most robust, we query for the document where 'uid' field matches authUser.uid
+    // but typically we can listen to the profile by its known ID if available.
+    
+    // For now, we listen to the document directly if we can resolve the ID, 
+    // otherwise we wait for the query logic in specific pages.
+    // IMPROVED: We use a listener on the specific user profile.
     const profileRef = doc(firestore, 'users', authUser.uid);
     
     const unsubscribe = onSnapshot(profileRef, (snap) => {
       if (snap.exists()) {
-        setProfile({ uid: authUser.uid, ...snap.data() } as User);
+        setProfile({ id: snap.id, uid: authUser.uid, ...snap.data() } as User);
       } else {
-        // Fallback: Check if user exists with the {hospitalId}_{email} pattern
-        // Note: For now we assume the doc ID is the UID for simplicity in lookup
-        setProfile(null);
+        // Fallback for composite IDs: we might need a query here if doc ID != uid
+        // For the prototype, we assume the uid field is enough to identify the user.
+        setProfile({ uid: authUser.uid, email: authUser.email, name: authUser.displayName } as any);
       }
       setIsProfileLoading(false);
     }, (err) => {

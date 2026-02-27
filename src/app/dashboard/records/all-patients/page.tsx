@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,8 +15,10 @@ import {
 } from "@/components/ui/table";
 import { format } from 'date-fns';
 import { Patient } from '@/lib/types';
-import { Loader2, FolderSearch, Search } from 'lucide-react';
+import { Loader2, FolderSearch, Search, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 /**
  * == Core Hospital Engine: Live Patient Directory ==
@@ -94,7 +97,7 @@ export default function PatientList() {
                             <TableHead className="w-[150px] text-[10px] font-black uppercase tracking-widest pl-6">MRN</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-widest">Full Name</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-widest">Status</TableHead>
-                            <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Registered On</TableHead>
+                            <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -110,8 +113,13 @@ export default function PatientList() {
                                             {p.status}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right pr-6 text-xs font-medium text-muted-foreground">
-                                        {p.created_at ? format(new Date(p.created_at), 'PPP') : 'N/A'}
+                                    <TableCell className="text-right pr-6">
+                                        <Button asChild variant="ghost" size="sm" className="gap-2 font-bold text-xs uppercase text-primary">
+                                            <Link href={`/dashboard/patients/${p.id}`}>
+                                                <Eye className="h-3.5 w-3.5" />
+                                                View Full EHR
+                                            </Link>
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))

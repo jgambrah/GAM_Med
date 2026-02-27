@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -43,7 +44,7 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
 
   const handleDelete = () => {
     if (!patientToDelete) return;
-    onPatientDeleted(patientToDelete.patient_id);
+    onPatientDeleted(patientToDelete.id || patientToDelete.patient_id);
     setPatientToDelete(null);
     toast.success(`Patient record for ${patientToDelete.full_name} deleted.`);
   };
@@ -77,7 +78,7 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Link href={`/dashboard/patients/${patient.id || patient.patient_id}`} className="hover:underline text-primary font-bold">
+                  <Link href={`/dashboard/patients/${patient.id}`} className="hover:underline text-primary font-bold">
                     {patient.full_name}
                   </Link>
                 </TableCell>
@@ -98,7 +99,7 @@ export function PatientTable({ data, onPatientUpdated, onPatientDeleted }: Patie
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuLabel className="text-[10px] font-black uppercase opacity-40">Clinical Actions</DropdownMenuLabel>
                       <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/patients/${patient.id || patient.patient_id}`} className="cursor-pointer">
+                        <Link href={`/dashboard/patients/${patient.id}`} className="cursor-pointer">
                             <Eye className="mr-2 h-4 w-4" /> View Full EHR
                         </Link>
                       </DropdownMenuItem>

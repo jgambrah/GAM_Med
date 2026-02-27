@@ -1,8 +1,9 @@
+
 'use client';
 
 import * as React from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import { mockStaffProfiles, mockPositions, allUsers } from '@/lib/data';
+import { mockPositions } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Loader2, ShieldAlert } from 'lucide-react';
 import { StaffProfile, User as UserType } from '@/lib/types';
@@ -82,16 +83,15 @@ export default function StaffProfilePage() {
 
   const staffPosition = mockPositions.find(p => p.title.toLowerCase().includes(staff.role.toLowerCase()));
 
-  // Mock staff profile for secondary HR data (Leave, Performance)
-  // In a real app, this would also be a Firestore hook
+  // Construct profile for secondary tabs (Leave, Performance)
   const staffProfile: StaffProfile = {
       staffId: staff.uid,
       hospitalId: staff.hospitalId,
       firstName: staff.name.split(' ')[0],
-      lastName: staff.name.split(' ')[1] || '',
+      lastName: staff.name.split(' ').slice(1).join(' ') || '',
       positionId: staffPosition?.positionId || '',
       department: staff.department || 'Clinical',
-      employmentStatus: 'Active',
+      employmentStatus: staff.is_active ? 'Active' : 'Inactive',
       recurringAllowances: [],
       recurringDeductions: [],
       leaveBalances: staff.leaveBalances || { 'Annual Leave': 20, 'Sick Leave': 10 }
@@ -108,7 +108,7 @@ export default function StaffProfilePage() {
             <div>
                 <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none">{staff.name}</h1>
                 <p className="text-sm text-muted-foreground font-bold uppercase tracking-tighter mt-1">
-                    {staffPosition?.title || staff.role.replace('_', ' ')} | ID: {staff.uid.split('_')[1] || staff.uid}
+                    {staffPosition?.title || staff.role.replace('_', ' ')} | ID: {staff.id || staff.uid}
                 </p>
             </div>
         </div>
