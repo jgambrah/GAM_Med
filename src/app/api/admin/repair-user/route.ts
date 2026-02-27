@@ -32,10 +32,10 @@ export async function POST(req: Request) {
         
         console.log(`Successfully repaired identity and role registry for user ${uid} at facility ${hospitalId}`);
 
-        return { 
+        return NextResponse.json({ 
             success: true, 
             message: "User Identity Repaired. Please ask the user to log out and back in." 
-        };
+        });
     } catch (error: any) {
         console.error("IDENTITY_REPAIR_CRASH:", error.message);
         return NextResponse.json({ 
