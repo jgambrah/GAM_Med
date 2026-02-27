@@ -33,14 +33,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PatientSchema } from '@/lib/schemas';
-import { addPatient as addPatientAction } from '@/lib/actions';
-import { mockPricingTables, allPatients as initialPatients } from '@/lib/data';
+import { mockPricingTables } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Patient } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { AlertCircle } from 'lucide-react';
+import { useFirestore } from '@/firebase';
+import { doc, runTransaction, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface AddPatientDialogProps {
     patientToEdit?: Patient | null;
@@ -49,6 +49,13 @@ interface AddPatientDialogProps {
     onPatientUpdated?: () => void;
 }
 
+/**
+ * == Enterprise Patient Onboarding: Atomic ID Generation ==
+ * 
+ * This component handles the registration of new patients.
+ * It implements the "Counter Pattern" using Firestore Transactions to ensure
+ * every patient receives a unique, sequential MRN (Medical Record Number).
+ */
 export function AddPatientDialog({
   patientToEdit,
   onOpenChange,
@@ -56,8 +63,9 @@ export function AddPatientDialog({
   onPatientUpdated,
 }: AddPatientDialogProps) {
   const { user } = useAuth();
+  const db = useFirestore();
   const [open, setOpen] = React.useState(!!patientToEdit);
-  const [allPatients] = useLocalStorage<Patient[]>('patients', initialPatients);
+  const [loading, setLoading] = React.useState(false);
   const isEditing = !!patientToEdit;
 
   const form = useForm<z.infer<typeof PatientSchema>>({
@@ -196,101 +204,126 @@ export function AddPatientDialog({
   };
 
   const onSubmit = async (values: z.infer<typeof PatientSchema>) => {
-    let finalMrn = values.mrn?.trim().toUpperCase() || '';
-    if (values.isTemporary && !finalMrn) {
-        const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-        const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
-        finalMrn = `TEMP_${dateStr}_${randomStr}`;
-    }
-
-    if (!finalMrn) {
-        toast.error("Validation Error", { description: "Medical Record Number (MRN) is required unless this is an emergency registration." });
+    setLoading(true);
+    const hospitalId = user?.hospitalId;
+    if (!hospitalId) {
+        toast.error("SaaS Context Error", { description: "Hospital ID not found." });
+        setLoading(false);
         return;
     }
-    
-    const hospitalId = values.hospitalId || user?.hospitalId || 'hosp-1';
-    const customPatientId = `${hospitalId}_MRN${finalMrn}`;
 
-    if (isEditing) {
-      console.log('Updating patient:', values);
-      toast.success('Patient updated successfully (simulated).');
-      if (onPatientUpdated) onPatientUpdated();
-    } else {
-      const existingPatient = allPatients.find(p => p.patient_id === customPatientId);
-      
-      if (existingPatient) {
-          toast.error("Duplicate Record", {
-              description: `A patient with MRN ${finalMrn} is already registered at this hospital.`
-          });
-          return;
-      }
+    try {
+        let finalMrn = values.mrn;
 
-      const result = await addPatientAction({ ...values, mrn: finalMrn, hospitalId });
-      
-      if (!result.success) {
-        toast.error(`Error: ${result.message || 'Failed to add patient.'}`);
-        return;
-      }
+        if (isEditing && patientToEdit) {
+            // Logic for updating existing patient
+            const patientRef = doc(db, "patients", patientToEdit.patient_id);
+            const fullName = `${values.firstName} ${values.lastName}`;
+            
+            await setDoc(patientRef, {
+                ...values,
+                patient_id: patientToEdit.patient_id,
+                mrn: patientToEdit.mrn,
+                first_name: values.firstName,
+                last_name: values.lastName,
+                full_name: fullName,
+                full_name_lowercase: fullName.toLowerCase(),
+                phone_search: values.contact.primaryPhone.replace(/\D/g, ''),
+                updated_at: new Date().toISOString(),
+            }, { merge: true });
 
-      toast.success(values.isTemporary ? 'Emergency record created.' : 'Patient registered successfully.', {
-          description: `Generated Record ID: ${customPatientId}`
-      });
+            toast.success("Patient Record Updated");
+            if (onPatientUpdated) onPatientUpdated();
+        } else {
+            // Logic for NEW patient with Atomic MRN Generation
+            const counterRef = doc(db, "hospitals", hospitalId, "counters", "patients");
 
-      const fullName = `${values.firstName} ${values.lastName}`;
-      const phoneSearch = values.contact.primaryPhone.replace(/\D/g, '');
+            finalMrn = await runTransaction(db, async (transaction) => {
+                const counterSnap = await transaction.get(counterRef);
+                
+                let newCount = 1001; // Start at 1001
+                if (counterSnap.exists()) {
+                    newCount = (counterSnap.data().lastSequence || 1000) + 1;
+                }
 
-      const newPatient: Patient = {
-        patient_id: customPatientId,
-        hospitalId: hospitalId,
-        mrn: finalMrn,
-        title: values.title ?? "",
-        first_name: values.firstName,
-        last_name: values.lastName,
-        full_name: fullName,
-        full_name_lowercase: fullName.toLowerCase(),
-        phone_search: phoneSearch,
-        dob: values.dob,
-        gender: values.gender,
-        patientType: values.patientType,
-        maritalStatus: values.maritalStatus || 'Single',
-        occupation: values.occupation || '',
-        ghanaCardId: values.ghanaCardId || '',
-        otherNames: values.otherNames || '',
-        contact: {
-          ...values.contact,
-          email: values.contact.email ?? "",
-          address: {
-            ...values.contact.address,
-            country: 'Ghana'
-          }
-        },
-        emergency_contact: values.emergencyContact,
-        insurance: {
-            provider_name: values.insurance?.providerName || '',
-            policy_number: values.insurance?.policyNumber || '',
-            expiry_date: values.insurance?.expiryDate || '',
-            isActive: true,
-        },
-        is_admitted: false,
-        status: 'active',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        isTemporary: values.isTemporary,
-      };
-      if (onPatientAdded) {
-        onPatientAdded(newPatient);
-      }
+                const generatedMrn = `MRN-${newCount}`;
+                transaction.set(counterRef, { lastSequence: newCount }, { merge: true });
+                return generatedMrn;
+            });
+
+            const customPatientId = `${hospitalId}_${finalMrn}`;
+            const patientRef = doc(db, "patients", customPatientId);
+            const fullName = `${values.firstName} ${values.lastName}`;
+
+            const newPatientData: Patient = {
+                patient_id: customPatientId,
+                hospitalId: hospitalId,
+                mrn: finalMrn!,
+                title: values.title ?? "",
+                first_name: values.firstName,
+                last_name: values.lastName,
+                full_name: fullName,
+                full_name_lowercase: fullName.toLowerCase(),
+                phone_search: values.contact.primaryPhone.replace(/\D/g, ''),
+                dob: values.dob,
+                gender: values.gender,
+                patientType: values.patientType,
+                maritalStatus: values.maritalStatus || 'Single',
+                occupation: values.occupation || '',
+                ghanaCardId: values.ghanaCardId || '',
+                otherNames: values.otherNames || '',
+                contact: {
+                    ...values.contact,
+                    email: values.contact.email ?? "",
+                    address: {
+                        ...values.contact.address,
+                        country: 'Ghana'
+                    }
+                },
+                emergency_contact: values.emergencyContact,
+                insurance: {
+                    provider_name: values.insurance?.providerName || '',
+                    policy_number: values.insurance?.policyNumber || '',
+                    expiry_date: values.insurance?.expiryDate || '',
+                    isActive: true,
+                },
+                is_admitted: false,
+                status: 'active',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                isTemporary: values.isTemporary,
+            };
+
+            await setDoc(patientRef, newPatientData);
+
+            toast.success(`Patient Registered`, {
+                description: `Unique MRN generated: ${finalMrn}`
+            });
+
+            if (onPatientAdded) onPatientAdded(newPatientData);
+        }
+
+        handleOpenChange(false);
+    } catch (error: any) {
+        console.error("Registration Error:", error);
+        toast.error("System Error", { description: "Failed to generate unique MRN. Please try again." });
+    } finally {
+        setLoading(false);
     }
-
-    handleOpenChange(false);
   };
 
   const dialogContent = (
     <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Patient Details' : 'Register New Patient'}</DialogTitle>
+          <div className="flex items-center gap-2 text-primary">
+            <ShieldCheck className="h-5 w-5" />
+            <DialogTitle>{isEditing ? 'Edit Patient Details' : 'Register New Patient'}</DialogTitle>
+          </div>
           <DialogDescription>
-            {isEditing ? `Editing record for ${patientToEdit?.full_name}` : 'Fill in the details below to add a new patient. The record will be unique to your facility.'}
+            {isEditing 
+                ? `Editing record for ${patientToEdit?.full_name}` 
+                : `New patient at ${user?.hospitalId}. MRN will be automatically generated.`
+            }
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -302,11 +335,11 @@ export function AddPatientDialog({
                   name="mrn"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Medical Record Number (MRN)</FormLabel>
+                      <FormLabel>Manual MRN (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 58229" {...field} disabled={isTemporary} />
+                        <Input placeholder="Leave blank for auto-generation" {...field} disabled={!isEditing} />
                       </FormControl>
-                      <FormDescription>Must be unique within your hospital.</FormDescription>
+                      <FormDescription>System will generate MRN if left blank.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -324,10 +357,10 @@ export function AddPatientDialog({
                         </FormControl>
                         <div className="space-y-1 leading-none">
                         <FormLabel className="text-yellow-800">
-                            No MRN available (Emergency)
+                            Emergency / Temporary Record
                         </FormLabel>
                         <FormDescription className="text-yellow-700/80">
-                            A temporary ID will be generated. You must reconcile this later.
+                            Create a record for immediate care. Reconcile details later.
                         </FormDescription>
                         </div>
                     </FormItem>
@@ -335,7 +368,7 @@ export function AddPatientDialog({
                 />
               </div>
 
-              <h4 className="text-lg font-medium">Personal Information</h4>
+              <h4 className="text-lg font-bold border-b pb-2">Personal Information</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <FormField
                   control={form.control}
@@ -379,7 +412,7 @@ export function AddPatientDialog({
                   name="otherNames"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Other Names (Optional)</FormLabel>
+                      <FormLabel>Other Names</FormLabel>
                       <Input {...field} />
                       <FormMessage />
                     </FormItem>
@@ -390,7 +423,7 @@ export function AddPatientDialog({
                   name="ghanaCardId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ghana Card ID (Optional)</FormLabel>
+                      <FormLabel>Ghana Card ID</FormLabel>
                       <Input placeholder="GHA-XXXXXXXXX-X" {...field} />
                       <FormMessage />
                     </FormItem>
@@ -436,7 +469,7 @@ export function AddPatientDialog({
                   name="maritalStatus"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Marital Status (Optional)</FormLabel>
+                      <FormLabel>Marital Status</FormLabel>
                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -454,23 +487,12 @@ export function AddPatientDialog({
                     </FormItem>
                   )}
                 />
-                 <FormField
-                  control={form.control}
-                  name="occupation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Occupation (Optional)</FormLabel>
-                      <Input {...field} />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={form.control}
                   name="patientType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Patient Type</FormLabel>
+                      <FormLabel>Billing Tier</FormLabel>
                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -491,27 +513,14 @@ export function AddPatientDialog({
                 />
               </div>
 
-              <h4 className="text-lg font-medium">Contact & Address</h4>
+              <h4 className="text-lg font-bold border-b pb-2 pt-4">Contact & Address</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField
                   control={form.control}
                   name="contact.primaryPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Primary Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+233..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="contact.alternatePhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Alternate Phone (Optional)</FormLabel>
+                      <FormLabel>Primary Phone</FormLabel>
                       <FormControl>
                         <Input placeholder="+233..." {...field} />
                       </FormControl>
@@ -524,7 +533,7 @@ export function AddPatientDialog({
                   name="contact.email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email (Optional)</FormLabel>
+                      <FormLabel>Email Address</FormLabel>
                       <FormControl>
                         <Input placeholder="patient@email.com" {...field} />
                       </FormControl>
@@ -575,14 +584,14 @@ export function AddPatientDialog({
                 />
               </div>
               
-              <h4 className="text-lg font-medium">Emergency Contact</h4>
+              <h4 className="text-lg font-bold border-b pb-2 pt-4">Emergency Contact</h4>
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="emergencyContact.name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name</FormLabel>
+                      <FormLabel>Contact Full Name</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -617,56 +626,13 @@ export function AddPatientDialog({
                   )}
                 />
               </div>
-              
-              <h4 className="text-lg font-medium">Insurance Details (Optional)</h4>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="insurance.providerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Provider Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="NHIS" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="insurance.policyNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Policy Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="insurance.expiryDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expiry Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
 
                {!isEditing && (
                 <FormField
                     control={form.control}
                     name="consent"
                     render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-muted/5">
                         <FormControl>
                         <Checkbox
                             checked={field.value}
@@ -677,8 +643,8 @@ export function AddPatientDialog({
                         <FormLabel>
                             Patient Consent
                         </FormLabel>
-                        <FormDescription>
-                            I consent to the collection and processing of my personal and health data for the purpose of receiving medical care, in accordance with the Data Protection Act, 2012 (Act 843).
+                        <FormDescription className="text-xs">
+                            I consent to the collection and processing of my personal and health data for medical purposes, in accordance with the Data Protection Act, 2012 (Act 843).
                         </FormDescription>
                         <FormMessage />
                         </div>
@@ -689,8 +655,8 @@ export function AddPatientDialog({
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Register Patient')}
+              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 min-w-[120px]">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : (isEditing ? 'Update Record' : 'Register Patient')}
               </Button>
             </DialogFooter>
           </form>
@@ -710,7 +676,7 @@ export function AddPatientDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>Add New Patient</Button>
+        <Button className="shadow-md">Add New Patient</Button>
       </DialogTrigger>
       {dialogContent}
     </Dialog>
