@@ -1,183 +1,196 @@
+
 'use client';
 
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { mockLedgerAccounts, allBeds, allAdmissions, allUsers, mockLeaveRequests } from '@/lib/data';
-import { differenceInDays, parseISO } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import { differenceInDays } from 'date-fns';
+import { Loader2, TrendingUp, Users, BedDouble, Activity, ShieldCheck } from 'lucide-react';
+import { Invoice, Bed, Admission, User as UserType } from '@/lib/types';
 
-const formatCurrency = (amount: number) => `₵${amount.toFixed(2)}`;
+const formatCurrency = (amount: number) => `₵${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const chartConfig = {
   revenue: {
     label: "Revenue",
     color: "hsl(var(--chart-1))",
   },
-  expenses: {
-    label: "Expenses",
-    color: "hsl(var(--chart-2))",
-  },
-   admissions: {
+  count: {
     label: "Admissions",
-     color: "hsl(var(--chart-2))",
+    color: "hsl(var(--chart-2))",
   },
 } satisfies ChartConfig;
 
-const mockMonthlyPerformance = [
-    { month: "Jan", revenue: 186000, expenses: 80000 },
-    { month: "Feb", revenue: 305000, expenses: 200000 },
-    { month: "Mar", revenue: 237000, expenses: 120000 },
-    { month: "Apr", revenue: 73000, expenses: 190000 },
-    { month: "May", revenue: 209000, expenses: 130000 },
-    { month: "Jun", revenue: 214000, expenses: 140000 },
-];
-
-const mockAdmissionType = [
-    { type: "Inpatient", count: allAdmissions.filter(a => a.type === 'Inpatient').length },
-    { type: "Outpatient", count: allAdmissions.filter(a => a.type === 'Outpatient').length },
-    { type: "Emergency", count: allAdmissions.filter(a => a.type === 'Emergency').length },
-]
-
+/**
+ * == Core Strategic Dashboard: Admin/Director View ==
+ * 
+ * Aggregates live facility metrics from Firestore.
+ * Enforces logical isolation via the SaaS hospitalId wall.
+ */
 export function AdminDashboard() {
-  const totalRevenue = mockLedgerAccounts.filter(a => a.accountType === 'Revenue').reduce((sum, acc) => sum + acc.balance, 0);
-  const totalExpenses = mockLedgerAccounts.filter(a => a.accountType === 'Expense').reduce((sum, acc) => sum + acc.balance, 0);
-  const netProfit = totalRevenue - totalExpenses;
-  
-  const totalBeds = allBeds.length;
-  const occupiedBeds = allBeds.filter(b => b.status === 'occupied').length;
-  const bedOccupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
-  
-  const dischargedAdmissions = allAdmissions.filter(a => a.status === 'Discharged' && a.discharge_date);
-  const totalLengthOfStay = dischargedAdmissions.reduce((sum, admission) => {
-    const admissionDate = parseISO(admission.admission_date);
-    const dischargeDate = parseISO(admission.discharge_date!);
-    return sum + differenceInDays(dischargeDate, admissionDate);
-  }, 0);
-  const avgLengthOfStay = dischargedAdmissions.length > 0 ? totalLengthOfStay / dischargedAdmissions.length : 0;
+  const { user } = useAuth();
+  const firestore = useFirestore();
+  const hospitalId = user?.hospitalId || '';
 
-  const totalStaff = allUsers.length;
-  const onLeaveToday = mockLeaveRequests.filter(req => {
-    const today = new Date();
-    return new Date(req.startDate) <= today && new Date(req.endDate) >= today && req.status === 'Approved';
-  }).length;
+  // 1. LIVE SAAS QUERIES: Fetch facility-locked data
+  const invQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "invoices"), where("hospitalId", "==", hospitalId));
+  }, [firestore, hospitalId]);
+  const { data: invoices, isLoading: isInvLoading } = useCollection<Invoice>(invQuery);
+
+  const bedsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "beds"), where("hospitalId", "==", hospitalId));
+  }, [firestore, hospitalId]);
+  const { data: beds, isLoading: isBedsLoading } = useCollection<Bed>(bedsQuery);
+
+  const admQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "admissions"), where("hospitalId", "==", hospitalId));
+  }, [firestore, hospitalId]);
+  const { data: admissions, isLoading: isAdmLoading } = useCollection<Admission>(admQuery);
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "users"), where("hospitalId", "==", hospitalId));
+  }, [firestore, hospitalId]);
+  const { data: staff, isLoading: isUsersLoading } = useCollection<UserType>(usersQuery);
+
+  // 2. AGGREGATE CALCULATIONS
+  const metrics = React.useMemo(() => {
+    const totalRevenue = invoices?.filter(i => i.status === 'Paid').reduce((sum, i) => sum + (i.grandTotal || 0), 0) || 0;
+    const arBalance = invoices?.filter(i => i.status !== 'Paid' && i.status !== 'Void').reduce((sum, i) => sum + (i.amountDue || 0), 0) || 0;
+    
+    const totalBeds = beds?.length || 0;
+    const occupiedBeds = beds?.filter(b => b.status === 'Occupied' || b.status === 'occupied').length || 0;
+    const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
+
+    const completedAdmissions = admissions?.filter(a => a.status === 'Discharged' && a.admission_date && a.discharge_date) || [];
+    const totalStayDays = completedAdmissions.reduce((sum, a) => {
+        const start = new Date(a.admission_date);
+        const end = new Date(a.discharge_date!);
+        return sum + Math.max(1, differenceInDays(end, start));
+    }, 0);
+    const avgStay = completedAdmissions.length > 0 ? totalStayDays / completedAdmissions.length : 0;
+
+    const admissionMix = [
+        { type: "Inpatient", count: admissions?.filter(a => a.type === 'Inpatient').length || 0 },
+        { type: "Outpatient", count: admissions?.filter(a => a.type === 'Outpatient').length || 0 },
+        { type: "Emergency", count: admissions?.filter(a => a.type === 'Emergency').length || 0 },
+    ];
+
+    return {
+        totalRevenue,
+        arBalance,
+        occupancyRate,
+        occupiedBeds,
+        totalBeds,
+        avgStay,
+        admissionMix
+    };
+  }, [invoices, beds, admissions]);
+
+  if (isInvLoading || isBedsLoading || isAdmLoading || isUsersLoading) {
+    return (
+        <div className="h-96 flex flex-col items-center justify-center text-muted-foreground gap-4">
+            <Loader2 className="h-10 w-10 animate-spin opacity-20" />
+            <p className="text-xs font-black uppercase tracking-widest animate-pulse">Syncing Facility Intelligence...</p>
+        </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                    <span className="text-sm text-muted-foreground">₵</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-                    <p className="text-xs text-muted-foreground">All-time revenue</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Net Profit / Loss</CardTitle>
-                    <span className="text-sm text-muted-foreground">₵</span>
-                </CardHeader>
-                <CardContent>
-                    <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {formatCurrency(netProfit)}
-                    </div>
-                    <p className="text-xs text-muted-foreground">All-time profitability</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Bed Occupancy Rate</CardTitle>
-                    <span className="text-sm text-muted-foreground">%</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{bedOccupancyRate.toFixed(1)}%</div>
-                    <p className="text-xs text-muted-foreground">{occupiedBeds} of {totalBeds} beds occupied</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Avg. Length of Stay</CardTitle>
-                    <span className="text-sm text-muted-foreground">Days</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{avgLengthOfStay.toFixed(1)}</div>
-                    <p className="text-xs text-muted-foreground">Based on discharged patients</p>
-                </CardContent>
-            </Card>
+            <DashboardKpi 
+                title="Revenue (Paid)" 
+                value={formatCurrency(metrics.totalRevenue)} 
+                desc="Collected this period"
+                icon={<TrendingUp className="text-green-600" />}
+            />
+            <DashboardKpi 
+                title="A/R Balance" 
+                value={formatCurrency(metrics.arBalance)} 
+                desc="Total Outstanding"
+                icon={<Activity className="text-orange-600" />}
+            />
+            <DashboardKpi 
+                title="Bed Occupancy" 
+                value={`${metrics.occupancyRate.toFixed(1)}%`} 
+                desc={`${metrics.occupiedBeds} of ${metrics.totalBeds} Units`}
+                icon={<BedDouble className="text-blue-600" />}
+            />
+            <DashboardKpi 
+                title="Avg. Visit Length" 
+                value={`${metrics.avgStay.toFixed(1)} Days`} 
+                desc="Discharged Patients"
+                icon={<Users className="text-purple-600" />}
+            />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-             <Card>
-                <CardHeader>
-                <CardTitle>Revenue vs. Expenses</CardTitle>
-                <CardDescription>Monthly financial performance for the current year.</CardDescription>
+        <div className="grid gap-8 md:grid-cols-2">
+             <Card className="shadow-md border-t-4 border-t-primary">
+                <CardHeader className="bg-muted/10 border-b">
+                    <CardTitle className="text-lg font-bold">Revenue Insight</CardTitle>
+                    <CardDescription>Live billing throughput for {hospitalId}.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-                    <BarChart data={mockMonthlyPerformance}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                        dataKey="month"
-                        tickLine={false}
-                        tickMargin={10}
-                        axisLine={false}
-                        tickFormatter={(value) => value.slice(0, 3)}
-                    />
-                    <YAxis
-                        tickFormatter={(value) => `₵${value / 1000}k`}
-                    />
-                    <ChartTooltip
-                        content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />}
-                    />
-                    <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
-                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} />
-                    </BarChart>
-                </ChartContainer>
+                <CardContent className="h-80 flex flex-col items-center justify-center text-center p-8 bg-muted/5 border-2 border-dashed m-6 rounded-2xl">
+                    <ShieldCheck className="h-12 w-12 text-muted-foreground/20 mb-4" />
+                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">SaaS Wall Enforced</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-2">Historical revenue trends populate as monthly logs accrue.</p>
                 </CardContent>
             </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Admissions by Type</CardTitle>
-                    <CardDescription>A summary of total admissions by type.</CardDescription>
+
+            <Card className="shadow-md border-t-4 border-t-blue-500 overflow-hidden">
+                <CardHeader className="bg-muted/10 border-b">
+                    <CardTitle className="text-lg font-bold">Admissions Mix</CardTitle>
+                    <CardDescription>Real-time census by visit type.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                      <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-                        <BarChart data={mockAdmissionType} layout="vertical">
-                        <CartesianGrid horizontal={false} />
-                        <YAxis dataKey="type" type="category" tickLine={false} axisLine={false} />
-                        <XAxis type="number" hide />
-                        <ChartTooltip
-                            content={<ChartTooltipContent />}
-                        />
-                        <Bar dataKey="count" fill="var(--color-admissions)" radius={4} />
+                        <BarChart data={metrics.admissionMix} layout="vertical" margin={{ left: 20 }}>
+                            <CartesianGrid horizontal={false} opacity={0.3} />
+                            <YAxis dataKey="type" type="category" tickLine={false} axisLine={false} width={80} fontSize={12} />
+                            <XAxis type="number" hide />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={32} />
                         </BarChart>
                     </ChartContainer>
                 </CardContent>
             </Card>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+
+        <div className="grid gap-4 md:grid-cols-3">
+             <Card className="bg-slate-50 border-slate-200">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Total Staff Count</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{totalStaff}</div>
-                     <p className="text-xs text-muted-foreground">Total number of active employees.</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Staff on Leave Today</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{onLeaveToday}</div>
-                    <p className="text-xs text-muted-foreground">Staff currently on approved leave.</p>
+                    <div className="text-3xl font-black text-slate-900">{staff?.length || 0}</div>
+                     <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Personnel Scoped to Tenant</p>
                 </CardContent>
             </Card>
         </div>
     </div>
   );
+}
+
+function DashboardKpi({ title, value, desc, icon }: { title: string, value: string, desc: string, icon: React.ReactNode }) {
+    return (
+        <Card className="shadow-sm border-none bg-white ring-1 ring-slate-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{title}</CardTitle>
+                <div className="h-4 w-4">{icon}</div>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-black text-slate-900 leading-none">{value}</div>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-3 tracking-tighter">{desc}</p>
+            </CardContent>
+        </Card>
+    );
 }
