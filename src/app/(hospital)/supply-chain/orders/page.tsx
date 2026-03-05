@@ -358,6 +358,8 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
             return;
         }
         
+        let newStatus: string = '';
+
         try {
             if (!firestore) throw new Error("Firestore not available");
 
@@ -378,7 +380,7 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                     return { ...poItem, quantityReceived: newTotalReceived };
                 });
 
-                const newStatus = allItemsFulfilled ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
+                newStatus = allItemsFulfilled ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
 
                 // 1. Update PO with new received quantities and status
                 transaction.update(poRef, {
@@ -393,7 +395,7 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                     grnNumber,
                     poId: po.id,
                     supplierName: po.supplierName,
-                    itemsReceived: values.items.filter(i => i.quantityReceived > 0),
+                    items: values.items.filter(i => i.quantityReceived > 0),
                     totalValue,
                     hospitalId,
                     receivedBy: user.uid,
