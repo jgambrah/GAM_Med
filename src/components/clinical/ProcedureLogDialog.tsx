@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp } from 'firebase/firestore';
+import { collection, query, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
 } from "@/components/ui/dialog";
@@ -25,6 +25,7 @@ const procedureLogSchema = z.object({
   consumables: z.array(z.object({
     itemId: z.string(),
     name: z.string(),
+    sku: z.string(),
     quantityUsed: z.coerce.number().min(1, "Qty must be > 0"),
   })).optional(),
 });
@@ -51,11 +52,12 @@ export function ProcedureLogDialog({ patientId, hospitalId, patientName }: Proce
   }, [firestore, hospitalId]);
   const { data: proceduresMenu, isLoading: proceduresLoading } = useCollection(proceduresQuery);
 
-  const inventoryQuery = useMemoFirebase(() => {
+  // Fetch from master product catalog instead of pharmacy inventory
+  const catalogQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/pharmacy_inventory`));
+    return query(collection(firestore, `hospitals/${hospitalId}/product_catalog`));
   }, [firestore, hospitalId]);
-  const { data: inventory, isLoading: inventoryLoading } = useCollection(inventoryQuery);
+  const { data: catalog, isLoading: catalogLoading } = useCollection(catalogQuery);
 
   const form = useForm<ProcedureLogValues>({
     resolver: zodResolver(procedureLogSchema),
@@ -72,10 +74,12 @@ export function ProcedureLogDialog({ patientId, hospitalId, patientName }: Proce
     setLoading(true);
     
     const selectedProcedure = proceduresMenu?.find(p => p.id === values.procedureId);
+    const batch = writeBatch(firestore);
 
     try {
-      const logsCollection = collection(firestore, `hospitals/${hospitalId}/procedure_logs`);
-      await addDocumentNonBlocking(logsCollection, {
+      // 1. Create the Procedure Log
+      const logRef = doc(collection(firestore, `hospitals/${hospitalId}/procedure_logs`));
+      batch.set(logRef, {
         patientId,
         patientName,
         hospitalId,
@@ -89,13 +93,36 @@ export function ProcedureLogDialog({ patientId, hospitalId, patientName }: Proce
         createdAt: serverTimestamp(),
       });
 
-      // NOTE: A robust system would use a Cloud Function transaction here to 
-      // atomically decrement the quantities from the pharmacy_inventory.
-      // This client-side approach does not decrement stock.
+      // 2. FINANCIAL HANDSHAKE: Create billing items for each consumable
+      if (values.consumables) {
+        values.consumables.forEach(consumable => {
+          const catalogItem = catalog?.find(item => item.id === consumable.itemId);
+          if (catalogItem && catalogItem.sellingPrice > 0) {
+            const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
+            batch.set(billRef, {
+              hospitalId,
+              patientId,
+              patientName,
+              encounterId: logRef.id, // Link to the procedure log
+              description: consumable.name,
+              category: 'PROCEDURE',
+              sku: consumable.sku,
+              unitPrice: catalogItem.sellingPrice,
+              qty: consumable.quantityUsed,
+              total: catalogItem.sellingPrice * consumable.quantityUsed,
+              status: 'UNPAID',
+              billedBy: user.uid,
+              createdAt: serverTimestamp()
+            });
+          }
+        });
+      }
+
+      await batch.commit();
       
       toast({
-        title: "Procedure Logged Successfully",
-        description: `${selectedProcedure?.name} has been added to the patient's record.`,
+        title: "Procedure Logged & Billed",
+        description: `${selectedProcedure?.name} and consumables have been added to the patient's record and bill.`,
       });
 
       form.reset();
@@ -187,20 +214,20 @@ export function ProcedureLogDialog({ patientId, hospitalId, patientName }: Proce
                <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
-                            <Plus size={16} className="mr-2"/> Add Consumable
+                            <Plus size={16} className="mr-2"/> Add Consumable from Catalog
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                            <CommandInput placeholder="Search inventory..." />
+                            <CommandInput placeholder="Search catalog..." />
                             <CommandList>
-                               <CommandEmpty>No inventory items found.</CommandEmpty>
+                               <CommandEmpty>No products found.</CommandEmpty>
                                <CommandGroup>
-                                 {inventory?.map(item => (
+                                 {catalog?.map(item => (
                                      <CommandItem
                                         key={item.id}
-                                        value={`${item.name} ${item.genericName}`}
-                                        onSelect={() => append({ itemId: item.id, name: item.name, quantityUsed: 1 })}
+                                        value={`${item.name} ${item.sku}`}
+                                        onSelect={() => append({ itemId: item.id, name: item.name, sku: item.sku, quantityUsed: 1 })}
                                      >
                                        <Check className={cn("mr-2 h-4 w-4", fields.some(f => f.itemId === item.id) ? "opacity-100" : "opacity-0")} />
                                        {item.name}

@@ -130,7 +130,7 @@ export default function PurchaseOrderPage() {
             name: product.name,
             sku: product.sku,
             quantityOrdered: 1, 
-            price: product.basePrice 
+            price: product.purchasePrice // Use purchasePrice from catalog
         }]);
     }
   };

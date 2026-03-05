@@ -36,9 +36,15 @@ export default function DispensingPage() {
   }, [firestore, hospitalId]);
   const {data: inventorySnapshot, isLoading: isInventoryLoading} = useCollection(inventoryQuery);
 
+  const catalogQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, `hospitals/${hospitalId}/product_catalog`));
+  }, [firestore, hospitalId]);
+  const { data: catalogData, isLoading: isCatalogLoading } = useCollection(catalogQuery);
+
 
   const handleFinalizeDispensing = async () => {
-    if (!firestore || !user || !order || !inventorySnapshot) {
+    if (!firestore || !user || !order || !inventorySnapshot || !catalogData) {
         toast({ variant: 'destructive', title: "System Error", description: "Data not ready." });
         return;
     }
@@ -54,21 +60,43 @@ export default function DispensingPage() {
         pharmacistName: user.displayName,
       });
 
-      // 2. DEDUCT STOCK: Loop through prescribed drugs and deduct from inventory
+      // 2. DEDUCT STOCK & CREATE BILLING ITEMS
       order.prescription.forEach((rx: any) => {
         const stockItem = inventorySnapshot.find(item => item.name === rx.name);
         if (stockItem) {
-          // In a high-grade app, you can add a 'qtyToDispense' field to the UI
-          const qtyUsed = 20; 
+          // Deduct from physical stock
+          const qtyUsed = 20; // Simplified for now
           const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, stockItem.id);
           batch.update(itemRef, {
             quantity: increment(-qtyUsed)
           });
+          
+          // Find master catalog item to get selling price
+          const catalogItem = catalogData.find(p => p.sku === stockItem.sku);
+          if (catalogItem && catalogItem.sellingPrice > 0) {
+              const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
+              const qtyToBill = 1; // Simplified
+              batch.set(billRef, {
+                  hospitalId,
+                  patientId,
+                  patientName: order.patientName,
+                  encounterId,
+                  description: catalogItem.name,
+                  category: 'PHARMACY',
+                  sku: catalogItem.sku,
+                  unitPrice: catalogItem.sellingPrice,
+                  qty: qtyToBill,
+                  total: catalogItem.sellingPrice * qtyToBill,
+                  status: 'UNPAID',
+                  billedBy: user.uid,
+                  createdAt: serverTimestamp()
+              });
+          }
         }
       });
 
       await batch.commit();
-      toast({ title: "Dispensing Complete", description: "Inventory updated and bill ready." });
+      toast({ title: "Dispensing Complete", description: "Inventory updated and patient bill generated." });
       router.push('/pharmacy');
     } catch (e: any) {
       toast({ variant: "destructive", title: "Dispensing Failed", description: e.message });
@@ -77,7 +105,7 @@ export default function DispensingPage() {
     }
   };
 
-  const isLoading = isOrderLoading || isInventoryLoading;
+  const isLoading = isOrderLoading || isInventoryLoading || isCatalogLoading;
 
   if (isLoading) return <div className="p-20 text-center font-black italic">Verifying Prescription...</div>;
 
