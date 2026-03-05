@@ -1,13 +1,13 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, runTransaction, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, runTransaction } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, orderBy, writeBatch, increment } from 'firebase/firestore';
 import { Truck, CheckCircle2, Loader2, ShieldAlert, PackageCheck, AlertCircle, XCircle, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 export default function IssueRequisitionsPage() {
   const { user, isUserLoading } = useUser();
@@ -54,13 +54,12 @@ export default function IssueRequisitionsPage() {
   
   useEffect(() => {
     if (selectedReq) {
-      const initialQtys = Object.fromEntries(selectedReq.items.map((i: any) => [i.itemId, 0]));
-      setIssuingQuantities(initialQtys);
+      setIssuingQuantities({});
     }
   }, [selectedReq]);
 
   const handleIssueSupplies = async () => {
-    if (!selectedReq || !firestore || !user) return;
+    if (!selectedReq || !firestore || !user || !inventory) return;
     setLoading(true);
 
     try {
@@ -72,36 +71,45 @@ export default function IssueRequisitionsPage() {
             const currentReqData = currentReqDoc.data();
             let allItemsFulfilled = true;
 
+            for (const item of currentReqData.items) {
+                const issuingNow = issuingQuantities[item.itemId] || 0;
+                if (issuingNow > 0) {
+                    const stockItem = inventory.find(inv => inv.sku === item.sku);
+                    if (!stockItem) {
+                        throw new Error(`Stock item with SKU ${item.sku} not found.`);
+                    }
+                    if (stockItem.quantity < issuingNow) {
+                        throw new Error(`Not enough stock for ${item.name}. Available: ${stockItem.quantity}, Requested: ${issuingNow}`);
+                    }
+                }
+            }
+
             const updatedItems = currentReqData.items.map((item: any) => {
                 const issuingNow = issuingQuantities[item.itemId] || 0;
-                if (issuingNow <= 0) return item;
-
                 const newIssuedQty = (item.quantityIssued || 0) + issuingNow;
-                if (newIssuedQty > item.quantityRequested) {
-                    throw new Error(`Cannot issue more than requested for ${item.name}.`);
-                }
-                
+
                 if (newIssuedQty < item.quantityRequested) {
                     allItemsFulfilled = false;
                 }
-                
-                // Deduct from inventory
-                const inventoryItemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId);
-                transaction.update(inventoryItemRef, { quantity: increment(-issuingNow) });
 
-                // Log movement
-                const movementRef = doc(collection(firestore, `hospitals/${hospitalId}/inventory_movements`));
-                transaction.set(movementRef, {
-                    hospitalId,
-                    sku: item.sku,
-                    productName: item.name,
-                    qty: -issuingNow,
-                    type: 'INTERNAL_ISSUE',
-                    source: 'CENTRAL_STORE',
-                    destination: currentReqData.requestingDept,
-                    authorizedBy: user.uid,
-                    createdAt: serverTimestamp()
-                });
+                if (issuingNow > 0) {
+                    const stockItem = inventory.find(inv => inv.sku === item.sku)!;
+                    const inventoryItemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, stockItem.id);
+                    transaction.update(inventoryItemRef, { quantity: increment(-issuingNow) });
+
+                    const movementRef = doc(collection(firestore, `hospitals/${hospitalId}/inventory_movements`));
+                    transaction.set(movementRef, {
+                        hospitalId,
+                        sku: item.sku,
+                        productName: item.name,
+                        qty: -issuingNow,
+                        type: 'INTERNAL_ISSUE',
+                        source: 'CENTRAL_STORE',
+                        destination: currentReqData.requestingDept,
+                        authorizedBy: user.uid,
+                        createdAt: serverTimestamp()
+                    });
+                }
 
                 return { ...item, quantityIssued: newIssuedQty };
             });
@@ -192,45 +200,49 @@ export default function IssueRequisitionsPage() {
                   <PackageCheck size={40} className="text-blue-500 opacity-50" />
                </div>
 
-               <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b">
-                     <tr>
-                        <th className="p-5 text-[10px] uppercase tracking-widest">Item / Stock</th>
-                        <th className="p-5 text-[10px] uppercase tracking-widest text-center">Req.</th>
-                        <th className="p-5 text-[10px] uppercase tracking-widest text-center">Issued</th>
-                        <th className="p-5 text-[10px] uppercase tracking-widest text-center">Issuing Now</th>
-                        <th className="p-5 text-[10px] uppercase tracking-widest text-right">Balance</th>
-                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                     {selectedReq.items.map((item: any) => {
-                        const stockItem = inventory?.find(p => p.id === item.itemId);
-                        const stock = stockItem?.quantity || 0;
-                        const balance = item.quantityRequested - (item.quantityIssued || 0);
-                        const issuingNow = issuingQuantities[item.itemId] || 0;
-                        return (
-                          <tr key={item.itemId}>
-                             <td className="p-5">
-                                <p className="uppercase text-sm font-black">{item.name}</p>
-                                <p className={`text-[9px] font-bold ${stock < item.quantityRequested ? 'text-red-500' : 'text-green-600'}`}>In Stock: {stock}</p>
-                             </td>
-                             <td className="p-5 text-center text-lg font-black">{item.quantityRequested}</td>
-                             <td className="p-5 text-center text-lg font-bold text-blue-600">{item.quantityIssued || 0}</td>
-                             <td className="p-5 text-center">
-                                <Input 
-                                    type="number"
-                                    max={Math.min(balance, stock)}
-                                    className="w-20 mx-auto text-center"
-                                    value={issuingQuantities[item.itemId] || ''}
-                                    onChange={(e) => setIssuingQuantities({...issuingQuantities, [item.itemId]: Number(e.target.value)})}
-                                />
-                             </td>
-                             <td className="p-5 text-right font-black text-lg text-red-600">{balance - issuingNow}</td>
-                          </tr>
-                        );
-                     })}
-                  </tbody>
-               </table>
+              <table className="w-full text-left">
+                <thead className="bg-slate-900 text-white">
+                  <tr>
+                    <th className="p-5 text-[10px] uppercase">Supply Item</th>
+                    <th className="p-5 text-[10px] uppercase text-center">Requested</th>
+                    <th className="p-5 text-[10px] uppercase text-center">Prev. Issued</th>
+                    <th className="p-5 text-[10px] uppercase text-center w-32">Issue Now</th>
+                    <th className="p-5 text-[10px] uppercase text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y font-bold">
+                  {selectedReq.items.map((item: any, idx: number) => {
+                    const remaining = item.quantityRequested - (item.quantityIssued || 0);
+                    return (
+                      <tr key={idx} className={remaining === 0 ? 'bg-green-50 opacity-60' : ''}>
+                        <td className="p-5">
+                          <p className="uppercase text-sm">{item.name}</p>
+                          <p className="text-[9px] text-blue-600">SKU: {item.sku}</p>
+                        </td>
+                        <td className="p-5 text-center">{item.quantityRequested}</td>
+                        <td className="p-5 text-center text-blue-600">{item.quantityIssued || 0}</td>
+                        <td className="p-5 text-center">
+                          {remaining > 0 ? (
+                            <Input 
+                              type="number" 
+                              max={remaining}
+                              className="w-full p-2 bg-blue-50 border-2 border-blue-200 rounded-xl text-center font-black text-blue-900 outline-none"
+                              placeholder="0"
+                              value={issuingQuantities[item.itemId] || ''}
+                              onChange={(e) => setIssuingQuantities(prev => ({...prev, [item.itemId]: Number(e.target.value)}))}
+                            />
+                          ) : (
+                            <span className="text-[10px] text-green-600">FULFILLED</span>
+                          )}
+                        </td>
+                        <td className="p-5 text-right text-red-600">
+                          {remaining - (issuingQuantities[item.itemId] || 0)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
                <div className="p-8 bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-6">
                   <Button 
@@ -257,6 +269,3 @@ export default function IssueRequisitionsPage() {
     </div>
   );
 }
-
-
-  
