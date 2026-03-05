@@ -1,1 +1,7 @@
-// This file is deprecated. The new CEO layout is located at /app/app-ceo/layout.tsx
+export default function DeprecatedCeoLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
+}
