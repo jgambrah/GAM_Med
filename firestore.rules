@@ -462,7 +462,7 @@ service cloud.firestore {
 
       match /lab_orders/{orderId} {
         allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: isSignedIn();
+        allow list: if isSignedIn();
         allow create: if false;
         allow update: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
@@ -485,7 +485,7 @@ service cloud.firestore {
 
       match /radiology_orders/{orderId} {
         allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: isSignedIn();
+        allow list: if isSignedIn();
         allow create: if false;
         allow update: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
@@ -516,5 +516,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
