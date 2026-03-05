@@ -154,6 +154,7 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(productSchema),
         defaultValues: {
+            name: '',
             category: 'MEDICINE',
             storeType: 'PHARMACY',
             unit: 'Box',
