@@ -1,9 +1,10 @@
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { Resend } from 'resend';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
 // Add this line to prevent Next.js from trying to pre-render this during build
 export const dynamic = 'force-dynamic';
@@ -11,14 +12,8 @@ export const dynamic = 'force-dynamic';
 // Initialize with a fallback to prevent build crashes
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
 
-// Securely initialize Firebase Admin SDK
-if (!getApps().length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
-}
-const db = getFirestore();
+// Admin SDK is initialized in the imported module. We just use the exported db instance.
+const db = adminDb;
 
 
 export async function POST(req: NextRequest) {
