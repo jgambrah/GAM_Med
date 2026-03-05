@@ -180,10 +180,9 @@ service cloud.firestore {
     }
     
     match /sms_logs/{logId} {
-      allow create: if false; // Only backend can create
-      allow get: if isSuperAdmin() || (getCallingUserData().hospitalId == resource.data.hospitalId);
-      allow list: if isSuperAdmin() || (request.auth.token.hospitalId != null);
-      allow update, delete: if false; // Immutable
+      allow create: if false;
+      allow read, list: if isSignedIn();
+      allow update, delete: if false;
     }
     
     match /chart_of_accounts/{accountId} {
