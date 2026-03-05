@@ -5,17 +5,27 @@ import { collection, query, where, onSnapshot, orderBy, limit, doc } from 'fireb
 import { MessageSquare, Send, CreditCard, History, CheckCircle2, Zap, Loader2, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CommunicationHub() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+
+  useEffect(() => {
+    // Redirect SUPER_ADMIN away from this hospital-specific page
+    if (userProfile && userProfile.role === 'SUPER_ADMIN') {
+        toast({ title: "Redirecting...", description: "Accessing global dashboards instead." });
+        router.replace('/app-ceo/dashboard');
+    }
+  }, [userProfile, router, toast]);
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
@@ -35,8 +45,8 @@ export default function CommunicationHub() {
 
   const isLoading = isUserLoading || isProfileLoading;
 
-  if (isLoading) {
-    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="animate-spin h-16 w-16" /></div>;
+  if (isLoading || userProfile?.role === 'SUPER_ADMIN') {
+    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   }
 
   if (!isAuthorized) {
