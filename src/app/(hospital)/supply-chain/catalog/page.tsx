@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import { Package, Plus, Search, Loader2, ShieldAlert, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,8 @@ export default function ProductCatalogPage() {
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const hospitalId = userProfile?.hospitalId;
@@ -61,6 +62,16 @@ export default function ProductCatalogPage() {
   }, [products, searchTerm]);
   
   const isLoading = isUserLoading || isProfileLoading;
+  
+  const handleOpenDialog = (product: any | null = null) => {
+    setEditingProduct(product);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setEditingProduct(null);
+    setIsDialogOpen(false);
+  };
   
   if (isLoading) {
     return (
@@ -90,11 +101,7 @@ export default function ProductCatalogPage() {
           <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Product <span className="text-primary">Catalog</span></h1>
           <p className="text-muted-foreground font-medium">Standardized Master List for all Hospital Supplies.</p>
         </div>
-        <AddProductDialog 
-            hospitalId={hospitalId}
-            isOpen={isAddProductOpen}
-            setIsOpen={setIsAddProductOpen}
-        />
+        <Button onClick={() => handleOpenDialog()}><Plus/> Add Template</Button>
       </div>
       
        <div className="relative max-w-xl">
@@ -130,11 +137,11 @@ export default function ProductCatalogPage() {
                       <p className="font-bold text-primary">{p.sku}</p>
                       <p className="uppercase text-card-foreground font-semibold">{p.name}</p>
                     </TableCell>
-                    <TableCell className="p-4 text-right font-mono text-muted-foreground">{(p.purchasePrice ?? 0).toFixed(2)}</TableCell>
-                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{(p.sellingPrice ?? 0).toFixed(2)}</TableCell>
+                    <TableCell className="p-4 text-right font-mono text-muted-foreground">{(p.purchasePrice || 0).toFixed(2)}</TableCell>
+                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{(p.sellingPrice || 0).toFixed(2)}</TableCell>
                     <TableCell className={`p-4 text-right font-black ${Number(margin) < 15 ? 'text-destructive' : 'text-green-600'}`}>{margin}%</TableCell>
                     <TableCell className="p-4 text-right">
-                        <Button variant="ghost" size="sm">Edit</Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(p)}>Edit</Button>
                     </TableCell>
                   </TableRow>
                );
@@ -145,26 +152,41 @@ export default function ProductCatalogPage() {
           </TableBody>
         </Table>
       </div>
+
+       <ProductDialog 
+            hospitalId={hospitalId}
+            isOpen={isDialogOpen}
+            setIsOpen={handleCloseDialog}
+            product={editingProduct}
+        />
     </div>
   );
 }
 
-const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, isOpen: boolean, setIsOpen: (open: boolean) => void }) => {
+const ProductDialog = ({ hospitalId, isOpen, setIsOpen, product }: { hospitalId: string, isOpen: boolean, setIsOpen: (open: boolean) => void, product: any | null }) => {
     const { toast } = useToast();
     const firestore = useFirestore();
+    const isEditMode = !!product;
     
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(productSchema),
-        defaultValues: {
-            name: '',
-            category: 'MEDICINE',
-            storeType: 'PHARMACY',
-            unit: 'Box',
-            minLevel: 10,
-            purchasePrice: 0,
-            sellingPrice: 0,
-        }
     });
+
+    useEffect(() => {
+        if (product) {
+            form.reset(product);
+        } else {
+            form.reset({
+                name: '',
+                category: 'MEDICINE',
+                storeType: 'PHARMACY',
+                unit: 'Box',
+                minLevel: 10,
+                purchasePrice: 0,
+                sellingPrice: 0,
+            });
+        }
+    }, [product, form]);
 
     const generateSKU = (name: string, cat: string) => {
         const prefix = cat.substring(0, 3).toUpperCase();
@@ -175,26 +197,32 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
 
     const onSubmit = (values: ProductFormValues) => {
         if (!firestore) return;
-        const sku = generateSKU(values.name, values.category);
-        addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/product_catalog`), {
-            ...values,
-            sku,
-            hospitalId,
-            createdAt: serverTimestamp(),
-        });
-        toast({ title: 'Product Template Created', description: `${values.name} (${sku}) added to catalog.`});
+        
+        if (isEditMode) {
+            const docRef = doc(firestore, `hospitals/${hospitalId}/product_catalog`, product.id);
+            updateDocumentNonBlocking(docRef, {
+                ...values,
+                priceLastUpdated: serverTimestamp(),
+            });
+            toast({ title: 'Product Updated', description: `${values.name} has been updated.` });
+        } else {
+            const sku = generateSKU(values.name, values.category);
+            addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/product_catalog`), {
+                ...values,
+                sku,
+                hospitalId,
+                createdAt: serverTimestamp(),
+            });
+            toast({ title: 'Product Template Created', description: `${values.name} (${sku}) added to catalog.`});
+        }
         setIsOpen(false);
-        form.reset();
     }
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button><Plus/> Add Template</Button>
-            </DialogTrigger>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>New Product Template</DialogTitle>
+                    <DialogTitle>{isEditMode ? 'Edit Product Template' : 'New Product Template'}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -247,7 +275,9 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
                            </div>
                         </div>
                         <DialogFooter>
-                            <Button type="submit" disabled={form.formState.isSubmitting}>Authorize Catalog Entry</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {isEditMode ? 'Save Changes' : 'Authorize Catalog Entry'}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>
