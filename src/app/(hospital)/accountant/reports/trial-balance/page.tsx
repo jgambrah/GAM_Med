@@ -1,12 +1,15 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { collection, query, doc, orderBy } from 'firebase/firestore';
+import {
+  Scale, Printer, FileText, CheckCircle2,
+  AlertTriangle, Landmark, ShieldCheck, Download, Loader2, ShieldAlert
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
-export default function TrialBalance() {
+export default function TrialBalanceReport() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -19,34 +22,35 @@ export default function TrialBalance() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole || '');
+
+  const hospitalRef = useMemoFirebase(() => hospitalId ? doc(firestore, 'hospitals', hospitalId) : null, [firestore, hospitalId]);
+  const { data: hospitalData } = useDoc(hospitalRef);
 
   const accountsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, "hospitals", hospitalId, "chart_of_accounts"));
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`),
+      orderBy("accountCode", "asc")
+    );
   }, [firestore, hospitalId]);
+
   const { data: accounts, isLoading: areAccountsLoading } = useCollection(accountsQuery);
 
-  const { totalDebit, totalCredit } = useMemo(() => {
-    if (!accounts) return { totalDebit: 0, totalCredit: 0 };
-    
-    const totalDebit = accounts.reduce((sum, a) => sum + (['ASSETS', 'EXPENSES'].includes(a.category) ? a.currentBalance : 0), 0);
-    const totalCredit = accounts.reduce((sum, a) => sum + (['LIABILITIES', 'REVENUE', 'CAPITAL'].includes(a.category) ? a.currentBalance : 0), 0);
+  const totalDebit = useMemo(() => accounts?.reduce((sum, a) =>
+    sum + (['ASSETS', 'EXPENSES'].includes(a.category) ? (a.currentBalance || 0) : 0), 0) || 0, [accounts]);
+  
+  const totalCredit = useMemo(() => accounts?.reduce((sum, a) =>
+    sum + (['LIABILITIES', 'REVENUE', 'CAPITAL'].includes(a.category) ? (a.currentBalance || 0) : 0), 0) || 0, [accounts]);
 
-    return { totalDebit, totalCredit };
-  }, [accounts]);
+  const difference = Math.abs(totalDebit - totalCredit);
+  const isBalanced = difference < 0.01;
 
   const isLoading = isUserLoading || isProfileLoading || areAccountsLoading;
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!isAuthorized) {
+  if (isLoading) return <div className="p-20 flex items-center justify-center font-black italic animate-pulse text-blue-600 uppercase"><Loader2 className="mr-2 animate-spin" /> Synchronizing Ledgers...</div>;
+  
+  if (!isAuthorized && !isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center bg-background p-4">
         <div className="text-center">
@@ -59,47 +63,94 @@ export default function TrialBalance() {
     );
   }
 
-
   return (
-    <div className="p-10 max-w-5xl mx-auto space-y-10">
-      <div className="text-center border-b-4 border-foreground pb-6">
-         <h1 className="text-4xl font-black uppercase tracking-tighter italic">Trial <span className="text-primary">Balance</span></h1>
-         <p className="font-bold text-xs uppercase text-muted-foreground mt-2">As at {new Date().toLocaleDateString('en-GB')}</p>
+    <div className="p-8 max-w-5xl mx-auto space-y-8 text-black font-bold">
+      {/* --- HEADER (Hidden on Print) --- */}
+      <div className="flex justify-between items-end border-b-4 border-slate-900 pb-6 print:hidden">
+        <div>
+          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Trial <span className="text-blue-600">Balance</span></h1>
+          <p className="text-slate-500 font-bold text-xs uppercase italic">Consolidated verification of all ledger balances.</p>
+        </div>
+        <div className="flex gap-3">
+           <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase flex items-center gap-2 shadow-xl hover:bg-blue-600 transition-all">
+              <Printer size={18} /> Print Certified Report
+           </button>
+        </div>
       </div>
 
-      <div className="bg-card border-4 border-foreground overflow-hidden shadow-[12px_12px_0px_0px_hsl(var(--foreground))]">
-        <table className="w-full text-left font-bold text-card-foreground">
-          <thead className="bg-foreground text-primary-foreground uppercase text-[10px] tracking-widest">
-            <tr>
-              <th className="p-6">Account Description</th>
-              <th className="p-6 text-right">Debit (₵)</th>
-              <th className="p-6 text-right">Credit (₵)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y-2 divide-border">
-            {accounts?.sort((a,b) => a.accountCode.localeCompare(b.accountCode)).map((acc, i) => (
-              <tr key={i}>
-                <td className="p-5 uppercase text-sm">{acc.accountCode} - {acc.name}</td>
-                <td className="p-5 text-right font-mono">{['ASSETS', 'EXPENSES'].includes(acc.category) ? acc.currentBalance.toFixed(2) : '-'}</td>
-                <td className="p-5 text-right font-mono">{['LIABILITIES', 'REVENUE', 'CAPITAL'].includes(acc.category) ? acc.currentBalance.toFixed(2) : '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="bg-foreground text-primary-foreground text-lg font-black italic">
-            <tr>
-              <td className="p-6 text-right uppercase text-xs">Total Balance</td>
-              <td className="p-6 text-right border-l border-border/50">₵ {totalDebit.toFixed(2)}</td>
-              <td className="p-6 text-right border-l border-border/50">₵ {totalCredit.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      
-      {Math.abs(totalDebit - totalCredit) > 0.01 && (
-        <div className="bg-destructive p-4 rounded-2xl text-destructive-foreground text-center font-black uppercase animate-pulse">
-           ⚠️ Accounting Error: System Out of Balance by ₵ {(totalDebit - totalCredit).toFixed(2)}
+      {/* --- BALANCE STATUS ALERT --- */}
+      {!isBalanced && (
+        <div className="bg-red-600 p-6 rounded-[32px] text-white flex items-center justify-between shadow-2xl animate-bounce print:hidden">
+           <div className="flex items-center gap-4">
+              <AlertTriangle size={32} />
+              <div>
+                 <p className="text-xs font-black uppercase tracking-widest">Accounting Alert</p>
+                 <p className="text-xl font-black italic">Books are out of balance by ₵ {difference.toFixed(2)}</p>
+              </div>
+           </div>
+           <p className="text-[10px] font-bold uppercase w-48 leading-tight opacity-80">Check recent manual Journal Entries for discrepancies.</p>
         </div>
       )}
+
+      {/* --- THE FORMAL REPORT --- */}
+      <div className="bg-white border-4 border-slate-900 p-10 rounded-[40px] shadow-2xl font-serif">
+         <div className="text-center border-b-2 border-slate-900 pb-6 mb-8">
+            <h2 className="text-3xl font-black uppercase tracking-widest">{hospitalData?.name || 'Facility Report'}</h2>
+            <p className="text-lg font-bold uppercase mt-1 italic">Trial Balance Statement</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">
+               As at {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+            </p>
+         </div>
+
+         <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-900 text-white text-[10px] uppercase font-black tracking-widest">
+               <tr>
+                  <th className="p-4 border-r border-slate-700">Account Code & Description</th>
+                  <th className="p-4 text-right border-r border-slate-700 w-48">Debit (₵)</th>
+                  <th className="p-4 text-right w-48">Credit (₵)</th>
+               </tr>
+            </thead>
+            <tbody className="divide-y-2 divide-slate-100">
+               {accounts?.map((acc) => (
+                  <tr key={acc.id} className={`hover:bg-slate-50 transition-all ${acc.accountCode === '2100' ? 'bg-blue-50/50' : ''}`}>
+                     <td className="p-4 flex items-center gap-4">
+                        <span className="text-[10px] font-black text-blue-600 w-12">{acc.accountCode}</span>
+                        <span className="uppercase text-sm font-bold text-black">{acc.name}</span>
+                        {acc.accountCode === '2100' && <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded font-black italic">TAX</span>}
+                     </td>
+                     <td className="p-4 text-right font-black text-sm border-r">
+                        {['ASSETS', 'EXPENSES'].includes(acc.category) ? (acc.currentBalance || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
+                     </td>
+                     <td className="p-4 text-right font-black text-sm">
+                        {['LIABILITIES', 'REVENUE', 'CAPITAL'].includes(acc.category) ? (acc.currentBalance || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
+                     </td>
+                  </tr>
+               ))}
+            </tbody>
+            <tfoot className="bg-slate-900 text-white">
+               <tr className="text-lg font-black italic">
+                  <td className="p-6 text-right uppercase text-xs tracking-[0.2em]">Statement Totals</td>
+                  <td className="p-6 text-right border-x border-slate-700">₵ {totalDebit.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                  <td className="p-6 text-right">₵ {totalCredit.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+               </tr>
+            </tfoot>
+         </table>
+
+         {/* GOVERNANCE FOOTER */}
+         <div className="mt-16 flex justify-between items-center opacity-40 grayscale print:opacity-100">
+            <div className="flex items-center gap-3">
+               <ShieldCheck size={24}/>
+               <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest">Digitally Verified</p>
+                  <p className="text-[8px] font-bold italic">GamMed ERP Core v2.0</p>
+               </div>
+            </div>
+            <div className="text-right">
+               <p className="text-[8px] font-black uppercase">Certified by Accountant</p>
+               <div className="h-6 border-b border-slate-900 w-32 ml-auto mt-2"></div>
+            </div>
+         </div>
+      </div>
     </div>
   );
 }
