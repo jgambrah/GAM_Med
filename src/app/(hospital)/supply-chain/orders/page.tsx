@@ -221,7 +221,7 @@ export default function PurchaseOrderPage() {
                               <Input 
                                   type="number" 
                                   value={item.quantityOrdered}
-                                  onChange={(e) => updateItemQuantity(item.itemId, parseInt(e.target.value, 10))}
+                                  onChange={(e) => updateItemQuantity(item.itemId, parseInt(e.target.value) || 0)}
                                   className="w-20 h-8"
                               />
                                <span className="text-sm font-bold w-20 text-right">₵ {item.price.toFixed(2)}</span>
