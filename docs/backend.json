@@ -2809,6 +2809,10 @@
           "type": "number",
           "description": "The current counter for generating unique patient EHR numbers."
         },
+        "poCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique Purchase Order numbers."
+        },
         "nextBillingDate": {
           "type": "string",
           "format": "date-time",
@@ -2849,7 +2853,8 @@
         "mrnPrefix",
         "subscriptionPlan",
         "isSuspended",
-        "patientCounter"
+        "patientCounter",
+        "poCounter"
       ]
     },
     "User": {
@@ -3205,6 +3210,10 @@
       "description": "A record of an order placed with a supplier.",
       "type": "object",
       "properties": {
+        "poNumber": {
+          "type": "string",
+          "description": "Human-readable, sequential purchase order number."
+        },
         "hospitalId": {
           "type": "string"
         },
@@ -3258,6 +3267,9 @@
         "orderedBy": {
           "type": "string"
         },
+        "orderedByName": {
+          "type": "string"
+        },
         "orderedAt": {
           "type": "string",
           "format": "date-time"
@@ -3281,6 +3293,7 @@
         }
       },
       "required": [
+        "poNumber",
         "hospitalId",
         "supplierId",
         "items",

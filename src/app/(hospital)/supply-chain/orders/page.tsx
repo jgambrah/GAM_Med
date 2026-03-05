@@ -1,7 +1,8 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction } from 'firebase/firestore';
+import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction, getDoc } from 'firebase/firestore';
 import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ export default function PurchaseOrderPage() {
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
   const [items, setItems] = useState<POItem[]>([]);
   
+  const [loading, setLoading] = useState(false);
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
 
   useEffect(() => {
@@ -143,29 +145,63 @@ export default function PurchaseOrderPage() {
       setItems(items.filter(item => item.itemId !== itemId));
   }
 
-  const handleCreateOrder = (values: POFormValues) => {
+  const handleCreateOrder = async (values: POFormValues) => {
     if (items.length === 0) {
         toast({ variant: 'destructive', title: "Cannot create empty order." });
         return;
     }
-    if (!hospitalId || !user) return;
+    if (!hospitalId || !user || !firestore) return;
+    setLoading(true);
 
     const selectedSupplier = suppliers?.find(s => s.id === values.supplierId);
+    if (!selectedSupplier) {
+        toast({ variant: 'destructive', title: 'Supplier not found.' });
+        setLoading(false);
+        return;
+    }
 
-    addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/purchase_orders`), {
-      hospitalId,
-      supplierId: values.supplierId,
-      supplierName: selectedSupplier?.name || 'Unknown Supplier',
-      items: items.map(item => ({ ...item, quantityReceived: 0 })), // Initialize qty received
-      status: 'PENDING_DELIVERY',
-      orderedBy: user.uid,
-      orderedAt: serverTimestamp(),
-    });
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const hospitalRef = doc(firestore, "hospitals", hospitalId);
+            const hospitalSnap = await transaction.get(hospitalRef);
+            if (!hospitalSnap.exists()) {
+                throw new Error("Hospital document not found.");
+            }
+            
+            const hData = hospitalSnap.data();
+            const prefix = hData?.mrnPrefix || 'GAM';
+            const currentCount = (hData?.poCounter || 0) + 1;
+            const year = new Date().getFullYear().toString().slice(-2);
+            const poNumber = `${prefix}/PO/${year}/${currentCount.toString().padStart(4, '0')}`;
 
-    toast({ title: "Purchase Order Issued", description: `PO sent to ${selectedSupplier?.name}.` });
-    form.reset();
-    setItems([]);
-    setIsCreateOrderOpen(false);
+            const poRef = doc(collection(firestore, "hospitals", hospitalId, "purchase_orders"));
+            
+            transaction.set(poRef, {
+                poNumber,
+                hospitalId,
+                supplierId: values.supplierId,
+                supplierName: selectedSupplier.name,
+                items: items.map(item => ({ ...item, quantityReceived: 0 })),
+                status: 'PENDING_DELIVERY',
+                orderedBy: user.uid,
+                orderedByName: user.displayName,
+                orderedAt: serverTimestamp(),
+            });
+
+            transaction.update(hospitalRef, { poCounter: increment(1) });
+        });
+
+        toast({ title: "Purchase Order Issued successfully." });
+        form.reset();
+        setItems([]);
+        setIsCreateOrderOpen(false);
+
+    } catch (e: any) {
+        console.error("PO Creation Failed:", e);
+        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+        setLoading(false);
+    }
   };
   
   const isLoading = isUserLoading || isClaimsLoading;
@@ -272,7 +308,7 @@ export default function PurchaseOrderPage() {
               {ordersLoading && <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
               {purchaseOrders?.map(po => (
                   <TableRow key={po.id}>
-                      <TableCell className="font-mono font-bold text-primary">{po.id.slice(-6).toUpperCase()}</TableCell>
+                      <TableCell className="font-mono font-bold text-primary">{po.poNumber}</TableCell>
                       <TableCell className="font-bold">{po.supplierName}</TableCell>
                       <TableCell>
                           <Badge variant={po.status === 'RECEIVED' ? 'default' : po.status === 'FORCE_CLOSED' ? 'destructive' : 'secondary'}>{po.status}</Badge>
@@ -345,7 +381,7 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
 
     const onSubmit = async (values: GRNFormValues) => {
         setLoading(true);
-        const grnNumber = `GRN-${po.id.slice(-4)}-${Math.floor(100 + Math.random() * 900)}`;
+        const grnNumber = `GRN-${po.poNumber.slice(-4)}-${Math.floor(100 + Math.random() * 900)}`;
 
         const totalValue = values.items.reduce((acc, item) => {
             const poItem = po.items.find((i:any) => i.itemId === item.itemId);
@@ -444,7 +480,7 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>Receive Goods for PO #{po.id.slice(-6).toUpperCase()}</DialogTitle>
+                    <DialogTitle>Receive Goods for PO #{po.poNumber}</DialogTitle>
                     <DialogDescription>Supplier: {po.supplierName}</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>

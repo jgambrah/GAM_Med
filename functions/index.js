@@ -212,6 +212,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
         isSuspended: false,
         subscriptionStatus: 'ACTIVE',
         patientCounter: 0,
+        poCounter: 0,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
         nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
