@@ -4,11 +4,12 @@ import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@
 import { collection, query, where, getDocs, Timestamp, doc, collectionGroup } from 'firebase/firestore';
 import { 
   FileDown, ShieldCheck, ClipboardList, Activity, 
-  Users, Skull, Baby, Download, Printer, Loader2, Landmark, AlertTriangle
+  Users, Skull, Baby, Download, Printer, Loader2, Landmark, AlertTriangle, ShieldAlert
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 function TallyBox({ label, count, color }: any) {
   const colors: any = {
@@ -44,6 +45,7 @@ export default function GHSComplianceHub() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [period, setPeriod] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
   
@@ -51,9 +53,18 @@ export default function GHSComplianceHub() {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
-  const { data: userProfile } = useDoc(userProfileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+
+  useEffect(() => {
+    // Redirect SUPER_ADMIN to their global health dashboard
+    if (userProfile && userProfile.role === 'SUPER_ADMIN') {
+        toast({ title: "Redirecting...", description: "Accessing Global Health Insights instead." });
+        router.replace('/app-ceo/health-insights');
+    }
+  }, [userProfile, router, toast]);
   
   const hospitalId = userProfile?.hospitalId;
+  const isAuthorized = userProfile?.role === 'DIRECTOR' || userProfile?.role === 'ADMIN';
 
   const { startTs, endTs } = useMemo(() => {
     const start = new Date(period.year, period.month, 1);
@@ -113,7 +124,7 @@ export default function GHSComplianceHub() {
     };
   }, [encounters, mortality, admissions, deliveries]);
 
-  const isLoading = encountersLoading || mortalityLoading || admissionsLoading || deliveriesLoading;
+  const isLoading = isProfileLoading || encountersLoading || mortalityLoading || admissionsLoading || deliveriesLoading;
 
   const exportToDHIMS2 = () => {
     const formattedPeriod = `${period.year}${String(period.month + 1).padStart(2, '0')}`;
@@ -139,6 +150,31 @@ export default function GHSComplianceHub() {
     link.click();
     document.body.removeChild(link);
   };
+  
+  if (isProfileLoading) {
+    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
+  }
+  
+  // This page is not for SUPER_ADMIN, they are redirected.
+  // This check is for other roles who might navigate here directly.
+  if (!isAuthorized && userProfile?.role !== 'SUPER_ADMIN') {
+     return (
+      <div className="flex flex-1 items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-muted-foreground">You are not authorized to view GHS Returns.</p>
+          <Button onClick={() => router.push('/dashboard')} className="mt-4">Return Home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render the rest of the component if the user is a super admin, as they will be redirected.
+  if (userProfile?.role === 'SUPER_ADMIN') {
+    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
+  }
+
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto text-black font-bold">
