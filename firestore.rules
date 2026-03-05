@@ -43,7 +43,8 @@ service cloud.firestore {
      * SECURE HELPER FOR LIST RULES: Checks if the calling user belongs to the specified hospital.
      */
     function isStaffOfHospital(hospitalId) {
-      return isSignedIn() && request.auth.token.hospitalId == hospitalId;
+      let userData = getCallingUserData();
+      return isSignedIn() && userData != null && userData.hospitalId == hospitalId;
     }
 
     /**
@@ -222,7 +223,8 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
       
       match /ledger_entries/{entryId} {
-        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
       
       match /chart_of_accounts/{accountId} {
@@ -529,4 +531,4 @@ service cloud.firestore {
   }
 }
 
-  
+    
