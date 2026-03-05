@@ -88,7 +88,8 @@ exports.registerPatient = onCall({ region: "us-central1" }, async (request) => {
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.patientCounter || 0) + 1;
       const prefix = hospital.mrnPrefix || 'GAM';
-      newEhrNumber = `${prefix}-${String(newCounter).padStart(6, '0')}`;
+      const year = new Date().getFullYear().toString().slice(-2);
+      newEhrNumber = `${prefix}/EHR/${year}/${String(newCounter).padStart(4, '0')}`;
 
       const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc();
       transaction.set(patientRef, {
@@ -213,6 +214,8 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
         subscriptionStatus: 'ACTIVE',
         patientCounter: 0,
         poCounter: 0,
+        pvCounter: 0,
+        receiptCounter: 0,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
         nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),

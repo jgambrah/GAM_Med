@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp, writeBatch, increment, runTransaction } from 'firebase/firestore';
 import { 
   FileText, Printer, Save, Calculator, 
   Landmark, Wallet, History, CheckCircle, ShieldAlert, Loader2
@@ -90,78 +90,89 @@ export default function PaymentVoucherManager() {
     if (!hospitalId || !user || !firestore) return;
 
     setProcessing(true);
-    const batch = writeBatch(firestore);
+    let finalPvNumber = '';
 
     try {
-      const pvNumber = `PV-${hospitalId?.split('-')[2] || 'GL'}-${Date.now().toString().slice(-6)}`;
-      const pvRef = doc(collection(firestore, `hospitals/${hospitalId}/payment_vouchers`));
-      
-      const debitAccount = coa?.find(a => a.id === form.debitAccountId);
-      const creditAccount = coa?.find(a => a.id === form.creditAccountId);
-      
-      if (!debitAccount || !creditAccount) throw new Error("Selected account not found");
-      
-      // 1. Create the master PV record
-      batch.set(pvRef, {
-        ...form, pvNumber, vatAmount, whtAmount, netAmount,
-        hospitalId,
-        debitAccountName: debitAccount.name,
-        creditAccountName: creditAccount.name,
-        processedBy: user.uid,
-        processedByName: user.displayName,
-        status: 'PAID', // It's paid from the ledger perspective
-        createdAt: serverTimestamp()
-      });
-      
-      // 2. Clear Accounts Payable if linked
-      const apId = searchParams.get('apId');
-      if (apId) {
-        const apRef = doc(firestore, `hospitals/${hospitalId}/accounts_payable`, apId);
-        batch.update(apRef, { status: 'PAID', pvId: pvRef.id });
-      }
+      await runTransaction(firestore, async (transaction) => {
+        const hospitalDocRef = doc(firestore, "hospitals", hospitalId);
+        const hospitalDoc = await transaction.get(hospitalDocRef);
+        if (!hospitalDoc.exists()) throw new Error("Hospital document not found.");
 
-      // --- TRIPLE-ENTRY LEDGER FOOTPRINTS ---
-      const ledgerCollectionRef = collection(firestore, `hospitals/${hospitalId}/ledger_entries`);
-      const transactionDate = serverTimestamp();
-
-      // a. Debit the expense/asset account
-      batch.set(doc(ledgerCollectionRef), {
-          hospitalId, accountId: form.debitAccountId, accountName: debitAccount.name,
-          date: transactionDate, reference: pvNumber, narration: form.narration,
-          debit: form.grossAmount, credit: 0, createdAt: transactionDate
-      });
-      
-      // b. Credit the bank/cash account
-      batch.set(doc(ledgerCollectionRef), {
-          hospitalId, accountId: form.creditAccountId, accountName: creditAccount.name,
-          date: transactionDate, reference: pvNumber, narration: form.narration,
-          debit: 0, credit: netAmount, createdAt: transactionDate
-      });
-
-      // c. Credit the WHT Payable account
-      if (whtAmount > 0) {
-        const whtAccount = coa?.find(a => a.accountCode === '2100');
-        if (!whtAccount) throw new Error("WHT Payable Account (Code: 2100) not found in Chart of Accounts.");
-        batch.set(doc(ledgerCollectionRef), {
-            hospitalId, accountId: whtAccount.id, accountName: whtAccount.name,
-            date: transactionDate, reference: pvNumber, narration: `WHT for ${form.payee}`,
-            debit: 0, credit: whtAmount, createdAt: transactionDate
+        const hData = hospitalDoc.data();
+        const prefix = hData?.mrnPrefix || 'GAM';
+        const currentPvCount = (hData?.pvCounter || 0) + 1;
+        const year = new Date().getFullYear().toString().slice(-2);
+        const pvNumber = `${prefix}/PV/${year}/${currentPvCount.toString().padStart(4, '0')}`;
+        finalPvNumber = pvNumber;
+        
+        const pvRef = doc(collection(firestore, `hospitals/${hospitalId}/payment_vouchers`));
+        const debitAccount = coa?.find(a => a.id === form.debitAccountId);
+        const creditAccount = coa?.find(a => a.id === form.creditAccountId);
+        if (!debitAccount || !creditAccount) throw new Error("Selected account not found");
+        
+        // 1. Create the master PV record
+        transaction.set(pvRef, {
+          ...form, pvNumber, vatAmount, whtAmount, netAmount,
+          hospitalId,
+          debitAccountName: debitAccount.name,
+          creditAccountName: creditAccount.name,
+          processedBy: user.uid,
+          processedByName: user.displayName,
+          status: 'PAID', // It's paid from the ledger perspective
+          createdAt: serverTimestamp()
         });
-      }
-
-      // 4. UPDATE LEDGER BALANCES
-      batch.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.debitAccountId), { currentBalance: increment(form.grossAmount) });
-      batch.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.creditAccountId), { currentBalance: increment(-netAmount) });
-      if (whtAmount > 0) {
-        const whtAccount = coa?.find(a => a.accountCode === '2100');
-        if (whtAccount) {
-            batch.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, whtAccount.id), { currentBalance: increment(whtAmount) });
+        
+        // 2. Clear Accounts Payable if linked
+        const apId = searchParams.get('apId');
+        if (apId) {
+          const apRef = doc(firestore, `hospitals/${hospitalId}/accounts_payable`, apId);
+          transaction.update(apRef, { status: 'PAID', pvId: pvRef.id });
         }
-      }
 
-      await batch.commit();
+        // --- TRIPLE-ENTRY LEDGER FOOTPRINTS ---
+        const ledgerCollectionRef = collection(firestore, `hospitals/${hospitalId}/ledger_entries`);
+        const transactionDate = serverTimestamp();
 
-      setForm(prev => ({ ...prev, pvNumber }));
+        // a. Debit the expense/asset account
+        transaction.set(doc(ledgerCollectionRef), {
+            hospitalId, accountId: form.debitAccountId, accountName: debitAccount.name,
+            date: transactionDate, reference: pvNumber, narration: form.narration,
+            debit: form.grossAmount, credit: 0, createdAt: transactionDate
+        });
+        
+        // b. Credit the bank/cash account
+        transaction.set(doc(ledgerCollectionRef), {
+            hospitalId, accountId: form.creditAccountId, accountName: creditAccount.name,
+            date: transactionDate, reference: pvNumber, narration: form.narration,
+            debit: 0, credit: netAmount, createdAt: transactionDate
+        });
+
+        // c. Credit the WHT Payable account
+        if (whtAmount > 0) {
+          const whtAccount = coa?.find(a => a.accountCode === '2100');
+          if (!whtAccount) throw new Error("WHT Payable Account (Code: 2100) not found in Chart of Accounts.");
+          transaction.set(doc(ledgerCollectionRef), {
+              hospitalId, accountId: whtAccount.id, accountName: whtAccount.name,
+              date: transactionDate, reference: pvNumber, narration: `WHT for ${form.payee}`,
+              debit: 0, credit: whtAmount, createdAt: transactionDate
+          });
+        }
+
+        // 4. UPDATE LEDGER BALANCES
+        transaction.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.debitAccountId), { currentBalance: increment(form.grossAmount) });
+        transaction.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.creditAccountId), { currentBalance: increment(-netAmount) });
+        if (whtAmount > 0) {
+          const whtAccount = coa?.find(a => a.accountCode === '2100');
+          if (whtAccount) {
+              transaction.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, whtAccount.id), { currentBalance: increment(whtAmount) });
+          }
+        }
+
+        // 5. UPDATE COUNTER
+        transaction.update(hospitalDocRef, { pvCounter: increment(1) });
+      });
+
+      setForm(prev => ({ ...prev, pvNumber: finalPvNumber }));
       toast({ title: `Financial Handshake Complete`, description: "Ledger, AP, and WHT updated." });
       setTimeout(() => window.print(), 500);
 
@@ -293,3 +304,5 @@ export default function PaymentVoucherManager() {
     </div>
   );
 }
+
+    

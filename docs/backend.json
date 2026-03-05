@@ -2813,6 +2813,14 @@
           "type": "number",
           "description": "The current counter for generating unique Purchase Order numbers."
         },
+        "pvCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique Payment Voucher numbers."
+        },
+        "receiptCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique Payment Receipt numbers."
+        },
         "nextBillingDate": {
           "type": "string",
           "format": "date-time",

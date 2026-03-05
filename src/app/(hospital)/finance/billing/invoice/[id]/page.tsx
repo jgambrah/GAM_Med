@@ -1,8 +1,9 @@
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, writeBatch, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction } from 'firebase/firestore';
 import { Receipt, CreditCard, Wallet, Landmark, Printer, CheckCircle2, Loader2, User, FileText } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -97,56 +98,66 @@ export default function PatientInvoicePage() {
     }
     
     setLoading(true);
-    const batch = writeBatch(firestore);
 
     try {
       if (paymentMode === 'Cash' || paymentMode === 'MoMo') {
-        // --- CASH PAYMENT LOGIC ---
-        const paymentId = `REC-${Math.floor(100000 + Math.random() * 900000)}`;
-        const paymentRef = doc(firestore, `hospitals/${hospitalId}/payments`, paymentId);
-        batch.set(paymentRef, {
-          paymentId: paymentId,
-          patientId: patientId,
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          totalAmount: total,
-          paymentMode: paymentMode,
-          hospitalId: hospitalId,
-          processedBy: user.uid,
-          processedByName: user.displayName || "Unknown Staff",
-          createdAt: serverTimestamp(),
+        const hospitalDocRef = doc(firestore, "hospitals", hospitalId);
+        await runTransaction(firestore, async (transaction) => {
+            const hospitalDoc = await transaction.get(hospitalDocRef);
+            if (!hospitalDoc.exists()) throw new Error("Hospital document not found.");
+            
+            const hData = hospitalDoc.data();
+            const prefix = hData?.mrnPrefix || 'GAM';
+            const currentReceiptCount = (hData?.receiptCounter || 0) + 1;
+            const year = new Date().getFullYear().toString().slice(-2);
+            const paymentId = `${prefix}/REC/${year}/${currentReceiptCount.toString().padStart(6, '0')}`;
+
+            const paymentRef = doc(firestore, `hospitals/${hospitalId}/payments`, paymentId);
+            transaction.set(paymentRef, {
+                paymentId: paymentId,
+                patientId: patientId,
+                patientName: `${patient.firstName} ${patient.lastName}`,
+                totalAmount: total,
+                paymentMode: paymentMode,
+                hospitalId: hospitalId,
+                processedBy: user.uid,
+                processedByName: user.displayName || "Unknown Staff",
+                createdAt: serverTimestamp(),
+            });
+
+            transaction.update(hospitalDocRef, { receiptCounter: increment(1) });
         });
         
-        await batch.commit();
         toast({ title: "Payment Recorded", description: `GHS ${total.toFixed(2)} secured for ${patient.firstName}` });
 
       } else { // NHIS or other credit payment
-        // --- DEBT CREATION LOGIC (ACCOUNTS RECEIVABLE) ---
-        const payer = payers?.find(p => p.type === paymentMode); // Find by type, e.g. 'NHIS'
-        
+        const payer = payers?.find(p => p.type === paymentMode);
         if (!payer) {
           throw new Error(`Payer configuration for "${paymentMode}" not found. Please register it in the Payer Master.`);
         }
-
-        // 1. Create the Receivable Document
-        const arRef = doc(collection(firestore, `hospitals/${hospitalId}/receivables`));
-        batch.set(arRef, {
-          hospitalId: hospitalId,
-          patientId: patientId,
-          patientName: `${patient.firstName} ${patient.lastName}`,
-          payerId: payer.id,
-          payerName: payer.name,
-          amount: total,
-          status: 'UNPAID',
-          createdAt: serverTimestamp()
-        });
-
-        // 2. Increment the Payer's Global Debt in the Registry
+        
         const payerRef = doc(firestore, `hospitals/${hospitalId}/payers`, payer.id);
-        batch.update(payerRef, {
-          currentBalance: increment(total)
+        const arRef = doc(collection(firestore, `hospitals/${hospitalId}/receivables`));
+
+        await runTransaction(firestore, async (transaction) => {
+          // 1. Create the Receivable Document
+          transaction.set(arRef, {
+            hospitalId: hospitalId,
+            patientId: patientId,
+            patientName: `${patient.firstName} ${patient.lastName}`,
+            payerId: payer.id,
+            payerName: payer.name,
+            amount: total,
+            status: 'UNPAID',
+            createdAt: serverTimestamp()
+          });
+
+          // 2. Increment the Payer's Global Debt in the Registry
+          transaction.update(payerRef, {
+            currentBalance: increment(total)
+          });
         });
         
-        await batch.commit();
         toast({ title: "Receivable Created", description: `GHS ${total.toFixed(2)} debt recorded for ${payer.name}.` });
       }
 
@@ -261,3 +272,5 @@ function PaymentBtn({ icon, label, active, onClick }: any) {
     </div>
   );
 }
+
+    
