@@ -150,6 +150,7 @@ export default function ProductCatalogPage() {
 
 const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, isOpen: boolean, setIsOpen: (open: boolean) => void }) => {
     const { toast } = useToast();
+    const firestore = useFirestore();
     
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(productSchema),
@@ -171,8 +172,9 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
     };
 
     const onSubmit = (values: ProductFormValues) => {
+        if (!firestore) return;
         const sku = generateSKU(values.name, values.category);
-        addDocumentNonBlocking(collection(useFirestore(), `hospitals/${hospitalId}/product_catalog`), {
+        addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/product_catalog`), {
             ...values,
             sku,
             hospitalId,
@@ -240,4 +242,3 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
         </Dialog>
     );
 }
-
