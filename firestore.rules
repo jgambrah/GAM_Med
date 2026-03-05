@@ -221,6 +221,10 @@ service cloud.firestore {
       // while still protecting the hospital document itself with more specific rules below.
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
       
+      match /ledger_entries/{entryId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
       match /chart_of_accounts/{accountId} {
         allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
@@ -524,3 +528,5 @@ service cloud.firestore {
     }
   }
 }
+
+  
