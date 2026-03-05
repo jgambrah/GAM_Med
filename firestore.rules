@@ -44,7 +44,7 @@ service cloud.firestore {
      * SECURE HELPER FOR LIST RULES: Checks if the calling user belongs to the specified hospital.
      */
     function isStaffOfHospital(hospitalId) {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId == hospitalId;
+      return isSignedIn() && request.auth.token.hospitalId == hospitalId;
     }
 
     /**
