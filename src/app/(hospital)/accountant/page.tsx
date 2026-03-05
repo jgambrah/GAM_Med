@@ -31,33 +31,36 @@ export default function AccountantDashboard() {
       return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, []);
 
-  const paymentsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/payments`),
-      where("createdAt", ">=", Timestamp.fromDate(startOfToday)),
-      orderBy("createdAt", "desc")
-    );
-  }, [firestore, hospitalId, startOfToday]);
-  const { data: todayPayments, isLoading: arePaymentsLoading } = useCollection(paymentsQuery);
-
-  const recentTransactionsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(
-        collection(firestore, `hospitals/${hospitalId}/payments`),
-        orderBy('createdAt', 'desc'),
-        limit(5)
-    );
-  }, [firestore, hospitalId]);
-  const { data: recentTransactions } = useCollection(recentTransactionsQuery);
-  
-  // Queries for Fund Allocation
+  // Fetch all accounts to determine categories for KPI calculation
   const coaQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`));
   }, [firestore, hospitalId]);
   const { data: accounts, isLoading: areAccountsLoading } = useCollection(coaQuery);
+  
+  // Query today's ledger entries for KPIs
+  const todayLedgerEntriesQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/ledger_entries`),
+      where("createdAt", ">=", Timestamp.fromDate(startOfToday)),
+      orderBy("createdAt", "desc")
+    );
+  }, [firestore, hospitalId, startOfToday]);
+  const { data: todayLedgerEntries, isLoading: areLedgerEntriesLoading } = useCollection(todayLedgerEntriesQuery);
 
+  // Query recent ledger entries for the feed
+  const recentTransactionsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+        collection(firestore, `hospitals/${hospitalId}/ledger_entries`),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+    );
+  }, [firestore, hospitalId]);
+  const { data: recentTransactions } = useCollection(recentTransactionsQuery);
+  
+  // Queries for Fund Allocation
   const payersQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(collection(firestore, `hospitals/${hospitalId}/payers`));
@@ -65,11 +68,21 @@ export default function AccountantDashboard() {
   const { data: payers, isLoading: arePayersLoading } = useCollection(payersQuery);
 
   const stats = useMemo(() => {
-    if (!todayPayments) return { revenue: 0, expenses: 0, net: 0 };
-    const revenue = todayPayments.reduce((acc, p) => acc + p.totalAmount, 0);
-    const expenses = 0; // Placeholder for now
+    if (!todayLedgerEntries || !accounts) return { revenue: 0, expenses: 0, net: 0 };
+    
+    const revenueAccountIds = accounts.filter(a => a.category === 'REVENUE').map(a => a.id);
+    const expenseAccountIds = accounts.filter(a => a.category === 'EXPENSES').map(a => a.id);
+
+    const revenue = todayLedgerEntries
+      .filter(entry => revenueAccountIds.includes(entry.accountId))
+      .reduce((acc, entry) => acc + entry.credit, 0);
+      
+    const expenses = todayLedgerEntries
+      .filter(entry => expenseAccountIds.includes(entry.accountId))
+      .reduce((acc, entry) => acc + entry.debit, 0);
+      
     return { revenue, expenses, net: revenue - expenses };
-  }, [todayPayments]);
+  }, [todayLedgerEntries, accounts]);
   
   const fundAllocation = useMemo(() => {
     if (!accounts || !payers) {
@@ -86,7 +99,7 @@ export default function AccountantDashboard() {
     };
   }, [accounts, payers]);
 
-  const isLoading = isUserLoading || isProfileLoading || arePaymentsLoading || areAccountsLoading || arePayersLoading;
+  const isLoading = isUserLoading || isProfileLoading || areLedgerEntriesLoading || areAccountsLoading || arePayersLoading;
 
   if (isUserLoading || isProfileLoading) {
     return (
@@ -129,7 +142,7 @@ export default function AccountantDashboard() {
 
       {/* --- ACCOUNTING KPI GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {arePaymentsLoading ? <p>Loading stats...</p> : <>
+        {isLoading ? <p>Loading stats...</p> : <>
             <FinanceKPI label="Total Inflow (Today)" value={`GHS ${stats.revenue.toFixed(2)}`} icon={<ArrowDownCircle size={24}/>} color="green" />
             <FinanceKPI label="Total Outflow (Today)" value={`GHS ${stats.expenses.toFixed(2)}`} icon={<ArrowUpCircle size={24}/>} color="red" />
             <FinanceKPI label="Net Position" value={`GHS ${stats.net.toFixed(2)}`} icon={<Calculator size={24}/>} color="blue" />
@@ -148,23 +161,23 @@ export default function AccountantDashboard() {
             {recentTransactions?.map((tx) => (
               <div key={tx.id} className="p-6 flex items-center justify-between hover:bg-muted/50 transition-all">
                 <div className="flex items-center gap-5">
-                   <div className={`p-3 rounded-2xl bg-green-50 text-green-600`}>
-                      <ArrowDownCircle size={20}/>
+                   <div className={`p-3 rounded-2xl ${tx.debit > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                      {tx.debit > 0 ? <ArrowUpCircle size={20}/> : <ArrowDownCircle size={20}/>}
                    </div>
                    <div>
-                      <p className="font-black uppercase text-sm">{tx.patientName || 'Medical Service'}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{tx.paymentMode} • Ref: {tx.paymentId}</p>
+                      <p className="font-black uppercase text-sm">{tx.accountName}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{tx.narration}</p>
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className={`font-black text-lg text-green-600`}>
-                      + GHS {tx.totalAmount?.toFixed(2)}
+                   <p className={`font-black text-lg ${tx.debit > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {tx.debit > 0 ? `- GHS ${tx.debit.toFixed(2)}` : `+ GHS ${tx.credit.toFixed(2)}`}
                    </p>
-                   <p className="text-[9px] font-bold text-muted-foreground/50 uppercase italic">Authorized</p>
+                   <p className="text-[9px] font-bold text-muted-foreground/50 uppercase italic">Ref: {tx.reference}</p>
                 </div>
               </div>
             ))}
-             {!arePaymentsLoading && recentTransactions?.length === 0 && (
+             {isLoading && (!recentTransactions || recentTransactions.length === 0) && (
                 <div className="p-10 text-center text-muted-foreground italic">No transactions recorded yet.</div>
              )}
           </div>
