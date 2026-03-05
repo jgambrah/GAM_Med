@@ -1,8 +1,7 @@
-'use server';
-const functions = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
 const { addDays } = require("date-fns");
+const axios = require("axios");
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
