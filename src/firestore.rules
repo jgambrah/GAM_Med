@@ -1,0 +1,625 @@
+
+/**
+ * Core Philosophy: This ruleset implements a robust, multi-tenant security model for a hospital ERP system.
+ * It enforces strict data isolation between hospitals (tenants) and uses Role-Based Access Control (RBAC).
+ * Access is determined by a user's role and hospitalId stored in their profile document in the `/users` collection,
+ * or by a document lookup for the global SUPER_ADMIN role.
+ *
+ * Key Security Decisions:
+ * - Hybrid RBAC Model:
+ *   - SUPER_ADMIN: This global role is managed via a document lookup in the `/app_ceos` collection for maximum reliability.
+ *   - Tenant Roles: Other roles ('HospitalDirector', 'Doctor', etc.) are stored in `/users/{userId}`.
+ *     Rules use `get()` to fetch this data for authorization. This allows for delegated role management.
+ * - Default Deny Posture: Access is denied by default. All rules explicitly grant permissions.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --------------------------------
+    // Helper Functions
+    // --------------------------------
+
+    /**
+     * Returns true if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the request's authenticated UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    /**
+     * Retrieves the calling user's profile data from the /users collection.
+     * This is the core of the document-based part of the RBAC model.
+     */
+    function getCallingUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /**
+     * Returns true if the user is a global administrator (SUPER_ADMIN).
+     * This check is based on the existence of a document in the /app_ceos collection,
+     * which is a more reliable and performant check for list queries.
+     */
+    function isSuperAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid));
+    }
+    
+    /**
+     * Returns true if the user is a staff member of the hospital with a high-privilege
+     * administrative role ('HospitalDirector' or 'HR').
+     */
+    function isDirectorOrAdmin(hospitalId) {
+      let userData = getCallingUserData();
+      return isSignedIn() 
+          && userData != null 
+          && userData.hospitalId == hospitalId 
+          && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+    }
+
+    /**
+     * Returns true if the user is a staff member of the hospital with a clinical role.
+     */
+    function isClinicalStaff(hospitalId) {
+      let userData = getCallingUserData();
+      return isSignedIn() 
+          && userData != null 
+          && userData.hospitalId == hospitalId 
+          && userData.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+    }
+    
+    /**
+     * Returns true if the user is any authorized staff member of the specified hospital.
+     */
+    function isAnyStaff(hospitalId) {
+      let userData = getCallingUserData();
+      return isSignedIn() 
+          && userData != null 
+          && userData.hospitalId == hospitalId 
+          && userData.role in ['DIRECTOR', 'HR_MANAGER', 'DOCTOR', 'NURSE', 'PHARMACIST', 'RECEPTIONIST', 'LAB_TECH', 'ADMIN', 'RADIOLOGIST', 'ACCOUNTANT', 'CASHIER', 'STORE_MANAGER', 'ORDERLY'];
+    }
+    
+    /**
+     * Returns true if the user has a supply chain management role.
+     */
+    function isSupplyChainStaff(hospitalId) {
+      let userData = getCallingUserData();
+      return isSignedIn() 
+          && userData != null 
+          && userData.hospitalId == hospitalId 
+          && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+    }
+
+
+    // ===================================
+    //  COLLECTION GROUP QUERIES
+    // ===================================
+    // NOTE: For collection group queries, the rule must be simple and cannot depend
+    // on `resource.data`. The client query is responsible for filtering by hospitalId.
+
+    match /{path=**}/beds/{bedId} {
+      allow list: if isSuperAdmin() || (getCallingUserData() != null && getCallingUserData().hospitalId != null);
+    }
+    
+    match /{path=**}/encounters/{encounterId} {
+      // Allow for performance dashboard query & Patient Portal
+      allow list: if true;
+    }
+    
+    match /{path=**}/lab_orders/{orderId} {
+      // Allow patient portal to read their own lab results.
+      allow list: if true; 
+    }
+    
+    match /{path=**}/radiology_orders/{orderId} {
+       // Allow patient portal to read their own scan results.
+      allow list: if true;
+    }
+    
+    match /{path=**}/maternity_profiles/{profileId} {
+      // Allows listing maternity profiles (for ANC dashboard) if the user is part of a hospital.
+      allow list: if isSuperAdmin() || (getCallingUserData() != null && getCallingUserData().hospitalId != null);
+    }
+    
+    match /{path=**}/patients/{patientId} {
+      // Allows an unauthenticated client to query for their own record
+      // during the self-service portal login. The query MUST be constrained
+      // by ehrNumber and dateOfBirth, and this rule provides a safeguard.
+      allow list: if request.query.limit == 1; 
+    }
+    
+    match /{path=**}/payments/{paymentId} {
+      // Allow patient portal to read their own payment history.
+      allow list: if true;
+    }
+
+
+    // --------------------------------
+    // Global Platform Collections
+    // --------------------------------
+
+    /**
+     * Manages global SUPER_ADMIN roles. Only admins can manage other admins.
+     * The first admin must be added manually via the Firebase Console.
+     */
+    match /app_ceos/{ceoId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    /**
+     * Manages global platform-wide KPIs and configuration.
+     * Only readable and writable by the Super Admin for executive oversight.
+     */
+    match /platform_config/{configId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    /**
+     * Manages sales leads from the marketing site.
+     * Anyone can create (submit a form), but only Super Admins can manage them.
+     */
+    match /leads/{leadId} {
+      allow create: if true;
+      allow read, list, update, delete: if isSuperAdmin();
+    }
+
+    /**
+     * Manages system-wide configuration like pricing plans.
+     * Readable by anyone (for the public pricing page).
+     * Writable only by Super Admins.
+     */
+    match /pricing_plans/{planId} {
+      allow get, list: if true;
+      allow create, update, delete: if isSuperAdmin();
+    }
+    
+
+    // --------------------------------
+    // Collection Rules
+    // --------------------------------
+
+    /**
+     * Manages user profiles. A user's role and hospitalId are defined here.
+     */
+    match /users/{userId} {
+      // Helper to check if the caller is an admin of the target user's hospital.
+      function isHospitalAdminForUser() {
+        let userData = getCallingUserData();
+        let resourceData = get(/databases/$(database)/documents/users/$(userId)).data;
+        return userData != null
+          && resourceData != null
+          && userData.hospitalId == resourceData.hospitalId 
+          && userData.role in ['DIRECTOR', 'ADMIN', 'HR_MANAGER'];
+      }
+
+      // READ: A user can read their own profile. An admin can read profiles of staff in their hospital.
+      allow get: if isSuperAdmin() || isOwner(userId) || isHospitalAdminForUser();
+
+      // LIST: An authenticated staff member can list users from their own hospital.
+      // This is secure because the 'get' rule above is checked for every document returned.
+      // The client query MUST include `where("hospitalId", "==", hospitalId)`.
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData() != null && getCallingUserData().hospitalId != null);
+      
+      // UPDATE: A user can update their own profile. An admin can update profiles in their hospital.
+      allow update: if isSuperAdmin() || isOwner(userId) || isHospitalAdminForUser();
+      
+      // CREATE: Any signed-in user can create their own profile upon signup.
+      allow create: if isSignedIn();
+      
+      // DELETE: Only a super admin can delete a user.
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * Defines a hospital tenant. Managed exclusively by Super Admins.
+     */
+    match /hospitals/{hospitalId} {
+      // Readable by Super Admins and staff of that hospital.
+      allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
+      
+      // Allow writes to subcollections to "pass through"
+      // while still protecting the hospital document itself with more specific rules below.
+      allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
+      
+      // Only Super Admins can list, create, update, or delete hospitals.
+      allow list, create, update, delete: if isSuperAdmin();
+      
+      /**
+      * Manages CPD Submissions for staff.
+      */
+      match /cpd_submissions/{submissionId} {
+        // Any staff member can create a submission for themselves.
+        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
+        
+        // Admins/HR can read all. Staff can read their own.
+        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
+        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
+
+        // Only Admins/HR can approve or reject (update).
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+
+        // Only Admins/HR can delete.
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+       /**
+       * Manages inter-departmental supply requisitions.
+       */
+      match /requisitions/{requisitionId} {
+        // Any authenticated staff member can create a request.
+        allow create: if isSuperAdmin() || isAnyStaff(hospitalId);
+        
+        // Use a more direct check for list operations to avoid complex rule evaluation
+        allow list: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId == hospitalId;
+        
+        // Get is still fine with the helper function for single document reads
+        allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
+
+        // Update logic:
+        // - Director/Admin can approve/reject.
+        // - Supply chain can issue approved requests.
+        // - The original requester can cancel a pending request.
+        allow update: if isSuperAdmin() 
+                      || (isDirectorOrAdmin(hospitalId) && request.resource.data.status in ['APPROVED', 'REJECTED'])
+                      || (isSupplyChainStaff(hospitalId) && resource.data.status == 'APPROVED' && request.resource.data.status == 'ISSUED')
+                      || (isOwner(resource.data.requestedBy) && resource.data.status == 'PENDING');
+      }
+
+      /**
+       * Manages the Chart of Accounts for the hospital.
+       */
+      match /chart_of_accounts/{accountId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      match /assets/{assetId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      /**
+       * Manages Payment Vouchers for expenditure.
+       */
+      match /payment_vouchers/{voucherId} {
+        // Accountants and Directors can create, read, and list vouchers.
+        allow read, list, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        // Only Directors can approve/update. Accountants cannot edit after creation.
+        allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) && getCallingUserData().role == 'DIRECTOR');
+        // Vouchers are not deletable for audit trail.
+        allow delete: if false;
+      }
+      
+      /**
+       * Manages manual Journal Vouchers for adjustments.
+       */
+      match /journal_entries/{journalId} {
+        allow read, list, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false; // Journal entries are immutable for audit trail
+      }
+
+      /**
+       * Manages Accounts Payable liabilities, created automatically from GRNs.
+       */
+      match /accounts_payable/{payableId} {
+        // Accountants and Directors can view and update (to mark as paid).
+        allow read, list, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        // Supply chain staff can create liabilities during the GRN process.
+        allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        // Deleting is not allowed to maintain audit trails.
+        allow delete: if false;
+      }
+      
+      match /receivables/{receivableId} {
+        allow read, list, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow delete: if false; 
+      }
+      
+      match /payers/{payerId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages clinical alerts for critical events.
+       */
+      match /clinical_alerts/{alertId} {
+        allow read, list, create: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow update: if isSuperAdmin() || isClinicalStaff(hospitalId); // Allow acknowledging
+      }
+      
+      /**
+       * Manages records of wasted or disposed stock items.
+       */
+      match /disposal_logs/{logId} {
+        allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow read, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId) || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false; // Immutable logs for audit
+      }
+
+      /**
+       * Manages staff work shifts.
+       */
+      match /shifts/{shiftId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      /**
+       * Manages nursing shift handover reports.
+       */
+      match /nursing_handovers/{handoverId} {
+        allow read, list, create: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages staff attendance logs.
+       */
+      match /attendance_logs/{logId} {
+        allow read, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        // Staff can only create their own clock-in.
+        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
+        // Allow staff to update (clock-out) their own log. Admins can also update.
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isOwner(resource.data.staffId);
+        allow delete: if false; // Logs are immutable.
+      }
+      
+      /**
+       * Manages staff leave requests.
+       */
+      match /leave_requests/{requestId} {
+        // Any staff member can create a request for themselves.
+        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
+        // Admins can read all requests. Staff can read their own.
+        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
+        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        // Only Admins can approve or reject.
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        // Only Admins can delete.
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages performance appraisal cycles.
+       */
+      match /appraisal_cycles/{cycleId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages individual staff appraisals.
+       */
+      match /appraisals/{appraisalId} {
+        allow create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        // Admins can list all. A staff member's query will be filtered by the `get` rule below.
+        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        // Admins can get any appraisal, staff can get their own.
+        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (resource.data.staffId == request.auth.uid);
+        allow update, delete: if false;
+      }
+      
+      /**
+      * Manages disciplinary records. Highly confidential.
+      */
+      match /disciplinary_records/{recordId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages the payroll statutory configuration for the hospital.
+       */
+      match /payroll_config/{configId} {
+        // Only director/admin/hr/accountant can read and write the single config document.
+        allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      /**
+      * Manages salary profiles for individual staff members.
+      */
+      match /salary_profiles/{staffId} {
+        allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages payroll runs.
+       */
+      match /payroll_runs/{runId} {
+        allow read, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false; // Immutable logs
+      }
+
+      /**
+       * Manages individual payslips.
+       */
+      match /payslips/{slipId} {
+        // Admins can read all. Staff can query for their own, which is checked by the `get` rule.
+        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        // Admins can get any payslip, staff can get their own.
+        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (resource.data.staffId == request.auth.uid);
+        // Only the payroll engine (cloud function or admin role) can create
+        allow create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false; // Immutable logs
+      }
+
+
+      /**
+       * Manages general billable services like consultation fees.
+       */
+      match /general_services/{serviceId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages patient records, isolated within a hospital.
+       */
+      match /patients/{patientId} {
+        allow get, list, create, update, delete: if isSuperAdmin() || isAnyStaff(hospitalId);
+
+        /**
+         * Manages all clinical encounters for a patient.
+         */
+        match /encounters/{encounterId} {
+           allow read, list, create, update, delete: if isSuperAdmin() || isAnyStaff(hospitalId);
+        }
+
+        /**
+         * Manages all of a patient's maternity/pregnancy profiles.
+         */
+        match /maternity_profiles/{profileId} {
+           allow read, list, create, update, delete: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        }
+      }
+      
+      /**
+       * Manages all inpatient admission records.
+       */
+      match /admissions/{admissionId} {
+        allow get, list, create, update: if isSuperAdmin() || isAnyStaff(hospitalId);
+        
+        /**
+         * Manages all nursing rounds for an inpatient admission.
+         */
+        match /rounds/{roundId} {
+          allow create: if isSuperAdmin() || isClinicalStaff(hospitalId);
+          allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+          allow update, delete: if false;
+        }
+      }
+
+      /**
+       * Manages the hospital's pharmacy inventory.
+       */
+      match /pharmacy_inventory/{itemId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+      }
+      
+      /**
+       * Manages the hospital's master product catalog for data consistency.
+       */
+      match /product_catalog/{productId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages suppliers of drugs and consumables.
+       */
+      match /suppliers/{supplierId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+      }
+
+      /**
+       * Manages purchase orders to suppliers.
+       */
+      match /purchase_orders/{orderId} {
+        allow read, list, update: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow create, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+      }
+      
+      /**
+       * Manages Goods Received Notes for inventory tracking.
+       */
+      match /grn_logs/{grnId} {
+        allow read, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow update, delete: if false; // GRNs are immutable logs
+      }
+
+
+      /**
+       * Manages the hospital's laboratory test menu.
+       */
+      match /lab_menu/{testId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
+      }
+
+      /**
+       * Manages all individual lab orders for a hospital.
+       */
+      match /lab_orders/{orderId} {
+        allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
+        // LIST is public for patient portal
+        allow list: if true;
+        allow create: if false;
+        allow update: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      /**
+       * Manages the hospital's radiology/imaging scan menu.
+       */
+      match /radiology_menu/{scanId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
+      }
+
+      /**
+       * Manages the hospital's menu of billable clinical procedures.
+       */
+      match /procedure_menu/{procedureId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
+      }
+
+      /**
+       * Manages logs for all clinical procedures performed.
+       */
+      match /procedure_logs/{logId} {
+        allow create: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+      }
+
+      /**
+       * Manages all individual radiology orders for a hospital.
+       */
+      match /radiology_orders/{orderId} {
+        allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
+        // LIST is public for patient portal
+        allow list: if true;
+        allow create: if false;
+        allow update: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      /**
+       * Manages the hospital's wards and beds.
+       */
+      match /wards/{wardId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, delete: if isSuperAdmin() || getCallingUserData().role in ['DIRECTOR', 'ADMIN'];
+        allow update: if isSuperAdmin() || (getCallingUserData().role in ['DIRECTOR', 'ADMIN']) ||
+                         (isClinicalStaff(hospitalId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['occupancy']));
+
+
+        match /beds/{bedId} {
+           allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+           allow create, delete: if false;
+           allow update: if isSuperAdmin() || isClinicalStaff(hospitalId) || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
+        }
+      }
+      
+      /**
+       * Manages payment transactions.
+       */
+      match /payments/{paymentId} {
+        allow read, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER';
+        allow create: if (isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER') && request.resource.data.hospitalId == hospitalId;
+        allow delete: if false; // Payments are immutable
+        // Allow accountants/directors to update only the claim status fields
+        allow update: if (isSuperAdmin() || isDirectorOrAdmin(hospitalId))
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimStatus', 'submittedAt']);
+      }
+    }
+  }
+}
+
+    

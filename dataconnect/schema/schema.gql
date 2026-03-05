@@ -1,0 +1,60 @@
+type User @table {
+  username: String!
+  passwordHash: String!
+  role: String!
+  createdAt: Timestamp!
+  email: String
+  firstName: String
+  lastName: String
+  contactNumber: String
+}
+
+type Department @table {
+  name: String!
+  createdAt: Timestamp!
+  description: String
+  contactPhone: String
+}
+
+type Doctor @table {
+  specialization: String!
+  employeeId: String!
+  createdAt: Timestamp!
+  yearsOfExperience: Int
+  licenseNumber: String
+  user: User
+  department: Department
+}
+
+type Patient @table {
+  dateOfBirth: Date!
+  gender: String!
+  createdAt: Timestamp!
+  address: String
+  insuranceProvider: String
+  emergencyContactName: String
+  emergencyContactNumber: String
+  user: User
+}
+
+type Appointment @table {
+  appointmentDate: Date!
+  appointmentTime: Timestamp!
+  status: String!
+  createdAt: Timestamp!
+  reasonForVisit: String
+  doctor: Doctor
+  patient: Patient
+}
+
+type MedicalRecord @table {
+  recordDate: Date!
+  recordType: String!
+  createdAt: Timestamp!
+  description: String
+  notes: String
+  medicationPrescribed: String
+  dosage: String
+  patient: Patient
+  doctor: Doctor
+}

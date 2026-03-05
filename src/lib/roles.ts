@@ -1,0 +1,15 @@
+export const HOSPITAL_ROLES = [
+  { id: 'DIRECTOR', label: 'Hospital Director', description: 'Full access to all modules and finance.' },
+  { id: 'ADMIN', label: 'Administrator', description: 'Operational management and configuration.' },
+  { id: 'HR_MANAGER', label: 'HR Manager', description: 'Staff onboarding, payroll, and attendance.' },
+  { id: 'DOCTOR', label: 'Medical Doctor', description: 'Consultations, prescriptions, and patient history.' },
+  { id: 'NURSE', label: 'Nurse', description: 'Vitals, ward management, and treatment execution.' },
+  { id: 'PHARMACIST', label: 'Pharmacist', description: 'Inventory, dispensing, and drug management.' },
+  { id: 'LAB_TECH', label: 'Lab Technician', description: 'Diagnostic tests and result entry.' },
+  { id: 'ACCOUNTANT', label: 'Accountant', description: 'Billing, insurance claims, and financial reporting.' },
+  { id: 'RECEPTIONIST', label: 'Receptionist / OPD', description: 'Patient registration and scheduling.' },
+  { id: 'CASHIER', label: 'Cashier', description: 'Payment collection and receipting.' },
+  { id: 'RADIOLOGIST', label: 'Radiologist', description: 'Imaging reports and scans.' },
+  { id: 'STORE_MANAGER', label: 'Inventory/Store', description: 'Procurement and stock tracking.' },
+  { id: 'ORDERLY', label: 'Orderly/Security', description: 'Limited access to patient movement.' },
+];

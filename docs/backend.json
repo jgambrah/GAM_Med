@@ -1,0 +1,4525 @@
+
+{
+  "entities": {
+    "Surgery": {
+      "title": "Surgery",
+      "description": "Represents a scheduled surgical procedure.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "surgeonId": { "type": "string" },
+        "surgeonName": { "type": "string" },
+        "procedureName": { "type": "string" },
+        "theaterId": { "type": "string" },
+        "theaterName": { "type": "string" },
+        "scheduledDate": { "type": "string", "format": "date" },
+        "scheduledTime": { "type": "string", "format": "time" },
+        "status": {
+          "type": "string",
+          "enum": ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+        },
+        "findings": { "type": "string", "description": "Intra-operative findings." },
+        "procedureDone": { "type": "string", "description": "The actual procedure performed." },
+        "anesthesiaType": {
+          "type": "string",
+          "enum": ["General", "Spinal", "Sedation", "Local"]
+        },
+        "bloodLoss": { "type": "string", "description": "Estimated blood loss, e.g., '200ml'." },
+        "postOpInstructions": { "type": "string", "description": "Instructions for ward nurses." },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "surgeonId", "procedureName", "theaterId", "scheduledDate", "scheduledTime", "status"]
+    },
+    "Theater": {
+      "title": "Theater",
+      "description": "Represents an operating theater room within a hospital.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Major",
+            "Minor",
+            "Maternity/Labor"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "AVAILABLE",
+            "IN_USE",
+            "MAINTENANCE"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "type",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Represents a scheduled appointment for a patient with a doctor.",
+      "type": "object",
+      "properties": {
+        "patientId": {
+          "type": "string"
+        },
+        "doctorId": {
+          "type": "string"
+        },
+        "doctorName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "timeSlot": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "CONFIRMED",
+            "COMPLETED",
+            "CANCELLED",
+            "CANCELLED_BY_PATIENT"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "patientId",
+        "doctorId",
+        "hospitalId",
+        "date",
+        "timeSlot",
+        "status"
+      ]
+    },
+    "DoctorAvailability": {
+      "title": "Doctor Availability",
+      "description": "Defines the consultation schedule for a single doctor, including their working days, hours, and slot duration.",
+      "type": "object",
+      "properties": {
+        "doctorId": {
+          "type": "string",
+          "description": "The UID of the doctor this schedule belongs to."
+        },
+        "doctorName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ]
+          }
+        },
+        "startTime": {
+          "type": "string",
+          "format": "time"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "time"
+        },
+        "slotDuration": {
+          "type": "number",
+          "description": "The duration of each appointment slot in minutes."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "doctorId",
+        "hospitalId",
+        "days",
+        "startTime",
+        "endTime",
+        "slotDuration"
+      ]
+    },
+    "GlobalAuditLog": {
+      "title": "Global Audit Log",
+      "description": "Records a single, immutable event that occurred on the platform for security, financial, or system auditing by the App CEO.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "SECURITY",
+            "FINANCIAL",
+            "CLINICAL_EXIT",
+            "SYSTEM"
+          ],
+          "description": "The high-level category of the audited event."
+        },
+        "action": {
+          "type": "string",
+          "description": "A specific code for the action performed, e.g., 'IDENTITY_REPAIR', 'PRICE_ADJUSTMENT'."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "The ID of the hospital tenant where the event occurred. 'SYSTEM' for platform-level actions."
+        },
+        "actorId": {
+          "type": "string",
+          "description": "The UID of the user who performed the action."
+        },
+        "actorName": {
+          "type": "string",
+          "description": "The display name of the user who performed the action."
+        },
+        "details": {
+          "type": "string",
+          "description": "A human-readable description of the event and its impact."
+        },
+        "ipAddress": {
+          "type": "string",
+          "description": "The IP address from which the request originated."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The server timestamp when the log was created."
+        }
+      },
+      "required": [
+        "type",
+        "action",
+        "hospitalId",
+        "actorId",
+        "actorName",
+        "details",
+        "timestamp"
+      ]
+    },
+    "SmsLog": {
+      "title": "SMS Log",
+      "description": "Records a single SMS message sent via the gateway for billing and auditing.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "SENT",
+            "FAILED"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "recipient",
+        "message",
+        "status",
+        "createdAt"
+      ]
+    },
+    "DeliveryLog": {
+      "title": "Delivery Log",
+      "description": "Records the outcome of a single delivery for a specific maternity profile.",
+      "type": "object",
+      "properties": {
+        "maternityProfileId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "deliveryDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "deliveryTime": {
+          "type": "string",
+          "format": "time"
+        },
+        "modeOfDelivery": {
+          "type": "string",
+          "enum": [
+            "SVD",
+            "C-Section",
+            "Assisted"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "Live Birth",
+            "Fresh Still Birth (FSB)",
+            "Macerated Still Birth (MSB)"
+          ]
+        },
+        "babyGender": {
+          "type": "string",
+          "enum": [
+            "Male",
+            "Female"
+          ]
+        },
+        "birthWeight": {
+          "type": "number",
+          "description": "in kilograms"
+        },
+        "apgarScore": {
+          "type": "string",
+          "description": "e.g., 8/10"
+        },
+        "maternalComplications": {
+          "type": "string"
+        },
+        "recordedBy": {
+          "type": "string"
+        },
+        "recordedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "maternityProfileId",
+        "patientId",
+        "hospitalId",
+        "deliveryDate",
+        "modeOfDelivery",
+        "outcome",
+        "babyGender",
+        "birthWeight",
+        "recordedBy"
+      ]
+    },
+    "SpecialtySession": {
+      "title": "Specialty Session",
+      "description": "A single, logged session for a recurring treatment plan, like Dialysis or Chemotherapy.",
+      "type": "object",
+      "properties": {
+        "planId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "unitId": {
+          "type": "string"
+        },
+        "startTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "IN_PROGRESS",
+            "CANCELLED"
+          ]
+        },
+        "readings": {
+          "type": "array",
+          "description": "Time-series readings from the procedural flowsheet.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "time": {
+                "type": "string",
+                "format": "time"
+              },
+              "bp": {
+                "type": "string"
+              },
+              "pulse": {
+                "type": "number"
+              },
+              "ufRate": {
+                "type": "number"
+              },
+              "bloodFlow": {
+                "type": "number"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "billed": {
+          "type": "boolean"
+        },
+        "consumablesDeducted": {
+          "type": "boolean"
+        },
+        "loggedBy": {
+          "type": "string"
+        },
+        "loggedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "planId",
+        "patientId",
+        "hospitalId",
+        "startTime",
+        "status",
+        "loggedBy"
+      ]
+    },
+    "TreatmentPlan": {
+      "title": "Treatment Plan",
+      "description": "Defines a recurring, cycle-based treatment plan for a patient in a specialty unit, such as Dialysis or Chemotherapy.",
+      "type": "object",
+      "properties": {
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "unitId": {
+          "type": "string"
+        },
+        "unitName": {
+          "type": "string"
+        },
+        "serviceType": {
+          "type": "string",
+          "enum": [
+            "DIALYSIS",
+            "ONCOLOGY",
+            "PHYSIO"
+          ]
+        },
+        "frequency": {
+          "type": "string",
+          "description": "e.g., 3x Weekly, 1x Monthly"
+        },
+        "sessionsAuthorized": {
+          "type": "number"
+        },
+        "sessionsCompleted": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "ACTIVE",
+            "COMPLETED",
+            "CANCELLED"
+          ]
+        },
+        "linkedKitSku": {
+          "type": "string"
+        },
+        "linkedKitName": {
+          "type": "string"
+        },
+        "linkedKitPrice": {
+          "type": "number"
+        },
+        "authorizedBy": {
+          "type": "string"
+        },
+        "authorizedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "patientId",
+        "hospitalId",
+        "unitId",
+        "serviceType",
+        "sessionsAuthorized",
+        "status",
+        "authorizedBy"
+      ]
+    },
+    "SpecialtyUnit": {
+      "title": "Specialty Unit",
+      "description": "Represents a specialized care unit like Dialysis or Chemotherapy with a specific capacity.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DIALYSIS",
+            "ONCOLOGY",
+            "PHYSIO"
+          ]
+        },
+        "capacity": {
+          "type": "number"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "capacity",
+        "hospitalId",
+        "status",
+        "createdAt"
+      ]
+    },
+    "MortalityRecord": {
+      "title": "Mortality Record",
+      "description": "A global, anonymized record of a death event for epidemiological analysis.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "ageAtDeath": {
+          "type": "number"
+        },
+        "gender": {
+          "type": "string",
+          "enum": [
+            "Male",
+            "Female",
+            "Other"
+          ]
+        },
+        "underlyingCause": {
+          "type": "string"
+        },
+        "icd10Code": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "ageAtDeath",
+        "gender",
+        "underlyingCause",
+        "createdAt"
+      ]
+    },
+    "MortalityArchiveRecord": {
+      "title": "Mortality Archive Record",
+      "description": "A hospital-specific, identifiable record of a patient's death.",
+      "type": "object",
+      "properties": {
+        "patientName": {
+          "type": "string"
+        },
+        "ehrNumber": {
+          "type": "string"
+        },
+        "familyContact": {
+          "type": "string"
+        },
+        "dateTimeOfDeath": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "placeOfDeath": {
+          "type": "string"
+        },
+        "immediateCause": {
+          "type": "string"
+        },
+        "underlyingCause": {
+          "type": "string"
+        },
+        "icd10Code": {
+          "type": "string"
+        },
+        "certifiedBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "patientName",
+        "ehrNumber",
+        "dateTimeOfDeath",
+        "immediateCause",
+        "underlyingCause",
+        "certifiedBy",
+        "createdAt"
+      ]
+    },
+    "DisciplinaryRecord": {
+      "title": "Disciplinary Record",
+      "description": "A formal record of a disciplinary action taken against a staff member.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "staffId": {
+          "type": "string"
+        },
+        "staffName": {
+          "type": "string"
+        },
+        "offenseType": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "FORMAL_QUERY",
+            "VERBAL_WARNING",
+            "WRITTEN_WARNING",
+            "FINAL_WRITTEN",
+            "SUSPENSION"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "incidentDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "RESOLVED",
+            "ESCALATED"
+          ]
+        },
+        "issuedBy": {
+          "type": "string"
+        },
+        "issuedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "staffId",
+        "staffName",
+        "offenseType",
+        "severity",
+        "description",
+        "incidentDate",
+        "status",
+        "issuedBy",
+        "createdAt"
+      ]
+    },
+    "CpdSubmission": {
+      "title": "CPD Submission",
+      "description": "A record of a single Continuous Professional Development submission by a staff member.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "staffId": {
+          "type": "string"
+        },
+        "staffName": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string",
+          "description": "Title of the training or event."
+        },
+        "provider": {
+          "type": "string",
+          "description": "Organization that provided the training."
+        },
+        "points": {
+          "type": "number",
+          "description": "CPD points awarded."
+        },
+        "certificateUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the uploaded certificate."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "VERIFIED",
+            "REJECTED"
+          ]
+        },
+        "verifiedBy": {
+          "type": "string",
+          "description": "UID of the verifier."
+        },
+        "verifiedByName": {
+          "type": "string"
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "staffId",
+        "staffName",
+        "topic",
+        "points",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Appraisal": {
+      "title": "Appraisal",
+      "description": "A single performance appraisal record for a staff member within a cycle.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "cycleId": {
+          "type": "string"
+        },
+        "staffId": {
+          "type": "string"
+        },
+        "staffName": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "scores": {
+          "type": "object",
+          "properties": {
+            "punctuality": {
+              "type": "number"
+            },
+            "clinicalSkill": {
+              "type": "number"
+            },
+            "bedsideManner": {
+              "type": "number"
+            },
+            "teamwork": {
+              "type": "number"
+            },
+            "documentation": {
+              "type": "number"
+            },
+            "turnaroundTime": {
+              "type": "number"
+            }
+          }
+        },
+        "comments": {
+          "type": "string"
+        },
+        "overallScore": {
+          "type": "number"
+        },
+        "ratedBy": {
+          "type": "string"
+        },
+        "ratedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "cycleId",
+        "staffId",
+        "scores",
+        "overallScore",
+        "ratedBy",
+        "createdAt"
+      ]
+    },
+    "AppraisalCycle": {
+      "title": "Appraisal Cycle",
+      "description": "Defines a specific time period for staff performance reviews.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "e.g., Q1 2024 Performance Review"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OPEN",
+            "CLOSED"
+          ]
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "startDate",
+        "endDate",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Payer": {
+      "title": "Payer",
+      "description": "Represents a third-party entity responsible for payment, such as an insurance company, corporate client, or the NHIA.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The official name of the paying entity."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "PRIVATE_INSURANCE",
+            "NHIS",
+            "CORPORATE",
+            "PATIENT_CREDIT"
+          ]
+        },
+        "contactPerson": {
+          "type": "string",
+          "description": "The primary contact person at the payer's organization."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number for the payer."
+        },
+        "creditLimit": {
+          "type": "number",
+          "description": "The maximum amount of credit extended to this payer."
+        },
+        "currentBalance": {
+          "type": "number",
+          "description": "The current outstanding amount owed by this payer to the hospital."
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "hospitalId",
+        "createdAt",
+        "currentBalance"
+      ]
+    },
+    "Receivable": {
+      "title": "Receivable",
+      "description": "Represents an amount owed to the hospital by a patient or a third-party payer.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "payerId": {
+          "type": "string",
+          "description": "ID of the Payer entity, if institutional debt."
+        },
+        "payerName": {
+          "type": "string",
+          "description": "Name of the Payer entity."
+        },
+        "amount": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "UNPAID",
+            "PAID"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "patientId",
+        "patientName",
+        "amount",
+        "status",
+        "createdAt"
+      ]
+    },
+    "LeaveRequest": {
+      "title": "Leave Request",
+      "description": "Records a staff member's request for leave.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "staffId": {
+          "type": "string"
+        },
+        "staffName": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "leaveType": {
+          "type": "string",
+          "enum": [
+            "ANNUAL",
+            "SICK",
+            "MATERNITY",
+            "PATERNITY",
+            "CASUAL",
+            "STUDY"
+          ]
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "daysRequested": {
+          "type": "number"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPROVED",
+            "REJECTED"
+          ]
+        },
+        "reviewedBy": {
+          "type": "string"
+        },
+        "reviewedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "staffId",
+        "staffName",
+        "leaveType",
+        "startDate",
+        "endDate",
+        "daysRequested",
+        "status",
+        "createdAt"
+      ]
+    },
+    "PayrollRun": {
+      "title": "Payroll Run",
+      "description": "A record of a completed monthly payroll run for a hospital.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "month": {
+          "type": "number"
+        },
+        "year": {
+          "type": "number"
+        },
+        "totalNet": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "POSTED",
+            "PAID"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "processedBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "month",
+        "year",
+        "totalNet",
+        "status",
+        "createdAt",
+        "processedBy"
+      ]
+    },
+    "Payslip": {
+      "title": "Payslip",
+      "description": "A detailed breakdown of an individual employee's salary for a specific payroll run.",
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "staffId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "basic": {
+          "type": "number"
+        },
+        "gross": {
+          "type": "number"
+        },
+        "ssnitEmployee": {
+          "type": "number"
+        },
+        "paye": {
+          "type": "number"
+        },
+        "deductions": {
+          "type": "array",
+          "description": "A list of recurring voluntary deductions from the salary.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Name of the deduction, e.g., GRNMA Dues."
+              },
+              "amount": {
+                "type": "number"
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "Loan",
+                  "Union",
+                  "Welfare",
+                  "Standing Order",
+                  "Other"
+                ]
+              }
+            },
+            "required": [
+              "label",
+              "amount",
+              "category"
+            ]
+          }
+        },
+        "netSalary": {
+          "type": "number"
+        },
+        "multiplier": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "runId",
+        "hospitalId",
+        "staffId",
+        "name",
+        "gross",
+        "netSalary",
+        "createdAt"
+      ]
+    },
+    "SalaryProfile": {
+      "title": "Salary Profile",
+      "description": "Defines the detailed salary structure for a single staff member, including basic pay, allowances, and deductions.",
+      "type": "object",
+      "properties": {
+        "staffId": {
+          "type": "string",
+          "description": "The UID of the staff member this profile belongs to."
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "basicSalary": {
+          "type": "number",
+          "description": "The employee's monthly basic salary before allowances and deductions."
+        },
+        "level": {
+          "type": "string",
+          "description": "The employee's grade or level in the organization, e.g., Senior Nurse 1."
+        },
+        "allowances": {
+          "type": "array",
+          "description": "A list of additional, recurring payments.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Name of the allowance, e.g., Risk, Housing."
+              },
+              "amount": {
+                "type": "number"
+              },
+              "isTaxable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "label",
+              "amount",
+              "isTaxable"
+            ]
+          }
+        },
+        "deductions": {
+          "type": "array",
+          "description": "A list of recurring deductions from the salary.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Name of the deduction, e.g., GRNMA Dues."
+              },
+              "amount": {
+                "type": "number"
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "Loan",
+                  "Union",
+                  "Welfare",
+                  "Standing Order",
+                  "Other"
+                ]
+              }
+            },
+            "required": [
+              "label",
+              "amount",
+              "category"
+            ]
+          }
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "staffId",
+        "hospitalId",
+        "basicSalary"
+      ]
+    },
+    "BillingItem": {
+      "title": "Billing Item",
+      "description": "Represents a single billable service or product for a patient before payment is collected by a cashier.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "encounterId": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "PHARMACY",
+            "LABORATORY",
+            "IMAGING",
+            "PROCEDURE",
+            "CONSULTATION",
+            "WARD"
+          ]
+        },
+        "sku": {
+          "type": "string"
+        },
+        "unitPrice": {
+          "type": "number"
+        },
+        "qty": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "UNPAID",
+            "PAID",
+            "WAIVED"
+          ]
+        },
+        "billedBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "patientId",
+        "description",
+        "unitPrice",
+        "qty",
+        "total",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Requisition": {
+      "title": "Requisition",
+      "description": "Represents an internal request for supplies from one department to another (e.g., ward to pharmacy).",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "requestingDept": {
+          "type": "string"
+        },
+        "requestedBy": {
+          "type": "string"
+        },
+        "requestedByName": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "sku": {
+                "type": "string"
+              },
+              "quantityRequested": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "itemId",
+              "name",
+              "quantityRequested"
+            ]
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPROVED",
+            "ISSUED",
+            "REJECTED"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approvedBy": {
+          "type": "string"
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "issuedBy": {
+          "type": "string"
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rejectionReason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "requestedBy",
+        "items",
+        "status",
+        "createdAt"
+      ]
+    },
+    "DisposalLog": {
+      "title": "Disposal Log",
+      "description": "Records the decommissioning of stock due to expiry, damage, etc.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "productName": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string"
+        },
+        "qty": {
+          "type": "number"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "EXPIRED",
+            "DAMAGED",
+            "CONTAMINATED",
+            "LOST"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "INCINERATION",
+            "RETURN_TO_VENDOR",
+            "BURIAL",
+            "CHEMICAL_NEUTRALIZATION",
+            "QUARANTINE"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "witnessName": {
+          "type": "string"
+        },
+        "lossValue": {
+          "type": "number"
+        },
+        "authorizedBy": {
+          "type": "string"
+        },
+        "authorizedByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "productName",
+        "qty",
+        "reason",
+        "lossValue",
+        "authorizedBy",
+        "createdAt"
+      ]
+    },
+    "ProductTemplate": {
+      "title": "Product Template",
+      "description": "Represents a master record for a billable or stockable item in the hospital's catalog.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string",
+          "description": "Unique Stock Keeping Unit, generated automatically."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the product."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "MEDICINE",
+            "REAGENT",
+            "CONSUMABLE",
+            "GENERAL"
+          ]
+        },
+        "storeType": {
+          "type": "string",
+          "description": "Which inventory this item belongs to.",
+          "enum": [
+            "PHARMACY",
+            "LAB",
+            "GENERAL_STORE"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "description": "The base unit of measurement, e.g., Box, Bottle."
+        },
+        "minLevel": {
+          "type": "number",
+          "description": "The minimum stock level before a reorder alert is triggered."
+        },
+        "basePrice": {
+          "type": "number",
+          "description": "The cost price of the item from the supplier."
+        },
+        "sellingPrice": {
+          "type": "number",
+          "description": "The price billed to the patient for the item."
+        },
+        "priceLastUpdated": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "sku",
+        "name",
+        "category",
+        "storeType",
+        "minLevel",
+        "basePrice"
+      ]
+    },
+    "AccountsPayable": {
+      "title": "Accounts Payable",
+      "description": "Represents a liability to a supplier, generated from a Goods Received Note.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "grnId": {
+          "type": "string"
+        },
+        "grnNumber": {
+          "type": "string"
+        },
+        "supplierId": {
+          "type": "string"
+        },
+        "supplierName": {
+          "type": "string"
+        },
+        "amountOwed": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "UNPAID",
+            "PAID"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paidAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pvId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "grnId",
+        "grnNumber",
+        "supplierId",
+        "supplierName",
+        "amountOwed",
+        "status",
+        "createdAt"
+      ]
+    },
+    "GoodsReceivedNote": {
+      "title": "Goods Received Note",
+      "description": "A record of goods received from a supplier, often against a purchase order.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "grnNumber": {
+          "type": "string"
+        },
+        "poId": {
+          "type": "string",
+          "description": "The linked Purchase Order ID."
+        },
+        "supplierName": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "sku": {
+                "type": "string"
+              },
+              "quantityReceived": {
+                "type": "number"
+              },
+              "batchNumber": {
+                "type": "string"
+              },
+              "expiryDate": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "required": [
+              "itemId",
+              "name",
+              "quantityReceived"
+            ]
+          }
+        },
+        "totalValue": {
+          "type": "number"
+        },
+        "receivedBy": {
+          "type": "string"
+        },
+        "receivedByName": {
+          "type": "string"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "grnNumber",
+        "poId",
+        "supplierName",
+        "items",
+        "totalValue",
+        "receivedBy",
+        "receivedAt"
+      ]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "A record of a manual double-entry transaction used for adjustments, accruals, and non-standard financial events.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "jvNumber": {
+          "type": "string",
+          "description": "Unique, sequential journal voucher number."
+        },
+        "narration": {
+          "type": "string",
+          "description": "The detailed purpose of the journal entry."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "MANUAL",
+            "DEPRECIATION",
+            "PAYROLL"
+          ],
+          "description": "The type or source of the journal entry."
+        },
+        "lines": {
+          "type": "array",
+          "description": "The individual debit and credit lines of the journal.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "accountId": {
+                "type": "string"
+              },
+              "accountName": {
+                "type": "string"
+              },
+              "debit": {
+                "type": "number"
+              },
+              "credit": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "accountId",
+              "accountName",
+              "debit",
+              "credit"
+            ]
+          }
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "The total debit/credit amount of the journal."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "POSTED",
+            "REVERSED"
+          ]
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of the accountant who prepared the JV."
+        },
+        "createdByName": {
+          "type": "string"
+        },
+        "approvedBy": {
+          "type": "string",
+          "description": "UID of the director/auditor who approved it (if needed)."
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "jvNumber",
+        "narration",
+        "lines",
+        "totalAmount",
+        "status",
+        "createdBy"
+      ]
+    },
+    "ChartOfAccount": {
+      "title": "Chart of Account",
+      "description": "Represents a single account in the hospital's financial ledger.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "ASSETS",
+            "LIABILITIES",
+            "REVENUE",
+            "EXPENSES",
+            "CAPITAL"
+          ]
+        },
+        "accountCode": {
+          "type": "string"
+        },
+        "parentAccountId": {
+          "type": "string",
+          "description": "ID of the parent account for creating hierarchies."
+        },
+        "currentBalance": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "accountCode",
+        "currentBalance",
+        "createdAt"
+      ]
+    },
+    "FixedAsset": {
+      "title": "Fixed Asset",
+      "description": "Represents a long-term tangible asset owned by the hospital, such as equipment, vehicles, or buildings, subject to depreciation.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "MEDICAL_EQUIPMENT",
+            "VEHICLE",
+            "INFRASTRUCTURE",
+            "IT"
+          ]
+        },
+        "tagId": {
+          "type": "string"
+        },
+        "purchaseDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "purchasePrice": {
+          "type": "number"
+        },
+        "usefulLife": {
+          "type": "number",
+          "description": "The asset's useful life in years."
+        },
+        "salvageValue": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OPERATIONAL",
+            "MAINTENANCE",
+            "DECOMMISSIONED"
+          ]
+        },
+        "accumulatedDepreciation": {
+          "type": "number",
+          "description": "The total accumulated depreciation for the asset."
+        },
+        "lastDepreciationPeriod": {
+          "type": "string",
+          "description": "Identifier for the last period depreciation was run (e.g., '2024-07')."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "tagId",
+        "purchaseDate",
+        "purchasePrice",
+        "usefulLife",
+        "status",
+        "createdAt"
+      ]
+    },
+    "PaymentVoucher": {
+      "title": "Payment Voucher",
+      "description": "Represents a single payment disbursement request, including statutory tax calculations.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "pvNumber": {
+          "type": "string",
+          "description": "Unique, sequential payment voucher number."
+        },
+        "debitAccountId": {
+          "type": "string",
+          "description": "The ID of the account being debited (usually an expense or asset)."
+        },
+        "creditAccountId": {
+          "type": "string",
+          "description": "The ID of the account being credited (usually a bank or cash account)."
+        },
+        "payee": {
+          "type": "string",
+          "description": "The name of the vendor, staff, or entity being paid."
+        },
+        "narration": {
+          "type": "string",
+          "description": "The detailed purpose of the payment."
+        },
+        "grossAmount": {
+          "type": "number"
+        },
+        "applyVat": {
+          "type": "boolean"
+        },
+        "vatAmount": {
+          "type": "number",
+          "description": "Calculated VAT and levies amount."
+        },
+        "whtRate": {
+          "type": "number",
+          "description": "The withholding tax rate applied (e.g., 0, 0.03, 0.075)."
+        },
+        "whtAmount": {
+          "type": "number",
+          "description": "Calculated withholding tax amount."
+        },
+        "netAmount": {
+          "type": "number",
+          "description": "The final amount payable after all calculations."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "PAID",
+            "REJECTED"
+          ]
+        },
+        "processedBy": {
+          "type": "string",
+          "description": "UID of the accountant who prepared the PV."
+        },
+        "processedByName": {
+          "type": "string"
+        },
+        "approvedBy": {
+          "type": "string",
+          "description": "UID of the director/auditor who approved it."
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "pvNumber",
+        "debitAccountId",
+        "creditAccountId",
+        "payee",
+        "narration",
+        "grossAmount",
+        "netAmount",
+        "status",
+        "processedBy"
+      ]
+    },
+    "Shift": {
+      "title": "Shift",
+      "description": "Defines a work shift pattern for staff attendance.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "startTime": {
+          "type": "string",
+          "format": "time"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "time"
+        },
+        "gracePeriod": {
+          "type": "number",
+          "description": "Grace period in minutes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "startTime",
+        "endTime",
+        "createdAt"
+      ]
+    },
+    "ClinicalAlert": {
+      "title": "Clinical Alert",
+      "description": "Represents a time-sensitive clinical alert, such as critical vitals, that requires immediate attention.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "encounterId": {
+          "type": "string"
+        },
+        "alertType": {
+          "type": "string",
+          "enum": [
+            "CRITICAL_VITALS",
+            "OTHER"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "UNREAD",
+            "ACKNOWLEDGED"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "acknowledgedBy": {
+          "type": "string"
+        },
+        "acknowledgedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "patientId",
+        "patientName",
+        "alertType",
+        "message",
+        "status",
+        "createdAt"
+      ]
+    },
+    "StaffAttendance": {
+      "title": "Staff Attendance",
+      "description": "Records a single clock-in/clock-out event for a staff member.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "staffId": {
+          "type": "string"
+        },
+        "staffName": {
+          "type": "string"
+        },
+        "shiftId": {
+          "type": "string"
+        },
+        "shiftName": {
+          "type": "string"
+        },
+        "clockInTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "clockOutTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "On Time",
+            "Late",
+            "Absent",
+            "On Leave"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "staffRole": {
+          "type": "string"
+        },
+        "contractType": {
+          "type": "string",
+          "enum": [
+            "PERMANENT",
+            "LOCUM"
+          ]
+        },
+        "hoursWorked": {
+          "type": "number"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": [
+            "UNPAID",
+            "PAID"
+          ]
+        }
+      },
+      "required": [
+        "hospitalId",
+        "staffId",
+        "shiftId",
+        "clockInTime",
+        "status",
+        "paymentStatus"
+      ]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Represents a single payment transaction for services rendered.",
+      "type": "object",
+      "properties": {
+        "paymentId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "nhisNumber": {
+          "type": "string"
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "paymentMode": {
+          "type": "string",
+          "enum": [
+            "Cash",
+            "MoMo",
+            "NHIS"
+          ]
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "processedBy": {
+          "type": "string",
+          "description": "UID of the cashier/accountant who processed the payment."
+        },
+        "processedByName": {
+          "type": "string",
+          "description": "Name of the staff member who processed the payment."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "claimStatus": {
+          "type": "string",
+          "enum": [
+            "PENDING_VETTING",
+            "SUBMITTED",
+            "QUERIED",
+            "PAID"
+          ],
+          "description": "Status of the NHIS claim."
+        },
+        "submittedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the claim was submitted to the scheme."
+        }
+      },
+      "required": [
+        "paymentId",
+        "patientId",
+        "totalAmount",
+        "paymentMode",
+        "hospitalId",
+        "processedBy",
+        "createdAt",
+        "processedByName"
+      ]
+    },
+    "GeneralService": {
+      "title": "General Service",
+      "description": "A billable service not tied to a specific clinical menu, like consultations or bed fees.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the service (e.g., OPD Consultation)."
+        },
+        "category": {
+          "type": "string",
+          "description": "A category for grouping, e.g., CONSULTATION, WARD."
+        },
+        "price": {
+          "type": "number",
+          "description": "Standard fee for the service in GHS."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "price",
+        "createdAt"
+      ]
+    },
+    "Encounter": {
+      "title": "Encounter",
+      "description": "Represents a single clinical encounter or visit for a patient.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string",
+          "description": "The patient's full name, denormalized for display."
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Vitals Check",
+            "Consultation",
+            "Procedure",
+            "Admission",
+            "ANC Visit"
+          ]
+        },
+        "chiefComplaint": {
+          "type": "string",
+          "description": "The main reason the patient is seeking care."
+        },
+        "hpi": {
+          "type": "string",
+          "description": "History of Presenting Illness."
+        },
+        "diagnosis": {
+          "type": "string",
+          "description": "The final diagnosis or clinical impression."
+        },
+        "providerUid": {
+          "type": "string"
+        },
+        "providerName": {
+          "type": "string"
+        },
+        "providerRole": {
+          "type": "string"
+        },
+        "vitals": {
+          "type": "object",
+          "properties": {
+            "bp": {
+              "type": "string",
+              "description": "Blood Pressure (e.g., 120/80)"
+            },
+            "systolic": {
+              "type": "number"
+            },
+            "diastolic": {
+              "type": "number"
+            },
+            "temp": {
+              "type": "number",
+              "description": "Temperature in Celsius"
+            },
+            "pulse": {
+              "type": "number",
+              "description": "Pulse rate in beats per minute"
+            },
+            "respiration": {
+              "type": "number",
+              "description": "Respiration rate in breaths per minute"
+            },
+            "weight": {
+              "type": "number",
+              "description": "Weight in kilograms"
+            },
+            "height": {
+              "type": "number",
+              "description": "Height in centimeters"
+            },
+            "bmi": {
+              "type": "number",
+              "description": "Body Mass Index"
+            },
+            "spo2": {
+              "type": "number",
+              "description": "Blood Oxygen Saturation in percentage"
+            }
+          }
+        },
+        "ancDetails": {
+          "type": "object",
+          "description": "Details specific to an Antenatal Care (ANC) visit.",
+          "properties": {
+            "fundalHeight": {
+              "type": "number",
+              "description": "Height of the womb in centimeters."
+            },
+            "fetalHeartRate": {
+              "type": "number",
+              "description": "Fetal Heart Rate in beats per minute."
+            },
+            "presentation": {
+              "type": "string",
+              "enum": [
+                "Cephalic",
+                "Breech",
+                "Transverse"
+              ],
+              "description": "Fetal presentation (e.g., head down)."
+            },
+            "fetalMovement": {
+              "type": "string",
+              "enum": [
+                "Active",
+                "Reduced",
+                "Absent"
+              ],
+              "description": "Status of fetal movement."
+            },
+            "urineProtein": {
+              "type": "string"
+            },
+            "urineSugar": {
+              "type": "string"
+            },
+            "edema": {
+              "type": "string"
+            }
+          }
+        },
+        "prescription": {
+          "type": "array",
+          "description": "A list of prescribed medications for this encounter.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "drugId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "strength": {
+                "type": "string"
+              },
+              "dosage": {
+                "type": "string"
+              },
+              "frequency": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "string"
+              },
+              "instructions": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "drugId",
+              "name",
+              "dosage",
+              "frequency"
+            ]
+          }
+        },
+        "labOrders": {
+          "type": "array",
+          "description": "A list of requested laboratory tests for this encounter. The full order details are stored in the `lab_orders` subcollection.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "testId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "testId",
+              "name"
+            ]
+          }
+        },
+        "radiologyOrders": {
+          "type": "array",
+          "description": "A list of requested imaging scans for this encounter. The full order details are stored in the `radiology_orders` subcollection.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scanId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "indication": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "scanId",
+              "name",
+              "indication"
+            ]
+          }
+        },
+        "isDispensed": {
+          "type": "boolean",
+          "description": "True if the prescription for this encounter has been dispensed."
+        },
+        "dispensedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the prescription was dispensed."
+        },
+        "pharmacistId": {
+          "type": "string",
+          "description": "The UID of the pharmacist who dispensed the order."
+        },
+        "pharmacistName": {
+          "type": "string",
+          "description": "The name of the pharmacist who dispensed the order."
+        },
+        "hasPendingLabs": {
+          "type": "boolean",
+          "description": "Flag to indicate if there are pending lab orders."
+        },
+        "hasPendingScans": {
+          "type": "boolean",
+          "description": "Flag to indicate if there are pending radiology scan orders."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "patientId",
+        "patientName",
+        "hospitalId",
+        "type",
+        "providerUid",
+        "providerName",
+        "createdAt"
+      ]
+    },
+    "RadiologyOrder": {
+      "title": "Radiology Order",
+      "description": "Represents a single, trackable imaging scan order for a patient.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string"
+        },
+        "encounterId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "scanId": {
+          "type": "string"
+        },
+        "scanName": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the scan at the time of order."
+        },
+        "modality": {
+          "type": "string"
+        },
+        "indication": {
+          "type": "string",
+          "description": "The clinical reason for requesting the scan."
+        },
+        "providerUid": {
+          "type": "string"
+        },
+        "providerName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "COMPLETED",
+            "CANCELLED",
+            "IMAGE_READY"
+          ]
+        },
+        "findings": {
+          "type": "string",
+          "description": "The detailed radiographic findings."
+        },
+        "impression": {
+          "type": "string",
+          "description": "The radiologist's final conclusion."
+        },
+        "radiologistId": {
+          "type": "string"
+        },
+        "radiologistName": {
+          "type": "string"
+        },
+        "orderedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "imageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the uploaded clinical image in Firebase Storage."
+        },
+        "imageUploadedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the image was successfully uploaded."
+        }
+      },
+      "required": [
+        "orderId",
+        "patientId",
+        "hospitalId",
+        "scanId",
+        "scanName",
+        "providerUid",
+        "status",
+        "orderedAt",
+        "indication"
+      ]
+    },
+    "LabOrder": {
+      "title": "Lab Order",
+      "description": "Represents a single, trackable laboratory test order for a patient.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string"
+        },
+        "encounterId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "testId": {
+          "type": "string"
+        },
+        "testName": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the test at the time of order."
+        },
+        "category": {
+          "type": "string"
+        },
+        "referenceRange": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "providerUid": {
+          "type": "string"
+        },
+        "providerName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "COMPLETED",
+            "CANCELLED"
+          ]
+        },
+        "resultValue": {
+          "type": "string"
+        },
+        "remarks": {
+          "type": "string"
+        },
+        "isAbnormal": {
+          "type": "boolean"
+        },
+        "labTechUid": {
+          "type": "string"
+        },
+        "labTechName": {
+          "type": "string"
+        },
+        "orderedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "orderId",
+        "patientId",
+        "hospitalId",
+        "testId",
+        "testName",
+        "providerUid",
+        "status",
+        "orderedAt"
+      ]
+    },
+    "Hospital": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Hospital",
+      "type": "object",
+      "description": "Represents a single hospital tenant in the multi-tenant ERP system, managed by the App CEO.",
+      "properties": {
+        "hospitalId": {
+          "type": "string",
+          "description": "Unique identifier for the Hospital entity. This serves as the 'hospitalId' for multi-tenancy."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official, full name of the hospital."
+        },
+        "region": {
+          "type": "string",
+          "description": "The region in Ghana where the hospital is located."
+        },
+        "directorUid": {
+          "type": "string",
+          "description": "The Firebase UID of the user who is the director of this hospital."
+        },
+        "directorEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the hospital's director."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "trial",
+            "suspended"
+          ],
+          "description": "The current operational status of the hospital tenant."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the hospital record was initially created.",
+          "format": "date-time"
+        },
+        "trialExpiry": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date when the hospital's trial period expires."
+        },
+        "mrnPrefix": {
+          "type": "string",
+          "description": "The custom prefix for Medical Record Numbers for this hospital."
+        },
+        "subscriptionPlan": {
+          "type": "string",
+          "description": "The ID of the pricing plan this hospital is subscribed to."
+        },
+        "isSuspended": {
+          "type": "boolean",
+          "description": "A flag to manually suspend access for this hospital."
+        },
+        "patientCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique patient EHR numbers."
+        },
+        "nextBillingDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date when the next subscription payment is due."
+        },
+        "subscriptionStatus": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "PAST_DUE",
+            "SUSPENDED"
+          ],
+          "description": "The current billing status of the hospital's subscription."
+        },
+        "gracePeriodExpiry": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The exact time when the grace period for a late payment ends."
+        },
+        "bypassPaymentControl": {
+          "type": "boolean",
+          "description": "A CEO override to bypass all automated billing and suspension logic for this facility."
+        },
+        "lastPaymentRef": {
+            "type": "string",
+            "description": "The reference of the last successful Paystack transaction."
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "region",
+        "directorUid",
+        "directorEmail",
+        "status",
+        "createdAt",
+        "trialExpiry",
+        "mrnPrefix",
+        "subscriptionPlan",
+        "isSuspended",
+        "patientCounter"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the GAM_Med system. This entity stores profile and role information, linked to an external authentication system via its ID.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier for the User entity, matching the Firebase Authentication User ID (UID)."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital this user belongs to. Null for global roles like 'AppCEO'."
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's primary email address, used for login and notifications.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's designated role (e.g., 'AppCEO', 'HospitalDirector', 'HR', 'Doctor', 'RADIOLOGIST')."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The user's phone number."
+        },
+        "hospitalName": {
+          "type": "string",
+          "description": "The name of the hospital the user belongs to, stored for easy display."
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Whether the user account is active."
+        },
+        "onboardingComplete": {
+          "type": "boolean",
+          "description": "Flag to indicate if the user has completed their profile details."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account record was created in the system.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user account record was last updated.",
+          "format": "date-time"
+        },
+        "totalCpdPoints": {
+          "type": "number",
+          "description": "The cumulative number of verified CPD points for the staff member."
+        },
+        "licenseExpiry": {
+          "type": "string",
+          "format": "date",
+          "description": "The expiry date of the staff member's professional license (MDC/NMC)."
+        },
+        "contractType": {
+          "type": "string",
+          "enum": [
+            "PERMANENT",
+            "LOCUM"
+          ],
+          "description": "Specifies whether the staff is permanent or a freelance locum."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "role",
+        "createdAt",
+        "fullName",
+        "is_active",
+        "onboardingComplete"
+      ]
+    },
+    "Patient": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Patient",
+      "type": "object",
+      "description": "Represents a patient managed by a specific hospital, identified by Ghana Card/NHIS ID, and linked to their Electronic Health Records.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Patient entity."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "Reference to the Hospital under which this patient is registered."
+        },
+        "ehrNumber": {
+          "type": "string",
+          "description": "The unique Electronic Health Record number for the patient within the hospital (e.g., KATH-00001)."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The patient's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The patient's last name."
+        },
+        "otherNames": {
+          "type": "string",
+          "description": "The patient's other or middle names."
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "description": "The patient's date of birth.",
+          "format": "date"
+        },
+        "gender": {
+          "type": "string",
+          "enum": [
+            "Male",
+            "Female",
+            "Other"
+          ]
+        },
+        "ghanaCardId": {
+          "type": "string",
+          "description": "The patient's Ghana Card ID, used for national identification."
+        },
+        "nhisNumber": {
+          "type": "string",
+          "description": "The patient's National Health Insurance Scheme number."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The patient's primary contact number."
+        },
+        "emergencyContactName": {
+          "type": "string",
+          "description": "Full name of the patient's next of kin or emergency contact."
+        },
+        "emergencyContactPhone": {
+          "type": "string",
+          "description": "Phone number of the patient's emergency contact."
+        },
+        "residentialAddress": {
+          "type": "string",
+          "description": "The patient's residential address."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "Inactive",
+            "Deceased",
+            "Waiting for Doctor",
+            "Awaiting Vitals",
+            "Waiting for Assignment"
+          ],
+          "description": "The patient's current status in the system."
+        },
+        "registeredBy": {
+          "type": "string",
+          "description": "The UID of the staff member who registered the patient."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the patient record was created in the system.",
+          "format": "date-time"
+        },
+        "checkInTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the patient was last checked in to the OPD queue."
+        },
+        "assignedDoctorId": {
+          "type": "string"
+        },
+        "assignedDoctorName": {
+          "type": "string"
+        },
+        "assignedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isLocked": {
+          "type": "boolean",
+          "description": "A flag to permanently lock the record from further clinical edits upon death certification."
+        },
+        "deathInfo": {
+          "type": "object",
+          "description": "Stores details of the patient's death certification.",
+          "properties": {
+            "dateTimeOfDeath": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "placeOfDeath": {
+              "type": "string"
+            },
+            "immediateCause": {
+              "type": "string"
+            },
+            "intermediateCause": {
+              "type": "string"
+            },
+            "underlyingCause": {
+              "type": "string"
+            },
+            "icd10Code": {
+              "type": "string"
+            },
+            "certifiedBy": {
+              "type": "string"
+            },
+            "certifiedByName": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "id",
+        "hospitalId",
+        "ehrNumber",
+        "firstName",
+        "lastName",
+        "dateOfBirth",
+        "gender",
+        "phoneNumber",
+        "status",
+        "registeredBy",
+        "createdAt"
+      ]
+    },
+    "PharmacyItem": {
+      "title": "Pharmacy Item",
+      "description": "Represents a single drug or item in a hospital's pharmacy inventory.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The brand or trade name of the drug."
+        },
+        "genericName": {
+          "type": "string",
+          "description": "The generic or chemical name."
+        },
+        "strength": {
+          "type": "string",
+          "description": "e.g., 500mg"
+        },
+        "form": {
+          "type": "string",
+          "enum": [
+            "Tablet",
+            "Capsule",
+            "Syrup",
+            "Injection",
+            "Ointment",
+            "Other"
+          ]
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Current stock level."
+        },
+        "price": {
+          "type": "number",
+          "description": "Unit price in GHS."
+        },
+        "expiryDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "batchNumber": {
+          "type": "string",
+          "description": "The batch or lot number of the drug stock."
+        },
+        "supplierId": {
+          "type": "string"
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "genericName",
+        "quantity",
+        "price",
+        "lastUpdated"
+      ]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Represents a vendor for drugs and consumables.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tin": {
+          "type": "string",
+          "description": "Tax Identification Number for GRA compliance."
+        },
+        "contactPerson": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Pharmaceuticals",
+            "Consumables",
+            "Equipment",
+            "General Services"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "tin",
+        "createdAt"
+      ]
+    },
+    "PurchaseOrder": {
+      "title": "Purchase Order",
+      "description": "A record of an order placed with a supplier.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "supplierId": {
+          "type": "string"
+        },
+        "supplierName": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "sku": {
+                "type": "string"
+              },
+              "quantityOrdered": {
+                "type": "number"
+              },
+              "price": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "itemId",
+              "name",
+              "quantityOrdered"
+            ]
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING_DELIVERY",
+            "PARTIALLY_RECEIVED",
+            "RECEIVED",
+            "CANCELLED"
+          ]
+        },
+        "orderedBy": {
+          "type": "string"
+        },
+        "orderedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "supplierId",
+        "items",
+        "status",
+        "orderedBy",
+        "orderedAt"
+      ]
+    },
+    "LabTest": {
+      "title": "Lab Test",
+      "description": "Represents a single laboratory test available in a hospital's menu.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the test (e.g., Full Blood Count)."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Hematology",
+            "Biochemistry",
+            "Microbiology",
+            "Serology"
+          ]
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the test in GHS."
+        },
+        "referenceRange": {
+          "type": "string",
+          "description": "The normal range for the test results."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measurement for the test result (e.g., mg/dL)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "price",
+        "createdAt"
+      ]
+    },
+    "RadiologyScan": {
+      "title": "Radiology Scan",
+      "description": "Represents a single imaging scan available in a hospital's menu.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the scan (e.g., Chest X-Ray PA View)."
+        },
+        "modality": {
+          "type": "string",
+          "enum": [
+            "X-Ray",
+            "Ultrasound (USS)",
+            "CT Scan",
+            "MRI",
+            "ECG / Echo"
+          ]
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the scan in GHS."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "modality",
+        "price",
+        "createdAt"
+      ]
+    },
+    "Procedure": {
+      "title": "Procedure",
+      "description": "Represents a billable clinical procedure available at a hospital.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the procedure (e.g., Suturing of Laceration)."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Minor Surgery",
+            "Wound Care",
+            "Emergency Procedure",
+            "Inpatient Intervention",
+            "Other"
+          ]
+        },
+        "price": {
+          "type": "number",
+          "description": "Standard service fee for the procedure in GHS."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "price",
+        "createdAt"
+      ]
+    },
+    "ProcedureLog": {
+      "title": "Procedure Log",
+      "description": "Records a clinical procedure performed on a patient, including consumables used.",
+      "type": "object",
+      "properties": {
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "procedureId": {
+          "type": "string"
+        },
+        "procedureName": {
+          "type": "string"
+        },
+        "serviceFee": {
+          "type": "number"
+        },
+        "techniqueNotes": {
+          "type": "string"
+        },
+        "consumables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "quantityUsed": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "itemId",
+              "name",
+              "quantityUsed"
+            ]
+          }
+        },
+        "providerUid": {
+          "type": "string"
+        },
+        "providerName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "patientId",
+        "hospitalId",
+        "procedureId",
+        "procedureName",
+        "providerUid",
+        "createdAt"
+      ]
+    },
+    "MaternityProfile": {
+      "title": "Maternity Profile",
+      "description": "Represents a single longitudinal pregnancy record for a patient, tracking them from enrollment to post-natal care.",
+      "type": "object",
+      "properties": {
+        "profileId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "enrolledBy": {
+          "type": "string",
+          "description": "UID of the staff member who enrolled the patient."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE_PREGNANCY",
+            "DELIVERED",
+            "CLOSED"
+          ]
+        },
+        "lmp": {
+          "type": "string",
+          "format": "date",
+          "description": "Last Menstrual Period."
+        },
+        "edd": {
+          "type": "string",
+          "format": "date",
+          "description": "Expected Date of Delivery, calculated from LMP."
+        },
+        "gravida": {
+          "type": "number",
+          "description": "Total number of pregnancies, including the current one."
+        },
+        "para": {
+          "type": "number",
+          "description": "Number of births past 20 weeks gestation."
+        },
+        "bloodGroup": {
+          "type": "string"
+        },
+        "rhesusFactor": {
+          "type": "string",
+          "enum": [
+            "Positive",
+            "Negative"
+          ]
+        },
+        "sicklingStatus": {
+          "type": "string"
+        },
+        "tetanusDiphtheriaStatus": {
+          "type": "string",
+          "description": "Status of Tetanus-Diphtheria immunization."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "profileId",
+        "patientId",
+        "hospitalId",
+        "enrolledBy",
+        "status",
+        "lmp",
+        "edd",
+        "createdAt"
+      ]
+    },
+    "Ward": {
+      "title": "Ward",
+      "description": "Represents a clinical ward within a hospital, containing multiple beds.",
+      "type": "object",
+      "properties": {
+        "wardId": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "capacity": {
+          "type": "number"
+        },
+        "occupancy": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "wardId",
+        "hospitalId",
+        "name",
+        "prefix",
+        "capacity",
+        "occupancy"
+      ]
+    },
+    "Bed": {
+      "title": "Bed",
+      "description": "Represents a single bed within a ward.",
+      "type": "object",
+      "properties": {
+        "bedId": {
+          "type": "string"
+        },
+        "wardId": {
+          "type": "string"
+        },
+        "wardName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Available",
+            "Occupied",
+            "Maintenance"
+          ]
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "admittedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "bedId",
+        "wardId",
+        "wardName",
+        "hospitalId",
+        "status"
+      ]
+    },
+    "Admission": {
+      "title": "Admission",
+      "description": "Represents a single inpatient admission record for a patient.",
+      "type": "object",
+      "properties": {
+        "admissionId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "wardId": {
+          "type": "string"
+        },
+        "bedId": {
+          "type": "string"
+        },
+        "admittedBy": {
+          "type": "string",
+          "description": "UID of the staff who processed the admission."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ADMITTED",
+            "DISCHARGED"
+          ]
+        },
+        "admittedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dischargedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dischargedBy": {
+          "type": "string",
+          "description": "UID of the staff member who processed the discharge."
+        },
+        "dischargeSummary": {
+          "type": "string",
+          "description": "The final clinical summary written upon patient discharge."
+        }
+      },
+      "required": [
+        "admissionId",
+        "patientId",
+        "hospitalId",
+        "wardId",
+        "bedId",
+        "admittedBy",
+        "status",
+        "admittedAt"
+      ]
+    },
+    "NursingRound": {
+      "title": "Nursing Round",
+      "description": "Represents a single nursing round or check-in for an admitted patient.",
+      "type": "object",
+      "properties": {
+        "roundId": {
+          "type": "string"
+        },
+        "admissionId": {
+          "type": "string"
+        },
+        "patientId": {
+          "type": "string"
+        },
+        "patientName": {
+          "type": "string"
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "nurseId": {
+          "type": "string"
+        },
+        "nurseName": {
+          "type": "string"
+        },
+        "medicationsAdministered": {
+          "type": "string",
+          "description": "Text describing drugs given during this round."
+        },
+        "nursingNotes": {
+          "type": "string",
+          "description": "General notes on patient's condition."
+        },
+        "vitals": {
+          "type": "object",
+          "properties": {
+            "bp": {
+              "type": "string"
+            },
+            "temp": {
+              "type": "number"
+            },
+            "pulse": {
+              "type": "number"
+            },
+            "respiration": {
+              "type": "number"
+            },
+            "spo2": {
+              "type": "number"
+            }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "roundId",
+        "admissionId",
+        "patientId",
+        "hospitalId",
+        "nurseId",
+        "createdAt"
+      ]
+    },
+    "NursingHandover": {
+      "title": "Nursing Handover",
+      "description": "A record of a shift change report, detailing patient status, admissions, discharges, and critical notes for continuity of care.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "shiftType": {
+          "type": "string",
+          "enum": [
+            "Morning (8am - 2pm)",
+            "Afternoon (2pm - 8pm)",
+            "Night (8pm - 8am)"
+          ]
+        },
+        "totalAdmissions": {
+          "type": "number"
+        },
+        "totalDischarges": {
+          "type": "number"
+        },
+        "criticalPatients": {
+          "type": "string",
+          "description": "Notes on patients requiring special attention."
+        },
+        "consumablesNotes": {
+          "type": "string",
+          "description": "Status of essential supplies like oxygen."
+        },
+        "generalIncident": {
+          "type": "string",
+          "description": "Report of any general incidents during the shift."
+        },
+        "nurseId": {
+          "type": "string",
+          "description": "UID of the nurse submitting the report."
+        },
+        "nurseName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "shiftType",
+        "criticalPatients",
+        "nurseId",
+        "nurseName",
+        "createdAt"
+      ]
+    },
+    "PlatformConfig": {
+      "title": "Platform Config",
+      "description": "Tracks global, company-wide KPIs and configuration for the entire GAM_Med platform.",
+      "type": "object",
+      "properties": {
+        "totalFacilities": {
+          "type": "number",
+          "description": "Total number of active hospital tenants."
+        },
+        "totalPatients": {
+          "type": "number",
+          "description": "Total number of patients across all hospitals."
+        },
+        "totalRevenue": {
+          "type": "number",
+          "description": "Total monthly recurring revenue."
+        },
+        "activeAlerts": {
+          "type": "number",
+          "description": "Number of system-wide active alerts."
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last KPI update."
+        }
+      },
+      "required": [
+        "totalFacilities",
+        "totalPatients",
+        "totalRevenue",
+        "activeAlerts",
+        "lastUpdated"
+      ]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Represents a potential customer or demo request submitted through the platform.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the lead."
+        },
+        "contactName": {
+          "type": "string",
+          "description": "Name of the person making the inquiry."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email for the lead."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number for the lead."
+        },
+        "hospitalName": {
+          "type": "string",
+          "description": "Name of the hospital or clinic interested."
+        },
+        "mrnPrefix": {
+          "type": "string",
+          "description": "The custom prefix for Medical Record Numbers requested by the lead."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "new",
+            "contacted",
+            "demoed",
+            "closed"
+          ],
+          "description": "The current status of the lead."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the lead was submitted."
+        }
+      },
+      "required": [
+        "contactName",
+        "email",
+        "hospitalName",
+        "status",
+        "createdAt",
+        "mrnPrefix"
+      ]
+    },
+    "PricingPlan": {
+      "title": "Pricing Plan",
+      "description": "Defines a specific pricing tier for the GAM_Med SaaS offering.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique identifier for the plan (e.g., 'CLINIC', 'PRO')."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the pricing plan."
+        },
+        "price": {
+          "type": "string",
+          "description": "The display price of the plan, including currency (e.g., 'GHS 500')."
+        },
+        "monthlyPrice": {
+            "type": "number",
+            "description": "The monthly subscription price in GHS."
+        },
+        "annualPrice": {
+            "type": "number",
+            "description": "The annual subscription price in GHS."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description of the plan, suitable for a pricing page."
+        },
+        "isPopular": {
+          "type": "boolean",
+          "description": "A flag to mark a plan as 'popular' to highlight it in the UI."
+        },
+        "maxStaff": {
+          "type": "number",
+          "description": "The maximum number of staff users allowed under this plan."
+        },
+        "maxPatients": {
+          "type": "number",
+          "description": "The maximum number of patients allowed under this plan."
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A list of features included in this plan."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price",
+        "monthlyPrice",
+        "annualPrice",
+        "description",
+        "maxStaff",
+        "maxPatients",
+        "features"
+      ]
+    },
+    "PayrollConfig": {
+      "title": "Payroll Configuration",
+      "description": "Stores the statutory payroll configuration for a hospital, including SSNIT rates and PAYE tax brackets, as per Ghanaian law.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "ssnitEmployeeRate": {
+          "type": "number",
+          "description": "The percentage of an employee's basic salary contributed to SSNIT by the employee."
+        },
+        "ssnitEmployerRate": {
+          "type": "number",
+          "description": "The percentage of an employee's basic salary contributed to SSNIT by the employer."
+        },
+        "tier2Rate": {
+          "type": "number",
+          "description": "The percentage for the Tier 2 private pension scheme, typically part of the employer's contribution."
+        },
+        "payeBrackets": {
+          "type": "array",
+          "description": "The graduated tax brackets for Pay As You Earn (PAYE) as defined by the Ghana Revenue Authority (GRA).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "upTo": {
+                "type": "number",
+                "description": "The upper limit of the income bracket."
+              },
+              "rate": {
+                "type": "number",
+                "description": "The tax rate for this bracket."
+              }
+            },
+            "required": [
+              "upTo",
+              "rate"
+            ]
+          }
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "ssnitEmployeeRate",
+        "ssnitEmployerRate",
+        "payeBrackets"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/hospitals/{hospitalId}/surgeries/{surgeryId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Surgery"
+          },
+          "description": "Stores records for scheduled surgical procedures."
+        }
+      },
+      {
+        "path": "/appointments/{appointmentId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Appointment"
+          },
+          "description": "Global collection for all patient appointments."
+        }
+      },
+      {
+        "path": "/doctor_availability/{doctorId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/DoctorAvailability"
+          },
+          "description": "Stores the weekly consultation availability for each doctor. Document ID is the doctor's UID."
+        }
+      },
+      {
+        "path": "/global_audit_logs/{logId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/GlobalAuditLog"
+          },
+          "description": "Immutable, CEO-only audit trail of all significant platform events."
+        }
+      },
+      {
+        "path": "/sms_logs/{logId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/SmsLog"
+          },
+          "description": "Global log of all SMS messages sent through the platform for billing and auditing purposes. Writable only by backend functions."
+        }
+      },
+      {
+        "path": "/chart_of_accounts/{accountId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ChartOfAccount"
+          },
+          "description": "Master list of all accounts for all facilities. Document ID is a composite key: {hospitalId}_{accountCode}."
+        }
+      },
+      {
+        "path": "/product_template/{productId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ProductTemplate"
+          },
+          "description": "Master list of all product definitions across all facilities."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/theaters/{theaterId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Theater"
+          },
+          "description": "Manages operating theater rooms."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/treatment_plans/{planId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/TreatmentPlan"
+          },
+          "description": "Stores cycle-based treatment plans for specialty care."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/treatment_plans/{planId}/sessions/{sessionId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/SpecialtySession"
+          },
+          "description": "Stores individual session logs for a treatment plan."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/specialty_units/{unitId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/SpecialtyUnit"
+          },
+          "description": "Manages specialized, recurring care units like Dialysis or Chemotherapy centers."
+        }
+      },
+      {
+        "path": "/platform_global_health_stats/{recordId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/MortalityRecord"
+          },
+          "description": "Global, anonymized log of all patient mortalities for epidemiological analysis by the CEO."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/mortality_archive/{recordId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/MortalityArchiveRecord"
+          },
+          "description": "A hospital-specific, identifiable record of a patient's death."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/disciplinary_records/{recordId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/DisciplinaryRecord"
+          },
+          "description": "Stores all formal disciplinary actions against staff."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/appraisal_cycles/{cycleId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/AppraisalCycle"
+          },
+          "description": "Manages performance review cycles."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/appraisals/{appraisalId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Appraisal"
+          },
+          "description": "Stores individual staff appraisal results."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/cpd_submissions/{submissionId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/CpdSubmission"
+          },
+          "description": "Stores all CPD submissions from staff for verification."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/payers/{payerId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Payer"
+          },
+          "description": "Manages the master list of third-party payers (insurance, corporate) for accounts receivable."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/receivables/{receivableId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Receivable"
+          },
+          "description": "Tracks all outstanding debts owed to the hospital."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/leave_requests/{requestId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/LeaveRequest"
+          },
+          "description": "Tracks all staff leave requests and their approval status."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/payroll_runs/{runId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PayrollRun"
+          },
+          "description": "Stores summary records of each completed payroll run."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/payslips/{slipId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Payslip"
+          },
+          "description": "Stores individual payslips generated for each staff member during a payroll run."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/salary_profiles/{staffId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/SalaryProfile"
+          },
+          "description": "Stores the detailed salary compensation profile for each staff member."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/billing_items/{itemId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/BillingItem"
+          },
+          "description": "A centralized ledger of all individual, unpaid services and products for patients. This is the primary source for generating invoices."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/disposal_logs/{logId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/DisposalLog"
+          },
+          "description": "Immutable audit trail of all decommissioned or wasted stock."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/requisitions/{requisitionId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Requisition"
+          },
+          "description": "Manages internal supply requisitions between departments."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/product_catalog/{productId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ProductTemplate"
+          },
+          "description": "Master catalog of all products and supplies for a hospital to ensure data consistency."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/assets/{assetId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/FixedAsset"
+          },
+          "description": "Master register for all hospital fixed assets for financial tracking and depreciation."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/accounts_payable/{payableId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/AccountsPayable"
+          },
+          "description": "Tracks liabilities owed to suppliers from Goods Received Notes."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/grn_logs/{grnId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/GoodsReceivedNote"
+          },
+          "description": "Logs all goods received events, creating an auditable trail for inventory updates."
+        }
+      },
+      {
+        "path": "/platform_config/{configId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PlatformConfig"
+          },
+          "description": "Global collection for platform-wide KPIs. Contains a single 'summary' document."
+        }
+      },
+      {
+        "path": "/leads/{leadId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Lead"
+          },
+          "description": "Collection for sales leads and demo requests submitted through the public website."
+        }
+      },
+      {
+        "path": "/pricing_plans/{planId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PricingPlan"
+          },
+          "description": "Global collection defining the SaaS pricing tiers (e.g., CLINIC, PRO). Writable by SUPER_ADMIN, readable by all."
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Top-level collection for all user profiles. A user's role and hospitalId (if applicable) are stored here, enabling role-based access control checks in security rules via `get()` calls."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Hospital"
+          },
+          "description": "Root collection for all hospital tenants. Managed globally by the App CEO."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/general_services/{serviceId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/GeneralService"
+          },
+          "description": "Subcollection for managing general billable services like consultation fees or ward rates."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/clinical_alerts/{alertId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ClinicalAlert"
+          },
+          "description": "A collection of critical alerts that require immediate staff attention."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/payment_vouchers/{voucherId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PaymentVoucher"
+          },
+          "description": "Collection for all expenditure payment vouchers, requiring approval before disbursement."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/journal_entries/{journalId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/JournalEntry"
+          },
+          "description": "Collection for all manual double-entry journal vouchers for financial adjustments."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/nursing_handovers/{handoverId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/NursingHandover"
+          },
+          "description": "Collection for storing shift handover reports from nurses."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/patients/{patientId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Patient"
+          },
+          "description": "Subcollection for patient records, scoped to a specific hospital. Access is controlled by checking the calling user's profile from the `/users` collection to verify their `hospitalId` and `role`."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/patients/{patientId}/encounters/{encounterId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Encounter"
+          },
+          "description": "Subcollection for all clinical encounters (visits, vitals, etc.) for a single patient."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/patients/{patientId}/maternity_profiles/{profileId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/MaternityProfile"
+          },
+          "description": "Subcollection for all of a patient's pregnancy records. A new document is created for each new pregnancy."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/patients/{patientId}/maternity_profiles/{profileId}/deliveries/{deliveryId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/DeliveryLog"
+          },
+          "description": "Records the outcome of a single delivery."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/pharmacy_inventory/{itemId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PharmacyItem"
+          },
+          "description": "Subcollection for managing drug inventory within a specific hospital. Writable by Pharmacists and Directors."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/suppliers/{supplierId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Supplier"
+          },
+          "description": "Subcollection for managing the list of approved vendors and suppliers."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/purchase_orders/{orderId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PurchaseOrder"
+          },
+          "description": "Subcollection for managing purchase orders to suppliers."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/lab_menu/{testId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/LabTest"
+          },
+          "description": "Subcollection for managing the menu of laboratory tests offered by a specific hospital. Writable by Directors and Lab Managers."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/lab_orders/{orderId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/LabOrder"
+          },
+          "description": "Subcollection for all individual laboratory test orders within a hospital."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/radiology_menu/{scanId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/RadiologyScan"
+          },
+          "description": "Subcollection for managing the menu of imaging scans offered by a specific hospital. Writable by Directors and Radiologists."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/procedure_menu/{procedureId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Procedure"
+          },
+          "description": "Subcollection for managing the menu of billable clinical procedures. Writable by Directors and Admins."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/radiology_orders/{orderId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/RadiologyOrder"
+          },
+          "description": "Subcollection for all individual imaging scan orders within a hospital."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/procedure_logs/{logId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ProcedureLog"
+          },
+          "description": "Subcollection for logs of all clinical procedures performed."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/wards/{wardId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Ward"
+          },
+          "description": "Subcollection for managing hospital wards. Writable by Directors and Admins."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/wards/{wardId}/beds/{bedId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Bed"
+          },
+          "description": "Subcollection for beds within a specific ward. Writable by clinical and admin staff."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/admissions/{admissionId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Admission"
+          },
+          "description": "Subcollection for all inpatient admission records within a hospital."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/admissions/{admissionId}/rounds/{roundId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/NursingRound"
+          },
+          "description": "Subcollection for all nursing rounds for a single admission."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/payments/{paymentId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Collection for all payment receipts and transactions within a hospital."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/shifts/{shiftId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/Shift"
+          },
+          "description": "Subcollection for managing staff work shifts and duty rosters."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/attendance_logs/{logId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/StaffAttendance"
+          },
+          "description": "Logs for all staff clock-in and clock-out events."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/payroll_config/main",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/PayrollConfig"
+          },
+          "description": "A singleton document containing the payroll statutory configuration for the hospital."
+        }
+      }
+    ],
+    "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
+  }
+}
+
+    

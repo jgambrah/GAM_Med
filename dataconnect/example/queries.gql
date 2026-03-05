@@ -1,0 +1,62 @@
+query ListAllDepartments @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  departments {
+    id
+    name
+    description
+    contactPhone
+  }
+}
+
+query GetDoctorDetails($id: UUID!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  doctor(id: $id) {
+    id
+    specialization
+    employeeId
+    yearsOfExperience
+    licenseNumber
+    user {
+      firstName
+      lastName
+      email
+    }
+    department {
+      name
+    }
+  }
+}
+
+mutation CreateAppointment($appointmentDate: Date!, $appointmentTime: Timestamp!, $status: String!, $reasonForVisit: String, $doctorId: UUID!, $patientId: UUID!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  appointment_insert(data: {
+    appointmentDate: $appointmentDate,
+    appointmentTime: $appointmentTime,
+    status: $status,
+    reasonForVisit: $reasonForVisit,
+    doctorId: $doctorId,
+    patientId: $patientId,
+    createdAt_expr: "request.time"
+  }) {
+    id
+  }
+}
+
+query GetMyMedicalRecords @auth(level: USER) {
+  medicalRecords(where: {
+    patient: {
+      userId_expr: "auth.uid"
+    }
+  }) {
+    id
+    recordDate
+    recordType
+    description
+    medicationPrescribed
+    dosage
+    doctor {
+      specialization
+      user {
+        firstName
+        lastName
+      }
+    }
+  }
+}

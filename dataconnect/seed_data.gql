@@ -1,0 +1,93 @@
+mutation CreateDemoData @transaction @auth(level: USER, insecureReason: "Seed data is for development purposes and can be populated by any logged in user.") {
+  user_insertMany(data: [
+    {
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      username: "john_doe",
+      passwordHash: "hashed_password_1",
+      role: "Patient",
+      createdAt: "2023-01-01T10:00:00Z",
+      email: "john.doe@example.com",
+      firstName: "John",
+      lastName: "Doe",
+      contactNumber: "123-456-7890"
+    },
+    {
+      id: "b1cdeb00-0d1c-5af9-cc7e-7cc0ce491b22",
+      username: "jane_smith",
+      passwordHash: "hashed_password_2",
+      role: "Doctor",
+      createdAt: "2023-01-02T11:00:00Z",
+      email: "jane.smith@example.com",
+      firstName: "Jane",
+      lastName: "Smith",
+      contactNumber: "098-765-4321"
+    }
+  ])
+  department_insertMany(data: [
+    {
+      id: "c2def111-1e2d-6bg0-dd8f-8dd1df502c33",
+      name: "Cardiology",
+      createdAt: "2023-01-03T09:00:00Z",
+      description: "Department specializing in heart-related conditions.",
+      contactPhone: "555-111-2222"
+    },
+    {
+      id: "d3efa222-2f3e-7ch1-ee90-9ee2ef613d44",
+      name: "Pediatrics",
+      createdAt: "2023-01-04T10:00:00Z",
+      description: "Department specializing in children's health.",
+      contactPhone: "555-333-4444"
+    }
+  ])
+  patient_insertMany(data: [
+    {
+      id: "e4fbc333-3g4f-8di2-ff01-0ff3fg724e55",
+      userId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      dateOfBirth: "1990-05-15",
+      gender: "Male",
+      createdAt: "2023-01-05T12:00:00Z",
+      address: "123 Main St, Anytown",
+      insuranceProvider: "HealthCare Inc.",
+      emergencyContactName: "Mary Doe",
+      emergencyContactNumber: "111-222-3333"
+    }
+  ])
+  doctor_insertMany(data: [
+    {
+      id: "f5gcd444-4h5g-9ej3-gg12-1gg4gh835f66",
+      userId: "b1cdeb00-0d1c-5af9-cc7e-7cc0ce491b22",
+      departmentId: "c2def111-1e2d-6bg0-dd8f-8dd1df502c33",
+      specialization: "Cardiologist",
+      employeeId: "EMP001",
+      createdAt: "2023-01-06T13:00:00Z",
+      yearsOfExperience: 10,
+      licenseNumber: "LIC12345"
+    }
+  ])
+  appointment_insertMany(data: [
+    {
+      id: "g6hde555-5i6h-0fk4-hh23-2hh5hi946g77",
+      patientId: "e4fbc333-3g4f-8di2-ff01-0ff3fg724e55",
+      doctorId: "f5gcd444-4h5g-9ej3-gg12-1gg4gh835f66",
+      appointmentDate: "2023-07-20",
+      appointmentTime: "2023-07-20T10:30:00Z",
+      status: "Scheduled",
+      createdAt: "2023-07-15T09:00:00Z",
+      reasonForVisit: "Routine checkup"
+    }
+  ])
+  medicalRecord_insertMany(data: [
+    {
+      id: "h7ief666-6j7i-1gl5-ii34-3ii6ij057h88",
+      patientId: "e4fbc333-3g4f-8di2-ff01-0ff3fg724e55",
+      doctorId: "f5gcd444-4h5g-9ej3-gg12-1gg4gh835f66",
+      recordDate: "2023-07-20",
+      recordType: "Initial Consultation",
+      createdAt: "2023-07-20T11:00:00Z",
+      description: "Patient presented with no significant concerns.",
+      notes: "Advised on healthy diet.",
+      medicationPrescribed: "None",
+      dosage: "N/A"
+    }
+  ])
+}

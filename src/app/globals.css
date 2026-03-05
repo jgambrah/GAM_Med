@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 23% 95%;
+    --foreground: 269 50% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 269 50% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 269 50% 10%;
+    --primary: 269 50% 35%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 255 23% 90%;
+    --secondary-foreground: 269 50% 10%;
+    --muted: 255 23% 90%;
+    --muted-foreground: 255 10% 45%;
+    --accent: 237 72% 64%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 255 23% 88%;
+    --input: 255 23% 88%;
+    --ring: 237 72% 64%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 255 23% 98%;
+    --sidebar-foreground: 269 50% 20%;
+    --sidebar-primary: 269 50% 35%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 255 23% 92%;
+    --sidebar-accent-foreground: 269 50% 10%;
+    --sidebar-border: 255 23% 88%;
+    --sidebar-ring: 237 72% 64%;
+  }
+  .dark {
+    --background: 269 20% 10%;
+    --foreground: 0 0% 98%;
+    --card: 269 20% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 269 20% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 269 50% 55%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 269 20% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 269 20% 20%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 237 72% 64%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 40.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 269 20% 20%;
+    --input: 269 20% 20%;
+    --ring: 237 72% 64%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 269 20% 12%;
+    --sidebar-foreground: 0 0% 95.9%;
+    --sidebar-primary: 269 50% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 269 20% 18%;
+    --sidebar-accent-foreground: 0 0% 95.9%;
+    --sidebar-border: 269 20% 18%;
+    --sidebar-ring: 237 72% 64%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@media print {
+  /* Hide the sidebar and top navigation */
+  nav, aside, header, button {
+    display: none !important;
+  }
+
+  /* Ensure the invoice expands to full width */
+  .max-w-4xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  
+  /* Make sure black colors actually print black */
+  .text-black {
+    color: #000 !important;
+  }
+  
+  body {
+    background: white !important;
+  }
+}
