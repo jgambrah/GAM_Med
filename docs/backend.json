@@ -3223,7 +3223,8 @@
             "PENDING_DELIVERY",
             "PARTIALLY_RECEIVED",
             "RECEIVED",
-            "CANCELLED"
+            "CANCELLED",
+            "FORCE_CLOSED"
           ]
         },
         "orderedBy": {
@@ -3236,6 +3237,19 @@
         "receivedAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "closeReason": {
+          "type": "string",
+          "description": "Reason for manually closing a partially fulfilled PO."
+        },
+        "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the PO was force closed."
+        },
+        "closedBy": {
+            "type": "string",
+            "description": "UID of the user who force closed the PO."
         }
       },
       "required": [

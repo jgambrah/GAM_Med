@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction } from 'firebase/firestore';
-import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -97,6 +97,31 @@ export default function PurchaseOrderPage() {
   const form = useForm<POFormValues>({
       resolver: zodResolver(poSchema),
   });
+  
+  const handleForceClose = async (poId: string) => {
+    if (!firestore || !user) return;
+    const reason = prompt("Enter reason for Force Closing this PO (e.g. Supplier out of stock):");
+    if (!reason) return;
+
+    try {
+        await updateDocumentNonBlocking(doc(firestore, `hospitals/${hospitalId}/purchase_orders`, poId), {
+        status: 'FORCE_CLOSED',
+        closeReason: reason,
+        closedAt: serverTimestamp(),
+        closedBy: user?.uid
+        });
+        toast({
+            variant: "destructive",
+            title: "Purchase Order Permanently Closed",
+        });
+    } catch (e: any) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: e.message
+        });
+    }
+  };
 
   const addItemToOrder = (product: any) => {
     if (!items.some(i => i.itemId === product.id)) {
@@ -131,7 +156,7 @@ export default function PurchaseOrderPage() {
       hospitalId,
       supplierId: values.supplierId,
       supplierName: selectedSupplier?.name || 'Unknown Supplier',
-      items: items,
+      items: items.map(item => ({ ...item, quantityReceived: 0 })), // Initialize qty received
       status: 'PENDING_DELIVERY',
       orderedBy: user.uid,
       orderedAt: serverTimestamp(),
@@ -249,12 +274,17 @@ export default function PurchaseOrderPage() {
                   <TableRow key={po.id}>
                       <TableCell className="font-mono font-bold text-primary">{po.id.slice(-6).toUpperCase()}</TableCell>
                       <TableCell className="font-bold">{po.supplierName}</TableCell>
-                      <TableCell><Badge variant={po.status === 'RECEIVED' ? 'default' : 'secondary'}>{po.status}</Badge></TableCell>
+                      <TableCell>
+                          <Badge variant={po.status === 'RECEIVED' ? 'default' : po.status === 'FORCE_CLOSED' ? 'destructive' : 'secondary'}>{po.status}</Badge>
+                      </TableCell>
                       <TableCell>{po.orderedAt ? format(po.orderedAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                       <TableCell>{po.items.length}</TableCell>
                       <TableCell className="text-right">
-                          {po.status === 'PENDING_DELIVERY' && (
+                          {(po.status === 'PENDING_DELIVERY' || po.status === 'PARTIALLY_RECEIVED') && (
                               <Button size="sm" onClick={() => setSelectedPO(po)}>Receive Goods</Button>
+                          )}
+                          {po.status === 'PARTIALLY_RECEIVED' && (
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleForceClose(po.id)}><XCircle size={16}/> Force Close</Button>
                           )}
                       </TableCell>
                   </TableRow>
@@ -304,50 +334,66 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
     const form = useForm<GRNFormValues>({
         resolver: zodResolver(grnSchema),
         defaultValues: {
-            items: po.items.map((item: any) => ({ ...item, quantityReceived: item.quantityOrdered, batchNumber: '', expiryDate: '' }))
+            items: po.items.map((item: any) => ({ 
+                ...item, 
+                quantityReceived: 0, // Default to receiving 0
+                batchNumber: '', 
+                expiryDate: '' 
+            }))
         }
     });
 
-    const { fields } = form.control;
-
     const onSubmit = async (values: GRNFormValues) => {
         setLoading(true);
+        const grnNumber = `GRN-${po.id.slice(-4)}-${Math.floor(100 + Math.random() * 900)}`;
 
         const totalValue = values.items.reduce((acc, item) => {
             const poItem = po.items.find((i:any) => i.itemId === item.itemId);
             return acc + (item.quantityReceived * (poItem?.price || 0));
         }, 0);
 
-        const grnNumber = `GRN-${Date.now().toString().slice(-6)}`;
+        if(totalValue <= 0) {
+            toast({ variant: 'destructive', title: 'Empty GRN', description: "You haven't received any items."});
+            setLoading(false);
+            return;
+        }
         
         try {
             if (!firestore) throw new Error("Firestore not available");
 
             await runTransaction(firestore, async (transaction) => {
-                // --- REFERENCE DEFINITIONS (before transaction logic) ---
-                const grnRef = doc(collection(firestore, `hospitals/${hospitalId}/grn_logs`));
-                const payableRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
                 const poRef = doc(firestore, `hospitals/${hospitalId}/purchase_orders`, po.id);
-                const inventoryRefs = values.items.map(item => ({
-                    ref: doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId),
-                    itemData: item,
-                }));
+                const currentPO = (await transaction.get(poRef)).data();
+                if (!currentPO) throw new Error("PO not found");
 
-                // --- 1. READ PHASE ---
-                // Read all inventory documents that we might update.
-                const invDocs = await Promise.all(
-                    inventoryRefs.map(inv => transaction.get(inv.ref))
-                );
+                let allItemsFulfilled = true;
+                const updatedPOItems = currentPO.items.map((poItem: any) => {
+                    const receivedItem = values.items.find(ri => ri.itemId === poItem.itemId);
+                    if (!receivedItem) return poItem;
 
-                // --- 2. WRITE PHASE ---
-                // All writes must happen after all reads.
+                    const newTotalReceived = (poItem.quantityReceived || 0) + (receivedItem?.quantityReceived || 0);
+                    if (newTotalReceived < poItem.quantityOrdered) {
+                        allItemsFulfilled = false;
+                    }
+                    return { ...poItem, quantityReceived: newTotalReceived };
+                });
 
-                // a. Create GRN Log
+                const newStatus = allItemsFulfilled ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
+
+                // 1. Update PO with new received quantities and status
+                transaction.update(poRef, {
+                    items: updatedPOItems,
+                    status: newStatus,
+                    lastReceivedAt: serverTimestamp()
+                });
+
+                // 2. Create GRN Log
+                const grnRef = doc(collection(firestore, `hospitals/${hospitalId}/grn_logs`));
                 transaction.set(grnRef, {
                     grnNumber,
                     poId: po.id,
                     supplierName: po.supplierName,
-                    items: values.items.filter(i => i.quantityReceived > 0),
+                    itemsReceived: values.items.filter(i => i.quantityReceived > 0),
                     totalValue,
                     hospitalId,
                     receivedBy: user.uid,
@@ -355,7 +401,8 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                     receivedAt: serverTimestamp(),
                 });
 
-                // b. Create Accounts Payable liability
+                // 3. Create Accounts Payable liability for this delivery
+                const payableRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
                 transaction.set(payableRef, {
                     grnId: grnRef.id,
                     grnNumber,
@@ -367,44 +414,21 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                     createdAt: serverTimestamp(),
                 });
 
-                // c. Update/Create Inventory Items
-                invDocs.forEach((invDoc, index) => {
-                    const { ref, itemData } = inventoryRefs[index];
-                    if (itemData.quantityReceived > 0) {
-                        if (invDoc.exists()) {
-                            // Item exists, so update its quantity
-                            transaction.update(ref, { 
-                                quantity: increment(itemData.quantityReceived),
-                                batchNumber: itemData.batchNumber,
-                                expiryDate: itemData.expiryDate,
-                                lastUpdated: serverTimestamp()
-                            });
-                        } else {
-                            // Item does not exist, so create it
-                            const catalogItem = catalog?.find(c => c.id === itemData.itemId);
-                            if (catalogItem) {
-                                transaction.set(ref, {
-                                    hospitalId: hospitalId,
-                                    name: catalogItem.name,
-                                    genericName: catalogItem.name, 
-                                    sku: catalogItem.sku,
-                                    price: catalogItem.basePrice,
-                                    form: catalogItem.unit,
-                                    quantity: itemData.quantityReceived,
-                                    batchNumber: itemData.batchNumber,
-                                    expiryDate: itemData.expiryDate,
-                                    lastUpdated: serverTimestamp()
-                                });
-                            }
-                        }
+                // 4. Update Inventory
+                values.items.forEach(item => {
+                    if (item.quantityReceived > 0) {
+                        const invRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId);
+                        transaction.set(invRef, {
+                            quantity: increment(item.quantityReceived),
+                            batchNumber: item.batchNumber,
+                            expiryDate: item.expiryDate,
+                            lastUpdated: serverTimestamp()
+                        }, { merge: true });
                     }
                 });
-                
-                // d. Update PO status
-                transaction.update(poRef, { status: 'RECEIVED', receivedAt: serverTimestamp() });
             });
 
-            toast({ title: 'Goods Received Successfully', description: `GRN ${grnNumber} created. Inventory updated.` });
+            toast({ title: newStatus === 'RECEIVED' ? "PO Fully Received" : "Partial Delivery Logged. PO remains Open.", description: `GRN ${grnNumber} created. Inventory updated.` });
             onOpenChange(false);
         } catch (error: any) {
             console.error("GRN Transaction Error:", error);
@@ -423,37 +447,48 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                        <div className="space-y-4">
-                            {po.items.map((item: any, index: number) => (
-                                <div key={item.itemId} className="p-4 bg-muted/50 rounded-xl grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                                    <div className="md:col-span-2">
-                                        <p className="font-bold">{item.name}</p>
-                                        <p className="text-xs text-muted-foreground">Ordered: {item.quantityOrdered}</p>
-                                    </div>
-                                    <FormField
-                                        control={form.control}
-                                        name={`items.${index}.quantityReceived`}
-                                        render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Qty Received</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
-                                        )}
-                                    />
-                                     <FormField
-                                        control={form.control}
-                                        name={`items.${index}.batchNumber`}
-                                        render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Batch No.</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name={`items.${index}.expiryDate`}
-                                        render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Expiry</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-                                        )}
-                                    />
-                                </div>
-                            ))}
-                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead className="text-center">Ordered</TableHead>
+                                    <TableHead className="text-center">Prev. Rec'd</TableHead>
+                                    <TableHead className="text-center">Receiving</TableHead>
+                                    <TableHead className="text-center">Batch No.</TableHead>
+                                    <TableHead className="text-right">Expiry</TableHead>
+                                    <TableHead className="text-right">Balance</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {po.items.map((item: any, index: number) => {
+                                    const balance = item.quantityOrdered - (item.quantityReceived || 0);
+                                    const receivingQty = form.watch(`items.${index}.quantityReceived`) || 0;
+                                    return (
+                                    <TableRow key={item.itemId}>
+                                        <TableCell className="font-bold">{item.name}</TableCell>
+                                        <TableCell className="text-center">{item.quantityOrdered}</TableCell>
+                                        <TableCell className="text-center text-blue-600">{item.quantityReceived || 0}</TableCell>
+                                        <TableCell>
+                                            <FormField control={form.control} name={`items.${index}.quantityReceived`}
+                                                render={({ field }) => ( <Input type="number" max={balance} {...field} className="w-20 text-center" /> )}
+                                            />
+                                        </TableCell>
+                                         <TableCell>
+                                            <FormField control={form.control} name={`items.${index}.batchNumber`}
+                                                render={({ field }) => ( <Input {...field} className="w-24"/> )}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <FormField control={form.control} name={`items.${index}.expiryDate`}
+                                                render={({ field }) => ( <Input type="date" {...field} className="w-32"/> )}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="text-right text-red-600 font-bold">{balance - receivingQty}</TableCell>
+                                    </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                             <Button type="submit" disabled={loading}>
