@@ -147,7 +147,7 @@ export default function LeadsPipelinePage() {
                 </TableRow>
               ))
             )}
-          </tbody >
+          </TableBody>
         </Table>
       </Card>
     </div>
