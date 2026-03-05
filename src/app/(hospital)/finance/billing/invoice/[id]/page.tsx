@@ -110,7 +110,7 @@ export default function PatientInvoicePage() {
             const prefix = hData?.mrnPrefix || 'GAM';
             const currentReceiptCount = (hData?.receiptCounter || 0) + 1;
             const year = new Date().getFullYear().toString().slice(-2);
-            const paymentId = `${prefix}/REC/${year}/${currentReceiptCount.toString().padStart(6, '0')}`;
+            const paymentId = `${prefix}/REC/${year}/${currentReceiptCount.toString().padStart(4, '0')}`;
 
             const paymentRef = doc(firestore, `hospitals/${hospitalId}/payments`, paymentId);
             transaction.set(paymentRef, {
@@ -272,5 +272,3 @@ function PaymentBtn({ icon, label, active, onClick }: any) {
     </div>
   );
 }
-
-    
