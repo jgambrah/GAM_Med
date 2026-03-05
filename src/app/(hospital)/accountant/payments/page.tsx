@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp, writeBatch, increment } from 'firebase/firestore';
 import { 
   FileText, Printer, Save, Calculator, 
   Landmark, Wallet, History, CheckCircle, ShieldAlert, Loader2
@@ -28,7 +28,6 @@ export default function PaymentVoucherManager() {
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
   
-  // --- GHANA STATUTORY TAX DATA ---
   const WHT_RATES = [
     { label: "Exempt / 0% (Exemption Certificate)", rate: 0 },
     { label: "Supply of Goods (3%)", rate: 0.03 },
@@ -76,12 +75,11 @@ export default function PaymentVoucherManager() {
   const coaQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`), where("hospitalId", "==", hospitalId)) : null, [firestore, hospitalId]);
   const { data: coa, isLoading: isCoaLoading } = useCollection(coaQuery);
 
-  // --- AUTOMATED CALCULATION ENGINE ---
-  const vatAmount = form.applyVat ? form.grossAmount * 0.219 : 0; // Cumulative Ghana Levies
+  const vatAmount = form.applyVat ? form.grossAmount * 0.219 : 0;
   const whtAmount = form.grossAmount * form.whtRate;
   const netAmount = form.grossAmount + vatAmount - whtAmount;
 
-  const handleGeneratePV = async () => {
+  const handleAuthorizePayment = async () => {
     if (!form.debitAccountId || !form.creditAccountId || form.grossAmount <= 0) {
         toast({ variant: 'destructive', title: "Validation Error", description: "Please complete all financial fields." });
         return;
@@ -92,34 +90,41 @@ export default function PaymentVoucherManager() {
     const batch = writeBatch(firestore);
 
     try {
-      const pvNumber = `PV-${hospitalId?.split('-')[2]}-${Date.now().toString().slice(-6)}`;
-      const vouchersColRef = collection(firestore, `hospitals/${hospitalId}/payment_vouchers`);
-      const newVoucherRef = doc(vouchersColRef);
+      const pvNumber = `PV-${hospitalId?.split('-')[2] || 'GL'}-${Date.now().toString().slice(-6)}`;
+      const pvRef = doc(collection(firestore, `hospitals/${hospitalId}/payment_vouchers`));
       
-      batch.set(newVoucherRef, {
-        ...form,
-        pvNumber,
-        vatAmount,
-        whtAmount,
-        netAmount,
-        hospitalId: hospitalId,
+      batch.set(pvRef, {
+        ...form, pvNumber, vatAmount, whtAmount, netAmount,
+        hospitalId,
         processedBy: user.uid,
         processedByName: user.displayName,
-        status: 'PENDING_APPROVAL',
+        status: 'PAID', // It's paid from the ledger perspective
         createdAt: serverTimestamp()
       });
       
-      // If this PV is settling a debt from Accounts Payable, update the AP record
       const apId = searchParams.get('apId');
       if (apId) {
         const apRef = doc(firestore, `hospitals/${hospitalId}/accounts_payable`, apId);
-        batch.update(apRef, { status: 'PAID', paidAt: serverTimestamp(), pvId: newVoucherRef.id });
+        batch.update(apRef, { status: 'PAID', pvId: pvRef.id });
       }
+
+      // Triple-Entry Ledger Movement
+      const creditAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.creditAccountId);
+      batch.update(creditAccRef, { currentBalance: increment(-netAmount) });
+
+      const debitAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.debitAccountId);
+      batch.update(debitAccRef, { currentBalance: increment(form.grossAmount) });
+      
+      const whtAccount = coa?.find(a => a.accountCode === '2100');
+      if (!whtAccount) throw new Error("WHT Payable Account (Code: 2100) not found in Chart of Accounts.");
+      const whtAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, whtAccount.id);
+      batch.update(whtAccRef, { currentBalance: increment(whtAmount) });
+
 
       await batch.commit();
 
       setForm(prev => ({ ...prev, pvNumber }));
-      toast({ title: `PV ${pvNumber} Generated`, description: "Ready for Print." });
+      toast({ title: `Financial Handshake Complete`, description: "Ledger, AP, and WHT updated." });
       setTimeout(() => window.print(), 500);
 
     } catch (e: any) {
@@ -154,7 +159,6 @@ export default function PaymentVoucherManager() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* --- PV ENTRY INTERFACE (Hidden during Print) --- */}
       <div className="print:hidden space-y-8">
         <div>
            <h1 className="text-4xl font-black uppercase tracking-tighter italic">Disbursement <span className="text-primary">Portal</span></h1>
@@ -195,25 +199,21 @@ export default function PaymentVoucherManager() {
              </div>
           </div>
 
-          {/* TAX CALCULATION SIDEBAR */}
           <div className="bg-[#0f172a] p-8 rounded-[40px] text-white shadow-2xl space-y-6">
              <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <Calculator size={16}/> Statutory Deductions
              </h3>
-             
              <div className="space-y-4">
                 <div>
                    <label className="text-[10px] font-bold text-slate-400 uppercase">Gross Amount (GHS)</label>
                    <input type="number" className="w-full p-4 bg-slate-800 rounded-xl text-white font-black text-2xl outline-none mt-1"
                      value={form.grossAmount || ''} onChange={e => setForm({...form, grossAmount: parseFloat(e.target.value) || 0})} />
                 </div>
-
                 <div className="flex items-center gap-3 bg-slate-800 p-4 rounded-2xl border border-slate-700 cursor-pointer"
                    onClick={() => setForm({...form, applyVat: !form.applyVat})}>
                    <input type="checkbox" checked={form.applyVat} readOnly className="w-5 h-5 rounded accent-primary" />
                    <span className="text-[10px] font-black uppercase tracking-widest">Apply VAT + Levies (21.9%)</span>
                 </div>
-
                 <div>
                    <label className="text-[10px] font-bold text-slate-400 uppercase">WHT Category (Ghana Law)</label>
                    <select className="w-full p-4 bg-slate-800 rounded-xl text-white font-bold outline-none mt-1 border-none"
@@ -225,100 +225,33 @@ export default function PaymentVoucherManager() {
                    </select>
                 </div>
              </div>
-
              <div className="pt-6 space-y-3 border-t border-slate-800">
                 <div className="flex justify-between text-[10px] uppercase font-bold text-slate-400"><span>VAT + Levies</span><span>GHS {vatAmount.toFixed(2)}</span></div>
                 <div className="flex justify-between text-[10px] uppercase font-bold text-red-400"><span>WHT ({form.whtLabel.split('(')[1] || '0%)'})</span><span>(GHS {whtAmount.toFixed(2)})</span></div>
                 <div className="flex justify-between text-2xl font-black text-white pt-2 uppercase tracking-tighter"><span>Net Payable</span><span>GHS {netAmount.toFixed(2)}</span></div>
              </div>
-
-             <Button onClick={handleGeneratePV} disabled={processing} className="w-full bg-primary hover:bg-white hover:text-black text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center justify-center gap-3">
-                {processing ? <Loader2 className="animate-spin" /> : <><FileText size={18}/> Process Voucher</>}
+             <Button onClick={handleAuthorizePayment} disabled={processing} className="w-full bg-primary hover:bg-white hover:text-black text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center justify-center gap-3">
+                {processing ? <Loader2 className="animate-spin" /> : <><FileText size={18}/> Authorize & Post Payment</>}
              </Button>
           </div>
         </div>
       </div>
 
-      {/* --- PRINTABLE PV (HIDDEN ON SCREEN) --- */}
       <div className="hidden print:block bg-white text-black p-0 font-serif">
          <div className="border-4 border-black p-8">
             <div className="text-center border-b-4 border-black pb-4 mb-6">
                <h1 className="text-3xl font-black uppercase tracking-tighter">{hospitalName}</h1>
                <h2 className="text-xl font-bold uppercase tracking-[0.3em] bg-black text-white inline-block px-8 py-1 mt-2">Payment Voucher</h2>
             </div>
-
             <div className="flex justify-between items-start mb-8">
-               <div className="space-y-2">
-                  <p className="font-bold uppercase text-sm">PV No: <span className="border-b-2 border-dotted border-black ml-2 px-4">{form.pvNumber}</span></p>
-                  <p className="font-bold uppercase text-sm">Date: <span className="border-b-2 border-dotted border-black ml-2 px-4">{new Date().toLocaleDateString('en-GB')}</span></p>
-                  <p className="font-bold uppercase text-sm">Payee: <span className="border-b-2 border-dotted border-black ml-2 px-4">{form.payee}</span></p>
-               </div>
-               <div className="text-right">
-                  <div className="border-4 border-black p-4 text-center">
-                     <p className="text-[10px] font-black uppercase">Voucher Currency</p>
-                     <p className="text-2xl font-black uppercase">GHS</p>
-                  </div>
-               </div>
+               <div className="space-y-2"><p className="font-bold uppercase text-sm">PV No: <span className="border-b-2 border-dotted border-black ml-2 px-4">{form.pvNumber}</span></p><p className="font-bold uppercase text-sm">Date: <span className="border-b-2 border-dotted border-black ml-2 px-4">{new Date().toLocaleDateString('en-GB')}</span></p><p className="font-bold uppercase text-sm">Payee: <span className="border-b-2 border-dotted border-black ml-2 px-4">{form.payee}</span></p></div>
+               <div className="text-right"><div className="border-4 border-black p-4 text-center"><p className="text-[10px] font-black uppercase">Voucher Currency</p><p className="text-2xl font-black uppercase">GHS</p></div></div>
             </div>
-
-            <table className="w-full border-4 border-black mb-8">
-               <thead className="bg-slate-200">
-                  <tr className="border-b-4 border-black">
-                     <th className="p-4 text-left font-black uppercase text-sm border-r-4 border-black">Description of Payment / Narration</th>
-                     <th className="p-4 text-center font-black uppercase text-sm border-r-4 border-black">Code</th>
-                     <th className="p-4 text-right font-black uppercase text-sm">Amount (GHS)</th>
-                  </tr>
-               </thead>
-               <tbody className="font-bold">
-                  <tr className="border-b-2 border-black">
-                     <td className="p-6 h-40 align-top border-r-4 border-black">{form.narration}</td>
-                     <td className="p-6 text-center border-r-4 border-black italic">{coa?.find(a => a.id === form.debitAccountId)?.accountCode}</td>
-                     <td className="p-6 text-right">{form.grossAmount.toFixed(2)}</td>
-                  </tr>
-                  <tr className="border-b-2 border-black">
-                     <td colSpan={2} className="p-3 text-right font-black uppercase text-xs border-r-4 border-black">Add: VAT & Statutory Levies (Effective 21.9%)</td>
-                     <td className="p-3 text-right">{vatAmount.toFixed(2)}</td>
-                  </tr>
-                  <tr className="border-b-4 border-black">
-                     <td colSpan={2} className="p-3 text-right font-black uppercase text-xs border-r-4 border-black text-red-600 italic underline">Less: Withholding Tax ({form.whtLabel})</td>
-                     <td className="p-3 text-right text-red-600">({whtAmount.toFixed(2)})</td>
-                  </tr>
-                  <tr className="bg-slate-100">
-                     <td colSpan={2} className="p-6 text-right font-black text-xl uppercase border-r-4 border-black">Net Amount Payable</td>
-                     <td className="p-6 text-right font-black text-2xl">GHS {netAmount.toFixed(2)}</td>
-                  </tr>
-               </tbody>
-            </table>
-
-            {/* SIGNATURE HIERARCHY */}
-            <div className="grid grid-cols-3 gap-8 mt-12">
-               <div className="space-y-12">
-                  <div className="border-t-2 border-black pt-2 text-center">
-                     <p className="text-[10px] font-black uppercase">Prepared By (Accountant)</p>
-                     <p className="text-[11px] font-bold mt-1 uppercase italic">{user?.displayName}</p>
-                  </div>
-               </div>
-               <div className="space-y-12">
-                  <div className="border-t-2 border-black pt-2 text-center">
-                     <p className="text-[10px] font-black uppercase">Internal Audit (Pre-Audit)</p>
-                     <div className="h-6"></div>
-                     <p className="text-[8px] italic">Certification Stamp Required</p>
-                  </div>
-               </div>
-               <div className="space-y-12">
-                  <div className="border-t-2 border-black pt-2 text-center">
-                     <p className="text-[10px] font-black uppercase">Approved By (Director)</p>
-                  </div>
-               </div>
-            </div>
-
-            <div className="mt-16 text-center border-t border-slate-200 pt-4 opacity-50">
-               <p className="text-[8px] font-black uppercase tracking-[0.5em]">Digitally Generated by GamMed ERP Ecosystem • Powered by Gam IT Solutions</p>
-            </div>
+            <table className="w-full border-4 border-black mb-8"><thead className="bg-slate-200"><tr className="border-b-4 border-black"><th className="p-4 text-left font-black uppercase text-sm border-r-4 border-black">Description of Payment / Narration</th><th className="p-4 text-right font-black uppercase text-sm">Amount (GHS)</th></tr></thead><tbody className="font-bold"><tr className="border-b-2 border-black"><td className="p-6 h-40 align-top border-r-4 border-black">{form.narration}</td><td className="p-6 text-right">{form.grossAmount.toFixed(2)}</td></tr><tr className="border-b-2 border-black"><td className="p-3 text-right font-black uppercase text-xs border-r-4 border-black">Add: VAT & Statutory Levies (Effective 21.9%)</td><td className="p-3 text-right">{vatAmount.toFixed(2)}</td></tr><tr className="border-b-4 border-black"><td className="p-3 text-right font-black uppercase text-xs border-r-4 border-black text-red-600 italic underline">Less: Withholding Tax ({form.whtLabel})</td><td className="p-3 text-right text-red-600">({whtAmount.toFixed(2)})</td></tr><tr className="bg-slate-100"><td className="p-6 text-right font-black text-xl uppercase border-r-4 border-black">Net Amount Payable</td><td className="p-6 text-right font-black text-2xl">GHS {netAmount.toFixed(2)}</td></tr></tbody></table>
+            <div className="grid grid-cols-3 gap-8 mt-12"><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Prepared By (Accountant)</p><p className="text-[11px] font-bold mt-1 uppercase italic">{user?.displayName}</p></div></div><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Internal Audit (Pre-Audit)</p><div className="h-6"></div><p className="text-[8px] italic">Certification Stamp Required</p></div></div><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Approved By (Director)</p></div></div></div>
+            <div className="mt-16 text-center border-t border-slate-200 pt-4 opacity-50"><p className="text-[8px] font-black uppercase tracking-[0.5em]">Digitally Generated by GamMed ERP Ecosystem • Powered by Gam IT Solutions</p></div>
          </div>
       </div>
     </div>
   );
 }
-
-    

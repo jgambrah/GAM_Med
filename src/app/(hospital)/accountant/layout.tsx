@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Wallet, FolderTree, FileText, 
   Landmark, Building2, TrendingUp, CreditCard,
-  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, Loader2, ShieldAlert, TrendingDown, UserCheck
+  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, Loader2, ShieldAlert, TrendingDown, UserCheck, History
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -29,6 +29,7 @@ const menuGroups = [
     items: [
       { name: "Journal Vouchers", href: "/accountant/journals", icon: ArrowLeftRight },
       { name: "Payment Vouchers", href: "/accountant/payments", icon: FileText },
+      { name: "Voucher Archive", href: "/accountant/payments/archive", icon: History },
       { name: "Locum Payments", href: "/accountant/locum-payments", icon: UserCheck },
     ]
   },
