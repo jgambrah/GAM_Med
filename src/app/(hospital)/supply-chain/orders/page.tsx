@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction, getDoc } from 'firebase/firestore';
-import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown, XCircle } from 'lucide-react';
+import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown, XCircle, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -18,6 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
+import Link from 'next/link';
 
 const poSchema = z.object({
   supplierId: z.string().min(1, "Please select a supplier."),
@@ -316,12 +317,21 @@ export default function PurchaseOrderPage() {
                       <TableCell>{po.orderedAt ? format(po.orderedAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                       <TableCell>{po.items.length}</TableCell>
                       <TableCell className="text-right">
-                          {(po.status === 'PENDING_DELIVERY' || po.status === 'PARTIALLY_RECEIVED') && (
-                              <Button size="sm" onClick={() => setSelectedPO(po)}>Receive Goods</Button>
-                          )}
-                          {po.status === 'PARTIALLY_RECEIVED' && (
-                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleForceClose(po.id)}><XCircle size={16}/> Force Close</Button>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                              <Button asChild size="sm" variant="ghost">
+                                  <Link href={`/supply-chain/orders/print/${po.id}`} title="Print PO">
+                                      <Printer className="h-4 w-4" />
+                                  </Link>
+                              </Button>
+                              {(po.status === 'PENDING_DELIVERY' || po.status === 'PARTIALLY_RECEIVED') && (
+                                  <Button size="sm" onClick={() => setSelectedPO(po)}>Receive Goods</Button>
+                              )}
+                              {po.status === 'PARTIALLY_RECEIVED' && (
+                                  <Button size="sm" variant="destructive" onClick={() => handleForceClose(po.id)}>
+                                      <XCircle size={16}/>
+                                  </Button>
+                              )}
+                          </div>
                       </TableCell>
                   </TableRow>
               ))}
@@ -540,3 +550,4 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
         </Dialog>
     );
 }
+
