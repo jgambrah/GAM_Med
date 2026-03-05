@@ -2,7 +2,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
-const crypto = require('crypto');
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
@@ -10,53 +9,6 @@ if (admin.apps.length === 0) {
 }
 
 const db = admin.firestore();
-
-exports.paystackWebhook = onRequest(async (req, res) => {
-  const secret = process.env.PAYSTACK_SECRET_KEY;
-  const hash = crypto.createHmac('sha512', secret).update(JSON.stringify(req.body)).digest('hex');
-
-  // 1. Verify that the request actually came from Paystack
-  if (hash !== req.headers['x-paystack-signature']) {
-    return res.status(401).send("Unauthorized");
-  }
-
-  const event = req.body;
-  if (event.event === 'charge.success') {
-    const { hospital_id, billing_cycle, plan_id } = event.data.metadata.custom_fields.reduce((acc, curr) => ({...acc, [curr.variable_name]: curr.value}), {});
-    const db = admin.firestore();
-
-    const hospitalRef = db.collection("hospitals").doc(hospital_id);
-    const hDoc = await hospitalRef.get();
-    
-    if (hDoc.exists()) {
-      const currentNextBilling = hDoc.data().nextBillingDate.toDate();
-      const newNextBilling = new Date(currentNextBilling > new Date() ? currentNextBilling : new Date());
-
-      // 2. Add Time: 30 Days or 365 Days
-      if (billing_cycle === 'ANNUAL') {
-        newNextBilling.setFullYear(newNextBilling.getFullYear() + 1);
-      } else {
-        newNextBilling.setMonth(newNextBilling.getMonth() + 1);
-      }
-
-      const newGracePeriod = new Date(newNextBilling);
-      newGracePeriod.setDate(newGracePeriod.getDate() + 5);
-
-      // 3. EXECUTE RE-ACTIVATION
-      await hospitalRef.update({
-        nextBillingDate: admin.firestore.Timestamp.fromDate(newNextBilling),
-        gracePeriodExpiry: admin.firestore.Timestamp.fromDate(newGracePeriod),
-        subscriptionStatus: 'ACTIVE',
-        status: 'active', // UNLOCKS SYSTEM
-        subscriptionPlan: plan_id,
-        lastPaymentRef: event.data.reference
-      });
-
-      console.log(`✅ System Reactivated for ${hospital_id} until ${newNextBilling.toDateString()}`);
-    }
-  }
-  res.status(200).send("OK");
-});
 
 
 /**
@@ -277,5 +229,3 @@ exports.repairUserIdentity = onCall({ region: "us-central1" }, async (request) =
     throw new HttpsError('internal', error.message);
   }
 });
-
-    
