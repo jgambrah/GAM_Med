@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
@@ -96,7 +97,7 @@ export default function TariffManagerPage() {
                     <TableRow>
                         <TableHead className="p-6 text-[10px] uppercase tracking-widest">Product / SKU</TableHead>
                         <TableHead className="p-6 text-[10px] uppercase tracking-widest">Store Type</TableHead>
-                        <TableHead className="p-6 text-[10px] uppercase tracking-widest text-center">Cost Price (GHS)</TableHead>
+                        <TableHead className="p-6 text-[10px] uppercase tracking-widest text-center">Purchase Price (GHS)</TableHead>
                         <TableHead className="p-6 text-[10px] uppercase tracking-widest text-right">Selling Price (GHS)</TableHead>
                         <TableHead className="p-6 text-[10px] uppercase tracking-widest text-right">Margin</TableHead>
                     </TableRow>
@@ -104,7 +105,7 @@ export default function TariffManagerPage() {
                 <TableBody>
                     {productsLoading && <TableRow><TableCell colSpan={5} className="text-center p-12"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
                     {products?.map(p => {
-                      const margin = p.sellingPrice > 0 ? (((p.sellingPrice - p.basePrice) / p.sellingPrice) * 100).toFixed(1) : 0;
+                      const margin = p.sellingPrice > 0 ? (((p.sellingPrice - p.purchasePrice) / p.sellingPrice) * 100).toFixed(1) : 0;
                       return (
                         <TableRow key={p.id} className="hover:bg-primary/5 transition-all">
                           <TableCell className="p-6">
@@ -114,7 +115,7 @@ export default function TariffManagerPage() {
                           <TableCell className="p-6">
                             <span className="text-[9px] font-black bg-muted px-3 py-1 rounded-full text-muted-foreground uppercase">{p.storeType}</span>
                           </TableCell>
-                          <TableCell className="p-6 text-center text-muted-foreground font-mono">GHS {p.basePrice?.toFixed(2)}</TableCell>
+                          <TableCell className="p-6 text-center text-muted-foreground font-mono">GHS {p.purchasePrice?.toFixed(2)}</TableCell>
                           <TableCell className="p-6 text-right">
                             <div className="flex items-center justify-end gap-2">
                                 <span className="text-[10px] text-primary font-black">GHS</span>
@@ -208,3 +209,5 @@ function TariffSection({ title, icon, services, collectionName, onUpdate, isLoad
     </div>
   );
 }
+
+    

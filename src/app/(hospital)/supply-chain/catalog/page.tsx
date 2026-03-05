@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
@@ -22,7 +23,8 @@ const productSchema = z.object({
   storeType: z.string().min(1, "Store type is required."),
   unit: z.string().min(1, "Unit is required."),
   minLevel: z.coerce.number().min(0, "Min level cannot be negative."),
-  basePrice: z.coerce.number().min(0, "Base price cannot be negative."),
+  purchasePrice: z.coerce.number().min(0, "Purchase price cannot be negative."),
+  sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative."),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -116,30 +118,34 @@ export default function ProductCatalogPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-0">
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">SKU / Name</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Store / Category</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Min. Level</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Base Price (GHS)</TableHead>
+                <TableHead className="p-6">Product & SKU</TableHead>
+                <TableHead className="p-6 text-right">Pur. Price (₵)</TableHead>
+                <TableHead className="p-6 text-right">Sell Price (₵)</TableHead>
+                <TableHead className="p-6 text-right">Margin (%)</TableHead>
+                <TableHead className="p-6 text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {areProductsLoading && <TableRow><TableCell colSpan={4} className="text-center h-48"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
-            {filteredProducts?.map(p => (
-              <TableRow key={p.id}>
-                <TableCell className="p-4">
-                  <p className="font-bold text-primary">{p.sku}</p>
-                  <p className="uppercase text-card-foreground font-semibold">{p.name}</p>
-                </TableCell>
-                <TableCell className="p-4">
-                  <p className="font-bold uppercase text-xs text-card-foreground">{p.storeType.replace('_', ' ')}</p>
-                  <p className="text-[10px] uppercase text-muted-foreground">{p.category}</p>
-                </TableCell>
-                <TableCell className="p-4 text-center font-bold text-lg">{p.minLevel}</TableCell>
-                <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{p.basePrice.toFixed(2)}</TableCell>
-              </TableRow>
-            ))}
+            {areProductsLoading && <TableRow><TableCell colSpan={5} className="text-center h-48"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
+            {filteredProducts?.map(p => {
+               const margin = p.sellingPrice > 0 ? (((p.sellingPrice - p.purchasePrice) / p.sellingPrice) * 100).toFixed(1) : "0";
+               return (
+                  <TableRow key={p.id}>
+                    <TableCell className="p-4">
+                      <p className="font-bold text-primary">{p.sku}</p>
+                      <p className="uppercase text-card-foreground font-semibold">{p.name}</p>
+                    </TableCell>
+                    <TableCell className="p-4 text-right font-mono text-muted-foreground">{p.purchasePrice.toFixed(2)}</TableCell>
+                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{p.sellingPrice.toFixed(2)}</TableCell>
+                    <TableCell className={`p-4 text-right font-black ${Number(margin) < 15 ? 'text-destructive' : 'text-green-600'}`}>{margin}%</TableCell>
+                    <TableCell className="p-4 text-right">
+                        <Button variant="ghost" size="sm">Edit</Button>
+                    </TableCell>
+                  </TableRow>
+               );
+            })}
              {!areProductsLoading && filteredProducts?.length === 0 && (
-                <TableRow><TableCell colSpan={4} className="text-center p-20 text-muted-foreground italic">No products in catalog. Add a new template.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center p-20 text-muted-foreground italic">No products in catalog. Add a new template.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -160,7 +166,8 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
             storeType: 'PHARMACY',
             unit: 'Box',
             minLevel: 10,
-            basePrice: 0,
+            purchasePrice: 0,
+            sellingPrice: 0,
         }
     });
 
@@ -230,9 +237,20 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
                                 <FormItem><FormLabel>Reorder Level</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage/></FormItem>
                             )}/>
                         </div>
-                         <FormField control={form.control} name="basePrice" render={({ field }) => (
-                            <FormItem><FormLabel>Base Price (GHS)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage/></FormItem>
-                        )}/>
+                        <div className="grid grid-cols-2 gap-4">
+                           <div>
+                              <label className="text-[9px] font-black text-slate-400 uppercase">Purchase Price (GHS)</label>
+                              <Input type="number" step="0.01" className="w-full p-4 border rounded-2xl bg-slate-50 font-black" 
+                                {...form.register("purchasePrice")} />
+                                <FormMessage>{form.formState.errors.purchasePrice?.message}</FormMessage>
+                           </div>
+                           <div>
+                              <label className="text-[9px] font-black text-blue-600 uppercase">Selling Price (GHS)</label>
+                              <Input type="number" step="0.01" className="w-full p-4 border-2 border-blue-100 rounded-2xl bg-blue-50 font-black text-blue-900" 
+                                {...form.register("sellingPrice")} />
+                                <FormMessage>{form.formState.errors.sellingPrice?.message}</FormMessage>
+                           </div>
+                        </div>
                         <DialogFooter>
                             <Button type="submit" disabled={form.formState.isSubmitting}>Authorize Catalog Entry</Button>
                         </DialogFooter>
@@ -242,3 +260,5 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
         </Dialog>
     );
 }
+
+    

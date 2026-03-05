@@ -1585,7 +1585,7 @@
           "type": "number",
           "description": "The minimum stock level before a reorder alert is triggered."
         },
-        "basePrice": {
+        "purchasePrice": {
           "type": "number",
           "description": "The cost price of the item from the supplier."
         },
@@ -1609,7 +1609,7 @@
         "category",
         "storeType",
         "minLevel",
-        "basePrice"
+        "purchasePrice"
       ]
     },
     "AccountsPayable": {
@@ -4609,4 +4609,4 @@
   }
 }
 
-  
+    
