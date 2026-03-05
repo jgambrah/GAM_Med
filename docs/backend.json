@@ -3203,6 +3203,9 @@
               "quantityOrdered": {
                 "type": "number"
               },
+              "quantityReceived": {
+                "type": "number"
+              },
               "price": {
                 "type": "number"
               }
