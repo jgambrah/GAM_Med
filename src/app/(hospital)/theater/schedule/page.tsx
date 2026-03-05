@@ -79,7 +79,7 @@ export default function TheaterSchedule() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {surgeries.map(s => (
+          {surgeries?.map(s => (
             <div key={s.id} className="bg-card p-6 rounded-[32px] border-4 border-foreground shadow-[8px_8px_0px_0px_hsl(var(--foreground))] space-y-4">
               <div className="flex justify-between items-start">
                  <span className="text-[9px] font-black bg-primary text-primary-foreground px-3 py-1 rounded-full uppercase italic">{s.theaterName}</span>
@@ -100,5 +100,3 @@ export default function TheaterSchedule() {
     </div>
   );
 }
-
-    
