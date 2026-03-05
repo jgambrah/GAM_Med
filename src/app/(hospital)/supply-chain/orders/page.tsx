@@ -111,7 +111,7 @@ export default function PurchaseOrderPage() {
   };
   
   const updateItemQuantity = (itemId: string, quantity: number) => {
-    setItems(items.map(item => item.itemId === itemId ? { ...item, quantityOrdered: quantity } : item));
+    setItems(items.map(item => item.itemId === itemId ? { ...item, quantityOrdered: quantity || 0 } : item));
   };
 
   const removeItem = (itemId: string) => {
@@ -324,11 +324,25 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
             if (!firestore) throw new Error("Firestore not available");
 
             await runTransaction(firestore, async (transaction) => {
+                // --- REFERENCE DEFINITIONS (before transaction logic) ---
                 const grnRef = doc(collection(firestore, `hospitals/${hospitalId}/grn_logs`));
                 const payableRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
                 const poRef = doc(firestore, `hospitals/${hospitalId}/purchase_orders`, po.id);
+                const inventoryRefs = values.items.map(item => ({
+                    ref: doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId),
+                    itemData: item,
+                }));
 
-                // 1. Create GRN Log
+                // --- 1. READ PHASE ---
+                // Read all inventory documents that we might update.
+                const invDocs = await Promise.all(
+                    inventoryRefs.map(inv => transaction.get(inv.ref))
+                );
+
+                // --- 2. WRITE PHASE ---
+                // All writes must happen after all reads.
+
+                // a. Create GRN Log
                 transaction.set(grnRef, {
                     grnNumber,
                     poId: po.id,
@@ -341,7 +355,7 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                     receivedAt: serverTimestamp(),
                 });
 
-                // 2. Create Accounts Payable liability record from the GRN
+                // b. Create Accounts Payable liability
                 transaction.set(payableRef, {
                     grnId: grnRef.id,
                     grnNumber,
@@ -353,49 +367,47 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
                     createdAt: serverTimestamp(),
                 });
 
-                // 3. Atomically update inventory
-                for (const item of values.items) {
-                    if (item.quantityReceived > 0) {
-                        // All inventory items should share the ID of their catalog template
-                        const inventoryItemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId);
-                        const invDoc = await transaction.get(inventoryItemRef);
-
+                // c. Update/Create Inventory Items
+                invDocs.forEach((invDoc, index) => {
+                    const { ref, itemData } = inventoryRefs[index];
+                    if (itemData.quantityReceived > 0) {
                         if (invDoc.exists()) {
-                            // If it exists, increment its quantity
-                            transaction.update(inventoryItemRef, { 
-                                quantity: increment(item.quantityReceived),
-                                batchNumber: item.batchNumber,
-                                expiryDate: item.expiryDate,
+                            // Item exists, so update its quantity
+                            transaction.update(ref, { 
+                                quantity: increment(itemData.quantityReceived),
+                                batchNumber: itemData.batchNumber,
+                                expiryDate: itemData.expiryDate,
                                 lastUpdated: serverTimestamp()
                             });
                         } else {
-                            // If it doesn't exist, create it with initial data
-                            const catalogItem = catalog?.find(c => c.id === item.itemId);
+                            // Item does not exist, so create it
+                            const catalogItem = catalog?.find(c => c.id === itemData.itemId);
                             if (catalogItem) {
-                                transaction.set(inventoryItemRef, {
+                                transaction.set(ref, {
                                     hospitalId: hospitalId,
                                     name: catalogItem.name,
                                     genericName: catalogItem.name, 
                                     sku: catalogItem.sku,
                                     price: catalogItem.basePrice,
                                     form: catalogItem.unit,
-                                    quantity: item.quantityReceived,
-                                    batchNumber: item.batchNumber,
-                                    expiryDate: item.expiryDate,
+                                    quantity: itemData.quantityReceived,
+                                    batchNumber: itemData.batchNumber,
+                                    expiryDate: itemData.expiryDate,
                                     lastUpdated: serverTimestamp()
                                 });
                             }
                         }
                     }
-                }
+                });
                 
-                // 4. Update PO status
+                // d. Update PO status
                 transaction.update(poRef, { status: 'RECEIVED', receivedAt: serverTimestamp() });
             });
 
             toast({ title: 'Goods Received Successfully', description: `GRN ${grnNumber} created. Inventory updated.` });
             onOpenChange(false);
         } catch (error: any) {
+            console.error("GRN Transaction Error:", error);
             toast({ variant: 'destructive', title: 'Error processing GRN', description: error.message });
         } finally {
             setLoading(false);
