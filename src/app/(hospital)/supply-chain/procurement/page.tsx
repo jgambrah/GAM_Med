@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
 import { Truck, Plus, Building2, Phone, Mail, Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,14 @@ export default function SupplierDirectoryPage() {
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
-    defaultValues: { name: '', tin: '', category: 'Pharmaceuticals' },
+    defaultValues: {
+      name: '',
+      tin: '',
+      contactPerson: '',
+      phone: '',
+      email: '',
+      category: 'Pharmaceuticals'
+    },
   });
 
   const handleAddSupplier = (values: SupplierFormValues) => {
@@ -177,5 +184,3 @@ export default function SupplierDirectoryPage() {
     </div>
   );
 }
-
-    
