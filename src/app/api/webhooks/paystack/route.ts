@@ -1,3 +1,6 @@
+'use server';
+// Forces Vercel to skip static generation for this route
+export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
@@ -5,9 +8,6 @@ import crypto from 'crypto';
 import { Resend } from 'resend';
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-
-// Add this line to prevent Next.js from trying to pre-render this during build
-export const dynamic = 'force-dynamic';
 
 // Initialize with a fallback to prevent build crashes
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
