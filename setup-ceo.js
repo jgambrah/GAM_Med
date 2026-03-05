@@ -40,6 +40,13 @@ async function grantSuperAdminRole(email) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true }); // Use merge to not overwrite if a basic profile already exists
     console.log(`✅ User profile document created/updated in 'users' collection.`);
+    
+    // 3. Create a corresponding /app_ceos document for security rules
+    await db.collection('app_ceos').doc(user.uid).set({
+      email: user.email,
+      provisionedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    console.log(`✅ App CEO document created in 'app_ceos' collection for rule checks.`);
 
 
     console.log("--------------------------------------------------");
