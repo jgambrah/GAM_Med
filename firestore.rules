@@ -33,11 +33,10 @@ service cloud.firestore {
 
     /**
      * Returns true if the user is a global administrator (SUPER_ADMIN).
-     * This check is based on the existence of a document in the /app_ceos collection,
-     * which is a more reliable and performant check.
+     * This check is based on the role field in the user's own profile document.
      */
     function isSuperAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid));
+      return isSignedIn() && getCallingUserData().role == 'SUPER_ADMIN';
     }
     
     /**
@@ -153,10 +152,6 @@ service cloud.firestore {
       allow read, list: if isSuperAdmin();
       allow create: if isSignedIn(); // Allow backend functions to write
       allow update, delete: if false;
-    }
-
-    match /app_ceos/{ceoId} {
-      allow read, write: if isSuperAdmin();
     }
     
     match /platform_global_health_stats/{recordId} {
