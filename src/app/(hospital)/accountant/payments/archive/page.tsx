@@ -120,6 +120,9 @@ export default function PaymentVoucherArchive() {
       {selectedPV && (
         <Dialog open={!!selectedPV} onOpenChange={() => setSelectedPV(null)}>
             <DialogContent className="max-w-4xl p-0">
+                <DialogHeader>
+                  <DialogTitle className="sr-only">Payment Voucher Details</DialogTitle>
+                </DialogHeader>
                 <PrintablePV voucher={selectedPV} hospitalName={hospitalData?.name} user={user} />
             </DialogContent>
         </Dialog>
