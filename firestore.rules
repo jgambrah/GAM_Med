@@ -104,19 +104,19 @@ service cloud.firestore {
     }
     
     match /{path=**}/deliveries/{deliveryId} {
-        allow list: if isSignedIn();
+        allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
     
     match /{path=**}/encounters/{encounterId} {
-      allow list: if isSignedIn();
+      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
     }
     
     match /{path=**}/lab_orders/{orderId} {
-      allow list: if isSignedIn();
+      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
     }
     
     match /{path=**}/radiology_orders/{orderId} {
-       allow list: if isSignedIn();
+       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
     }
     
     match /{path=**}/maternity_profiles/{profileId} {
@@ -124,11 +124,11 @@ service cloud.firestore {
     }
     
     match /{path=**}/patients/{patientId} {
-      allow list: if request.query.limit == 1; 
+      allow list: if isSuperAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1; 
     }
     
     match /{path=**}/payments/{paymentId} {
-      allow list: if isSignedIn();
+      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
     }
 
 
@@ -143,7 +143,7 @@ service cloud.firestore {
     match /appointments/{appointmentId} {
         allow create: if true; // Allows unauthenticated patient portal
         allow read: if isAnyStaff(resource.data.hospitalId) || true; // Open for patient portal
-        allow list: if request.query.patientId != null || (isSuperAdmin() || isStaffOfHospital(request.query.hospitalId));
+        allow list: if isSuperAdmin() || request.auth.token.hospitalId != null || request.query.patientId != null;
         allow update: if (isAnyStaff(resource.data.hospitalId)) || (request.resource.data.status == 'CANCELLED_BY_PATIENT');
         allow delete: if isDirectorOrAdmin(resource.data.hospitalId);
     }
@@ -181,7 +181,8 @@ service cloud.firestore {
     
     match /sms_logs/{logId} {
       allow create: if false; // Only backend can create
-      allow read, list: if isSuperAdmin(); // Only CEO can review logs
+      allow get: if isSuperAdmin() || (getCallingUserData().hospitalId == resource.data.hospitalId);
+      allow list: if isSuperAdmin() || (request.auth.token.hospitalId != null);
       allow update, delete: if false; // Immutable
     }
     
@@ -467,7 +468,7 @@ service cloud.firestore {
 
       match /lab_orders/{orderId} {
         allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSignedIn();
+        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create: if false;
         allow update: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
@@ -490,7 +491,7 @@ service cloud.firestore {
 
       match /radiology_orders/{orderId} {
         allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSignedIn();
+        allow list: isSuperAdmin() || isAnyStaff(hospitalId);
         allow create: if false;
         allow update: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
