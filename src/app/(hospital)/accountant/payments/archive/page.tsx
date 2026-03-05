@@ -11,12 +11,15 @@ import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 
 export default function PaymentVoucherArchive() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const [selectedPV, setSelectedPV] = useState<any | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -36,6 +39,16 @@ export default function PaymentVoucherArchive() {
   
   const hospitalRef = useMemoFirebase(() => hospitalId ? doc(firestore, "hospitals", hospitalId) : null, [firestore, hospitalId]);
   const { data: hospitalData } = useDoc(hospitalRef);
+
+  const filteredVouchers = useMemo(() => {
+      if (!vouchers) return [];
+      if (!searchTerm) return vouchers;
+      const lowercasedTerm = searchTerm.toLowerCase();
+      return vouchers.filter(pv => 
+          pv.pvNumber?.toLowerCase().includes(lowercasedTerm) ||
+          pv.payee?.toLowerCase().includes(lowercasedTerm)
+      );
+  }, [vouchers, searchTerm]);
 
   const isLoading = isUserLoading || isProfileLoading;
   if (isLoading) {
@@ -63,6 +76,16 @@ export default function PaymentVoucherArchive() {
         </div>
       </div>
 
+       <div className="relative max-w-xl">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <Input 
+          placeholder="Search by PV Number or Payee..."
+          className="w-full pl-12 pr-4 py-5 rounded-2xl border-2 bg-card"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       <div className="bg-card rounded-[32px] border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
@@ -76,7 +99,7 @@ export default function PaymentVoucherArchive() {
           </TableHeader>
           <TableBody>
             {areVouchersLoading ? <TableRow><TableCell colSpan={5} className="text-center p-12"><Loader2 className="animate-spin" /></TableCell></TableRow> : 
-            vouchers?.map(pv => (
+            filteredVouchers?.map(pv => (
               <TableRow key={pv.id}>
                 <TableCell className="font-mono font-bold text-primary">{pv.pvNumber}</TableCell>
                 <TableCell className="font-bold uppercase">{pv.payee}</TableCell>
@@ -87,6 +110,9 @@ export default function PaymentVoucherArchive() {
                 </TableCell>
               </TableRow>
             ))}
+            {!areVouchersLoading && filteredVouchers.length === 0 && (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground p-12 italic">No vouchers found.</TableCell></TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
@@ -103,24 +129,45 @@ export default function PaymentVoucherArchive() {
 }
 
 function PrintablePV({ voucher, hospitalName, user }: any) {
+  const handlePrint = () => {
+    const printWindow = window.open('', '', 'height=800,width=800');
+    if (printWindow) {
+      const printableContent = document.getElementById('printable-voucher-content')?.innerHTML;
+      if (printableContent) {
+        printWindow.document.write('<html><head><title>Print Voucher</title>');
+        // You might need to link to your stylesheet or embed styles for it to look correct
+        printWindow.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; } }</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(printableContent);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }
+    }
+  }
+
   return (
-    <div className="bg-white text-black p-0 font-serif">
+    <>
+    <div id="printable-voucher-content" className="bg-white text-black p-0 font-serif">
          <div className="border-4 border-black p-8">
             <div className="text-center border-b-4 border-black pb-4 mb-6">
                <h1 className="text-3xl font-black uppercase tracking-tighter">{hospitalName}</h1>
                <h2 className="text-xl font-bold uppercase tracking-[0.3em] bg-black text-white inline-block px-8 py-1 mt-2">Payment Voucher</h2>
             </div>
             <div className="flex justify-between items-start mb-8">
-               <div className="space-y-2"><p className="font-bold uppercase text-sm">PV No: <span className="border-b-2 border-dotted border-black ml-2 px-4">{voucher.pvNumber}</span></p><p className="font-bold uppercase text-sm">Date: <span className="border-b-2 border-dotted border-black ml-2 px-4">{voucher.createdAt ? new Date(voucher.createdAt.toDate()).toLocaleDateString('en-GB') : 'N/A'}</span></p><p className="font-bold uppercase text-sm">Payee: <span className="border-b-2 border-dotted border-black ml-2 px-4">{voucher.payee}</span></p></div>
-               <div className="text-right"><div className="border-4 border-black p-4 text-center"><p className="text-[10px] font-black uppercase">Voucher Currency</p><p className="text-2xl font-black uppercase">GHS</p></div></div>
+               <div className="space-y-2 text-sm"><p className="font-bold uppercase">PV No: <span className="border-b-2 border-dotted border-black ml-2 px-4">{voucher.pvNumber}</span></p><p className="font-bold uppercase">Date: <span className="border-b-2 border-dotted border-black ml-2 px-4">{voucher.createdAt ? new Date(voucher.createdAt.toDate()).toLocaleDateString('en-GB') : 'N/A'}</span></p><p className="font-bold uppercase">Payee: <span className="border-b-2 border-dotted border-black ml-2 px-4">{voucher.payee}</span></p></div>
+               <div className="text-right"><div className="border-4 border-black p-4 text-center"><p className="text-[10px] font-black uppercase">Currency</p><p className="text-2xl font-black uppercase">GHS</p></div></div>
             </div>
             <table className="w-full border-4 border-black mb-8"><thead className="bg-slate-200"><tr className="border-b-4 border-black"><th className="p-4 text-left font-black uppercase text-sm border-r-4 border-black">Description of Payment / Narration</th><th className="p-4 text-right font-black uppercase text-sm">Amount (GHS)</th></tr></thead><tbody className="font-bold"><tr className="border-b-2 border-black"><td className="p-6 h-40 align-top border-r-4 border-black">{voucher.narration}</td><td className="p-6 text-right">{voucher.grossAmount.toFixed(2)}</td></tr><tr className="border-b-2 border-black"><td className="p-3 text-right font-black uppercase text-xs border-r-4 border-black">Add: VAT & Statutory Levies (Effective 21.9%)</td><td className="p-3 text-right">{voucher.vatAmount.toFixed(2)}</td></tr><tr className="border-b-4 border-black"><td className="p-3 text-right font-black uppercase text-xs border-r-4 border-black text-red-600 italic underline">Less: Withholding Tax ({voucher.whtLabel || `${voucher.whtRate*100}%`})</td><td className="p-3 text-right text-red-600">({voucher.whtAmount.toFixed(2)})</td></tr><tr className="bg-slate-100"><td className="p-6 text-right font-black text-xl uppercase border-r-4 border-black">Net Amount Payable</td><td className="p-6 text-right font-black text-2xl">GHS {voucher.netAmount.toFixed(2)}</td></tr></tbody></table>
             <div className="grid grid-cols-3 gap-8 mt-12"><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Prepared By (Accountant)</p><p className="text-[11px] font-bold mt-1 uppercase italic">{voucher.processedByName}</p></div></div><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Internal Audit (Pre-Audit)</p><div className="h-6"></div><p className="text-[8px] italic">Certification Stamp Required</p></div></div><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Approved By (Director)</p></div></div></div>
             <div className="mt-16 text-center border-t border-slate-200 pt-4 opacity-50"><p className="text-[8px] font-black uppercase tracking-[0.5em]">Digitally Generated by GamMed ERP Ecosystem • Powered by Gam IT Solutions</p></div>
          </div>
-         <div className="p-4 bg-muted flex justify-end print:hidden">
-            <Button onClick={() => window.print()}><Printer size={16}/> Print</Button>
-         </div>
-      </div>
+    </div>
+    <div className="p-4 bg-muted flex justify-end">
+        <Button onClick={handlePrint}><Printer size={16}/> Print</Button>
+    </div>
+    </>
   );
 }
