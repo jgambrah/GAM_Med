@@ -1,9 +1,8 @@
 
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import { Package, Plus, Search, Loader2, ShieldAlert, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -33,24 +32,18 @@ export default function ProductCatalogPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
-
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
   const catalogQuery = useMemoFirebase(() => {
@@ -67,7 +60,7 @@ export default function ProductCatalogPage() {
       return products.filter(p => p.name.toLowerCase().includes(lowercasedTerm) || p.sku.toLowerCase().includes(lowercasedTerm));
   }, [products, searchTerm]);
   
-  const isLoading = isUserLoading || isClaimsLoading;
+  const isLoading = isUserLoading || isProfileLoading;
   
   if (isLoading) {
     return (
@@ -128,15 +121,17 @@ export default function ProductCatalogPage() {
           <TableBody>
             {areProductsLoading && <TableRow><TableCell colSpan={5} className="text-center h-48"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
             {filteredProducts?.map(p => {
-               const margin = p.sellingPrice > 0 ? (((p.sellingPrice - p.purchasePrice) / p.sellingPrice) * 100).toFixed(1) : "0";
+               const purchasePrice = p.purchasePrice ?? 0;
+               const sellingPrice = p.sellingPrice ?? 0;
+               const margin = sellingPrice > 0 ? (((sellingPrice - purchasePrice) / sellingPrice) * 100).toFixed(1) : "0";
                return (
                   <TableRow key={p.id}>
                     <TableCell className="p-4">
                       <p className="font-bold text-primary">{p.sku}</p>
                       <p className="uppercase text-card-foreground font-semibold">{p.name}</p>
                     </TableCell>
-                    <TableCell className="p-4 text-right font-mono text-muted-foreground">{p.purchasePrice.toFixed(2)}</TableCell>
-                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{p.sellingPrice.toFixed(2)}</TableCell>
+                    <TableCell className="p-4 text-right font-mono text-muted-foreground">{(p.purchasePrice ?? 0).toFixed(2)}</TableCell>
+                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{(p.sellingPrice ?? 0).toFixed(2)}</TableCell>
                     <TableCell className={`p-4 text-right font-black ${Number(margin) < 15 ? 'text-destructive' : 'text-green-600'}`}>{margin}%</TableCell>
                     <TableCell className="p-4 text-right">
                         <Button variant="ghost" size="sm">Edit</Button>
@@ -261,4 +256,3 @@ const AddProductDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: strin
     );
 }
 
-    
