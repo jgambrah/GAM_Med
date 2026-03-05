@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment } from 'firebase/firestore';
+import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction } from 'firebase/firestore';
 import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -263,7 +263,7 @@ export default function PurchaseOrderPage() {
           </Table>
          </div>
       </div>
-      {selectedPO && <ReceiveGoodsDialog po={selectedPO} hospitalId={hospitalId} user={user} open={!!selectedPO} onOpenChange={() => setSelectedPO(null)} />}
+      {selectedPO && <ReceiveGoodsDialog po={selectedPO} hospitalId={hospitalId} user={user} open={!!selectedPO} onOpenChange={() => setSelectedPO(null)} catalog={catalog || []} />}
     </>
   );
 }
@@ -293,9 +293,10 @@ interface ReceiveGoodsDialogProps {
     user: any;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    catalog: any[];
 }
 
-function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange }: ReceiveGoodsDialogProps) {
+function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog }: ReceiveGoodsDialogProps) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -318,54 +319,80 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange }: Receiv
         }, 0);
 
         const grnNumber = `GRN-${Date.now().toString().slice(-6)}`;
-        const batch = writeBatch(firestore);
-
-        // 1. Create GRN Log
-        const grnRef = doc(collection(firestore, `hospitals/${hospitalId}/grn_logs`));
-        batch.set(grnRef, {
-            grnNumber,
-            poId: po.id,
-            supplierName: po.supplierName,
-            items: values.items.filter(i => i.quantityReceived > 0),
-            totalValue,
-            hospitalId,
-            receivedBy: user.uid,
-            receivedByName: user.displayName,
-            receivedAt: serverTimestamp(),
-        });
-        
-        // 2. Create Accounts Payable liability record from the GRN
-        const payableRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
-        batch.set(payableRef, {
-            grnId: grnRef.id,
-            grnNumber: grnNumber,
-            supplierId: po.supplierId,
-            supplierName: po.supplierName,
-            amountOwed: totalValue,
-            status: 'UNPAID',
-            hospitalId: hospitalId,
-            createdAt: serverTimestamp(),
-        });
-
-        // 3. Update inventory for each received item
-        values.items.forEach(item => {
-            if (item.quantityReceived > 0) {
-                const inventoryItemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId);
-                batch.update(inventoryItemRef, { 
-                    quantity: increment(item.quantityReceived),
-                    batchNumber: item.batchNumber,
-                    expiryDate: item.expiryDate,
-                    lastUpdated: serverTimestamp()
-                });
-            }
-        });
-
-        // 4. Update PO status
-        const poRef = doc(firestore, `hospitals/${hospitalId}/purchase_orders`, po.id);
-        batch.update(poRef, { status: 'RECEIVED', receivedAt: serverTimestamp() });
         
         try {
-            await batch.commit();
+            if (!firestore) throw new Error("Firestore not available");
+
+            await runTransaction(firestore, async (transaction) => {
+                const grnRef = doc(collection(firestore, `hospitals/${hospitalId}/grn_logs`));
+                const payableRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
+                const poRef = doc(firestore, `hospitals/${hospitalId}/purchase_orders`, po.id);
+
+                // 1. Create GRN Log
+                transaction.set(grnRef, {
+                    grnNumber,
+                    poId: po.id,
+                    supplierName: po.supplierName,
+                    items: values.items.filter(i => i.quantityReceived > 0),
+                    totalValue,
+                    hospitalId,
+                    receivedBy: user.uid,
+                    receivedByName: user.displayName,
+                    receivedAt: serverTimestamp(),
+                });
+
+                // 2. Create Accounts Payable liability record from the GRN
+                transaction.set(payableRef, {
+                    grnId: grnRef.id,
+                    grnNumber,
+                    supplierId: po.supplierId,
+                    supplierName: po.supplierName,
+                    amountOwed: totalValue,
+                    status: 'UNPAID',
+                    hospitalId,
+                    createdAt: serverTimestamp(),
+                });
+
+                // 3. Atomically update inventory
+                for (const item of values.items) {
+                    if (item.quantityReceived > 0) {
+                        // All inventory items should share the ID of their catalog template
+                        const inventoryItemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, item.itemId);
+                        const invDoc = await transaction.get(inventoryItemRef);
+
+                        if (invDoc.exists()) {
+                            // If it exists, increment its quantity
+                            transaction.update(inventoryItemRef, { 
+                                quantity: increment(item.quantityReceived),
+                                batchNumber: item.batchNumber,
+                                expiryDate: item.expiryDate,
+                                lastUpdated: serverTimestamp()
+                            });
+                        } else {
+                            // If it doesn't exist, create it with initial data
+                            const catalogItem = catalog?.find(c => c.id === item.itemId);
+                            if (catalogItem) {
+                                transaction.set(inventoryItemRef, {
+                                    hospitalId: hospitalId,
+                                    name: catalogItem.name,
+                                    genericName: catalogItem.name, 
+                                    sku: catalogItem.sku,
+                                    price: catalogItem.basePrice,
+                                    form: catalogItem.unit,
+                                    quantity: item.quantityReceived,
+                                    batchNumber: item.batchNumber,
+                                    expiryDate: item.expiryDate,
+                                    lastUpdated: serverTimestamp()
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                // 4. Update PO status
+                transaction.update(poRef, { status: 'RECEIVED', receivedAt: serverTimestamp() });
+            });
+
             toast({ title: 'Goods Received Successfully', description: `GRN ${grnNumber} created. Inventory updated.` });
             onOpenChange(false);
         } catch (error: any) {
@@ -428,4 +455,3 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange }: Receiv
         </Dialog>
     );
 }
-    

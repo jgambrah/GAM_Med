@@ -3044,6 +3044,10 @@
         "hospitalId": {
           "type": "string"
         },
+        "sku": {
+          "type": "string",
+          "description": "SKU from the master product catalog."
+        },
         "name": {
           "type": "string",
           "description": "The brand or trade name of the drug."
@@ -4521,5 +4525,3 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
-
-    
