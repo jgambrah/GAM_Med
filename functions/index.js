@@ -1,7 +1,8 @@
-
+'use server';
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
+const { addDays } = require("date-fns");
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
@@ -158,15 +159,114 @@ exports.createWardAndBeds = onCall({ region: "us-central1" }, async (request) =>
   }
 });
 
+
 /**
  * A CEO-level function to provision a new hospital tenant.
  */
-exports.provisionFullHospital = onCall({ region: "us-central1" }, async (request) => {
-  // Logic for CEO-level hospital creation would go here.
-  // This is a placeholder for a complex operation.
-  console.log("Provisioning request received:", request.data);
-  return { success: true, hospitalId: `prov-${Date.now()}`, message: "Provisioning initiated." };
+exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYSTACK_SECRET_KEY"] }, async (request) => {
+  if (request.auth?.token.role !== 'SUPER_ADMIN') {
+    throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
+  }
+
+  const {
+    hospitalName,
+    region,
+    directorEmail,
+    directorName,
+    mrnPrefix,
+    subscriptionPlan,
+  } = request.data;
+
+  if (!hospitalName || !directorEmail || !mrnPrefix) {
+    throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
+  }
+  
+  const batch = db.batch();
+  const hospitalRef = db.collection('hospitals').doc(); // Auto-generate ID for the new hospital
+  const hospitalId = hospitalRef.id;
+
+  try {
+    // 1. Create Director Auth Account
+    const directorUserRecord = await admin.auth().createUser({
+        email: directorEmail,
+        password: 'Password123!', // Standard initial password
+        displayName: directorName,
+    });
+    
+    // 2. Set Custom Claims for Director
+    await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
+      role: 'DIRECTOR',
+      hospitalId: hospitalId
+    });
+
+    // 3. Create Hospital Document with all details
+    batch.set(hospitalRef, {
+        hospitalId: hospitalId,
+        name: hospitalName,
+        region: region,
+        directorUid: directorUserRecord.uid,
+        directorEmail: directorEmail,
+        mrnPrefix: mrnPrefix,
+        subscriptionPlan: subscriptionPlan,
+        status: 'active',
+        isSuspended: false,
+        subscriptionStatus: 'ACTIVE',
+        patientCounter: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
+        nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
+        gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
+    });
+
+    // 4. Create Director's Firestore Profile in /users
+    const userRef = db.collection('users').doc(directorUserRecord.uid);
+    batch.set(userRef, {
+      uid: directorUserRecord.uid,
+      fullName: directorName,
+      email: directorEmail,
+      role: 'DIRECTOR',
+      hospitalId: hospitalId,
+      is_active: true,
+      mustChangePassword: true,
+      onboardingComplete: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    
+    // 5. PROVISION STANDARD CHART OF ACCOUNTS
+    const starterCOA = [
+      { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
+      { code: '1001', name: 'Petty Cash Vault', category: 'ASSETS' },
+      { code: '1099', name: 'Accumulated Depreciation', category: 'LIABILITIES' }, // As per user request, though a contra-asset
+      { code: '1200', name: 'Accounts Receivable (NHIS)', category: 'ASSETS' },
+      { code: '2000', name: 'Accounts Payable (Suppliers)', category: 'LIABILITIES' },
+      { code: '2100', name: 'Withholding Tax Payable (GRA)', category: 'LIABILITIES', isSystemAccount: true },
+      { code: '3000', name: 'Director Capital Contribution', category: 'CAPITAL' },
+      { code: '4000', name: 'Clinical Revenue (Cash)', category: 'REVENUE' },
+      { code: '5000', name: 'Staff Salary Expense', category: 'EXPENSES' },
+      { code: '5005', name: 'Depreciation Expense', category: 'EXPENSES' },
+    ];
+
+    const coaCollectionRef = db.collection('hospitals').doc(hospitalId).collection('chart_of_accounts');
+    starterCOA.forEach(acc => {
+        const newAccRef = coaCollectionRef.doc(); // Auto-generate ID
+        batch.set(newAccRef, { 
+            ...acc, 
+            currentBalance: 0, 
+            hospitalId: hospitalId,
+        });
+    });
+
+    // Commit all batched writes
+    await batch.commit();
+
+    return { success: true, hospitalId: hospitalId, message: `${hospitalName} provisioned successfully.` };
+  } catch (error) {
+    console.error("Full Hospital Provisioning Failed:", error);
+    // In a real scenario, you'd want rollback logic here
+    throw new HttpsError('internal', error.message);
+  }
 });
+
 
 /**
  * Sends an SMS message via a third-party gateway.

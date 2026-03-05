@@ -1819,6 +1819,10 @@
         "currentBalance": {
           "type": "number"
         },
+        "isSystemAccount": {
+          "type": "boolean",
+          "description": "Flag to protect system-critical accounts from deletion."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
