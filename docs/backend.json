@@ -1,6 +1,23 @@
 
 {
   "entities": {
+    "LedgerEntry": {
+      "title": "Ledger Entry",
+      "description": "A single debit or credit line item in the general ledger, forming an immutable audit trail.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "accountName": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "reference": { "type": "string", "description": "Link to the source document, e.g., PV Number or JV Number." },
+        "narration": { "type": "string" },
+        "debit": { "type": "number" },
+        "credit": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "accountId", "date", "debit", "credit", "createdAt"]
+    },
     "Surgery": {
       "title": "Surgery",
       "description": "Represents a scheduled surgical procedure.",
@@ -1834,6 +1851,7 @@
         "category",
         "accountCode",
         "currentBalance",
+        "isSystemAccount",
         "createdAt"
       ]
     },
@@ -3976,6 +3994,15 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/hospitals/{hospitalId}/ledger_entries/{entryId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/LedgerEntry"
+          },
+          "description": "Immutable log of all financial transactions for audit purposes."
+        }
+      },
       {
         "path": "/hospitals/{hospitalId}/surgeries/{surgeryId}",
         "definition": {

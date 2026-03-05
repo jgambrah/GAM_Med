@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -9,20 +10,13 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-interface JournalLine {
-  accountId: string;
-  accountName: string;
-  debit: number;
-  credit: number;
-}
-
-interface JournalEntry {
+interface LedgerEntry {
   id: string;
   createdAt: Timestamp;
-  jvNumber: string;
+  reference: string;
   narration: string;
-  lines: JournalLine[];
-  totalAmount: number;
+  debit: number;
+  credit: number;
 }
 
 export default function GeneralLedgerReport() {
@@ -31,7 +25,6 @@ export default function GeneralLedgerReport() {
   const router = useRouter();
   
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -41,7 +34,7 @@ export default function GeneralLedgerReport() {
   
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole || '');
 
   const coaQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -49,19 +42,16 @@ export default function GeneralLedgerReport() {
   }, [firestore, hospitalId]);
   const { data: coa, isLoading: isCoaLoading } = useCollection(coaQuery);
 
-  const journalEntriesQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/journal_entries`), orderBy('createdAt', 'desc'));
-  }, [firestore, hospitalId]);
-  const { data: allJournalEntries, isLoading: areJournalsLoading } = useCollection<JournalEntry>(journalEntriesQuery);
-
-  const filteredEntries = useMemo(() => {
-    if (!selectedAccountId || !allJournalEntries) return [];
-    return allJournalEntries.filter(entry => 
-      entry.lines.some(line => line.accountId === selectedAccountId)
+  const ledgerEntriesQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !selectedAccountId) return null;
+    return query(
+        collection(firestore, `hospitals/${hospitalId}/ledger_entries`), 
+        where("accountId", "==", selectedAccountId),
+        orderBy('createdAt', 'desc')
     );
-  }, [selectedAccountId, allJournalEntries]);
-  
+  }, [firestore, hospitalId, selectedAccountId]);
+  const { data: ledgerEntries, isLoading: areEntriesLoading } = useCollection<LedgerEntry>(ledgerEntriesQuery);
+
   const selectedAccount = useMemo(() => {
       if (!selectedAccountId || !coa) return null;
       return coa.find(a => a.id === selectedAccountId);
@@ -103,14 +93,14 @@ export default function GeneralLedgerReport() {
         </div>
       </div>
 
-      {selectedAccount && (
+      {selectedAccount ? (
         <div className="bg-card border-4 border-foreground p-10 shadow-sm print:border-0 print:shadow-none font-sans">
            <div className="text-center border-b-2 border-foreground pb-4 mb-8">
               <h2 className="text-2xl font-black uppercase">{selectedAccount.name}</h2>
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Account Code: {selectedAccount.accountCode} • {selectedAccount.category}</p>
            </div>
             
-           {areJournalsLoading ? <div className="p-10 text-center"><Loader2 className="animate-spin"/></div> :
+           {areEntriesLoading ? <div className="p-10 text-center"><Loader2 className="animate-spin"/></div> :
            <Table>
               <TableHeader>
                  <TableRow>
@@ -122,18 +112,15 @@ export default function GeneralLedgerReport() {
                  </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEntries.map(entry => {
-                    const relevantLine = entry.lines.find(l => l.accountId === selectedAccountId);
-                    return (
-                        <TableRow key={entry.id}>
-                            <TableCell>{format(entry.createdAt.toDate(), 'PPP')}</TableCell>
-                            <TableCell className="font-mono">{entry.jvNumber}</TableCell>
-                            <TableCell className="italic text-muted-foreground">{entry.narration}</TableCell>
-                            <TableCell className="text-right font-mono text-primary font-bold">{relevantLine?.debit > 0 ? relevantLine.debit.toFixed(2) : '-'}</TableCell>
-                            <TableCell className="text-right font-mono text-destructive font-bold">{relevantLine?.credit > 0 ? relevantLine.credit.toFixed(2) : '-'}</TableCell>
-                        </TableRow>
-                    )
-                })}
+                {ledgerEntries?.map(entry => (
+                    <TableRow key={entry.id}>
+                        <TableCell>{entry.createdAt ? format(entry.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
+                        <TableCell className="font-mono">{entry.reference}</TableCell>
+                        <TableCell className="italic text-muted-foreground">{entry.narration}</TableCell>
+                        <TableCell className="text-right font-mono text-primary font-bold">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive font-bold">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
+                    </TableRow>
+                ))}
                  <TableRow className="bg-muted/50">
                     <TableCell colSpan={4} className="text-right font-black">Current Balance</TableCell>
                     <TableCell className="text-right font-black text-lg">
@@ -143,6 +130,10 @@ export default function GeneralLedgerReport() {
               </TableBody>
            </Table>
            }
+        </div>
+      ) : (
+        <div className="p-20 bg-card border-2 border-dashed text-center text-muted-foreground italic rounded-2xl">
+            Please select an account from the dropdown above to view its transaction history.
         </div>
       )}
     </div>

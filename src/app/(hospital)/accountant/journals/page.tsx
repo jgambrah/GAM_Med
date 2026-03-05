@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -33,7 +34,7 @@ export default function JournalEntryManager() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole || '');
 
   const [narration, setNarration] = useState('');
   const [lines, setLines] = useState<JournalLine[]>([
@@ -87,6 +88,8 @@ export default function JournalEntryManager() {
     setLoading(true);
     const batch = writeBatch(firestore);
     const jvNumber = `JV-${Date.now().toString().slice(-6)}`;
+    const transactionDate = serverTimestamp();
+    const ledgerCollectionRef = collection(firestore, `hospitals/${hospitalId}/ledger_entries`);
 
     try {
       const journalRef = doc(collection(firestore, "hospitals", hospitalId, "journal_entries"));
@@ -99,7 +102,7 @@ export default function JournalEntryManager() {
         createdBy: user?.uid,
         createdByName: user?.displayName,
         status: 'POSTED',
-        createdAt: serverTimestamp(),
+        createdAt: transactionDate,
       });
 
       lines.forEach(line => {
@@ -110,6 +113,20 @@ export default function JournalEntryManager() {
         const debitAmount = Number(line.debit) || 0;
         const creditAmount = Number(line.credit) || 0;
 
+        // Create Ledger Entry "Footprint"
+        batch.set(doc(ledgerCollectionRef), {
+            hospitalId,
+            accountId: line.accountId,
+            accountName: line.accountName,
+            date: transactionDate,
+            reference: jvNumber,
+            narration,
+            debit: debitAmount,
+            credit: creditAmount,
+            createdAt: transactionDate
+        });
+
+        // Update Balance
         const effect = (accountData.category === 'ASSETS' || accountData.category === 'EXPENSES')
           ? (debitAmount - creditAmount)
           : (creditAmount - debitAmount);

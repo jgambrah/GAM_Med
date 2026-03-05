@@ -1,6 +1,7 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, writeBatch, increment } from 'firebase/firestore';
 import { 
   FileText, Printer, Save, Calculator, 
@@ -26,7 +27,7 @@ export default function PaymentVoucherManager() {
   
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole || '');
   
   const WHT_RATES = [
     { label: "Exempt / 0% (Exemption Certificate)", rate: 0 },
@@ -44,7 +45,9 @@ export default function PaymentVoucherManager() {
 
   const [form, setForm] = useState({
     debitAccountId: '',
+    debitAccountName: '',
     creditAccountId: '',
+    creditAccountName: '',
     grossAmount: 0,
     applyVat: false,
     whtRate: 0,
@@ -93,33 +96,68 @@ export default function PaymentVoucherManager() {
       const pvNumber = `PV-${hospitalId?.split('-')[2] || 'GL'}-${Date.now().toString().slice(-6)}`;
       const pvRef = doc(collection(firestore, `hospitals/${hospitalId}/payment_vouchers`));
       
+      const debitAccount = coa?.find(a => a.id === form.debitAccountId);
+      const creditAccount = coa?.find(a => a.id === form.creditAccountId);
+      
+      if (!debitAccount || !creditAccount) throw new Error("Selected account not found");
+      
+      // 1. Create the master PV record
       batch.set(pvRef, {
         ...form, pvNumber, vatAmount, whtAmount, netAmount,
         hospitalId,
+        debitAccountName: debitAccount.name,
+        creditAccountName: creditAccount.name,
         processedBy: user.uid,
         processedByName: user.displayName,
         status: 'PAID', // It's paid from the ledger perspective
         createdAt: serverTimestamp()
       });
       
+      // 2. Clear Accounts Payable if linked
       const apId = searchParams.get('apId');
       if (apId) {
         const apRef = doc(firestore, `hospitals/${hospitalId}/accounts_payable`, apId);
         batch.update(apRef, { status: 'PAID', pvId: pvRef.id });
       }
 
-      // Triple-Entry Ledger Movement
-      const creditAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.creditAccountId);
-      batch.update(creditAccRef, { currentBalance: increment(-netAmount) });
+      // --- TRIPLE-ENTRY LEDGER FOOTPRINTS ---
+      const ledgerCollectionRef = collection(firestore, `hospitals/${hospitalId}/ledger_entries`);
+      const transactionDate = serverTimestamp();
 
-      const debitAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.debitAccountId);
-      batch.update(debitAccRef, { currentBalance: increment(form.grossAmount) });
+      // a. Debit the expense/asset account
+      batch.set(doc(ledgerCollectionRef), {
+          hospitalId, accountId: form.debitAccountId, accountName: debitAccount.name,
+          date: transactionDate, reference: pvNumber, narration: form.narration,
+          debit: form.grossAmount, credit: 0, createdAt: transactionDate
+      });
       
-      const whtAccount = coa?.find(a => a.accountCode === '2100');
-      if (!whtAccount) throw new Error("WHT Payable Account (Code: 2100) not found in Chart of Accounts.");
-      const whtAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, whtAccount.id);
-      batch.update(whtAccRef, { currentBalance: increment(whtAmount) });
+      // b. Credit the bank/cash account
+      batch.set(doc(ledgerCollectionRef), {
+          hospitalId, accountId: form.creditAccountId, accountName: creditAccount.name,
+          date: transactionDate, reference: pvNumber, narration: form.narration,
+          debit: 0, credit: netAmount, createdAt: transactionDate
+      });
 
+      // c. Credit the WHT Payable account
+      if (whtAmount > 0) {
+        const whtAccount = coa?.find(a => a.accountCode === '2100');
+        if (!whtAccount) throw new Error("WHT Payable Account (Code: 2100) not found in Chart of Accounts.");
+        batch.set(doc(ledgerCollectionRef), {
+            hospitalId, accountId: whtAccount.id, accountName: whtAccount.name,
+            date: transactionDate, reference: pvNumber, narration: `WHT for ${form.payee}`,
+            debit: 0, credit: whtAmount, createdAt: transactionDate
+        });
+      }
+
+      // 4. UPDATE LEDGER BALANCES
+      batch.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.debitAccountId), { currentBalance: increment(form.grossAmount) });
+      batch.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.creditAccountId), { currentBalance: increment(-netAmount) });
+      if (whtAmount > 0) {
+        const whtAccount = coa?.find(a => a.accountCode === '2100');
+        if (whtAccount) {
+            batch.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, whtAccount.id), { currentBalance: increment(whtAmount) });
+        }
+      }
 
       await batch.commit();
 
