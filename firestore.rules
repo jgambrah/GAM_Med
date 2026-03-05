@@ -1,5 +1,4 @@
 
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -221,6 +220,10 @@ service cloud.firestore {
       // Allow writes to subcollections to "pass through"
       // while still protecting the hospital document itself with more specific rules below.
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
+      
+      match /chart_of_accounts/{accountId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
       
       match /surgeries/{surgeryId} {
         allow read, list: if isClinicalStaff(hospitalId);
