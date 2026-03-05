@@ -1,6 +1,23 @@
 
 {
   "entities": {
+    "InventoryMovement": {
+      "title": "Inventory Movement",
+      "description": "An audit log entry for any change in stock quantity, such as internal issuance or adjustments.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "sku": { "type": "string" },
+        "productName": { "type": "string" },
+        "qty": { "type": "number", "description": "The quantity moved. Positive for additions, negative for deductions." },
+        "type": { "type": "string", "enum": ["INTERNAL_ISSUE", "STOCK_TAKE_ADJ", "GRN_RECEIPT", "DISPOSAL"] },
+        "source": { "type": "string" },
+        "destination": { "type": "string" },
+        "authorizedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "sku", "productName", "qty", "type", "authorizedBy", "createdAt"]
+    },
     "LedgerEntry": {
       "title": "Ledger Entry",
       "description": "A single debit or credit line item in the general ledger, forming an immutable audit trail.",
@@ -1401,6 +1418,9 @@
               },
               "quantityRequested": {
                 "type": "number"
+              },
+              "quantityIssued": {
+                "type": "number"
               }
             },
             "required": [
@@ -1416,7 +1436,8 @@
             "PENDING",
             "APPROVED",
             "ISSUED",
-            "REJECTED"
+            "REJECTED",
+            "PARTIALLY_ISSUED"
           ]
         },
         "createdAt": {
@@ -1436,6 +1457,13 @@
         "issuedAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "lastIssuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastIssuedBy": {
+          "type": "string"
         },
         "rejectionReason": {
           "type": "string"
@@ -4012,6 +4040,13 @@
   "firestore": {
     "structure": [
       {
+        "path": "/hospitals/{hospitalId}/inventory_movements/{movementId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/InventoryMovement" },
+          "description": "Logs all movements of stock for auditing."
+        }
+      },
+      {
         "path": "/hospitals/{hospitalId}/ledger_entries/{entryId}",
         "definition": {
           "schema": {
@@ -4573,3 +4608,5 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
+
+  
