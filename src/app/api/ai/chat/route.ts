@@ -1,10 +1,21 @@
-import { NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
 
-// This is a placeholder API route to fix a build error.
-// The actual AI chat functionality is handled via a Server Action.
-export async function POST(request: Request) {
-  return NextResponse.json(
-    { error: 'This endpoint is not used. Use the `askClinicalAssistant` server action instead.' },
-    { status: 404 }
-  );
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY || "");
+
+export async function POST(req: Request) {
+  try {
+    const { prompt, patientId, userRole } = await req.json();
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent([
+      `You are the GamMed AI Clinical Assistant. Role: ${userRole}. Patient context: ${patientId || 'None'}`,
+      prompt
+    ]);
+    
+    const response = await result.response;
+    return NextResponse.json({ text: response.text() });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
