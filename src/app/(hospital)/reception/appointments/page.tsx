@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
@@ -10,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
+import { Input } from '@/components/ui/input';
 
 type Appointment = {
     id: string;
@@ -17,7 +17,7 @@ type Appointment = {
     patientId: string;
     doctorName: string;
     timeSlot: string;
-    status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+    status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'CANCELLED_BY_PATIENT';
 }
 
 export default function AppointmentsQueuePage() {
