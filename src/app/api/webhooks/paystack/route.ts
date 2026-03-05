@@ -1,41 +1,36 @@
-'use server';
 // Forces Vercel to skip static generation for this route
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import crypto from 'crypto';
-import { Resend } from 'resend';
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 
-// Initialize with a fallback to prevent build crashes
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
-
-// Admin SDK is initialized in the imported module. We just use the exported db instance.
 const db = adminDb;
 
-
 export async function POST(req: NextRequest) {
-  const secret = process.env.PAYSTACK_SECRET_KEY;
+  try {
+    const body = await req.json();
 
-  if (!secret) {
-    console.error("Paystack secret key is not set.");
-    return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
-  }
+    // 1. Verify Paystack Signature
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    const signature = req.headers.get('x-paystack-signature');
+    
+    if (!secret || !signature) {
+        return new NextResponse('Missing signature', { status: 401 });
+    }
 
-  const body = await req.json();
-  const hash = crypto.createHmac('sha512', secret).update(JSON.stringify(body)).digest('hex');
+    const hash = crypto.createHmac('sha512', secret).update(JSON.stringify(body)).digest('hex');
 
-  // 1. Verify that the request actually came from Paystack
-  if (hash !== req.headers.get('x-paystack-signature')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    if (hash !== signature) {
+      return new NextResponse('Invalid signature', { status: 401 });
+    }
+    
+    const event = body;
 
-  const event = body;
-
-  if (event.event === 'charge.success') {
-    try {
+    // 2. Logic for success
+    if (event.event === 'charge.success') {
       const { hospital_id, billing_cycle, plan_id } = event.data.metadata.custom_fields.reduce((acc: any, curr: any) => ({...acc, [curr.variable_name]: curr.value}), {});
       
       const hospitalRef = db.collection("hospitals").doc(hospital_id);
@@ -46,7 +41,6 @@ export async function POST(req: NextRequest) {
         const currentNextBilling = (hospitalData?.nextBillingDate as Timestamp)?.toDate() || new Date();
         const newNextBilling = new Date(currentNextBilling > new Date() ? currentNextBilling : new Date());
 
-        // 2. Add Time: 30 Days or 365 Days
         if (billing_cycle === 'ANNUAL') {
           newNextBilling.setFullYear(newNextBilling.getFullYear() + 1);
         } else {
@@ -56,7 +50,6 @@ export async function POST(req: NextRequest) {
         const newGracePeriod = new Date(newNextBilling);
         newGracePeriod.setDate(newGracePeriod.getDate() + 5);
 
-        // 3. EXECUTE RE-ACTIVATION
         await hospitalRef.update({
           nextBillingDate: Timestamp.fromDate(newNextBilling),
           gracePeriodExpiry: Timestamp.fromDate(newGracePeriod),
@@ -68,10 +61,11 @@ export async function POST(req: NextRequest) {
         
         console.log(`✅ System Reactivated for ${hospital_id} until ${newNextBilling.toDateString()}`);
       }
-    } catch (error) {
-        console.error("Webhook processing error:", error);
     }
-  }
 
-  return NextResponse.json({ received: true });
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (error: any) {
+    console.error('Webhook Error:', error.message);
+    return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
+  }
 }
