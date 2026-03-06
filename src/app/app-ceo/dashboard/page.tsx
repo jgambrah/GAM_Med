@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase';
@@ -7,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import Link from 'next/link';
 
 export default function CEOMasterAnalytics() {
   const { user, isUserLoading } = useUser();
@@ -194,5 +194,3 @@ function GlobalCard({ label, value, icon, color }: any) {
     </div>
   );
 }
-
-    
