@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc, serverTimestamp, getDocs, orderBy, updateDoc } from 'firebase/firestore';
 import { 
   UserCheck, Users, Stethoscope, ArrowRight, 
   Clock, MapPin, Loader2, CheckCircle2, ShieldAlert 
@@ -52,7 +52,7 @@ export default function PatientAssignmentDesk() {
 
   const handleAssign = async (patientId: string, doctor: any) => {
     setLoading(true);
-    if (!firestore || !user) {
+    if (!firestore || !user || !hospitalId) {
         toast({variant: 'destructive', title: "System not ready."});
         setLoading(false);
         return;
@@ -61,7 +61,7 @@ export default function PatientAssignmentDesk() {
       const patientRef = doc(firestore, `hospitals/${hospitalId}/patients`, patientId);
       
       // THE CLINICAL HANDSHAKE
-      updateDocumentNonBlocking(patientRef, {
+      await updateDoc(patientRef, {
         assignedDoctorId: doctor.id,
         assignedDoctorName: doctor.fullName,
         status: 'Waiting for Doctor', // This makes them pop up on the Doctor's Dashboard
