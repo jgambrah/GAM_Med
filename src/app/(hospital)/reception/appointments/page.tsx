@@ -127,9 +127,9 @@ export default function AppointmentsQueuePage() {
                                     <Badge variant={
                                         app.status === 'CONFIRMED' ? 'default' :
                                         app.status === 'COMPLETED' ? 'outline' :
-                                        app.status === 'CANCELLED' ? 'destructive' :
+                                        app.status === 'CANCELLED' || app.status === 'CANCELLED_BY_PATIENT' ? 'destructive' :
                                         'secondary'
-                                    }>{app.status}</Badge>
+                                    }>{app.status.replace(/_/g, ' ')}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
                                     {app.status === 'PENDING' && (
@@ -138,7 +138,7 @@ export default function AppointmentsQueuePage() {
                                     {app.status === 'CONFIRMED' && (
                                         <Button size="sm" onClick={() => handleCheckIn(app)}><Clock/> Check-In</Button>
                                     )}
-                                    {app.status !== 'CANCELLED' && app.status !== 'COMPLETED' && (
+                                    {app.status !== 'CANCELLED' && app.status !== 'COMPLETED' && app.status !== 'CANCELLED_BY_PATIENT' && (
                                          <Button size="sm" variant="ghost" onClick={() => handleUpdateStatus(app.id, 'CANCELLED')}><X size={16}/></Button>
                                     )}
                                 </TableCell>
