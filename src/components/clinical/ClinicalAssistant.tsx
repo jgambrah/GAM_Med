@@ -81,6 +81,13 @@ export function ClinicalAssistant() {
     if (!input.trim() || !userProfile) return;
 
     const userMessage: Message = { role: 'user', content: input };
+
+    // Format previous messages for the AI's history
+    const history = messages.slice(-4).map(m => ({
+        role: m.role === 'user' ? 'user' : 'model' as const,
+        parts: [{ text: m.content }]
+    }));
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -91,7 +98,8 @@ export function ClinicalAssistant() {
             patientContext,
             userRole: userProfile.role,
             hospitalId: userProfile.hospitalId,
-            fullName: userProfile.fullName
+            fullName: userProfile.fullName,
+            history: history, // Pass the formatted history
         };
         const response = await askClinicalAssistant(assistantInput);
         const assistantMessage: Message = { role: 'assistant', content: response.text };

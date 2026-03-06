@@ -10,12 +10,18 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
+const HistoryPartSchema = z.object({
+  role: z.enum(['user', 'model']),
+  parts: z.array(z.object({ text: z.string() })),
+});
+
 const ClinicalAssistantInputSchema = z.object({
   prompt: z.string().describe("The user's query to the assistant."),
   patientContext: z.string().describe("A JSON string of the patient's recent encounters and lab results."),
   userRole: z.string().describe('The role of the user asking the question.'),
   fullName: z.string().describe('The full name of the user.'),
   hospitalId: z.string().describe('The ID of the hospital the user belongs to.'),
+  history: z.array(HistoryPartSchema).optional().describe('The conversation history.'),
 });
 export type ClinicalAssistantInput = z.infer<typeof ClinicalAssistantInputSchema>;
 
@@ -28,15 +34,7 @@ export async function askClinicalAssistant(input: ClinicalAssistantInput): Promi
   return clinicalAssistantFlow(input);
 }
 
-const clinicalAssistantPrompt = ai.definePrompt({
-  name: 'clinicalAssistantPrompt',
-  input: { schema: ClinicalAssistantInputSchema },
-  output: { schema: ClinicalAssistantOutputSchema },
-  prompt: `You are the GamMed Clinical Co-Pilot, a high-level medical consultant assistant in Ghana.
-User: {{{fullName}}} ({{{userRole}}})
-Hospital ID: {{{hospitalId}}}
-
-Provided Patient Context: {{{patientContext}}}
+const systemInstruction = `You are the GamMed Clinical Co-Pilot, a high-level medical consultant assistant in Ghana.
 
 CONTEXT MANAGEMENT:
 - If the user acknowledges a summary, DO NOT repeat the vitals again. Move to the next clinical step.
@@ -50,8 +48,7 @@ CLINICAL PROTOCOLS (Ghana Health Service Standard):
 RESPONSE STYLE:
 - Be concise. Don't say "I'm ready to assist you" every time. 
 - Use "Socratic Questioning": Ask the doctor about missing data (e.g., "Doctor, given the high RR, have you checked the SpO2 or Chest sounds?").
-- Always end with the mandatory disclaimer: "I am an AI assistant. Final clinical decisions must be made by a licensed professional."`,
-});
+- Always end with the mandatory disclaimer: "I am an AI assistant. Final clinical decisions must be made by a licensed professional."`;
 
 const clinicalAssistantFlow = ai.defineFlow(
   {
@@ -60,7 +57,20 @@ const clinicalAssistantFlow = ai.defineFlow(
     outputSchema: ClinicalAssistantOutputSchema,
   },
   async (input) => {
-    const { output } = await clinicalAssistantPrompt(input);
+    // Dynamic context information to be provided with each prompt.
+    const dynamicContext = `
+      User: ${input.fullName} (${input.userRole})
+      Hospital ID: ${input.hospitalId}
+      Provided Patient Context: ${input.patientContext}
+    `;
+
+    const { output } = await ai.generate({
+      system: systemInstruction, // Static system-level instructions
+      prompt: `${dynamicContext}\n\nUser Query: ${input.prompt}`, // Dynamic context combined with the user's latest question
+      history: input.history, // The previous turns of the conversation
+      output: { schema: ClinicalAssistantOutputSchema },
+    });
+    
     if (!output) {
       throw new Error('The AI failed to generate a response.');
     }
