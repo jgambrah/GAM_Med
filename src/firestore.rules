@@ -3,6 +3,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 1. THE CEO MASTER RULE
+    // This master key grants the SUPER_ADMIN full read/write access to the entire database,
+    // bypassing all more specific rules below. This is the ultimate "God Mode" switch.
+    match /{document=**} {
+      allow read, write: if request.auth.token.role == 'SUPER_ADMIN';
+    }
+
     // --------------------------------
     // Helper Functions
     // --------------------------------
@@ -523,11 +530,9 @@ service cloud.firestore {
         allow create: if (isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER') && request.resource.data.hospitalId == hospitalId;
         allow delete: if false; // Payments are immutable
         // Allow accountants/directors to update only the claim status fields
-        allow update: if (isSuperAdmin() || isDirectorOrAdmin(hospitalId))
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimStatus', 'submittedAt']);
       }
     }
   }
 }
-
-    
