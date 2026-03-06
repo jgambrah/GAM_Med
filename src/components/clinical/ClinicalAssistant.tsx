@@ -8,6 +8,8 @@ import {
   BrainCircuit, Send, X, Sparkles, 
   Loader2 
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
 
 type Message = {
     role: 'user' | 'assistant';
@@ -18,6 +20,7 @@ export function ClinicalAssistant() {
   const { user } = useUser();
   const { id: patientId } = useParams(); // Automatically detect if we are in a patient folder
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -37,41 +40,47 @@ export function ClinicalAssistant() {
     if (!input.trim() || !userProfile) return;
 
     const userMessage: Message = { role: 'user', content: input };
-    const history = messages.slice(-4).map(m => ({
-        role: m.role === 'user' ? 'user' : 'model' as const,
-        parts: [{ text: m.content }]
-    }));
-    
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
     setIsLoading(true);
 
     try {
-        const res = await fetch('/api/ai/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              prompt: input, 
-              history: history,
-              patientId: Array.isArray(patientId) ? patientId[0] : patientId || null,
-              userRole: userProfile?.role,
-              fullName: userProfile?.fullName
-            }),
-        });
+      const history = updatedMessages.slice(-6).map(m => ({
+          role: m.role === 'user' ? 'user' : 'model' as const,
+          parts: [{ text: m.content }]
+      }));
+      
+      const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            prompt: input, 
+            history: history,
+            patientId: Array.isArray(patientId) ? patientId[0] : patientId || null,
+            userRole: userProfile?.role,
+            fullName: userProfile?.fullName
+          }),
+      });
 
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || 'API request failed');
-        }
+      if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'API request failed');
+      }
 
-        const data = await res.json();
-        const assistantMessage: Message = { role: 'assistant', content: data.text };
-        setMessages(prev => [...prev, assistantMessage]);
+      const data = await res.json();
+      const assistantMessage: Message = { role: 'assistant', content: data.text };
+      setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error: any) {
-        console.error("AI Assistant Error:", error);
-        const errorMessage: Message = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
-        setMessages(prev => [...prev, errorMessage]);
+      console.error("AI Assistant Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Assistant Error",
+        description: "Assistant disconnected. Check internet or API key.",
+      });
+      const errorMessage: Message = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
         setIsLoading(false);
     }
