@@ -16,7 +16,7 @@ const db = admin.firestore();
  * Onboards a new staff member.
  * Creates an Auth user and a corresponding user profile in Firestore.
  */
-exports.onboardStaff = onCall({ region: "us-central1" }, async (request) => {
+exports.onboardStaff = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   }
@@ -65,7 +65,7 @@ exports.onboardStaff = onCall({ region: "us-central1" }, async (request) => {
 /**
  * Registers a new patient and assigns a unique EHR number.
  */
-exports.registerPatient = onCall({ region: "us-central1" }, async (request) => {
+exports.registerPatient = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
@@ -115,7 +115,7 @@ exports.registerPatient = onCall({ region: "us-central1" }, async (request) => {
 /**
  * Creates a new clinical encounter and updates patient status.
  */
-exports.createEncounter = onCall({ region: "us-central1" }, async (request) => {
+exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
@@ -178,7 +178,7 @@ exports.createEncounter = onCall({ region: "us-central1" }, async (request) => {
 /**
  * Creates a new ward and automatically provisions the specified number of beds.
  */
-exports.createWardAndBeds = onCall({ region: "us-central1" }, async (request) => {
+exports.createWardAndBeds = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   }
@@ -227,7 +227,7 @@ exports.createWardAndBeds = onCall({ region: "us-central1" }, async (request) =>
 /**
  * A CEO-level function to provision a new hospital tenant.
  */
-exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYSTACK_SECRET_KEY"] }, async (request) => {
+exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYSTACK_SECRET_KEY"], cors: true }, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
   }
@@ -338,7 +338,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
 /**
  * Sends an SMS message via a third-party gateway.
  */
-exports.sendClinicalSms = onCall({ region: "us-central1" }, async (request) => {
+exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (request) => {
     // In a real app, you would use a secret for the API key.
     // const smsApiKey = functions.config().sms.key;
     const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY"; 
@@ -375,7 +375,7 @@ exports.sendClinicalSms = onCall({ region: "us-central1" }, async (request) => {
 /**
  * A CEO-level security tool to repair a user's roles and hospital assignment.
  */
-exports.repairUserIdentity = onCall({ region: "us-central1" }, async (request) => {
+exports.repairUserIdentity = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin.');
   }
@@ -396,3 +396,5 @@ exports.repairUserIdentity = onCall({ region: "us-central1" }, async (request) =
     throw new HttpsError('internal', error.message);
   }
 });
+
+    
