@@ -9,11 +9,11 @@ import {
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
-const menuGroups = [
+const allMenuGroups = [
   {
     title: "Clinical",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
-      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays },
       { name: "Set Availability", href: "/doctor/availability", icon: Clock },
@@ -25,6 +25,7 @@ const menuGroups = [
   },
   {
     title: "Reception",
+    roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'],
     items: [
         { name: "Front Desk", href: "/reception", icon: Users },
         { name: "Appointments", href: "/reception/appointments", icon: Calendar },
@@ -33,6 +34,7 @@ const menuGroups = [
   },
   {
     title: "Analytics",
+    roles: ['DIRECTOR', 'ADMIN'],
     items: [
       { name: "Performance", href: "/director/reports", icon: BarChart3 },
       { name: "GHS Returns", href: "/director/reports/ghs", icon: Landmark },
@@ -40,12 +42,14 @@ const menuGroups = [
   },
   {
     title: "Communication",
+    roles: ['DIRECTOR', 'ADMIN'],
     items: [
       { name: "Comms Hub", href: "/director/communication", icon: MessageSquare },
     ]
   },
   {
     title: "Operating Theater",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
       { name: "Theater Setup", href: "/theater/setup", icon: Settings },
       { name: "OT Schedule", href: "/theater/schedule", icon: Calendar },
@@ -53,6 +57,7 @@ const menuGroups = [
   },
   {
     title: "Inpatient",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
       { name: "Ward Setup", href: "/wards/setup", icon: BedDouble },
       { name: "Bed Management", href: "/wards/management", icon: ClipboardList },
@@ -60,12 +65,14 @@ const menuGroups = [
   },
   {
     title: "Maternity",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
       { name: "ANC Dashboard", href: "/maternity/dashboard", icon: Baby },
     ]
   },
   {
     title: "Specialty Units",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
       { name: "Unit Setup", href: "/specialty/setup", icon: Zap },
       { name: "Treatment Dashboard", href: "/specialty/dashboard", icon: ClipboardList },
@@ -74,6 +81,7 @@ const menuGroups = [
   },
   {
     title: "Requisitions",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'],
     items: [
       { name: "New Request", href: "/requisitions/new", icon: Plus },
       { name: "Approve Requests", href: "/requisitions/approve", icon: CheckCircle2 },
@@ -81,6 +89,7 @@ const menuGroups = [
   },
   {
     title: "Ancillary Services",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'],
     items: [
         { name: "Pharmacy", href: "/pharmacy", icon: Package },
         { name: "Laboratory", href: "/lab/queue", icon: Beaker },
@@ -89,6 +98,7 @@ const menuGroups = [
   },
   {
     title: "Supply Chain",
+    roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'],
     items: [
       { name: "Dashboard", href: "/supply-chain", icon: LayoutDashboard },
       { name: "Store Dashboard", href: "/supply-chain/store", icon: HardDrive },
@@ -103,6 +113,7 @@ const menuGroups = [
   },
   {
     title: "Administrative",
+    roles: ['DIRECTOR', 'ADMIN'],
     items: [
       { name: "Staff", href: "/staff", icon: Users },
       { name: "Procedure Setup", href: "/procedures/setup", icon: Scissors },
@@ -111,6 +122,7 @@ const menuGroups = [
   },
    {
     title: "Human Resources",
+    roles: ['DIRECTOR', 'ADMIN', 'HR_MANAGER'],
     items: [
       { name: "HR Dashboard", href: "/hr", icon: Users },
       { name: "Attendance Setup", href: "/hr/attendance/setup", icon: Clock },
@@ -125,6 +137,7 @@ const menuGroups = [
   },
    {
     title: "Finance",
+    roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'],
     items: [
       { name: "Accountant Console", href: "/accountant", icon: Wallet },
       { name: "Financial Reports", href: "/accountant/reports", icon: BarChart3 },
@@ -156,6 +169,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     router.push('/');
   };
 
+  const userRole = userProfile?.role;
   const isLocum = userProfile?.contractType === 'LOCUM';
 
   const myPortalMenu = {
@@ -169,9 +183,12 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     ].filter(Boolean) as { name: string; href: string; icon: React.ElementType }[],
   };
 
+  const visibleMenuGroups = allMenuGroups.filter(group => 
+    userRole === 'DIRECTOR' || (group.roles && group.roles.includes(userRole))
+  );
 
   return (
-    <div className="w-64 h-screen bg-white text-slate-800 flex flex-col border-r border-slate-200">
+    <div className="w-64 h-screen bg-white text-slate-800 flex-col border-r border-slate-200 hidden md:flex">
       {/* Header */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center gap-3 mb-1">
@@ -187,7 +204,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 py-4">
-        {[...menuGroups, myPortalMenu].map((group, idx) => (
+        {[...visibleMenuGroups, myPortalMenu].map((group, idx) => (
           <div key={idx} className="mb-6">
             <h3 className="text-[10px] font-bold text-slate-400 tracking-widest px-3 mb-2 uppercase">
               {group.title}
