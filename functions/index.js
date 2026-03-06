@@ -113,6 +113,69 @@ exports.registerPatient = onCall({ region: "us-central1" }, async (request) => {
 });
 
 /**
+ * Creates a new clinical encounter and updates patient status.
+ */
+exports.createEncounter = onCall({ region: "us-central1" }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
+  }
+
+  const { 
+    patientId, 
+    hospitalId, 
+    encounterType, 
+    patientName,
+    vitals, 
+    ...restOfEncounterData 
+  } = request.data;
+
+  if (!patientId || !hospitalId || !encounterType) {
+    throw new HttpsError('invalid-argument', 'Missing required encounter data.');
+  }
+
+  const batch = db.batch();
+  
+  // 1. Create the new encounter document
+  const encounterRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId).collection('encounters').doc();
+  
+  const fullVitals = vitals ? {
+      ...vitals,
+      bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : ''
+  } : {};
+  
+  batch.set(encounterRef, {
+    id: encounterRef.id,
+    patientId,
+    hospitalId,
+    patientName,
+    type: encounterType,
+    providerUid: request.auth.uid,
+    providerName: request.auth.token.name || 'Unknown Staff',
+    providerRole: request.auth.token.role || 'UNKNOWN',
+    vitals: fullVitals,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    ...restOfEncounterData
+  });
+
+  // 2. Update patient status if vitals were taken
+  const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
+  if (encounterType === 'Vitals Check' || (vitals && (vitals.systolic || vitals.temp))) {
+    batch.update(patientRef, {
+      status: 'Waiting for Assignment' // Ready for doctor
+    });
+  }
+
+  try {
+    await batch.commit();
+    return { success: true, encounterId: encounterRef.id, message: 'Encounter created successfully.' };
+  } catch (error) {
+    console.error("Encounter creation failed:", error);
+    throw new HttpsError('internal', 'Failed to save encounter data.');
+  }
+});
+
+
+/**
  * Creates a new ward and automatically provisions the specified number of beds.
  */
 exports.createWardAndBeds = onCall({ region: "us-central1" }, async (request) => {
@@ -333,5 +396,3 @@ exports.repairUserIdentity = onCall({ region: "us-central1" }, async (request) =
     throw new HttpsError('internal', error.message);
   }
 });
-
-    
