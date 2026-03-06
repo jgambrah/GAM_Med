@@ -17,46 +17,43 @@ export async function POST(req: Request) {
   try {
     const { prompt, history, patientId, userRole, fullName } = await req.json();
     
-    // 1. DYNAMIC CONTEXT RETRIEVAL
-    let patientContext = "No patient file open.";
+    let clinicalContext = "";
+
+    // 1. THE AGGRESSIVE FETCH:
     if (patientId) {
       const encSnap = await adminDb.collectionGroup("encounters")
         .where("patientId", "==", patientId)
         .orderBy("createdAt", "desc").limit(3).get();
       
-      const clinicalData = encSnap.docs.map(d => ({
-        vitals: d.data().vitals,
-        notes: d.data().chiefComplaint,
-        diagnosis: d.data().diagnosis
-      }));
-      patientContext = JSON.stringify(clinicalData);
+      if (!encSnap.empty) {
+        const latest = encSnap.docs[0].data();
+        clinicalContext = `
+          LATEST PATIENT DATA (READ THIS FIRST):
+          - Vitals: BP ${latest.vitals?.bp}, Temp ${latest.vitals?.temp}°C, RR ${latest.vitals?.respiration}bpm, Pulse ${latest.vitals?.pulse}bpm, BMI ${latest.vitals?.bmi}.
+          - Clinical Notes: ${latest.chiefComplaint || 'None'}
+          - Diagnosis: ${latest.diagnosis || 'None'}
+        `;
+      }
     }
 
-    // 2. THE HIGH-GRADE SYSTEM PROMPT
+    // 2. THE COMMANDING SYSTEM PROMPT
     const systemInstruction = `
-      You are the GamMed Clinical Co-Pilot, a high-level medical consultant assistant in Ghana.
+      You are the GamMed AI Clinical Assistant. 
+      You are NOT a generic AI. You ARE integrated into the hospital's EHR.
       
-      CONTEXT MANAGEMENT:
-      - If the user acknowledges a summary, DO NOT repeat the vitals again. Move to the next clinical step.
-      - Only show "Navigation Assistance" if the user specifically asks "How do I..." or "Where is...".
-
-      CLINICAL PROTOCOLS (Ghana Health Service Standard):
-      - RESPIRATORY (RR 45): This is a CRITICAL EMERGENCY. Suggest immediate stabilization, airway check, and oxygen. List potential differentials: Pulmonary Embolism, Acute Heart Failure, or Severe Pneumonia.
-      - HYPERTENSION (92 Diastolic): Refer to GHS Hypertension guidelines. Suggest repeating BP after rest and checking for end-organ damage (blurred vision, headache).
-      - OBESITY (BMI 58): Suggest long-term metabolic review and screening for Sleep Apnea.
-
-      RESPONSE STYLE:
-      - Be concise. Don't say "I'm ready to assist you" every time. 
-      - Use "Socratic Questioning": Ask the doctor about missing data (e.g., "Doctor, given the high RR, have you checked the SpO2 or Chest sounds?").
-      - Always end with the mandatory disclaimer: "I am an AI assistant. Final clinical decisions must be made by a licensed professional."
+      CURRENT PATIENT FILE: ${clinicalContext}
+      
+      INSTRUCTIONS:
+      - If a patientId is present, you MUST acknowledge the vitals listed above immediately.
+      - NEVER say "I do not have access to folders." You have been provided the data in this prompt.
+      - If you see a Respiration Rate (RR) over 30, you must treat this as an EMERGENCY.
+      - Assist Dr. ${fullName} by summarizing the history found in the "LATEST PATIENT DATA" block.
     `;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    // 3. START CONVERSATION WITH HISTORY (Memory)
     const chatSession = model.startChat({
-      history: history || [], // This allows the bot to remember the last few messages
-      generationConfig: { maxOutputTokens: 500 }
+      history: history || [],
+      generationConfig: { maxOutputTokens: 800 }
     });
 
     const result = await chatSession.sendMessage([systemInstruction, prompt]);
