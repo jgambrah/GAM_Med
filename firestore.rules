@@ -137,7 +137,8 @@ service cloud.firestore {
     // --------------------------------
     
     match /app_ceos/{ceoId} {
-      allow read, write: if isSuperAdmin();
+      allow get: if isSignedIn();
+      allow list, create, update, delete: if isSuperAdmin();
     }
     
     match /appointments/{appointmentId} {
