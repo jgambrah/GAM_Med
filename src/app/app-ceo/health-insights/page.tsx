@@ -18,8 +18,10 @@ export default function CEOHealthInsights() {
   const firestore = useFirestore();
 
   const mortalityQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "platform_global_health_stats"), orderBy("createdAt", "desc"));
+    // Temporarily disabled to prevent permission errors
+    return null;
+    // if (!firestore) return null;
+    // return query(collection(firestore, "platform_global_health_stats"), orderBy("createdAt", "desc"));
   }, [firestore]);
 
   const { data: mortalityData, isLoading: loading } = useCollection(mortalityQuery);
