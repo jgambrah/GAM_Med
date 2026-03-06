@@ -33,9 +33,16 @@ async function restoreCeoStatus() {
       mustChangePassword: false
     }, { merge: true });
 
+    // CRITICAL FIX: Create the document for the exists() check in security rules
+    await admin.firestore().collection('app_ceos').doc(user.uid).set({
+      email: user.email,
+      restoredAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
     console.log("--------------------------------------------------");
     console.log("✅ POWER RESTORED: Dr. James Gambrah is the CEO.");
     console.log(`User ID: ${user.uid}`);
+    console.log("✅ All access methods (Custom Claim & Firestore Document) have been synchronized.");
     console.log("--------------------------------------------------");
     console.log("ACTION REQUIRED: Log out and Log back in to refresh your token.");
     process.exit();
