@@ -17,21 +17,30 @@ export async function POST(req: Request) {
   try {
     const { prompt, history, patientId, userRole, fullName } = await req.json();
     
-    let clinicalContext = "";
+    let clinicalContext = "No patient file open.";
 
-    // 1. THE AGGRESSIVE FETCH:
+    // 1. THE AGGRESSIVE FETCH & FILTER:
     if (patientId) {
       const encSnap = await adminDb.collectionGroup("encounters")
         .where("patientId", "==", patientId)
-        .orderBy("createdAt", "desc").limit(3).get();
+        .orderBy("createdAt", "desc")
+        .limit(5) 
+        .get();
       
-      if (!encSnap.empty) {
-        const latest = encSnap.docs[0].data();
+      // FILTER: Only send records to Gemini that actually have vitals data
+      const clinicalData = encSnap.docs
+        .map(d => d.data())
+        .filter(data => data.vitals && data.vitals.bp && data.vitals.bp !== ""); // Ignore placeholders
+
+      if (clinicalData.length > 0) {
+        const latest = clinicalData[0];
         clinicalContext = `
-          LATEST PATIENT DATA (READ THIS FIRST):
-          - Vitals: BP ${latest.vitals?.bp}, Temp ${latest.vitals?.temp}°C, RR ${latest.vitals?.respiration}bpm, Pulse ${latest.vitals?.pulse}bpm, BMI ${latest.vitals?.bmi}.
-          - Clinical Notes: ${latest.chiefComplaint || 'None'}
-          - Diagnosis: ${latest.diagnosis || 'None'}
+          LATEST VALID CLINICAL DATA:
+          - Date: ${latest.createdAt?.toDate().toDateString()}
+          - Vitals: BP ${latest.vitals.bp}, Temp ${latest.vitals.temp}°C, Pulse ${latest.vitals.pulse}bpm, Weight ${latest.vitals.weight}kg, BMI ${latest.vitals.bmi}.
+          - Chief Complaint: ${latest.chiefComplaint || 'No notes'}
+          - Diagnosis: ${latest.diagnosis || 'No diagnosis'}
+          - Signed by: ${latest.providerName}
         `;
       }
     }
