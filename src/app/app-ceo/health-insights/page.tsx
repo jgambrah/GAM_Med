@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -12,6 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
 } from 'recharts';
+import { Button } from '@/components/ui/button';
 
 export default function CEOHealthInsights() {
   const { user } = useUser();
