@@ -3,13 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 1. THE CEO MASTER RULE
-    // This master key grants the SUPER_ADMIN full read/write access to the entire database,
-    // bypassing all more specific rules below. This is the ultimate "God Mode" switch.
-    match /{document=**} {
-      allow read, write: if request.auth.token.role == 'SUPER_ADMIN';
-    }
-
     // --------------------------------
     // Helper Functions
     // --------------------------------
@@ -27,6 +20,20 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    /**
+     * Resilient SUPER_ADMIN check. Validates against the auth token (fast path) AND
+     * a document in /app_ceos (resilient path for stale tokens). This is the key to CEO access.
+     */
+    function isSuperAdmin() {
+      return (request.auth.token.role == 'SUPER_ADMIN') || exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid));
+    }
+    
+    // This master rule grants the SUPER_ADMIN full read/write access to the entire database.
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+
 
     /**
      * Retrieves the calling user's profile data from the /users collection.
@@ -35,14 +42,6 @@ service cloud.firestore {
      */
     function getCallingUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    /**
-     * Returns true if the user is a global administrator (SUPER_ADMIN).
-     * This now relies solely on the custom claim set in the user's auth token.
-     */
-    function isSuperAdmin() {
-      return isSignedIn() && request.auth.token.role == 'SUPER_ADMIN';
     }
     
     /**
@@ -150,7 +149,7 @@ service cloud.firestore {
     match /appointments/{appointmentId} {
         allow create: if true; // Allows unauthenticated patient portal
         allow read: if isAnyStaff(resource.data.hospitalId) || true; // Open for patient portal
-        allow list: if isSuperAdmin() || request.auth.token.hospitalId != null || request.query.patientId != null;
+        allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null) || request.query.patientId != null;
         allow update: if (isAnyStaff(resource.data.hospitalId)) || (request.resource.data.status == 'CANCELLED_BY_PATIENT');
         allow delete: if isDirectorOrAdmin(resource.data.hospitalId);
     }
@@ -222,19 +221,19 @@ service cloud.firestore {
     }
 
     match /hospitals/{hospitalId} {
-      allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
+      allow get: if isAnyStaff(hospitalId);
       allow list, create, update, delete: if isSuperAdmin();
       
       // Allow writes to subcollections to "pass through"
       // while still protecting the hospital document itself with more specific rules below.
-      allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
+      allow write: if isAnyStaff(hospitalId);
       
       match /ledger_entries/{entryId} {
-        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list, create, update, delete: if isDirectorOrAdmin(hospitalId);
       }
       
       match /chart_of_accounts/{accountId} {
-        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list, create, update, delete: if isDirectorOrAdmin(hospitalId);
       }
       
       match /surgeries/{surgeryId} {
@@ -245,294 +244,295 @@ service cloud.firestore {
       }
 
       match /theaters/{theaterId} {
-        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list: if isAnyStaff(hospitalId);
+        allow create, update, delete: if isDirectorOrAdmin(hospitalId);
       }
       
       match /specialty_units/{unitId} {
         allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
       
       match /treatment_plans/{planId} {
-        allow get, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, create, update: if isClinicalStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow delete: if isDirectorOrAdmin(hospitalId);
 
         match /sessions/{sessionId} {
-          allow get, create: if isSuperAdmin() || isClinicalStaff(hospitalId);
-          allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-          allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId); // Only admin can edit a logged session
+          allow get, create: if isClinicalStaff(hospitalId);
+          allow list: if isStaffOfHospital(hospitalId);
+          allow update: if isDirectorOrAdmin(hospitalId); // Only admin can edit a logged session
           allow delete: if false; // Sessions are part of the medical record
         }
       }
       
       match /cpd_submissions/{submissionId} {
-        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
-        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow create: if (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
+        allow get: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if isDirectorOrAdmin(hospitalId);
+        allow delete: if isDirectorOrAdmin(hospitalId);
       }
       
        match /requisitions/{requisitionId} {
-        allow create: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow update: if isSuperAdmin() 
-                      || (isDirectorOrAdmin(hospitalId) && request.resource.data.status in ['APPROVED', 'REJECTED'])
+        allow create: if isAnyStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow get: if isAnyStaff(hospitalId);
+        allow update: if (isDirectorOrAdmin(hospitalId) && request.resource.data.status in ['APPROVED', 'REJECTED'])
                       || (isSupplyChainStaff(hospitalId) && resource.data.status == 'APPROVED' && request.resource.data.status == 'ISSUED')
                       || (isOwner(resource.data.requestedBy) && resource.data.status == 'PENDING');
       }
 
       match /assets/{assetId} {
-        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
       
       match /payment_vouchers/{voucherId} {
-        allow get, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) && getCallingUserData().role == 'DIRECTOR');
+        allow get, create: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if (isDirectorOrAdmin(hospitalId) && getCallingUserData().role == 'DIRECTOR');
         allow delete: if false;
       }
       
       match /journal_entries/{journalId} {
-        allow get, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
         allow update, delete: if false;
       }
 
       match /accounts_payable/{payableId} {
-        allow get, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow get, update: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow create: if isSupplyChainStaff(hospitalId);
         allow delete: if false;
       }
       
       match /receivables/{receivableId} {
-        allow get, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
         allow delete: if false; 
       }
       
       match /payers/{payerId} {
-        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
       match /clinical_alerts/{alertId} {
-        allow get, create: if isSuperAdmin() || isClinicalStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow get, create: if isClinicalStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if isClinicalStaff(hospitalId);
       }
       
       match /disposal_logs/{logId} {
-        allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow get: if isSuperAdmin() || isSupplyChainStaff(hospitalId) || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow create: if isSupplyChainStaff(hospitalId);
+        allow get: if isSupplyChainStaff(hospitalId) || isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
         allow update, delete: if false;
       }
 
       match /shifts/{shiftId} {
-        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
       
       match /nursing_handovers/{handoverId} {
-        allow get, create: if isSuperAdmin() || isClinicalStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, create: if isClinicalStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update, delete: if isDirectorOrAdmin(hospitalId);
       }
 
       match /attendance_logs/{logId} {
-        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
-        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isOwner(resource.data.staffId);
+        allow get: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow create: if (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
+        allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.staffId);
         allow delete: if false;
       }
       
       match /leave_requests/{requestId} {
-        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
-        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow create: if (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
+        allow get: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if isDirectorOrAdmin(hospitalId);
+        allow delete: if isDirectorOrAdmin(hospitalId);
       }
 
       match /appraisal_cycles/{cycleId} {
-        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
       match /appraisals/{appraisalId} {
-        allow create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (resource.data.staffId == request.auth.uid);
+        allow create: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow get: if isDirectorOrAdmin(hospitalId) || (resource.data.staffId == request.auth.uid);
         allow update, delete: if false;
       }
       
       match /disciplinary_records/{recordId} {
-        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
       
       match /mortality_archive/{recordId} {
         allow create: if isClinicalStaff(hospitalId);
         allow get: if isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
         allow update, delete: if false;
       }
 
       match /payroll_config/{configId} {
-        allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, write: if isDirectorOrAdmin(hospitalId);
       }
       
       match /salary_profiles/{staffId} {
-        allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, write: if isDirectorOrAdmin(hospitalId);
       }
 
       match /payroll_runs/{runId} {
-        allow get, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
         allow update, delete: if false;
       }
 
       match /payslips/{slipId} {
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (resource.data.staffId == request.auth.uid);
-        allow create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow get: if isDirectorOrAdmin(hospitalId) || (resource.data.staffId == request.auth.uid);
+        allow create: if isDirectorOrAdmin(hospitalId);
         allow update, delete: if false;
       }
 
       match /general_services/{serviceId} {
-        allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
        match /billing_items/{itemId} {
         allow create: if isAnyStaff(hospitalId);
         allow get, update, delete: if isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER';
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
       
       match /patients/{patientId} {
-        allow get, create, delete: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if (isSuperAdmin() || isAnyStaff(hospitalId)) && (resource.data.isLocked == false || !('isLocked' in resource.data));
+        allow get, create, delete: if isAnyStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if (isAnyStaff(hospitalId)) && (resource.data.isLocked == false || !('isLocked' in resource.data));
 
         match /encounters/{encounterId} {
-           allow read, list, create, update, delete: if isSuperAdmin() || isAnyStaff(hospitalId);
+           allow read, list, create, update, delete: if isAnyStaff(hospitalId);
         }
 
         match /maternity_profiles/{profileId} {
-           allow read, list, create, update, delete: if isSuperAdmin() || isClinicalStaff(hospitalId);
+           allow read, list, create, update, delete: if isClinicalStaff(hospitalId);
 
            match /deliveries/{deliveryId} {
-              allow read, create: if isSuperAdmin() || isClinicalStaff(hospitalId);
+              allow read, create: if isClinicalStaff(hospitalId);
               allow update, delete: if false;
            }
         }
       }
       
       match /admissions/{admissionId} {
-        allow get, create, update: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update: if isAnyStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
         
         match /rounds/{roundId} {
-          allow create: if isSuperAdmin() || isClinicalStaff(hospitalId);
-          allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+          allow create: if isClinicalStaff(hospitalId);
+          allow get, list: if isAnyStaff(hospitalId);
           allow update, delete: if false;
         }
       }
 
       match /pharmacy_inventory/{itemId} {
-        allow get, create, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if isSuperAdmin() || isSupplyChainStaff(hospitalId) || isClinicalStaff(hospitalId);
+        allow get, create, delete: if isSupplyChainStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if isSupplyChainStaff(hospitalId) || isClinicalStaff(hospitalId);
       }
       
       match /product_catalog/{productId} {
-        allow get, create, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, create, delete: if isSupplyChainStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
+        allow update: if isDirectorOrAdmin(hospitalId);
       }
 
       match /suppliers/{supplierId} {
-        allow get, create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isSupplyChainStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
       match /purchase_orders/{orderId} {
-        allow get, create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if isSupplyChainStaff(hospitalId);
+        allow list: if isStaffOfHospital(hospitalId);
       }
       
       match /grn_logs/{grnId} {
-        allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow get, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow create: if isSupplyChainStaff(hospitalId);
+        allow get, list: if isSupplyChainStaff(hospitalId);
         allow update, delete: if false;
       }
 
       match /lab_menu/{testId} {
-        allow get, create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if getCallingUserData().role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
       match /lab_orders/{orderId} {
-        allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow get: if isAnyStaff(hospitalId);
+        allow list: if isAnyStaff(hospitalId);
         allow create: if false;
-        allow update: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update: if getCallingUserData().role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
+        allow delete: if isDirectorOrAdmin(hospitalId);
       }
       
       match /radiology_menu/{scanId} {
-        allow get, create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if getCallingUserData().role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
       match /procedure_menu/{procedureId} {
-        allow get, create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
-        allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, create, update, delete: if getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
+        allow list: if isStaffOfHospital(hospitalId);
       }
 
       match /procedure_logs/{logId} {
-        allow create: if isSuperAdmin() || isClinicalStaff(hospitalId);
-        allow read, list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow create: if isClinicalStaff(hospitalId);
+        allow read, list: if isStaffOfHospital(hospitalId);
       }
 
       match /radiology_orders/{orderId} {
-        allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow get: if isAnyStaff(hospitalId);
+        allow list: if isAnyStaff(hospitalId);
         allow create: if false;
-        allow update: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update: if getCallingUserData().role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
+        allow delete: if isDirectorOrAdmin(hospitalId);
       }
 
       match /wards/{wardId} {
-        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create, delete: if isSuperAdmin() || getCallingUserData().role in ['DIRECTOR', 'ADMIN'];
-        allow update: if isSuperAdmin() || (getCallingUserData().role in ['DIRECTOR', 'ADMIN']) ||
+        allow read, list: if isAnyStaff(hospitalId);
+        allow create, delete: if getCallingUserData().role in ['DIRECTOR', 'ADMIN'];
+        allow update: if (getCallingUserData().role in ['DIRECTOR', 'ADMIN']) ||
                          (isClinicalStaff(hospitalId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['occupancy']));
 
         match /beds/{bedId} {
-           allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-           allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+           allow get: if isAnyStaff(hospitalId);
+           allow list: if isStaffOfHospital(hospitalId);
            allow create, delete: if false;
-           allow update: if isSuperAdmin() || isClinicalStaff(hospitalId) || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
+           allow update: if isClinicalStaff(hospitalId) || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
         }
       }
       
       match /payments/{paymentId} {
-        allow read, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER';
-        allow create: if (isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER') && request.resource.data.hospitalId == hospitalId;
+        allow read, list: if isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER';
+        allow create: if (isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER') && request.resource.data.hospitalId == hospitalId;
         allow delete: if false; // Payments are immutable
         // Allow accountants/directors to update only the claim status fields
-        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId)
+        allow update: if isDirectorOrAdmin(hospitalId)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimStatus', 'submittedAt']);
       }
     }
   }
 }
+
+    
