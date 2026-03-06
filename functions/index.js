@@ -165,6 +165,25 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     });
   }
 
+  // 3. FINANCIAL HANDSHAKE: If it's a consultation, add a billing item
+  if (encounterType === 'Consultation') {
+    const billingRef = db.collection('hospitals').doc(hospitalId).collection('billing_items').doc();
+    batch.set(billingRef, {
+      patientId,
+      patientName,
+      hospitalId,
+      encounterId: encounterRef.id,
+      description: 'OPD Consultation Fee',
+      category: 'CONSULTATION',
+      qty: 1,
+      unitPrice: 50, // This could be fetched from a services catalog later
+      total: 50,
+      status: 'UNPAID',
+      billedBy: request.auth.uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
   try {
     await batch.commit();
     return { success: true, encounterId: encounterRef.id, message: 'Encounter created successfully.' };
