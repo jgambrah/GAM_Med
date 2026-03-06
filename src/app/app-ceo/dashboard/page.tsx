@@ -34,16 +34,33 @@ export default function CEOMasterAnalytics() {
   const hospitalsQuery = useMemoFirebase(() => isSuperAdmin && firestore ? query(collection(firestore, "hospitals"), orderBy("createdAt", "desc")) : null, [firestore, isSuperAdmin]);
   const { data: hospitals, isLoading: areHospitalsLoading } = useCollection(hospitalsQuery);
   
-  const platformConfigRef = useMemoFirebase(() => isSuperAdmin && firestore ? doc(firestore, 'platform_config', 'summary') : null, [firestore, isSuperAdmin]);
-  const { data: platformConfig, isLoading: isConfigLoading } = useDoc(platformConfigRef);
-
   const pricingPlansQuery = useMemoFirebase(() => isSuperAdmin && firestore ? collection(firestore, 'pricing_plans') : null, [firestore, isSuperAdmin]);
   const { data: pricingPlans } = useCollection(pricingPlansQuery);
 
+  const stats = useMemo(() => {
+    if (!hospitals) return { totalFacilities: 0, totalPatients: 0, regionalBreakdown: {} };
+    
+    const regionalBreakdown = hospitals.reduce((acc, hospital) => {
+        if (hospital.region) {
+            acc[hospital.region] = (acc[hospital.region] || 0) + 1;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+
+    const totalPatients = hospitals.reduce((acc, h) => acc + (h.patientCounter || 0), 0);
+    
+    return {
+        totalFacilities: hospitals.length,
+        totalPatients: totalPatients,
+        regionalBreakdown
+    };
+  }, [hospitals]);
+
+
   const regionalData = useMemo(() => {
-    if (!platformConfig?.regionalBreakdown) return [];
-    return Object.entries(platformConfig.regionalBreakdown).map(([name, value]) => ({ name, value: value as number }));
-  }, [platformConfig]);
+    if (!stats?.regionalBreakdown) return [];
+    return Object.entries(stats.regionalBreakdown).map(([name, value]) => ({ name, value: value as number }));
+  }, [stats]);
 
   const projectedARR = useMemo(() => {
     if (!hospitals || !pricingPlans) return 0;
@@ -57,7 +74,7 @@ export default function CEOMasterAnalytics() {
     return mrr * 12;
   }, [hospitals, pricingPlans]);
   
-  const isLoading = isUserLoading || isClaimsLoading || areHospitalsLoading || isConfigLoading;
+  const isLoading = isUserLoading || isClaimsLoading || areHospitalsLoading;
 
   if (isLoading) {
     return (
@@ -104,8 +121,8 @@ export default function CEOMasterAnalytics() {
 
       {/* --- MASTER KPI GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <GlobalCard label="Total Network Facilities" value={platformConfig?.totalFacilities?.toString() ?? '0'} icon={<Building2/>} color="blue" />
-        <GlobalCard label="Total Lives Managed" value={platformConfig?.totalPatients?.toLocaleString() ?? '0'} icon={<Users/>} color="purple" />
+        <GlobalCard label="Total Network Facilities" value={stats.totalFacilities.toString() ?? '0'} icon={<Building2/>} color="blue" />
+        <GlobalCard label="Total Lives Managed" value={stats.totalPatients.toLocaleString() ?? '0'} icon={<Users/>} color="purple" />
         <GlobalCard label="Annual Recurring Revenue (ARR)" value={`₵ ${projectedARR.toLocaleString()}`} icon={<Wallet/>} color="green" />
       </div>
 
