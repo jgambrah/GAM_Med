@@ -41,7 +41,7 @@ const menuGroups = [
   {
     title: "GOVERNANCE",
     items: [
-      { name: "Kill-Switch", href: "#", icon: ShieldAlert },
+      { name: "Kill-Switch", href: "/app-ceo/hospitals", icon: ShieldAlert },
     ]
   },
   {
