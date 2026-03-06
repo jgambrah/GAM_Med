@@ -104,7 +104,7 @@ export function ClinicalAssistant() {
           {/* Chat Flow */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
              <div className="bg-blue-100 p-4 rounded-2xl rounded-tl-none text-[11px] text-blue-900 leading-relaxed">
-                Hello {user.displayName?.split(' ')[0]}, I am your clinical co-pilot. {patientId ? "I have analyzed the current patient's history." : "How can I help you navigate GamMed today?"}
+                Hello Dr. {userProfile?.fullName?.split(' ')[0]}, I am your clinical co-pilot. I have analyzed this patient's data. How should we proceed with management?
              </div>
              {messages.map((msg, i) => (
                <div key={i} className={'p-4 rounded-2xl text-[11px] max-w-[85%] ' + (msg.role === 'user' ? 'bg-white border-2 border-slate-200 ml-auto rounded-tr-none text-black' : 'bg-blue-600 text-white rounded-tl-none shadow-md')}>
