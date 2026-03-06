@@ -22,7 +22,7 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'SUPER_ADMIN' || 
-        exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid))
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
       );
     }
 
@@ -408,7 +408,8 @@ service cloud.firestore {
       }
 
       match /lab_menu/{testId} {
-        allow get, create, update, delete, list: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
       }
 
       match /lab_orders/{orderId} {
@@ -419,11 +420,13 @@ service cloud.firestore {
       }
       
       match /radiology_menu/{scanId} {
-        allow get, create, update, delete, list: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
       }
 
       match /procedure_menu/{procedureId} {
-        allow get, create, update, delete, list: if isSuperAdmin() || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
       }
 
       match /procedure_logs/{logId} {
@@ -460,5 +463,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
