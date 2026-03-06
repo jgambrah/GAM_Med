@@ -16,7 +16,6 @@ const menuGroups = [
     items: [
       { name: "Pulse Dashboard", href: "/app-ceo/dashboard", icon: LayoutDashboard },
       { name: "Health Insights", href: "/app-ceo/health-insights", icon: Globe },
-      { name: "Activity Feed", href: "#", icon: Activity },
     ]
   },
   {
