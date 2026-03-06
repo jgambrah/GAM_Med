@@ -27,10 +27,9 @@ export async function POST(req: Request) {
         .limit(5) 
         .get();
       
-      // FILTER: Only send records to Gemini that actually have vitals data
       const clinicalData = encSnap.docs
         .map(d => d.data())
-        .filter(data => data.vitals && data.vitals.bp && data.vitals.bp !== ""); // Ignore placeholders
+        .filter(data => data.vitals && data.vitals.bp && data.vitals.bp !== ""); 
 
       if (clinicalData.length > 0) {
         const latest = clinicalData[0];
@@ -70,10 +69,16 @@ export async function POST(req: Request) {
 
       DISCLAIMER: For decision support only. Dr. ${fullName} maintains final clinical responsibility.
     `;
+    
+    // SAFETY CHECK: Ensure history starts with 'user'
+    let safeHistory = history || [];
+    if (safeHistory.length > 0 && safeHistory[0].role !== 'user') {
+      safeHistory = safeHistory.slice(1); // Remove the first item if it's not from the user
+    }
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const chatSession = model.startChat({
-      history: history || [],
+      history: safeHistory,
       generationConfig: { maxOutputTokens: 800 }
     });
 

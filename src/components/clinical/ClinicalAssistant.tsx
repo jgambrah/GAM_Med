@@ -46,17 +46,23 @@ export function ClinicalAssistant() {
     setIsLoading(true);
 
     try {
-      const history = updatedMessages.slice(-6).map(m => ({
-          role: m.role === 'user' ? 'user' : 'model' as const,
+      // THE FIX: 
+      // 1. Filter the chat to remove the initial "Greeting" if it's the first item.
+      // 2. Map roles to 'user' and 'model' (Gemini requirement).
+      const formattedHistory = messages
+        .filter((msg, index) => !(index === 0 && msg.role === 'assistant')) // Skip first greeting
+        .slice(-6) // Take last 6 for efficiency
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
           parts: [{ text: m.content }]
-      }));
+        }));
       
       const res = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             prompt: input, 
-            history: history,
+            history: formattedHistory,
             patientId: Array.isArray(patientId) ? patientId[0] : patientId || null,
             userRole: userProfile?.role,
             fullName: userProfile?.fullName
