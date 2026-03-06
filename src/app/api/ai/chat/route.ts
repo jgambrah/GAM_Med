@@ -5,7 +5,13 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY || "");
+const apiKey = process.env.GOOGLE_GENAI_API_KEY;
+
+if (!apiKey) {
+  console.error("❌ MISSING AI API KEY: Ensure GOOGLE_GENAI_API_KEY is set in Vercel.");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey || "NO_KEY_DETECTED");
 
 export async function POST(req: Request) {
   try {
