@@ -3869,6 +3869,13 @@
           "type": "string",
           "format": "date-time",
           "description": "Timestamp of the last KPI update."
+        },
+        "regionalBreakdown": {
+          "type": "object",
+          "description": "A map of region codes to the number of facilities in that region.",
+          "additionalProperties": {
+            "type": "number"
+          }
         }
       },
       "required": [

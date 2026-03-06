@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase';
@@ -40,13 +41,9 @@ export default function CEOMasterAnalytics() {
   const { data: pricingPlans } = useCollection(pricingPlansQuery);
 
   const regionalData = useMemo(() => {
-    if (!hospitals) return [];
-    const regions: Record<string, number> = {};
-    hospitals.forEach((h: any) => {
-      regions[h.region] = (regions[h.region] || 0) + 1;
-    });
-    return Object.keys(regions).map(key => ({ name: key, value: regions[key] }));
-  }, [hospitals]);
+    if (!platformConfig?.regionalBreakdown) return [];
+    return Object.entries(platformConfig.regionalBreakdown).map(([name, value]) => ({ name, value: value as number }));
+  }, [platformConfig]);
 
   const projectedARR = useMemo(() => {
     if (!hospitals || !pricingPlans) return 0;
@@ -54,7 +51,7 @@ export default function CEOMasterAnalytics() {
         .filter(h => h.status === 'active')
         .reduce((total, hospital) => {
             const plan = pricingPlans.find(p => p.id === hospital.subscriptionPlan);
-            const priceValue = plan?.price ? Number(String(plan.price).replace(/[^0-9.-]+/g,"")) : 0;
+            const priceValue = plan?.monthlyPrice || 0;
             return total + priceValue;
     }, 0);
     return mrr * 12;
@@ -107,7 +104,7 @@ export default function CEOMasterAnalytics() {
 
       {/* --- MASTER KPI GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <GlobalCard label="Total Network Facilities" value={hospitals?.length.toString() ?? '0'} icon={<Building2/>} color="blue" />
+        <GlobalCard label="Total Network Facilities" value={platformConfig?.totalFacilities?.toString() ?? '0'} icon={<Building2/>} color="blue" />
         <GlobalCard label="Total Lives Managed" value={platformConfig?.totalPatients?.toLocaleString() ?? '0'} icon={<Users/>} color="purple" />
         <GlobalCard label="Annual Recurring Revenue (ARR)" value={`₵ ${projectedARR.toLocaleString()}`} icon={<Wallet/>} color="green" />
       </div>
@@ -147,7 +144,7 @@ export default function CEOMasterAnalytics() {
            <div className="bg-white rounded-[40px] border-4 border-slate-900 overflow-hidden shadow-2xl divide-y-4 divide-slate-900">
               {hospitals?.slice(0, 5).map(h => {
                 const plan = pricingPlans?.find(p => p.id === h.subscriptionPlan);
-                const price = plan?.price ? Number(String(plan.price).replace(/[^0-9.-]+/g,"")) : 0;
+                const price = plan?.monthlyPrice || 0;
                 return (
                     <div key={h.id} className="p-6 space-y-3">
                        <div className="flex justify-between items-center">
@@ -164,9 +161,11 @@ export default function CEOMasterAnalytics() {
                 )
               })}
               <div className="p-6 bg-slate-900">
-                 <button className="w-full bg-blue-600 text-white py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-black transition-all">
-                    Open Billing Manager
-                 </button>
+                 <Link href="/app-ceo/billing">
+                  <Button variant="outline" className="w-full bg-blue-600 text-white py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-black transition-all">
+                      Open Billing Manager
+                  </Button>
+                </Link>
               </div>
            </div>
         </div>
@@ -195,4 +194,5 @@ function GlobalCard({ label, value, icon, color }: any) {
     </div>
   );
 }
+
     

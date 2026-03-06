@@ -1,3 +1,4 @@
+
 const admin = require('firebase-admin');
 const serviceAccount = require("./serviceAccountKey.json");
 
@@ -17,6 +18,7 @@ async function initPlatform() {
       totalPatients: 0,
       totalRevenue: 0,
       activeAlerts: 0,
+      regionalBreakdown: {}, // Initialize the regional breakdown map
       lastUpdated: admin.firestore.FieldValue.serverTimestamp()
     });
     console.log("✅ Global summary document initialized.");
