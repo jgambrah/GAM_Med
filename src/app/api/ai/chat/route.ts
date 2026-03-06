@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       - Always end with the mandatory disclaimer: "I am an AI assistant. Final clinical decisions must be made by a licensed professional."
     `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // 3. START CONVERSATION WITH HISTORY (Memory)
     const chatSession = model.startChat({
