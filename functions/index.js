@@ -157,11 +157,13 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     ...restOfEncounterData
   });
 
-  // 2. Update patient status if vitals were taken
+  // 2. Update patient status and denormalize vitals if taken
   const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
   if (encounterType === 'Vitals Check' || (vitals && (vitals.systolic || vitals.temp))) {
     batch.update(patientRef, {
-      status: 'Waiting for Assignment' // Ready for doctor
+      status: 'Waiting for Assignment', // Ready for doctor
+      lastVitals: fullVitals,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
 
