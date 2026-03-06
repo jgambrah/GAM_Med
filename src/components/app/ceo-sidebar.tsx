@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Link from 'next/link';
@@ -24,7 +23,6 @@ const menuGroups = [
     title: "SALES & LEADS",
     items: [
       { name: "Leads Pipeline", href: "/app-ceo/leads", icon: HeartPulse },
-      { name: "Demo Requests", href: "/request-demo", icon: ClipboardList },
     ]
   },
   {
