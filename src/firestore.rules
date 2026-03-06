@@ -23,10 +23,11 @@ service cloud.firestore {
     
     /**
      * Resilient SUPER_ADMIN check. Validates against the auth token (fast path) AND
-     * a document in /app_ceos (resilient path for stale tokens). This is the key to CEO access.
+     * the user's profile document (resilient path for stale tokens). This is the key to CEO access.
      */
     function isSuperAdmin() {
-      return (request.auth.token.role == 'SUPER_ADMIN') || exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid));
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return request.auth.token.role == 'SUPER_ADMIN' || userData.role == 'SUPER_ADMIN';
     }
     
     // This master rule grants the SUPER_ADMIN full read/write access to the entire database.
@@ -534,5 +535,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
