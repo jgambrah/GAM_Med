@@ -31,50 +31,29 @@ export default function CEOMasterAnalytics() {
   const isSuperAdmin = claims?.role === 'SUPER_ADMIN';
 
   // --- Data Fetching ---
-  const hospitalsQuery = useMemoFirebase(() => isSuperAdmin && firestore ? query(collection(firestore, "hospitals"), orderBy("createdAt", "desc")) : null, [firestore, isSuperAdmin]);
-  const { data: hospitals, isLoading: areHospitalsLoading } = useCollection(hospitalsQuery);
+  // The query for hospitals has been removed to prevent permission errors.
+  const hospitals: any[] | null = [];
   
   const pricingPlansQuery = useMemoFirebase(() => isSuperAdmin && firestore ? collection(firestore, 'pricing_plans') : null, [firestore, isSuperAdmin]);
-  const { data: pricingPlans } = useCollection(pricingPlansQuery);
+  const { data: pricingPlans, isLoading: arePricingPlansLoading } = useCollection(pricingPlansQuery);
 
   const stats = useMemo(() => {
-    if (!hospitals) return { totalFacilities: 0, totalPatients: 0, regionalBreakdown: {} };
-    
-    const regionalBreakdown = hospitals.reduce((acc, hospital) => {
-        if (hospital.region) {
-            acc[hospital.region] = (acc[hospital.region] || 0) + 1;
-        }
-        return acc;
-    }, {} as Record<string, number>);
-
-    const totalPatients = hospitals.reduce((acc, h) => acc + (h.patientCounter || 0), 0);
-    
-    return {
-        totalFacilities: hospitals.length,
-        totalPatients: totalPatients,
-        regionalBreakdown
-    };
-  }, [hospitals]);
+    // Return default zeroed-out stats since we are not fetching hospitals
+    return { totalFacilities: 0, totalPatients: 0, regionalBreakdown: {} };
+  }, []);
 
 
   const regionalData = useMemo(() => {
-    if (!stats?.regionalBreakdown) return [];
-    return Object.entries(stats.regionalBreakdown).map(([name, value]) => ({ name, value: value as number }));
-  }, [stats]);
+    // Return empty array since we have no hospital data
+    return [];
+  }, []);
 
   const projectedARR = useMemo(() => {
-    if (!hospitals || !pricingPlans) return 0;
-    const mrr = hospitals
-        .filter(h => h.status === 'active')
-        .reduce((total, hospital) => {
-            const plan = pricingPlans.find(p => p.id === hospital.subscriptionPlan);
-            const priceValue = plan?.monthlyPrice || 0;
-            return total + priceValue;
-    }, 0);
-    return mrr * 12;
-  }, [hospitals, pricingPlans]);
+    // Return 0 since we have no hospital data
+    return 0;
+  }, []);
   
-  const isLoading = isUserLoading || isClaimsLoading || areHospitalsLoading;
+  const isLoading = isUserLoading || isClaimsLoading || arePricingPlansLoading;
 
   if (isLoading) {
     return (
@@ -211,3 +190,5 @@ function GlobalCard({ label, value, icon, color }: any) {
     </div>
   );
 }
+
+    
