@@ -1,13 +1,13 @@
+
 'use client';
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useState, useRef, useEffect } from 'react';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { useParams } from 'next/navigation';
-import { doc, collection, query, orderBy, limit, where } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { 
   BrainCircuit, Send, X, Sparkles, 
   Loader2 
 } from 'lucide-react';
-import { askClinicalAssistant, type ClinicalAssistantInput } from '@/ai/flows/ai-clinical-assistant';
 
 type Message = {
     role: 'user' | 'assistant';
@@ -33,78 +33,42 @@ export function ClinicalAssistant() {
   }, [user, firestore]);
   const { data: userProfile } = useDoc(userProfileRef);
 
-  // Fetch patient context (last 5 encounters)
-  const encountersQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile?.hospitalId || !patientId || Array.isArray(patientId)) return null;
-    return query(collection(firestore, 'hospitals', userProfile.hospitalId, 'patients', patientId as string, 'encounters'), orderBy('createdAt', 'desc'), limit(5));
-  }, [firestore, userProfile?.hospitalId, patientId]);
-  const { data: encounters, isLoading: areEncountersLoading } = useCollection(encountersQuery);
-  
-  // Fetch patient lab results
-  const labResultsQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile?.hospitalId || !patientId || Array.isArray(patientId)) return null;
-    return query(
-        collection(firestore, `hospitals/${userProfile.hospitalId}/lab_orders`), 
-        where('patientId', '==', patientId), 
-        where('status', '==', 'COMPLETED'), 
-        limit(3)
-    );
-  }, [firestore, userProfile?.hospitalId, patientId]);
-  const { data: labResults, isLoading: areLabsLoading } = useCollection(labResultsQuery);
-
-
-  const patientContext = useMemo(() => {
-    if ((areEncountersLoading || areLabsLoading) && patientId) return "Loading patient data...";
-    if (!patientId) return "No patient context available. Global mode active.";
-    
-    const history = encounters?.map(d => ({ 
-      date: d.createdAt?.toDate().toDateString(),
-      notes: d.chiefComplaint,
-      diagnosis: d.diagnosis,
-      vitals: d.vitals 
-    }));
-
-    const labs = labResults?.map(d => ({ test: d.testName, result: d.resultValue }));
-
-    if ((!history || history.length === 0) && (!labs || labs.length === 0)) {
-        return "No recent clinical records for this patient.";
-    }
-
-    return `
-      PATIENT CLINICAL CONTEXT:
-      Recent Encounters: ${JSON.stringify(history || [])}
-      Recent Lab Results: ${JSON.stringify(labs || [])}
-    `;
-  }, [encounters, labResults, areEncountersLoading, areLabsLoading, patientId]);
-
   const handleSend = async () => {
     if (!input.trim() || !userProfile) return;
 
     const userMessage: Message = { role: 'user', content: input };
-
-    // Format previous messages for the AI's history
     const history = messages.slice(-4).map(m => ({
         role: m.role === 'user' ? 'user' : 'model' as const,
         parts: [{ text: m.content }]
     }));
-
+    
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-        const assistantInput: ClinicalAssistantInput = {
-            prompt: input,
-            patientContext,
-            userRole: userProfile.role,
-            hospitalId: userProfile.hospitalId,
-            fullName: userProfile.fullName,
-            history: history, // Pass the formatted history
-        };
-        const response = await askClinicalAssistant(assistantInput);
-        const assistantMessage: Message = { role: 'assistant', content: response.text };
+        const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              prompt: input, 
+              history: history,
+              patientId: Array.isArray(patientId) ? patientId[0] : patientId || null,
+              userRole: userProfile?.role,
+              fullName: userProfile?.fullName
+            }),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'API request failed');
+        }
+
+        const data = await res.json();
+        const assistantMessage: Message = { role: 'assistant', content: data.text };
         setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+
+    } catch (error: any) {
         console.error("AI Assistant Error:", error);
         const errorMessage: Message = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
         setMessages(prev => [...prev, errorMessage]);
@@ -134,7 +98,7 @@ export function ClinicalAssistant() {
                 Hello {user.displayName?.split(' ')[0]}, I am your clinical co-pilot. {patientId ? "I have analyzed the current patient's history." : "How can I help you navigate GamMed today?"}
              </div>
              {messages.map((msg, i) => (
-               <div key={i} className={`p-4 rounded-2xl text-[11px] max-w-[85%] ${msg.role === 'user' ? 'bg-white border-2 border-slate-200 ml-auto rounded-tr-none text-black' : 'bg-blue-600 text-white rounded-tl-none shadow-md'}`}>
+               <div key={i} className={'p-4 rounded-2xl text-[11px] max-w-[85%] ' + (msg.role === 'user' ? 'bg-white border-2 border-slate-200 ml-auto rounded-tr-none text-black' : 'bg-blue-600 text-white rounded-tl-none shadow-md')}>
                  <p dangerouslySetInnerHTML={{ __html: msg.content.replace(/\\n/g, '<br />') }} />
                </div>
              ))}
