@@ -32,18 +32,18 @@ service cloud.firestore {
 
     /**
      * Returns true if the user is a global administrator (SUPER_ADMIN).
-     * This check is based on the existence of a document in the /app_ceos collection,
-     * which is a more reliable and performant check for list queries.
+     * This now relies solely on the custom claim set in the user's auth token.
      */
     function isSuperAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid));
+      return isSignedIn() && request.auth.token.role == 'SUPER_ADMIN';
     }
     
     /**
      * SECURE HELPER FOR LIST RULES: Checks if the calling user belongs to the specified hospital.
      */
     function isStaffOfHospital(hospitalId) {
-      return isSignedIn() && request.auth.token.hospitalId == hospitalId;
+      let userData = getCallingUserData();
+      return isSignedIn() && userData != null && userData.hospitalId == hospitalId;
     }
 
     /**
@@ -136,7 +136,8 @@ service cloud.firestore {
     // --------------------------------
     
     match /app_ceos/{ceoId} {
-      allow read, write: if isSuperAdmin();
+      allow get: if isSignedIn();
+      allow list, create, update, delete: if isSuperAdmin();
     }
     
     match /appointments/{appointmentId} {
@@ -528,3 +529,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
