@@ -47,7 +47,6 @@ const menuGroups = [
   {
     title: "SYSTEM",
     items: [
-      { name: "Personnel Master", href: "#", icon: Users },
       { name: "Security Hub", href: "/app-ceo/security", icon: Settings },
       { name: "Audit Log", href: "/app-ceo/audit-logs", icon: History },
     ]
