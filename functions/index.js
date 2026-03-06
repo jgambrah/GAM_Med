@@ -396,5 +396,3 @@ exports.repairUserIdentity = onCall({ region: "us-central1", cors: true }, async
     throw new HttpsError('internal', error.message);
   }
 });
-
-    
