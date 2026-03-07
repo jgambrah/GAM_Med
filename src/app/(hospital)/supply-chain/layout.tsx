@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Building2, HardDrive, Truck, 
   TrendingUp, Settings, LogOut, ChevronRight,
-  Archive, ArrowUpRight, BarChart3, Loader2, ShieldAlert
+  Archive, ArrowUpRight, BarChart3, Loader2, ShieldAlert, History
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -31,6 +31,7 @@ const menuGroups = [
       { name: "Store Dashboard", href: "/supply-chain/store", icon: LayoutDashboard },
       { name: "Issue Requisitions", href: "/supply-chain/requisitions", icon: ArrowUpRight },
       { name: "Stock Disposal", href: "/supply-chain/disposal", icon: Archive },
+      { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: History },
     ]
   },
 ];
