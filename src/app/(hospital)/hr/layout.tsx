@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   Users, UserCheck, Clock, Calendar, 
   HeartPulse, GraduationCap, Gavel, Settings,
-  LogOut, ChevronRight, Calculator, Landmark, Loader2, ShieldAlert, LayoutGrid, ListChecks
+  LogOut, ChevronRight, Calculator, Landmark, Loader2, ShieldAlert, LayoutGrid, ListChecks, Layers
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -31,6 +31,7 @@ const menuGroups = [
     title: "Payroll",
     items: [
       { name: "Payroll Config", href: "/hr/payroll/config", icon: Settings },
+      { name: "Salary Grades", href: "/hr/payroll/grades", icon: Layers },
       { name: "Payroll Items", href: "/hr/payroll/items", icon: ListChecks },
       { name: "Run Payroll", href: "/hr/payroll/run", icon: Calculator },
       { name: "Locum Tracker", href: "/hr/locum-tracker", icon: UserCheck },

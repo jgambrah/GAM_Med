@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useCollection } from '@/firebase';
@@ -6,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { 
   User, Banknote, Plus, Trash2, Save, 
   Percent, ShieldCheck, Loader2, Landmark,
-  Wallet, Briefcase, GraduationCap, X, ChevronsUpDown, Check, Scissors
+  Wallet, Briefcase, GraduationCap, X, ChevronsUpDown, Check, Scissors, Layers
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -43,10 +44,17 @@ export default function StaffSalaryProfile() {
     return query(collection(firestore, `hospitals/${userProfile.hospitalId}/payroll_items`));
   }, [firestore, userProfile]);
   const { data: payrollItems } = useCollection(payrollItemsQuery);
+  
+  const gradesQuery = useMemoFirebase(() => {
+      if(!firestore || !userProfile?.hospitalId) return null;
+      return query(collection(firestore, `hospitals/${userProfile.hospitalId}/salary_grades`));
+  }, [firestore, userProfile]);
+  const { data: grades } = useCollection(gradesQuery);
 
   const availableAllowances = useMemo(() => payrollItems?.filter(i => i.type === 'ALLOWANCE') || [], [payrollItems]);
   const availableDeductions = useMemo(() => payrollItems?.filter(i => i.type === 'DEDUCTION') || [], [payrollItems]);
 
+  const [gradeId, setGradeId] = useState('');
   const [basicSalary, setBasicSalary] = useState(0);
   const [level, setLevel] = useState('');
   const [allowances, setAllowances] = useState<{label: string, amount: number, isTaxable: boolean}[]>([]);
@@ -54,6 +62,7 @@ export default function StaffSalaryProfile() {
 
   useEffect(() => {
     if (salaryProfile) {
+      setGradeId(salaryProfile.gradeId || '');
       setBasicSalary(salaryProfile.basicSalary || 0);
       setLevel(salaryProfile.level || '');
       setAllowances(salaryProfile.allowances || []);
@@ -86,6 +95,7 @@ export default function StaffSalaryProfile() {
       setDocumentNonBlocking(profileDocRef, {
         staffId,
         hospitalId: userProfile.hospitalId,
+        gradeId,
         basicSalary,
         level,
         allowances,
@@ -126,21 +136,41 @@ export default function StaffSalaryProfile() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
           <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
-            <GraduationCap size={16} className="text-primary" /> Grade & Basic Pay
+            <ShieldCheck size={16} className="text-primary" /> Standardized Grade Assignment
           </h3>
-          <div className="grid grid-cols-2 gap-4">
-             <div>
-                <label className="text-[10px] font-black uppercase text-muted-foreground">Salary Level/Grade</label>
-                <Input className="w-full mt-1 font-black" placeholder="e.g. Senior MO 1" value={level} onChange={e => setLevel(e.target.value)} />
-             </div>
-             <div>
-                <label className="text-[10px] font-black uppercase text-muted-foreground">Basic Salary (GHS)</label>
-                <Input type="number" className="w-full mt-1 font-black text-xl" value={basicSalary} onChange={e => setBasicSalary(Number(e.target.value))} />
-             </div>
-          </div>
-          <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 flex justify-between items-center">
-             <span className="text-[10px] font-black uppercase text-primary tracking-widest">Calculated Gross</span>
-             <span className="text-2xl font-black text-foreground">₵ {grossSalary.toLocaleString()}</span>
+          <div className="space-y-4">
+            <label className="text-[10px] font-black uppercase text-muted-foreground">Select Grade Level</label>
+            <Select 
+              value={gradeId} 
+              onValueChange={(value) => {
+                const grade = grades?.find(g => g.id === value);
+                if (grade) {
+                    setGradeId(value);
+                    setBasicSalary(grade.basicSalary || 0);
+                    setLevel(`${grade.name} - ${grade.level}`);
+                }
+            }}>
+                <SelectTrigger className="w-full p-4 border-2 border-slate-100 rounded-2xl bg-slate-50 text-black font-black uppercase italic outline-none focus:border-blue-600 transition-all">
+                    <SelectValue placeholder="Choose from Hospital Scale..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {grades?.map(g => (
+                        <SelectItem key={g.id} value={g.id}>{g.name} (L{g.level}) — ₵ {g.basicSalary}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <div className="mt-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
+               <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">Authorized Basic Pay</span>
+                  <span className="text-2xl font-black text-foreground">₵ {basicSalary.toLocaleString()}</span>
+               </div>
+            </div>
+            <div className="mt-4 p-6 bg-green-50 rounded-3xl border border-green-100">
+               <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase text-green-700 tracking-widest">Calculated Gross Salary</span>
+                  <span className="text-2xl font-black text-green-900">₵ {grossSalary.toLocaleString()}</span>
+               </div>
+            </div>
           </div>
         </div>
 
@@ -172,7 +202,9 @@ export default function StaffSalaryProfile() {
              <PayrollItemSelector items={availableDeductions} onSelect={addDeduction} itemType="Deduction" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {deductions.map((item, idx) => (
+            {deductions.map((item, idx) => {
+              const registryItem = availableDeductions.find(r => r.label === item.label);
+              return (
               <div key={idx} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                 <div className="flex-1">
                   <p className="text-sm font-bold uppercase">{item.label}</p>
@@ -183,7 +215,7 @@ export default function StaffSalaryProfile() {
                 }} />
                 <Button variant="ghost" size="icon" onClick={() => removeDeduction(idx)} className="text-muted-foreground hover:text-destructive h-8 w-8"><X size={16}/></Button>
               </div>
-            ))}
+            )})}
           </div>
            {deductions.length === 0 && (
             <p className="p-10 text-center text-muted-foreground italic text-xs uppercase font-bold">No voluntary deductions applied.</p>

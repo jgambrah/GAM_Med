@@ -1,6 +1,19 @@
 
 {
   "entities": {
+    "SalaryGrade": {
+      "title": "Salary Grade",
+      "description": "Defines a standardized salary grade and level with a fixed basic salary.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "name": { "type": "string", "description": "e.g., 'Senior Medical Officer', 'Nurse Manager'" },
+        "level": { "type": "string", "description": "e.g., '1', '2', 'A'" },
+        "basicSalary": { "type": "number", "description": "The fixed monthly basic salary for this grade." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "name", "level", "basicSalary"]
+    },
     "PayrollItem": {
       "title": "Payroll Item",
       "description": "Defines a single, reusable allowance or deduction for payroll calculations.",
@@ -1252,13 +1265,17 @@
         "hospitalId": {
           "type": "string"
         },
+        "gradeId": {
+          "type": "string",
+          "description": "The ID of the assigned salary grade from the registry."
+        },
         "basicSalary": {
           "type": "number",
-          "description": "The employee's monthly basic salary before allowances and deductions."
+          "description": "The employee's monthly basic salary, derived from the grade."
         },
         "level": {
           "type": "string",
-          "description": "The employee's grade or level in the organization, e.g., Senior Nurse 1."
+          "description": "The employee's grade or level in the organization, derived from the grade."
         },
         "allowances": {
           "type": "array",
@@ -1326,7 +1343,8 @@
       "required": [
         "staffId",
         "hospitalId",
-        "basicSalary"
+        "basicSalary",
+        "gradeId"
       ]
     },
     "BillingItem": {
@@ -4081,6 +4099,13 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/hospitals/{hospitalId}/salary_grades/{gradeId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/SalaryGrade" },
+          "description": "The master salary scale for a hospital, defining grades and their basic pay."
+        }
+      },
       {
         "path": "/hospitals/{hospitalId}/payroll_items/{itemId}",
         "definition": {

@@ -200,6 +200,10 @@ service cloud.firestore {
         allow create, update, delete: if isDirectorOrAdmin(hospitalId);
       }
       
+      match /salary_grades/{gradeId} {
+        allow read, list, create, update, delete: if isDirectorOrAdmin(hospitalId);
+      }
+      
       match /ledger_entries/{entryId} {
         allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
