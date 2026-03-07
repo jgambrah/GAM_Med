@@ -67,7 +67,7 @@ export default function PayrollArchives() {
             <div className="text-center p-20">
                 <Loader2 className="animate-spin text-primary" />
             </div>
-        ) : archives?.length === 0 ? (
+        ) : !archives || archives.length === 0 ? (
             <div className="p-20 bg-card rounded-[40px] text-center italic text-muted-foreground border-2 border-dashed">
                 No payroll archives found.
             </div>
