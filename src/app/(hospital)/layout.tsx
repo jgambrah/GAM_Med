@@ -46,6 +46,7 @@ export default function HospitalLayout({
 
   const isSupplyChainRoute = pathname.startsWith('/supply-chain');
   const isAccountantRoute = pathname.startsWith('/accountant');
+  const isFinanceRoute = pathname.startsWith('/finance');
   const isHrRoute = pathname.startsWith('/hr');
   const isAuditorRoute = pathname.startsWith('/auditor');
   const isPharmacyRoute = pathname.startsWith('/pharmacy');
@@ -64,7 +65,7 @@ export default function HospitalLayout({
 
   // This is the router for specialized layouts.
   // If the path matches, we render the children directly, because the specialized layout will be inside.
-  if (isSupplyChainRoute || isAccountantRoute || isHrRoute || isAuditorRoute || isPharmacyRoute) {
+  if (isSupplyChainRoute || isAccountantRoute || isFinanceRoute || isHrRoute || isAuditorRoute || isPharmacyRoute) {
     return (
         <div className="flex min-h-screen bg-slate-50 text-slate-900">
             {children}

@@ -8,7 +8,7 @@ import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { AccountantSidebar } from '@/components/app/accountant-sidebar';
 
-export default function AccountantLayout({
+export default function FinanceLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -24,7 +24,7 @@ export default function AccountantLayout({
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
   
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'].includes(userRole);
 
   const isLoading = isUserLoading || isProfileLoading;
 
@@ -50,11 +50,11 @@ export default function AccountantLayout({
   }
 
   return (
-    <>
+    <div className="flex min-h-screen">
         <AccountantSidebar />
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
             {children}
         </main>
-    </>
+    </div>
   );
 }
