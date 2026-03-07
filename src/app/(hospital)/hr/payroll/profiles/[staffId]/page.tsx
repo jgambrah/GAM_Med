@@ -1,8 +1,7 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useCollection } from '@/firebase';
-import { doc, serverTimestamp, query, collection, where } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useCollection, updateDocumentNonBlocking } from '@/firebase';
+import { doc, serverTimestamp, query, collection } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 import { 
   User, Banknote, Plus, Trash2, Save, 
@@ -60,6 +59,14 @@ export default function StaffSalaryProfile() {
   const [allowances, setAllowances] = useState<{label: string, amount: number, isTaxable: boolean}[]>([]);
   const [deductions, setDeductions] = useState<{label: string, amount: number, category: string}[]>([]);
 
+  // NEW State for bank info
+  const [bankInfo, setBankInfo] = useState({
+    bankName: '',
+    accountNumber: '',
+    branchCode: '',
+    ghanaCardId: '',
+  });
+
   useEffect(() => {
     if (salaryProfile) {
       setGradeId(salaryProfile.gradeId || '');
@@ -68,10 +75,18 @@ export default function StaffSalaryProfile() {
       setAllowances(salaryProfile.allowances || []);
       setDeductions(salaryProfile.deductions || []);
     }
+    if (staffInfo) { // Populate bank info from user document
+        setBankInfo({
+            bankName: staffInfo.bankName || '',
+            accountNumber: staffInfo.accountNumber || '',
+            branchCode: staffInfo.branchCode || '',
+            ghanaCardId: staffInfo.ghanaCardId || '',
+        });
+    }
     if (!isProfileLoading) {
         setLoading(false);
     }
-  }, [salaryProfile, isProfileLoading]);
+  }, [salaryProfile, staffInfo, isProfileLoading]); // Depend on staffInfo too
 
   const addAllowance = (item: any) => {
     if (!allowances.some(a => a.label === item.label)) {
@@ -89,9 +104,10 @@ export default function StaffSalaryProfile() {
   const removeDeduction = (index: number) => setDeductions(deductions.filter((_, i) => i !== index));
 
   const handleSaveProfile = async () => {
-    if (!profileDocRef || !userProfile) return;
+    if (!profileDocRef || !userProfile || !staffDocRef) return; // Added staffDocRef check
     setSaving(true);
     try {
+      // Save salary profile data
       setDocumentNonBlocking(profileDocRef, {
         staffId,
         hospitalId: userProfile.hospitalId,
@@ -103,6 +119,12 @@ export default function StaffSalaryProfile() {
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid
       }, { merge: true });
+
+      // Save banking info to user document
+      updateDocumentNonBlocking(staffDocRef, {
+        ...bankInfo
+      });
+
       toast({ title: "Salary Profile Synchronized" });
     } catch (e: any) {
       toast({ variant: "destructive", title: e.message });
@@ -134,92 +156,110 @@ export default function StaffSalaryProfile() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
-          <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
-            <ShieldCheck size={16} className="text-primary" /> Standardized Grade Assignment
-          </h3>
-          <div className="space-y-4">
-            <label className="text-[10px] font-black uppercase text-muted-foreground">Select Grade Level</label>
-            <Select 
-              value={gradeId} 
-              onValueChange={(value) => {
-                const grade = grades?.find(g => g.id === value);
-                if (grade) {
-                    setGradeId(value);
-                    setBasicSalary(grade.basicSalary || 0);
-                    setLevel(`${grade.name} - ${grade.level}`);
-                }
-            }}>
-                <SelectTrigger className="w-full p-4 border-2 border-slate-100 rounded-2xl bg-slate-50 text-black font-black uppercase italic outline-none focus:border-blue-600 transition-all">
-                    <SelectValue placeholder="Choose from Hospital Scale..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {grades?.map(g => (
-                        <SelectItem key={g.id} value={g.id}>{g.name} (L{g.level}) — ₵ {g.basicSalary}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <div className="mt-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
-               <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">Authorized Basic Pay</span>
-                  <span className="text-2xl font-black text-foreground">₵ {basicSalary.toLocaleString()}</span>
-               </div>
+        <div className="space-y-8">
+            <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
+              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
+                <ShieldCheck size={16} className="text-primary" /> Standardized Grade Assignment
+              </h3>
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase text-muted-foreground">Select Grade Level</label>
+                <Select 
+                  value={gradeId} 
+                  onValueChange={(value) => {
+                    const grade = grades?.find(g => g.id === value);
+                    if (grade) {
+                        setGradeId(value);
+                        setBasicSalary(grade.basicSalary || 0);
+                        setLevel(`${grade.name} - ${grade.level}`);
+                    }
+                }}>
+                    <SelectTrigger className="w-full p-4 border-2 border-slate-100 rounded-2xl bg-slate-50 text-black font-black uppercase italic outline-none focus:border-blue-600 transition-all">
+                        <SelectValue placeholder="Choose from Hospital Scale..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {grades?.map(g => (
+                            <SelectItem key={g.id} value={g.id}>{g.name} (L{g.level}) — ₵ {g.basicSalary}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <div className="mt-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
+                <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-primary tracking-widest">Authorized Basic Pay</span>
+                    <span className="text-2xl font-black text-foreground">₵ {basicSalary.toLocaleString()}</span>
+                </div>
+                </div>
+                <div className="mt-4 p-6 bg-green-50 rounded-3xl border border-green-100">
+                <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-green-700 tracking-widest">Calculated Gross Salary</span>
+                    <span className="text-2xl font-black text-green-900">₵ {grossSalary.toLocaleString()}</span>
+                </div>
+                </div>
+              </div>
             </div>
-            <div className="mt-4 p-6 bg-green-50 rounded-3xl border border-green-100">
-               <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-green-700 tracking-widest">Calculated Gross Salary</span>
-                  <span className="text-2xl font-black text-green-900">₵ {grossSalary.toLocaleString()}</span>
-               </div>
+
+            <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
+                    <Landmark size={16} className="text-primary" /> Banking & Settlement
+                </h3>
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <InputField label="Bank Name" value={bankInfo.bankName} onChange={(v: string) => setBankInfo({...bankInfo, bankName: v})} />
+                        <InputField label="Branch Code" value={bankInfo.branchCode} onChange={(v: string) => setBankInfo({...bankInfo, branchCode: v})} />
+                    </div>
+                    <InputField label="Account Number" value={bankInfo.accountNumber} onChange={(v: string) => setBankInfo({...bankInfo, accountNumber: v})} />
+                    <InputField label="Ghana Card ID" value={bankInfo.ghanaCardId} onChange={(v: string) => setBankInfo({...bankInfo, ghanaCardId: v})} />
+                </div>
             </div>
-          </div>
         </div>
 
-        <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
-          <div className="flex justify-between items-center border-b pb-3">
-             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-               <Plus size={16} className="text-green-600" /> Additional Allowances
-             </h3>
-             <PayrollItemSelector items={availableAllowances} onSelect={addAllowance} />
-          </div>
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-            {allowances.map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-center animate-in fade-in duration-200">
-                <Input value={item.label} readOnly className="flex-1 text-xs uppercase font-black bg-muted/30" />
-                <Input type="number" placeholder="₵" className="w-24 p-3 rounded-xl text-xs font-black text-right" value={item.amount} onChange={e => {
-                  const up = [...allowances]; up[idx].amount = Number(e.target.value); setAllowances(up);
-                }} />
-                <Button variant="ghost" size="icon" onClick={() => removeAllowance(idx)} className="text-destructive p-2 h-9 w-9"><Trash2 size={16}/></Button>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6 lg:col-span-2">
-           <div className="flex justify-between items-center border-b pb-3">
-             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-               <Scissors size={16} className="text-destructive" /> Voluntary & Institutional Deductions
-             </h3>
-             <PayrollItemSelector items={availableDeductions} onSelect={addDeduction} itemType="Deduction" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {deductions.map((item, idx) => {
-              const registryItem = availableDeductions.find(r => r.label === item.label);
-              return (
-              <div key={idx} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                <div className="flex-1">
-                  <p className="text-sm font-bold uppercase">{item.label}</p>
-                  <p className="text-[9px] text-destructive/80 font-bold">{item.category}</p>
+        <div className="space-y-6">
+            <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
+            <div className="flex justify-between items-center border-b pb-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Plus size={16} className="text-green-600" /> Additional Allowances
+                </h3>
+                <PayrollItemSelector items={availableAllowances} onSelect={addAllowance} />
+            </div>
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {allowances.map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-center animate-in fade-in duration-200">
+                    <Input value={item.label} readOnly className="flex-1 text-xs uppercase font-black bg-muted/30" />
+                    <Input type="number" placeholder="₵" className="w-24 p-3 rounded-xl text-xs font-black text-right" value={item.amount} onChange={e => {
+                    const up = [...allowances]; up[idx].amount = Number(e.target.value); setAllowances(up);
+                    }} />
+                    <Button variant="ghost" size="icon" onClick={() => removeAllowance(idx)} className="text-destructive p-2 h-9 w-9"><Trash2 size={16}/></Button>
                 </div>
-                <Input type="number" placeholder="₵" className="w-28 bg-background p-2 rounded-lg text-xs font-black text-right text-destructive" value={item.amount} onChange={e => {
-                   const up = [...deductions]; up[idx].amount = Number(e.target.value); setDeductions(up);
-                }} />
-                <Button variant="ghost" size="icon" onClick={() => removeDeduction(idx)} className="text-muted-foreground hover:text-destructive h-8 w-8"><X size={16}/></Button>
-              </div>
-            )})}
-          </div>
-           {deductions.length === 0 && (
-            <p className="p-10 text-center text-muted-foreground italic text-xs uppercase font-bold">No voluntary deductions applied.</p>
-          )}
+                ))}
+            </div>
+            </div>
+            
+            <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
+            <div className="flex justify-between items-center border-b pb-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Scissors size={16} className="text-destructive" /> Voluntary & Institutional Deductions
+                </h3>
+                <PayrollItemSelector items={availableDeductions} onSelect={addDeduction} itemType="Deduction" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {deductions.map((item, idx) => {
+                const registryItem = availableDeductions.find(r => r.label === item.label);
+                return (
+                <div key={idx} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                    <p className="text-sm font-bold uppercase">{item.label}</p>
+                    <p className="text-[9px] text-destructive/80 font-bold">{item.category}</p>
+                    </div>
+                    <Input type="number" placeholder="₵" className="w-28 bg-background p-2 rounded-lg text-xs font-black text-right text-destructive" value={item.amount} onChange={e => {
+                    const up = [...deductions]; up[idx].amount = Number(e.target.value); setDeductions(up);
+                    }} />
+                    <Button variant="ghost" size="icon" onClick={() => removeDeduction(idx)} className="text-muted-foreground hover:text-destructive h-8 w-8"><X size={16}/></Button>
+                </div>
+                )})}
+            </div>
+            {deductions.length === 0 && (
+                <p className="p-10 text-center text-muted-foreground italic text-xs uppercase font-bold">No voluntary deductions applied.</p>
+            )}
+            </div>
         </div>
 
       </div>
@@ -233,12 +273,12 @@ function PayrollItemSelector({ items, onSelect, itemType = "Allowance" }: {items
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                 <Button variant="ghost" className="text-[10px] font-black text-primary uppercase h-auto p-0 hover:bg-transparent">
+                <Button variant="ghost" className="text-[10px] font-black text-primary uppercase h-auto p-0 hover:bg-transparent">
                     + Add {itemType}
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0">
-                 <Command>
+                <Command>
                     <CommandInput placeholder={`Search ${itemType.toLowerCase()}...`}/>
                     <CommandList>
                         <CommandEmpty>No items found.</CommandEmpty>
@@ -252,13 +292,27 @@ function PayrollItemSelector({ items, onSelect, itemType = "Allowance" }: {items
                                         setOpen(false);
                                     }}
                                 >
-                                  {item.label}
+                                {item.label}
                                 </CommandItem>
                             ))}
                         </CommandGroup>
                     </CommandList>
-                 </Command>
+                </Command>
             </PopoverContent>
         </Popover>
+    )
+}
+
+function InputField({ label, value, onChange, ...props }: any) {
+    return (
+        <div>
+            <label className="text-[10px] font-black text-muted-foreground uppercase">{label}</label>
+            <Input
+                value={value || ''}
+                onChange={e => onChange(e.target.value)}
+                className="w-full mt-1 font-bold bg-muted/50"
+                {...props}
+            />
+        </div>
     )
 }

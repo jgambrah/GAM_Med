@@ -143,7 +143,7 @@ export default function PayrollRunEnginePage() {
     };
     setProcessing(true);
     const batch = writeBatch(firestore);
-    const periodId = `${period.year}-${period.month + 1}`;
+    const periodId = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
 
     try {
       // 1. Calculate Totals for Posting
@@ -326,4 +326,3 @@ function SummaryCard({ label, value, color }: any) {
     );
 }
 
-    
