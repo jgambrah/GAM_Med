@@ -131,9 +131,9 @@ export default function PayrollRunEnginePage() {
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `BANK_TRANSFER_FILE_${period.month + 1}_${period.year}.csv`);
-    document.body.appendChild(link);
+    document.body.appendChild(link); // Append the link to the body
     link.click();
-    document.body.removeChild(link);
+    document.body.removeChild(link); // Then remove it
     
     toast({ title: "Bank Transfer File Generated", description: "You can now upload this to your banking portal." });
   };
@@ -148,15 +148,39 @@ export default function PayrollRunEnginePage() {
     const periodId = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
 
     try {
-      // 1. Calculate Totals for Posting
+      const sanitize = (val: any) => (val === undefined || val === null ? "" : val);
+      
       const totalGross = payrollData.reduce((a, b) => a + b.gross, 0);
       const totalNet = payrollData.reduce((a, b) => a + b.netSalary, 0);
       const totalPaye = payrollData.reduce((a, b) => a + b.paye, 0);
       const totalSsnit = payrollData.reduce((a, b) => a + (b.basic * 0.185), 0);
       const totalEmployerSsnit = payrollData.reduce((a, b) => a + (b.basic * 0.13), 0);
       
-      // 2. Create the MASTER ARCHIVE Document
       const archiveRef = doc(collection(firestore, `hospitals/${hospitalId}/payroll_archives`));
+      
+      const sanitizedFullData = payrollData.map(item => ({
+        staffId: sanitize(item.staffId),
+        name: sanitize(item.name),
+        staffNumber: sanitize(item.staffNumber),
+        role: sanitize(item.role),
+        basic: sanitize(item.basic),
+        gross: sanitize(item.gross),
+        netSalary: sanitize(item.netSalary),
+        paye: sanitize(item.paye),
+        ssnitEmployee: sanitize(item.ssnitEmployee),
+        deductions: (item.deductions || []).map((d: any) => ({
+            label: sanitize(d.label),
+            amount: sanitize(d.amount),
+            category: sanitize(d.category)
+        })),
+        multiplier: sanitize(item.multiplier),
+        bankName: sanitize(item.bankName),
+        accountNumber: sanitize(item.accountNumber),
+        branchCode: sanitize(item.branchCode),
+        ssnitNumber: sanitize(item.ssnitNumber),
+        tinNumber: sanitize(item.tinNumber),
+      }));
+
       batch.set(archiveRef, {
         hospitalId: hospitalId,
         period: periodId,
@@ -165,14 +189,13 @@ export default function PayrollRunEnginePage() {
         totalNet: totalNet,
         totalGross: totalGross,
         totalTax: totalPaye,
-        fullData: payrollData,
+        fullData: sanitizedFullData,
         status: 'POSTED',
         createdAt: serverTimestamp(),
       });
 
 
       const apCollection = collection(firestore, `hospitals/${hospitalId}/accounts_payable`);
-      // 3. CREATE ACCOUNTS PAYABLE RECORDS
       batch.set(doc(apCollection), {
         supplierName: "STAFF SALARIES (MONTHLY)",
         amountOwed: totalNet, category: "PAYROLL", status: 'UNPAID', hospitalId: hospitalId,
@@ -189,7 +212,6 @@ export default function PayrollRunEnginePage() {
         description: `Total SSNIT Contributions (18.5%) for ${periodId}`, createdAt: serverTimestamp()
       });
 
-      // 4. LEDGER POSTING
       const salariesExpenseQuery = query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`), where("accountCode", "==", "5001"));
       const expenseSnap = await getDocs(salariesExpenseQuery);
       if (!expenseSnap.empty) {
@@ -198,7 +220,6 @@ export default function PayrollRunEnginePage() {
           });
       }
 
-      // 5. Create Main Run Document (Summary)
       const runId = `PAY-${periodId}`;
       const runRef = doc(firestore, "hospitals", hospitalId, "payroll_runs", runId);
       batch.set(runRef, {
@@ -206,31 +227,33 @@ export default function PayrollRunEnginePage() {
         totalNet: totalNet, status: 'POSTED', createdAt: serverTimestamp(), processedBy: user.uid
       });
 
-      // 6. Finalize individual slips
       payrollData.forEach(slip => {
          const slipRef = doc(collection(firestore, "hospitals", hospitalId, "payslips"));
-         // By explicitly setting fields, we ensure data integrity for each payslip.
          batch.set(slipRef, {
             runId: runId,
             hospitalId: hospitalId,
             createdAt: serverTimestamp(),
-            staffId: slip.staffId,
-            staffNumber: slip.staffNumber,
-            name: slip.name,
-            role: slip.role,
-            basic: slip.basic,
-            gross: slip.gross,
-            ssnitEmployee: slip.ssnitEmployee,
-            paye: slip.paye,
-            deductions: slip.deductions || [], // Ensure it's always an array
-            netSalary: slip.netSalary,
-            multiplier: slip.multiplier,
-            bankName: slip.bankName || 'N/A',
-            accountNumber: slip.accountNumber || 'N/A',
-            branchCode: slip.branchCode || 'N/A',
-            ssnitNumber: slip.ssnitNumber || 'N/A',
-            tinNumber: slip.tinNumber || 'N/A',
-            status: 'PENDING_AUDIT', // NEW: Flag for remittance audit
+            staffId: sanitize(slip.staffId),
+            staffNumber: sanitize(slip.staffNumber),
+            name: sanitize(slip.name),
+            role: sanitize(slip.role),
+            basic: sanitize(slip.basic),
+            gross: sanitize(slip.gross),
+            ssnitEmployee: sanitize(slip.ssnitEmployee),
+            paye: sanitize(slip.paye),
+            deductions: (slip.deductions || []).map((d: any) => ({
+                label: sanitize(d.label),
+                amount: sanitize(d.amount),
+                category: sanitize(d.category)
+            })),
+            netSalary: sanitize(slip.netSalary),
+            multiplier: sanitize(slip.multiplier),
+            bankName: sanitize(slip.bankName),
+            accountNumber: sanitize(slip.accountNumber),
+            branchCode: sanitize(slip.branchCode),
+            ssnitNumber: sanitize(slip.ssnitNumber),
+            tinNumber: sanitize(slip.tinNumber),
+            status: 'PENDING_AUDIT',
          });
       });
 
