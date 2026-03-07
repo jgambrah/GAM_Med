@@ -111,14 +111,14 @@ export default function PayrollRunEnginePage() {
   const exportToBankFile = () => {
     if (payrollData.length === 0) return;
   
-    const headers = ["Employee Name", "Bank Name", "Account Number", "Branch Code", "Net Salary (GHS)"];
+    const headers = ["Beneficiary Name", "Bank", "Account Number", "Amount", "Reference"];
     
     const rows = payrollData.map(p => [
       p.name,
-      p.bankName || "Commercial Bank", 
-      p.accountNumber || "0000000000000",
-      p.branchCode || "000",
-      p.netSalary.toFixed(2)
+      p.bankName,
+      `'${p.accountNumber}`, // Added apostrophe to prevent Excel from scientific notation
+      p.netSalary.toFixed(2),
+      `SALARY_${period.month + 1}_${period.year}`
     ]);
   
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -342,3 +342,5 @@ function SummaryCard({ label, value, color }: any) {
         </div>
     );
 }
+
+    
