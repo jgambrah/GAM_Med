@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DirectorSidebar } from "@/components/app/director-sidebar";
@@ -47,6 +48,7 @@ export default function HospitalLayout({
   const isSupplyChainRoute = pathname.startsWith('/supply-chain');
   const isAccountantRoute = pathname.startsWith('/accountant');
   const isHrRoute = pathname.startsWith('/hr');
+  const isAuditorRoute = pathname.startsWith('/auditor');
 
 
   // While checking auth state or profile, show a loader
@@ -62,7 +64,7 @@ export default function HospitalLayout({
 
   // This is the router for specialized layouts.
   // If the path matches, we render the children directly, because the specialized layout will be inside.
-  if (isSupplyChainRoute || isAccountantRoute || isHrRoute) {
+  if (isSupplyChainRoute || isAccountantRoute || isHrRoute || isAuditorRoute) {
     return (
         <div className="flex min-h-screen bg-slate-50 text-slate-900">
             {children}
