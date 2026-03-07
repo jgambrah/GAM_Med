@@ -51,7 +51,7 @@ export default function PayrollRunEnginePage() {
       const [configSnap, profilesSnap, staffSnap] = await Promise.all([
         getDoc(configRef),
         getDocs(profilesQuery),
-        getDocs(staffQuery)
+        getDocs(staffSnap)
       ]);
 
       if (!configSnap.exists()) {
@@ -114,13 +114,12 @@ export default function PayrollRunEnginePage() {
   const exportToBankFile = () => {
     if (payrollData.length === 0) return;
   
-    const headers = ["Beneficiary Name", "Bank", "Account Number", "Branch Code", "Net Salary (GHS)", "Reference"];
+    const headers = ["Beneficiary Name", "Bank", "Account Number", "Amount", "Reference"];
     
     const rows = payrollData.map(p => [
       p.name,
-      p.bankName || "Commercial Bank",
-      `'${p.accountNumber || "0000000000000"}`,
-      p.branchCode || "000",
+      p.bankName,
+      `'${p.accountNumber}`, // Added apostrophe to prevent Excel from scientific notation
       p.netSalary.toFixed(2),
       `SALARY_${period.month + 1}_${period.year}`
     ]);
@@ -230,6 +229,7 @@ export default function PayrollRunEnginePage() {
             branchCode: slip.branchCode || 'N/A',
             ssnitNumber: slip.ssnitNumber || 'N/A',
             tinNumber: slip.tinNumber || 'N/A',
+            status: 'PENDING_AUDIT', // NEW: Flag for remittance audit
          });
       });
 
