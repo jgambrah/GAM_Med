@@ -195,6 +195,11 @@ service cloud.firestore {
       // Allow the CEO and Staff into the sub-modules
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
       
+      match /payroll_items/{itemId} {
+        allow read, list: if isStaffOfHospital(hospitalId);
+        allow create, update, delete: if isDirectorOrAdmin(hospitalId);
+      }
+      
       match /ledger_entries/{entryId} {
         allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);

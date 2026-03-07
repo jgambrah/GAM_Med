@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
@@ -30,7 +29,7 @@ export default function PayrollItemManager() {
 
   const payrollItemsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, "payroll_items"), where("hospitalId", "==", hospitalId));
+    return query(collection(firestore, `hospitals/${hospitalId}/payroll_items`));
   }, [firestore, hospitalId]);
   const { data: payrollItems, isLoading: areItemsLoading } = useCollection(payrollItemsQuery);
 
@@ -38,7 +37,7 @@ export default function PayrollItemManager() {
     e.preventDefault();
     if (!firestore || !hospitalId) return;
     try {
-      addDocumentNonBlocking(collection(firestore, "payroll_items"), {
+      addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/payroll_items`), {
         ...form,
         hospitalId: hospitalId,
         createdAt: serverTimestamp()
@@ -49,8 +48,8 @@ export default function PayrollItemManager() {
   };
   
   const deleteItem = async (id: string) => {
-      if (!firestore) return;
-      deleteDocumentNonBlocking(doc(firestore, "payroll_items", id));
+      if (!firestore || !hospitalId) return;
+      deleteDocumentNonBlocking(doc(firestore, `hospitals/${hospitalId}/payroll_items`, id));
       toast({title: "Item removed"});
   }
 

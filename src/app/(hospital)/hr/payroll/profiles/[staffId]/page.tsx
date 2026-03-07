@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useCollection } from '@/firebase';
@@ -41,7 +40,7 @@ export default function StaffSalaryProfile() {
   
   const payrollItemsQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile?.hospitalId) return null;
-    return query(collection(firestore, 'payroll_items'), where('hospitalId', '==', userProfile.hospitalId));
+    return query(collection(firestore, `hospitals/${userProfile.hospitalId}/payroll_items`));
   }, [firestore, userProfile]);
   const { data: payrollItems } = useCollection(payrollItemsQuery);
 
