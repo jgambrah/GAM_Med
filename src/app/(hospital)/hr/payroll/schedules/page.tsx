@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -53,6 +54,7 @@ export default function RemittanceSchedules() {
         return payslipData.map(s => ({
             name: s.name || "Unknown Staff",
             staffId: s.staffId,
+            staffNumber: s.staffNumber,
             basic: s.basic,
             employeeSsnit: s.basic * 0.055,
             employerSsnit: s.basic * 0.13,
@@ -64,6 +66,7 @@ export default function RemittanceSchedules() {
         return payslipData.map(s => ({
             name: s.name || "Unknown Staff",
             staffId: s.staffId,
+            staffNumber: s.staffNumber,
             gross: s.gross,
             paye: s.paye,
             net: s.netSalary
@@ -81,6 +84,7 @@ export default function RemittanceSchedules() {
       return {
         name: slip.name || "Unknown Staff",
         staffId: slip.staffId,
+        staffNumber: slip.staffNumber,
         role: slip.role,
         amount: specificDeduction.amount
       };
@@ -175,7 +179,7 @@ export default function RemittanceSchedules() {
                     return (
                          <tr key={i} className="hover:bg-slate-50">
                             <td className="p-4 border uppercase font-bold">{s.name}</td>
-                            <td className="p-4 border text-blue-600 font-mono">{s.staffId.slice(0,8)}</td>
+                            <td className="p-4 border text-blue-600 font-mono">{s.staffNumber || s.staffId.slice(0,8)}</td>
                             <td className="p-4 border text-right font-black">GHS {s.amount.toFixed(2)}</td>
                          </tr>
                     );
@@ -198,3 +202,5 @@ export default function RemittanceSchedules() {
     </div>
   );
 }
+
+    

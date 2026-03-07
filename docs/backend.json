@@ -2863,6 +2863,10 @@
           "type": "number",
           "description": "The current counter for generating unique patient EHR numbers."
         },
+        "staffCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique staff numbers."
+        },
         "poCounter": {
           "type": "number",
           "description": "The current counter for generating unique Purchase Order numbers."
@@ -2916,7 +2920,8 @@
         "subscriptionPlan",
         "isSuspended",
         "patientCounter",
-        "poCounter"
+        "poCounter",
+        "staffCounter"
       ]
     },
     "User": {
@@ -2941,6 +2946,10 @@
           "type": "string",
           "description": "The user's primary email address, used for login and notifications.",
           "format": "email"
+        },
+        "staffNumber": {
+          "type": "string",
+          "description": "The user's unique, sequential staff number (e.g., KATH/STF/24/001)."
         },
         "role": {
           "type": "string",

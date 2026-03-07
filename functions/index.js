@@ -28,34 +28,59 @@ exports.onboardStaff = onCall({ region: "us-central1", cors: true }, async (requ
   if (!hospitalId) {
     throw new HttpsError('failed-precondition', 'Caller is not associated with a hospital.');
   }
+  
+  const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
   try {
-    // 1. Create Auth Account
+    // 1. Create Auth Account first to get a UID
     const userRecord = await admin.auth().createUser({
       email: email,
-      password: "Staff123!", // Default password
+      password: "Staff123!",
       displayName: fullName,
     });
 
     // 2. Set Custom Claims
     await admin.auth().setCustomUserClaims(userRecord.uid, { role, hospitalId, contractType });
+    
+    let newStaffNumber;
 
-    // 3. Create Firestore User Profile
-    await db.collection('users').doc(userRecord.uid).set({
-      uid: userRecord.uid,
-      fullName,
-      email,
-      role,
-      hospitalId,
-      contractType,
-      is_active: true,
-      mustChangePassword: true,
-      onboardingComplete: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      ...optionalData
+    // 3. Run a transaction to generate staff number and create user doc
+    await db.runTransaction(async (transaction) => {
+        const hospitalDoc = await transaction.get(hospitalRef);
+        if (!hospitalDoc.exists) {
+            throw new HttpsError('not-found', 'Hospital record not found.');
+        }
+
+        const hospital = hospitalDoc.data();
+        const newCounter = (hospital.staffCounter || 0) + 1;
+        const prefix = hospital.mrnPrefix || 'GAM';
+        const year = new Date().getFullYear().toString().slice(-2);
+        newStaffNumber = `${prefix}/STF/${year}/${String(newCounter).padStart(4, '0')}`;
+        
+        const userRef = db.collection('users').doc(userRecord.uid);
+        
+        // Create Firestore User Profile inside transaction
+        transaction.set(userRef, {
+            uid: userRecord.uid,
+            fullName,
+            email,
+            role,
+            hospitalId,
+            contractType,
+            staffNumber: newStaffNumber,
+            is_active: true,
+            mustChangePassword: true,
+            onboardingComplete: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            ...optionalData
+        });
+        
+        // Update hospital staff counter
+        transaction.update(hospitalRef, { staffCounter: newCounter });
     });
 
-    return { success: true, message: `${fullName} onboarded successfully.` };
+
+    return { success: true, message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` };
   } catch (error) {
     console.error("Onboarding failed:", error);
     throw new HttpsError('internal', error.message);
@@ -302,6 +327,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
             isSuspended: false,
             subscriptionStatus: 'ACTIVE',
             patientCounter: 0,
+            staffCounter: 0,
             poCounter: 0,
             pvCounter: 0,
             receiptCounter: 0,
@@ -424,4 +450,5 @@ exports.repairUserIdentity = onCall({ region: "us-central1", cors: true }, async
   }
 });
 
+    
     

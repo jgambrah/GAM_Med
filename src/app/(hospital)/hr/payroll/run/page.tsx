@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
@@ -86,6 +87,7 @@ export default function PayrollRunEnginePage() {
         return {
           staffId: staff.uid,
           name: staff.fullName,
+          staffNumber: staff.staffNumber,
           role: staff.role,
           basic,
           gross,
@@ -111,12 +113,13 @@ export default function PayrollRunEnginePage() {
   const exportToBankFile = () => {
     if (payrollData.length === 0) return;
   
-    const headers = ["Beneficiary Name", "Bank", "Account Number", "Amount", "Reference"];
+    const headers = ["Beneficiary Name", "Bank", "Account Number", "Branch Code", "Net Salary (GHS)", "Reference"];
     
     const rows = payrollData.map(p => [
       p.name,
-      p.bankName,
-      `'${p.accountNumber}`, // Added apostrophe to prevent Excel from scientific notation
+      p.bankName || "Commercial Bank",
+      `'${p.accountNumber || "0000000000000"}`,
+      p.branchCode || "000",
       p.netSalary.toFixed(2),
       `SALARY_${period.month + 1}_${period.year}`
     ]);
@@ -212,6 +215,7 @@ export default function PayrollRunEnginePage() {
             hospitalId: hospitalId,
             createdAt: serverTimestamp(),
             staffId: slip.staffId,
+            staffNumber: slip.staffNumber,
             name: slip.name,
             role: slip.role,
             basic: slip.basic,
