@@ -22,7 +22,7 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'SUPER_ADMIN' || 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid))
       );
     }
 
@@ -472,3 +472,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
