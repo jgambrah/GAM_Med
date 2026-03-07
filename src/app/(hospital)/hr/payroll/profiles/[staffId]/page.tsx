@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useCollection, updateDocumentNonBlocking } from '@/firebase';
@@ -58,13 +59,12 @@ export default function StaffSalaryProfile() {
   const [level, setLevel] = useState('');
   const [allowances, setAllowances] = useState<{label: string, amount: number, isTaxable: boolean}[]>([]);
   const [deductions, setDeductions] = useState<{label: string, amount: number, category: string}[]>([]);
-
-  // NEW State for bank info
   const [bankInfo, setBankInfo] = useState({
     bankName: '',
     accountNumber: '',
     branchCode: '',
-    ghanaCardId: '',
+    ssnitNumber: '',
+    tinNumber: '',
   });
 
   useEffect(() => {
@@ -75,18 +75,19 @@ export default function StaffSalaryProfile() {
       setAllowances(salaryProfile.allowances || []);
       setDeductions(salaryProfile.deductions || []);
     }
-    if (staffInfo) { // Populate bank info from user document
+    if (staffInfo) {
         setBankInfo({
             bankName: staffInfo.bankName || '',
             accountNumber: staffInfo.accountNumber || '',
             branchCode: staffInfo.branchCode || '',
-            ghanaCardId: staffInfo.ghanaCardId || '',
+            ssnitNumber: staffInfo.ssnitNumber || '',
+            tinNumber: staffInfo.tinNumber || staffInfo.ghanaCardId || '',
         });
     }
     if (!isProfileLoading) {
         setLoading(false);
     }
-  }, [salaryProfile, staffInfo, isProfileLoading]); // Depend on staffInfo too
+  }, [salaryProfile, staffInfo, isProfileLoading]);
 
   const addAllowance = (item: any) => {
     if (!allowances.some(a => a.label === item.label)) {
@@ -104,7 +105,7 @@ export default function StaffSalaryProfile() {
   const removeDeduction = (index: number) => setDeductions(deductions.filter((_, i) => i !== index));
 
   const handleSaveProfile = async () => {
-    if (!profileDocRef || !userProfile || !staffDocRef) return; // Added staffDocRef check
+    if (!profileDocRef || !userProfile || !staffDocRef) return;
     setSaving(true);
     try {
       // Save salary profile data
@@ -120,7 +121,7 @@ export default function StaffSalaryProfile() {
         updatedBy: user?.uid
       }, { merge: true });
 
-      // Save banking info to user document
+      // Save banking and statutory info to user document
       updateDocumentNonBlocking(staffDocRef, {
         ...bankInfo
       });
@@ -199,7 +200,7 @@ export default function StaffSalaryProfile() {
 
             <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
                 <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
-                    <Landmark size={16} className="text-primary" /> Banking & Settlement
+                    <Landmark size={16} className="text-primary" /> Banking & Statutory
                 </h3>
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -207,7 +208,10 @@ export default function StaffSalaryProfile() {
                         <InputField label="Branch Code" value={bankInfo.branchCode} onChange={(v: string) => setBankInfo({...bankInfo, branchCode: v})} />
                     </div>
                     <InputField label="Account Number" value={bankInfo.accountNumber} onChange={(v: string) => setBankInfo({...bankInfo, accountNumber: v})} />
-                    <InputField label="Ghana Card ID" value={bankInfo.ghanaCardId} onChange={(v: string) => setBankInfo({...bankInfo, ghanaCardId: v})} />
+                     <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                        <InputField label="SSNIT Number" value={bankInfo.ssnitNumber} onChange={(v: string) => setBankInfo({...bankInfo, ssnitNumber: v})} />
+                        <InputField label="TIN / Ghana Card ID" value={bankInfo.tinNumber} onChange={(v: string) => setBankInfo({...bankInfo, tinNumber: v})} />
+                    </div>
                 </div>
             </div>
         </div>
@@ -316,3 +320,5 @@ function InputField({ label, value, onChange, ...props }: any) {
         </div>
     )
 }
+
+    

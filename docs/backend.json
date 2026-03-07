@@ -2997,6 +2997,26 @@
             "LOCUM"
           ],
           "description": "Specifies whether the staff is permanent or a freelance locum."
+        },
+        "ssnitNumber": {
+          "type": "string",
+          "description": "The user's Social Security and National Insurance Trust number."
+        },
+        "tinNumber": {
+            "type": "string",
+            "description": "The user's Tax Identification Number from the GRA."
+        },
+        "bankName": {
+            "type": "string",
+            "description": "The user's bank name for salary payment."
+        },
+        "accountNumber": {
+            "type": "string",
+            "description": "The user's bank account number."
+        },
+        "branchCode": {
+            "type": "string",
+            "description": "The user's bank branch code."
         }
       },
       "required": [
