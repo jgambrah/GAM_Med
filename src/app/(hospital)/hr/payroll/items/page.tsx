@@ -25,7 +25,7 @@ export default function PayrollItemManager() {
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'].includes(userRole || '');
 
-  const [form, setForm] = useState({ label: '', type: 'ALLOWANCE', isTaxable: true });
+  const [form, setForm] = useState({ label: '', type: 'ALLOWANCE', isTaxable: true, category: 'UNION' });
 
   const payrollItemsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -37,12 +37,22 @@ export default function PayrollItemManager() {
     e.preventDefault();
     if (!firestore || !hospitalId) return;
     try {
-      addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/payroll_items`), {
-        ...form,
+      const dataToSave: any = {
+        label: form.label,
+        type: form.type,
         hospitalId: hospitalId,
         createdAt: serverTimestamp()
-      });
-      setForm({ label: '', type: 'ALLOWANCE', isTaxable: true });
+      };
+
+      if (form.type === 'ALLOWANCE') {
+        dataToSave.isTaxable = form.isTaxable;
+      } else { // DEDUCTION
+        dataToSave.category = form.category;
+      }
+      
+      addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/payroll_items`), dataToSave);
+      
+      setForm({ label: '', type: 'ALLOWANCE', isTaxable: true, category: 'UNION' });
       toast({ title: "Payroll Item Standardized" });
     } catch (e: any) { toast({ variant: 'destructive', title: e.message }); }
   };
@@ -74,22 +84,49 @@ export default function PayrollItemManager() {
       <h1 className="text-4xl font-black uppercase tracking-tighter italic">Payroll <span className="text-primary">Item Registry</span></h1>
       
       {/* ADD ITEM FORM */}
-      <form onSubmit={saveItem} className="bg-card p-8 rounded-[40px] border shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-        <div className="md:col-span-2">
-          <label className="text-[10px] font-black text-muted-foreground uppercase">Item Name</label>
-          <Input required placeholder="e.g. Risk Allowance" className="w-full mt-1" 
-            value={form.label} onChange={e => setForm({...form, label: e.target.value})} />
+      <form onSubmit={saveItem} className="bg-card p-8 rounded-[40px] border shadow-sm space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] font-black text-muted-foreground uppercase">Item Name</label>
+            <Input required placeholder="e.g. Risk Allowance" className="w-full mt-1" 
+              value={form.label} onChange={e => setForm({...form, label: e.target.value})} />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-muted-foreground uppercase">Type</label>
+            <Select value={form.type} onValueChange={(value: 'ALLOWANCE' | 'DEDUCTION') => setForm({...form, type: value})}>
+              <SelectTrigger className="w-full mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALLOWANCE">Allowance</SelectItem>
+                <SelectItem value="DEDUCTION">Deduction</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div>
-          <label className="text-[10px] font-black text-muted-foreground uppercase">Type</label>
-          <Select value={form.type} onValueChange={(value) => setForm({...form, type: value})}>
-            <SelectTrigger className="w-full mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALLOWANCE">Allowance</SelectItem>
-              <SelectItem value="DEDUCTION">Deduction</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+
+        {form.type === 'DEDUCTION' && (
+          <div>
+            <label className="text-[10px] font-black text-muted-foreground uppercase">Deduction Category</label>
+            <Select value={form.category} onValueChange={(value) => setForm({...form, category: value})}>
+              <SelectTrigger className="w-full mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Union">Professional Union (e.g. GMA)</SelectItem>
+                <SelectItem value="Welfare">Staff Welfare Fund</SelectItem>
+                <SelectItem value="Credit Union">Credit Union / Savings</SelectItem>
+                <SelectItem value="Loan">Internal Staff Loan</SelectItem>
+                <SelectItem value="Standing Order">Bank Standing Order</SelectItem>
+                <SelectItem value="Other">Other Voluntary Deduction</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        
+        {form.type === 'ALLOWANCE' && (
+             <div className="flex items-center gap-2 pt-2">
+                <input type="checkbox" id="isTaxable" checked={form.isTaxable} onChange={e => setForm({...form, isTaxable: e.target.checked})} />
+                <label htmlFor="isTaxable" className="text-sm font-medium">This allowance is taxable (contributes to PAYE)</label>
+             </div>
+        )}
+
         <Button type="submit" className="w-full">Register Item</Button>
       </form>
 

@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { 
   User, Banknote, Plus, Trash2, Save, 
   Percent, ShieldCheck, Loader2, Landmark,
-  Wallet, Briefcase, GraduationCap, X, ChevronsUpDown, Check
+  Wallet, Briefcase, GraduationCap, X, ChevronsUpDown, Check, Scissors
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -154,25 +154,7 @@ export default function StaffSalaryProfile() {
           <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
             {allowances.map((item, idx) => (
               <div key={idx} className="flex gap-2 items-center animate-in fade-in duration-200">
-                <Select
-                  value={item.label}
-                  onValueChange={(value) => {
-                    const up = [...allowances];
-                    const selectedItem = availableAllowances.find(a => a.label === value);
-                    up[idx].label = value;
-                    up[idx].isTaxable = selectedItem?.isTaxable ?? true;
-                    setAllowances(up);
-                  }}
-                >
-                  <SelectTrigger className="flex-1 text-xs">
-                    <SelectValue placeholder="Select Allowance..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAllowances.map((a: any) => (
-                      <SelectItem key={a.id} value={a.label}>{a.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input value={item.label} readOnly className="flex-1 text-xs uppercase font-black bg-muted/30" />
                 <Input type="number" placeholder="₵" className="w-24 p-3 rounded-xl text-xs font-black text-right" value={item.amount} onChange={e => {
                   const up = [...allowances]; up[idx].amount = Number(e.target.value); setAllowances(up);
                 }} />
@@ -185,32 +167,17 @@ export default function StaffSalaryProfile() {
         <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6 lg:col-span-2">
            <div className="flex justify-between items-center border-b pb-3">
              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-               <Trash2 size={16} className="text-destructive" /> Voluntary & Loan Deductions
+               <Scissors size={16} className="text-destructive" /> Voluntary & Institutional Deductions
              </h3>
              <PayrollItemSelector items={availableDeductions} onSelect={addDeduction} itemType="Deduction" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {deductions.map((item, idx) => (
               <div key={idx} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                <Select
-                  value={item.label}
-                  onValueChange={(value) => {
-                    const up = [...deductions];
-                    const selectedItem = availableDeductions.find(d => d.label === value);
-                    up[idx].label = value;
-                    up[idx].category = selectedItem?.category || 'Other';
-                    setDeductions(up);
-                  }}
-                >
-                  <SelectTrigger className="flex-1 text-xs uppercase">
-                    <SelectValue placeholder="Select Deduction..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDeductions.map((d: any) => (
-                      <SelectItem key={d.id} value={d.label}>{d.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <p className="text-sm font-bold uppercase">{item.label}</p>
+                  <p className="text-[9px] text-destructive/80 font-bold">{item.category}</p>
+                </div>
                 <Input type="number" placeholder="₵" className="w-28 bg-background p-2 rounded-lg text-xs font-black text-right text-destructive" value={item.amount} onChange={e => {
                    const up = [...deductions]; up[idx].amount = Number(e.target.value); setDeductions(up);
                 }} />
@@ -218,6 +185,9 @@ export default function StaffSalaryProfile() {
               </div>
             ))}
           </div>
+           {deductions.length === 0 && (
+            <p className="p-10 text-center text-muted-foreground italic text-xs uppercase font-bold">No voluntary deductions applied.</p>
+          )}
         </div>
 
       </div>
