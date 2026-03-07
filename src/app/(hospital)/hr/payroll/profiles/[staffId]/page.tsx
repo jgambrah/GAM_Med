@@ -1,18 +1,22 @@
 
 'use client';
-import { useState, useEffect } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useCollection } from '@/firebase';
+import { doc, serverTimestamp, query, collection, where } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 import { 
   User, Banknote, Plus, Trash2, Save, 
   Percent, ShieldCheck, Loader2, Landmark,
-  Wallet, Briefcase, GraduationCap, X
+  Wallet, Briefcase, GraduationCap, X, ChevronsUpDown, Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+
 
 export default function StaffSalaryProfile() {
   const { staffId } = useParams();
@@ -34,6 +38,15 @@ export default function StaffSalaryProfile() {
 
   const profileDocRef = useMemoFirebase(() => firestore && staffId && userProfile?.hospitalId ? doc(firestore, `hospitals/${userProfile.hospitalId}/salary_profiles`, staffId as string) : null, [firestore, staffId, userProfile]);
   const { data: salaryProfile, isLoading: isProfileLoading } = useDoc(profileDocRef);
+  
+  const payrollItemsQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile?.hospitalId) return null;
+    return query(collection(firestore, 'payroll_items'), where('hospitalId', '==', userProfile.hospitalId));
+  }, [firestore, userProfile]);
+  const { data: payrollItems } = useCollection(payrollItemsQuery);
+
+  const availableAllowances = useMemo(() => payrollItems?.filter(i => i.type === 'ALLOWANCE') || [], [payrollItems]);
+  const availableDeductions = useMemo(() => payrollItems?.filter(i => i.type === 'DEDUCTION') || [], [payrollItems]);
 
   const [basicSalary, setBasicSalary] = useState(0);
   const [level, setLevel] = useState('');
@@ -52,10 +65,19 @@ export default function StaffSalaryProfile() {
     }
   }, [salaryProfile, isProfileLoading]);
 
-  const addAllowance = () => setAllowances([...allowances, { label: '', amount: 0, isTaxable: true }]);
+  const addAllowance = (item: any) => {
+    if (!allowances.some(a => a.label === item.label)) {
+      setAllowances([...allowances, { label: item.label, isTaxable: item.isTaxable, amount: 0 }]);
+    }
+  };
+
   const removeAllowance = (index: number) => setAllowances(allowances.filter((_, i) => i !== index));
 
-  const addDeduction = () => setDeductions([...deductions, { label: '', amount: 0, category: 'Other' }]);
+  const addDeduction = (item: any) => {
+    if (!deductions.some(d => d.label === item.label)) {
+      setDeductions([...deductions, { label: item.label, category: item.category || 'Other', amount: 0 }]);
+    }
+  };
   const removeDeduction = (index: number) => setDeductions(deductions.filter((_, i) => i !== index));
 
   const handleSaveProfile = async () => {
@@ -128,16 +150,12 @@ export default function StaffSalaryProfile() {
              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                <Plus size={16} className="text-green-600" /> Additional Allowances
              </h3>
-             <Button onClick={addAllowance} variant="ghost" className="text-[10px] font-black text-primary uppercase h-auto p-0 hover:bg-transparent">
-                + Add Line
-            </Button>
+             <PayrollItemSelector items={availableAllowances} onSelect={addAllowance} />
           </div>
           <div className="space-y-3">
             {allowances.map((item, idx) => (
               <div key={idx} className="flex gap-2 items-center animate-in fade-in duration-200">
-                <Input placeholder="Label (e.g. Risk)" className="flex-1 p-3 bg-muted rounded-xl text-xs" value={item.label} onChange={e => {
-                  const up = [...allowances]; up[idx].label = e.target.value; setAllowances(up);
-                }} />
+                <Input readOnly value={item.label} className="flex-1 p-3 bg-muted rounded-xl text-xs" />
                 <Input type="number" placeholder="₵" className="w-24 p-3 bg-muted rounded-xl text-xs font-black text-right" value={item.amount} onChange={e => {
                   const up = [...allowances]; up[idx].amount = Number(e.target.value); setAllowances(up);
                 }} />
@@ -152,27 +170,12 @@ export default function StaffSalaryProfile() {
              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                <Trash2 size={16} className="text-destructive" /> Voluntary & Loan Deductions
              </h3>
-             <Button onClick={addDeduction} variant="ghost" className="text-[10px] font-black text-destructive uppercase h-auto p-0 hover:bg-transparent">+ Add Deduction</Button>
+             <PayrollItemSelector items={availableDeductions} onSelect={addDeduction} itemType="Deduction" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {deductions.map((item, idx) => (
               <div key={idx} className="flex gap-2 items-center bg-muted p-4 rounded-2xl border">
-                <Select value={item.category} onValueChange={value => {
-                   const up = [...deductions]; up[idx].category = value; setDeductions(up);
-                }}>
-                    <SelectTrigger className="bg-card w-auto text-[10px] font-black uppercase">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Loan">Loan</SelectItem>
-                        <SelectItem value="Union">Union</SelectItem>
-                        <SelectItem value="Welfare">Welfare</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Input placeholder="Description (e.g. GRNMA Dues)" className="flex-1 bg-transparent text-xs font-bold outline-none border-0" value={item.label} onChange={e => {
-                   const up = [...deductions]; up[idx].label = e.target.value; setDeductions(up);
-                }} />
+                <p className="flex-1 text-xs font-bold uppercase">{item.label}</p>
                 <Input type="number" className="w-28 bg-card p-2 rounded-lg text-xs font-black text-right text-destructive" value={item.amount} onChange={e => {
                    const up = [...deductions]; up[idx].amount = Number(e.target.value); setDeductions(up);
                 }} />
@@ -185,4 +188,40 @@ export default function StaffSalaryProfile() {
       </div>
     </div>
   );
+}
+
+
+function PayrollItemSelector({ items, onSelect, itemType = "Allowance" }: {items: any[], onSelect: (item: any) => void, itemType?: string}) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                 <Button variant="ghost" className="text-[10px] font-black text-primary uppercase h-auto p-0 hover:bg-transparent">
+                    + Add {itemType}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0">
+                 <Command>
+                    <CommandInput placeholder={`Search ${itemType.toLowerCase()}...`}/>
+                    <CommandList>
+                        <CommandEmpty>No items found.</CommandEmpty>
+                        <CommandGroup>
+                            {items.map(item => (
+                                <CommandItem
+                                    key={item.id}
+                                    value={item.label}
+                                    onSelect={() => {
+                                        onSelect(item);
+                                        setOpen(false);
+                                    }}
+                                >
+                                  {item.label}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                 </Command>
+            </PopoverContent>
+        </Popover>
+    )
 }
