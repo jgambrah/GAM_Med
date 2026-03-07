@@ -2,7 +2,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import { FileText, Download, Printer, Landmark, ShieldCheck, Loader2, ShieldAlert } from 'lucide-react';
+import { 
+  FileText, Download, Printer, Landmark, ShieldCheck, 
+  Loader2, ShieldAlert
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +14,7 @@ export default function RemittanceSchedules() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  
   const [type, setType] = useState<string>('SSNIT');
   
   const userProfileRef = useMemoFirebase(() => {
@@ -21,37 +25,37 @@ export default function RemittanceSchedules() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'HR_MANAGER', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'HR_MANAGER', 'ACCOUNTANT'].includes(userRole || '');
+
+  const hospitalInfoRef = useMemoFirebase(() => {
+      if(!firestore || !hospitalId) return null;
+      return doc(firestore, "hospitals", hospitalId);
+  }, [firestore, hospitalId]);
+  const { data: hospitalInfo, isLoading: isHospitalLoading } = useDoc(hospitalInfoRef);
+
+  const deductionItemsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, `hospitals/${hospitalId}/payroll_items`), where("type", "==", "DEDUCTION"));
+  }, [firestore, hospitalId]);
+  const { data: deductionItems, isLoading: areItemsLoading } = useCollection(deductionItemsQuery);
 
   const payslipsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/payslips`));
+    return query(collection(firestore, `hospitals/${hospitalId}/payslips`), where("hospitalId", "==", hospitalId));
   }, [firestore, hospitalId]);
   const { data: payslipData, isLoading: areSlipsLoading } = useCollection(payslipsQuery);
-
-  const dynamicCategories = useMemo(() => {
-    if (!payslipData) return [];
-    const categories = new Set<string>();
-    payslipData.forEach(slip => {
-      (slip.deductions || []).forEach((ded: any) => {
-        if (ded.category) {
-          categories.add(ded.category);
-        }
-      });
-    });
-    return Array.from(categories);
-  }, [payslipData]);
 
   const scheduleData = useMemo(() => {
     if (!payslipData || !type) return [];
     if (type === 'SSNIT' || type === 'PAYE') {
-        return payslipData; // These apply to everyone
+        return payslipData;
     }
-    // For other types, filter and map to get specific deduction details
     return payslipData.map(slip => {
         const relevantDeductions = (slip.deductions || []).filter((d: any) => d.category === type);
         return relevantDeductions.length > 0 ? {
-            staffName: slip.name,
+            name: slip.name,
+            staffId: slip.staffId,
+            role: slip.role,
             deductions: relevantDeductions
         } : null;
     }).filter(Boolean);
@@ -74,7 +78,7 @@ export default function RemittanceSchedules() {
   }, [scheduleData, type]);
 
 
-  const isLoading = isUserLoading || isProfileLoading || areSlipsLoading;
+  const isLoading = isUserLoading || isProfileLoading || areItemsLoading || areSlipsLoading || isHospitalLoading;
   
   if(isLoading) {
       return (
@@ -110,8 +114,8 @@ export default function RemittanceSchedules() {
                 <SelectContent>
                     <SelectItem value="SSNIT">SSNIT Contribution (18.5%)</SelectItem>
                     <SelectItem value="PAYE">GRA PAYE Tax</SelectItem>
-                    {dynamicCategories.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat} Deductions</SelectItem>
+                    {deductionItems?.map(cat => (
+                        <SelectItem key={cat.id} value={cat.category}>{cat.label}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -164,5 +168,3 @@ export default function RemittanceSchedules() {
     </div>
   );
 }
-
-    

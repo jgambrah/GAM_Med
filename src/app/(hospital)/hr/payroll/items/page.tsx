@@ -46,7 +46,7 @@ export default function PayrollItemManager() {
 
       if (form.type === 'ALLOWANCE') {
         dataToSave.isTaxable = form.isTaxable;
-      } else { // DEDUCTION
+      } else {
         dataToSave.category = form.category;
       }
       
