@@ -1,7 +1,8 @@
-'use client';
+
+      'use client';
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, getDocs, doc, getDoc, writeBatch, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, writeBatch, serverTimestamp, increment, runTransaction } from 'firebase/firestore';
 import { 
   Play, CheckCircle2, FileText, AlertCircle, 
   Loader2, Calculator, Calendar, Download, Save, ShieldAlert
@@ -93,7 +94,10 @@ export default function PayrollRunEnginePage() {
           paye,
           deductions: voluntaryDeductions,
           netSalary,
-          multiplier
+          multiplier,
+          bankName: staff.bankName,
+          accountNumber: staff.accountNumber,
+          branchCode: staff.branchCode,
         };
       }).filter(Boolean);
 
@@ -103,6 +107,38 @@ export default function PayrollRunEnginePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportToBankFile = () => {
+    if (payrollData.length === 0) return;
+  
+    // 1. Define CSV Headers (Standard for Ghana Bank Uploads)
+    const headers = ["Employee Name", "Bank Name", "Account Number", "Branch Code", "Net Salary (GHS)"];
+    
+    // 2. Map the payroll data to rows
+    // Note: We'll assume these bank fields exist in the staff profile or use placeholders
+    const rows = payrollData.map(p => [
+      p.name,
+      p.bankName || "Commercial Bank", 
+      p.accountNumber || "0000000000000",
+      p.branchCode || "000",
+      p.netSalary.toFixed(2)
+    ]);
+  
+    // 3. Construct CSV Content
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    
+    // 4. Trigger Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `BANK_TRANSFER_FILE_${period.month + 1}_${period.year}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Bank Transfer File Generated", description: "You can now upload this to your banking portal." });
   };
 
   const commitPayroll = async () => {
@@ -274,7 +310,7 @@ export default function PayrollRunEnginePage() {
           </div>
 
           <div className="flex justify-end gap-4">
-             <Button variant="outline" className="font-bold uppercase text-xs"><Download size={16}/> Export Bank File</Button>
+             <Button onClick={exportToBankFile} variant="outline" className="font-bold uppercase text-xs"><Download size={16}/> Export Bank File</Button>
              <Button 
                disabled={processing}
                onClick={commitPayroll}
