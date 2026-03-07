@@ -163,6 +163,21 @@ service cloud.firestore {
         allow read: if isSuperAdmin() || isSignedIn();
         allow write: if isSuperAdmin();
     }
+
+    match /custom_departments/{departmentId} {
+      // Any authenticated user from any hospital can list all departments.
+      // The client-side query is responsible for filtering by hospitalId.
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
+      
+      // Only staff from the specific hospital can read a department document directly.
+      allow read: if isSuperAdmin() || isStaffOfHospital(resource.data.hospitalId);
+
+      // Only Directors/Admins can create new departments for their hospital.
+      allow create: if isSuperAdmin() || isDirectorOrAdmin(request.resource.data.hospitalId);
+      
+      // Only Directors/Admins can delete departments from their hospital.
+      allow delete: if isSuperAdmin() || isDirectorOrAdmin(resource.data.hospitalId);
+    }
     
 
     // --------------------------------
@@ -464,3 +479,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
