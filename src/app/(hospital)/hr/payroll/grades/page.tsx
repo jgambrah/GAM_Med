@@ -1,13 +1,12 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useDoc, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
-import { Layers, Plus, Save, Trash2, Banknote, ShieldCheck, Loader2, ShieldAlert } from 'lucide-react';
+import { Layers, Plus, Save, Trash2, Banknote, ShieldCheck, Loader2, ShieldAlert, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,6 +37,7 @@ export default function SalaryGradeManager() {
   const isAuthorized = ['DIRECTOR', 'HR_MANAGER', 'ADMIN'].includes(userProfile?.role || '');
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingGrade, setEditingGrade] = useState<any | null>(null);
 
   const gradesQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -50,24 +50,46 @@ export default function SalaryGradeManager() {
     defaultValues: { name: '', level: '1', basicSalary: 0 },
   });
 
+  useEffect(() => {
+    if (editingGrade) {
+      form.reset(editingGrade);
+    } else {
+      form.reset({ name: '', level: '1', basicSalary: 0 });
+    }
+  }, [editingGrade, form]);
+
+
   const saveGrade = async (values: GradeFormValues) => {
     if (!firestore || !hospitalId) return;
-    try {
-      await addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/salary_grades`), {
+
+    if (editingGrade) {
+      const gradeRef = doc(firestore, `hospitals/${hospitalId}/salary_grades`, editingGrade.id);
+      updateDocumentNonBlocking(gradeRef, {
+        ...values,
+        updatedAt: serverTimestamp()
+      });
+      toast({ title: "Salary Grade Updated" });
+    } else {
+      addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/salary_grades`), {
         ...values,
         hospitalId: hospitalId,
         createdAt: serverTimestamp()
       });
       toast({ title: "Salary Grade Added to Scale" });
-      setIsDialogOpen(false);
-      form.reset();
-    } catch (e: any) { toast({ variant: 'destructive', title: e.message }); }
+    }
+    
+    setIsDialogOpen(false);
+    setEditingGrade(null);
+    form.reset();
   };
   
   const deleteGrade = (gradeId: string) => {
     if (!firestore || !hospitalId) return;
-    deleteDocumentNonBlocking(doc(firestore, `hospitals/${hospitalId}/salary_grades`, gradeId));
-    toast({ title: 'Grade removed from scale.' });
+    const confirmation = confirm("Are you sure you want to delete this salary grade? This action cannot be undone.");
+    if (confirmation) {
+      deleteDocumentNonBlocking(doc(firestore, `hospitals/${hospitalId}/salary_grades`, gradeId));
+      toast({ title: 'Grade removed from scale.' });
+    }
   }
 
   const isLoading = isUserLoading || isProfileLoading;
@@ -100,13 +122,15 @@ export default function SalaryGradeManager() {
           <h1 className="text-4xl font-black uppercase tracking-tighter italic text-black">Salary <span className="text-primary">Scale Registry</span></h1>
           <p className="text-slate-500 font-bold text-xs uppercase italic">Define standardized Grade Levels and Basic Salaries.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus size={16} /> New Grade</Button>
-          </DialogTrigger>
+        <Button onClick={() => { setEditingGrade(null); setIsDialogOpen(true); }}>
+            <Plus size={16} /> New Grade
+        </Button>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Setup Salary Grade</DialogTitle>
+              <DialogTitle>{editingGrade ? 'Edit Salary Grade' : 'Setup New Salary Grade'}</DialogTitle>
             </DialogHeader>
              <Form {...form}>
                 <form onSubmit={form.handleSubmit(saveGrade)} className="space-y-4">
@@ -116,6 +140,7 @@ export default function SalaryGradeManager() {
                        <FormField control={form.control} name="basicSalary" render={({field}) => <FormItem><FormLabel>Basic Salary (₵)</FormLabel><FormControl><Input type="number" {...field}/></FormControl><FormMessage/></FormItem>} />
                    </div>
                    <DialogFooter>
+                      <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
                       <Button type="submit" disabled={form.formState.isSubmitting}>
                          {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : 'Commit to Registry'}
                       </Button>
@@ -124,7 +149,6 @@ export default function SalaryGradeManager() {
              </Form>
           </DialogContent>
         </Dialog>
-      </div>
 
       <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden">
         <table className="w-full text-left">
@@ -149,6 +173,9 @@ export default function SalaryGradeManager() {
                 </td>
                 <td className="p-6 text-right text-lg font-black italic">₵ {g.basicSalary.toLocaleString()}</td>
                 <td className="p-6 text-right">
+                   <Button variant="ghost" size="icon" onClick={() => { setEditingGrade(g); setIsDialogOpen(true); }}>
+                      <Edit size={16}/>
+                   </Button>
                    <Button variant="ghost" size="icon" onClick={() => deleteGrade(g.id)} className="text-muted-foreground hover:text-destructive transition-all">
                       <Trash2 size={16}/>
                    </Button>
@@ -161,4 +188,3 @@ export default function SalaryGradeManager() {
     </div>
   );
 }
-
