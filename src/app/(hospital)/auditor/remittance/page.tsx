@@ -4,7 +4,7 @@ import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, updateDo
 import { collection, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { 
   ShieldCheck, Landmark, CheckCircle2, 
-  FileText, Loader2, ShieldAlert
+  FileText, Loader2, ShieldAlert, Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -102,6 +102,8 @@ export default function AuditorRemittanceClearance() {
                     auditor={run.ssnitAuditorName}
                     onClear={() => clearRemittance(run.id, 'SSNIT')}
                     icon={<Landmark size={20}/>}
+                    period={{ month: run.month, year: run.year }}
+                    type="SSNIT"
                 />
                 
                 <ClearanceBox 
@@ -111,6 +113,8 @@ export default function AuditorRemittanceClearance() {
                     onClear={() => clearRemittance(run.id, 'PAYE')}
                     icon={<FileText size={20}/>}
                     color="red"
+                    period={{ month: run.month, year: run.year }}
+                    type="PAYE"
                 />
              </div>
           </div>
@@ -120,11 +124,12 @@ export default function AuditorRemittanceClearance() {
   );
 }
 
-function ClearanceBox({ title, isCleared, auditor, onClear, icon, color = "blue" }: any) {
+function ClearanceBox({ title, isCleared, auditor, onClear, icon, color = "blue", period, type }: any) {
+    const router = useRouter();
     return (
         <div className={`p-6 rounded-[32px] border-2 transition-all ${isCleared ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
             <div className="flex justify-between items-start mb-6">
-               <div className={`p-3 rounded-2xl ${isCleared ? 'bg-green-600 text-white' : `bg-${color}-600 text-white`}`}>{icon}</div>
+               <div className={`p-3 rounded-2xl ${isCleared ? 'bg-green-600 text-white' : color === 'red' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}>{icon}</div>
                {isCleared ? (
                  <div className="text-right">
                     <span className="text-[9px] font-black text-green-600 uppercase italic">Certified OK</span>
@@ -135,13 +140,22 @@ function ClearanceBox({ title, isCleared, auditor, onClear, icon, color = "blue"
                )}
             </div>
             <h4 className="text-sm font-black uppercase text-black mb-6">{title}</h4>
-            <button 
-                disabled={isCleared}
-                onClick={onClear}
-                className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${isCleared ? 'bg-green-100 text-green-700' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-xl'}`}
-            >
-                {isCleared ? 'Verification Complete' : 'Verify & Authorize Print'}
-            </button>
+            <div className="flex gap-2">
+                <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => router.push(`/hr/payroll/schedules?year=${period.year}&month=${period.month}&type=${type}`)}
+                >
+                    <Eye size={14} className="mr-2"/> Review
+                </Button>
+                <Button 
+                    disabled={isCleared}
+                    onClick={onClear}
+                    className={`flex-1 font-black uppercase text-[10px] tracking-widest transition-all ${isCleared ? 'bg-green-100 text-green-700' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-xl'}`}
+                >
+                    {isCleared ? 'Cleared' : 'Certify'}
+                </Button>
+            </div>
         </div>
     );
 }

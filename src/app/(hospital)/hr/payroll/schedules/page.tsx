@@ -1,22 +1,30 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { 
   FileText, Download, Printer, Landmark, ShieldCheck, 
   Loader2, ShieldAlert
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function RemittanceSchedules() {
+function SchedulesContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
-  const [selectedItem, setSelectedItem] = useState<string>('SSNIT');
-  const [period, setPeriod] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear() });
+  const initialType = searchParams.get('type');
+  const initialMonth = searchParams.get('month');
+  const initialYear = searchParams.get('year');
+  
+  const [selectedItem, setSelectedItem] = useState<string>(initialType || 'SSNIT');
+  const [period, setPeriod] = useState({ 
+    month: initialMonth ? Number(initialMonth) : new Date().getMonth() + 1, 
+    year: initialYear ? Number(initialYear) : new Date().getFullYear() 
+  });
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -146,7 +154,7 @@ export default function RemittanceSchedules() {
           <p className="text-slate-500 font-bold text-xs uppercase italic">Statutory and voluntary deduction reports.</p>
         </div>
         <div className="w-72">
-            <Select onValueChange={setSelectedItem} defaultValue={selectedItem}>
+            <Select onValueChange={setSelectedItem} value={selectedItem}>
                 <SelectTrigger className="font-bold uppercase text-xs tracking-widest"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="SSNIT">SSNIT Contribution (18.5%)</SelectItem>
@@ -177,7 +185,7 @@ export default function RemittanceSchedules() {
             </thead>
             <tbody className="divide-y border">
                 {scheduleData.length === 0 ? (
-                    <tr><td colSpan={selectedItem === 'SSNIT' ? 4 : (selectedItem === 'PAYE' ? 4 : 3)} className="p-10 text-center italic">No data for selected item and period.</td></tr>
+                    <tr><td colSpan={selectedItem === 'SSNIT' || selectedItem === 'PAYE' ? 4 : 3} className="p-10 text-center italic">No data for selected item and period.</td></tr>
                 ) : scheduleData.map((s: any, i: number) => {
                     if (selectedItem === 'SSNIT') return (
                         <tr key={i} className="hover:bg-slate-50">
@@ -228,4 +236,13 @@ export default function RemittanceSchedules() {
       </div>
     </div>
   );
+}
+
+
+export default function RemittanceSchedules() {
+  return (
+    <Suspense fallback={<div className="flex h-full w-full items-center justify-center"><Loader2 className="animate-spin h-16 w-16"/></div>}>
+        <SchedulesContent />
+    </Suspense>
+  )
 }
