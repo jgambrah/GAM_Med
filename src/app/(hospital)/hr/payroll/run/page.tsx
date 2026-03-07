@@ -1,6 +1,5 @@
-
-      'use client';
-import { useState, useEffect } from 'react';
+'use client';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, getDocs, doc, getDoc, writeBatch, serverTimestamp, increment, runTransaction } from 'firebase/firestore';
 import { 
@@ -207,7 +206,25 @@ export default function PayrollRunEnginePage() {
       // 6. Finalize individual slips
       payrollData.forEach(slip => {
          const slipRef = doc(collection(firestore, "hospitals", hospitalId, "payslips"));
-         batch.set(slipRef, { ...slip, runId, hospitalId: hospitalId, createdAt: serverTimestamp() });
+         // By explicitly setting fields, we ensure data integrity for each payslip.
+         batch.set(slipRef, {
+            runId: runId,
+            hospitalId: hospitalId,
+            createdAt: serverTimestamp(),
+            staffId: slip.staffId,
+            name: slip.name,
+            role: slip.role,
+            basic: slip.basic,
+            gross: slip.gross,
+            ssnitEmployee: slip.ssnitEmployee,
+            paye: slip.paye,
+            deductions: slip.deductions || [], // Ensure it's always an array
+            netSalary: slip.netSalary,
+            multiplier: slip.multiplier,
+            bankName: slip.bankName || 'N/A',
+            accountNumber: slip.accountNumber || 'N/A',
+            branchCode: slip.branchCode || 'N/A'
+         });
       });
 
       await batch.commit();
@@ -325,4 +342,3 @@ function SummaryCard({ label, value, color }: any) {
         </div>
     );
 }
-
