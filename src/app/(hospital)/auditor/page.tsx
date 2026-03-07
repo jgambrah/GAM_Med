@@ -1,15 +1,15 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc, writeBatch, serverTimestamp, increment, getDocs } from 'firebase/firestore';
 import { 
   ShieldCheck, AlertCircle, FileText, CheckCircle2, 
-  XCircle, Printer, Eye, Landmark, ArrowRightLeft, Loader2, ShieldAlert
+  XCircle, Printer, Eye, Landmark, ArrowRightLeft, Loader2, ShieldAlert, Calculator
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AuditorPortal() {
   const { user, isUserLoading } = useUser();
@@ -47,49 +47,6 @@ export default function AuditorPortal() {
   }, [firestore, hospitalId]);
   const { data: pendingJVs, isLoading: jvsLoading } = useCollection(jvQuery);
 
-  const authorizePV = async (pv: any) => {
-    if (!user || !hospitalId || !firestore) return;
-
-    const confirmAudit = confirm(`Authorize Payment of GHS ${pv.netAmount.toFixed(2)} to ${pv.payee}?`);
-    if (!confirmAudit) return;
-
-    const batch = writeBatch(firestore);
-    try {
-      // 1. Update PV Status to AUTHORIZED (or whatever the next step is)
-      const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, pv.id);
-      batch.update(pvRef, { 
-        status: 'AUTHORIZED', // Or 'PENDING_DIRECTOR_APPROVAL' if there's another step
-        auditedBy: user.uid, 
-        auditedByName: user.displayName,
-        auditedAt: serverTimestamp() 
-      });
-      
-      // Since the Accountant no longer does this, the Auditor does.
-      // 2. EXECUTE LEDGER POSTING
-      const creditAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, pv.creditAccountId);
-      batch.update(creditAccRef, { currentBalance: increment(-pv.netAmount) });
-
-      const debitAccRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, pv.debitAccountId);
-      batch.update(debitAccRef, { currentBalance: increment(pv.grossAmount) });
-
-      // Handle WHT dynamically
-      if (pv.whtAmount > 0) {
-        const whtQuery = query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`), where("accountCode", "==", "2100"));
-        const whtSnap = await getDocs(whtQuery);
-        if (whtSnap.empty) {
-            throw new Error("Withholding Tax Payable account (2100) not found.");
-        }
-        const whtAccRef = whtSnap.docs[0].ref;
-        batch.update(whtAccRef, { currentBalance: increment(pv.whtAmount) });
-      }
-
-      await batch.commit();
-      toast({ title: `PV ${pv.pvNumber} Authorized & Posted to Ledger` });
-    } catch (e: any) { 
-        toast({ variant: 'destructive', title: 'Authorization Failed', description: e.message });
-    }
-  };
-  
   const pageIsLoading = isUserLoading || isProfileLoading;
   
   if (pageIsLoading) return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>;
@@ -125,24 +82,35 @@ export default function AuditorPortal() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div className="space-y-6">
            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 px-2">
-              <Landmark size={16} className="text-primary" /> Vouchers Awaiting Authorization
+              <Calculator size={16} className="text-primary" /> Payroll Master Reviews
+           </h3>
+           <div className="space-y-4">
+              {jvsLoading ? <div className="p-10 text-center"><Loader2 className="animate-spin"/></div> :
+              pendingPVs?.length === 0 ? (
+                <div className="p-10 bg-card rounded-[40px] border-2 border-dashed text-center text-muted-foreground italic uppercase text-xs">No payroll files pending audit.</div>
+              ) : <></>}
+           </div>
+        </div>
+        <div className="space-y-6">
+           <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 px-2">
+              <FileText size={16} className="text-destructive" /> Pending Payment Vouchers
            </h3>
            
            <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden divide-y">
-              {dataIsLoading ? <div className="p-10 text-center"><Loader2 className="animate-spin"/></div> :
+              {pvsLoading ? <div className="p-10 text-center"><Loader2 className="animate-spin"/></div> :
               pendingPVs?.length === 0 ? (
-                <div className="p-20 text-center text-muted-foreground italic uppercase text-xs">No pending payment vouchers.</div>
+                <div className="p-20 text-center text-muted-foreground italic uppercase text-xs">All vouchers are audited.</div>
               ) : pendingPVs?.map(pv => (
                 <div key={pv.id} className="p-8 flex flex-col md:flex-row justify-between items-center gap-6 group hover:bg-muted/50 transition-all">
                    <div className="flex items-center gap-6">
-                      <div className="bg-primary/10 p-4 rounded-2xl text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                      <div className="bg-destructive/10 p-4 rounded-2xl text-destructive group-hover:bg-destructive group-hover:text-white transition-all">
                         <FileText size={24} />
                       </div>
                       <div>
-                         <p className="text-primary font-black text-sm">{pv.pvNumber}</p>
+                         <p className="text-destructive font-black text-sm">{pv.pvNumber}</p>
                          <p className="text-xl font-black uppercase text-card-foreground leading-tight">{pv.payee}</p>
                          <p className="text-[10px] text-muted-foreground mt-1 uppercase italic">Narration: {pv.narration.substring(0, 60)}...</p>
                       </div>
@@ -153,10 +121,11 @@ export default function AuditorPortal() {
                          <p className="text-2xl font-black text-card-foreground italic">₵ {pv.netAmount.toFixed(2)}</p>
                       </div>
                       <div className="flex gap-2">
-                         <Button onClick={() => authorizePV(pv)} variant="default" className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
-                            Approve
+                         <Button asChild size="sm" className="bg-slate-100 text-slate-400 group-hover:bg-destructive group-hover:text-white font-black uppercase text-[9px]">
+                            <Link href={`/auditor/review/${pv.id}`}>
+                                Pre-Audit
+                            </Link>
                          </Button>
-                         <Button variant="ghost" className="text-destructive"><XCircle size={20} /></Button>
                       </div>
                    </div>
                 </div>

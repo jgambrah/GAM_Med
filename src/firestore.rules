@@ -38,6 +38,14 @@ service cloud.firestore {
           && userData.hospitalId == hospitalId 
           && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
     }
+    
+    function isAuditorRole(hospitalId) {
+      let userData = getCallingUserData();
+      return isSignedIn() 
+          && userData != null 
+          && userData.hospitalId == hospitalId 
+          && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+    }
 
     function isClinicalStaff(hospitalId) {
       let userData = getCallingUserData();
@@ -269,7 +277,7 @@ service cloud.firestore {
       
       match /payment_vouchers/{voucherId} {
         allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId); // Auditor can also update status
+        allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
         allow delete: if false;
       }
       
@@ -354,7 +362,7 @@ service cloud.firestore {
       }
 
       match /payroll_archives/{archiveId} {
-        allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, create, list: if isSuperAdmin() || isAuditorRole(hospitalId);
         allow update, delete: if false;
       }
 
