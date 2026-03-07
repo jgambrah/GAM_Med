@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
@@ -99,6 +98,8 @@ export default function PayrollRunEnginePage() {
           bankName: staff.bankName,
           accountNumber: staff.accountNumber,
           branchCode: staff.branchCode,
+          ssnitNumber: staff.ssnitNumber,
+          tinNumber: staff.tinNumber,
         };
       }).filter(Boolean);
 
@@ -131,7 +132,6 @@ export default function PayrollRunEnginePage() {
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `BANK_TRANSFER_FILE_${period.month + 1}_${period.year}.csv`);
-    document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
@@ -227,7 +227,9 @@ export default function PayrollRunEnginePage() {
             multiplier: slip.multiplier,
             bankName: slip.bankName || 'N/A',
             accountNumber: slip.accountNumber || 'N/A',
-            branchCode: slip.branchCode || 'N/A'
+            branchCode: slip.branchCode || 'N/A',
+            ssnitNumber: slip.ssnitNumber || 'N/A',
+            tinNumber: slip.tinNumber || 'N/A',
          });
       });
 
@@ -346,5 +348,3 @@ function SummaryCard({ label, value, color }: any) {
         </div>
     );
 }
-
-    
