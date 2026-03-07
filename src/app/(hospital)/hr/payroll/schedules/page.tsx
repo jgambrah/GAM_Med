@@ -40,10 +40,18 @@ export default function RemittanceSchedules() {
   }, [firestore, hospitalId]);
   const { data: deductionItems, isLoading: areItemsLoading } = useCollection(deductionItemsQuery);
 
+  const runId = `PAY-${period.year}-${String(period.month).padStart(2, '0')}`;
+
+  const runRef = useMemoFirebase(() => {
+      if(!firestore || !hospitalId) return null;
+      return doc(firestore, `hospitals/${hospitalId}/payroll_runs`, runId);
+  }, [firestore, hospitalId, runId]);
+  const { data: currentRun, isLoading: isRunLoading } = useDoc(runRef);
+
   const payslipsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/payslips`), where("hospitalId", "==", hospitalId));
-  }, [firestore, hospitalId]);
+    return query(collection(firestore, `hospitals/${hospitalId}/payslips`), where("runId", "==", runId));
+  }, [firestore, hospitalId, runId]);
   const { data: payslipData, isLoading: areSlipsLoading } = useCollection(payslipsQuery);
 
   const scheduleData = useMemo(() => {
@@ -105,8 +113,9 @@ export default function RemittanceSchedules() {
     }
   }, [scheduleData, selectedItem]);
 
+  const isCleared = selectedItem === 'SSNIT' ? currentRun?.ssnitAuditCleared : currentRun?.payeAuditCleared;
 
-  const isLoading = isUserLoading || isProfileLoading || areItemsLoading || areSlipsLoading || isHospitalLoading;
+  const isLoading = isUserLoading || isProfileLoading || areItemsLoading || areSlipsLoading || isHospitalLoading || isRunLoading;
   
   if(isLoading) {
       return (
@@ -205,9 +214,16 @@ export default function RemittanceSchedules() {
         </table>
 
          <div className="mt-20 flex justify-between print:hidden">
-           <button onClick={() => window.print()} className="bg-black text-white px-10 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2">
-              <Printer size={16}/> Print for Institutional Submission
-           </button>
+           <button 
+                onClick={() => window.print()}
+                disabled={!isCleared}
+                className={`w-full py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all ${
+                    isCleared ? 'bg-blue-600 text-white hover:bg-black' : 'bg-slate-100 text-slate-400'
+                }`}
+            >
+                {isCleared ? <Printer size={18} /> : <ShieldCheck size={18} />}
+                {isCleared ? "Generate Official Schedule" : "Awaiting Auditor Clearance"}
+            </button>
         </div>
       </div>
     </div>
