@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
@@ -47,7 +46,7 @@ export default function PayrollRunEnginePage() {
     try {
       const configRef = doc(firestore, "hospitals", hospitalId, "payroll_config", "main");
       const profilesQuery = query(collection(firestore, "hospitals", hospitalId, "salary_profiles"), where("hospitalId", "==", hospitalId));
-      const staffQuery = query(collection(firestore, "users"), where("hospitalId", "==", hospitalId), where("is_active", "==", true));
+      const staffQuery = query(collection(firestore, "users"), where("hospitalId", "==", hospitalId), where('is_active', '==', true));
 
       const [configSnap, profilesSnap, staffSnap] = await Promise.all([
         getDoc(configRef),
@@ -132,9 +131,9 @@ export default function PayrollRunEnginePage() {
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `BANK_TRANSFER_FILE_${period.month + 1}_${period.year}.csv`);
-    document.body.appendChild(link); // Append the link to the body
+    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link); // Now it's safe to remove
+    document.body.removeChild(link);
     
     toast({ title: "Bank Transfer File Generated", description: "You can now upload this to your banking portal." });
   };
@@ -161,8 +160,8 @@ export default function PayrollRunEnginePage() {
       batch.set(archiveRef, {
         hospitalId: hospitalId,
         period: periodId,
-        processedBy: user?.uid,
-        processedByName: user?.displayName,
+        processedBy: user.uid,
+        processedByName: user.displayName || user.email,
         totalNet: totalNet,
         totalGross: totalGross,
         totalTax: totalPaye,
@@ -204,7 +203,7 @@ export default function PayrollRunEnginePage() {
       const runRef = doc(firestore, "hospitals", hospitalId, "payroll_runs", runId);
       batch.set(runRef, {
         hospitalId: hospitalId, month: period.month + 1, year: period.year,
-        totalNet: totalNet, status: 'POSTED', createdAt: serverTimestamp(), processedBy: user?.uid
+        totalNet: totalNet, status: 'POSTED', createdAt: serverTimestamp(), processedBy: user.uid
       });
 
       // 6. Finalize individual slips
