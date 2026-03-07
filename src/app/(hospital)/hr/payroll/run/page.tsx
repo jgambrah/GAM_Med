@@ -112,11 +112,8 @@ export default function PayrollRunEnginePage() {
   const exportToBankFile = () => {
     if (payrollData.length === 0) return;
   
-    // 1. Define CSV Headers (Standard for Ghana Bank Uploads)
     const headers = ["Employee Name", "Bank Name", "Account Number", "Branch Code", "Net Salary (GHS)"];
     
-    // 2. Map the payroll data to rows
-    // Note: We'll assume these bank fields exist in the staff profile or use placeholders
     const rows = payrollData.map(p => [
       p.name,
       p.bankName || "Commercial Bank", 
@@ -125,10 +122,8 @@ export default function PayrollRunEnginePage() {
       p.netSalary.toFixed(2)
     ]);
   
-    // 3. Construct CSV Content
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     
-    // 4. Trigger Download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -157,45 +152,42 @@ export default function PayrollRunEnginePage() {
       const totalPaye = payrollData.reduce((a, b) => a + b.paye, 0);
       const totalSsnit = payrollData.reduce((a, b) => a + (b.basic * 0.185), 0);
       const totalEmployerSsnit = payrollData.reduce((a, b) => a + (b.basic * 0.13), 0);
+      
+      // 2. Create the MASTER ARCHIVE Document
+      const archiveRef = doc(collection(firestore, `hospitals/${hospitalId}/payroll_archives`));
+      batch.set(archiveRef, {
+        hospitalId: hospitalId,
+        period: periodId,
+        processedBy: user?.uid,
+        processedByName: user?.displayName,
+        totalNet: totalNet,
+        totalGross: totalGross,
+        totalTax: totalPaye,
+        fullData: payrollData,
+        status: 'POSTED',
+        createdAt: serverTimestamp(),
+      });
+
 
       const apCollection = collection(firestore, `hospitals/${hospitalId}/accounts_payable`);
-      // 2. CREATE ACCOUNTS PAYABLE RECORDS (One for each institution/bucket)
-      
-      // Bucket A: Staff Net Salaries
+      // 3. CREATE ACCOUNTS PAYABLE RECORDS
       batch.set(doc(apCollection), {
         supplierName: "STAFF SALARIES (MONTHLY)",
-        amountOwed: totalNet,
-        category: "PAYROLL",
-        status: 'UNPAID',
-        hospitalId: hospitalId,
-        description: `Payroll Net Payable for ${periodId}`,
-        createdAt: serverTimestamp()
+        amountOwed: totalNet, category: "PAYROLL", status: 'UNPAID', hospitalId: hospitalId,
+        description: `Payroll Net Payable for ${periodId}`, createdAt: serverTimestamp()
       });
-
-      // Bucket B: GRA (PAYE)
       batch.set(doc(apCollection), {
         supplierName: "GHANA REVENUE AUTHORITY (PAYE)",
-        amountOwed: totalPaye,
-        category: "STATUTORY",
-        status: 'UNPAID',
-        hospitalId: hospitalId,
-        description: `PAYE Deductions for ${periodId}`,
-        createdAt: serverTimestamp()
+        amountOwed: totalPaye, category: "STATUTORY", status: 'UNPAID', hospitalId: hospitalId,
+        description: `PAYE Deductions for ${periodId}`, createdAt: serverTimestamp()
       });
-
-      // Bucket C: SSNIT
       batch.set(doc(apCollection), {
         supplierName: "SSNIT (TIER 1 & 2)",
-        amountOwed: totalSsnit,
-        category: "STATUTORY",
-        status: 'UNPAID',
-        hospitalId: hospitalId,
-        description: `Total SSNIT Contributions (18.5%) for ${periodId}`,
-        createdAt: serverTimestamp()
+        amountOwed: totalSsnit, category: "STATUTORY", status: 'UNPAID', hospitalId: hospitalId,
+        description: `Total SSNIT Contributions (18.5%) for ${periodId}`, createdAt: serverTimestamp()
       });
 
-      // 3. LEDGER POSTING (Debit Salaries Expense)
-      // In a high-grade ERP, we debit the Expense account by the FULL COST (Gross + Employer SSNIT)
+      // 4. LEDGER POSTING
       const salariesExpenseQuery = query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`), where("accountCode", "==", "5001"));
       const expenseSnap = await getDocs(salariesExpenseQuery);
       if (!expenseSnap.empty) {
@@ -204,27 +196,22 @@ export default function PayrollRunEnginePage() {
           });
       }
 
-      // 4. Create Main Run Document
+      // 5. Create Main Run Document (Summary)
       const runId = `PAY-${periodId}`;
       const runRef = doc(firestore, "hospitals", hospitalId, "payroll_runs", runId);
       batch.set(runRef, {
-        hospitalId: hospitalId,
-        month: period.month + 1,
-        year: period.year,
-        totalNet: totalNet,
-        status: 'POSTED',
-        createdAt: serverTimestamp(),
-        processedBy: user?.uid
+        hospitalId: hospitalId, month: period.month + 1, year: period.year,
+        totalNet: totalNet, status: 'POSTED', createdAt: serverTimestamp(), processedBy: user?.uid
       });
 
-      // 5. Finalize individual slips...
+      // 6. Finalize individual slips
       payrollData.forEach(slip => {
          const slipRef = doc(collection(firestore, "hospitals", hospitalId, "payslips"));
          batch.set(slipRef, { ...slip, runId, hospitalId: hospitalId, createdAt: serverTimestamp() });
       });
 
       await batch.commit();
-      toast({ title: "Payroll Handshake Complete. Liabilities moved to Accounts Payable." });
+      toast({ title: "Payroll Finalized and Archived for Audit." });
       setPayrollData([]);
     } catch (e: any) { 
         toast({ variant: 'destructive', title: "Payroll Commit Failed", description: e.message });

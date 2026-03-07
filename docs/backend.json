@@ -28,6 +28,28 @@
       },
       "required": ["hospitalId", "label", "type"]
     },
+    "PayrollArchive": {
+      "title": "Payroll Archive",
+      "description": "A master audit record of a complete payroll run, including all calculations for all staff.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "period": { "type": "string", "description": "The payroll period, e.g., '2024-07'." },
+        "processedBy": { "type": "string" },
+        "processedByName": { "type": "string" },
+        "totalNet": { "type": "number" },
+        "totalGross": { "type": "number" },
+        "totalTax": { "type": "number" },
+        "fullData": {
+          "type": "array",
+          "description": "A snapshot of all payslip data for this run.",
+          "items": { "$ref": "#/backend/entities/Payslip" }
+        },
+        "status": { "type": "string", "enum": ["POSTED", "PAID"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "period", "processedBy", "totalNet", "totalGross", "fullData", "status", "createdAt"]
+    },
     "InventoryMovement": {
       "title": "Inventory Movement",
       "description": "An audit log entry for any change in stock quantity, such as internal issuance or adjustments.",
@@ -4100,6 +4122,13 @@
   "firestore": {
     "structure": [
       {
+        "path": "/hospitals/{hospitalId}/payroll_archives/{archiveId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/PayrollArchive" },
+          "description": "Stores master records of each completed payroll run for audit purposes."
+        }
+      },
+      {
         "path": "/hospitals/{hospitalId}/salary_grades/{gradeId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/SalaryGrade" },
@@ -4682,3 +4711,5 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
+
+    

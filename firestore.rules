@@ -163,7 +163,7 @@ service cloud.firestore {
         allow read: if isSuperAdmin() || isSignedIn();
         allow write: if isSuperAdmin();
     }
-
+    
     match /custom_departments/{departmentId} {
       // Any authenticated user from any hospital can list all departments.
       // The client-side query is responsible for filtering by hospitalId.
@@ -351,6 +351,11 @@ service cloud.firestore {
       
       match /salary_profiles/{staffId} {
         allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /payroll_archives/{archiveId} {
+        allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false;
       }
 
       match /payroll_runs/{runId} {
