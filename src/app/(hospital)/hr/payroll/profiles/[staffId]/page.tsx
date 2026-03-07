@@ -152,11 +152,29 @@ export default function StaffSalaryProfile() {
              </h3>
              <PayrollItemSelector items={availableAllowances} onSelect={addAllowance} />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
             {allowances.map((item, idx) => (
               <div key={idx} className="flex gap-2 items-center animate-in fade-in duration-200">
-                <Input readOnly value={item.label} className="flex-1 p-3 bg-muted rounded-xl text-xs" />
-                <Input type="number" placeholder="₵" className="w-24 p-3 bg-muted rounded-xl text-xs font-black text-right" value={item.amount} onChange={e => {
+                <Select
+                  value={item.label}
+                  onValueChange={(value) => {
+                    const up = [...allowances];
+                    const selectedItem = availableAllowances.find(a => a.label === value);
+                    up[idx].label = value;
+                    up[idx].isTaxable = selectedItem?.isTaxable ?? true;
+                    setAllowances(up);
+                  }}
+                >
+                  <SelectTrigger className="flex-1 text-xs">
+                    <SelectValue placeholder="Select Allowance..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAllowances.map((a: any) => (
+                      <SelectItem key={a.id} value={a.label}>{a.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="number" placeholder="₵" className="w-24 p-3 rounded-xl text-xs font-black text-right" value={item.amount} onChange={e => {
                   const up = [...allowances]; up[idx].amount = Number(e.target.value); setAllowances(up);
                 }} />
                 <Button variant="ghost" size="icon" onClick={() => removeAllowance(idx)} className="text-destructive p-2 h-9 w-9"><Trash2 size={16}/></Button>
@@ -172,11 +190,29 @@ export default function StaffSalaryProfile() {
              </h3>
              <PayrollItemSelector items={availableDeductions} onSelect={addDeduction} itemType="Deduction" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {deductions.map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-center bg-muted p-4 rounded-2xl border">
-                <p className="flex-1 text-xs font-bold uppercase">{item.label}</p>
-                <Input type="number" className="w-28 bg-card p-2 rounded-lg text-xs font-black text-right text-destructive" value={item.amount} onChange={e => {
+              <div key={idx} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                <Select
+                  value={item.label}
+                  onValueChange={(value) => {
+                    const up = [...deductions];
+                    const selectedItem = availableDeductions.find(d => d.label === value);
+                    up[idx].label = value;
+                    up[idx].category = selectedItem?.category || 'Other';
+                    setDeductions(up);
+                  }}
+                >
+                  <SelectTrigger className="flex-1 text-xs uppercase">
+                    <SelectValue placeholder="Select Deduction..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDeductions.map((d: any) => (
+                      <SelectItem key={d.id} value={d.label}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="number" placeholder="₵" className="w-28 bg-background p-2 rounded-lg text-xs font-black text-right text-destructive" value={item.amount} onChange={e => {
                    const up = [...deductions]; up[idx].amount = Number(e.target.value); setDeductions(up);
                 }} />
                 <Button variant="ghost" size="icon" onClick={() => removeDeduction(idx)} className="text-muted-foreground hover:text-destructive h-8 w-8"><X size={16}/></Button>
