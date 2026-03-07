@@ -370,7 +370,8 @@ service cloud.firestore {
 
       match /payroll_runs/{runId} {
         allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow update, delete: if false;
+        allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
+        allow delete: if false;
       }
 
       match /payslips/{slipId} {

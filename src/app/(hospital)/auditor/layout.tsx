@@ -1,11 +1,10 @@
-
 'use client';
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, ShieldCheck, FileText,
-  LogOut, ChevronRight, Loader2, ShieldAlert
+  LogOut, ChevronRight, Loader2, ShieldAlert, Landmark
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -18,6 +17,7 @@ const menuGroups = [
     items: [
       { name: "Audit Console", href: "/auditor", icon: LayoutDashboard },
       { name: "Approved Payments", href: "/auditor/archive", icon: FileText },
+      { name: "Remittance Schedules", href: "/auditor/remittance", icon: Landmark },
     ]
   },
 ];
