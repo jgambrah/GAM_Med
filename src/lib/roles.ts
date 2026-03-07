@@ -1,6 +1,7 @@
 export const HOSPITAL_ROLES = [
   { id: 'DIRECTOR', label: 'Hospital Director', description: 'Full access to all modules and finance.' },
   { id: 'ADMIN', label: 'Administrator', description: 'Operational management and configuration.' },
+  { id: 'AUDITOR', label: 'Internal Auditor', description: 'Financial governance and pre-audit.' },
   { id: 'HR_MANAGER', label: 'HR Manager', description: 'Staff onboarding, payroll, and attendance.' },
   { id: 'DOCTOR', label: 'Medical Doctor', description: 'Consultations, prescriptions, and patient history.' },
   { id: 'NURSE', label: 'Nurse', description: 'Vitals, ward management, and treatment execution.' },

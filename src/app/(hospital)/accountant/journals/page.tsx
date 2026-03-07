@@ -89,7 +89,6 @@ export default function JournalEntryManager() {
     const batch = writeBatch(firestore);
     const jvNumber = `JV-${Date.now().toString().slice(-6)}`;
     const transactionDate = serverTimestamp();
-    const ledgerCollectionRef = collection(firestore, `hospitals/${hospitalId}/ledger_entries`);
 
     try {
       const journalRef = doc(collection(firestore, "hospitals", hospitalId, "journal_entries"));
@@ -101,41 +100,12 @@ export default function JournalEntryManager() {
         hospitalId: hospitalId,
         createdBy: user?.uid,
         createdByName: user?.displayName,
-        status: 'POSTED',
+        status: 'PENDING_APPROVAL',
         createdAt: transactionDate,
       });
 
-      lines.forEach(line => {
-        const accountRef = doc(firestore, "hospitals", hospitalId, "chart_of_accounts", line.accountId);
-        const accountData = coa?.find(a => a.id === line.accountId);
-        if (!accountData) throw new Error(`Account ${line.accountId} not found in Chart of Accounts.`);
-        
-        const debitAmount = Number(line.debit) || 0;
-        const creditAmount = Number(line.credit) || 0;
-
-        // Create Ledger Entry "Footprint"
-        batch.set(doc(ledgerCollectionRef), {
-            hospitalId,
-            accountId: line.accountId,
-            accountName: line.accountName,
-            date: transactionDate,
-            reference: jvNumber,
-            narration,
-            debit: debitAmount,
-            credit: creditAmount,
-            createdAt: transactionDate
-        });
-
-        // Update Balance
-        const effect = (accountData.category === 'ASSETS' || accountData.category === 'EXPENSES')
-          ? (debitAmount - creditAmount)
-          : (creditAmount - debitAmount);
-        
-        batch.update(accountRef, { currentBalance: increment(effect) });
-      });
-
       await batch.commit();
-      toast({ title: "Journal Posted", description: `Journal ${jvNumber} has been committed to the ledger.` });
+      toast({ title: "Journal Sent for Approval", description: `Journal ${jvNumber} has been sent to the auditor for review.` });
       setLines([{ accountId: '', accountName: '', debit: 0, credit: 0 }, { accountId: '', accountName: '', debit: 0, credit: 0 }]);
       setNarration('');
     } catch (e: any) {
@@ -246,7 +216,7 @@ export default function JournalEntryManager() {
              className="bg-primary text-primary-foreground px-12 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3 hover:bg-foreground transition-all disabled:bg-muted disabled:shadow-none"
            >
               {loading ? <Calculator className="animate-spin" /> : <Save size={18} />}
-              Commit & Post Journal
+              Send for Approval
            </Button>
         </div>
       </div>

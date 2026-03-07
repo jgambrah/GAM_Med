@@ -110,7 +110,7 @@ export default function PaymentVoucherManager() {
         const creditAccount = coa?.find(a => a.id === form.creditAccountId);
         if (!debitAccount || !creditAccount) throw new Error("Selected account not found");
         
-        // 1. Create the master PV record
+        // 1. Create the master PV record with PENDING status
         transaction.set(pvRef, {
           ...form, pvNumber, vatAmount, whtAmount, netAmount,
           hospitalId,
@@ -118,7 +118,7 @@ export default function PaymentVoucherManager() {
           creditAccountName: creditAccount.name,
           processedBy: user.uid,
           processedByName: user.displayName,
-          status: 'PAID', // It's paid from the ledger perspective
+          status: 'PENDING_APPROVAL', // <<< CHANGED
           createdAt: serverTimestamp()
         });
         
@@ -126,55 +126,18 @@ export default function PaymentVoucherManager() {
         const apId = searchParams.get('apId');
         if (apId) {
           const apRef = doc(firestore, `hospitals/${hospitalId}/accounts_payable`, apId);
-          transaction.update(apRef, { status: 'PAID', pvId: pvRef.id });
+          // Note: We don't mark as PAID here, that's the cashier's job after Director authorizes.
+          // We could add a 'pv_raised' status if needed. For now, we link the PV ID.
+          transaction.update(apRef, { pvId: pvRef.id });
         }
 
-        // --- TRIPLE-ENTRY LEDGER FOOTPRINTS ---
-        const ledgerCollectionRef = collection(firestore, `hospitals/${hospitalId}/ledger_entries`);
-        const transactionDate = serverTimestamp();
-
-        // a. Debit the expense/asset account
-        transaction.set(doc(ledgerCollectionRef), {
-            hospitalId, accountId: form.debitAccountId, accountName: debitAccount.name,
-            date: transactionDate, reference: pvNumber, narration: form.narration,
-            debit: form.grossAmount, credit: 0, createdAt: transactionDate
-        });
-        
-        // b. Credit the bank/cash account
-        transaction.set(doc(ledgerCollectionRef), {
-            hospitalId, accountId: form.creditAccountId, accountName: creditAccount.name,
-            date: transactionDate, reference: pvNumber, narration: form.narration,
-            debit: 0, credit: netAmount, createdAt: transactionDate
-        });
-
-        // c. Credit the WHT Payable account
-        if (whtAmount > 0) {
-          const whtAccount = coa?.find(a => a.accountCode === '2100');
-          if (!whtAccount) throw new Error("WHT Payable Account (Code: 2100) not found in Chart of Accounts.");
-          transaction.set(doc(ledgerCollectionRef), {
-              hospitalId, accountId: whtAccount.id, accountName: whtAccount.name,
-              date: transactionDate, reference: pvNumber, narration: `WHT for ${form.payee}`,
-              debit: 0, credit: whtAmount, createdAt: transactionDate
-          });
-        }
-
-        // 4. UPDATE LEDGER BALANCES
-        transaction.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.debitAccountId), { currentBalance: increment(form.grossAmount) });
-        transaction.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, form.creditAccountId), { currentBalance: increment(-netAmount) });
-        if (whtAmount > 0) {
-          const whtAccount = coa?.find(a => a.accountCode === '2100');
-          if (whtAccount) {
-              transaction.update(doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, whtAccount.id), { currentBalance: increment(whtAmount) });
-          }
-        }
-
-        // 5. UPDATE COUNTER
+        // 3. UPDATE COUNTER
         transaction.update(hospitalDocRef, { pvCounter: increment(1) });
       });
 
       setForm(prev => ({ ...prev, pvNumber: finalPvNumber }));
-      toast({ title: `Financial Handshake Complete`, description: "Ledger, AP, and WHT updated." });
-      setTimeout(() => window.print(), 500);
+      toast({ title: `PV ${finalPvNumber} Sent for Approval`, description: "Awaiting review from the internal auditor." });
+      // We don't print here anymore, auditor/director will do that.
 
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
@@ -280,26 +243,10 @@ export default function PaymentVoucherManager() {
                 <div className="flex justify-between text-2xl font-black text-white pt-2 uppercase tracking-tighter"><span>Net Payable</span><span>GHS {netAmount.toFixed(2)}</span></div>
              </div>
              <Button onClick={handleAuthorizePayment} disabled={processing} className="w-full bg-primary hover:bg-white hover:text-black text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center justify-center gap-3">
-                {processing ? <Loader2 className="animate-spin" /> : <><FileText size={18}/> Authorize & Post Payment</>}
+                {processing ? <Loader2 className="animate-spin" /> : <><FileText size={18}/> Send PV for Approval</>}
              </Button>
           </div>
         </div>
-      </div>
-
-      <div className="hidden print:block bg-white text-black p-0 font-serif">
-         <div className="border-4 border-black p-8">
-            <div className="text-center border-b-4 border-black pb-4 mb-6">
-               <h1 className="text-3xl font-black uppercase tracking-tighter">{hospitalName}</h1>
-               <h2 className="text-xl font-bold uppercase tracking-[0.3em] bg-black text-white inline-block px-8 py-1 mt-2">Payment Voucher</h2>
-            </div>
-            <div className="flex justify-between items-start mb-8">
-               <div className="space-y-2"><p className="font-bold uppercase text-sm">PV No: <span className="border-b-2 border-dotted border-black ml-2 px-4">{form.pvNumber}</span></p><p className="font-bold uppercase text-sm">Date: <span className="border-b-2 border-dotted border-black ml-2 px-4">{new Date().toLocaleDateString('en-GB')}</span></p><p className="font-bold uppercase text-sm">Payee: <span className="border-b-2 border-dotted border-black ml-2 px-4">{form.payee}</span></p></div>
-               <div className="text-right"><div className="border-4 border-black p-4 text-center"><p className="text-[10px] font-black uppercase">Voucher Currency</p><p className="text-2xl font-black uppercase">GHS</p></div></div>
-            </div>
-            <table className="w-full border-4 border-black mb-8"><thead className="bg-slate-200"><tr className="border-b-4 border-black"><th className="p-4 text-left font-black uppercase text-sm border-r-4 border-black">Description of Payment / Narration</th><th className="p-4 text-right font-black uppercase text-sm">Amount (GHS)</th></tr></thead><tbody className="font-bold"><tr className="border-b-2 border-black"><td className="p-6 h-40 align-top border-r-4 border-black">{form.narration}</td><td className="p-6 text-right">{form.grossAmount.toFixed(2)}</td></tr><tr className="border-b-2 border-black"><td className="p-3 text-right font-black uppercase text-xs border-r-4 border-black">Add: VAT & Statutory Levies (Effective 21.9%)</td><td className="p-3 text-right">{vatAmount.toFixed(2)}</td></tr><tr className="border-b-4 border-black"><td className="p-3 text-right font-black uppercase text-xs border-r-4 border-black text-red-600 italic underline">Less: Withholding Tax ({form.whtLabel})</td><td className="p-3 text-right text-red-600">({whtAmount.toFixed(2)})</td></tr><tr className="bg-slate-100"><td className="p-6 text-right font-black text-xl uppercase border-r-4 border-black">Net Amount Payable</td><td className="p-6 text-right font-black text-2xl">GHS {netAmount.toFixed(2)}</td></tr></tbody></table>
-            <div className="grid grid-cols-3 gap-8 mt-12"><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Prepared By (Accountant)</p><p className="text-[11px] font-bold mt-1 uppercase italic">{user?.displayName}</p></div></div><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Internal Audit (Pre-Audit)</p><div className="h-6"></div><p className="text-[8px] italic">Certification Stamp Required</p></div></div><div className="space-y-12"><div className="border-t-2 border-black pt-2 text-center"><p className="text-[10px] font-black uppercase">Approved By (Director)</p></div></div></div>
-            <div className="mt-16 text-center border-t border-slate-200 pt-4 opacity-50"><p className="text-[8px] font-black uppercase tracking-[0.5em]">Digitally Generated by GamMed ERP Ecosystem • Powered by Gam IT Solutions</p></div>
-         </div>
       </div>
     </div>
   );
