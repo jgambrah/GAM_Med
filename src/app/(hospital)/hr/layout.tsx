@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   Users, UserCheck, Clock, Calendar, 
   HeartPulse, GraduationCap, Gavel, Settings,
-  LogOut, ChevronRight, Calculator, Landmark, Loader2, ShieldAlert
+  LogOut, ChevronRight, Calculator, Landmark, Loader2, ShieldAlert, LayoutGrid
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -18,6 +19,7 @@ const menuGroups = [
     title: "HR Management",
     items: [
       { name: "HR Dashboard", href: "/hr", icon: Users },
+      { name: "Department Manager", href: "/hr/departments", icon: LayoutGrid },
       { name: "Attendance Setup", href: "/hr/attendance/setup", icon: Clock },
       { name: "Leave Management", href: "/hr/leave", icon: Calendar },
       { name: "Appraisals & KPIs", href: "/hr/appraisal", icon: HeartPulse },
