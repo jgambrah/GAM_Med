@@ -51,7 +51,7 @@ export default function PayrollRunEnginePage() {
       const [configSnap, profilesSnap, staffSnap] = await Promise.all([
         getDoc(configRef),
         getDocs(profilesQuery),
-        getDocs(staffSnap)
+        getDocs(staffQuery)
       ]);
 
       if (!configSnap.exists()) {
