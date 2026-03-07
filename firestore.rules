@@ -276,8 +276,8 @@ service cloud.firestore {
       }
       
       match /payment_vouchers/{voucherId} {
-        allow get, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list, update: if isSuperAdmin() || isAuditorRole(hospitalId);
+        allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
         allow delete: if false;
       }
       
@@ -363,7 +363,8 @@ service cloud.firestore {
 
       match /payroll_archives/{archiveId} {
         allow get, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list, update: if isSuperAdmin() || isAuditorRole(hospitalId);
+        allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAuditorRole(hospitalId);
+        allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
         allow delete: if false;
       }
 
