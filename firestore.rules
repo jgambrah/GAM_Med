@@ -15,10 +15,6 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    /**
-     * UPDATED: The CEO check now looks at your Custom Claim Badge 
-     * OR the document check you had previously. This makes it twice as reliable.
-     */
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'SUPER_ADMIN' || 
@@ -188,20 +184,16 @@ service cloud.firestore {
     }
 
     match /hospitals/{hospitalId} {
-      // The Hospital Root
       allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
       allow list, create, update, delete: if isSuperAdmin();
-      
-      // Allow the CEO and Staff into the sub-modules
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
       
       match /payroll_items/{itemId} {
-        allow read, list: if isStaffOfHospital(hospitalId);
-        allow create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
       
       match /salary_grades/{gradeId} {
-        allow read, list, create, update, delete: if isDirectorOrAdmin(hospitalId);
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
       
       match /ledger_entries/{entryId} {
@@ -262,7 +254,7 @@ service cloud.firestore {
       
       match /payment_vouchers/{voucherId} {
         allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) && getCallingUserData().role == 'DIRECTOR');
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId); // Auditor can also update status
         allow delete: if false;
       }
       
@@ -472,5 +464,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

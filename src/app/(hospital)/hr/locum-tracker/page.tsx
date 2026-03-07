@@ -72,8 +72,8 @@ export default function LocumShiftTracker() {
                 <h1 className="text-3xl font-black uppercase tracking-tighter italic">Locum <span className="text-primary">Shift Tracker</span></h1>
                 <p className="text-muted-foreground font-medium">Consolidate unpaid shifts for freelance doctors to generate payment vouchers.</p>
             </div>
-            <Button>
-                <Banknote size={16} /> Generate Bulk PV
+            <Button onClick={() => router.push('/accountant/locum-payments')}>
+                <Banknote size={16} /> Go to Payment Engine
             </Button>
         </div>
       
@@ -88,7 +88,8 @@ export default function LocumShiftTracker() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {locumAttendance?.map((log: any) => (
+            {areLogsLoading && <TableRow><TableCell colSpan={4} className="h-48 text-center"><Loader2 className="animate-spin text-primary" /></TableCell></TableRow>}
+            {!areLogsLoading && locumAttendance?.map((log: any) => (
               <tr key={log.id}>
                 <td className="p-6 uppercase text-sm">{log.staffName}</td>
                 <td className="p-6 text-xs text-muted-foreground">{log.clockInTime ? format(log.clockInTime.toDate(), 'PPP') : 'N/A'} ({log.shiftName})</td>
@@ -98,7 +99,7 @@ export default function LocumShiftTracker() {
                 </td>
               </tr>
             ))}
-             {locumAttendance?.length === 0 && (
+             {!areLogsLoading && locumAttendance?.length === 0 && (
                 <tr>
                     <td colSpan={4} className="p-12 text-center text-muted-foreground italic">No unpaid locum shifts found.</td>
                 </tr>
