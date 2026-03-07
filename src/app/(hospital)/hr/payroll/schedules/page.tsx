@@ -15,8 +15,9 @@ export default function RemittanceSchedules() {
   const firestore = useFirestore();
   const router = useRouter();
   
-  const [type, setType] = useState<string>('SSNIT');
-  
+  const [selectedItem, setSelectedItem] = useState<string>('SSNIT');
+  const [period, setPeriod] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear() });
+
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -46,36 +47,58 @@ export default function RemittanceSchedules() {
   const { data: payslipData, isLoading: areSlipsLoading } = useCollection(payslipsQuery);
 
   const scheduleData = useMemo(() => {
-    if (!payslipData || !type) return [];
-    if (type === 'SSNIT' || type === 'PAYE') {
-        return payslipData;
-    }
-    return payslipData.map(slip => {
-        const relevantDeductions = (slip.deductions || []).filter((d: any) => d.category === type);
-        return relevantDeductions.length > 0 ? {
-            name: slip.name,
-            staffId: slip.staffId,
-            role: slip.role,
-            deductions: relevantDeductions
-        } : null;
-    }).filter(Boolean);
+    if (!payslipData || !selectedItem) return [];
 
-  }, [payslipData, type]);
+    if (selectedItem === 'SSNIT') {
+        return payslipData.map(s => ({
+            name: s.name || "Unknown Staff",
+            staffId: s.staffId,
+            basic: s.basic,
+            employeeSsnit: s.basic * 0.055,
+            employerSsnit: s.basic * 0.13,
+            totalSsnit: s.basic * 0.185
+        }));
+    }
+
+    if (selectedItem === 'PAYE') {
+        return payslipData.map(s => ({
+            name: s.name || "Unknown Staff",
+            staffId: s.staffId,
+            gross: s.gross,
+            paye: s.paye,
+            net: s.netSalary
+        }));
+    }
+
+    // Generic deduction logic using STRICT MATCH
+    return payslipData.map(slip => {
+      const specificDeduction = (slip.deductions || []).find(
+        (d: any) => d.label.trim() === selectedItem.trim()
+      );
+
+      if (!specificDeduction || specificDeduction.amount <= 0) return null;
+
+      return {
+        name: slip.name || "Unknown Staff",
+        staffId: slip.staffId,
+        role: slip.role,
+        amount: specificDeduction.amount
+      };
+    }).filter(Boolean); // Removes the nulls
+  }, [payslipData, selectedItem]);
 
   const totalRemittance = useMemo(() => {
     if (!scheduleData || scheduleData.length === 0) return 0;
-    switch (type) {
+    
+    switch (selectedItem) {
         case 'SSNIT':
-            return scheduleData.reduce((acc, s) => acc + (s.basic * 0.185), 0);
+            return scheduleData.reduce((acc, s) => acc + s.totalSsnit, 0);
         case 'PAYE':
             return scheduleData.reduce((acc, s) => acc + s.paye, 0);
         default:
-            return scheduleData.reduce((acc, s: any) => {
-                const categoryTotal = (s?.deductions || []).reduce((dAcc: number, d: any) => dAcc + d.amount, 0);
-                return acc + categoryTotal;
-            }, 0);
+            return scheduleData.reduce((acc, s) => acc + s.amount, 0);
     }
-  }, [scheduleData, type]);
+  }, [scheduleData, selectedItem]);
 
 
   const isLoading = isUserLoading || isProfileLoading || areItemsLoading || areSlipsLoading || isHospitalLoading;
@@ -109,13 +132,13 @@ export default function RemittanceSchedules() {
           <p className="text-slate-500 font-bold text-xs uppercase italic">Statutory and voluntary deduction reports.</p>
         </div>
         <div className="w-72">
-            <Select onValueChange={setType} defaultValue={type}>
+            <Select onValueChange={setSelectedItem} defaultValue={selectedItem}>
                 <SelectTrigger className="font-bold uppercase text-xs tracking-widest"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="SSNIT">SSNIT Contribution (18.5%)</SelectItem>
                     <SelectItem value="PAYE">GRA PAYE Tax</SelectItem>
-                    {deductionItems?.map(cat => (
-                        <SelectItem key={cat.id} value={cat.category}>{cat.label}</SelectItem>
+                    {deductionItems?.map(item => (
+                        <SelectItem key={item.id} value={item.label}>{item.label} ({item.category})</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -124,37 +147,44 @@ export default function RemittanceSchedules() {
 
       <div className="bg-white p-10 rounded-[40px] border shadow-sm font-sans">
         <div className="text-center border-b-2 pb-6 mb-8">
-           <h2 className="text-2xl font-black uppercase">{type} REMITTANCE SCHEDULE</h2>
-           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">HOSPITAL ID: {hospitalId} • PERIOD: {new Date().toLocaleString('en-GB', {month: 'long', year:'numeric'})}</p>
+           <h2 className="text-2xl font-black uppercase">{selectedItem} REMITTANCE SCHEDULE</h2>
+           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">HOSPITAL ID: {hospitalId} • PERIOD: {new Date(period.year, period.month - 1).toLocaleString('en-GB', {month: 'long', year:'numeric'})}</p>
         </div>
         
         <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-900 text-white uppercase font-black tracking-widest">
-                {type === 'SSNIT' ? (
+                {selectedItem === 'SSNIT' ? (
                     <tr><th className="p-4 border">Staff Name</th><th className="p-4 border">Basic Salary (GHS)</th><th className="p-4 border">Employee (5.5%)</th><th className="p-4 border">Employer (13%)</th><th className="p-4 border text-right">Total Payable</th></tr>
-                ) : type === 'PAYE' ? (
+                ) : selectedItem === 'PAYE' ? (
                     <tr><th className="p-4 border">Staff Name</th><th className="p-4 border">Gross Pay (GHS)</th><th className="p-4 border">PAYE Tax (GHS)</th><th className="p-4 border text-right">Net Salary</th></tr>
                 ) : (
-                    <tr><th className="p-4 border">Staff Name</th><th className="p-4 border">Deduction Description</th><th className="p-4 border text-right">Amount (GHS)</th></tr>
+                    <tr><th className="p-4 border">Staff Name</th><th className="p-4 border">Staff ID / Ref</th><th className="p-4 border text-right">Amount (GHS)</th></tr>
                 )}
             </thead>
             <tbody className="divide-y border">
-                {(scheduleData || []).map((s: any, i: number) => {
-                    if (type === 'SSNIT') return (
-                        <tr key={i} className="hover:bg-slate-50"><td className="p-4 border uppercase font-bold">{s.name}</td><td className="p-4 border">GHS {s.basic.toFixed(2)}</td><td className="p-4 border">{(s.basic * 0.055).toFixed(2)}</td><td className="p-4 border">{(s.basic * 0.13).toFixed(2)}</td><td className="p-4 border text-right font-black">GHS {(s.basic * 0.185).toFixed(2)}</td></tr>
+                {scheduleData.length === 0 ? (
+                    <tr><td colSpan={selectedItem === 'SSNIT' ? 5 : (selectedItem === 'PAYE' ? 4 : 3)} className="p-10 text-center italic">No data for selected item and period.</td></tr>
+                ) : scheduleData.map((s: any, i: number) => {
+                    if (selectedItem === 'SSNIT') return (
+                        <tr key={i} className="hover:bg-slate-50"><td className="p-4 border uppercase font-bold">{s.name}</td><td className="p-4 border">GHS {s.basic.toFixed(2)}</td><td className="p-4 border">{(s.employeeSsnit).toFixed(2)}</td><td className="p-4 border">{(s.employerSsnit).toFixed(2)}</td><td className="p-4 border text-right font-black">GHS {s.totalSsnit.toFixed(2)}</td></tr>
                     );
-                    if (type === 'PAYE') return (
-                         <tr key={i} className="hover:bg-slate-50"><td className="p-4 border uppercase font-bold">{s.name}</td><td className="p-4 border">{s.gross.toFixed(2)}</td><td className="p-4 border text-red-600">{s.paye.toFixed(2)}</td><td className="p-4 border text-right font-black">GHS {s.netSalary.toFixed(2)}</td></tr>
+                    if (selectedItem === 'PAYE') return (
+                         <tr key={i} className="hover:bg-slate-50"><td className="p-4 border uppercase font-bold">{s.name}</td><td className="p-4 border">{s.gross.toFixed(2)}</td><td className="p-4 border text-red-600">{s.paye.toFixed(2)}</td><td className="p-4 border text-right font-black">GHS {s.net.toFixed(2)}</td></tr>
                     );
-                    return s.deductions?.map((d: any, dIdx: number) => (
-                         <tr key={`${i}-${dIdx}`} className="hover:bg-slate-50"><td className="p-4 border uppercase font-bold">{s.staffName}</td><td className="p-4 border">{d.label}</td><td className="p-4 border text-right font-black">GHS {d.amount.toFixed(2)}</td></tr>
-                    ));
+                    // Default case for other deductions
+                    return (
+                         <tr key={i} className="hover:bg-slate-50">
+                            <td className="p-4 border uppercase font-bold">{s.name}</td>
+                            <td className="p-4 border text-blue-600 font-mono">{s.staffId.slice(0,8)}</td>
+                            <td className="p-4 border text-right font-black">GHS {s.amount.toFixed(2)}</td>
+                         </tr>
+                    );
                 })}
             </tbody>
             <tfoot className="bg-slate-100 font-black">
                 <tr>
-                    <td colSpan={type === 'SSNIT' ? 2 : type === 'PAYE' ? 2 : 2} className="p-5 border uppercase">Schedule Total</td>
-                    <td colSpan={type === 'SSNIT' ? 3 : type === 'PAYE' ? 2 : 1} className="p-5 border text-right text-lg text-primary">GHS {totalRemittance.toFixed(2)}</td>
+                    <td colSpan={selectedItem === 'SSNIT' ? 4 : (selectedItem === 'PAYE' ? 3 : 2)} className="p-5 border uppercase">Schedule Total</td>
+                    <td className="p-5 border text-right text-lg text-primary">GHS {totalRemittance.toFixed(2)}</td>
                 </tr>
             </tfoot>
         </table>
