@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
@@ -131,8 +132,9 @@ export default function PayrollRunEnginePage() {
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `BANK_TRANSFER_FILE_${period.month + 1}_${period.year}.csv`);
+    document.body.appendChild(link); // Append the link to the body
     link.click();
-    document.body.removeChild(link);
+    document.body.removeChild(link); // Now it's safe to remove
     
     toast({ title: "Bank Transfer File Generated", description: "You can now upload this to your banking portal." });
   };
