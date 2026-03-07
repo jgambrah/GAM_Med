@@ -15,14 +15,10 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    /**
-     * UPDATED: The CEO check now looks at your Custom Claim Badge 
-     * OR the document check you had previously. This makes it twice as reliable.
-     */
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'SUPER_ADMIN' || 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid))
       );
     }
 
@@ -168,6 +164,21 @@ service cloud.firestore {
         allow write: if isSuperAdmin();
     }
     
+    match /custom_departments/{departmentId} {
+      // Any authenticated user from any hospital can list all departments.
+      // The client-side query is responsible for filtering by hospitalId.
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
+      
+      // Only staff from the specific hospital can read a department document directly.
+      allow read: if isSuperAdmin() || isStaffOfHospital(resource.data.hospitalId);
+
+      // Only Directors/Admins can create new departments for their hospital.
+      allow create: if isSuperAdmin() || isDirectorOrAdmin(request.resource.data.hospitalId);
+      
+      // Only Directors/Admins can delete departments from their hospital.
+      allow delete: if isSuperAdmin() || isDirectorOrAdmin(resource.data.hospitalId);
+    }
+    
 
     // --------------------------------
     // Collection Rules
@@ -188,12 +199,17 @@ service cloud.firestore {
     }
 
     match /hospitals/{hospitalId} {
-      // The Hospital Root
       allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
       allow list, create, update, delete: if isSuperAdmin();
-      
-      // Allow the CEO and Staff into the sub-modules
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
+      
+      match /payroll_items/{itemId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      match /salary_grades/{gradeId} {
+        allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
       
       match /ledger_entries/{entryId} {
         allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
@@ -253,7 +269,7 @@ service cloud.firestore {
       
       match /payment_vouchers/{voucherId} {
         allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) && getCallingUserData().role == 'DIRECTOR');
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId); // Auditor can also update status
         allow delete: if false;
       }
       
@@ -335,6 +351,11 @@ service cloud.firestore {
       
       match /salary_profiles/{staffId} {
         allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /payroll_archives/{archiveId} {
+        allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false;
       }
 
       match /payroll_runs/{runId} {
