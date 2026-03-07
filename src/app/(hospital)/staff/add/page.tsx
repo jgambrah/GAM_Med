@@ -1,10 +1,13 @@
+
 'use client';
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useFirebaseApp } from '@/firebase';
+import { useFirebaseApp, useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { HOSPITAL_ROLES } from '@/lib/roles';
+import { HOSPITAL_DEPARTMENTS } from '@/lib/constants';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { 
   UserPlus, ShieldCheck, Contact, Briefcase, 
   Save, Loader2, AlertCircle 
@@ -13,20 +16,45 @@ import {
 export default function AddStaffPage() {
   const [loading, setLoading] = useState(false);
   const firebaseApp = useFirebaseApp();
+  const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
+  
+  const [allDepartments, setAllDepartments] = useState<string[]>(HOSPITAL_DEPARTMENTS);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = userProfile?.hospitalId;
+
+  const deptsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "custom_departments"), where("hospitalId", "==", hospitalId));
+  }, [firestore, hospitalId]);
+  const { data: customDepts } = useCollection(deptsQuery);
+
+  useEffect(() => {
+    if (customDepts) {
+      const customNames = customDepts.map(d => d.name);
+      setAllDepartments([...HOSPITAL_DEPARTMENTS, ...customNames].sort());
+    }
+  }, [customDepts]);
 
   const initialFormState = {
     // REQUIRED FIELDS
     fullName: '',
     email: '',
     role: 'NURSE',
-    contractType: 'PERMANENT', // New field
+    contractType: 'PERMANENT',
     // OPTIONAL IDENTITY
     gender: '',
     dob: '',
     ghanaCardId: '',
     // OPTIONAL PROFESSIONAL
-    licenseNumber: '', // MDC or NMC Number
+    licenseNumber: '',
     department: '',
     employeeId: '',
     // OPTIONAL CONTACT
@@ -123,11 +151,27 @@ export default function AddStaffPage() {
             <div className="grid grid-cols-2 gap-4">
               <InputField label="License Number (MDC/NMC)" value={form.licenseNumber} onChange={(v: string) => setForm({...form, licenseNumber: v})} />
               <InputField label="Employee ID" value={form.employeeId} onChange={(v: string) => setForm({...form, employeeId: v})} />
-              <InputField label="Department" value={form.department} onChange={(v: string) => setForm({...form, department: v})} />
+              
+              <div className="col-span-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase">Department</label>
+                  <select 
+                    required 
+                    className="w-full p-3 border rounded-xl mt-1 text-card-foreground font-bold bg-muted/50 focus:bg-card focus:ring-2 focus:ring-primary outline-none transition-all"
+                    value={form.department}
+                    onChange={e => setForm({...form, department: e.target.value})}
+                  >
+                    <option value="">Select Department...</option>
+                    {allDepartments.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+              </div>
+
               <div>
                 <label className="text-[10px] font-black text-muted-foreground uppercase">Gender</label>
                 <select className="w-full p-3 border rounded-xl mt-1 text-card-foreground font-bold bg-muted/50"
-                  onChange={e => setForm({...form, gender: e.target.value})}>
+                    value={form.gender}
+                    onChange={e => setForm({...form, gender: e.target.value})}>
                   <option value="">Select</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -172,3 +216,4 @@ function InputField({ label, type = "text", required = false, value, onChange }:
     </div>
   );
 }
+    
