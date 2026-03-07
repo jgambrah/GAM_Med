@@ -10,7 +10,6 @@ import { collection, query, where, orderBy, limit, getDocs, doc, serverTimestamp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 
 interface Patient {
   id: string;
@@ -28,8 +27,8 @@ export default function ReceptionPortal() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  const router = useRouter();
 
+  // New states for server-side search
   const [isSearching, setIsSearching] = useState(false);
   const [deepSearchResults, setDeepSearchResults] = useState<Patient[] | null>(null);
 
@@ -41,6 +40,7 @@ export default function ReceptionPortal() {
 
   const hospitalId = userProfile?.hospitalId;
 
+  // --- 1. REAL-TIME FETCH FOR RECENT PATIENTS (DEFAULT VIEW) ---
   const patientQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(
@@ -49,14 +49,33 @@ export default function ReceptionPortal() {
       limit(25)
     );
   }, [firestore, hospitalId]);
+
   const { data: patients, isLoading: arePatientsLoading } = useCollection<Patient>(patientQuery);
 
+
+  // --- 2. CLIENT-SIDE FILTERING FOR THE RECENTLY LOADED PATIENTS ---
+  const filteredRecentPatients = useMemo(() => {
+    if (!patients) return [];
+    if (!searchTerm) return patients;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return patients.filter(p => 
+        (p.firstName && p.firstName.toLowerCase().includes(lowercasedTerm)) ||
+        (p.lastName && p.lastName.toLowerCase().includes(lowercasedTerm)) ||
+        (p.ehrNumber && p.ehrNumber.toLowerCase().includes(lowercasedTerm)) ||
+        (p.phoneNumber && p.phoneNumber.includes(searchTerm)) ||
+        (p.ghanaCardId && p.ghanaCardId.toLowerCase().includes(lowercasedTerm))
+    );
+  }, [patients, searchTerm]);
+  
+  // --- 3. DEEP SEARCH FUNCTION (SERVER-SIDE) ---
   const handleDeepSearch = async () => {
     if (!searchTerm || !hospitalId || !firestore) return;
     setIsSearching(true);
     setDeepSearchResults(null);
 
     const patientsRef = collection(firestore, "hospitals", hospitalId, "patients");
+
+    // Perform three separate checks for maximum reliability in Ghana
     const ehrQuery = query(patientsRef, where("ehrNumber", "==", searchTerm.toUpperCase()));
     const phoneQuery = query(patientsRef, where("phoneNumber", "==", searchTerm));
     const ghanaCardQuery = query(patientsRef, where("ghanaCardId", "==", searchTerm.toUpperCase()));
@@ -68,7 +87,12 @@ export default function ReceptionPortal() {
             getDocs(ghanaCardQuery),
         ]);
 
-        const found = [...ehrSnap.docs, ...phoneSnap.docs, ...ghanaCardSnap.docs].map(d => ({ id: d.id, ...d.data() } as Patient));
+        const found = [
+            ...ehrSnap.docs,
+            ...phoneSnap.docs,
+            ...ghanaCardSnap.docs
+        ].map(d => ({ id: d.id, ...d.data() } as Patient));
+        
         const uniqueResults = Array.from(new Map(found.map(item => [item.id, item])).values());
         setDeepSearchResults(uniqueResults);
 
@@ -96,20 +120,18 @@ export default function ReceptionPortal() {
     });
   };
 
+  // Reset deep search when term is cleared
   useEffect(() => {
     if (searchTerm === '') {
         setDeepSearchResults(null);
     }
-  }, [searchTerm]);
-
+  }, [searchTerm])
+  
+  // --- RENDER LOGIC ---
   const isLoading = isUserLoading || isProfileLoading;
   const listIsLoading = arePatientsLoading || isSearching;
-  const displayedPatients = deepSearchResults !== null ? deepSearchResults : patients;
+  const displayedPatients = deepSearchResults !== null ? deepSearchResults : filteredRecentPatients;
 
-  if (isLoading) {
-    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
-  }
-  
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-end border-b-4 border-slate-900 pb-6">

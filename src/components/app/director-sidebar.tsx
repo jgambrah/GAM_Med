@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Link from 'next/link';
@@ -15,22 +14,22 @@ const allMenuGroups = [
     title: "Clinical",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
-      { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse },
-      { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays },
-      { name: "Set Availability", href: "/doctor/availability", icon: Clock },
-      { name: "Nursing Station", href: "/nurse", icon: UserCheck },
-      { name: "Triage Queue", href: "/nurse/triage", icon: Activity },
-      { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList },
-      { name: "Patients", href: "/patients", icon: Users },
+      { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: "Set Availability", href: "/doctor/availability", icon: Clock, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: "Nursing Station", href: "/nurse", icon: UserCheck, roles: ['DIRECTOR', 'NURSE'] },
+      { name: "Triage Queue", href: "/nurse/triage", icon: Activity, roles: ['DIRECTOR', 'NURSE'] },
+      { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
+      { name: "Patients", href: "/patients", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] },
     ]
   },
   {
     title: "Reception",
     roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'],
     items: [
-        { name: "Front Desk", href: "/reception", icon: Users },
-        { name: "Appointments", href: "/reception/appointments", icon: Calendar },
-        { name: "Assign Doctor", href: "/reception/assign-doctor", icon: UserCheck },
+        { name: "Front Desk", href: "/reception", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
+        { name: "Appointments", href: "/reception/appointments", icon: Calendar, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
+        { name: "Assign Doctor", href: "/reception/assign-doctor", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
     ]
   },
   {
@@ -52,16 +51,16 @@ const allMenuGroups = [
     title: "Operating Theater",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
-      { name: "Theater Setup", href: "/theater/setup", icon: Settings },
-      { name: "OT Schedule", href: "/theater/schedule", icon: Calendar },
+      { name: "Theater Setup", href: "/theater/setup", icon: Settings, roles: ['DIRECTOR', 'ADMIN'] },
+      { name: "OT Schedule", href: "/theater/schedule", icon: Calendar, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
     ]
   },
   {
     title: "Inpatient",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
-      { name: "Ward Setup", href: "/wards/setup", icon: BedDouble },
-      { name: "Bed Management", href: "/wards/management", icon: ClipboardList },
+      { name: "Ward Setup", href: "/wards/setup", icon: BedDouble, roles: ['DIRECTOR', 'ADMIN'] },
+      { name: "Bed Management", href: "/wards/management", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
     ]
   },
   {
@@ -75,41 +74,26 @@ const allMenuGroups = [
     title: "Specialty Units",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
-      { name: "Unit Setup", href: "/specialty/setup", icon: Zap },
-      { name: "Treatment Dashboard", href: "/specialty/dashboard", icon: ClipboardList },
-      { name: "New Plan", href: "/specialty/plans/new", icon: Plus },
+      { name: "Unit Setup", href: "/specialty/setup", icon: Zap, roles: ['DIRECTOR', 'ADMIN'] },
+      { name: "Treatment Dashboard", href: "/specialty/dashboard", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
+      { name: "New Plan", href: "/specialty/plans/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR'] },
     ]
   },
   {
     title: "Requisitions",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'],
     items: [
-      { name: "New Request", href: "/requisitions/new", icon: Plus },
-      { name: "Approve Requests", href: "/requisitions/approve", icon: CheckCircle2 },
+      { name: "New Request", href: "/requisitions/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
+      { name: "Approve Requests", href: "/requisitions/approve", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
     ]
   },
   {
     title: "Ancillary Services",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'],
     items: [
-        { name: "Pharmacy", href: "/pharmacy", icon: Package },
-        { name: "Laboratory", href: "/lab/queue", icon: Beaker },
-        { name: "Radiology", href: "/radiology/queue", icon: Camera },
-    ]
-  },
-  {
-    title: "Supply Chain",
-    roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'],
-    items: [
-      { name: "Dashboard", href: "/supply-chain", icon: LayoutDashboard },
-      { name: "Store Dashboard", href: "/supply-chain/store", icon: HardDrive },
-      { name: "Suppliers", href: "/supply-chain/procurement", icon: Building2 },
-      { name: "Purchase Orders", href: "/supply-chain/orders", icon: Truck },
-      { name: "Issue Requisitions", href: "/supply-chain/requisitions", icon: ArrowUpRight },
-      { name: "Product Catalog", href: "/supply-chain/catalog", icon: HardDrive },
-      { name: "Inventory Pulse", href: "/supply-chain/inventory-pulse", icon: BarChart3 },
-      { name: "Re-Order Engine", href: "/supply-chain/reorder", icon: AlertTriangle },
-      { name: "Stock Disposal", href: "/supply-chain/disposal", icon: Skull },
+        { name: "Pharmacy", href: "/pharmacy", icon: Package, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
+        { name: "Laboratory", href: "/lab/queue", icon: Beaker, roles: ['DIRECTOR', 'ADMIN', 'LAB_TECH'] },
+        { name: "Radiology", href: "/radiology/queue", icon: Camera, roles: ['DIRECTOR', 'ADMIN', 'RADIOLOGIST'] },
     ]
   },
   {
@@ -126,13 +110,18 @@ const allMenuGroups = [
     roles: ['DIRECTOR', 'ADMIN', 'HR_MANAGER'],
     items: [
       { name: "HR Dashboard", href: "/hr", icon: Users },
+      { name: "Department Manager", href: "/hr/departments", icon: LayoutGrid },
       { name: "Attendance Setup", href: "/hr/attendance/setup", icon: Clock },
       { name: "Leave Management", href: "/hr/leave", icon: Calendar },
       { name: "Appraisals & KPIs", href: "/hr/appraisal", icon: HeartPulse },
       { name: "Training & CPD", href: "/hr/cpd", icon: GraduationCap },
       { name: "Disciplinary Register", href: "/hr/disciplinary", icon: Gavel },
       { name: "Payroll Config", href: "/hr/payroll/config", icon: Settings },
+      { name: "Salary Grades", href: "/hr/payroll/grades", icon: Layers },
+      { name: "Payroll Items", href: "/hr/payroll/items", icon: ListChecks },
       { name: "Run Payroll", href: "/hr/payroll/run", icon: Calculator },
+      { name: "Payroll Archives", href: "/hr/payroll/archives", icon: History },
+      { name: "Locum Tracker", href: "/hr/locum-tracker", icon: UserCheck },
       { name: "Remittance Schedules", href: "/hr/payroll/schedules", icon: Landmark },
     ]
   },
@@ -140,24 +129,24 @@ const allMenuGroups = [
     title: "Finance",
     roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'],
     items: [
-      { name: "Accountant Console", href: "/accountant", icon: Wallet },
-      { name: "Financial Reports", href: "/accountant/reports", icon: BarChart3 },
-      { name: "Chart of Accounts", href: "/accountant/coa", icon: FolderTree },
-      { name: "Fixed Assets", href: "/accountant/assets", icon: Building2 },
-      { name: "Journal Vouchers", href: "/accountant/journals", icon: ArrowLeftRight },
-      { name: "Payment Vouchers", href: "/accountant/payments", icon: FileText },
-      { name: "Accounts Payable", href: "/accountant/payable", icon: Landmark },
-      { name: "Payer Registry", href: "/finance/receivables", icon: Building2 },
-      { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp },
-      { name: "Billing Console", href: "/finance/billing", icon: CreditCard },
-      { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText },
-      { name: "Tariff Master", href: "/finance/tariffs", icon: Tag },
-      { name: "Bulk Adjustments", href: "/finance/tariffs/bulk", icon: Zap },
+      { name: "Accountant Console", href: "/accountant", icon: Wallet, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Financial Reports", href: "/accountant/reports", icon: BarChart3, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Chart of Accounts", href: "/accountant/coa", icon: FolderTree, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Fixed Assets", href: "/accountant/assets", icon: Building2, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Journal Vouchers", href: "/accountant/journals", icon: ArrowLeftRight, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Payment Vouchers", href: "/accountant/payments", icon: FileText, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Accounts Payable", href: "/accountant/payable", icon: Landmark, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Payer Registry", href: "/finance/receivables", icon: Building2, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Billing Console", href: "/finance/billing", icon: CreditCard, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'] },
+      { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Tariff Master", href: "/finance/tariffs", icon: Tag, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Bulk Adjustments", href: "/finance/tariffs/bulk", icon: Zap, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
     ]
   },
   {
     title: "Internal Audit",
-    roles: ['DIRECTOR', 'ADMIN'],
+    roles: ['DIRECTOR', 'ADMIN', 'AUDITOR'],
     items: [
        { name: "Audit Console", href: "/auditor", icon: ShieldCheck },
     ]
@@ -182,18 +171,28 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
   const myPortalMenu = {
     title: "My Portal",
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST', 'ACCOUNTANT', 'CASHIER', 'HR_MANAGER', 'STORE_MANAGER', 'RECEPTIONIST'],
     items: [
        { name: "Request Leave", href: "/staff/request-leave", icon: Calendar },
        isLocum && { name: "My Locum Claims", href: "/doctor/my-claims", icon: Wallet },
        !isLocum && { name: "My Payslips", href: "/staff/payslips", icon: Wallet },
        { name: "My CPD", href: "/staff/my-cpd", icon: GraduationCap },
        { name: "My Performance", href: "/staff/my-performance", icon: Award },
-    ].filter(Boolean) as { name: string; href: string; icon: React.ElementType }[],
+    ].filter(Boolean) as { name: string; href: string; icon: React.ElementType, roles?: string[] }[],
   };
 
-  const visibleMenuGroups = allMenuGroups.filter(group => 
-    userRole === 'DIRECTOR' || (group.roles && group.roles.includes(userRole))
+  const visibleMenuGroups = allMenuGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => 
+      userRole === 'DIRECTOR' || // Director sees all items in a group they can see
+      !item.roles || 
+      (item.roles && item.roles.includes(userRole))
+    )
+  })).filter(group => 
+    group.items.length > 0 && // Group must have items left after filtering
+    (userRole === 'DIRECTOR' || (group.roles && group.roles.includes(userRole)))
   );
+
 
   return (
     <div className="w-64 h-screen bg-white text-slate-800 flex-col border-r border-slate-200 hidden md:flex">
