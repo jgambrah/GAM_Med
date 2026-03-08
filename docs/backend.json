@@ -3298,44 +3298,27 @@
           "type": "string",
           "description": "Human-readable, sequential purchase order number."
         },
-        "hospitalId": {
-          "type": "string"
+        "hospitalId": { "type": "string" },
+        "poType": {
+          "type": "string",
+          "enum": ["GOODS", "SERVICE", "WORKS"],
+          "description": "The type of purchase order."
         },
-        "supplierId": {
-          "type": "string"
-        },
-        "supplierName": {
-          "type": "string"
-        },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
         "items": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "itemId": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "sku": {
-                "type": "string"
-              },
-              "quantityOrdered": {
-                "type": "number"
-              },
-              "quantityReceived": {
-                "type": "number"
-              },
-              "price": {
-                "type": "number"
-              }
+              "itemId": { "type": "string" },
+              "name": { "type": "string" },
+              "sku": { "type": "string" },
+              "quantityOrdered": { "type": "number" },
+              "quantityReceived": { "type": "number" },
+              "price": { "type": "number" }
             },
-            "required": [
-              "itemId",
-              "name",
-              "quantityOrdered"
-            ]
+            "required": ["itemId", "name", "quantityOrdered"]
           }
         },
         "status": {
@@ -3348,37 +3331,18 @@
             "FORCE_CLOSED"
           ]
         },
-        "orderedBy": {
-          "type": "string"
-        },
-        "orderedByName": {
-          "type": "string"
-        },
-        "orderedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "receivedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "closeReason": {
-          "type": "string",
-          "description": "Reason for manually closing a partially fulfilled PO."
-        },
-        "closedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp when the PO was force closed."
-        },
-        "closedBy": {
-            "type": "string",
-            "description": "UID of the user who force closed the PO."
-        }
+        "orderedBy": { "type": "string" },
+        "orderedByName": { "type": "string" },
+        "orderedAt": { "type": "string", "format": "date-time" },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "closeReason": { "type": "string", "description": "Reason for manually closing a partially fulfilled PO." },
+        "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the PO was force closed." },
+        "closedBy": { "type": "string", "description": "UID of the user who force closed the PO." }
       },
       "required": [
         "poNumber",
         "hospitalId",
+        "poType",
         "supplierId",
         "items",
         "status",
@@ -4747,5 +4711,3 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
-
-    

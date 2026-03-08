@@ -1,12 +1,12 @@
 
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction, getDoc } from 'firebase/firestore';
 import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown, XCircle, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -20,32 +20,15 @@ import { format } from 'date-fns';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 import Link from 'next/link';
 
-const poSchema = z.object({
-  supplierId: z.string().min(1, "Please select a supplier."),
-});
-type POFormValues = z.infer<typeof poSchema>;
-
-type POItem = {
-    itemId: string;
-    name: string;
-    sku: string;
-    quantityOrdered: number;
-    price: number;
-}
 
 export default function PurchaseOrderPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const searchParams = useSearchParams();
-
+  
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
-  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
-  const [items, setItems] = useState<POItem[]>([]);
-  
-  const [loading, setLoading] = useState(false);
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
 
   useEffect(() => {
@@ -59,47 +42,13 @@ export default function PurchaseOrderPage() {
     }
   }, [user, isUserLoading]);
   
-  useEffect(() => {
-    const sku = searchParams.get('prefill_sku');
-    const name = searchParams.get('prefill_name');
-    const itemId = searchParams.get('prefill_itemId');
-    const qty = searchParams.get('suggested_qty');
-    const price = searchParams.get('prefill_price');
-
-    if (sku && name && itemId) {
-      const newItem: POItem = {
-        itemId: itemId,
-        name: decodeURIComponent(name),
-        sku: sku,
-        quantityOrdered: Number(qty) || 1,
-        price: Number(price) || 0,
-      };
-
-      if (!items.some(i => i.itemId === itemId)) {
-          setItems([newItem]);
-      }
-      setIsCreateOrderOpen(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
   const hospitalId = claims?.hospitalId;
   const userRole = claims?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
   // Data fetching
-  const suppliersQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/suppliers`)) : null, [firestore, hospitalId]);
-  const { data: suppliers, isLoading: suppliersLoading } = useCollection(suppliersQuery);
-
-  const catalogQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/product_catalog`)) : null, [firestore, hospitalId]);
-  const { data: catalog, isLoading: catalogLoading } = useCollection(catalogQuery);
-
   const purchaseOrdersQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/purchase_orders`), orderBy('orderedAt', 'desc')) : null, [firestore, hospitalId]);
   const { data: purchaseOrders, isLoading: ordersLoading } = useCollection(purchaseOrdersQuery);
-
-  const form = useForm<POFormValues>({
-      resolver: zodResolver(poSchema),
-  });
   
   const handleForceClose = async (poId: string) => {
     if (!firestore || !user) return;
@@ -123,85 +72,6 @@ export default function PurchaseOrderPage() {
             title: "Error",
             description: e.message
         });
-    }
-  };
-
-  const addItemToOrder = (product: any) => {
-    if (!items.some(i => i.itemId === product.id)) {
-        setItems([...items, { 
-            itemId: product.id, 
-            name: product.name,
-            sku: product.sku,
-            quantityOrdered: 1, 
-            price: product.purchasePrice // Use purchasePrice from catalog
-        }]);
-    }
-  };
-  
-  const updateItemQuantity = (itemId: string, quantity: number) => {
-    setItems(items.map(item => item.itemId === itemId ? { ...item, quantityOrdered: quantity || 0 } : item));
-  };
-
-  const removeItem = (itemId: string) => {
-      setItems(items.filter(item => item.itemId !== itemId));
-  }
-
-  const handleCreateOrder = async (values: POFormValues) => {
-    if (items.length === 0) {
-        toast({ variant: 'destructive', title: "Cannot create empty order." });
-        return;
-    }
-    if (!hospitalId || !user || !firestore) return;
-    setLoading(true);
-
-    const selectedSupplier = suppliers?.find(s => s.id === values.supplierId);
-    if (!selectedSupplier) {
-        toast({ variant: 'destructive', title: 'Supplier not found.' });
-        setLoading(false);
-        return;
-    }
-
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const hospitalRef = doc(firestore, "hospitals", hospitalId);
-            const hospitalSnap = await transaction.get(hospitalRef);
-            if (!hospitalSnap.exists()) {
-                throw new Error("Hospital document not found.");
-            }
-            
-            const hData = hospitalSnap.data();
-            const prefix = hData?.mrnPrefix || 'GAM';
-            const currentCount = (hData?.poCounter || 0) + 1;
-            const year = new Date().getFullYear().toString().slice(-2);
-            const poNumber = `${prefix}/PO/${year}/${currentCount.toString().padStart(4, '0')}`;
-
-            const poRef = doc(collection(firestore, "hospitals", hospitalId, "purchase_orders"));
-            
-            transaction.set(poRef, {
-                poNumber,
-                hospitalId,
-                supplierId: values.supplierId,
-                supplierName: selectedSupplier.name,
-                items: items.map(item => ({ ...item, quantityReceived: 0 })),
-                status: 'PENDING_DELIVERY',
-                orderedBy: user.uid,
-                orderedByName: user.displayName,
-                orderedAt: serverTimestamp(),
-            });
-
-            transaction.update(hospitalRef, { poCounter: increment(1) });
-        });
-
-        toast({ title: "Purchase Order Issued successfully." });
-        form.reset();
-        setItems([]);
-        setIsCreateOrderOpen(false);
-
-    } catch (e: any) {
-        console.error("PO Creation Failed:", e);
-        toast({ variant: 'destructive', title: 'Error', description: e.message });
-    } finally {
-        setLoading(false);
     }
   };
   
@@ -235,71 +105,9 @@ export default function PurchaseOrderPage() {
             <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Purchase <span className="text-primary">Orders</span></h1>
             <p className="text-muted-foreground font-medium">Issue and track orders to registered suppliers.</p>
           </div>
-          <Dialog open={isCreateOrderOpen} onOpenChange={setIsCreateOrderOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus size={16} /> New Purchase Order</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>New Purchase Order</DialogTitle>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleCreateOrder)} className="space-y-4">
-                   <FormField
-                      control={form.control}
-                      name="supplierId"
-                      render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Supplier</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl>
-                                      <SelectTrigger disabled={suppliersLoading}>
-                                          <SelectValue placeholder={suppliersLoading ? "Loading suppliers..." : "Select from approved vendors"} />
-                                      </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                      {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                  </SelectContent>
-                              </Select>
-                              <FormMessage />
-                          </FormItem>
-                      )}
-                   />
-                  <div className="space-y-4">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                        <Package size={16} /> Search Approved Catalog
-                    </h3>
-                    <ProductSearchDropdown catalog={catalog || []} onSelect={addItemToOrder} />
-                  </div>
-
-                  <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                      {items.map((item, index) => (
-                          <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                              <Package size={16} className="text-primary"/>
-                              <div className="flex-1">
-                                <p className="font-bold text-sm">{item.name}</p>
-                                <p className="text-xs text-muted-foreground">{item.sku}</p>
-                              </div>
-                              <Input 
-                                  type="number" 
-                                  value={item.quantityOrdered}
-                                  onChange={(e) => updateItemQuantity(item.itemId, parseInt(e.target.value) || 0)}
-                                  className="w-20 h-8"
-                              />
-                               <span className="text-sm font-bold w-20 text-right">₵ {item.price.toFixed(2)}</span>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(item.itemId)} className="text-destructive h-8 w-8"><Trash2 size={16}/></Button>
-                          </div>
-                      ))}
-                  </div>
-
-
-                  <DialogFooter>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>Issue Purchase Order</Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+          <Button asChild>
+            <Link href="/supply-chain/orders/new"><Plus size={16} /> New Purchase Order</Link>
+          </Button>
         </div>
 
          <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
@@ -339,7 +147,7 @@ export default function PurchaseOrderPage() {
           </Table>
          </div>
       </div>
-      {selectedPO && <ReceiveGoodsDialog po={selectedPO} hospitalId={hospitalId} user={user} open={!!selectedPO} onOpenChange={() => setSelectedPO(null)} catalog={catalog || []} />}
+      {selectedPO && <ReceiveGoodsDialog po={selectedPO} hospitalId={hospitalId} user={user} open={!!selectedPO} onOpenChange={() => setSelectedPO(null)} />}
     </>
   );
 }
@@ -370,10 +178,9 @@ interface ReceiveGoodsDialogProps {
     user: any;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    catalog: any[];
 }
 
-function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog }: ReceiveGoodsDialogProps) {
+function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange }: ReceiveGoodsDialogProps) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
