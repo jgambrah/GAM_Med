@@ -148,6 +148,17 @@ export default function SmartDepreciationEngine() {
         });
       });
 
+      const auditRef = doc(collection(firestore, "global_audit_logs"));
+      batch.set(auditRef, {
+        type: 'FINANCIAL',
+        action: 'MONTH_END_DEPRECIATION',
+        hospitalId: hospitalId,
+        actorId: user?.uid,
+        actorName: user?.displayName,
+        details: `Authorized GHS ${totalMonthlyDepreciation.toFixed(2)} in depreciation for period ${periodKey}`,
+        timestamp: serverTimestamp()
+      });
+
       await batch.commit();
       toast({ title: `Success: ${periodKey} Depreciation Finalized.` });
       // Manually refetch and update state after commit
@@ -278,4 +289,3 @@ export default function SmartDepreciationEngine() {
     </div>
   );
 }
-    

@@ -132,7 +132,8 @@ service cloud.firestore {
 
     match /global_audit_logs/{logId} {
       allow read, list: if isSuperAdmin();
-      allow create, update, delete: if false; // Only backend can write
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
     
     match /platform_global_health_stats/{recordId} {
