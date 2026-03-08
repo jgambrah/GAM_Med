@@ -1,4 +1,3 @@
-
 'use client';
 
 import { BarChart3, FileText, Landmark, TrendingUp, Scale, Wallet } from 'lucide-react';
