@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Search, Package, Check, ChevronDown } from 'lucide-react';
@@ -6,7 +7,7 @@ interface Product {
   id: string;
   name: string;
   sku: string;
-  basePrice: number;
+  purchasePrice: number;
   unit: string;
 }
 
@@ -71,7 +72,7 @@ export default function ProductSearchDropdown({
                   </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-black text-black uppercase">₵ {p.basePrice.toFixed(2)}</p>
+                   <p className="text-[10px] font-black text-black uppercase">₵ {(p.purchasePrice || 0).toFixed(2)}</p>
                    <p className="text-[8px] font-bold text-slate-400 uppercase">per {p.unit}</p>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
+import { Badge } from '@/components/ui/badge';
 
 interface CatalogProduct {
     id: string;
@@ -18,7 +19,7 @@ interface CatalogProduct {
     sku: string;
     minLevel: number;
     unit: string;
-    basePrice: number;
+    purchasePrice: number;
 }
 
 interface InventoryItem {
@@ -69,6 +70,38 @@ export default function AutomaticReorderList() {
     return allItems.filter(item => item.status === 'LOW_STOCK' || item.status === 'STOCK_OUT');
   }, [catalog, inventory]);
 
+  const stats = useMemo(() => {
+    if (!stockStatusData) return { adequate: 0, low: 0, stockOut: 0 };
+    const adequate = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'ADEQUATE').length;
+    const low = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'LOW_STOCK').length;
+    const stockOut = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'STOCK OUT').length;
+    return { adequate, low, stockOut };
+  }, [stockStatusData]);
+
+  const stockStatusData = useMemo(() => {
+    if (!catalog || !inventory) return [];
+
+    // Aggregate inventory quantities by name
+    const aggregatedInventory = inventory.reduce((acc, item) => {
+        acc[item.name] = (acc[item.name] || 0) + item.quantity;
+        return acc;
+    }, {} as Record<string, number>);
+
+    return catalog.map(product => {
+        const currentQty = aggregatedInventory[product.name] || 0;
+        return {
+            ...product,
+            currentQty,
+        };
+    });
+}, [catalog, inventory]);
+
+const getStockStatus = (qty: number, minLevel: number) => {
+    if (qty <= 0) return { label: 'STOCK OUT', variant: 'destructive' as const, className: 'bg-red-100 text-red-700 border-red-200' };
+    if (qty <= minLevel) return { label: 'LOW STOCK', variant: 'secondary' as const, className: 'bg-orange-100 text-orange-700 border-orange-200' };
+    return { label: 'ADEQUATE', variant: 'default' as const, className: 'bg-green-100 text-green-700 border-green-200' };
+};
+  
   const pageIsLoading = isUserLoading || isProfileLoading;
   const dataIsLoading = catalogLoading || inventoryLoading;
 
@@ -142,7 +175,7 @@ export default function AutomaticReorderList() {
                 </TableCell>
                 <TableCell className="p-6 text-right">
                    <Button asChild>
-                     <Link href={`/supply-chain/orders?prefill_itemId=${item.id}&prefill_sku=${item.sku}&prefill_name=${encodeURIComponent(item.name)}&suggested_qty=${item.minLevel * 2}&prefill_price=${item.basePrice}`}>
+                     <Link href={`/supply-chain/orders?prefill_itemId=${item.id}&prefill_sku=${item.sku}&prefill_name=${encodeURIComponent(item.name)}&suggested_qty=${item.minLevel * 2}&prefill_price=${item.purchasePrice}`}>
                          Initiate PO <ShoppingCart size={14}/>
                      </Link>
                    </Button>
