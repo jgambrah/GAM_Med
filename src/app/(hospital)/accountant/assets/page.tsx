@@ -124,14 +124,15 @@ export default function FixedAssetManagementPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Asset Identity & Tag</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Major Category</TableHead>
+              <TableHead>Sub-Division</TableHead>
               <TableHead>Cost Price (GHS)</TableHead>
               <TableHead>Net Book Value (GHS)</TableHead>
               <TableHead className="text-right">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {areAssetsLoading ? <TableRow><TableCell colSpan={5} className="text-center p-12"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow> :
+            {areAssetsLoading ? <TableRow><TableCell colSpan={6} className="text-center p-12"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow> :
             assets?.map(asset => {
               const { netBookValue } = calculateDepreciation(asset);
               return (
@@ -142,6 +143,9 @@ export default function FixedAssetManagementPage() {
                   </TableCell>
                   <TableCell>
                      <span className="text-[9px] font-black bg-muted px-3 py-1 rounded-full text-muted-foreground uppercase">{asset.category.replace('_', ' ')}</span>
+                  </TableCell>
+                   <TableCell>
+                     <span className="text-[9px] font-bold text-slate-500 uppercase">{asset.subDivision?.replace('_', ' ') || 'N/A'}</span>
                   </TableCell>
                   <TableCell className="font-mono">{asset.purchasePrice.toLocaleString()}</TableCell>
                   <TableCell className="font-mono font-bold">{netBookValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
@@ -186,6 +190,7 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
         addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/assets`), {
             ...values,
             hospitalId,
+            accumulatedDepreciation: 0, // Initialize
             createdAt: serverTimestamp()
         });
         toast({ title: "Asset Registered", description: `${values.name} added to the master ledger.` });

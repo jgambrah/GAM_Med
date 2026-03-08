@@ -1954,61 +1954,22 @@
     },
     "FixedAsset": {
       "title": "Fixed Asset",
-      "description": "Represents a long-term tangible asset owned by the hospital, such as equipment, vehicles, or buildings, subject to depreciation.",
+      "description": "Represents a long-term tangible asset owned by the hospital.",
       "type": "object",
       "properties": {
-        "hospitalId": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string",
-          "enum": [
-            "MEDICAL_EQUIPMENT",
-            "VEHICLE",
-            "INFRASTRUCTURE",
-            "IT"
-          ]
-        },
-        "tagId": {
-          "type": "string"
-        },
-        "purchaseDate": {
-          "type": "string",
-          "format": "date"
-        },
-        "purchasePrice": {
-          "type": "number"
-        },
-        "usefulLife": {
-          "type": "number",
-          "description": "The asset's useful life in years."
-        },
-        "salvageValue": {
-          "type": "number"
-        },
-        "status": {
-          "type": "string",
-          "enum": [
-            "OPERATIONAL",
-            "MAINTENANCE",
-            "DECOMMISSIONED"
-          ]
-        },
-        "accumulatedDepreciation": {
-          "type": "number",
-          "description": "The total accumulated depreciation for the asset."
-        },
-        "lastDepreciationPeriod": {
-          "type": "string",
-          "description": "Identifier for the last period depreciation was run (e.g., '2024-07')."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        }
+        "hospitalId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["PPE", "INTANGIBLE", "INVESTMENT", "WASTING", "HELD_FOR_SALE"] },
+        "subDivision": { "type": "string", "enum": ["PROPERTY", "PLANT", "EQUIPMENT"], "description": "The specific sub-division for a PPE asset." },
+        "tagId": { "type": "string" },
+        "purchaseDate": { "type": "string", "format": "date" },
+        "purchasePrice": { "type": "number" },
+        "usefulLife": { "type": "number", "description": "The asset's useful life in years." },
+        "salvageValue": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPERATIONAL", "MAINTENANCE", "DECOMMISSIONED"] },
+        "accumulatedDepreciation": { "type": "number", "description": "The total accumulated depreciation for the asset." },
+        "lastDepreciationPeriod": { "type": "string", "description": "Identifier for the last period depreciation was run (e.g., '2024-07')." },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": [
         "hospitalId",
