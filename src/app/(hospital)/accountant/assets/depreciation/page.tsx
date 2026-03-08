@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -7,6 +6,17 @@ import { Calculator, CheckCircle2, AlertTriangle, Loader2, History, Landmark, Sh
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function DepreciationEngine() {
   const { user, isUserLoading } = useUser();
@@ -46,8 +56,6 @@ export default function DepreciationEngine() {
 
   const runDepreciation = async () => {
     const periodKey = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
-    const confirmRun = confirm(`Proceed with posting GHS ${totalMonthlyDepreciation.toFixed(2)} as depreciation for ${new Date(period.year, period.month).toLocaleString('en-GB', {month: 'long', year: 'numeric'})}?`);
-    if (!confirmRun) return;
 
     if (!user || !hospitalId || !firestore) {
       toast({ variant: "destructive", title: "System error: Not authenticated." });
@@ -200,14 +208,37 @@ export default function DepreciationEngine() {
             </p>
          </div>
 
-         <Button 
-           disabled={loading || !assets || assets.length === 0}
-           onClick={runDepreciation}
-           className="w-full bg-primary hover:bg-white hover:text-black text-white py-6 rounded-[30px] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-3"
-         >
-           {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
-           Execute & Commit Depreciation
-         </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              disabled={loading || !assets || assets.length === 0}
+              className="w-full bg-primary hover:bg-white hover:text-black text-white py-6 rounded-[30px] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-3"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
+              Execute & Commit Depreciation
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Depreciation Run</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will post a total depreciation expense of{' '}
+                <span className="font-bold text-foreground">
+                  GHS {totalMonthlyDepreciation.toFixed(2)}
+                </span>{' '}
+                for the period of{' '}
+                <span className="font-bold text-foreground">
+                  {new Date(period.year, period.month).toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
+                </span>
+                . This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={runDepreciation}>Confirm Post</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="space-y-4">
