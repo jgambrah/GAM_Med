@@ -97,15 +97,32 @@ export default function DepreciationEngine() {
       batch.update(expenseAccRef, { currentBalance: increment(totalMonthlyDepreciation) });
       batch.update(contraAssetAccRef, { currentBalance: increment(totalMonthlyDepreciation) });
 
-      // 3. Update the 'Last Depreciated' flag on the Assets to prevent double-runs
+      // 3. Update assets and create historical logs
       assets?.forEach(asset => {
         const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, asset.id);
         const monthlyDep = calculateMonthlyDep(asset);
+
+        // Update the asset itself
         batch.update(assetRef, {
           lastDepreciationPeriod: periodKey,
           accumulatedDepreciation: increment(monthlyDep)
         });
+
+        // Create a historical log entry for reporting
+        if (monthlyDep > 0) {
+          const historyRef = doc(collection(firestore, `hospitals/${hospitalId}/depreciation_history`));
+          batch.set(historyRef, {
+            hospitalId: hospitalId,
+            assetId: asset.id,
+            assetName: asset.name,
+            assetCategory: asset.category, // Pass the category for grouping
+            amount: monthlyDep,
+            period: periodKey,
+            createdAt: serverTimestamp()
+          });
+        }
       });
+
 
       await batch.commit();
       toast({ title: "Depreciation Successfully Posted to Ledger" });

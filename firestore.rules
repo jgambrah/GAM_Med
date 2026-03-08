@@ -219,6 +219,10 @@ service cloud.firestore {
         allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
       
+      match /depreciation_history/{logId} {
+        allow read, write, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
       match /ledger_entries/{entryId} {
         allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
@@ -362,10 +366,8 @@ service cloud.firestore {
       }
 
       match /payroll_archives/{archiveId} {
-        allow get, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAuditorRole(hospitalId);
-        allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
-        allow delete: if false;
+        allow get, create, list: if isSuperAdmin() || isAuditorRole(hospitalId);
+        allow update, delete: if false;
       }
 
       match /payroll_runs/{runId} {

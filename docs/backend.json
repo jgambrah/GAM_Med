@@ -14,6 +14,21 @@
       },
       "required": ["hospitalId", "name", "level", "basicSalary"]
     },
+    "DepreciationHistory": {
+      "title": "Depreciation History",
+      "description": "An audit log entry for each time depreciation is calculated for a single asset.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "assetName": { "type": "string" },
+        "assetCategory": { "type": "string" },
+        "amount": { "type": "number", "description": "The depreciation amount for this period." },
+        "period": { "type": "string", "description": "The period for which depreciation was run, e.g., '2024-07'." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "assetId", "assetName", "assetCategory", "amount", "period", "createdAt"]
+    },
     "PayrollItem": {
       "title": "Payroll Item",
       "description": "Defines a single, reusable allowance or deduction for payroll calculations.",
@@ -2061,7 +2076,7 @@
           "type": "string",
           "enum": [
             "PENDING_APPROVAL",
-            "APPROVED",
+            "AUTHORIZED",
             "PAID",
             "REJECTED"
           ]
@@ -4150,6 +4165,13 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/hospitals/{hospitalId}/depreciation_history/{logId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/DepreciationHistory" },
+          "description": "Stores individual depreciation records for each asset for each period run."
+        }
+      },
       {
         "path": "/hospitals/{hospitalId}/payroll_archives/{archiveId}",
         "definition": {

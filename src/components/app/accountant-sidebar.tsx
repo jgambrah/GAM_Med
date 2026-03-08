@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Wallet, FolderTree, FileText, 
   Landmark, Building2, TrendingUp, CreditCard,
-  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, TrendingDown
+  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, TrendingDown, Calendar
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -19,6 +19,7 @@ const menuGroups = [
       { name: "Financial Reports", href: "/accountant/reports", icon: BarChart3 },
       { name: "Chart of Accounts", href: "/accountant/coa", icon: FolderTree },
       { name: "Fixed Assets", href: "/accountant/assets", icon: Building2 },
+      { name: "Asset Schedule", href: "/accountant/assets/schedule", icon: Calendar },
       { name: "Depreciation", href: "/accountant/assets/depreciation", icon: TrendingDown },
     ]
   },
