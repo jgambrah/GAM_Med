@@ -22,6 +22,7 @@ type Payable = {
     grnNumber: string;
     amountOwed: number;
     createdAt: { toDate: () => Date };
+    isService?: boolean;
 }
 
 export default function AccountsPayablePage() {
@@ -86,7 +87,7 @@ export default function AccountsPayablePage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="p-6 text-[10px] font-black uppercase tracking-widest">Supplier & GRN Ref</TableHead>
+              <TableHead className="p-6 text-[10px] font-black uppercase tracking-widest">Supplier & Ref</TableHead>
               <TableHead className="p-6 text-[10px] font-black uppercase tracking-widest">Date Recorded</TableHead>
               <TableHead className="p-6 text-[10px] font-black uppercase tracking-widest">Amount Owed (GHS)</TableHead>
               <TableHead className="p-6 text-[10px] font-black uppercase tracking-widest text-right">Action</TableHead>
@@ -104,9 +105,14 @@ export default function AccountsPayablePage() {
               <TableRow key={p.id}>
                 <TableCell className="p-6">
                    <p className="font-bold uppercase text-card-foreground">{p.supplierName}</p>
-                   <p className="text-[9px] text-primary font-black">REF: {p.grnNumber}</p>
+                   <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${p.isService ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                         {p.isService ? 'Service (JCC)' : 'Goods (GRN)'}
+                      </span>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase">REF: {p.grnNumber}</p>
+                   </div>
                 </TableCell>
-                <TableCell className="p-6 text-sm text-muted-foreground font-bold">{format(p.createdAt.toDate(), 'PPP')}</TableCell>
+                <TableCell className="p-6 text-sm text-muted-foreground font-bold">{p.createdAt ? format(p.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
                 <TableCell className="p-6 text-destructive font-black text-lg">GHS {p.amountOwed.toFixed(2)}</TableCell>
                 <TableCell className="p-6 text-right">
                    <Button asChild>
