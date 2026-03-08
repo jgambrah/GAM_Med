@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp, increment } from 'firebase/firestore';
 import { Calculator, CheckCircle2, AlertTriangle, Loader2, History, Landmark, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -17,16 +17,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useDoc, useMemoFirebase } from '@/firebase';
 
-export default function DepreciationEngine() {
+
+export default function SmartDepreciationEngine() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);
+  const [fetchingAssets, setFetchingAssets] = useState(true);
   const [period, setPeriod] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
-
+  const [periodStatus, setPeriodStatus] = useState<'OPEN' | 'POSTED'>('OPEN');
+  const [eligibleAssets, setEligibleAssets] = useState<any[]>([]);
+  
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -37,11 +42,29 @@ export default function DepreciationEngine() {
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
 
-  const assetsQuery = useMemoFirebase(() => {
-    if (!hospitalId || !firestore) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/assets`));
-  }, [hospitalId, firestore]);
-  const { data: assets, isLoading: areAssetsLoading } = useCollection(assetsQuery);
+  const periodKey = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
+
+  useEffect(() => {
+    if (!hospitalId || !firestore) return;
+
+    const checkPeriodAndAssets = async () => {
+      setFetchingAssets(true);
+      
+      const assetSnap = await getDocs(query(
+        collection(firestore, "hospitals", hospitalId, "assets")
+      ));
+
+      const unprocessed = assetSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((a: any) => a.lastDepreciationPeriod !== periodKey);
+
+      setEligibleAssets(unprocessed);
+      setPeriodStatus(unprocessed.length === 0 && assetSnap.docs.length > 0 ? 'POSTED' : 'OPEN');
+      setFetchingAssets(false);
+    };
+
+    checkPeriodAndAssets();
+  }, [hospitalId, firestore, periodKey]);
 
   const calculateMonthlyDep = (asset: any) => {
     if (!asset.usefulLife || asset.usefulLife <= 0) return 0;
@@ -50,13 +73,14 @@ export default function DepreciationEngine() {
   };
 
   const totalMonthlyDepreciation = useMemo(() => {
-    if (!assets) return 0;
-    return assets.reduce((acc, curr) => acc + calculateMonthlyDep(curr), 0);
-  }, [assets]);
+    return eligibleAssets.reduce((acc, curr) => acc + calculateMonthlyDep(curr), 0);
+  }, [eligibleAssets]);
 
-  const runDepreciation = async () => {
-    const periodKey = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
-
+  const runSmartDepreciation = async () => {
+    if (eligibleAssets.length === 0) {
+      toast({ title: "All assets are already up to date for this period." });
+      return;
+    }
     if (!user || !hospitalId || !firestore) {
       toast({ variant: "destructive", title: "System error: Not authenticated." });
       return;
@@ -66,7 +90,6 @@ export default function DepreciationEngine() {
     const batch = writeBatch(firestore);
 
     try {
-      // Query for the required accounts by code
       const coaRef = collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`);
       const expenseAccountQuery = query(coaRef, where("accountCode", "==", "5005"));
       const contraAssetAccountQuery = query(coaRef, where("accountCode", "==", "1099"));
@@ -82,15 +105,13 @@ export default function DepreciationEngine() {
       const expenseAccRef = expenseSnap.docs[0].ref;
       const contraAssetAccRef = contraAssetSnap.docs[0].ref;
 
-      // 1. Create the Journal Entry for the Ledger
       const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_entries`));
-      const jvNumber = `JV-DEP-${Date.now().toString().slice(-6)}`;
-      
+      const jvNumber = `JV-DEP-${periodKey}`;
       batch.set(jvRef, {
         jvNumber,
-        narration: `Monthly Depreciation Charge for ${periodKey}`,
+        narration: `Automated Depreciation Charge for ${periodKey} (${eligibleAssets.length} new/updated assets)`,
         totalAmount: totalMonthlyDepreciation,
-        hospitalId: hospitalId,
+        hospitalId,
         createdBy: user.uid,
         createdByName: user.displayName,
         createdAt: serverTimestamp(),
@@ -102,40 +123,38 @@ export default function DepreciationEngine() {
         ]
       });
 
-      // 2. FINANCIAL HANDSHAKE: Update Chart of Accounts
       batch.update(expenseAccRef, { currentBalance: increment(totalMonthlyDepreciation) });
       batch.update(contraAssetAccRef, { currentBalance: increment(totalMonthlyDepreciation) });
 
-      // 3. Update assets and create historical logs
-      assets?.forEach(asset => {
-        const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, asset.id);
+      eligibleAssets.forEach(asset => {
         const monthlyDep = calculateMonthlyDep(asset);
-
-        // Update the asset itself
+        const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, asset.id);
+        
         batch.update(assetRef, {
           lastDepreciationPeriod: periodKey,
           accumulatedDepreciation: increment(monthlyDep)
         });
 
-        // Create a historical log entry for reporting
-        if (monthlyDep > 0) {
-          const historyRef = doc(collection(firestore, `hospitals/${hospitalId}/depreciation_history`));
-          batch.set(historyRef, {
-            hospitalId: hospitalId,
-            assetId: asset.id,
-            assetName: asset.name,
-            assetCategory: asset.category,
-            subDivision: asset.subDivision || null, // Storing sub-division for granular reporting
-            amount: monthlyDep,
-            period: periodKey,
-            createdAt: serverTimestamp()
-          });
-        }
+        const historyRef = doc(collection(firestore, `hospitals/${hospitalId}/depreciation_history`));
+        batch.set(historyRef, {
+          assetId: asset.id,
+          assetName: asset.name,
+          assetCategory: asset.category,
+          subDivision: asset.subDivision || null,
+          hospitalId,
+          period: periodKey,
+          amount: monthlyDep,
+          createdAt: serverTimestamp()
+        });
       });
 
-
       await batch.commit();
-      toast({ title: "Depreciation Successfully Posted to Ledger" });
+      toast({ title: `Success: ${periodKey} Depreciation Finalized.` });
+      // Manually refetch and update state after commit
+      const assetSnap = await getDocs(query(collection(firestore, "hospitals", hospitalId, "assets")));
+      const unprocessed = assetSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((a: any) => a.lastDepreciationPeriod !== periodKey);
+      setEligibleAssets(unprocessed);
+      setPeriodStatus(unprocessed.length === 0 ? 'POSTED' : 'OPEN');
     } catch (e: any) {
       toast({ variant: "destructive", title: "Accounting Error", description: e.message });
     } finally {
@@ -143,8 +162,8 @@ export default function DepreciationEngine() {
     }
   };
 
-  const pageIsLoading = isUserLoading || isProfileLoading || areAssetsLoading;
-
+  const pageIsLoading = isUserLoading || isProfileLoading || fetchingAssets;
+  
   if (pageIsLoading) {
     return (
         <div className="flex h-full w-full items-center justify-center p-20">
@@ -170,75 +189,82 @@ export default function DepreciationEngine() {
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <div className="flex justify-between items-end border-b-4 border-slate-900 pb-6">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter italic text-foreground">Depreciation <span className="text-primary">Engine</span></h1>
+          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Depreciation <span className="text-primary">Engine</span></h1>
           <p className="text-muted-foreground font-bold text-xs uppercase italic">Automated Ledger Adjustments for Asset Wear & Tear.</p>
         </div>
       </div>
 
-      <div className="bg-[#0f172a] p-10 rounded-[50px] text-white shadow-2xl space-y-8 relative overflow-hidden">
-         <div className="absolute right-[-20px] top-[-20px] opacity-10 rotate-12">
-            <Landmark size={200} />
-         </div>
-
-         <div className="flex justify-between items-start">
-            <div className="space-y-1">
-               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Target Period</p>
-               <h2 className="text-2xl font-black uppercase italic">{new Date(period.year, period.month).toLocaleString('en-GB', {month: 'long', year: 'numeric'})}</h2>
+      <div className={`p-10 rounded-[50px] shadow-2xl space-y-6 border-4 ${periodStatus === 'POSTED' ? 'border-green-600 bg-green-50 text-green-900' : 'border-slate-900 bg-[#0f172a] text-white'}`}>
+        {periodStatus === 'POSTED' ? (
+          <div className="text-center space-y-4">
+             <CheckCircle2 size={64} className="mx-auto text-green-600" />
+             <h2 className="text-2xl font-black uppercase">Period Closed</h2>
+             <p className="text-sm font-bold text-green-800 uppercase">Depreciation for {periodKey} has been fully committed to the ledger.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center relative z-10">
+              <p className="text-xs font-black uppercase text-blue-400">Assets Awaiting Processing: {eligibleAssets.length}</p>
+              <div className="bg-blue-600 px-4 py-1 rounded-full text-[10px] font-black uppercase">Active Period</div>
             </div>
-            <div className="p-4 bg-primary rounded-3xl shadow-xl">
-               <Calculator size={32} />
-            </div>
-         </div>
 
-         <div className="grid grid-cols-2 gap-8 border-t border-slate-800 pt-8">
-            <div>
-               <p className="text-[10px] font-black uppercase text-slate-400">Assets to Process</p>
-               <p className="text-3xl font-black italic">{assets?.length || 0}</p>
+            <div className="relative">
+                <div className="absolute right-[-20px] top-[-20px] opacity-10 rotate-12">
+                    <Landmark size={200} />
+                </div>
+                <div className="grid grid-cols-2 gap-8 border-t border-slate-800 pt-8">
+                    <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400">Eligible Assets</p>
+                    <p className="text-3xl font-black italic">{eligibleAssets.length}</p>
+                    </div>
+                    <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400">Pending Expense</p>
+                    <p className="text-3xl font-black italic text-primary">₵ {totalMonthlyDepreciation.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                    </div>
+                </div>
             </div>
-            <div>
-               <p className="text-[10px] font-black uppercase text-slate-400">Calculated Expense</p>
-               <p className="text-3xl font-black italic text-primary">₵ {totalMonthlyDepreciation.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+
+            <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700 flex items-start gap-4">
+                <AlertTriangle className="text-amber-500 shrink-0" size={24} />
+                <p className="text-[10px] font-bold text-slate-300 leading-relaxed uppercase">
+                    This engine will only process assets not yet stamped for the current period ({periodKey}). This prevents double-charging.
+                </p>
             </div>
-         </div>
+             
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  disabled={loading || eligibleAssets.length === 0}
+                  className="w-full bg-primary hover:bg-white hover:text-black text-white py-6 rounded-[30px] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-3"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
+                  Commit Depreciation for {eligibleAssets.length} Assets
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Depreciation Run</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will post a total depreciation expense of{' '}
+                    <span className="font-bold text-foreground">
+                      GHS {totalMonthlyDepreciation.toFixed(2)}
+                    </span>{' '}
+                    for the period of{' '}
+                    <span className="font-bold text-foreground">
+                      {new Date(period.year, period.month).toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
+                    </span>
+                    . This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={runSmartDepreciation}>Confirm & Post to Ledger</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-         <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700 flex items-start gap-4">
-            <AlertTriangle className="text-amber-500 shrink-0" size={24} />
-            <p className="text-[10px] font-bold text-slate-300 leading-relaxed uppercase">
-               Authorized Accounting Action: This will post a non-cash expense to the General Ledger. Ensure all new assets for this month have been recorded before execution.
-            </p>
-         </div>
-
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              disabled={loading || !assets || assets.length === 0}
-              className="w-full bg-primary hover:bg-white hover:text-black text-white py-6 rounded-[30px] font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-3"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
-              Execute & Commit Depreciation
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Depreciation Run</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will post a total depreciation expense of{' '}
-                <span className="font-bold text-foreground">
-                  GHS {totalMonthlyDepreciation.toFixed(2)}
-                </span>{' '}
-                for the period of{' '}
-                <span className="font-bold text-foreground">
-                  {new Date(period.year, period.month).toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
-                </span>
-                . This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={runDepreciation}>Confirm Post</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -246,9 +272,10 @@ export default function DepreciationEngine() {
             <History size={16} className="text-primary"/> Depreciation Audit Trail
          </h3>
          <div className="bg-card rounded-[40px] border shadow-sm p-8 text-center text-muted-foreground italic text-xs uppercase">
-            No historical runs recorded in the current fiscal year.
+            Historical analysis is available on the Asset Schedule page.
          </div>
       </div>
     </div>
   );
 }
+    
