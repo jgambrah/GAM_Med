@@ -21,3 +21,9 @@ export const ASSET_GROUPS = [
   { id: 'WASTING', label: 'Natural Resources (Wasting Assets)' },
   { id: 'HELD_FOR_SALE', label: 'Non-Current Assets Held for Sale' }
 ];
+
+export const PPE_SUB_DIVISIONS = [
+  { id: 'PROPERTY', label: 'Property (Land & Buildings)' },
+  { id: 'PLANT', label: 'Plant (Machinery, Power, HVAC)' },
+  { id: 'EQUIPMENT', label: 'Equipment (Clinical & Office)' }
+];
