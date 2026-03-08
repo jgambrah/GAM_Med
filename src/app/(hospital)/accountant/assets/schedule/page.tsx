@@ -1,12 +1,12 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp, doc } from 'firebase/firestore';
 import { 
   Table, Calendar, Filter, Printer, 
-  ArrowUpRight, TrendingDown, Landmark, PieChart, Loader2, ShieldAlert
+  ArrowUpRight, TrendingDown, Landmark, PieChart as PieChartIcon, Loader2, ShieldAlert
 } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ASSET_GROUPS } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -80,6 +80,15 @@ export default function FixedAssetSchedule() {
       setLoading(false);
     }
   };
+  
+  const chartData = schedule.map(item => ({
+    name: item.label.split('(')[0], // Short name
+    value: item.netChange > 0 ? item.netChange : 0
+  })).filter(item => item.value > 0);
+
+  const COLORS = ['#2563eb', '#0f172a', '#f59e0b', '#ef4444', '#10b981'];
+
+  const totalAssets = schedule.reduce((acc, curr) => acc + curr.netChange, 0);
 
   const pageIsLoading = isUserLoading || isProfileLoading;
 
@@ -176,6 +185,43 @@ export default function FixedAssetSchedule() {
          <button onClick={() => window.print()} className="bg-white border-4 border-slate-900 px-8 py-4 rounded-3xl font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all shadow-lg">
             <Printer size={18} /> Export for Board Review
          </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12 print:hidden">
+          <div className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-xl space-y-6">
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <PieChartIcon size={16} className="text-blue-600" /> Capital Allocation by Category
+              </h3>
+              <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                          <Pie
+                              data={chartData}
+                              innerRadius={60}
+                              outerRadius={100}
+                              paddingAngle={5}
+                              dataKey="value"
+                          >
+                              {chartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                          </Pie>
+                          <Tooltip 
+                              contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                              formatter={(value: number) => `₵${value.toLocaleString()}`}
+                          />
+                          <Legend verticalAlign="bottom" height={36}/>
+                      </PieChart>
+                  </ResponsiveContainer>
+              </div>
+          </div>
+
+          <div className="bg-[#0f172a] p-8 rounded-[40px] text-white flex flex-col justify-center space-y-6 shadow-2xl">
+              <h4 className="text-xl font-black uppercase italic tracking-tighter text-blue-400">Executive Summary</h4>
+              <p className="text-sm font-medium text-slate-400 leading-relaxed italic">
+                  "Dr. Gambrah, {((chartData.find(d => d.name.includes('Property'))?.value / totalAssets) * 100 || 0).toFixed(1)}% of your hospital's long-term wealth is currently locked in Land & Buildings. Your highest depreciating category is Equipment, requiring a GHC {schedule.find(r => r.id === 'EQUIPMENT')?.depreciation.toLocaleString() || '0'} cash reserve for future replacement."
+              </p>
+          </div>
       </div>
     </div>
   );
