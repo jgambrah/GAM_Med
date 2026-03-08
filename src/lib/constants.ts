@@ -13,3 +13,11 @@ export const HOSPITAL_DEPARTMENTS = [
   'Maintenance',
   'Security',
 ];
+
+export const ASSET_GROUPS = [
+  { id: 'PPE', label: 'Property, Plant and Equipment (PPE)' },
+  { id: 'INTANGIBLE', label: 'Intangible Assets' },
+  { id: 'INVESTMENT', label: 'Long-Term Investments' },
+  { id: 'WASTING', label: 'Natural Resources (Wasting Assets)' },
+  { id: 'HELD_FOR_SALE', label: 'Non-Current Assets Held for Sale' }
+];
