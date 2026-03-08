@@ -1,8 +1,8 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, serverTimestamp, doc, runTransaction, increment } from 'firebase/firestore';
-import { Truck, Plus, Save, Loader2, ShieldAlert, ArrowLeft, Package, Briefcase, Trash2 } from 'lucide-react';
+import { collection, query, serverTimestamp, doc, runTransaction, increment, where, updateDoc } from 'firebase/firestore';
+import { Truck, Plus, Save, Loader2, ShieldAlert, ArrowLeft, Package, Briefcase, Trash2, FileSignature } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -49,6 +49,16 @@ export default function NewPurchaseOrderPage() {
     
     const catalogQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/product_catalog`)) : null, [firestore, hospitalId]);
     const { data: catalog, isLoading: catalogLoading } = useCollection(catalogQuery);
+    
+    // NEW: Fetch approved service requisitions
+    const approvedRFSQuery = useMemoFirebase(() => {
+        if (!firestore || !hospitalId) return null;
+        return query(
+            collection(firestore, `hospitals/${hospitalId}/service_requisitions`),
+            where('status', '==', 'APPROVED')
+        );
+    }, [firestore, hospitalId]);
+    const { data: approvedRFS, isLoading: rfsLoading } = useCollection(approvedRFSQuery);
 
     const form = useForm<POFormValues>({
         resolver: zodResolver(poSchema),
@@ -80,9 +90,22 @@ export default function NewPurchaseOrderPage() {
         (newItems[index] as any)[field] = value;
         setItems(newItems);
     };
+
+    // NEW: Function to convert RFS to PO
+    const handleConvertFromRequisition = (rfs: any) => {
+      setPoType('SERVICE');
+      setItems([{
+        itemId: rfs.id, // Use RFS id as the reference
+        sku: rfs.rfsNumber,
+        name: rfs.serviceTitle,
+        quantityOrdered: 1, 
+        price: rfs.estimatedCost,
+      }]);
+      toast({title: "Requisition Data Loaded into PO"});
+    };
     
     const handleCreateOrder = async (values: POFormValues) => {
-        if (items.length === 0 || (poType === 'SERVICE' && items.some(i => !i.name || i.price <= 0))) {
+        if (items.length === 0 || (poType !== 'GOODS' && items.some(i => !i.name || i.price <= 0))) {
             toast({ variant: 'destructive', title: "Please add at least one valid item or service." });
             return;
         }
@@ -129,6 +152,12 @@ export default function NewPurchaseOrderPage() {
                 });
 
                 transaction.update(hospitalRef, { poCounter: increment(1) });
+                
+                // If this PO came from an RFS, mark it as converted
+                if (poType !== 'GOODS' && items[0]?.itemId) {
+                    const rfsRef = doc(firestore, `hospitals/${hospitalId}/service_requisitions`, items[0].itemId);
+                    transaction.update(rfsRef, { status: 'CONVERTED_TO_PO', poNumber: poNumber });
+                }
             });
 
             toast({ title: "Purchase Order Issued Successfully." });
@@ -155,9 +184,23 @@ export default function NewPurchaseOrderPage() {
                         <h1 className="text-3xl font-black uppercase tracking-tighter italic">New Purchase Order</h1>
                         <div className="flex items-center gap-2 bg-card p-1 rounded-xl border">
                             <Button type="button" onClick={() => { setPoType('GOODS'); setItems([]); }} variant={poType==='GOODS' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Package size={14}/> Goods</Button>
-                            <Button type="button" onClick={() => { setPoType('SERVICE'); setItems([{ name: '', quantityOrdered: 1, price: 0, itemId: '', sku: '' }]); }} variant={poType==='SERVICE' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Briefcase size={14}/> Service</Button>
+                            <Button type="button" onClick={() => { setPoType('SERVICE'); setItems([]); }} variant={poType==='SERVICE' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Briefcase size={14}/> Service</Button>
                         </div>
                     </div>
+
+                    {/* NEW: Approved Service Requisitions */}
+                    {poType === 'SERVICE' && approvedRFS && approvedRFS.length > 0 && (
+                        <div className="bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-3">
+                            <h4 className="text-xs font-black uppercase text-blue-600">Approved Service Requests</h4>
+                            <div className="flex gap-2 flex-wrap">
+                                {approvedRFS.map(rfs => (
+                                    <button type="button" key={rfs.id} onClick={() => handleConvertFromRequisition(rfs)} className="bg-white text-blue-800 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border hover:bg-blue-100">
+                                        <FileSignature size={14} /> {rfs.serviceTitle}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     
                     <FormField
                         control={form.control}
@@ -193,24 +236,13 @@ export default function NewPurchaseOrderPage() {
                                 {items.map((item, idx) => (
                                     <tr key={idx} className="border-t">
                                         <td className="p-2">
-                                            {poType === 'GOODS' ? (
-                                                <Input readOnly value={item.name} className="font-bold border-0 bg-transparent" />
-                                            ) : (
-                                                <Input required placeholder="e.g. Quarterly Air-Conditioner Servicing" className="font-bold" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} />
-                                            )}
+                                            <Input readOnly={poType === 'GOODS'} placeholder={poType === 'GOODS' ? 'Select from catalog...' : 'e.g. Quarterly AC Maintenance'} className="font-bold border-0 bg-transparent" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} />
                                         </td>
                                         {poType === 'GOODS' && <td className="p-2 text-center"><Input type="number" className="w-24 text-center" value={item.quantityOrdered} onChange={e => updateItem(idx, 'quantityOrdered', Number(e.target.value))} /></td>}
                                         <td className="p-2 text-right"><Input type="number" step="0.01" className="w-36 text-right" value={item.price} onChange={e => updateItem(idx, 'price', Number(e.target.value))} /></td>
                                         <td className="p-2 text-center"><Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}><Trash2 size={16} /></Button></td>
                                     </tr>
                                 ))}
-                                {poType === 'SERVICE' && items.length === 0 && (
-                                     <tr className="border-t">
-                                        <td className="p-2"><Input required placeholder={"e.g. Quarterly Air-Conditioner Servicing"} className="font-bold" onChange={e => updateItem(0, 'name', e.target.value)} /></td>
-                                        <td className="p-2 text-right"><Input type="number" step="0.01" className="w-36 text-right" onChange={e => updateItem(0, 'price', Number(e.target.value))} /></td>
-                                        <td className="p-2 text-center"></td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
                     </div>

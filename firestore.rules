@@ -276,6 +276,15 @@ service cloud.firestore {
         allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
         allow update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
+
+      match /service_requisitions/{reqId} {
+        allow create: if isAnyStaff(hospitalId);
+        allow get: if isSuperAdmin() || (isAnyStaff(hospitalId) && isOwner(resource.data.requestedBy)) || isDirectorOrAdmin(hospitalId);
+        allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update: if isSuperAdmin() 
+                      || (isDirectorOrAdmin(hospitalId) && request.resource.data.status in ['APPROVED', 'REJECTED'])
+                      || (isSupplyChainStaff(hospitalId) && request.resource.data.status == 'CONVERTED_TO_PO');
+      }
       
        match /requisitions/{requisitionId} {
         allow create: if isSuperAdmin() || isAnyStaff(hospitalId);

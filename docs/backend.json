@@ -17,6 +17,72 @@
       },
       "required": ["jccNumber", "poNumber", "supplierName", "totalValue", "hospitalId", "certifiedBy"]
     },
+    "ServiceRequisition": {
+      "title": "Service Requisition",
+      "description": "A formal request for external services or works, requiring approval before procurement.",
+      "type": "object",
+      "properties": {
+        "rfsNumber": {
+          "type": "string"
+        },
+        "serviceTitle": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "justification": {
+          "type": "string"
+        },
+        "estimatedCost": {
+          "type": "number"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "NORMAL",
+            "URGENT",
+            "EMERGENCY"
+          ]
+        },
+        "hospitalId": {
+          "type": "string"
+        },
+        "requestingDept": {
+          "type": "string"
+        },
+        "requestedBy": {
+          "type": "string"
+        },
+        "requestedByName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "REJECTED",
+            "CONVERTED_TO_PO"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "rfsNumber",
+        "serviceTitle",
+        "justification",
+        "estimatedCost",
+        "priority",
+        "hospitalId",
+        "requestedBy",
+        "status",
+        "createdAt"
+      ]
+    },
     "CertifiedSchedule": {
       "title": "Certified Schedule",
       "description": "An immutable, time-stamped record of a financial schedule that has been officially certified by an auditor.",
@@ -4104,6 +4170,15 @@
         "definition": {
             "schema": { "$ref": "#/backend/entities/JccLog" },
             "description": "Logs of all certified job completions for services and works."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/service_requisitions/{reqId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/ServiceRequisition"
+          },
+          "description": "Stores requests for external services needing director/admin approval."
         }
       },
       {

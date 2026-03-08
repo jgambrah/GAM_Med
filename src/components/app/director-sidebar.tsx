@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, LayoutGrid, History, ListChecks, Layers, Archive
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, LayoutGrid, History, ListChecks, Layers, Archive, FileSignature
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -98,8 +98,10 @@ const allMenuGroups = [
     title: "Requisitions",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'],
     items: [
-      { name: "New Request", href: "/requisitions/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
-      { name: "Approve Requests", href: "/requisitions/approve", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
+      { name: "New Request (Supplies)", href: "/requisitions/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
+      { name: "New Request (Service)", href: "/requisitions/new-service", icon: FileSignature, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
+      { name: "Approve Supplies", href: "/requisitions/approve", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
+      { name: "Approve Services", href: "/requisitions/approve-service", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
       { name: "Certify Service", href: "/supply-chain/services/certify", icon: Award, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'] },
     ]
   },
