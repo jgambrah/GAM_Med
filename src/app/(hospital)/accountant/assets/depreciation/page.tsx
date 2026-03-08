@@ -125,7 +125,7 @@ export default function DepreciationEngine() {
             assetId: asset.id,
             assetName: asset.name,
             assetCategory: asset.category,
-            subDivision: asset.subDivision, // Storing sub-division for granular reporting
+            subDivision: asset.subDivision || null, // Storing sub-division for granular reporting
             amount: monthlyDep,
             period: periodKey,
             createdAt: serverTimestamp()
