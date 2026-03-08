@@ -1,6 +1,7 @@
 
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { addDays } = require("date-fns");
 const axios = require("axios");
@@ -450,5 +451,83 @@ exports.repairUserIdentity = onCall({ region: "us-central1", cors: true }, async
   }
 });
 
+// --------------------------------
+// AUTOMATED AUDIT TRIGGERS (CEO SURVEILLANCE)
+// --------------------------------
+
+// 1. MONITOR: New Patient Registrations (Clinical Pulse)
+exports.auditPatientRegistration = onDocumentCreated("hospitals/{hospitalId}/patients/{patientId}", async (event) => {
+  const data = event.data.data();
+  if (!data) return null;
+
+  const actor = await admin.auth().getUser(data.registeredBy);
+  
+  return admin.firestore().collection("global_audit_logs").add({
+    type: 'CLINICAL',
+    action: 'PATIENT_REGISTERED',
+    hospitalId: data.hospitalId || 'Unknown',
+    actorId: data.registeredBy,
+    actorName: actor.displayName || 'System',
+    details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+});
+
+// 2. MONITOR: Revenue Inflows (Financial Pulse)
+exports.auditPayments = onDocumentCreated("hospitals/{hospitalId}/payments/{paymentId}", async (event) => {
+  const data = event.data.data();
+  if (!data) return null;
+  return admin.firestore().collection("global_audit_logs").add({
+    type: 'FINANCIAL',
+    action: 'PAYMENT_RECEIVED',
+    hospitalId: data.hospitalId,
+    actorId: data.processedBy,
+    actorName: data.processedByName || 'Cashier',
+    details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+});
+
+// 3. MONITOR: Critical Hospital Status Changes (Security Pulse)
+exports.auditHospitalStatus = onDocumentUpdated("hospitals/{hospitalId}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  if (!before || !after) return null;
+
+  if (before.status !== after.status) {
+    return admin.firestore().collection("global_audit_logs").add({
+      type: 'SECURITY',
+      action: 'FACILITY_STATUS_CHANGE',
+      hospitalId: event.params.hospitalId,
+      actorId: 'SYSTEM',
+      actorName: 'App CEO / System Autopilot',
+      details: `Hospital status moved from ${before.status} to ${after.status}`,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  return null;
+});
+
+// 4. MONITOR: High-Value Procurement (Supply Chain Pulse)
+exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase_orders/{poId}", async (event) => {
+  const data = event.data.data();
+  if (!data) return null;
+
+  const totalValue = (data.items || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantityOrdered || 0)), 0);
+
+  if (totalValue > 5000) {
+    return admin.firestore().collection("global_audit_logs").add({
+      type: 'FINANCIAL',
+      action: 'LARGE_PO_ISSUED',
+      hospitalId: data.hospitalId,
+      actorId: data.orderedBy,
+      actorName: data.orderedByName || 'Procurement Officer',
+      details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  return null;
+});
     
     

@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -63,14 +64,14 @@ export default function CEOAuditLogs() {
                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">{log.timestamp ? new Date(log.timestamp?.toDate()).toLocaleString() : ''}</span>
                   </div>
                   <h3 className="text-sm font-black uppercase text-black mt-1">
-                    {log.actorName} <span className="text-slate-400 font-medium">performed</span> {log.action.replace(/_/g, ' ')}
+                    {log.actorName} <span className="text-slate-400 font-medium">performed</span> {log.action}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium italic mt-1">"{log.details}"</p>
                </div>
             </div>
 
             <div className="text-right">
-               <button className="bg-slate-50 p-3 rounded-2xl text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+               <button className="bg-slate-50 p-3 rounded-2xl text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all">
                   <Eye size={18} />
                </button>
             </div>

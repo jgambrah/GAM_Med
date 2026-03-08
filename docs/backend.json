@@ -1,6 +1,61 @@
 
 {
   "entities": {
+    "GlobalAuditLog": {
+      "title": "Global Audit Log",
+      "description": "Records a single, immutable event that occurred on the platform for security, financial, or system auditing by the App CEO.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "SECURITY",
+            "FINANCIAL",
+            "CLINICAL_EXIT",
+            "SYSTEM"
+          ],
+          "description": "The high-level category of the audited event."
+        },
+        "action": {
+          "type": "string",
+          "description": "A specific code for the action performed, e.g., 'IDENTITY_REPAIR', 'PRICE_ADJUSTMENT'."
+        },
+        "hospitalId": {
+          "type": "string",
+          "description": "The ID of the hospital tenant where the event occurred. 'SYSTEM' for platform-level actions."
+        },
+        "actorId": {
+          "type": "string",
+          "description": "The UID of the user who performed the action."
+        },
+        "actorName": {
+          "type": "string",
+          "description": "The display name of the user who performed the action."
+        },
+        "details": {
+          "type": "string",
+          "description": "A human-readable description of the event and its impact."
+        },
+        "ipAddress": {
+          "type": "string",
+          "description": "The IP address from which the request originated."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The server timestamp when the log was created."
+        }
+      },
+      "required": [
+        "type",
+        "action",
+        "hospitalId",
+        "actorId",
+        "actorName",
+        "details",
+        "timestamp"
+      ]
+    },
     "SalaryGrade": {
       "title": "Salary Grade",
       "description": "Defines a standardized salary grade and level with a fixed basic salary.",
@@ -272,61 +327,6 @@
         "startTime",
         "endTime",
         "slotDuration"
-      ]
-    },
-    "GlobalAuditLog": {
-      "title": "Global Audit Log",
-      "description": "Records a single, immutable event that occurred on the platform for security, financial, or system auditing by the App CEO.",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": [
-            "SECURITY",
-            "FINANCIAL",
-            "CLINICAL_EXIT",
-            "SYSTEM"
-          ],
-          "description": "The high-level category of the audited event."
-        },
-        "action": {
-          "type": "string",
-          "description": "A specific code for the action performed, e.g., 'IDENTITY_REPAIR', 'PRICE_ADJUSTMENT'."
-        },
-        "hospitalId": {
-          "type": "string",
-          "description": "The ID of the hospital tenant where the event occurred. 'SYSTEM' for platform-level actions."
-        },
-        "actorId": {
-          "type": "string",
-          "description": "The UID of the user who performed the action."
-        },
-        "actorName": {
-          "type": "string",
-          "description": "The display name of the user who performed the action."
-        },
-        "details": {
-          "type": "string",
-          "description": "A human-readable description of the event and its impact."
-        },
-        "ipAddress": {
-          "type": "string",
-          "description": "The IP address from which the request originated."
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The server timestamp when the log was created."
-        }
-      },
-      "required": [
-        "type",
-        "action",
-        "hospitalId",
-        "actorId",
-        "actorName",
-        "details",
-        "timestamp"
       ]
     },
     "SmsLog": {
@@ -4128,6 +4128,15 @@
   "firestore": {
     "structure": [
       {
+        "path": "/global_audit_logs/{logId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/backend/entities/GlobalAuditLog"
+          },
+          "description": "Immutable, CEO-only audit trail of all significant platform events."
+        }
+      },
+      {
         "path": "/hospitals/{hospitalId}/depreciation_history/{logId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/DepreciationHistory" },
@@ -4196,15 +4205,6 @@
             "$ref": "#/backend/entities/DoctorAvailability"
           },
           "description": "Stores the weekly consultation availability for each doctor. Document ID is the doctor's UID."
-        }
-      },
-      {
-        "path": "/global_audit_logs/{logId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/backend/entities/GlobalAuditLog"
-          },
-          "description": "Immutable, CEO-only audit trail of all significant platform events."
         }
       },
       {
@@ -4724,5 +4724,3 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
-
-    
