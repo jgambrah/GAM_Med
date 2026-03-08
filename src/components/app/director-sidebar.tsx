@@ -80,6 +80,21 @@ const allMenuGroups = [
     ]
   },
   {
+    title: "Supply Chain",
+    roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'],
+    items: [
+      { name: "Procurement", href: "/supply-chain", icon: Truck },
+      { name: "Suppliers", href: "/supply-chain/procurement", icon: Building2 },
+      { name: "Product Catalog", href: "/supply-chain/catalog", icon: HardDrive },
+      { name: "Purchase Orders", href: "/supply-chain/orders", icon: FileText },
+      { name: "Re-Order Intel", href: "/supply-chain/reorder", icon: TrendingUp },
+      { name: "Inventory Pulse", href: "/supply-chain/inventory-pulse", icon: BarChart3 },
+      { name: "Store Dashboard", href: "/supply-chain/store", icon: LayoutGrid },
+      { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: History },
+      { name: "New Disposal", href: "/supply-chain/disposal", icon: Archive },
+    ]
+  },
+  {
     title: "Requisitions",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'],
     items: [
