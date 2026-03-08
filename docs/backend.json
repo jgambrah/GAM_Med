@@ -1,6 +1,22 @@
 
 {
   "entities": {
+    "JccLog": {
+      "title": "Job Completion Certificate",
+      "description": "A formal certification that a service or work has been completed satisfactorily, authorizing payment.",
+      "type": "object",
+      "properties": {
+        "jccNumber": { "type": "string" },
+        "poNumber": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "totalValue": { "type": "number" },
+        "hospitalId": { "type": "string" },
+        "hODName": { "type": "string", "description": "Name of the Head of Department certifying the job." },
+        "certifiedBy": { "type": "string", "description": "UID of the HOD." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jccNumber", "poNumber", "supplierName", "totalValue", "hospitalId", "certifiedBy"]
+    },
     "CertifiedSchedule": {
       "title": "Certified Schedule",
       "description": "An immutable, time-stamped record of a financial schedule that has been officially certified by an auditor.",
@@ -1703,47 +1719,20 @@
       "description": "Represents a liability to a supplier, generated from a Goods Received Note.",
       "type": "object",
       "properties": {
-        "hospitalId": {
-          "type": "string"
-        },
-        "grnId": {
-          "type": "string"
-        },
-        "grnNumber": {
-          "type": "string"
-        },
-        "supplierId": {
-          "type": "string"
-        },
-        "supplierName": {
-          "type": "string"
-        },
-        "amountOwed": {
-          "type": "number"
-        },
-        "status": {
-          "type": "string",
-          "enum": [
-            "UNPAID",
-            "PAID"
-          ]
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "paidAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "pvId": {
-          "type": "string"
-        }
+        "hospitalId": { "type": "string" },
+        "grnId": { "type": "string" },
+        "grnNumber": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "amountOwed": { "type": "number" },
+        "status": { "type": "string", "enum": ["UNPAID", "PAID"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "paidAt": { "type": "string", "format": "date-time" },
+        "pvId": { "type": "string" },
+        "isService": { "type": "boolean", "description": "Flag to identify service-based payables for WHT." }
       },
       "required": [
         "hospitalId",
-        "grnId",
-        "grnNumber",
         "supplierId",
         "supplierName",
         "amountOwed",
@@ -3328,7 +3317,8 @@
             "PARTIALLY_RECEIVED",
             "RECEIVED",
             "CANCELLED",
-            "FORCE_CLOSED"
+            "FORCE_CLOSED",
+            "COMPLETED"
           ]
         },
         "orderedBy": { "type": "string" },
@@ -3337,7 +3327,9 @@
         "receivedAt": { "type": "string", "format": "date-time" },
         "closeReason": { "type": "string", "description": "Reason for manually closing a partially fulfilled PO." },
         "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the PO was force closed." },
-        "closedBy": { "type": "string", "description": "UID of the user who force closed the PO." }
+        "closedBy": { "type": "string", "description": "UID of the user who force closed the PO." },
+        "certifiedAt": { "type": "string", "format": "date-time" },
+        "certifiedBy": { "type": "string" }
       },
       "required": [
         "poNumber",
@@ -4107,6 +4099,13 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/hospitals/{hospitalId}/jcc_logs/{logId}",
+        "definition": {
+            "schema": { "$ref": "#/backend/entities/JccLog" },
+            "description": "Logs of all certified job completions for services and works."
+        }
+      },
       {
         "path": "/global_audit_logs/{logId}",
         "definition": {

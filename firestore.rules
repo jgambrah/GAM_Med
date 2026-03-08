@@ -217,6 +217,11 @@ service cloud.firestore {
       allow list, create, update, delete: if isSuperAdmin();
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
       
+      match /jcc_logs/{logId} {
+        allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow update, delete: if false;
+      }
+      
       match /depreciation_history/{logId} {
         allow read, write, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
@@ -503,5 +508,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

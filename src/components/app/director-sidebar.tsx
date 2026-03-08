@@ -100,6 +100,7 @@ const allMenuGroups = [
     items: [
       { name: "New Request", href: "/requisitions/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
       { name: "Approve Requests", href: "/requisitions/approve", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
+      { name: "Certify Service", href: "/supply-chain/services/certify", icon: Award, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'] },
     ]
   },
   {
