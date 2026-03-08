@@ -16,6 +16,7 @@ const menuGroups = [
     items: [
       { name: "Audit Console", href: "/auditor", icon: LayoutDashboard },
       { name: "Asset Schedule", href: "/auditor/assets", icon: Landmark },
+      { name: "Asset Verification", href: "/auditor/assets/verification", icon: ShieldCheck },
       { name: "Approved Payments", href: "/auditor/archive", icon: FileText },
       { name: "Remittance Schedules", href: "/auditor/remittance", icon: Landmark },
     ]
@@ -92,5 +93,3 @@ export function AuditorSidebar() {
     </aside>
   );
 }
-
-    
