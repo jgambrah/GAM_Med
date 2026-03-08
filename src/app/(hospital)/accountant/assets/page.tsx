@@ -18,20 +18,30 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
-import { ASSET_GROUPS } from '@/lib/constants';
+import { ASSET_GROUPS, PPE_SUB_DIVISIONS } from '@/lib/constants';
 
 const assetGroupIds = ASSET_GROUPS.map(g => g.id) as [string, ...string[]];
 
 const assetSchema = z.object({
   name: z.string().min(1, "Asset Name is required."),
   category: z.enum(assetGroupIds, { required_error: "Category is required."}),
+  subDivision: z.string().optional(),
   tagId: z.string().min(1, "Asset Tag ID is required."),
   purchaseDate: z.string().min(1, "Purchase Date is required."),
   purchasePrice: z.coerce.number().min(0, "Purchase Price must be a positive number."),
   usefulLife: z.coerce.number().min(1, "Useful Life must be at least 1 year."),
   salvageValue: z.coerce.number().min(0, "Salvage Value cannot be negative."),
   status: z.string().min(1, "Status is required."),
+}).refine(data => {
+    if (data.category === 'PPE' && !data.subDivision) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Sub-Division is required for PPE assets.",
+    path: ["subDivision"],
 });
+
 
 type AssetFormValues = z.infer<typeof assetSchema>;
 
@@ -159,6 +169,7 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
         defaultValues: {
             name: '',
             category: 'PPE',
+            subDivision: '',
             tagId: '',
             purchaseDate: '',
             purchasePrice: 0,
@@ -167,6 +178,8 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
             status: 'OPERATIONAL'
         }
     });
+    
+    const category = form.watch('category');
 
     const onSubmit = (values: AssetFormValues) => {
         if (!firestore) return;
@@ -196,7 +209,12 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
                         )}/>
                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="category" render={({ field }) => (
-                                <FormItem><FormLabel>Category (IFRS Standard)</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormItem><FormLabel>Category (IFRS Standard)</FormLabel><Select 
+                                    onValueChange={(value) => {
+                                        field.onChange(value);
+                                        form.setValue('subDivision', '');
+                                    }} 
+                                    defaultValue={field.value}>
                                     <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
                                     <SelectContent>
                                         {ASSET_GROUPS.map(group => (
@@ -205,10 +223,26 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
                                     </SelectContent>
                                 </Select><FormMessage/></FormItem>
                             )}/>
-                            <FormField control={form.control} name="tagId" render={({ field }) => (
-                                <FormItem><FormLabel>Asset Tag ID</FormLabel><FormControl><Input placeholder="e.g. GH-ACC-001" {...field} /></FormControl><FormMessage/></FormItem>
-                            )}/>
+                            {category === 'PPE' && (
+                                <FormField control={form.control} name="subDivision" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>PPE Sub-Division</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Select Sub-Division..."/></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                {PPE_SUB_DIVISIONS.map(group => (
+                                                    <SelectItem key={group.id} value={group.id}>{group.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage/>
+                                    </FormItem>
+                                )} />
+                            )}
                         </div>
+                         <FormField control={form.control} name="tagId" render={({ field }) => (
+                            <FormItem><FormLabel>Asset Tag ID</FormLabel><FormControl><Input placeholder="e.g. GH-ACC-001" {...field} /></FormControl><FormMessage/></FormItem>
+                        )}/>
                         <div className="grid grid-cols-2 gap-4">
                              <FormField control={form.control} name="purchasePrice" render={({ field }) => (
                                 <FormItem><FormLabel>Purchase Price (GHS)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage/></FormItem>
