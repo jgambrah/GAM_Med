@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -13,6 +12,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 
 const poSchema = z.object({
   supplierId: z.string().min(1, "Please select a supplier."),
@@ -20,6 +20,8 @@ const poSchema = z.object({
 type POFormValues = z.infer<typeof poSchema>;
 
 type NewPOItem = {
+    itemId: string;
+    sku: string;
     name: string;
     quantityOrdered: number;
     price: number;
@@ -32,7 +34,7 @@ export default function NewPurchaseOrderPage() {
     const { toast } = useToast();
 
     const [poType, setPoType] = useState<'GOODS' | 'SERVICE' | 'WORKS'>('GOODS');
-    const [items, setItems] = useState<NewPOItem[]>([{ name: '', quantityOrdered: 1, price: 0 }]);
+    const [items, setItems] = useState<NewPOItem[]>([]);
     const [loading, setLoading] = useState(false);
     
     const userProfileRef = useMemoFirebase(() => {
@@ -44,13 +46,35 @@ export default function NewPurchaseOrderPage() {
 
     const suppliersQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/suppliers`)) : null, [firestore, hospitalId]);
     const { data: suppliers, isLoading: suppliersLoading } = useCollection(suppliersQuery);
+    
+    const catalogQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/product_catalog`)) : null, [firestore, hospitalId]);
+    const { data: catalog, isLoading: catalogLoading } = useCollection(catalogQuery);
 
     const form = useForm<POFormValues>({
         resolver: zodResolver(poSchema),
     });
 
-    const addItem = () => setItems([...items, { name: '', quantityOrdered: 1, price: 0 }]);
+    const handleProductSelect = (product: any) => {
+        if (!items.some(i => i.itemId === product.id)) {
+            const newItem: NewPOItem = {
+                itemId: product.id,
+                sku: product.sku,
+                name: product.name,
+                quantityOrdered: 1,
+                price: product.purchasePrice || 0,
+            };
+            setItems(prevItems => [...prevItems, newItem]);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Item Already Added',
+                description: `${product.name} is already in this purchase order.`,
+            });
+        }
+    };
+    
     const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
+
     const updateItem = (index: number, field: keyof NewPOItem, value: string | number) => {
         const newItems = [...items];
         (newItems[index] as any)[field] = value;
@@ -58,8 +82,8 @@ export default function NewPurchaseOrderPage() {
     };
     
     const handleCreateOrder = async (values: POFormValues) => {
-        if (items.length === 0 || items.some(i => !i.name || i.price <= 0)) {
-            toast({ variant: 'destructive', title: "Please complete all line items." });
+        if (items.length === 0 || (poType === 'SERVICE' && items.some(i => !i.name || i.price <= 0))) {
+            toast({ variant: 'destructive', title: "Please add at least one valid item or service." });
             return;
         }
         if (!hospitalId || !user || !firestore) return;
@@ -91,6 +115,8 @@ export default function NewPurchaseOrderPage() {
                     supplierId: values.supplierId,
                     supplierName: selectedSupplier.name,
                     items: items.map(i => ({
+                        itemId: i.itemId,
+                        sku: i.sku,
                         name: i.name,
                         quantityOrdered: poType === 'GOODS' ? i.quantityOrdered : 1,
                         price: i.price,
@@ -128,8 +154,8 @@ export default function NewPurchaseOrderPage() {
                     <div className="flex justify-between items-end border-b-4 border-slate-900 pb-4">
                         <h1 className="text-3xl font-black uppercase tracking-tighter italic">New Purchase Order</h1>
                         <div className="flex items-center gap-2 bg-card p-1 rounded-xl border">
-                            <Button type="button" onClick={() => setPoType('GOODS')} variant={poType==='GOODS' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Package size={14}/> Goods</Button>
-                            <Button type="button" onClick={() => setPoType('SERVICE')} variant={poType==='SERVICE' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Briefcase size={14}/> Service</Button>
+                            <Button type="button" onClick={() => { setPoType('GOODS'); setItems([]); }} variant={poType==='GOODS' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Package size={14}/> Goods</Button>
+                            <Button type="button" onClick={() => { setPoType('SERVICE'); setItems([{ name: '', quantityOrdered: 1, price: 0, itemId: '', sku: '' }]); }} variant={poType==='SERVICE' ? 'default' : 'ghost'} size="sm" className="flex gap-2"><Briefcase size={14}/> Service</Button>
                         </div>
                     </div>
                     
@@ -149,6 +175,11 @@ export default function NewPurchaseOrderPage() {
                     />
                     
                     <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden">
+                        {poType === 'GOODS' && (
+                            <div className="p-4 border-b">
+                                <ProductSearchDropdown catalog={catalog || []} onSelect={handleProductSelect} />
+                            </div>
+                        )}
                         <table className="w-full text-left">
                             <thead className="bg-muted text-[10px] uppercase font-black">
                                 <tr>
@@ -161,17 +192,27 @@ export default function NewPurchaseOrderPage() {
                             <tbody>
                                 {items.map((item, idx) => (
                                     <tr key={idx} className="border-t">
-                                        <td className="p-2"><Input required placeholder={poType==='GOODS' ? "e.g. Oxygen Cylinder Refill" : "e.g. Quarterly Air-Conditioner Servicing"} className="font-bold" onChange={e => updateItem(idx, 'name', e.target.value)} /></td>
+                                        <td className="p-2">
+                                            {poType === 'GOODS' ? (
+                                                <Input readOnly value={item.name} className="font-bold border-0 bg-transparent" />
+                                            ) : (
+                                                <Input required placeholder="e.g. Quarterly Air-Conditioner Servicing" className="font-bold" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} />
+                                            )}
+                                        </td>
                                         {poType === 'GOODS' && <td className="p-2 text-center"><Input type="number" className="w-24 text-center" value={item.quantityOrdered} onChange={e => updateItem(idx, 'quantityOrdered', Number(e.target.value))} /></td>}
                                         <td className="p-2 text-right"><Input type="number" step="0.01" className="w-36 text-right" value={item.price} onChange={e => updateItem(idx, 'price', Number(e.target.value))} /></td>
                                         <td className="p-2 text-center"><Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)}><Trash2 size={16} /></Button></td>
                                     </tr>
                                 ))}
+                                {poType === 'SERVICE' && items.length === 0 && (
+                                     <tr className="border-t">
+                                        <td className="p-2"><Input required placeholder={"e.g. Quarterly Air-Conditioner Servicing"} className="font-bold" onChange={e => updateItem(0, 'name', e.target.value)} /></td>
+                                        <td className="p-2 text-right"><Input type="number" step="0.01" className="w-36 text-right" onChange={e => updateItem(0, 'price', Number(e.target.value))} /></td>
+                                        <td className="p-2 text-center"></td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
-                        <div className="p-4 bg-muted/50 border-t">
-                            <Button type="button" onClick={addItem} variant="ghost" className="text-xs font-bold"><Plus size={14}/> Add Line Item</Button>
-                        </div>
                     </div>
                     
                     <Button type="submit" disabled={loading} className="w-full h-12">

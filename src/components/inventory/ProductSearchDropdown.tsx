@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Package, Check, ChevronDown } from 'lucide-react';
 
 interface Product {
@@ -20,19 +19,32 @@ export default function ProductSearchDropdown({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const filteredProducts = catalog.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.sku.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownRef]);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" ref={dropdownRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between p-3 bg-slate-50 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-blue-500 transition-all"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full">
           <Search size={16} className="text-slate-400" />
           <input 
             placeholder="Search Catalog (Name or SKU)..."
@@ -40,14 +52,14 @@ export default function ProductSearchDropdown({
             value={searchTerm}
             onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setIsOpen(true);
+                if (!isOpen) setIsOpen(true);
             }}
           />
         </div>
         <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
 
-      {isOpen && searchTerm && (
+      {isOpen && (
         <div className="absolute w-full mt-2 bg-white border-2 border-slate-100 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2">
           {filteredProducts.length === 0 ? (
             <div className="p-4 text-center text-slate-400 text-xs font-bold uppercase italic">No matching product found</div>
