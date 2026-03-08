@@ -9,11 +9,13 @@ import {
 import { ASSET_GROUPS } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function FixedAssetSchedule() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
@@ -25,49 +27,56 @@ export default function FixedAssetSchedule() {
   const [schedule, setSchedule] = useState<any[]>([]);
 
   const generateSchedule = async () => {
-    if (!dateRange.start || !dateRange.end || !hospitalId || !firestore) return;
+    if (!dateRange.start || !dateRange.end || !hospitalId) return;
     setLoading(true);
 
     try {
+      const hId = hospitalId;
+      // For Firestore Timestamps
       const startTs = Timestamp.fromDate(new Date(dateRange.start));
-      const endTs = Timestamp.fromDate(new Date(dateRange.end));
+      const endTs = Timestamp.fromDate(new Date(new Date(dateRange.end).setHours(23, 59, 59)));
 
-      // 1. Fetch Assets added in this period
-      const assetSnap = await getDocs(query(
-        collection(firestore, `hospitals/${hospitalId}/assets`),
-        where("hospitalId", "==", hospitalId),
+      // 1. FETCH ADDITIONS (Filter by Purchase Date String)
+      const additionsSnap = await getDocs(query(
+        collection(firestore, `hospitals/${hId}/assets`),
+        where("hospitalId", "==", hId),
         where("purchaseDate", ">=", dateRange.start),
         where("purchaseDate", "<=", dateRange.end)
       ));
 
-      // 2. Fetch Depreciation Logs recorded in this period
-      const depSnap = await getDocs(query(
-        collection(firestore, `hospitals/${hospitalId}/depreciation_history`),
-        where("hospitalId", "==", hospitalId),
+      // 2. FETCH DEPRECIATION LOGS (Filter by Log Timestamp)
+      const depLogsSnap = await getDocs(query(
+        collection(firestore, `hospitals/${hId}/depreciation_history`),
+        where("hospitalId", "==", hId),
         where("createdAt", ">=", startTs),
         where("createdAt", "<=", endTs)
       ));
 
-      // 3. AGGREGATE BY CATEGORY
-      const report = ASSET_GROUPS.map(group => {
-        const addedValue = assetSnap.docs
+      // 3. AGGREGATE DATA
+      const newReport = ASSET_GROUPS.map(group => {
+        // Sum Additions for this category
+        const additions = additionsSnap.docs
           .filter(d => d.data().category === group.id)
-          .reduce((acc, curr) => acc + curr.data().purchasePrice, 0);
+          .reduce((sum, d) => sum + (d.data().purchasePrice || 0), 0);
 
-        const depCharged = depSnap.docs
+        // Sum Depreciation Logs for this category
+        const depreciation = depLogsSnap.docs
           .filter(d => d.data().assetCategory === group.id)
-          .reduce((acc, curr) => acc + curr.data().amount, 0);
+          .reduce((sum, d) => sum + (d.data().amount || 0), 0);
 
         return {
           ...group,
-          addedValue,
-          depCharged,
+          additions,
+          depreciation,
+          netChange: additions - depreciation
         };
       });
 
-      setSchedule(report);
-    } catch (e) {
-      console.error(e);
+      setSchedule(newReport);
+      toast({ title: `Schedule generated for ${dateRange.start} to ${dateRange.end}` });
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: 'destructive', title: "Query Error", description: "Check if Firestore Indexes are enabled." });
     } finally {
       setLoading(false);
     }
@@ -138,14 +147,14 @@ export default function FixedAssetSchedule() {
                    <p className="text-[8px] text-blue-600 font-bold uppercase tracking-widest mt-1">Audit Code: {row.id}</p>
                 </td>
                 <td className="p-6 text-right text-green-600 font-black">
-                   ₵ {row.addedValue.toLocaleString()}
+                   ₵ {row.additions.toLocaleString()}
                 </td>
                 <td className="p-6 text-right text-red-600 font-black italic">
-                   (₵ {row.depCharged.toLocaleString()})
+                   (₵ {row.depreciation.toLocaleString()})
                 </td>
                 <td className="p-6 text-right">
                    <div className="inline-block px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-black italic">
-                      ₵ {(row.addedValue - row.depCharged).toLocaleString()}
+                      ₵ {row.netChange.toLocaleString()}
                    </div>
                 </td>
               </tr>
@@ -154,10 +163,10 @@ export default function FixedAssetSchedule() {
           <tfoot className="bg-slate-50 border-t-4 border-slate-900">
              <tr className="text-lg font-black italic">
                 <td className="p-6 text-right uppercase text-xs">Total for Period</td>
-                <td className="p-6 text-right text-green-600">₵ {schedule.reduce((a,b) => a + b.addedValue, 0).toLocaleString()}</td>
-                <td className="p-6 text-right text-red-600">(₵ {schedule.reduce((a,b) => a + b.depCharged, 0).toLocaleString()})</td>
+                <td className="p-6 text-right text-green-600">₵ {schedule.reduce((a,b) => a + b.additions, 0).toLocaleString()}</td>
+                <td className="p-6 text-right text-red-600">(₵ {schedule.reduce((a,b) => a + b.depreciation, 0).toLocaleString()})</td>
                 <td className="p-6 text-right border-l-4 border-slate-900 bg-blue-50 text-blue-900">
-                   ₵ {(schedule.reduce((a,b) => a + b.addedValue, 0) - schedule.reduce((a,b) => a + b.depCharged, 0)).toLocaleString()}
+                   ₵ {schedule.reduce((a,b) => a + b.netChange, 0).toLocaleString()}
                 </td>
              </tr>
           </tfoot>
