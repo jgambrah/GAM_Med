@@ -7,7 +7,7 @@ import {
   ArrowUpRight, TrendingDown, Landmark, PieChart as PieChartIcon, Loader2, ShieldAlert, Zap
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ASSET_GROUPS } from '@/lib/constants';
+import { ASSET_GROUPS, PPE_SUB_DIVISIONS } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -25,70 +25,75 @@ export default function FixedAssetSchedule() {
 
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [schedule, setSchedule] = useState<any[]>([]);
+  const [report, setReport] = useState<any[]>([]);
 
-  const generateSchedule = async () => {
+  const generateReport = async () => {
     if (!dateRange.start || !dateRange.end || !hospitalId) return;
     setLoading(true);
 
     try {
       const hId = hospitalId;
-      // For Firestore Timestamps
       const startTs = Timestamp.fromDate(new Date(dateRange.start));
-      const endTs = Timestamp.fromDate(new Date(new Date(dateRange.end).setHours(23, 59, 59)));
+      const endTs = Timestamp.fromDate(new Date(new Date(dateRange.end).setHours(23,59,59)));
 
-      // 1. FETCH ADDITIONS (Filter by Purchase Date String)
-      const additionsSnap = await getDocs(query(
-        collection(firestore, `hospitals/${hId}/assets`),
-        where("purchaseDate", ">=", dateRange.start),
-        where("purchaseDate", "<=", dateRange.end)
-      ));
-
-      // 2. FETCH DEPRECIATION LOGS (Filter by Log Timestamp)
-      const depLogsSnap = await getDocs(query(
+      const assetSnap = await getDocs(query(collection(firestore, `hospitals/${hId}/assets`)));
+      
+      const depSnap = await getDocs(query(
         collection(firestore, `hospitals/${hId}/depreciation_history`),
+        where("hospitalId", "==", hId),
         where("createdAt", ">=", startTs),
         where("createdAt", "<=", endTs)
       ));
 
-      // 3. AGGREGATE DATA
-      const newReport = ASSET_GROUPS.map(group => {
-        // Sum Additions for this category
-        const additions = additionsSnap.docs
-          .filter(d => d.data().category === group.id)
-          .reduce((sum, d) => sum + (d.data().purchasePrice || 0), 0);
+      const assets = assetSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const depLogs = depSnap.docs.map(d => d.data());
 
-        // Sum Depreciation Logs for this category
-        const depreciation = depLogsSnap.docs
-          .filter(d => d.data().assetCategory === group.id)
-          .reduce((sum, d) => sum + (d.data().amount || 0), 0);
+      const reportStructure = [
+        ...PPE_SUB_DIVISIONS.map(s => ({ ...s, parent: 'PPE', type: 'PPE' })),
+        ...ASSET_GROUPS.filter(g => g.id !== 'PPE').map(g => ({ ...g, parent: g.id, type: g.id }))
+      ];
+
+      const finalizedData = reportStructure.map(category => {
+        const relevantAssets = assets.filter(a => 
+          category.type === 'PPE' ? a.subDivision === category.id : a.category === category.id
+        );
+
+        const opening = relevantAssets
+          .filter(a => a.purchaseDate < dateRange.start)
+          .reduce((sum, a) => sum + (a.purchasePrice || 0), 0);
+
+        const additions = relevantAssets
+          .filter(a => a.purchaseDate >= dateRange.start && a.purchaseDate <= dateRange.end)
+          .reduce((sum, a) => sum + (a.purchasePrice || 0), 0);
+
+        const depreciation = depLogs
+          .filter(log => relevantAssets.some(ra => ra.id === log.assetId || ra.tagId === log.assetId))
+          .reduce((sum, log) => sum + (log.amount || 0), 0);
 
         return {
-          ...group,
+          id: category.id,
+          label: category.label,
+          opening,
           additions,
           depreciation,
-          netChange: additions - depreciation
+          closing: (opening + additions) - depreciation
         };
       });
 
-      setSchedule(newReport);
+      setReport(finalizedData);
       toast({ title: `Schedule generated for ${dateRange.start} to ${dateRange.end}` });
-    } catch (error: any) {
-      console.error(error);
-      toast({ variant: 'destructive', title: "Query Error", description: "Check if Firestore Indexes are enabled." });
-    } finally {
-      setLoading(false);
+    } catch (e: any) { 
+      toast({ variant: "destructive", title: "Schedule aggregation failed.", description: e.message }); 
     }
+    setLoading(false);
   };
   
-  const chartData = schedule.map(item => ({
+  const chartData = report.map(item => ({
     name: item.label.split('(')[0], // Short name
-    value: item.netChange > 0 ? item.netChange : 0
+    value: item.closing
   })).filter(item => item.value > 0);
 
   const COLORS = ['#2563eb', '#0f172a', '#f59e0b', '#ef4444', '#10b981'];
-
-  const totalAssets = schedule.reduce((acc, curr) => acc + curr.netChange, 0);
 
   const pageIsLoading = isUserLoading || isProfileLoading;
 
@@ -128,57 +133,65 @@ export default function FixedAssetSchedule() {
               <span className="text-[8px] font-black uppercase text-slate-400">End Date</span>
               <input type="date" className="bg-transparent text-xs outline-none" onChange={e => setDateRange({...dateRange, end: e.target.value})} />
            </div>
-           <button onClick={generateSchedule} className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-black transition-all">
+           <button onClick={generateReport} className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-black transition-all">
               {loading ? <Loader2 className="animate-spin" size={18}/> : <Filter size={18}/>}
            </button>
         </div>
       </div>
 
-      {/* --- THE SCHEDULE TABLE --- */}
-      <div className="bg-white rounded-[40px] border-4 border-slate-900 overflow-hidden shadow-2xl">
-        <table className="w-full text-left">
-          <thead className="bg-slate-900 text-white text-[10px] uppercase font-black tracking-[0.2em]">
-            <tr>
-              <th className="p-6">Asset Category</th>
-              <th className="p-6 text-right">Additions (₵)</th>
-              <th className="p-6 text-right">Depreciation (₵)</th>
-              <th className="p-6 text-right">Net Impact (₵)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y-4 divide-slate-50">
-            {schedule.length === 0 ? (
-                <tr><td colSpan={4} className="p-20 text-center text-slate-300 italic uppercase">Select a period to generate analysis.</td></tr>
-            ) : schedule.map((row) => (
-              <tr key={row.id} className="hover:bg-blue-50/30 transition-all">
-                <td className="p-6">
-                   <p className="text-sm font-black uppercase">{row.label}</p>
-                   <p className="text-[8px] text-blue-600 font-bold uppercase tracking-widest mt-1">Audit Code: {row.id}</p>
-                </td>
-                <td className="p-6 text-right text-green-600 font-black">
-                   ₵ {row.additions.toLocaleString()}
-                </td>
-                <td className="p-6 text-right text-red-600 font-black italic">
-                   (₵ {row.depreciation.toLocaleString()})
-                </td>
-                <td className="p-6 text-right">
-                   <div className="inline-block px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-black italic">
-                      ₵ {row.netChange.toLocaleString()}
-                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="bg-slate-50 border-t-4 border-slate-900">
-             <tr className="text-lg font-black italic">
-                <td className="p-6 text-right uppercase text-xs">Total for Period</td>
-                <td className="p-6 text-right text-green-600">₵ {schedule.reduce((a,b) => a + b.additions, 0).toLocaleString()}</td>
-                <td className="p-6 text-right text-red-600">(₵ {schedule.reduce((a,b) => a + b.depreciation, 0).toLocaleString()})</td>
-                <td className="p-6 text-right border-l-4 border-slate-900 bg-blue-50 text-blue-900">
-                   ₵ {schedule.reduce((a,b) => a + b.netChange, 0).toLocaleString()}
-                </td>
-             </tr>
-          </tfoot>
-        </table>
+       {/* --- THE AUDIT-GRADE STATEMENT --- */}
+       <div className="bg-white border-4 border-slate-900 p-12 rounded-[50px] shadow-2xl font-serif">
+         <div className="text-center border-b-2 border-slate-900 pb-6 mb-10">
+            <h2 className="text-3xl font-black uppercase tracking-widest">{userProfile?.hospitalName}</h2>
+            <p className="text-lg font-bold uppercase italic mt-1">Movement of Fixed Assets</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">
+               Period: {dateRange.start || '...'} to {dateRange.end || '...'}
+            </p>
+         </div>
+
+         <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-900 text-white text-[9px] uppercase font-black tracking-widest">
+               <tr>
+                  <th className="p-5 border-r border-slate-800">Asset Classification</th>
+                  <th className="p-5 text-right border-r border-slate-800">Opening (₵)</th>
+                  <th className="p-5 text-right border-r border-slate-800">Additions (₵)</th>
+                  <th className="p-5 text-right border-r border-slate-800">Depreciation (₵)</th>
+                  <th className="p-5 text-right">Closing NBV (₵)</th>
+               </tr>
+            </thead>
+            <tbody className="divide-y-2 divide-slate-100 font-bold text-xs">
+               {report.length === 0 ? (
+                 <tr><td colSpan={5} className="p-20 text-center text-slate-300 italic uppercase">Execute Period Filter to display data.</td></tr>
+               ) : report.map((row, i) => (
+                 <tr key={i} className="hover:bg-slate-50 transition-all">
+                    <td className="p-5 uppercase text-black font-black">{row.label}</td>
+                    <td className="p-5 text-right text-slate-500 italic">{row.opening.toLocaleString()}</td>
+                    <td className="p-5 text-right text-green-600">₵ {row.additions.toLocaleString()}</td>
+                    <td className="p-5 text-right text-red-600">(₵ {row.depreciation.toLocaleString()})</td>
+                    <td className="p-5 text-right bg-slate-900 text-white italic font-black">₵ {row.closing.toLocaleString()}</td>
+                 </tr>
+               ))}
+            </tbody>
+            <tfoot className="bg-slate-50 border-t-4 border-slate-900 font-black text-sm italic">
+               <tr>
+                  <td className="p-6 uppercase">Total Network Value</td>
+                  <td className="p-6 text-right">₵ {report.reduce((a,b)=>a+b.opening,0).toLocaleString()}</td>
+                  <td className="p-6 text-right text-green-600">₵ {report.reduce((a,b)=>a+b.additions,0).toLocaleString()}</td>
+                  <td className="p-6 text-right text-red-600">(₵ {report.reduce((a,b)=>a+b.depreciation,0).toLocaleString()})</td>
+                  <td className="p-6 text-right bg-blue-600 text-white text-xl">₵ {report.reduce((a,b)=>a+b.closing,0).toLocaleString()}</td>
+               </tr>
+            </tfoot>
+         </table>
+
+         <div className="mt-16 grid grid-cols-2 gap-20 opacity-40 print:opacity-100">
+            <div className="border-t-2 border-slate-900 pt-2 text-center">
+               <p className="text-[10px] font-black uppercase">Prepared by Accountant</p>
+               <p className="text-[10px] font-bold mt-2 italic">{user?.displayName}</p>
+            </div>
+            <div className="border-t-2 border-slate-900 pt-2 text-center">
+               <p className="text-[10px] font-black uppercase">Certified by Internal Audit</p>
+            </div>
+         </div>
       </div>
 
       <div className="print:hidden flex justify-end gap-4">
@@ -229,13 +242,13 @@ export default function FixedAssetSchedule() {
               <p className="text-sm font-medium text-slate-300 leading-relaxed italic border-l-4 border-blue-600 pl-6">
                 "Director {user?.displayName?.split(' ').pop()}, based on the current audit period,{' '}
                 <strong>
-                    {((chartData.find(d => d.name.includes('Property'))?.value / (schedule.reduce((a,b)=>a+b.closing,0) || 1)) * 100).toFixed(1)}%
+                    {((chartData.find(d => d.name.includes('Property'))?.value / (report.reduce((a,b)=>a+b.closing,0) || 1)) * 100).toFixed(1)}%
                 </strong>
                 {' '}of the facility's capital is concentrated in Land & Buildings. 
                 <br/><br/>
                 The primary depreciation driver is{' '}
                 <strong>
-                    {[...schedule].sort((a,b) => b.depreciation - a.depreciation)[0]?.label.split('(')[0]}
+                    {[...report].sort((a,b) => b.depreciation - a.depreciation)[0]?.label.split('(')[0]}
                 </strong>
                 , suggesting a need for a clinical reinvestment strategy in future fiscal cycles."
               </p>
