@@ -352,6 +352,7 @@ const grnItemSchema = z.object({
   name: z.string(),
   sku: z.string().optional(),
   quantityOrdered: z.number(),
+  price: z.number(),
   quantityReceived: z.coerce.number().min(0, "Cannot be negative."),
   batchNumber: z.string().optional(),
   expiryDate: z.string().optional(),
@@ -394,8 +395,7 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
         const grnNumber = `GRN-${po.poNumber.slice(-4)}-${Math.floor(100 + Math.random() * 900)}`;
 
         const totalValue = values.items.reduce((acc, item) => {
-            const poItem = po.items.find((i:any) => i.itemId === item.itemId);
-            return acc + (item.quantityReceived * (poItem?.price || 0));
+            return acc + (item.quantityReceived * (item.price || 0));
         }, 0);
 
         if(totalValue <= 0) {
@@ -550,4 +550,3 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange, catalog 
         </Dialog>
     );
 }
-
