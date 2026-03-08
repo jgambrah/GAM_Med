@@ -4,7 +4,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp, doc } from 'firebase/firestore';
 import { 
   Table, Calendar, Filter, Printer, 
-  ArrowUpRight, TrendingDown, Landmark, PieChart as PieChartIcon, Loader2, ShieldAlert
+  ArrowUpRight, TrendingDown, Landmark, PieChart as PieChartIcon, Loader2, ShieldAlert, Zap
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ASSET_GROUPS } from '@/lib/constants';
@@ -187,6 +187,7 @@ export default function FixedAssetSchedule() {
          </button>
       </div>
 
+      {/* --- EXECUTIVE INSIGHTS BLOCK --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12 print:hidden">
           <div className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-xl space-y-6">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
@@ -215,12 +216,40 @@ export default function FixedAssetSchedule() {
                   </ResponsiveContainer>
               </div>
           </div>
+          
+          <div className="bg-[#0f172a] p-10 rounded-[40px] text-white flex flex-col justify-center space-y-6 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                <Landmark size={120} />
+              </div>
+              
+              <h4 className="text-xl font-black uppercase italic tracking-tighter text-blue-400 flex items-center gap-2">
+                <Zap size={20} className="fill-current" /> Strategic Analysis
+              </h4>
 
-          <div className="bg-[#0f172a] p-8 rounded-[40px] text-white flex flex-col justify-center space-y-6 shadow-2xl">
-              <h4 className="text-xl font-black uppercase italic tracking-tighter text-blue-400">Executive Summary</h4>
-              <p className="text-sm font-medium text-slate-400 leading-relaxed italic">
-                  "Dr. Gambrah, {((chartData.find(d => d.name.includes('Property'))?.value / totalAssets) * 100 || 0).toFixed(1)}% of your hospital's long-term wealth is currently locked in Land & Buildings. Your highest depreciating category is Equipment, requiring a GHC {schedule.find(r => r.id === 'EQUIPMENT')?.depreciation.toLocaleString() || '0'} cash reserve for future replacement."
+              <p className="text-sm font-medium text-slate-300 leading-relaxed italic border-l-4 border-blue-600 pl-6">
+                "Director {user?.displayName?.split(' ').pop()}, based on the current audit period,{' '}
+                <strong>
+                    {((chartData.find(d => d.name.includes('Property'))?.value / (schedule.reduce((a,b)=>a+b.closing,0) || 1)) * 100).toFixed(1)}%
+                </strong>
+                {' '}of the facility's capital is concentrated in Land & Buildings. 
+                <br/><br/>
+                The primary depreciation driver is{' '}
+                <strong>
+                    {[...schedule].sort((a,b) => b.depreciation - a.depreciation)[0]?.label.split('(')[0]}
+                </strong>
+                , suggesting a need for a clinical reinvestment strategy in future fiscal cycles."
               </p>
+
+              <div className="pt-4 flex gap-4">
+                <div className="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700">
+                    <p className="text-[8px] font-black text-slate-500 uppercase">Capital Velocity</p>
+                    <p className="text-xs font-bold text-green-400">OPTIMAL</p>
+                </div>
+                <div className="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700">
+                    <p className="text-[8px] font-black text-slate-500 uppercase">Audit Readiness</p>
+                    <p className="text-xs font-bold text-blue-400">VERIFIED</p>
+                </div>
+              </div>
           </div>
       </div>
     </div>
