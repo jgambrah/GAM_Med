@@ -38,15 +38,22 @@ export default function FixedAssetSchedule() {
 
       const assetSnap = await getDocs(query(collection(firestore, `hospitals/${hId}/assets`)));
       
-      const depSnap = await getDocs(query(
+      const depHistoryQuery = query(
         collection(firestore, `hospitals/${hId}/depreciation_history`),
-        where("hospitalId", "==", hId),
-        where("createdAt", ">=", startTs),
-        where("createdAt", "<=", endTs)
-      ));
+        where("hospitalId", "==", hId)
+      );
+      const allDepLogsSnap = await getDocs(depHistoryQuery);
 
       const assets = assetSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const depLogs = depSnap.docs.map(d => d.data());
+
+      // Filter depreciation logs by date on the client side to avoid needing an index
+      const depLogs = allDepLogsSnap.docs
+        .map(d => d.data())
+        .filter(log => {
+          if (!log.createdAt) return false;
+          const logDate = log.createdAt.toDate();
+          return logDate >= startTs.toDate() && logDate <= endTs.toDate();
+        });
 
       const reportStructure = [
         ...PPE_SUB_DIVISIONS.map(s => ({ ...s, parent: 'PPE', type: 'PPE' })),
