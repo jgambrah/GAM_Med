@@ -23,6 +23,7 @@
         "assetId": { "type": "string" },
         "assetName": { "type": "string" },
         "assetCategory": { "type": "string" },
+        "subDivision": { "type": "string", "description": "The specific sub-division for a PPE asset." },
         "amount": { "type": "number", "description": "The depreciation amount for this period." },
         "period": { "type": "string", "description": "The period for which depreciation was run, e.g., '2024-07'." },
         "createdAt": { "type": "string", "format": "date-time" }

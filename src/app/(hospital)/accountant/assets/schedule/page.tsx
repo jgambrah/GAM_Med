@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -39,7 +40,6 @@ export default function FixedAssetSchedule() {
       // 1. FETCH ADDITIONS (Filter by Purchase Date String)
       const additionsSnap = await getDocs(query(
         collection(firestore, `hospitals/${hId}/assets`),
-        where("hospitalId", "==", hId),
         where("purchaseDate", ">=", dateRange.start),
         where("purchaseDate", "<=", dateRange.end)
       ));
@@ -47,7 +47,6 @@ export default function FixedAssetSchedule() {
       // 2. FETCH DEPRECIATION LOGS (Filter by Log Timestamp)
       const depLogsSnap = await getDocs(query(
         collection(firestore, `hospitals/${hId}/depreciation_history`),
-        where("hospitalId", "==", hId),
         where("createdAt", ">=", startTs),
         where("createdAt", "<=", endTs)
       ));

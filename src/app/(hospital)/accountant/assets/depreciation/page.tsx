@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -115,7 +116,8 @@ export default function DepreciationEngine() {
             hospitalId: hospitalId,
             assetId: asset.id,
             assetName: asset.name,
-            assetCategory: asset.category, // Pass the category for grouping
+            assetCategory: asset.category,
+            subDivision: asset.subDivision, // Storing sub-division for granular reporting
             amount: monthlyDep,
             period: periodKey,
             createdAt: serverTimestamp()
