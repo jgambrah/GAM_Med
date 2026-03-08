@@ -1,8 +1,9 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, serverTimestamp, doc, runTransaction, increment } from 'firebase/firestore';
-import { Truck, Plus, Save, Loader2, ShieldAlert, ArrowLeft, Package, Briefcase } from 'lucide-react';
+import { Truck, Plus, Save, Loader2, ShieldAlert, ArrowLeft, Package, Briefcase, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
