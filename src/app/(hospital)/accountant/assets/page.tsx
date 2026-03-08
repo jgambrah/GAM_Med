@@ -18,10 +18,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
+import { ASSET_GROUPS } from '@/lib/constants';
+
+const assetGroupIds = ASSET_GROUPS.map(g => g.id) as [string, ...string[]];
 
 const assetSchema = z.object({
   name: z.string().min(1, "Asset Name is required."),
-  category: z.string().min(1, "Category is required."),
+  category: z.enum(assetGroupIds, { required_error: "Category is required."}),
   tagId: z.string().min(1, "Asset Tag ID is required."),
   purchaseDate: z.string().min(1, "Purchase Date is required."),
   purchasePrice: z.coerce.number().min(0, "Purchase Price must be a positive number."),
@@ -155,7 +158,7 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
         resolver: zodResolver(assetSchema),
         defaultValues: {
             name: '',
-            category: 'MEDICAL_EQUIPMENT',
+            category: 'PPE',
             tagId: '',
             purchaseDate: '',
             purchasePrice: 0,
@@ -193,13 +196,12 @@ const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string,
                         )}/>
                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="category" render={({ field }) => (
-                                <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormItem><FormLabel>Category (IFRS Standard)</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        <SelectItem value="MEDICAL_EQUIPMENT">Medical Equipment</SelectItem>
-                                        <SelectItem value="VEHICLE">Hospital Vehicle</SelectItem>
-                                        <SelectItem value="INFRASTRUCTURE">Infrastructure/Power</SelectItem>
-                                        <SelectItem value="IT">IT/Computers</SelectItem>
+                                        {ASSET_GROUPS.map(group => (
+                                            <SelectItem key={group.id} value={group.id}>{group.label}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select><FormMessage/></FormItem>
                             )}/>
