@@ -116,6 +116,12 @@ service cloud.firestore {
     match /app_ceos/{ceoId} {
       allow read, write: if isSuperAdmin() || request.auth.uid == ceoId;
     }
+
+    match /certified_schedules/{scheduleId} {
+      allow read, list: if isSuperAdmin() || isAuditorRole(resource.data.hospitalId);
+      allow create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
+      allow update, delete: if false; // Immutable
+    }
     
     match /appointments/{appointmentId} {
         allow create: if true; 
@@ -497,3 +503,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

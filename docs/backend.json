@@ -1,6 +1,22 @@
 
 {
   "entities": {
+    "CertifiedSchedule": {
+      "title": "Certified Schedule",
+      "description": "An immutable, time-stamped record of a financial schedule that has been officially certified by an auditor.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "type": { "type": "string", "enum": ["FIXED_ASSETS", "PAYROLL_REMITTANCE"] },
+        "periodStart": { "type": "string", "format": "date" },
+        "periodEnd": { "type": "string", "format": "date" },
+        "totalValue": { "type": "number" },
+        "certifiedBy": { "type": "string" },
+        "certifiedByName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "type", "periodStart", "periodEnd", "totalValue", "certifiedBy", "timestamp"]
+    },
     "GlobalAuditLog": {
       "title": "Global Audit Log",
       "description": "Records a single, immutable event that occurred on the platform for security, financial, or system auditing by the App CEO.",
@@ -4137,6 +4153,13 @@
         }
       },
       {
+        "path": "/certified_schedules/{scheduleId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/CertifiedSchedule" },
+          "description": "Stores immutable snapshots of certified financial reports for legal and audit purposes. Only writable by auditors."
+        }
+      },
+      {
         "path": "/hospitals/{hospitalId}/depreciation_history/{logId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/DepreciationHistory" },
@@ -4724,3 +4747,5 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
+
+    
