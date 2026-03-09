@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp, writeBatch, getDocs, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -49,14 +49,45 @@ export default function MortuarySetupPage() {
     }, [remoteConfig]);
 
     const handleSave = async () => {
-        if (!configRef || !userProfile) return;
+        if (!configRef || !userProfile || !firestore || !hospitalId) return;
         setLoading(true);
         try {
-            await setDocumentNonBlocking(configRef, {
+            const batch = writeBatch(firestore);
+
+            // Save the main config doc
+            batch.set(configRef, {
                 ...formState,
                 hospitalId,
                 updatedAt: serverTimestamp(),
             }, { merge: true });
+
+            // Check if chambers need to be provisioned
+            const chambersCollectionRef = collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`);
+            const existingChambersSnap = await getDocs(chambersCollectionRef);
+
+            if (existingChambersSnap.empty && formState.chamberCount > 0) {
+                toast({ title: 'Provisioning Chambers...', description: `Creating ${formState.chamberCount} new cold storage units.` });
+                for (let i = 1; i <= formState.chamberCount; i++) {
+                    const chamberRef = doc(chambersCollectionRef);
+                    batch.set(chamberRef, {
+                        chamberNumber: `C-${String(i).padStart(3, '0')}`,
+                        status: 'AVAILABLE',
+                        bodyId: null,
+                        bodyName: null,
+                        admittedAt: null,
+                        hospitalId: hospitalId
+                    });
+                }
+            } else if (!existingChambersSnap.empty && existingChambersSnap.size !== formState.chamberCount) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Capacity Change Not Supported',
+                    description: 'Changing chamber count after initial setup is not yet supported. Delete existing chambers to re-provision.'
+                });
+            }
+
+            await batch.commit();
+
             toast({ title: 'Mortuary Configuration Saved' });
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Error', description: e.message });
