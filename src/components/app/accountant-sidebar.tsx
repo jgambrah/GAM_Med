@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Wallet, FolderTree, FileText, 
   Landmark, Building2, TrendingUp, CreditCard,
-  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, Calendar
+  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, Calendar, Lock
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -40,6 +40,7 @@ const menuGroups = [
       { name: "Payer Registry", href: "/finance/receivables", icon: Building2 },
       { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp },
       { name: "Billing Console", href: "/finance/billing", icon: CreditCard },
+      { name: "Till Management", href: "/finance/till-management", icon: Lock },
       { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText },
       { name: "Tariff Master", href: "/finance/tariffs", icon: Tag },
       { name: "Bulk Adjustments", href: "/finance/tariffs/bulk", icon: Zap },
