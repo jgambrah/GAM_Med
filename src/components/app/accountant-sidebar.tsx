@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Wallet, FolderTree, FileText, 
   Landmark, Building2, TrendingUp, CreditCard,
-  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, Calendar, Lock
+  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, Calendar, Lock, TrendingDown
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
