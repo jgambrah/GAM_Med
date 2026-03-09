@@ -1,8 +1,7 @@
-
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import { ClipboardCheck, ShieldCheck, FileText, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -42,13 +41,13 @@ export default function JobCompletionCertification() {
     if (!firestore || !user) return toast({ variant: "destructive", title: "System not ready." });
     setLoading(true);
 
-    const jccNumber = `JCC-${po.poNumber.split('/')[2]}-${po.poNumber.split('/')[3]}`;
+    const jccRef = doc(collection(firestore, `hospitals/${hospitalId}/jcc_logs`));
+    const jccNumber = `JCC/${po.poNumber.split('/')[2]}/${po.poNumber.split('/')[3]}`;
     const totalValue = po.items.reduce((sum: number, item: any) => sum + (item.price * (item.quantityOrdered || 1)), 0);
 
     try {
         await runTransaction(firestore, async (transaction) => {
             const poRef = doc(firestore, `hospitals/${hospitalId}/purchase_orders`, po.id);
-            const jccRef = doc(collection(firestore, `hospitals/${hospitalId}/jcc_logs`));
             const apRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
 
             // 1. Mark PO as COMPLETED
@@ -75,15 +74,17 @@ export default function JobCompletionCertification() {
                 supplierName: po.supplierName,
                 supplierId: po.supplierId,
                 amountOwed: totalValue,
-                grnNumber: jccNumber, // Using grnNumber for consistency to hold JCC number
+                grnNumber: jccNumber, 
                 status: 'UNPAID',
-                isService: true, // Accountant sees this and applies 7.5% WHT
+                isService: true,
                 hospitalId: hospitalId,
                 createdAt: serverTimestamp()
             });
         });
 
       toast({ title: "Job Completion Certified. Liability moved to Accounts Payable." });
+      router.push(`/supply-chain/services/certificate/${jccRef.id}`);
+
     } catch (e: any) { 
         toast({ variant: "destructive", title: "Certification Failed", description: e.message });
     }
@@ -148,4 +149,3 @@ export default function JobCompletionCertification() {
     </div>
   );
 }
-

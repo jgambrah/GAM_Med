@@ -104,6 +104,7 @@ const allMenuGroups = [
       { name: "Approve Supplies", href: "/requisitions/approve", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
       { name: "Approve Services", href: "/requisitions/approve-service", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
       { name: "Certify Service", href: "/supply-chain/services/certify", icon: Award, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'] },
+      { name: "JCC Archive", href: "/supply-chain/services/archive", icon: History, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'] },
     ]
   },
   {
@@ -275,4 +276,3 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     </div>
   );
 }
-

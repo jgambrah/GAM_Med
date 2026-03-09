@@ -1,7 +1,7 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, serverTimestamp, doc, runTransaction, increment, where, updateDoc } from 'firebase/firestore';
+import { collection, query, serverTimestamp, doc, runTransaction, increment, where, getDocs } from 'firebase/firestore';
 import { Truck, Plus, Save, Loader2, ShieldAlert, ArrowLeft, Package, Briefcase, Trash2, FileSignature } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,6 @@ export default function NewPurchaseOrderPage() {
     const catalogQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/product_catalog`)) : null, [firestore, hospitalId]);
     const { data: catalog, isLoading: catalogLoading } = useCollection(catalogQuery);
     
-    // NEW: Fetch approved service requisitions
     const approvedRFSQuery = useMemoFirebase(() => {
         if (!firestore || !hospitalId) return null;
         return query(
@@ -91,11 +90,10 @@ export default function NewPurchaseOrderPage() {
         setItems(newItems);
     };
 
-    // NEW: Function to convert RFS to PO
     const handleConvertFromRequisition = (rfs: any) => {
       setPoType('SERVICE');
       setItems([{
-        itemId: rfs.id, // Use RFS id as the reference
+        itemId: rfs.id,
         sku: rfs.rfsNumber,
         name: rfs.serviceTitle,
         quantityOrdered: 1, 
@@ -153,7 +151,6 @@ export default function NewPurchaseOrderPage() {
 
                 transaction.update(hospitalRef, { poCounter: increment(1) });
                 
-                // If this PO came from an RFS, mark it as converted
                 if (poType !== 'GOODS' && items[0]?.itemId) {
                     const rfsRef = doc(firestore, `hospitals/${hospitalId}/service_requisitions`, items[0].itemId);
                     transaction.update(rfsRef, { status: 'CONVERTED_TO_PO', poNumber: poNumber });
@@ -188,7 +185,6 @@ export default function NewPurchaseOrderPage() {
                         </div>
                     </div>
 
-                    {/* NEW: Approved Service Requisitions */}
                     {poType === 'SERVICE' && approvedRFS && approvedRFS.length > 0 && (
                         <div className="bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-3">
                             <h4 className="text-xs font-black uppercase text-blue-600">Approved Service Requests</h4>
