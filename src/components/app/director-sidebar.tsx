@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, LayoutGrid, Archive, Droplets, FileSignature, ListChecks, UserPlus
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, LayoutGrid, Archive
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -39,7 +39,8 @@ const allMenuGroups = [
     roles: ['DIRECTOR', 'ADMIN', 'LAB_TECH'],
     items: [
       { name: "Diagnostic Queue", href: "/lab/queue", icon: LayoutDashboard },
-      { name: "Blood Bank", href: "/lab/blood-bank", icon: Droplets },
+      { name: "Blood Inventory", href: "/lab/blood-bank/inventory", icon: Droplets },
+      { name: "Donor Registry", href: "/lab/blood-bank/donors", icon: Users },
       { name: "Test Menu Setup", href: "/lab/setup", icon: Settings },
     ]
   },
@@ -102,6 +103,7 @@ const allMenuGroups = [
     roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'],
     items: [
         { name: "Body Intake", href: "/mortuary/intake", icon: UserPlus, roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] },
+        { name: "Mortuary Register", href: "/mortuary/register", icon: FileText, roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] },
         { name: "Setup", href: "/mortuary/setup", icon: Settings, roles: ['DIRECTOR', 'ADMIN'] },
     ]
   },
