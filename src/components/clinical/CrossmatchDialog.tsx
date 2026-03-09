@@ -64,19 +64,16 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                            <CommandInput placeholder="Search patient..." />
+                            <CommandInput placeholder="Search patient by name or EHR..." />
                             <CommandList>
                                <CommandEmpty>No patient found.</CommandEmpty>
                                <CommandGroup>
                                  {patients?.map((p) => (
                                      <CommandItem
                                         key={p.id}
-                                        value={p.id}
-                                        onSelect={(currentValue) => {
-                                            const patientToSelect = patients.find(pat => pat.id === currentValue);
-                                            if (patientToSelect) {
-                                                setSelectedPatient(patientToSelect);
-                                            }
+                                        value={`${p.firstName} ${p.lastName} ${p.ehrNumber}`}
+                                        onSelect={() => {
+                                            setSelectedPatient(p);
                                             setIsPatientSelectorOpen(false);
                                         }}
                                     >
