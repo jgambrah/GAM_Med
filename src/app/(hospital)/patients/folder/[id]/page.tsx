@@ -5,7 +5,7 @@ import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@
 import { doc, collection, query, orderBy, where } from 'firebase/firestore';
 import { 
   Activity, Thermometer, Pill, Beaker, 
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -278,30 +278,51 @@ export default function ClinicalFolder() {
               }
               if (activity.viewType === 'LAB_RESULT') {
                 return (
-                    <div key={activity.id} className="bg-card p-6 rounded-[32px] border-2 border-purple-100 shadow-sm space-y-3">
-                        <div className="flex justify-between font-black text-[10px] uppercase text-purple-600 tracking-widest">
-                           <span>Lab Result: {activity.testName}</span>
-                           <span>Validated by: {activity.labTechName}</span>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                           <span className="text-2xl font-black text-foreground">{activity.resultValue}</span>
-                           <span className="text-xs font-bold text-muted-foreground uppercase">{activity.unit}</span>
-                        </div>
-                        {activity.remarks && <p className="text-xs text-muted-foreground italic">"{activity.remarks}"</p>}
+                  <div key={activity.id} className="bg-card p-6 rounded-[32px] border-2 border-purple-100 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center font-black text-[10px] uppercase text-purple-600 tracking-widest">
+                        <span>Lab Result: {activity.testName}</span>
+                        <span>Validated by: {activity.labTechName}</span>
                     </div>
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-foreground">{activity.resultValue}</span>
+                        <span className="text-xs font-bold text-muted-foreground uppercase">{activity.unit}</span>
+                    </div>
+                    {activity.remarks && <p className="text-xs text-muted-foreground italic">"{activity.remarks}"</p>}
+                    {activity.reportUrl && (
+                        <div className="pt-4 border-t border-dashed">
+                            <a href={activity.reportUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-600 transition-all shadow-md w-fit">
+                                <Eye size={14} /> View Attached Report
+                            </a>
+                        </div>
+                    )}
+                  </div>
                 )
               }
               if (activity.viewType === 'SCAN_RESULT') {
                 return (
-                     <div key={activity.id} className="bg-card p-6 rounded-[32px] border-2 border-orange-100 shadow-sm space-y-3">
-                        <div className="flex justify-between font-black text-[10px] uppercase text-orange-600 tracking-widest">
-                           <span>Imaging Report: {activity.scanName}</span>
-                           <span>Signed by: {activity.radiologistName}</span>
+                    <div key={activity.id} className="bg-card p-6 rounded-[32px] border-2 border-orange-100 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center font-black text-[10px] uppercase text-orange-600 tracking-widest border-b pb-2">
+                            <span>Imaging Report: {activity.scanName}</span>
+                            <span>Signed by: {activity.radiologistName}</span>
                         </div>
-                        <p className="text-base font-bold text-foreground border-l-4 border-orange-500 pl-4 py-1 uppercase">{activity.impression}</p>
-                        <button className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                            <FileText size={12}/> View Full Findings & Report
-                        </button>
+                        
+                        <div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Radiologist's Findings</p>
+                            <p className="text-sm font-medium leading-relaxed italic text-foreground">"{activity.findings}"</p>
+                        </div>
+
+                        <div className="p-4 bg-orange-50 border-l-4 border-orange-500">
+                            <p className="text-[10px] font-black text-orange-800 uppercase tracking-widest mb-1">Impression</p>
+                            <p className="text-base font-bold text-orange-900 uppercase">{activity.impression}</p>
+                        </div>
+                        
+                        {activity.imageUrl && (
+                        <div className="pt-4 border-t border-dashed">
+                            <a href={activity.imageUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-600 transition-all shadow-md w-fit">
+                            <Eye size={14} /> View Scan Image
+                            </a>
+                        </div>
+                        )}
                     </div>
                 )
               }
