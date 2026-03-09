@@ -11,12 +11,17 @@ import { signOut } from 'firebase/auth';
 
 const menuGroups = [
   {
-    title: "Laboratory",
+    title: "General Lab",
     items: [
       { name: "Diagnostic Queue", href: "/lab/queue", icon: LayoutDashboard },
-      { name: "Blood Bank", href: "/lab/blood-bank/inventory", icon: Droplets },
-      { name: "Donor Registry", href: "/lab/blood-bank/donors", icon: Users },
       { name: "Test Menu Setup", href: "/lab/setup", icon: Settings },
+    ]
+  },
+  {
+    title: "Blood Bank",
+    items: [
+      { name: "Pint Inventory", href: "/lab/blood-bank/inventory", icon: Droplets },
+      { name: "Donor Registry", href: "/lab/blood-bank/donors", icon: Users },
     ]
   }
 ];

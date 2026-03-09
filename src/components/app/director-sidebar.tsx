@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, LayoutGrid, History, ListChecks, Layers, Archive, FileSignature
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, ListChecks, FileSignature, Droplets
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -31,6 +31,32 @@ const allMenuGroups = [
         { name: "Front Desk", href: "/reception", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
         { name: "Appointments", href: "/reception/appointments", icon: Calendar, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
         { name: "Assign Doctor", href: "/reception/assign-doctor", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
+    ]
+  },
+   {
+    title: "Laboratory",
+    roles: ['DIRECTOR', 'ADMIN', 'LAB_TECH'],
+    items: [
+      { name: "Diagnostic Queue", href: "/lab/queue", icon: LayoutDashboard },
+      { name: "Blood Inventory", href: "/lab/blood-bank/inventory", icon: Droplets },
+      { name: "Donor Registry", href: "/lab/blood-bank/donors", icon: Users },
+      { name: "Test Menu Setup", href: "/lab/setup", icon: Settings },
+    ]
+  },
+  {
+    title: "Pharmacy",
+    roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'],
+    items: [
+      { name: "Dispensing Queue", href: "/pharmacy/dispensing", icon: LayoutDashboard },
+      { name: "Inventory", href: "/pharmacy/inventory", icon: Package },
+    ]
+  },
+  {
+    title: "Radiology",
+    roles: ['DIRECTOR', 'ADMIN', 'RADIOLOGIST'],
+    items: [
+      { name: "Imaging Queue", href: "/radiology/queue", icon: LayoutDashboard },
+      { name: "Imaging Menu", href: "/radiology/setup", icon: Settings },
     ]
   },
   {
@@ -105,15 +131,6 @@ const allMenuGroups = [
       { name: "Approve Services", href: "/requisitions/approve-service", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
       { name: "Certify Service", href: "/supply-chain/services/certify", icon: Award, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'] },
       { name: "JCC Archive", href: "/supply-chain/services/archive", icon: History, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'] },
-    ]
-  },
-  {
-    title: "Ancillary Services",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'],
-    items: [
-        { name: "Pharmacy", href: "/pharmacy", icon: Package, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
-        { name: "Laboratory", href: "/lab/queue", icon: Beaker, roles: ['DIRECTOR', 'ADMIN', 'LAB_TECH'] },
-        { name: "Radiology", href: "/radiology/queue", icon: Camera, roles: ['DIRECTOR', 'ADMIN', 'RADIOLOGIST'] },
     ]
   },
   {
