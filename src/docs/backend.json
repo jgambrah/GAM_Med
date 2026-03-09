@@ -1,5 +1,31 @@
 {
   "entities": {
+    "MortuaryChamber": {
+      "title": "Mortuary Chamber",
+      "description": "Represents a single cold storage unit in the mortuary.",
+      "type": "object",
+      "properties": {
+        "chamberNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["AVAILABLE", "OCCUPIED", "MAINTENANCE"] },
+        "bodyId": { "type": "string", "description": "The unique ID for the body occupying the chamber." },
+        "bodyName": { "type": "string" },
+        "admittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chamberNumber", "status"]
+    },
+    "MortuaryConfig": {
+        "title": "Mortuary Configuration",
+        "description": "Defines the service tariffs and chamber capacity for the hospital's mortuary.",
+        "type": "object",
+        "properties": {
+            "hospitalId": { "type": "string" },
+            "dailyStorageFee": { "type": "number" },
+            "embalmingFee": { "type": "number" },
+            "autopsyFee": { "type": "number" },
+            "chamberCount": { "type": "number" }
+        },
+        "required": ["hospitalId", "dailyStorageFee", "embalmingFee", "autopsyFee", "chamberCount"]
+    },
     "BloodDonor": {
         "title": "Blood Donor",
         "description": "Represents a registered blood donor, voluntary or replacement.",
@@ -4344,6 +4370,20 @@
   },
   "firestore": {
     "structure": [
+       {
+        "path": "/hospitals/{hospitalId}/mortuary_config/main",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/MortuaryConfig" },
+          "description": "A singleton document for mortuary service tariffs and setup."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/mortuary_chambers/{chamberId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/MortuaryChamber" },
+          "description": "Manages individual cold storage chambers in the mortuary."
+        }
+      },
       {
         "path": "/hospitals/{hospitalId}/blood_donors/{donorId}",
         "definition": {

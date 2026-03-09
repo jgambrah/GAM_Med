@@ -98,6 +98,13 @@ const allMenuGroups = [
       { name: "ANC Dashboard", href: "/maternity/dashboard", icon: Baby },
     ]
   },
+   {
+    title: "Mortuary Services",
+    roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'],
+    items: [
+        { name: "Setup", href: "/mortuary/setup", icon: Settings, roles: ['DIRECTOR', 'ADMIN'] },
+    ]
+  },
   {
     title: "Specialty Units",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],

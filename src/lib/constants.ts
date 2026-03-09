@@ -12,6 +12,7 @@ export const HOSPITAL_DEPARTMENTS = [
   'Stores / Procurement',
   'Maintenance',
   'Security',
+  'Mortuary',
 ];
 
 export const ASSET_GROUPS = [
@@ -27,3 +28,4 @@ export const PPE_SUB_DIVISIONS = [
   { id: 'PLANT', label: 'Plant (Machinery, Power, HVAC)' },
   { id: 'EQUIPMENT', label: 'Equipment (Clinical & Office)' }
 ];
+

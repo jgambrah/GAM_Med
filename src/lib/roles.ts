@@ -12,5 +12,6 @@ export const HOSPITAL_ROLES = [
   { id: 'CASHIER', label: 'Cashier', description: 'Payment collection and receipting.' },
   { id: 'RADIOLOGIST', label: 'Radiologist', description: 'Imaging reports and scans.' },
   { id: 'STORE_MANAGER', label: 'Inventory/Store', description: 'Procurement and stock tracking.' },
+  { id: 'MORTUARY_ATTENDANT', label: 'Mortuary Attendant', description: 'Manages body intake, storage, and release.' },
   { id: 'ORDERLY', label: 'Orderly/Security', description: 'Limited access to patient movement.' },
 ];
