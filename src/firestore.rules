@@ -69,7 +69,7 @@ service cloud.firestore {
     
     function isAnyStaff(hospitalId) {
       let userData = getCallingUserData();
-      let token = request.auth.token;
+       let token = request.auth.token;
       return isSignedIn() 
           && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
           && (token.role != null || (userData != null && userData.role != null));
@@ -128,6 +128,11 @@ service cloud.firestore {
     // Global Platform Collections
     // --------------------------------
     
+    match /nhis_batches/{batchId} {
+      allow read, create: if isSuperAdmin() || isDirectorOrAdmin(request.resource.data.hospitalId);
+      allow list: if isSuperAdmin() || getCallingUserData().hospitalId != null;
+    }
+
     match /app_ceos/{ceoId} {
       allow read, write: if isSuperAdmin() || request.auth.uid == ceoId;
     }
@@ -336,7 +341,7 @@ service cloud.firestore {
       }
       
       match /receivables/{receivableId} {
-        allow get, create, update, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, update, list, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow delete: if false; 
       }
       
@@ -546,3 +551,4 @@ service cloud.firestore {
   }
 }
 
+    

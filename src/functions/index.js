@@ -1,5 +1,4 @@
 
-
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
@@ -373,6 +372,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
             poCounter: 0,
             pvCounter: 0,
             receiptCounter: 0,
+            nhisBatchCounter: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
             nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
@@ -571,4 +571,6 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   return null;
 });
     
+    
+
     

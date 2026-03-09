@@ -1,6 +1,22 @@
 
 {
   "entities": {
+    "NhisBatch": {
+        "title": "NHIS Batch",
+        "description": "A master record for a batch of claims submitted to the NHIA.",
+        "type": "object",
+        "properties": {
+            "batchNumber": { "type": "string" },
+            "hospitalId": { "type": "string" },
+            "claimCount": { "type": "number" },
+            "totalValue": { "type": "number" },
+            "status": { "type": "string", "enum": ["BATCHED_PENDING_SUBMISSION", "SUBMITTED_TO_NHIA", "QUERIED", "PAID"] },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "createdBy": { "type": "string" },
+            "createdByName": { "type": "string" }
+        },
+        "required": ["batchNumber", "hospitalId", "claimCount", "totalValue", "status", "createdAt", "createdBy"]
+    },
     "CashTill": {
       "title": "Cashier Till",
       "description": "Represents a single cashier's shift summary, including cash and electronic totals, awaiting verification.",
@@ -1212,8 +1228,17 @@
           "type": "string",
           "enum": [
             "UNPAID",
-            "PAID"
+            "PAID",
+            "SUBMITTED_TO_NHIA"
           ]
+        },
+        "batchId": {
+          "type": "string",
+          "description": "The ID of the NHIS batch this receivable belongs to."
+        },
+        "batchNumber": {
+          "type": "string",
+          "description": "The human-readable number of the NHIS batch."
         },
         "createdAt": {
           "type": "string",
@@ -3063,6 +3088,10 @@
           "type": "number",
           "description": "The current counter for generating unique Payment Receipt numbers."
         },
+        "nhisBatchCounter": {
+            "type": "number",
+            "description": "The current counter for generating unique NHIS Batch numbers."
+        },
         "nextBillingDate": {
           "type": "string",
           "format": "date-time",
@@ -3105,7 +3134,8 @@
         "isSuspended",
         "patientCounter",
         "poCounter",
-        "staffCounter"
+        "staffCounter",
+        "nhisBatchCounter"
       ]
     },
     "User": {
@@ -3550,61 +3580,6 @@
         "status",
         "orderedBy",
         "orderedAt"
-      ]
-    },
-    "LabTest": {
-      "title": "Lab Test",
-      "description": "Represents a single laboratory test available in a hospital's menu.",
-      "type": "object",
-      "properties": {
-        "hospitalId": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the test (e.g., Full Blood Count)."
-        },
-        "category": {
-          "type": "string",
-          "enum": [
-            "Hematology",
-            "Biochemistry",
-            "Microbiology",
-            "Serology"
-          ]
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the test in GHS."
-        },
-        "isNHISCovered": {
-          "type": "boolean"
-        },
-        "nhisPrice": {
-          "type": "number"
-        },
-        "isPrivateInsuranceCovered": {
-          "type": "boolean"
-        },
-        "referenceRange": {
-          "type": "string",
-          "description": "The normal range for the test results."
-        },
-        "unit": {
-          "type": "string",
-          "description": "The unit of measurement for the test result (e.g., mg/dL)."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "hospitalId",
-        "name",
-        "category",
-        "price",
-        "createdAt"
       ]
     },
     "RadiologyScan": {
@@ -4328,6 +4303,13 @@
   "firestore": {
     "structure": [
       {
+        "path": "/nhis_batches/{batchId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/NhisBatch" },
+          "description": "Master collection of all batched NHIS claim submissions from all facilities."
+        }
+      },
+      {
         "path": "/revenue_certificates/{certId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/RevenueCertificate" },
@@ -4962,3 +4944,4 @@
   }
 }
 
+    
