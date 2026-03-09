@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { 
   ShieldCheck, FileSearch, Loader2, ShieldAlert
 } from 'lucide-react';
@@ -90,10 +90,10 @@ export default function InsuranceVettingQueue() {
                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Claim Value</p>
                    <p className="text-2xl font-black text-black italic">₵ {claim.total?.toFixed(2)}</p>
                 </div>
-                <Link href={`/finance/insurance/vetting/${claim.id}`}>
-                   <button className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 hover:bg-black transition-all flex items-center gap-2">
+                <Link href={`/finance/insurance/vetting/${claim.id}`} passHref>
+                   <Button className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 hover:bg-black transition-all flex items-center gap-2">
                       Review & Authorize
-                   </button>
+                   </Button>
                 </Link>
              </div>
           </div>
@@ -102,4 +102,3 @@ export default function InsuranceVettingQueue() {
     </div>
   );
 }
-
