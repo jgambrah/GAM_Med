@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,13 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, Loader2, Save, Thermometer, Activity, Scale, 
-  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers
+  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert
 } from 'lucide-react';
-import { useFirebaseApp, useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirebaseApp, useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { collection, query, serverTimestamp } from 'firebase/firestore';
+import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -70,6 +70,41 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const [labOrders, setLabOrders] = useState<any[]>([]);
   const [imagingSearch, setImagingSearch] = useState('');
   const [imagingOrders, setImagingOrders] = useState<any[]>([]);
+  
+  const patientRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !patientId) return null;
+    return doc(firestore, 'hospitals', hospitalId, 'patients', patientId);
+  }, [firestore, hospitalId, patientId]);
+  const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+
+  const payerId = patient?.payerId;
+  const payerRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !payerId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/payers`, payerId);
+  }, [firestore, hospitalId, payerId]);
+  const { data: payer, isLoading: isPayerLoading } = useDoc(payerRef);
+
+  const creditStatus = useMemo(() => {
+    if (!payer) return { viable: true, name: 'CASH PAYMENT', balance: 0 }; 
+    if (payer.type === 'NHIS' || payer.type === 'PRIVATE_INSURANCE') return { viable: true, name: payer.name, balance: payer.currentBalance || 0 };
+
+    const creditLimit = payer.creditLimit || 0;
+    const currentBalance = payer.currentBalance || 0;
+
+    if (creditLimit > 0 && currentBalance >= creditLimit) {
+      return { 
+        viable: false, 
+        reason: "CREDIT_LIMIT_EXCEEDED",
+        name: payer.name,
+        balance: currentBalance,
+      };
+    }
+    return { 
+      viable: true,
+      name: payer.name,
+      balance: currentBalance,
+    };
+  }, [payer]);
 
   const catalogQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -266,6 +301,24 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
             </div>
 
             <div className="p-8 space-y-8 bg-card">
+              {!isPayerLoading && creditStatus.name !== 'CASH PAYMENT' && (
+                <div className={`p-4 rounded-2xl flex justify-between items-center ${!creditStatus.viable ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
+                  <div className="flex items-center gap-3">
+                      <ShieldAlert size={20} />
+                      <div>
+                        <p className="text-[9px] uppercase opacity-60">Payer: {creditStatus.name}</p>
+                        <p className="text-sm font-black uppercase">
+                            {!creditStatus.viable ? 'CREDIT LIMIT EXCEEDED' : 'CREDIT ACTIVE'}
+                        </p>
+                      </div>
+                  </div>
+                  <div className="text-right">
+                      <p className="text-[10px] opacity-60">Balance Owed</p>
+                      <p className="text-lg font-black italic">₵ {creditStatus.balance?.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                  <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
                     <Activity size={16} /> Nursing Vitals
@@ -461,9 +514,8 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
             <DialogFooter className="p-8 bg-muted/50 rounded-b-lg">
               <Button variant="ghost" onClick={() => setOpen(false)}>Discard</Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : <Save className="mr-2" size={18} />}
-                Sign & Commit to EHR
+              <Button type="submit" disabled={loading || !creditStatus.viable} className="disabled:bg-slate-300">
+                {loading ? <Loader2 className="animate-spin" /> : !creditStatus.viable ? 'Service Locked (Unpaid Debt)' : <><Save className="mr-2" size={18} /> Sign & Commit to EHR</>}
               </Button>
             </DialogFooter>
           </form>
