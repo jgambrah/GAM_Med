@@ -17,6 +17,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 
 const donorSchema = z.object({
   fullName: z.string().min(3, "Full name is required."),
@@ -142,41 +151,41 @@ export default function DonorRegistryPage() {
       </div>
 
       <div className="bg-white rounded-[40px] border shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-900 text-white">
-            <tr>
-               <th className="p-6 text-[10px] uppercase">Donor ID & Name</th>
-               <th className="p-6 text-[10px] uppercase text-center">Group</th>
-               <th className="p-6 text-[10px] uppercase">Type</th>
-               <th className="p-6 text-[10px] uppercase">Last Donation</th>
-               <th className="p-6 text-right">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
+        <Table>
+          <TableHeader>
+            <TableRow>
+               <TableHead className="p-6 text-[10px] uppercase">Donor ID & Name</TableHead>
+               <TableHead className="p-6 text-[10px] uppercase text-center">Group</TableHead>
+               <TableHead className="p-6 text-[10px] uppercase">Type</TableHead>
+               <TableHead className="p-6 text-[10px] uppercase">Last Donation</TableHead>
+               <TableHead className="p-6 text-right">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {areDonorsLoading ? <TableRow><TableCell colSpan={5} className="text-center p-12"><Loader2 className="animate-spin" /></TableCell></TableRow> :
             donors?.map(d => (
-              <tr key={d.id} className="hover:bg-red-50/20 transition-all font-bold">
-                <td className="p-6">
+              <TableRow key={d.id} className="hover:bg-red-50/20 transition-all font-bold">
+                <TableCell className="p-6">
                    <p className="text-sm uppercase">{d.fullName}</p>
                    <p className="text-[9px] text-blue-600">ID: {d.donorNumber} • {d.phone}</p>
-                </td>
-                <td className="p-6 text-center">
+                </TableCell>
+                <TableCell className="p-6 text-center">
                    <span className="text-red-600 font-black text-lg italic">{d.bloodGroup}</span>
-                </td>
-                <td className="p-6">
+                </TableCell>
+                <TableCell className="p-6">
                    <span className="text-[9px] font-black bg-slate-100 px-3 py-1 rounded-full uppercase">{d.donorType}</span>
-                </td>
-                <td className="p-6 text-xs text-slate-400">
+                </TableCell>
+                <TableCell className="p-6 text-xs text-slate-400">
                    {d.lastDonationDate ? format(new Date(d.lastDonationDate), 'PPP') : 'First Time Donor'}
-                </td>
-                <td className="p-6 text-right">
+                </TableCell>
+                <TableCell className="p-6 text-right">
                    <span className="text-[10px] font-black text-green-600 uppercase border-2 border-green-100 px-3 py-1 rounded-lg">{d.status}</span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
             {!areDonorsLoading && donors?.length === 0 && <TableRow><TableCell colSpan={5} className="text-center p-20 text-slate-300 italic">No donors registered yet.</TableCell></TableRow>}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
