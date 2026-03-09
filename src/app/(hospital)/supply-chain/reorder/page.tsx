@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -50,33 +49,11 @@ export default function AutomaticReorderList() {
   const inventoryQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/pharmacy_inventory`)) : null, [firestore, hospitalId]);
   const { data: inventory, isLoading: inventoryLoading } = useCollection<InventoryItem>(inventoryQuery);
 
-  const reorderList = useMemo(() => {
-    if (!catalog || !inventory) return [];
-
-    const aggregatedInventory = inventory.reduce((acc, item) => {
-        acc[item.name] = (acc[item.name] || 0) + item.quantity;
-        return acc;
-    }, {} as Record<string, number>);
-
-    const allItems = catalog.map(product => {
-        const currentQty = aggregatedInventory[product.name] || 0;
-        return {
-            ...product,
-            currentQty,
-            status: currentQty === 0 ? 'STOCK_OUT' : (currentQty <= product.minLevel ? 'LOW_STOCK' : 'ADEQUATE')
-        };
-    });
-
-    return allItems.filter(item => item.status === 'LOW_STOCK' || item.status === 'STOCK_OUT');
-  }, [catalog, inventory]);
-
-  const stats = useMemo(() => {
-    if (!stockStatusData) return { adequate: 0, low: 0, stockOut: 0 };
-    const adequate = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'ADEQUATE').length;
-    const low = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'LOW_STOCK').length;
-    const stockOut = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'STOCK OUT').length;
-    return { adequate, low, stockOut };
-  }, [stockStatusData]);
+  const getStockStatus = (qty: number, minLevel: number) => {
+    if (qty <= 0) return { label: 'STOCK OUT', variant: 'destructive' as const, className: 'bg-red-100 text-red-700 border-red-200' };
+    if (qty <= minLevel) return { label: 'LOW STOCK', variant: 'secondary' as const, className: 'bg-orange-100 text-orange-700 border-orange-200' };
+    return { label: 'ADEQUATE', variant: 'default' as const, className: 'bg-green-100 text-green-700 border-green-200' };
+  };
 
   const stockStatusData = useMemo(() => {
     if (!catalog || !inventory) return [];
@@ -94,13 +71,26 @@ export default function AutomaticReorderList() {
             currentQty,
         };
     });
-}, [catalog, inventory]);
+  }, [catalog, inventory]);
 
-const getStockStatus = (qty: number, minLevel: number) => {
-    if (qty <= 0) return { label: 'STOCK OUT', variant: 'destructive' as const, className: 'bg-red-100 text-red-700 border-red-200' };
-    if (qty <= minLevel) return { label: 'LOW STOCK', variant: 'secondary' as const, className: 'bg-orange-100 text-orange-700 border-orange-200' };
-    return { label: 'ADEQUATE', variant: 'default' as const, className: 'bg-green-100 text-green-700 border-green-200' };
-};
+  const reorderList = useMemo(() => {
+    if (!stockStatusData) return [];
+    
+    return stockStatusData
+        .map(product => ({
+            ...product,
+            status: getStockStatus(product.currentQty, product.minLevel).label
+        }))
+        .filter(item => item.status === 'LOW_STOCK' || item.status === 'STOCK_OUT');
+  }, [stockStatusData]);
+
+  const stats = useMemo(() => {
+    if (!stockStatusData) return { adequate: 0, low: 0, stockOut: 0 };
+    const adequate = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'ADEQUATE').length;
+    const low = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'LOW STOCK').length;
+    const stockOut = stockStatusData.filter(s => getStockStatus(s.currentQty, s.minLevel).label === 'STOCK OUT').length;
+    return { adequate, low, stockOut };
+  }, [stockStatusData]);
   
   const pageIsLoading = isUserLoading || isProfileLoading;
   const dataIsLoading = catalogLoading || inventoryLoading;
@@ -175,7 +165,7 @@ const getStockStatus = (qty: number, minLevel: number) => {
                 </TableCell>
                 <TableCell className="p-6 text-right">
                    <Button asChild>
-                     <Link href={`/supply-chain/orders?prefill_itemId=${item.id}&prefill_sku=${item.sku}&prefill_name=${encodeURIComponent(item.name)}&suggested_qty=${item.minLevel * 2}&prefill_price=${item.purchasePrice}`}>
+                     <Link href={`/supply-chain/orders/new?prefill_itemId=${item.id}&prefill_sku=${item.sku}&prefill_name=${encodeURIComponent(item.name)}&suggested_qty=${item.minLevel * 2}&prefill_price=${item.purchasePrice}`}>
                          Initiate PO <ShoppingCart size={14}/>
                      </Link>
                    </Button>
