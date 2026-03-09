@@ -265,6 +265,11 @@ service cloud.firestore {
         allow delete: if isDirectorOrAdmin(hospitalId);
       }
 
+      match /mortuary_config/{configId} {
+        allow read: if isMortuaryStaff(hospitalId);
+        allow write: if isDirectorOrAdmin(hospitalId);
+      }
+
       match /cash_tills/{tillId} {
         allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
         allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
@@ -576,3 +581,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
