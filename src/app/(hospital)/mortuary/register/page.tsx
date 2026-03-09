@@ -1,23 +1,20 @@
-
 'use client';
 import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, writeBatch, runTransaction, increment } from 'firebase/firestore';
-import { UserCheck, Box, LogOut, Loader2, ShieldAlert } from 'lucide-react';
+import { UserCheck, Box, LogOut, Loader2, ShieldAlert, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInCalendarDays, format } from 'date-fns';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 
 export default function MortuaryRegisterPage() {
@@ -29,6 +26,7 @@ export default function MortuaryRegisterPage() {
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [releaseInfo, setReleaseInfo] = useState({ name: '', idNumber: '' });
+  const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => (user && firestore ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
@@ -36,7 +34,7 @@ export default function MortuaryRegisterPage() {
   const hospitalId = userProfile?.hospitalId;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'].includes(userProfile?.role || '');
 
-  const recordsQuery = useMemoFirebase(() => (hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/mortuary_records`), where("status", "==", "IN_STORAGE")) : null), [firestore, hospitalId]);
+  const recordsQuery = useMemoFirebase(() => (hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/mortuary_records`), where("status", "in", ["IN_STORAGE", "PENDING_RELEASE"])) : null), [firestore, hospitalId]);
   const { data: records, isLoading: areRecordsLoading } = useCollection(recordsQuery);
 
   const configRef = useMemoFirebase(() => (hospitalId ? doc(firestore, 'hospitals', hospitalId, 'mortuary_config', 'main') : null), [firestore, hospitalId]);
@@ -53,9 +51,14 @@ export default function MortuaryRegisterPage() {
     return days * (mortuaryConfig.dailyStorageFee || 50);
   };
   
-  const handleInitiateRelease = async () => {
-    if (!selectedRecord || !user || !firestore || !hospitalId) {
-        toast({ variant: "destructive", title: "Cannot process release." });
+  const handleOpenReleaseDialog = (record: any) => {
+    setSelectedRecord(record);
+    setIsReleaseDialogOpen(true);
+  };
+
+  const handleFinalizeRelease = async () => {
+    if (!selectedRecord || !user || !firestore || !hospitalId || !releaseInfo.name || !releaseInfo.idNumber) {
+        toast({ variant: "destructive", title: "Missing Details", description: "Please enter the full name and ID of the person receiving the body." });
         return;
     }
     setLoading(true);
@@ -67,6 +70,7 @@ export default function MortuaryRegisterPage() {
             
             const totalBill = calculateBill(selectedRecord);
             
+            // 1. BILLING: Create the final billing item for the mortuary stay
             if (totalBill > 0) {
               const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
               transaction.set(billRef, {
@@ -74,7 +78,7 @@ export default function MortuaryRegisterPage() {
                   total: totalBill,
                   category: 'MORTUARY',
                   status: 'UNPAID',
-                  patientId: selectedRecord.id, // Use mortuary record ID as reference
+                  patientId: selectedRecord.id,
                   patientName: `Family of ${selectedRecord.bodyName}`,
                   hospitalId,
                   billedBy: user.uid,
@@ -82,13 +86,31 @@ export default function MortuaryRegisterPage() {
               });
             }
 
-            transaction.update(recordRef, { status: 'PENDING_RELEASE' });
-            transaction.update(chamberRef, { status: 'PENDING_CLEARANCE' });
+            // 2. CHAIN OF CUSTODY: Update the mortuary record with release details
+            transaction.update(recordRef, { 
+                status: 'RELEASED',
+                releasedToName: releaseInfo.name,
+                releasedToID: releaseInfo.idNumber,
+                releasedBy: user.uid,
+                releasedAt: serverTimestamp(),
+            });
+
+            // 3. LOGISTICS: Free up the chamber
+            transaction.update(chamberRef, { 
+                status: 'AVAILABLE',
+                bodyId: null,
+                bodyName: null,
+                admittedAt: null,
+            });
         });
-        toast({ title: "Release Process Initiated", description: "Final bill has been sent to the cashier for payment." });
+
+        toast({ title: "Body Release Authorized", description: `Final bill sent to cashier. Printing certificate...` });
+        router.push(`/mortuary/release/certificate/${selectedRecord.id}`);
+        setIsReleaseDialogOpen(false);
         setSelectedRecord(null);
+
     } catch (e: any) {
-        toast({ variant: 'destructive', title: "Error", description: e.message });
+        toast({ variant: 'destructive', title: "Error during release", description: e.message });
     } finally {
         setLoading(false);
     }
@@ -152,8 +174,8 @@ export default function MortuaryRegisterPage() {
                   </td>
                   <td className="p-6 text-center text-lg font-black">{calculateDays(record.admittedAt)}</td>
                   <td className="p-6 text-right">
-                    <Button onClick={() => setSelectedRecord(record)} className="bg-blue-600 hover:bg-black text-white" size="sm">
-                       Initiate Release
+                    <Button onClick={() => handleOpenReleaseDialog(record)} className="bg-blue-600 hover:bg-black text-white" size="sm" disabled={record.status === 'PENDING_RELEASE'}>
+                       {record.status === 'PENDING_RELEASE' ? 'Pending Payment' : 'Initiate Release'}
                     </Button>
                   </td>
                 </tr>
@@ -163,27 +185,37 @@ export default function MortuaryRegisterPage() {
         </div>
       </div>
       
-      <AlertDialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Authorize Release & Final Bill</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This will generate a final bill for {selectedRecord?.bodyName} and move the record to the release queue pending payment.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
+      <Dialog open={isReleaseDialogOpen} onOpenChange={setIsReleaseDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Authorize Final Release & Bill</DialogTitle>
+                <DialogDescription>
+                    This will generate the final bill for <strong>{selectedRecord?.bodyName}</strong> and prepare the release certificate.
+                </DialogDescription>
+            </DialogHeader>
             <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center">
                 <p className="text-[10px] font-black uppercase text-blue-500">Calculated Final Bill</p>
                 <p className="text-3xl font-black text-blue-900">GHS {selectedRecord ? calculateBill(selectedRecord).toLocaleString(undefined, {minimumFractionDigits: 2}) : '0.00'}</p>
                 <p className="text-xs text-blue-400 italic">({selectedRecord ? calculateDays(selectedRecord.admittedAt) : 0} days @ GHS {mortuaryConfig?.dailyStorageFee || 0}/day)</p>
             </div>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleInitiateRelease} disabled={loading}>
-                    {loading ? <Loader2 className="animate-spin"/> : 'Confirm & Bill Family'}
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+             <div className="space-y-4 py-4">
+                <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Receiving Relative's Full Name</label>
+                    <Input className="mt-1" onChange={(e) => setReleaseInfo({...releaseInfo, name: e.target.value})} />
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Receiving Relative's Ghana Card ID</label>
+                    <Input className="mt-1" onChange={(e) => setReleaseInfo({...releaseInfo, idNumber: e.target.value})} />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsReleaseDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleFinalizeRelease} disabled={loading}>
+                    {loading ? <Loader2 className="animate-spin"/> : 'Confirm & Release Body'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
