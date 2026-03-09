@@ -66,7 +66,7 @@ export default function MortuaryRegisterPage() {
     try {
         await runTransaction(firestore, async (transaction) => {
             const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, selectedRecord.id);
-            const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, selectedRecord.chamberNumber);
+            const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, selectedRecord.chamberId);
             
             const totalBill = calculateBill(selectedRecord);
             

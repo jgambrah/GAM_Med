@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, serverTimestamp, doc, runTransaction } from 'firebase/firestore';
+import { collection, query, where, serverTimestamp, doc, runTransaction, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -21,7 +21,7 @@ const intakeSchema = z.object({
   arrivalType: z.string().min(1, "Arrival type is required."),
   relativeName: z.string().min(3, "Relative's name is required."),
   relativePhone: z.string().min(10, "A valid phone number is required."),
-  chamberNumber: z.string().min(1, "Please assign a chamber."),
+  chamberId: z.string().min(1, "Please assign a chamber."),
   requiresAutopsy: z.boolean().default(false),
   policeClearanceAttached: z.boolean().default(false),
 });
@@ -56,7 +56,7 @@ export default function MortuaryIntake() {
         arrivalType: 'IN_FACILITY', 
         relativeName: '',
         relativePhone: '',
-        chamberNumber: '',
+        chamberId: '',
         requiresAutopsy: false, 
         policeClearanceAttached: false 
     },
@@ -81,15 +81,17 @@ export default function MortuaryIntake() {
       await runTransaction(firestore, async (transaction) => {
         const bodyId = `MOR-${Date.now().toString().slice(-6)}`;
         const recordRef = doc(collection(firestore, `hospitals/${hospitalId}/mortuary_records`));
-        const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, values.chamberNumber);
+        const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, values.chamberId);
 
         const chamberDoc = await transaction.get(chamberRef);
         if (!chamberDoc.exists() || chamberDoc.data().status !== 'AVAILABLE') {
-          throw new Error(`Chamber ${chamberDoc.id} is no longer available.`);
+          throw new Error(`Chamber is no longer available.`);
         }
+        const selectedChamber = chamberDoc.data();
 
         transaction.set(recordRef, {
           ...values,
+          chamberNumber: selectedChamber.chamberNumber,
           bodyId, hospitalId,
           status: 'IN_STORAGE',
           admittedAt: serverTimestamp(),
@@ -165,7 +167,7 @@ export default function MortuaryIntake() {
                 <SelectItem value="IN_FACILITY">In-Facility (Ward)</SelectItem><SelectItem value="BID">Brought in Dead (BID)</SelectItem>
               </SelectContent></Select><FormMessage/></FormItem>
             )}/>
-             <FormField name="chamberNumber" control={form.control} render={({ field }) => (
+             <FormField name="chamberId" control={form.control} render={({ field }) => (
               <FormItem><FormLabel>Assign to Chamber</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Chamber..." /></SelectTrigger></FormControl><SelectContent>
                 {areChambersLoading ? <Loader2 className="animate-spin" /> : availableChambers?.map(c => <SelectItem key={c.id} value={c.id}>{c.chamberNumber}</SelectItem>)}
               </SelectContent></Select><FormMessage/></FormItem>
