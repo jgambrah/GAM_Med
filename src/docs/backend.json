@@ -34,6 +34,7 @@
             "screened": { "type": "boolean" },
             "screenedBy": { "type": "string" },
             "crossmatchedForPatientId": { "type": "string" },
+            "crossmatchedForPatientName": { "type": "string" },
             "createdAt": { "type": "string", "format": "date-time" }
         },
         "required": ["pintId", "hospitalId", "bloodGroup", "collectionDate", "expiryDate", "status"]
@@ -1616,7 +1617,8 @@
             "IMAGING",
             "PROCEDURE",
             "CONSULTATION",
-            "WARD"
+            "WARD",
+            "MATERNITY"
           ]
         },
         "sku": {

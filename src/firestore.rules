@@ -128,11 +128,11 @@ service cloud.firestore {
     // Global Platform Collections
     // --------------------------------
     
-    match /nhis_batches/{batchId} {
+     match /nhis_batches/{batchId} {
       allow read, create: if isSuperAdmin() || isDirectorOrAdmin(request.resource.data.hospitalId);
       allow list: if isSuperAdmin() || getCallingUserData().hospitalId != null;
     }
-
+    
     match /app_ceos/{ceoId} {
       allow read, write: if isSuperAdmin() || request.auth.uid == ceoId;
     }
@@ -239,6 +239,14 @@ service cloud.firestore {
         allow update, delete: if false;
       }
       
+      match /blood_pints/{pintId} {
+        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+      }
+      
+      match /blood_donors/{donorId} {
+        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+      }
+      
       match /cash_tills/{tillId} {
         allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
         allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
@@ -275,10 +283,6 @@ service cloud.firestore {
       match /theaters/{theaterId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-      }
-      
-      match /blood_pints/{pintId} {
-        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
       
       match /specialty_units/{unitId} {
@@ -345,7 +349,7 @@ service cloud.firestore {
       }
       
       match /receivables/{receivableId} {
-        allow get, update, list, create: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, create, update, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow delete: if false; 
       }
       

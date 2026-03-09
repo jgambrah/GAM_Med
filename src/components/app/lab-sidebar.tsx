@@ -56,7 +56,7 @@ export function LabSidebar() {
             </h3>
             <div className="space-y-1">
               {group.items.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.name}
