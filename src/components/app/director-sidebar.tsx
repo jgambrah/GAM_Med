@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, LayoutGrid, Archive
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, RefreshCw, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, LayoutGrid, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -187,6 +187,8 @@ const allMenuGroups = [
       { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Billing Console", href: "/finance/billing", icon: CreditCard, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'] },
       { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "Claims Vetting", href: "/finance/insurance/vetting", icon: FileSearch, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "NHIS Batching", href: "/finance/insurance/nhis-batching", icon: Library, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Tariff Master", href: "/finance/tariffs", icon: Tag, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Bulk Adjustments", href: "/finance/tariffs/bulk", icon: Zap, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
     ]
