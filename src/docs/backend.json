@@ -1,5 +1,23 @@
 {
   "entities": {
+    "BloodDonor": {
+        "title": "Blood Donor",
+        "description": "Represents a registered blood donor, voluntary or replacement.",
+        "type": "object",
+        "properties": {
+            "donorNumber": { "type": "string" },
+            "hospitalId": { "type": "string" },
+            "fullName": { "type": "string" },
+            "phone": { "type": "string" },
+            "bloodGroup": { "type": "string", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+            "donorType": { "type": "string", "enum": ["VOLUNTARY", "REPLACEMENT"] },
+            "lastDonationDate": { "type": "string", "format": "date" },
+            "status": { "type": "string", "enum": ["ELIGIBLE", "DEFERRED_TEMP", "DEFERRED_PERM"] },
+            "screeningStatus": { "type": "string", "enum": ["PENDING", "CLEARED", "REJECTED"] },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["donorNumber", "hospitalId", "fullName", "phone", "bloodGroup", "donorType", "status"]
+    },
     "BloodPint": {
         "title": "Blood Pint",
         "description": "Represents a single unit of donated blood in inventory.",
@@ -1615,11 +1633,14 @@
         },
         "billingType": {
             "type": "string",
-            "enum": ["CASH_PAYMENT", "INSURANCE_CLAIM"]
+            "enum": ["CASH_PAYMENT", "INSURANCE_CLAIM", "INSURANCE_CLAIM_VETTED"]
         },
         "payerId": {
             "type": "string",
             "description": "ID of the Payer if it's an insurance claim"
+        },
+        "payerName": {
+          "type": "string"
         },
         "status": {
           "type": "string",
@@ -4321,6 +4342,13 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/hospitals/{hospitalId}/blood_donors/{donorId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/BloodDonor" },
+          "description": "Registry of all blood donors for a facility."
+        }
+      },
       {
         "path": "/hospitals/{hospitalId}/blood_pints/{pintId}",
         "definition": {
