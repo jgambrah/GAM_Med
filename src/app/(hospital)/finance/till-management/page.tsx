@@ -1,16 +1,18 @@
-
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, Timestamp, doc, serverTimestamp } from 'firebase/firestore';
 import { Landmark, ArrowUpRight, Lock, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 export default function TillManagement() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -26,27 +28,60 @@ export default function TillManagement() {
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, []);
 
+  // Find payments processed by the current cashier today
   const paymentsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
+    if (!firestore || !hospitalId || !user?.uid) return null;
     return query(
       collection(firestore, `hospitals/${hospitalId}/payments`),
+      where("processedBy", "==", user.uid),
       where("createdAt", ">=", Timestamp.fromDate(startOfToday))
     );
-  }, [firestore, hospitalId, startOfToday]);
+  }, [firestore, hospitalId, user?.uid, startOfToday]);
   
   const { data: todayPayments, isLoading: arePaymentsLoading } = useCollection(paymentsQuery);
 
   const tillTotals = useMemo(() => {
-    if (!todayPayments) return { cash: 0, momo: 0 };
-    return todayPayments.reduce((acc, p) => {
+    if (!todayPayments) return { cash: 0, momo: 0, total: 0 };
+    const totals = todayPayments.reduce((acc, p) => {
       if (p.paymentMode === 'Cash') {
         acc.cash += p.totalAmount;
       } else if (p.paymentMode === 'MoMo') {
         acc.momo += p.totalAmount;
       }
+      acc.total += p.totalAmount;
       return acc;
-    }, { cash: 0, momo: 0 });
+    }, { cash: 0, momo: 0, total: 0 });
+    return totals;
   }, [todayPayments]);
+
+  const handleCloseTill = async () => {
+    if (!firestore || !user || !userProfile || tillTotals.total <= 0) {
+      toast({ variant: 'destructive', title: 'Cannot close an empty till.'});
+      return;
+    }
+    setLoading(true);
+    try {
+      if (!hospitalId) throw new Error("Hospital ID not found");
+      
+      const tillsCollection = collection(firestore, `hospitals/${hospitalId}/cash_tills`);
+      await addDocumentNonBlocking(tillsCollection, {
+        hospitalId: hospitalId,
+        cashierId: user.uid,
+        cashierName: userProfile.fullName,
+        cashSales: tillTotals.cash,
+        momoSales: tillTotals.momo,
+        totalCollected: tillTotals.total,
+        status: 'CLOSED', // Initial status
+        closedAt: serverTimestamp(),
+      });
+      toast({ title: 'Till Closed Successfully', description: 'Your end-of-day report has been sent to the Accountant.' });
+      router.push('/finance/billing'); // Redirect after closing
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Error closing till", description: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const isLoading = isUserLoading || isProfileLoading || arePaymentsLoading;
   
@@ -83,16 +118,13 @@ export default function TillManagement() {
            </div>
         </div>
 
-        <div className="space-y-4">
-           <h3 className="text-xs font-black uppercase text-slate-400">Submission Pathway</h3>
-           <div className="p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex justify-between items-center">
-              <span className="text-sm uppercase">Forward to Bank Deposit Queue?</span>
-              <input type="checkbox" className="w-6 h-6 rounded accent-blue-600" />
-           </div>
-        </div>
-
-        <button className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
-           <Lock size={20} /> Close Till & Submit to Accountant
+        <button 
+            onClick={handleCloseTill}
+            disabled={loading || tillTotals.total === 0}
+            className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+        >
+           {loading ? <Loader2 className="animate-spin" /> : <Lock size={20} />}
+           Close Till & Submit to Accountant
         </button>
       </div>
     </div>
