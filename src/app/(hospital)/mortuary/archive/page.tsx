@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -78,8 +79,10 @@ export default function MortuaryArchivePage() {
                 </td>
                 <td className="p-6 text-sm text-slate-500">{record.releasedAt ? format(record.releasedAt.toDate(), 'PPP, p') : 'N/A'}</td>
                 <td className="p-6 text-right">
-                    <Button variant="outline" size="sm">
-                       <FileText size={14}/> View Certificate
+                    <Button asChild variant="outline" size="sm">
+                       <Link href={`/mortuary/release/certificate/${record.id}`}>
+                         <FileText size={14}/> View Certificate
+                       </Link>
                     </Button>
                 </td>
               </tr>

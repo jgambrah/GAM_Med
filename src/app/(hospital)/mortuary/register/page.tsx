@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
 
 export default function MortuaryRegisterPage() {
   const { user, isUserLoading } = useUser();
@@ -27,6 +28,7 @@ export default function MortuaryRegisterPage() {
 
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const [releaseInfo, setReleaseInfo] = useState({ name: '', idNumber: '' });
 
   const userProfileRef = useMemoFirebase(() => (user && firestore ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
@@ -51,7 +53,7 @@ export default function MortuaryRegisterPage() {
     return days * (mortuaryConfig.dailyStorageFee || 50);
   };
   
-  const handleRelease = async () => {
+  const handleInitiateRelease = async () => {
     if (!selectedRecord || !user || !firestore || !hospitalId) {
         toast({ variant: "destructive", title: "Cannot process release." });
         return;
@@ -62,28 +64,26 @@ export default function MortuaryRegisterPage() {
         await runTransaction(firestore, async (transaction) => {
             const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, selectedRecord.id);
             const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, selectedRecord.chamberNumber);
-            const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
-
+            
             const totalBill = calculateBill(selectedRecord);
+            
+            if (totalBill > 0) {
+              const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
+              transaction.set(billRef, {
+                  description: `Mortuary Services for Body of ${selectedRecord.bodyName}`,
+                  total: totalBill,
+                  category: 'MORTUARY',
+                  status: 'UNPAID',
+                  patientId: selectedRecord.id, // Use mortuary record ID as reference
+                  patientName: `Family of ${selectedRecord.bodyName}`,
+                  hospitalId,
+                  billedBy: user.uid,
+                  createdAt: serverTimestamp(),
+              });
+            }
 
-            // 1. Update Mortuary Record
             transaction.update(recordRef, { status: 'PENDING_RELEASE' });
-
-            // 2. Update Chamber Status
             transaction.update(chamberRef, { status: 'PENDING_CLEARANCE' });
-
-            // 3. Create Final Bill
-            transaction.set(billRef, {
-                description: `Mortuary Services for Body of ${selectedRecord.bodyName}`,
-                total: totalBill,
-                category: 'MORTUARY',
-                status: 'UNPAID',
-                patientId: selectedRecord.id, // Use mortuary record ID as reference
-                patientName: `Family of ${selectedRecord.bodyName}`,
-                hospitalId,
-                billedBy: user.uid,
-                createdAt: serverTimestamp(),
-            });
         });
         toast({ title: "Release Process Initiated", description: "Final bill has been sent to the cashier for payment." });
         setSelectedRecord(null);
@@ -178,7 +178,7 @@ export default function MortuaryRegisterPage() {
             </div>
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleRelease} disabled={loading}>
+                <AlertDialogAction onClick={handleInitiateRelease} disabled={loading}>
                     {loading ? <Loader2 className="animate-spin"/> : 'Confirm & Bill Family'}
                 </AlertDialogAction>
             </AlertDialogFooter>
@@ -187,4 +187,3 @@ export default function MortuaryRegisterPage() {
     </>
   );
 }
-

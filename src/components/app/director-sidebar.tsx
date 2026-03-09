@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, ArchiveIcon
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -129,7 +129,7 @@ const allMenuGroups = [
       { name: "Inventory Pulse", href: "/supply-chain/inventory-pulse", icon: BarChart3 },
       { name: "Store Dashboard", href: "/supply-chain/store", icon: LayoutGrid },
       { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: History },
-      { name: "New Disposal", href: "/supply-chain/disposal", icon: ArchiveIcon },
+      { name: "New Disposal", href: "/supply-chain/disposal", icon: Archive },
     ]
   },
   {
