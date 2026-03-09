@@ -34,16 +34,11 @@ const menuGroups = [
     ]
   },
   {
-    title: "Receivables & Payables",
+    title: "Revenue & Payables",
     items: [
       { name: "Accounts Payable", href: "/accountant/payable", icon: Landmark },
       { name: "Payer Registry", href: "/finance/receivables", icon: Building2 },
       { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp },
-    ]
-  },
-  {
-    title: "Revenue Cycle",
-    items: [
       { name: "Billing Console", href: "/finance/billing", icon: CreditCard },
       { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText },
       { name: "Tariff Master", href: "/finance/tariffs", icon: Tag },

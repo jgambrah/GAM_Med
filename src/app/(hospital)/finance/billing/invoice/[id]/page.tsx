@@ -98,7 +98,7 @@ export default function PatientInvoicePage() {
             // Mark all billed items as PAID
             billItems.forEach(item => {
                 const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
-                transaction.update(itemRef, { status: 'PAID' });
+                transaction.update(itemRef, { status: 'PAID', paymentId: paymentId });
             });
 
             transaction.update(hospitalDocRef, { receiptCounter: increment(1) });
@@ -136,7 +136,7 @@ export default function PatientInvoicePage() {
           // 3. Mark all billed items as PAID
           billItems.forEach(item => {
               const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
-              transaction.update(itemRef, { status: 'PAID' });
+              transaction.update(itemRef, { status: 'PAID', paymentId: arRef.id });
           });
         });
         

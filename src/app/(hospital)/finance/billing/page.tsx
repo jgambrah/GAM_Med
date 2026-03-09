@@ -35,19 +35,19 @@ export default function BillingQueuePage() {
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'].includes(userRole);
 
-  // For this step, we assume any patient in the directory could have a pending bill.
-  // A more advanced system would track billing status on the patient or encounter document.
-  const pendingBillsQuery = useMemoFirebase(() => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // This query will now be used for the initial "recent" list
+  const recentPatientsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, "hospitals", hospitalId, "patients"),
-      orderBy('createdAt', 'desc'),
-      limit(100) // Limit initial load
+      orderBy('checkInTime', 'desc'), // Show recently checked-in patients first
+      limit(50)
     );
   }, [firestore, hospitalId]);
   
-  const { data: patients, isLoading: arePatientsLoading } = useCollection<Patient>(pendingBillsQuery);
-  const [searchTerm, setSearchTerm] = useState('');
+  const { data: patients, isLoading: arePatientsLoading } = useCollection<Patient>(recentPatientsQuery);
 
   const filteredPatients = useMemo(() => {
     if (!patients) return [];
