@@ -141,7 +141,19 @@ export default function PatientPortalPage() {
                       {rec.type === 'LAB' && <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Result: {rec.data.resultValue} {rec.data.unit}</p>}
                       {rec.type === 'SCAN' && <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Impression: {rec.data.impression}</p>}
                    </div>
-                   <button className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-all"><Download size={18}/></button>
+                   {rec.data.reportUrl ? (
+                     <a 
+                       href={rec.data.reportUrl} 
+                       download 
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg hover:bg-black transition-all"
+                     >
+                        <Download size={18}/>
+                     </a>
+                   ) : (
+                     <span className="text-[8px] font-bold text-slate-300 uppercase italic">Awaiting Digital Copy</span>
+                   )}
                 </div>
               ))}
             </div>
