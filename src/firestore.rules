@@ -33,42 +33,57 @@ service cloud.firestore {
 
     function isDirectorOrAdmin(hospitalId) {
       let userData = getCallingUserData();
-      return isSignedIn() 
-          && userData != null 
-          && userData.hospitalId == hospitalId 
-          && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+      let token = request.auth.token;
+      
+      let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+
+      return isSuperAdmin() || (
+        isSignedIn() 
+            && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
+            && (hasRoleInToken || hasRoleInDb)
+      );
     }
     
     function isAuditorRole(hospitalId) {
       let userData = getCallingUserData();
+      let token = request.auth.token;
+      let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+
       return isSignedIn() 
-          && userData != null 
-          && userData.hospitalId == hospitalId 
-          && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
+          && (hasRoleInToken || hasRoleInDb);
     }
 
     function isClinicalStaff(hospitalId) {
       let userData = getCallingUserData();
+       let token = request.auth.token;
+      let hasRoleInToken = token.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+      
       return isSignedIn() 
-          && userData != null 
-          && userData.hospitalId == hospitalId 
-          && userData.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
+          && (hasRoleInToken || hasRoleInDb);
     }
     
     function isAnyStaff(hospitalId) {
       let userData = getCallingUserData();
+      let token = request.auth.token;
       return isSignedIn() 
-          && userData != null 
-          && userData.hospitalId == hospitalId 
-          && userData.role in ['DIRECTOR', 'HR_MANAGER', 'DOCTOR', 'NURSE', 'PHARMACIST', 'RECEPTIONIST', 'LAB_TECH', 'ADMIN', 'RADIOLOGIST', 'ACCOUNTANT', 'CASHIER', 'STORE_MANAGER', 'ORDERLY'];
+          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
+          && (token.role != null || (userData != null && userData.role != null));
     }
     
     function isSupplyChainStaff(hospitalId) {
       let userData = getCallingUserData();
+      let token = request.auth.token;
+      let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+
       return isSignedIn() 
-          && userData != null 
-          && userData.hospitalId == hospitalId 
-          && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId)) 
+          && (hasRoleInToken || hasRoleInDb);
     }
 
 
@@ -105,7 +120,7 @@ service cloud.firestore {
     }
     
     match /{path=**}/payments/{paymentId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
+      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
 
 
@@ -117,6 +132,11 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin() || request.auth.uid == ceoId;
     }
 
+    match /revenue_certificates/{certId} {
+      allow read, list, create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
+      allow update, delete: if false; // Immutable
+    }
+
     match /certified_schedules/{scheduleId} {
       allow read, list: if isSuperAdmin() || isAuditorRole(resource.data.hospitalId);
       allow create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
@@ -126,7 +146,7 @@ service cloud.firestore {
     match /appointments/{appointmentId} {
         allow create: if true; 
         allow read: if isSuperAdmin() || isAnyStaff(resource.data.hospitalId) || true; 
-        allow list: if isSuperAdmin() || request.auth.token.hospitalId != null || request.query.patientId != null;
+        allow list: if isSuperAdmin() || (getCallingUserData() != null && getCallingUserData().hospitalId != null) || request.query.patientId != null;
         allow update: if isSuperAdmin() || (isAnyStaff(resource.data.hospitalId)) || (request.resource.data.status == 'CANCELLED_BY_PATIENT');
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(resource.data.hospitalId);
     }
@@ -179,17 +199,9 @@ service cloud.firestore {
     }
     
     match /custom_departments/{departmentId} {
-      // Any authenticated user from any hospital can list all departments.
-      // The client-side query is responsible for filtering by hospitalId.
       allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
-      
-      // Only staff from the specific hospital can read a department document directly.
       allow read: if isSuperAdmin() || isStaffOfHospital(resource.data.hospitalId);
-
-      // Only Directors/Admins can create new departments for their hospital.
       allow create: if isSuperAdmin() || isDirectorOrAdmin(request.resource.data.hospitalId);
-      
-      // Only Directors/Admins can delete departments from their hospital.
       allow delete: if isSuperAdmin() || isDirectorOrAdmin(resource.data.hospitalId);
     }
     
@@ -220,6 +232,13 @@ service cloud.firestore {
       match /jcc_logs/{logId} {
         allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);
         allow update, delete: if false;
+      }
+      
+      match /cash_tills/{tillId} {
+        allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
+        allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
+        allow list: if isDirectorOrAdmin(hospitalId); // Only Directors/Admins can see ALL tills.
+        allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
       }
       
       match /depreciation_history/{logId} {
@@ -508,9 +527,18 @@ service cloud.firestore {
       }
       
       match /payments/{paymentId} {
-        allow read, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER';
+        // Read: A Director/Admin can read any payment. A cashier can only read their own.
+        allow read: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER' && resource.data.processedBy == request.auth.uid);
+        
+        // List: Directors/Admins can list all. Cashiers can only list their own payments using a query.
+        allow list: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER');
+        
+        // Create: Director/Admin/Cashier can create payments.
         allow create: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER');
-        allow delete: if false; 
+        
+        allow delete: if false; // Payments are immutable
+        
+        // Update: Only for claim status by finance team.
         allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimStatus', 'submittedAt']));
       }

@@ -1,6 +1,49 @@
 
 {
   "entities": {
+    "CashTill": {
+      "title": "Cashier Till",
+      "description": "Represents a single cashier's shift summary, including cash and electronic totals, awaiting verification.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "cashierId": { "type": "string" },
+        "cashierName": { "type": "string" },
+        "cashSales": { "type": "number" },
+        "momoSales": { "type": "number" },
+        "totalCollected": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED", "VERIFIED", "QUERIED", "EXPLANATION_SUBMITTED"] },
+        "closedAt": { "type": "string", "format": "date-time" },
+        "verifiedBy": { "type": "string" },
+        "verifiedByName": { "type": "string" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "targetBankId": { "type": "string" },
+        "shortageAmount": { "type": "number" },
+        "physicalCount": { "type": "number" },
+        "accountantComment": { "type": "string" },
+        "cashierExplanation": { "type": "string" },
+        "dateString": { "type": "string", "format": "date" }
+      },
+      "required": ["hospitalId", "cashierId", "cashierName", "totalCollected", "status", "closedAt"]
+    },
+    "RevenueCertificate": {
+        "title": "Daily Revenue Certificate",
+        "description": "An immutable certificate confirming the total revenue for a specific day has been verified by an auditor.",
+        "type": "object",
+        "properties": {
+            "date": { "type": "string", "format": "date" },
+            "hospitalId": { "type": "string" },
+            "totalRevenue": { "type": "number" },
+            "cashComponent": { "type": "number" },
+            "momoComponent": { "type": "number" },
+            "totalShortages": { "type": "number" },
+            "certifiedBy": { "type": "string" },
+            "certifiedByName": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["CERTIFIED"] }
+        },
+        "required": ["date", "hospitalId", "totalRevenue", "certifiedBy", "timestamp", "status"]
+    },
     "JccLog": {
       "title": "Job Completion Certificate",
       "description": "A formal certification that a service or work has been completed satisfactorily, authorizing payment.",
@@ -1526,6 +1569,14 @@
         "total": {
           "type": "number"
         },
+        "billingType": {
+            "type": "string",
+            "enum": ["CASH_PAYMENT", "INSURANCE_CLAIM"]
+        },
+        "payerId": {
+            "type": "string",
+            "description": "ID of the Payer if it's an insurance claim"
+        },
         "status": {
           "type": "string",
           "enum": [
@@ -2411,6 +2462,15 @@
           "type": "number",
           "description": "Standard fee for the service in GHS."
         },
+        "isNHISCovered": {
+          "type": "boolean"
+        },
+        "nhisPrice": {
+          "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+          "type": "boolean"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
@@ -2706,6 +2766,15 @@
           "type": "number",
           "description": "The price of the scan at the time of order."
         },
+        "isNHISCovered": {
+            "type": "boolean"
+        },
+        "nhisPrice": {
+            "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+            "type": "boolean"
+        },
         "modality": {
           "type": "string"
         },
@@ -2771,6 +2840,61 @@
         "status",
         "orderedAt",
         "indication"
+      ]
+    },
+    "LabTest": {
+      "title": "Lab Test",
+      "description": "Represents a single laboratory test available in a hospital's menu.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the test (e.g., Full Blood Count)."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Hematology",
+            "Biochemistry",
+            "Microbiology",
+            "Serology"
+          ]
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the test in GHS."
+        },
+        "isNHISCovered": {
+            "type": "boolean"
+        },
+        "nhisPrice": {
+            "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+            "type": "boolean"
+        },
+        "referenceRange": {
+          "type": "string",
+          "description": "The normal range for the test results."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measurement for the test result (e.g., mg/dL)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "price",
+        "createdAt"
       ]
     },
     "LabOrder": {
@@ -3140,6 +3264,14 @@
           "type": "string",
           "description": "The patient's National Health Insurance Scheme number."
         },
+        "payerId": {
+            "type": "string",
+            "description": "ID of the Payer entity for billing."
+        },
+        "payerName": {
+            "type": "string",
+            "description": "Denormalized name of the Payer entity."
+        },
         "phoneNumber": {
           "type": "string",
           "description": "The patient's primary contact number."
@@ -3445,6 +3577,15 @@
           "type": "number",
           "description": "Price of the test in GHS."
         },
+        "isNHISCovered": {
+          "type": "boolean"
+        },
+        "nhisPrice": {
+          "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+          "type": "boolean"
+        },
         "referenceRange": {
           "type": "string",
           "description": "The normal range for the test results."
@@ -3491,6 +3632,15 @@
         "price": {
           "type": "number",
           "description": "Price of the scan in GHS."
+        },
+        "isNHISCovered": {
+          "type": "boolean"
+        },
+        "nhisPrice": {
+          "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+          "type": "boolean"
         },
         "createdAt": {
           "type": "string",
@@ -4811,3 +4961,4 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
+
