@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -70,9 +69,19 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                                <CommandEmpty>No patient found.</CommandEmpty>
                                <CommandGroup>
                                  {patients?.map((p) => (
-                                     <CommandItem key={p.id} value={`${p.firstName} ${p.lastName} ${p.ehrNumber}`} onSelect={() => { setSelectedPatient(p); setIsPatientSelectorOpen(false); }}>
+                                     <CommandItem
+                                        key={p.id}
+                                        value={p.id}
+                                        onSelect={(currentValue) => {
+                                            const patientToSelect = patients.find(pat => pat.id === currentValue);
+                                            if (patientToSelect) {
+                                                setSelectedPatient(patientToSelect);
+                                            }
+                                            setIsPatientSelectorOpen(false);
+                                        }}
+                                    >
                                        <Check className={cn("mr-2 h-4 w-4", selectedPatient?.id === p.id ? "opacity-100" : "opacity-0")} />
-                                       {p.firstName} {p.lastName}
+                                       {p.firstName} {p.lastName} ({p.ehrNumber})
                                      </CommandItem>
                                  ))}
                                </CommandGroup>
