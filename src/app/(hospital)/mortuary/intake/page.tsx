@@ -50,7 +50,16 @@ export default function MortuaryIntake() {
   
   const form = useForm<IntakeFormValues>({
     resolver: zodResolver(intakeSchema),
-    defaultValues: { gender: 'Male', arrivalType: 'IN_FACILITY', requiresAutopsy: false, policeClearanceAttached: false },
+    defaultValues: { 
+        bodyName: '',
+        gender: 'Male', 
+        arrivalType: 'IN_FACILITY', 
+        relativeName: '',
+        relativePhone: '',
+        chamberNumber: '',
+        requiresAutopsy: false, 
+        policeClearanceAttached: false 
+    },
   });
 
   const arrivalType = form.watch('arrivalType');
