@@ -222,6 +222,12 @@ service cloud.firestore {
         allow update, delete: if false;
       }
       
+      match /cash_tills/{tillId} {
+        allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
+        allow read, list: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
+        allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
+      }
+      
       match /depreciation_history/{logId} {
         allow read, write, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }

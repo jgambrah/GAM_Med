@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, query, where } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { AccountantSidebar } from '@/components/app/accountant-sidebar';
 
@@ -16,6 +16,7 @@ export default function FinanceLayout({
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const pathname = usePathname();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -26,7 +27,25 @@ export default function FinanceLayout({
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'].includes(userRole);
 
-  const isLoading = isUserLoading || isProfileLoading;
+  // Check for cashier's outstanding queries
+  const queriedTillsQuery = useMemoFirebase(() => {
+    if (!firestore || !user || !userProfile?.hospitalId || userRole !== 'CASHIER') return null;
+    return query(
+        collection(firestore, `hospitals/${userProfile.hospitalId}/cash_tills`),
+        where("cashierId", "==", user.uid),
+        where("status", "==", "QUERIED")
+    );
+  }, [firestore, user, userProfile]);
+  const { data: queriedTills, isLoading: areQueriesLoading } = useCollection(queriedTillsQuery);
+  
+  // Redirect cashier if they have an active query and aren't on the query page
+  useEffect(() => {
+    if (queriedTills && queriedTills.length > 0 && pathname !== '/finance/queries') {
+      router.replace('/finance/queries');
+    }
+  }, [queriedTills, pathname, router]);
+
+  const isLoading = isUserLoading || isProfileLoading || areQueriesLoading;
 
   if (isLoading) {
     return (
@@ -35,6 +54,17 @@ export default function FinanceLayout({
       </div>
     );
   }
+
+  // Prevent rendering children if a redirect is imminent
+  if (queriedTills && queriedTills.length > 0 && pathname !== '/finance/queries') {
+    return (
+         <div className="flex h-screen w-full items-center justify-center bg-background">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+            <p className="ml-4">Redirecting to query page...</p>
+        </div>
+    );
+  }
+
 
   if (!isAuthorized) {
     return (
