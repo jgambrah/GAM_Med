@@ -1,20 +1,43 @@
 'use client';
 import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, orderBy, doc, serverTimestamp } from 'firebase/firestore';
 import { 
   Droplets, Plus, AlertTriangle, 
   History, Thermometer, ShieldCheck, 
-  Search, Calendar, Loader2, ShieldAlert
+  Search, Calendar, Loader2, ShieldAlert, Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, add } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useToast } from '@/hooks/use-toast';
+
+
+const pintSchema = z.object({
+  pintId: z.string().min(3, "Pint/Bag ID is required."),
+  bloodGroup: z.string().min(1, "Blood Group is required."),
+  source: z.string().min(1, "Source is required."),
+  donorId: z.string().optional(),
+  collectionDate: z.string().min(1, "Collection Date is required."),
+  screened: z.boolean().default(false),
+});
+
+type PintFormValues = z.infer<typeof pintSchema>;
+
 
 export default function BloodBankInventory() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const [isAddPintOpen, setIsAddPintOpen] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -68,7 +91,7 @@ export default function BloodBankInventory() {
         <div className="text-center">
           <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">You are not authorized for the Blood Bank module.</p>
+          <p className="text-muted-foreground">You are not authorized for this module.</p>
           <Button onClick={() => router.push('/dashboard')} className="mt-4">Return Home</Button>
         </div>
       </div>
@@ -76,6 +99,7 @@ export default function BloodBankInventory() {
   }
 
   return (
+    <>
     <div className="p-8 space-y-8 max-w-7xl mx-auto text-black font-bold">
       <div className="flex justify-between items-end border-b-8 border-red-600 pb-6">
         <div>
@@ -87,7 +111,7 @@ export default function BloodBankInventory() {
             <Thermometer size={18} className="animate-pulse" />
             <span className="text-[10px] font-black uppercase">Temp: 4.2°C (Optimal)</span>
             </div>
-            <Button className="bg-red-600 hover:bg-red-700 text-white"><Plus size={16}/> New Pint</Button>
+            <AddPintDialog hospitalId={hospitalId} isOpen={isAddPintOpen} setIsOpen={setIsAddPintOpen} />
         </div>
       </div>
 
@@ -149,5 +173,88 @@ export default function BloodBankInventory() {
         </table>
       </div>
     </div>
+    </>
+  );
+}
+
+
+function AddPintDialog({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, isOpen: boolean, setIsOpen: (open: boolean) => void }) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const donorsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, `hospitals/${hospitalId}/blood_donors`));
+  }, [firestore, hospitalId]);
+  const { data: donors, isLoading: donorsLoading } = useCollection(donorsQuery);
+
+  const form = useForm<PintFormValues>({
+    resolver: zodResolver(pintSchema),
+    defaultValues: { bloodGroup: 'O+', source: 'VOLUNTARY_DONATION', screened: false },
+  });
+
+  const savePint = (values: PintFormValues) => {
+    if (!firestore) return;
+    const collectionDate = new Date(values.collectionDate);
+    const expiryDate = add(collectionDate, { days: 42 }); // Standard 42-day expiry for whole blood
+
+    addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/blood_pints`), {
+      ...values,
+      expiryDate,
+      hospitalId,
+      status: 'AVAILABLE',
+      createdAt: serverTimestamp(),
+    });
+    toast({ title: 'Blood Pint Added to Inventory' });
+    setIsOpen(false);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-red-600 hover:bg-red-700 text-white"><Plus size={16}/> New Pint</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New Blood Pint Entry</DialogTitle>
+          <DialogDescription>Add a new unit of blood to the cold-chain inventory.</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(savePint)} className="space-y-4">
+            <FormField control={form.control} name="pintId" render={({ field }) => (
+                <FormItem><FormLabel>Pint ID / Bag Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>
+            )}/>
+            <div className="grid grid-cols-2 gap-4">
+               <FormField name="bloodGroup" control={form.control} render={({field}) => <FormItem><FormLabel>Blood Group</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>
+                   {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+               </SelectContent></Select><FormMessage/></FormItem>} />
+               <FormField name="source" control={form.control} render={({field}) => <FormItem><FormLabel>Source</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>
+                   <SelectItem value="VOLUNTARY_DONATION">Voluntary Donation</SelectItem>
+                   <SelectItem value="REPLACEMENT_DONATION">Replacement Donation</SelectItem>
+                   <SelectItem value="EXTERNAL_PURCHASE">External Purchase</SelectItem>
+               </SelectContent></Select><FormMessage/></FormItem>} />
+            </div>
+            {form.watch('source') !== 'EXTERNAL_PURCHASE' && (
+                <FormField name="donorId" control={form.control} render={({field}) => <FormItem><FormLabel>Donor</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={donorsLoading}><FormControl><SelectTrigger><SelectValue placeholder="Select from registry..."/></SelectTrigger></FormControl><SelectContent>
+                    {donors?.map(d => <SelectItem key={d.id} value={d.id}>{d.fullName} ({d.donorNumber})</SelectItem>)}
+                </SelectContent></Select><FormMessage/></FormItem>} />
+            )}
+             <FormField name="collectionDate" control={form.control} render={({field}) => <FormItem><FormLabel>Collection Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage/></FormItem>} />
+             <FormField control={form.control} name="screened" render={({ field }) => (
+                <FormItem className="flex items-center gap-2 pt-2">
+                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                    <FormLabel>Pint has been screened for TTI (HIV, Hep B/C, Syphilis)</FormLabel>
+                </FormItem>
+             )}/>
+            <DialogFooter>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : 'Add to Inventory'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
