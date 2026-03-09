@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { FileSignature, Loader2, Printer } from 'lucide-react';
+import { FileSignature, Loader2, Printer, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export function ReferralLetterDialog({ patient, latestEncounter }: any) {
@@ -89,6 +89,7 @@ export function ReferralLetterDialog({ patient, latestEncounter }: any) {
                         onChange={e => setForm({...form, receivingFacility: e.target.value})}>
                         <option value="">Select Destination...</option>
                         {GH_TERTIARY_HOSPITALS.map(h => <option key={h} value={h}>{h}</option>)}
+                        <option value="Other">Other / Regional Hospital</option>
                     </select>
                 </div>
                 <div>
