@@ -1,6 +1,48 @@
-
 {
   "entities": {
+    "CashTill": {
+      "title": "Cashier Till",
+      "description": "Represents a single cashier's shift summary, including cash and electronic totals, awaiting verification.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "cashierId": { "type": "string" },
+        "cashierName": { "type": "string" },
+        "cashSales": { "type": "number" },
+        "momoSales": { "type": "number" },
+        "totalCollected": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED", "VERIFIED", "QUERIED", "EXPLANATION_SUBMITTED"] },
+        "closedAt": { "type": "string", "format": "date-time" },
+        "verifiedBy": { "type": "string" },
+        "verifiedByName": { "type": "string" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "targetBankId": { "type": "string" },
+        "shortageAmount": { "type": "number" },
+        "physicalCount": { "type": "number" },
+        "accountantComment": { "type": "string" },
+        "cashierExplanation": { "type": "string" },
+        "dateString": { "type": "string", "format": "date" }
+      },
+      "required": ["hospitalId", "cashierId", "cashierName", "totalCollected", "status", "closedAt"]
+    },
+    "RevenueCertificate": {
+        "title": "Daily Revenue Certificate",
+        "description": "An immutable certificate confirming the total revenue for a specific day has been verified by an auditor.",
+        "type": "object",
+        "properties": {
+            "date": { "type": "string", "format": "date" },
+            "hospitalId": { "type": "string" },
+            "totalRevenue": { "type": "number" },
+            "cashComponent": { "type": "number" },
+            "momoComponent": { "type": "number" },
+            "totalShortages": { "type": "number" },
+            "certifiedBy": { "type": "string" },
+            "certifiedByName": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["CERTIFIED"] }
+        },
+        "required": ["date", "hospitalId", "totalRevenue", "certifiedBy", "timestamp", "status"]
+    },
     "JccLog": {
       "title": "Job Completion Certificate",
       "description": "A formal certification that a service or work has been completed satisfactorily, authorizing payment.",
@@ -4165,6 +4207,20 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/revenue_certificates/{certId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/RevenueCertificate" },
+          "description": "Stores immutable, auditor-signed certificates for daily revenue reconciliation."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/cash_tills/{tillId}",
+        "definition": {
+            "schema": { "$ref": "#/backend/entities/CashTill" },
+            "description": "Logs daily till closures from cashiers, awaiting accountant verification."
+        }
+      },
       {
         "path": "/hospitals/{hospitalId}/jcc_logs/{logId}",
         "definition": {

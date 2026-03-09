@@ -73,6 +73,7 @@ export default function TillManagement() {
         totalCollected: tillTotals.total,
         status: 'CLOSED', // Initial status
         closedAt: serverTimestamp(),
+        dateString: new Date().toISOString().split('T')[0], // YYYY-MM-DD for querying
       });
       toast({ title: 'Till Closed Successfully', description: 'Your end-of-day report has been sent to the Accountant.' });
       router.push('/finance/billing'); // Redirect after closing

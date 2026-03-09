@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, ShieldCheck, FileText,
-  LogOut, ChevronRight, Landmark
+  LogOut, ChevronRight, Landmark, Wallet
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -17,6 +17,7 @@ const menuGroups = [
       { name: "Audit Console", href: "/auditor", icon: LayoutDashboard },
       { name: "Asset Schedule", href: "/auditor/assets", icon: Landmark },
       { name: "Asset Verification", href: "/auditor/assets/verification", icon: ShieldCheck },
+      { name: "Revenue Certification", href: "/auditor/revenue/certification", icon: Wallet },
       { name: "Approved Payments", href: "/auditor/archive", icon: FileText },
       { name: "Remittance Schedules", href: "/auditor/remittance", icon: Landmark },
     ]
