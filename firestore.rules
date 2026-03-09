@@ -527,10 +527,18 @@ service cloud.firestore {
       }
       
       match /payments/{paymentId} {
+        // Read: A Director/Admin can read any payment. A cashier can only read their own.
         allow read: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER' && resource.data.processedBy == request.auth.uid);
-        allow list: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER');
+        
+        // List: Directors/Admins can list all. Cashiers can only list their own payments using a query.
+        allow list: if isDirectorOrAdmin(hospitalId) || (request.query.where.processedBy == request.auth.uid);
+
+        // Create: Director/Admin/Cashier can create payments.
         allow create: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER');
-        allow delete: if false; 
+        
+        allow delete: if false; // Payments are immutable
+        
+        // Update: Only for claim status by finance team.
         allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimStatus', 'submittedAt']));
       }
