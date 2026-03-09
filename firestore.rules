@@ -33,6 +33,9 @@ service cloud.firestore {
 
     function isDirectorOrAdmin(hospitalId) {
       let userData = getCallingUserData();
+      if (userData.role == 'SUPER_ADMIN') {
+        return true;
+      }
       return isSignedIn() 
           && userData != null 
           && userData.hospitalId == hospitalId 
