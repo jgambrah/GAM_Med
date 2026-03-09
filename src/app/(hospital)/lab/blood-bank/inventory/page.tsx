@@ -1,6 +1,7 @@
+
 'use client';
-import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { useState, useMemo, useEffect } from 'react';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc, serverTimestamp } from 'firebase/firestore';
 import { 
   Droplets, Plus, AlertTriangle, 
@@ -190,7 +191,14 @@ function AddPintDialog({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, 
 
   const form = useForm<PintFormValues>({
     resolver: zodResolver(pintSchema),
-    defaultValues: { bloodGroup: 'O+', source: 'VOLUNTARY_DONATION', screened: false },
+    defaultValues: {
+      pintId: '',
+      bloodGroup: 'O+',
+      source: 'VOLUNTARY_DONATION',
+      donorId: '',
+      collectionDate: '',
+      screened: false,
+    },
   });
 
   const savePint = (values: PintFormValues) => {
