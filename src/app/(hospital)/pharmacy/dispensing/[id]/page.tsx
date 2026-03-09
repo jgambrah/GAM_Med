@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc, writeBatch, serverTimestamp, collection, query, where, increment } from 'firebase/firestore';
 import { 
   Pill, CheckCircle2, Printer, ArrowLeft, 
@@ -44,7 +44,7 @@ export default function DispensingPage() {
 
 
   const handleFinalizeDispensing = async () => {
-    if (!firestore || !user || !order || !inventorySnapshot || !catalogData) {
+    if (!firestore || !user || !order || !inventorySnapshot || !hospitalId) {
         toast({ variant: 'destructive', title: "System Error", description: "Data not ready." });
         return;
     }
@@ -60,43 +60,17 @@ export default function DispensingPage() {
         pharmacistName: user.displayName,
       });
 
-      // 2. DEDUCT STOCK & CREATE BILLING ITEMS
+      // 2. DEDUCT STOCK (Billing is now handled upstream in the createEncounter function)
       order.prescription.forEach((rx: any) => {
-        const stockItem = inventorySnapshot.find(item => item.name === rx.name);
+        const stockItem = inventorySnapshot.find(item => item.sku === rx.sku);
         if (stockItem) {
-          // Deduct from physical stock
-          const qtyUsed = 20; // Simplified for now
           const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, stockItem.id);
-          batch.update(itemRef, {
-            quantity: increment(-qtyUsed)
-          });
-          
-          // Find master catalog item to get selling price
-          const catalogItem = catalogData.find(p => p.sku === stockItem.sku);
-          if (catalogItem && catalogItem.sellingPrice > 0) {
-              const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
-              const qtyToBill = 1; // Simplified
-              batch.set(billRef, {
-                  hospitalId,
-                  patientId,
-                  patientName: order.patientName,
-                  encounterId,
-                  description: catalogItem.name,
-                  category: 'PHARMACY',
-                  sku: catalogItem.sku,
-                  unitPrice: catalogItem.sellingPrice,
-                  qty: qtyToBill,
-                  total: catalogItem.sellingPrice * qtyToBill,
-                  status: 'UNPAID',
-                  billedBy: user.uid,
-                  createdAt: serverTimestamp()
-              });
-          }
+          batch.update(itemRef, { quantity: increment(-1) }); // Simplified: assumes qty of 1 for each prescription line
         }
       });
 
       await batch.commit();
-      toast({ title: "Dispensing Complete", description: "Inventory updated and patient bill generated." });
+      toast({ title: "Dispensing Complete", description: "Inventory has been updated." });
       router.push('/pharmacy');
     } catch (e: any) {
       toast({ variant: "destructive", title: "Dispensing Failed", description: e.message });

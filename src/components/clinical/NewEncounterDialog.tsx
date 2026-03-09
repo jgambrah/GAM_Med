@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger 
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,6 +39,7 @@ const encounterSchema = z.object({
   prescription: z.array(z.object({
     drugId: z.string(),
     name: z.string(),
+    sku: z.string(),
     strength: z.string().optional(),
     dosage: z.string(),
     frequency: z.string(),
@@ -70,11 +71,11 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const [imagingSearch, setImagingSearch] = useState('');
   const [imagingOrders, setImagingOrders] = useState<any[]>([]);
 
-  const inventoryQuery = useMemoFirebase(() => {
+  const catalogQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return collection(firestore, 'hospitals', hospitalId, 'pharmacy_inventory');
+    return query(collection(firestore, 'hospitals', hospitalId, 'product_catalog'));
   }, [firestore, hospitalId]);
-  const { data: inventory, isLoading: isInventoryLoading } = useCollection(inventoryQuery);
+  const { data: catalog, isLoading: isCatalogLoading } = useCollection(catalogQuery);
   
   const labMenuQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -88,10 +89,10 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   }, [firestore, hospitalId]);
   const { data: radiologyMenu, isLoading: isRadiologyMenuLoading } = useCollection(radiologyMenuQuery);
 
-  const filteredInventory = (inventory || []).filter(item => 
+  const filteredInventory = (catalog || []).filter(item => 
     drugSearch && (
       item.name.toLowerCase().includes(drugSearch.toLowerCase()) || 
-      item.genericName.toLowerCase().includes(drugSearch.toLowerCase())
+      item.sku.toLowerCase().includes(drugSearch.toLowerCase())
     )
   );
 
@@ -106,6 +107,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const addDrugToOrder = (drug: any) => {
     const newDrug = {
       drugId: drug.id,
+      sku: drug.sku,
       name: drug.name,
       strength: drug.strength,
       dosage: '1 tab', // Default
@@ -348,17 +350,17 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     
                     {drugSearch && (
                     <div className="absolute w-full mt-1 bg-card border rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
-                        {isInventoryLoading && <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div>}
+                        {isCatalogLoading && <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div>}
                         {filteredInventory.map(item => (
                         <div key={item.id} onClick={() => addDrugToOrder(item)} className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-0">
                             <div>
                             <p className="font-bold text-sm uppercase text-card-foreground">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">{item.genericName} • {item.quantity} in stock</p>
+                            <p className="text-xs text-muted-foreground">{item.category} • {item.purchasePrice} GHS</p>
                             </div>
                             <Plus size={16} className="text-primary" />
                         </div>
                         ))}
-                        {!isInventoryLoading && filteredInventory.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
+                        {!isCatalogLoading && filteredInventory.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
                     </div>
                     )}
                 </div>

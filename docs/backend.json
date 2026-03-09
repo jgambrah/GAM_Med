@@ -1568,6 +1568,14 @@
         "total": {
           "type": "number"
         },
+        "billingType": {
+            "type": "string",
+            "enum": ["CASH_PAYMENT", "INSURANCE_CLAIM"]
+        },
+        "payerId": {
+            "type": "string",
+            "description": "ID of the Payer if it's an insurance claim"
+        },
         "status": {
           "type": "string",
           "enum": [
@@ -1802,6 +1810,18 @@
         "sellingPrice": {
           "type": "number",
           "description": "The price billed to the patient for the item."
+        },
+        "isNHISCovered": {
+            "type": "boolean",
+            "description": "Indicates if this item is covered by the National Health Insurance Scheme."
+        },
+        "nhisPrice": {
+            "type": "number",
+            "description": "The official NHIS tariff price for this item, if covered."
+        },
+        "isPrivateInsuranceCovered": {
+            "type": "boolean",
+            "description": "Indicates if this item is generally covered by private insurance plans."
         },
         "priceLastUpdated": {
           "type": "string",
@@ -2441,6 +2461,15 @@
           "type": "number",
           "description": "Standard fee for the service in GHS."
         },
+        "isNHISCovered": {
+          "type": "boolean"
+        },
+        "nhisPrice": {
+          "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+          "type": "boolean"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
@@ -2736,6 +2765,15 @@
           "type": "number",
           "description": "The price of the scan at the time of order."
         },
+        "isNHISCovered": {
+            "type": "boolean"
+        },
+        "nhisPrice": {
+            "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+            "type": "boolean"
+        },
         "modality": {
           "type": "string"
         },
@@ -2801,6 +2839,61 @@
         "status",
         "orderedAt",
         "indication"
+      ]
+    },
+    "LabTest": {
+      "title": "Lab Test",
+      "description": "Represents a single laboratory test available in a hospital's menu.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the test (e.g., Full Blood Count)."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Hematology",
+            "Biochemistry",
+            "Microbiology",
+            "Serology"
+          ]
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the test in GHS."
+        },
+        "isNHISCovered": {
+            "type": "boolean"
+        },
+        "nhisPrice": {
+            "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+            "type": "boolean"
+        },
+        "referenceRange": {
+          "type": "string",
+          "description": "The normal range for the test results."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measurement for the test result (e.g., mg/dL)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "name",
+        "category",
+        "price",
+        "createdAt"
       ]
     },
     "LabOrder": {
@@ -3170,6 +3263,14 @@
           "type": "string",
           "description": "The patient's National Health Insurance Scheme number."
         },
+        "payerId": {
+            "type": "string",
+            "description": "ID of the Payer entity for billing."
+        },
+        "payerName": {
+            "type": "string",
+            "description": "Denormalized name of the Payer entity."
+        },
         "phoneNumber": {
           "type": "string",
           "description": "The patient's primary contact number."
@@ -3475,6 +3576,15 @@
           "type": "number",
           "description": "Price of the test in GHS."
         },
+        "isNHISCovered": {
+          "type": "boolean"
+        },
+        "nhisPrice": {
+          "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+          "type": "boolean"
+        },
         "referenceRange": {
           "type": "string",
           "description": "The normal range for the test results."
@@ -3521,6 +3631,15 @@
         "price": {
           "type": "number",
           "description": "Price of the scan in GHS."
+        },
+        "isNHISCovered": {
+          "type": "boolean"
+        },
+        "nhisPrice": {
+          "type": "number"
+        },
+        "isPrivateInsuranceCovered": {
+          "type": "boolean"
         },
         "createdAt": {
           "type": "string",
