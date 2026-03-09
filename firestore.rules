@@ -85,6 +85,14 @@ service cloud.firestore {
           && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId)) 
           && (hasRoleInToken || hasRoleInDb);
     }
+    
+    function isMortuaryStaff(hospitalId) {
+      let userData = getCallingUserData();
+      let token = request.auth.token;
+      let hasRole = token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] || 
+                    (userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']);
+      return isSignedIn() && isStaffOfHospital(hospitalId) && hasRole;
+    }
 
 
     // ===================================
@@ -247,6 +255,16 @@ service cloud.firestore {
         allow read, write, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
       
+      match /mortuary_records/{recordId} {
+        allow read, list, create, update: if isMortuaryStaff(hospitalId);
+        allow delete: if isDirectorOrAdmin(hospitalId);
+      }
+      
+      match /mortuary_chambers/{chamberId} {
+        allow read, list, create, update: if isMortuaryStaff(hospitalId);
+        allow delete: if isDirectorOrAdmin(hospitalId);
+      }
+
       match /cash_tills/{tillId} {
         allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
         allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
