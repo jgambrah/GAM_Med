@@ -46,6 +46,7 @@ service cloud.firestore {
     }
     
     function isAuditorRole(hospitalId) {
+      if (isSuperAdmin()) { return true; }
       let userData = getCallingUserData();
       let token = request.auth.token;
       let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
@@ -57,6 +58,7 @@ service cloud.firestore {
     }
 
     function isClinicalStaff(hospitalId) {
+      if (isSuperAdmin()) { return true; }
       let userData = getCallingUserData();
        let token = request.auth.token;
       let hasRoleInToken = token.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
@@ -68,6 +70,7 @@ service cloud.firestore {
     }
     
     function isAnyStaff(hospitalId) {
+      if (isSuperAdmin()) { return true; }
       let userData = getCallingUserData();
        let token = request.auth.token;
       return isSignedIn() 
@@ -76,6 +79,7 @@ service cloud.firestore {
     }
     
     function isSupplyChainStaff(hospitalId) {
+      if (isSuperAdmin()) { return true; }
       let userData = getCallingUserData();
       let token = request.auth.token;
       let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
@@ -87,6 +91,7 @@ service cloud.firestore {
     }
     
     function isMortuaryStaff(hospitalId) {
+      if (isSuperAdmin()) { return true; }
       let userData = getCallingUserData();
       let token = request.auth.token;
       let hasRole = token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] || 
@@ -581,5 +586,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
