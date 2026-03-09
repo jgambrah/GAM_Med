@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, doc, query, serverTimestamp } from 'firebase/firestore';
 import { Package, Plus, Search, Loader2, ShieldAlert, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required."),
@@ -24,7 +26,19 @@ const productSchema = z.object({
   minLevel: z.coerce.number().min(0, "Min level cannot be negative."),
   purchasePrice: z.coerce.number().min(0, "Purchase price cannot be negative."),
   sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative."),
+  isNHISCovered: z.boolean().default(false),
+  isPrivateInsuranceCovered: z.boolean().default(false),
+  nhisPrice: z.coerce.number().optional(),
+}).refine(data => {
+    if (data.isNHISCovered && (data.nhisPrice === undefined || data.nhisPrice <= 0)) {
+        return false;
+    }
+    return true;
+}, {
+    message: "NHIS Price must be set if covered.",
+    path: ["nhisPrice"],
 });
+
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
@@ -122,11 +136,12 @@ export default function ProductCatalogPage() {
                 <TableHead className="p-6 text-right">Pur. Price (₵)</TableHead>
                 <TableHead className="p-6 text-right">Sell Price (₵)</TableHead>
                 <TableHead className="p-6 text-right">Margin (%)</TableHead>
+                <TableHead className="p-6 text-center">Coverage</TableHead>
                 <TableHead className="p-6 text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {areProductsLoading && <TableRow><TableCell colSpan={5} className="text-center h-48"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
+            {areProductsLoading && <TableRow><TableCell colSpan={6} className="text-center h-48"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
             {filteredProducts?.map(p => {
                const purchasePrice = p.purchasePrice ?? 0;
                const sellingPrice = p.sellingPrice ?? 0;
@@ -140,6 +155,13 @@ export default function ProductCatalogPage() {
                     <TableCell className="p-4 text-right font-mono text-muted-foreground">{(p.purchasePrice || 0).toFixed(2)}</TableCell>
                     <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{(p.sellingPrice || 0).toFixed(2)}</TableCell>
                     <TableCell className={`p-4 text-right font-black ${Number(margin) < 15 ? 'text-destructive' : 'text-green-600'}`}>{margin}%</TableCell>
+                    <TableCell className="p-4 text-center">
+                        <div className="flex flex-col gap-1 items-center">
+                            {p.isNHISCovered && <Badge variant="secondary" className="bg-blue-100 text-blue-800">NHIS</Badge>}
+                            {p.isPrivateInsuranceCovered && <Badge variant="outline">Private</Badge>}
+                            {!p.isNHISCovered && !p.isPrivateInsuranceCovered && <Badge variant="destructive">Cash Only</Badge>}
+                        </div>
+                    </TableCell>
                     <TableCell className="p-4 text-right">
                         <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(p)}>Edit</Button>
                     </TableCell>
@@ -147,7 +169,7 @@ export default function ProductCatalogPage() {
                );
             })}
              {!areProductsLoading && filteredProducts?.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center p-20 text-muted-foreground italic">No products in catalog. Add a new template.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center p-20 text-muted-foreground italic">No products in catalog. Add a new template.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -184,6 +206,9 @@ const ProductDialog = ({ hospitalId, isOpen, setIsOpen, product }: { hospitalId:
                 minLevel: 10,
                 purchasePrice: 0,
                 sellingPrice: 0,
+                isNHISCovered: false,
+                isPrivateInsuranceCovered: false,
+                nhisPrice: 0,
             });
         }
     }, [product, form]);
@@ -274,6 +299,32 @@ const ProductDialog = ({ hospitalId, isOpen, setIsOpen, product }: { hospitalId:
                                 <FormMessage>{form.formState.errors.sellingPrice?.message}</FormMessage>
                            </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="isNHISCovered" render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mt-2">
+                                    <FormLabel className="text-sm font-medium">NHIS Covered</FormLabel>
+                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )}/>
+                            <FormField control={form.control} name="isPrivateInsuranceCovered" render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mt-2">
+                                    <FormLabel className="text-sm font-medium">Private Insurance</FormLabel>
+                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )}/>
+                        </div>
+
+                        {form.watch('isNHISCovered') && (
+                            <FormField control={form.control} name="nhisPrice" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>NHIS Tariff Price (GHS)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                        )}
+
                         <DialogFooter>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {isEditMode ? 'Save Changes' : 'Authorize Catalog Entry'}
@@ -285,4 +336,3 @@ const ProductDialog = ({ hospitalId, isOpen, setIsOpen, product }: { hospitalId:
         </Dialog>
     );
 }
-

@@ -1761,6 +1761,18 @@
           "type": "number",
           "description": "The price billed to the patient for the item."
         },
+        "isNHISCovered": {
+            "type": "boolean",
+            "description": "Indicates if this item is covered by the National Health Insurance Scheme."
+        },
+        "nhisPrice": {
+            "type": "number",
+            "description": "The official NHIS tariff price for this item, if covered."
+        },
+        "isPrivateInsuranceCovered": {
+            "type": "boolean",
+            "description": "Indicates if this item is generally covered by private insurance plans."
+        },
         "priceLastUpdated": {
           "type": "string",
           "format": "date-time"
@@ -4166,6 +4178,20 @@
   "firestore": {
     "structure": [
       {
+        "path": "/revenue_certificates/{certId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/RevenueCertificate" },
+          "description": "Stores immutable, auditor-signed certificates for daily revenue reconciliation."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/cash_tills/{tillId}",
+        "definition": {
+            "schema": { "$ref": "#/backend/entities/CashTill" },
+            "description": "Logs daily till closures from cashiers, awaiting accountant verification."
+        }
+      },
+      {
         "path": "/hospitals/{hospitalId}/jcc_logs/{logId}",
         "definition": {
             "schema": { "$ref": "#/backend/entities/JccLog" },
@@ -4785,4 +4811,3 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
-
