@@ -2,10 +2,22 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /hospitals/{hospitalId}/{allPaths=**} {
-      // Only staff from the SAME hospital can see/upload images
-      // And the CEO (Super Admin)
-      allow read, write: if request.auth.token.hospitalId == hospitalId || request.auth.token.role == 'SUPER_ADMIN';
+
+    // Specific rule for patient reports to allow patient read access
+    match /hospitals/{hospitalId}/patient_reports/{patientId}/{fileName} {
+      allow read: if request.auth.token.hospitalId == hospitalId || request.auth.uid == patientId;
+      allow write: if request.auth.token.hospitalId == hospitalId;
+    }
+
+    // More specific rule for general hospital files, like logos etc.
+    match /hospitals/{hospitalId}/assets/{fileName} {
+       allow read: if true; // Publicly readable assets
+       allow write: if request.auth.token.hospitalId == hospitalId;
+    }
+
+    // Fallback for any other hospital files
+    match /hospitals/{hospitalId}/{path=**} {
+      allow read, write: if request.auth.token.hospitalId == hospitalId;
     }
   }
 }

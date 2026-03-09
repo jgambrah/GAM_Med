@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from '@/firebase';
-import { doc, serverTimestamp, collection, query, where, getDoc } from 'firebase/firestore';
+import { doc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
@@ -12,9 +12,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Beaker, Save, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { Beaker, Save, ArrowLeft, CheckCircle2, Loader2, UploadCloud, FileCheck, Paperclip } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const resultSchema = z.object({
   resultValue: z.string().min(1, "Result value is required."),
@@ -30,10 +31,13 @@ export default function LabResultEntryPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
+  const storage = getStorage(firebaseApp);
   const { toast } = useToast();
   
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -67,43 +71,72 @@ export default function LabResultEntryPage() {
     defaultValues: { resultValue: '', remarks: '', isAbnormal: false },
   });
 
-  const onSubmit = async (values: ResultFormValues) => {
-    if (!orderRef || !user || !firebaseApp) return;
-    
-    updateDocumentNonBlocking(orderRef, {
-      ...values,
-      status: 'COMPLETED',
-      labTechUid: user.uid,
-      labTechName: user.displayName,
-      completedAt: serverTimestamp(),
-    });
+  const handleFileUpload = async (reportUrl?: string) => {
+    let finalReportUrl = reportUrl;
 
-    toast({
-      title: "Lab Result Validated",
-      description: "Result has been pushed to the patient's EHR.",
-    });
-
-    // AUTO-SMS to Patient
-    if (patient?.phoneNumber && hospitalId) {
-      const smsMessage = `Hello ${order.patientName}, your diagnostic results for ${order.testName} are ready. Please log into your MyGamMed portal at gammed.com/patient/login to view them.`;
-      
+    if (file) {
+      setUploading(true);
       try {
-        const functions = getFunctions(firebaseApp);
-        const sendSms = httpsCallable(functions, 'sendClinicalSms');
-        await sendSms({ 
-          phoneNumber: patient.phoneNumber, 
-          message: smsMessage,
-          hospitalId: hospitalId
-        });
-        toast({ title: "Patient Notified via SMS" });
-      } catch (smsError) {
-        console.error("SMS Notification Error:", smsError);
-        toast({ variant: 'destructive', title: "SMS Failed", description: "Could not send SMS notification to patient." });
+        const fileRef = ref(storage, `hospitals/${hospitalId}/patient_reports/${order.patientId}/${order.id}_${file.name}`);
+        const snapshot = await uploadBytesResumable(fileRef, file);
+        finalReportUrl = await getDownloadURL(snapshot.ref);
+      } catch (uploadError: any) {
+        toast({ variant: "destructive", title: "File Upload Failed", description: uploadError.message });
+        setUploading(false);
+        throw uploadError; // Stop the process if upload fails
       }
     }
+    return finalReportUrl;
+  };
 
+  const onSubmit = async (values: ResultFormValues) => {
+    if (!orderRef || !user || !firebaseApp) return;
 
-    router.push('/lab/queue');
+    form.control.register('isLoading', { value: true });
+
+    try {
+      const reportUrl = await handleFileUpload();
+
+      updateDocumentNonBlocking(orderRef, {
+        ...values,
+        status: 'COMPLETED',
+        labTechUid: user.uid,
+        labTechName: user.displayName,
+        completedAt: serverTimestamp(),
+        reportUrl: reportUrl || null,
+      });
+
+      toast({
+        title: "Lab Result Validated",
+        description: "Result has been pushed to the patient's EHR.",
+      });
+
+      // AUTO-SMS to Patient
+      if (patient?.phoneNumber && hospitalId) {
+        const smsMessage = `Hello ${order.patientName}, your diagnostic results for ${order.testName} are ready. Please log into your MyGamMed portal to view them.`;
+        
+        try {
+          const functions = getFunctions(firebaseApp);
+          const sendSms = httpsCallable(functions, 'sendClinicalSms');
+          await sendSms({ 
+            phoneNumber: patient.phoneNumber, 
+            message: smsMessage,
+            hospitalId: hospitalId
+          });
+          toast({ title: "Patient Notified via SMS" });
+        } catch (smsError) {
+          console.error("SMS Notification Error:", smsError);
+          toast({ variant: 'destructive', title: "SMS Failed", description: "Could not send SMS notification to patient." });
+        }
+      }
+
+      router.push('/lab/queue');
+    } catch (error) {
+      // The toast for upload failure is handled in handleFileUpload
+    } finally {
+        form.control.register('isLoading', { value: false });
+        setUploading(false);
+    }
   };
   
   const isLoading = isUserLoading || isClaimsLoading || isOrderLoading || isPatientLoading;
@@ -162,6 +195,27 @@ export default function LabResultEntryPage() {
                <span className="text-[10px] font-black text-primary uppercase">Reference Range:</span>
                <span className="text-xs font-bold text-primary/80">{order?.referenceRange || 'N/A'} {order?.unit}</span>
             </div>
+
+             <div className="bg-slate-50 p-6 rounded-[32px] border-2 border-dashed border-slate-200 text-center space-y-4">
+                <input 
+                    type="file" id="report-upload" className="hidden" 
+                    accept=".pdf,.jpg,.png" 
+                    onChange={(e) => setFile(e.target.files?.[0] || null)} 
+                />
+                
+                {!file ? (
+                    <label htmlFor="report-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                    <UploadCloud size={32} className="text-blue-600" />
+                    <span className="text-[10px] font-black uppercase text-slate-400">Attach Scanned/Digital Report (Optional)</span>
+                    </label>
+                ) : (
+                    <div className="flex flex-col items-center gap-2">
+                    <FileCheck size={32} className="text-green-600" />
+                    <span className="text-xs font-bold text-black truncate w-48">{file.name}</span>
+                    <button type="button" onClick={() => setFile(null)} className="text-[10px] text-red-500 uppercase underline">Change File</button>
+                    </div>
+                )}
+            </div>
           </div>
 
           <div className="bg-card p-8 rounded-[32px] border shadow-sm space-y-6">
@@ -206,8 +260,8 @@ export default function LabResultEntryPage() {
               )}
             />
             
-            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full bg-primary hover:bg-foreground py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">
-              {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <><CheckCircle2 size={18}/> Authorize & Release</>}
+            <Button type="submit" disabled={form.formState.isSubmitting || uploading} className="w-full bg-primary hover:bg-foreground py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">
+              {(form.formState.isSubmitting || uploading) ? <Loader2 className="animate-spin" /> : <><CheckCircle2 size={18}/> Authorize & Release</>}
             </Button>
           </div>
         </form>

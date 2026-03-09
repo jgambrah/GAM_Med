@@ -1,5 +1,116 @@
 {
   "entities": {
+    "MortuaryRecord": {
+      "title": "Mortuary Record",
+      "description": "A hospital-specific, identifiable record of a body's intake, storage, and release.",
+      "type": "object",
+      "properties": {
+        "bodyId": { "type": "string", "description": "Unique ID generated for the body." },
+        "hospitalId": { "type": "string" },
+        "bodyName": { "type": "string", "description": "Full name of the deceased." },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Unknown"] },
+        "arrivalType": { "type": "string", "enum": ["IN_FACILITY", "BID"], "description": "How the body arrived." },
+        "relativeName": { "type": "string" },
+        "relativePhone": { "type": "string" },
+        "chamberId": { "type": "string" },
+        "chamberNumber": { "type": "string" },
+        "requiresAutopsy": { "type": "boolean" },
+        "policeClearanceAttached": { "type": "boolean" },
+        "policeClearanceRequired": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["IN_STORAGE", "PENDING_RELEASE", "RELEASED"] },
+        "admittedAt": { "type": "string", "format": "date-time" },
+        "admittedBy": { "type": "string" },
+        "releasedToName": { "type": "string" },
+        "releasedToID": { "type": "string" },
+        "releasedAt": { "type": "string", "format": "date-time" },
+        "releasedBy": { "type": "string" }
+      },
+      "required": ["bodyId", "hospitalId", "bodyName", "arrivalType", "relativeName", "relativePhone", "chamberId", "chamberNumber", "status"]
+    },
+    "MortuaryChamber": {
+      "title": "Mortuary Chamber",
+      "description": "Represents a single cold storage unit in the mortuary.",
+      "type": "object",
+      "properties": {
+        "chamberNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["AVAILABLE", "OCCUPIED", "MAINTENANCE", "PENDING_CLEARANCE"] },
+        "bodyId": { "type": "string", "description": "The unique ID for the body occupying the chamber." },
+        "bodyName": { "type": "string" },
+        "admittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chamberNumber", "status"]
+    },
+    "MortuaryConfig": {
+        "title": "Mortuary Configuration",
+        "description": "Defines the service tariffs and chamber capacity for the hospital's mortuary.",
+        "type": "object",
+        "properties": {
+            "hospitalId": { "type": "string" },
+            "dailyStorageFee": { "type": "number" },
+            "embalmingFee": { "type": "number" },
+            "autopsyFee": { "type": "number" },
+            "chamberCount": { "type": "number" }
+        },
+        "required": ["hospitalId", "dailyStorageFee", "embalmingFee", "autopsyFee", "chamberCount"]
+    },
+    "BloodDonor": {
+        "title": "Blood Donor",
+        "description": "Represents a registered blood donor, voluntary or replacement.",
+        "type": "object",
+        "properties": {
+            "donorNumber": { "type": "string" },
+            "hospitalId": { "type": "string" },
+            "fullName": { "type": "string" },
+            "phone": { "type": "string" },
+            "bloodGroup": { "type": "string", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+            "donorType": { "type": "string", "enum": ["VOLUNTARY", "REPLACEMENT"] },
+            "lastDonationDate": { "type": "string", "format": "date" },
+            "status": { "type": "string", "enum": ["ELIGIBLE", "DEFERRED_TEMP", "DEFERRED_PERM"] },
+            "screeningStatus": { "type": "string", "enum": ["PENDING", "CLEARED", "REJECTED"] },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["donorNumber", "hospitalId", "fullName", "phone", "bloodGroup", "donorType", "status"]
+    },
+    "BloodPint": {
+        "title": "Blood Pint",
+        "description": "Represents a single unit of donated blood in inventory.",
+        "type": "object",
+        "properties": {
+            "pintId": { "type": "string" },
+            "hospitalId": { "type": "string" },
+            "bloodGroup": { "type": "string", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+            "source": { "type": "string", "enum": ["VOLUNTARY_DONATION", "REPLACEMENT_DONATION", "EXTERNAL_PURCHASE"] },
+            "donorId": { "type": "string" },
+            "collectionDate": { "type": "string", "format": "date-time" },
+            "expiryDate": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["AVAILABLE", "RESERVED", "CROSSMATCHED", "TRANSFUSED", "DISPOSED"] },
+            "screened": { "type": "boolean" },
+            "screenedBy": { "type": "string" },
+            "crossmatchedForPatientId": { "type": "string" },
+            "crossmatchedForPatientName": { "type": "string" },
+            "transfusedBy": { "type": "string" },
+            "transfusedByName": { "type": "string" },
+            "transfusedAt": { "type": "string", "format": "date-time" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["pintId", "hospitalId", "bloodGroup", "collectionDate", "expiryDate", "status"]
+    },
+    "NhisBatch": {
+        "title": "NHIS Batch",
+        "description": "A master record for a batch of claims submitted to the NHIA.",
+        "type": "object",
+        "properties": {
+            "batchNumber": { "type": "string" },
+            "hospitalId": { "type": "string" },
+            "claimCount": { "type": "number" },
+            "totalValue": { "type": "number" },
+            "status": { "type": "string", "enum": ["BATCHED_PENDING_SUBMISSION", "SUBMITTED_TO_NHIA", "QUERIED", "PAID"] },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "createdBy": { "type": "string" },
+            "createdByName": { "type": "string" }
+        },
+        "required": ["batchNumber", "hospitalId", "claimCount", "totalValue", "status", "createdAt", "createdBy"]
+    },
     "CashTill": {
       "title": "Cashier Till",
       "description": "Represents a single cashier's shift summary, including cash and electronic totals, awaiting verification.",
@@ -1211,8 +1322,17 @@
           "type": "string",
           "enum": [
             "UNPAID",
-            "PAID"
+            "PAID",
+            "SUBMITTED_TO_NHIA"
           ]
+        },
+        "batchId": {
+          "type": "string",
+          "description": "The ID of the NHIS batch this receivable belongs to."
+        },
+        "batchNumber": {
+          "type": "string",
+          "description": "The human-readable number of the NHIS batch."
         },
         "createdAt": {
           "type": "string",
@@ -1553,7 +1673,9 @@
             "IMAGING",
             "PROCEDURE",
             "CONSULTATION",
-            "WARD"
+            "WARD",
+            "MATERNITY",
+            "MORTUARY"
           ]
         },
         "sku": {
@@ -1570,11 +1692,14 @@
         },
         "billingType": {
             "type": "string",
-            "enum": ["CASH_PAYMENT", "INSURANCE_CLAIM"]
+            "enum": ["CASH_PAYMENT", "INSURANCE_CLAIM", "INSURANCE_CLAIM_VETTED"]
         },
         "payerId": {
             "type": "string",
             "description": "ID of the Payer if it's an insurance claim"
+        },
+        "payerName": {
+          "type": "string"
         },
         "status": {
           "type": "string",
@@ -2508,7 +2633,8 @@
             "Consultation",
             "Procedure",
             "Admission",
-            "ANC Visit"
+            "ANC Visit",
+            "BLOOD_TRANSFUSION"
           ]
         },
         "chiefComplaint": {
@@ -3062,6 +3188,10 @@
           "type": "number",
           "description": "The current counter for generating unique Payment Receipt numbers."
         },
+        "nhisBatchCounter": {
+            "type": "number",
+            "description": "The current counter for generating unique NHIS Batch numbers."
+        },
         "nextBillingDate": {
           "type": "string",
           "format": "date-time",
@@ -3104,7 +3234,8 @@
         "isSuspended",
         "patientCounter",
         "poCounter",
-        "staffCounter"
+        "staffCounter",
+        "nhisBatchCounter"
       ]
     },
     "User": {
@@ -3549,61 +3680,6 @@
         "status",
         "orderedBy",
         "orderedAt"
-      ]
-    },
-    "LabTest": {
-      "title": "Lab Test",
-      "description": "Represents a single laboratory test available in a hospital's menu.",
-      "type": "object",
-      "properties": {
-        "hospitalId": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the test (e.g., Full Blood Count)."
-        },
-        "category": {
-          "type": "string",
-          "enum": [
-            "Hematology",
-            "Biochemistry",
-            "Microbiology",
-            "Serology"
-          ]
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the test in GHS."
-        },
-        "isNHISCovered": {
-          "type": "boolean"
-        },
-        "nhisPrice": {
-          "type": "number"
-        },
-        "isPrivateInsuranceCovered": {
-          "type": "boolean"
-        },
-        "referenceRange": {
-          "type": "string",
-          "description": "The normal range for the test results."
-        },
-        "unit": {
-          "type": "string",
-          "description": "The unit of measurement for the test result (e.g., mg/dL)."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "hospitalId",
-        "name",
-        "category",
-        "price",
-        "createdAt"
       ]
     },
     "RadiologyScan": {
@@ -4326,6 +4402,48 @@
   },
   "firestore": {
     "structure": [
+       {
+        "path": "/hospitals/{hospitalId}/mortuary_records/{recordId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/MortuaryRecord" },
+          "description": "Hospital-specific log of all bodies passing through the mortuary."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/mortuary_config/main",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/MortuaryConfig" },
+          "description": "A singleton document for mortuary service tariffs and setup."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/mortuary_chambers/{chamberId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/MortuaryChamber" },
+          "description": "Manages individual cold storage chambers in the mortuary."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/blood_donors/{donorId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/BloodDonor" },
+          "description": "Registry of all blood donors for a facility."
+        }
+      },
+      {
+        "path": "/hospitals/{hospitalId}/blood_pints/{pintId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/BloodPint" },
+          "description": "Inventory of all blood units in the hospital's blood bank."
+        }
+      },
+      {
+        "path": "/nhis_batches/{batchId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/NhisBatch" },
+          "description": "Master collection of all batched NHIS claim submissions from all facilities."
+        }
+      },
       {
         "path": "/revenue_certificates/{certId}",
         "definition": {

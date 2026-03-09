@@ -6,6 +6,7 @@ import { Camera, Loader2, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 type RadiologyOrder = {
   id: string;
@@ -116,12 +117,11 @@ export default function RadiologyQueuePage() {
                     Ordered By Dr. {order.providerName} • {formatDistanceToNow(order.orderedAt.toDate(), { addSuffix: true })}
                 </p>
               </div>
-
-              <Button 
-                className="w-full bg-foreground hover:bg-orange-600 text-background font-black uppercase text-[10px] tracking-widest transition-all"
-                onClick={() => router.push(`/radiology/report/${order.id}`)}
-              >
-                Perform Scan & Write Report
+              
+              <Button asChild className="w-full bg-foreground hover:bg-orange-600 text-background font-black uppercase text-[10px] tracking-widest transition-all">
+                  <Link href={`/radiology/upload/${order.id}`}>
+                      Acquire & Upload Image
+                  </Link>
               </Button>
             </div>
           ))}
