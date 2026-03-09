@@ -60,6 +60,7 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
           <Popover
             open={isPatientSelectorOpen}
             onOpenChange={setIsPatientSelectorOpen}
+            modal={false}
           >
             <PopoverTrigger asChild>
               <Button
@@ -77,7 +78,6 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              modal={false}
               className="w-full min-w-[var(--radix-popover-trigger-width)] p-0"
               onInteractOutside={(e) => {
                 e.preventDefault();
@@ -88,7 +88,7 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                 <CommandList>
                   <CommandEmpty>No patient found.</CommandEmpty>
                   <CommandGroup>
-                    {patients?.map((p) => (
+                    {patients?.map((p: any) => (
                       <CommandItem
                         key={p.id}
                         value={`${p.firstName} ${p.lastName} ${p.ehrNumber}`}
