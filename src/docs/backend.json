@@ -1,6 +1,25 @@
-
 {
   "entities": {
+    "BloodPint": {
+        "title": "Blood Pint",
+        "description": "Represents a single unit of donated blood in inventory.",
+        "type": "object",
+        "properties": {
+            "pintId": { "type": "string" },
+            "hospitalId": { "type": "string" },
+            "bloodGroup": { "type": "string", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+            "source": { "type": "string", "enum": ["VOLUNTARY_DONATION", "REPLACEMENT_DONATION", "EXTERNAL_PURCHASE"] },
+            "donorId": { "type": "string" },
+            "collectionDate": { "type": "string", "format": "date-time" },
+            "expiryDate": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["AVAILABLE", "RESERVED", "CROSSMATCHED", "TRANSFUSED", "DISPOSED"] },
+            "screened": { "type": "boolean" },
+            "screenedBy": { "type": "string" },
+            "crossmatchedForPatientId": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["pintId", "hospitalId", "bloodGroup", "collectionDate", "expiryDate", "status"]
+    },
     "NhisBatch": {
         "title": "NHIS Batch",
         "description": "A master record for a batch of claims submitted to the NHIA.",
@@ -4303,6 +4322,13 @@
   "firestore": {
     "structure": [
       {
+        "path": "/hospitals/{hospitalId}/blood_pints/{pintId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/BloodPint" },
+          "description": "Inventory of all blood units in the hospital's blood bank."
+        }
+      },
+      {
         "path": "/nhis_batches/{batchId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/NhisBatch" },
@@ -4943,5 +4969,3 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
-
-    

@@ -3,7 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Beaker, Settings,
+  LayoutDashboard, Beaker, Settings, Droplets,
   LogOut, ChevronRight
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
@@ -14,6 +14,7 @@ const menuGroups = [
     title: "Laboratory",
     items: [
       { name: "Diagnostic Queue", href: "/lab/queue", icon: LayoutDashboard },
+      { name: "Blood Bank", href: "/lab/blood-bank/inventory", icon: Droplets },
       { name: "Test Menu Setup", href: "/lab/setup", icon: Settings },
     ]
   }

@@ -277,6 +277,10 @@ service cloud.firestore {
         allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
       
+      match /blood_pints/{pintId} {
+        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+      }
+      
       match /specialty_units/{unitId} {
         allow get, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
@@ -550,5 +554,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
