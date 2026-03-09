@@ -1,7 +1,8 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { doc, writeBatch, serverTimestamp, collection } from 'firebase/firestore';
 import { 
   ShieldAlert, Droplets, CheckCircle2, 
@@ -80,7 +81,7 @@ export default function TransfusionSafetyGate() {
   };
 
   if (isLoading) return <div className="p-20 text-center font-black flex items-center justify-center gap-4"><Loader2 className="animate-spin" /> Safety Handshake in Progress...</div>;
-  if (!pint) return <div className="p-20 text-center font-black">Pint data not found or invalid ID.</div>;
+  if (!pint) return <div className="p-20 text-center font-black text-destructive">Pint data not found or invalid ID.</div>;
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-8 text-black font-bold">

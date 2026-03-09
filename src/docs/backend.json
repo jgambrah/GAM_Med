@@ -12,6 +12,7 @@
         "arrivalType": { "type": "string", "enum": ["IN_FACILITY", "BID"], "description": "How the body arrived." },
         "relativeName": { "type": "string" },
         "relativePhone": { "type": "string" },
+        "chamberId": { "type": "string" },
         "chamberNumber": { "type": "string" },
         "requiresAutopsy": { "type": "boolean" },
         "policeClearanceAttached": { "type": "boolean" },
@@ -24,7 +25,7 @@
         "releasedAt": { "type": "string", "format": "date-time" },
         "releasedBy": { "type": "string" }
       },
-      "required": ["bodyId", "hospitalId", "bodyName", "arrivalType", "relativeName", "relativePhone", "chamberNumber", "status"]
+      "required": ["bodyId", "hospitalId", "bodyName", "arrivalType", "relativeName", "relativePhone", "chamberId", "chamberNumber", "status"]
     },
     "MortuaryChamber": {
       "title": "Mortuary Chamber",
@@ -87,6 +88,9 @@
             "screenedBy": { "type": "string" },
             "crossmatchedForPatientId": { "type": "string" },
             "crossmatchedForPatientName": { "type": "string" },
+            "transfusedBy": { "type": "string" },
+            "transfusedByName": { "type": "string" },
+            "transfusedAt": { "type": "string", "format": "date-time" },
             "createdAt": { "type": "string", "format": "date-time" }
         },
         "required": ["pintId", "hospitalId", "bloodGroup", "collectionDate", "expiryDate", "status"]
@@ -899,6 +903,95 @@
         "capacity",
         "hospitalId",
         "status",
+        "createdAt"
+      ]
+    },
+    "MortalityRecord": {
+      "title": "Mortality Record",
+      "description": "A global, anonymized record of a death event for epidemiological analysis.",
+      "type": "object",
+      "properties": {
+        "hospitalId": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "ageAtDeath": {
+          "type": "number"
+        },
+        "gender": {
+          "type": "string",
+          "enum": [
+            "Male",
+            "Female",
+            "Other"
+          ]
+        },
+        "underlyingCause": {
+          "type": "string"
+        },
+        "icd10Code": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "hospitalId",
+        "ageAtDeath",
+        "gender",
+        "underlyingCause",
+        "createdAt"
+      ]
+    },
+    "MortalityArchiveRecord": {
+      "title": "Mortality Archive Record",
+      "description": "A hospital-specific, identifiable record of a patient's death.",
+      "type": "object",
+      "properties": {
+        "patientName": {
+          "type": "string"
+        },
+        "ehrNumber": {
+          "type": "string"
+        },
+        "familyContact": {
+          "type": "string"
+        },
+        "dateTimeOfDeath": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "placeOfDeath": {
+          "type": "string"
+        },
+        "immediateCause": {
+          "type": "string"
+        },
+        "underlyingCause": {
+          "type": "string"
+        },
+        "icd10Code": {
+          "type": "string"
+        },
+        "certifiedBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "patientName",
+        "ehrNumber",
+        "dateTimeOfDeath",
+        "immediateCause",
+        "underlyingCause",
+        "certifiedBy",
         "createdAt"
       ]
     },
@@ -2540,7 +2633,8 @@
             "Consultation",
             "Procedure",
             "Admission",
-            "ANC Visit"
+            "ANC Visit",
+            "BLOOD_TRANSFUSION"
           ]
         },
         "chiefComplaint": {

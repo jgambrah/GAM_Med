@@ -6,10 +6,11 @@ import { collection, query, where, orderBy, doc, serverTimestamp } from 'firebas
 import { 
   Droplets, Plus, AlertTriangle, 
   History, Thermometer, ShieldCheck, 
-  Search, Calendar, Loader2, ShieldAlert, Save
+  Search, Calendar, Loader2, ShieldAlert, Save, Link as LinkIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { format, differenceInDays, add } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -20,6 +21,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
+import { CrossmatchDialog } from '@/components/clinical/CrossmatchDialog';
 
 
 const pintSchema = z.object({
@@ -39,6 +41,7 @@ export default function BloodBankInventory() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isAddPintOpen, setIsAddPintOpen] = useState(false);
+  const [crossmatchPint, setCrossmatchPint] = useState<any | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -54,7 +57,6 @@ export default function BloodBankInventory() {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, `hospitals/${hospitalId}/blood_pints`),
-      where("status", "==", "AVAILABLE"),
       orderBy("expiryDate", "asc")
     );
   }, [firestore, hospitalId]);
@@ -66,7 +68,7 @@ export default function BloodBankInventory() {
     const counts: Record<string, number> = {};
     if (pints) {
       for (const group of bloodGroups) {
-        counts[group] = pints.filter(p => p.bloodGroup === group).length;
+        counts[group] = pints.filter(p => p.bloodGroup === group && p.status === 'AVAILABLE').length;
       }
     }
     return counts;
@@ -112,7 +114,7 @@ export default function BloodBankInventory() {
             <Thermometer size={18} className="animate-pulse" />
             <span className="text-[10px] font-black uppercase">Temp: 4.2°C (Optimal)</span>
             </div>
-            <AddPintDialog hospitalId={hospitalId} isOpen={isAddPintOpen} setIsOpen={setIsAddPintOpen} />
+            <AddPintDialog hospitalId={hospitalId!} isOpen={isAddPintOpen} setIsOpen={setIsAddPintOpen} />
         </div>
       </div>
 
@@ -145,8 +147,10 @@ export default function BloodBankInventory() {
                  <tr><td colSpan={5} className="p-20 text-center text-slate-300 uppercase italic">No available pints in inventory.</td></tr>
             ) : pints?.map(pint => {
               const expiryInfo = getDaysRemaining(pint.expiryDate);
+              const isCrossmatched = pint.status === 'CROSSMATCHED';
+              const isTransfused = pint.status === 'TRANSFUSED';
               return (
-              <tr key={pint.id} className="hover:bg-red-50/30 transition-all font-bold">
+              <tr key={pint.id} className={`hover:bg-red-50/30 transition-all font-bold ${isTransfused ? 'opacity-40 grayscale' : ''}`}>
                 <td className="p-6 uppercase text-sm">
                    {pint.pintId}
                    <p className="text-[9px] text-slate-400">Source: {pint.source || 'Donation'}</p>
@@ -166,7 +170,17 @@ export default function BloodBankInventory() {
                    </div>
                 </td>
                 <td className="p-6 text-right">
-                   <button className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] uppercase hover:bg-red-600 transition-all">Cross-match</button>
+                    {isTransfused ? (
+                        <span className="text-xs text-muted-foreground uppercase">Used</span>
+                    ) : isCrossmatched ? (
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/nurse/transfusion/confirm/${pint.id}`}>
+                                <LinkIcon size={14}/> Transfusion Link
+                            </Link>
+                        </Button>
+                    ) : (
+                        <Button onClick={() => setCrossmatchPint(pint)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] uppercase hover:bg-red-600 transition-all">Cross-match</Button>
+                    )}
                 </td>
               </tr>
             )})}
@@ -174,6 +188,7 @@ export default function BloodBankInventory() {
         </table>
       </div>
     </div>
+    {crossmatchPint && <CrossmatchDialog hospitalId={hospitalId} pint={crossmatchPint} open={!!crossmatchPint} onOpenChange={() => setCrossmatchPint(null)} />}
     </>
   );
 }
