@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -35,38 +34,17 @@ export default function PatientInvoicePage() {
   }, [firestore, hospitalId, patientId]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
   
-  // 2. Fetch all billable service logs for this patient
-  const labOrdersQuery = useMemoFirebase(() => {
+  // 2. Fetch all UNPAID billable items for this patient
+  const billingItemsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/lab_orders`), where("patientId", "==", patientId));
+    return query(
+        collection(firestore, `hospitals/${hospitalId}/billing_items`), 
+        where("patientId", "==", patientId),
+        where("status", "==", "UNPAID")
+    );
   }, [firestore, hospitalId, patientId]);
-  const { data: labOrders, isLoading: labsLoading } = useCollection(labOrdersQuery);
+  const { data: billItems, isLoading: itemsLoading } = useCollection(billingItemsQuery);
 
-  const radiologyOrdersQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !patientId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/radiology_orders`), where("patientId", "==", patientId));
-  }, [firestore, hospitalId, patientId]);
-  const { data: radiologyOrders, isLoading: scansLoading } = useCollection(radiologyOrdersQuery);
-
-  const procedureLogsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !patientId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/procedure_logs`), where("patientId", "==", patientId));
-  }, [firestore, hospitalId, patientId]);
-  const { data: procedureLogs, isLoading: proceduresLoading } = useCollection(procedureLogsQuery);
-
-  const encountersQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !patientId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/patients/${patientId}/encounters`), where("type", "==", "Consultation"));
-  }, [firestore, hospitalId, patientId]);
-  const { data: consultations, isLoading: consultationsLoading } = useCollection(encountersQuery);
-
-  const generalServicesQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/general_services`));
-  }, [firestore, hospitalId]);
-  const { data: generalServices, isLoading: servicesLoading } = useCollection(generalServicesQuery);
-
-  // NEW: Fetch payers for receivable logic
   const payersQuery = useMemoFirebase(() => {
       if (!firestore || !hospitalId) return null;
       return query(collection(firestore, `hospitals/${hospitalId}/payers`));
@@ -74,21 +52,13 @@ export default function PatientInvoicePage() {
   const { data: payers, isLoading: payersLoading } = useCollection(payersQuery);
 
 
-  const { billItems, total } = useMemo(() => {
-    const items: any[] = [];
-    const consultationFee = generalServices?.find(s => s.category === 'CONSULTATION')?.price || 0;
-
-    consultations?.forEach(c => items.push({ name: 'Doctor Consultation', price: consultationFee, type: 'Consultation' }));
-    labOrders?.forEach(d => items.push({ name: d.testName, price: d.price, type: 'Laboratory' }));
-    radiologyOrders?.forEach(d => items.push({ name: d.scanName, price: d.price, type: 'Imaging' }));
-    procedureLogs?.forEach(d => items.push({ name: d.procedureName, price: d.serviceFee, type: 'Procedure' }));
-    
-    const totalAmount = items.reduce((acc, curr) => acc + (curr.price || 0), 0);
-    return { billItems: items, total: totalAmount };
-  }, [consultations, labOrders, radiologyOrders, procedureLogs, generalServices]);
+  const total = useMemo(() => {
+    if (!billItems) return 0;
+    return billItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
+  }, [billItems]);
 
   const handleRecordPayment = async () => {
-    if (!hospitalId || !firestore || !user || !patient) {
+    if (!hospitalId || !firestore || !user || !patient || !billItems) {
       toast({ variant: "destructive", title: "System Error", description: "System not ready. Please re-login." });
       return;
     }
@@ -125,6 +95,12 @@ export default function PatientInvoicePage() {
                 createdAt: serverTimestamp(),
             });
 
+            // Mark all billed items as PAID
+            billItems.forEach(item => {
+                const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
+                transaction.update(itemRef, { status: 'PAID' });
+            });
+
             transaction.update(hospitalDocRef, { receiptCounter: increment(1) });
         });
         
@@ -136,10 +112,10 @@ export default function PatientInvoicePage() {
           throw new Error(`Payer configuration for "${paymentMode}" not found. Please register it in the Payer Master.`);
         }
         
-        const payerRef = doc(firestore, `hospitals/${hospitalId}/payers`, payer.id);
-        const arRef = doc(collection(firestore, `hospitals/${hospitalId}/receivables`));
-
         await runTransaction(firestore, async (transaction) => {
+          const payerRef = doc(firestore, `hospitals/${hospitalId}/payers`, payer.id);
+          const arRef = doc(collection(firestore, `hospitals/${hospitalId}/receivables`));
+          
           // 1. Create the Receivable Document
           transaction.set(arRef, {
             hospitalId: hospitalId,
@@ -155,6 +131,12 @@ export default function PatientInvoicePage() {
           // 2. Increment the Payer's Global Debt in the Registry
           transaction.update(payerRef, {
             currentBalance: increment(total)
+          });
+          
+          // 3. Mark all billed items as PAID
+          billItems.forEach(item => {
+              const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
+              transaction.update(itemRef, { status: 'PAID' });
           });
         });
         
@@ -176,7 +158,7 @@ export default function PatientInvoicePage() {
     window.print();
   };
 
-  const isLoading = isPatientLoading || labsLoading || scansLoading || proceduresLoading || consultationsLoading || servicesLoading || payersLoading;
+  const isLoading = isPatientLoading || itemsLoading || payersLoading;
 
   if (isLoading) {
     return (
@@ -220,13 +202,13 @@ export default function PatientInvoicePage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {billItems.length === 0 ? (
+            {billItems?.length === 0 ? (
                 <TableRow><TableCell colSpan={3} className="text-center p-12 text-muted-foreground italic">No billable services recorded for this patient yet.</TableCell></TableRow>
             ) : billItems.map((item, idx) => (
               <TableRow key={idx}>
-                <TableCell className="p-4 font-bold uppercase text-card-foreground">{item.name}</TableCell>
-                <TableCell className="p-4"><span className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase">{item.type}</span></TableCell>
-                <TableCell className="p-4 text-right text-sm font-mono">{item.price?.toFixed(2)}</TableCell>
+                <TableCell className="p-4 font-bold uppercase text-card-foreground">{item.description}</TableCell>
+                <TableCell className="p-4"><span className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase">{item.category}</span></TableCell>
+                <TableCell className="p-4 text-right text-sm font-mono">{item.total?.toFixed(2)}</TableCell>
               </TableRow>
             ))}
             <TableRow className="bg-foreground/5">
