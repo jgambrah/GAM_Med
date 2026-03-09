@@ -7,6 +7,7 @@ import { Skull, FileText, Loader2, ShieldAlert, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import Link from 'next/link';
 
 export default function MortuaryArchivePage() {
   const { user, isUserLoading } = useUser();
