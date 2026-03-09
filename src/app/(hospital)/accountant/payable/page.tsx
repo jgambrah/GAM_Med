@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -129,4 +130,4 @@ export default function AccountsPayablePage() {
     </div>
   );
 }
-    
+

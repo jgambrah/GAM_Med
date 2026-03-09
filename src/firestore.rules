@@ -116,6 +116,12 @@ service cloud.firestore {
     match /app_ceos/{ceoId} {
       allow read, write: if isSuperAdmin() || request.auth.uid == ceoId;
     }
+
+    match /certified_schedules/{scheduleId} {
+      allow read, list: if isSuperAdmin() || isAuditorRole(resource.data.hospitalId);
+      allow create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
+      allow update, delete: if false; // Immutable
+    }
     
     match /appointments/{appointmentId} {
         allow create: if true; 
@@ -211,6 +217,15 @@ service cloud.firestore {
       allow list, create, update, delete: if isSuperAdmin();
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
       
+      match /jcc_logs/{logId} {
+        allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow update, delete: if false;
+      }
+      
+      match /depreciation_history/{logId} {
+        allow read, write, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
       match /payroll_items/{itemId} {
         allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
@@ -260,6 +275,15 @@ service cloud.firestore {
         allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.staffId == request.auth.uid);
         allow list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
         allow update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /service_requisitions/{reqId} {
+        allow create: if isAnyStaff(hospitalId);
+        allow get: if isSuperAdmin() || (isAnyStaff(hospitalId) && isOwner(resource.data.requestedBy)) || isDirectorOrAdmin(hospitalId);
+        allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow update: if isSuperAdmin() 
+                      || (isDirectorOrAdmin(hospitalId) && request.resource.data.status in ['APPROVED', 'REJECTED'])
+                      || (isSupplyChainStaff(hospitalId) && request.resource.data.status == 'CONVERTED_TO_PO');
       }
       
        match /requisitions/{requisitionId} {
@@ -368,7 +392,8 @@ service cloud.firestore {
 
       match /payroll_runs/{runId} {
         allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-        allow update, delete: if false;
+        allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
+        allow delete: if false;
       }
 
       match /payslips/{slipId} {
@@ -492,3 +517,4 @@ service cloud.firestore {
     }
   }
 }
+

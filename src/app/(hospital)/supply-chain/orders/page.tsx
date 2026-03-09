@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction, getDoc } from 'firebase/firestore';
+import { collection, query, serverTimestamp, orderBy, writeBatch, doc, increment, runTransaction, getDoc, where } from 'firebase/firestore';
 import { Truck, Plus, Package, Building2, Save, Loader2, ShieldAlert, Trash2, Check, ChevronsUpDown, XCircle, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -27,27 +27,30 @@ export default function PurchaseOrderPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
 
   useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
+    if (user && firestore) {
+      const unsub = doc(firestore, 'users', user.uid);
+      getDoc(unsub).then(docSnap => {
+        if(docSnap.exists()) {
+          setUserProfile(docSnap.data());
+        }
+        setIsProfileLoading(false);
+      })
     } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
+      setIsProfileLoading(false);
     }
-  }, [user, isUserLoading]);
+  }, [user, firestore, isUserLoading]);
   
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
   // Data fetching
-  const purchaseOrdersQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/purchase_orders`), orderBy('orderedAt', 'desc')) : null, [firestore, hospitalId]);
+  const purchaseOrdersQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/purchase_orders`), where('poType', '==', 'GOODS'), orderBy('orderedAt', 'desc')) : null, [firestore, hospitalId]);
   const { data: purchaseOrders, isLoading: ordersLoading } = useCollection(purchaseOrdersQuery);
   
   const handleForceClose = async (poId: string) => {
@@ -75,7 +78,7 @@ export default function PurchaseOrderPage() {
     }
   };
   
-  const isLoading = isUserLoading || isClaimsLoading;
+  const isLoading = isUserLoading || isProfileLoading;
   if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -357,3 +360,4 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange }: Receiv
         </Dialog>
     );
 }
+

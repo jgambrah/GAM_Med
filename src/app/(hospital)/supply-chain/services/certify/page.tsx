@@ -1,6 +1,7 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, writeBatch, runTransaction } from 'firebase/firestore';
 import { ClipboardCheck, ShieldCheck, FileText, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +43,7 @@ export default function JobCompletionCertification() {
     setLoading(true);
 
     const jccNumber = `JCC-${po.poNumber.split('/')[2]}-${po.poNumber.split('/')[3]}`;
-    const totalValue = po.items.reduce((sum: number, item: any) => sum + (item.price * item.quantityOrdered), 0);
+    const totalValue = po.items.reduce((sum: number, item: any) => sum + (item.price * (item.quantityOrdered || 1)), 0);
 
     try {
         await runTransaction(firestore, async (transaction) => {
@@ -74,17 +75,17 @@ export default function JobCompletionCertification() {
                 supplierName: po.supplierName,
                 supplierId: po.supplierId,
                 amountOwed: totalValue,
-                grnNumber: jccNumber,
+                grnNumber: jccNumber, // Using grnNumber for consistency to hold JCC number
                 status: 'UNPAID',
-                isService: true,
+                isService: true, // Accountant sees this and applies 7.5% WHT
                 hospitalId: hospitalId,
                 createdAt: serverTimestamp()
             });
         });
 
-      toast.success("Job Completion Certified. Liability moved to Accounts Payable.");
+      toast({ title: "Job Completion Certified. Liability moved to Accounts Payable." });
     } catch (e: any) { 
-        toast.error(e.message); 
+        toast({ variant: "destructive", title: "Certification Failed", description: e.message });
     }
     setLoading(false);
   };
@@ -113,7 +114,7 @@ export default function JobCompletionCertification() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {areServicesLoading && <div className="p-10"><Loader2 className="animate-spin"/></div>}
         {pendingServices?.map(po => {
-            const totalValue = po.items.reduce((sum: number, item: any) => sum + (item.price * item.quantityOrdered), 0);
+            const totalValue = po.items.reduce((sum: number, item: any) => sum + (item.price * (item.quantityOrdered || 1)), 0);
             return (
                 <div key={po.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-2xl space-y-6">
                     <div className="flex justify-between items-start">
@@ -128,9 +129,11 @@ export default function JobCompletionCertification() {
                         <p className="text-xl font-black">₵ {totalValue.toLocaleString()}</p>
                         <button 
                         onClick={() => certifyService(po)}
+                        disabled={loading}
                         className="bg-black text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 transition-all flex items-center gap-2"
                         >
-                        <CheckCircle2 size={16}/> Certify Completion
+                        {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={16}/>}
+                        Certify Completion
                         </button>
                     </div>
                 </div>
@@ -145,3 +148,4 @@ export default function JobCompletionCertification() {
     </div>
   );
 }
+
