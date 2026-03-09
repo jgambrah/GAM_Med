@@ -103,6 +103,23 @@ export default function TillManagement() {
     );
   }
 
+  // A Director or Accountant won't have a till, so show a helpful message.
+  if (!arePaymentsLoading && (!todayPayments || todayPayments.length === 0) && userProfile?.role !== 'CASHIER') {
+    return (
+        <div className="p-8 space-y-8 max-w-4xl mx-auto text-black font-bold">
+            <h1 className="text-3xl font-black uppercase italic">Till <span className="text-blue-600">Closure</span></h1>
+            <div className="p-20 bg-card rounded-[40px] text-center border-2 border-dashed">
+                <p className="font-bold text-lg">This Page is for Active Cashiers</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                    As a {userProfile?.role}, you do not have a personal till to close. <br/>
+                    Please use the "Till Verification" console to review cashier submissions.
+                </p>
+                 <Button className="mt-6" onClick={() => router.back()}>Go Back</Button>
+            </div>
+        </div>
+    )
+  }
+
   return (
     <div className="p-8 space-y-8 max-w-4xl mx-auto text-black font-bold">
       <h1 className="text-3xl font-black uppercase italic">Till <span className="text-blue-600">Closure</span></h1>
