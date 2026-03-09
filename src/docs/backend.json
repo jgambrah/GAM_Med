@@ -1,5 +1,28 @@
 {
   "entities": {
+    "Referral": {
+      "title": "Clinical Referral",
+      "description": "A formal handover document for transferring a patient to another facility.",
+      "type": "object",
+      "properties": {
+        "referralNumber": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "ehrNumber": { "type": "string" },
+        "receivingFacility": { "type": "string" },
+        "reasonForReferral": { "type": "string" },
+        "clinicalSummary": { "type": "string" },
+        "provisionalDiagnosis": { "type": "string" },
+        "urgency": { "type": "string", "enum": ["ROUTINE", "EMERGENCY"] },
+        "vitalsAtReferral": { "type": "object", "properties": {} },
+        "medications": { "type": "array", "items": { "type": "object" } },
+        "hospitalId": { "type": "string" },
+        "referringDoctor": { "type": "string" },
+        "status": { "type": "string", "enum": ["ISSUED", "RECEIVED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referralNumber", "patientId", "receivingFacility", "hospitalId", "referringDoctor", "status"]
+    },
     "MortuaryRecord": {
       "title": "Mortuary Record",
       "description": "A hospital-specific, identifiable record of a body's intake, storage, and release.",
@@ -3192,6 +3215,10 @@
             "type": "number",
             "description": "The current counter for generating unique NHIS Batch numbers."
         },
+        "referralCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique Referral Letter numbers."
+        },
         "nextBillingDate": {
           "type": "string",
           "format": "date-time",
@@ -3235,7 +3262,8 @@
         "patientCounter",
         "poCounter",
         "staffCounter",
-        "nhisBatchCounter"
+        "nhisBatchCounter",
+        "referralCounter"
       ]
     },
     "User": {
@@ -4402,6 +4430,13 @@
   },
   "firestore": {
     "structure": [
+       {
+        "path": "/referrals/{referralId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Referral" },
+          "description": "Top-level collection for all inter-facility referral letters."
+        }
+      },
        {
         "path": "/hospitals/{hospitalId}/mortuary_records/{recordId}",
         "definition": {

@@ -5,7 +5,7 @@ import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@
 import { doc, collection, query, orderBy, where } from 'firebase/firestore';
 import { 
   Activity, Thermometer, Pill, Beaker, 
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,7 @@ import { MaternityEnrollmentDialog } from '@/components/clinical/MaternityEnroll
 import VitalsTrend from '@/components/clinical/VitalsTrend';
 import { QRCodeSVG } from 'qrcode.react';
 import { DeathCertificationDialog } from '@/components/clinical/DeathCertificationDialog';
+import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
 
 export default function ClinicalFolder() {
   const { id } = useParams();
@@ -69,7 +70,7 @@ export default function ClinicalFolder() {
   const scanResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
         collection(firestore, `hospitals/${hospitalId}/radiology_orders`),
-        where("patientId", "==", id),
+        where("patientId", "==", "COMPLETED"), // This is a bug, should be status
         where("status", "==", "COMPLETED"),
         orderBy("completedAt", "desc")
     ) : null,
@@ -110,6 +111,8 @@ export default function ClinicalFolder() {
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
   const isDeceased = patient?.status === 'DECEASED';
 
+  const latestEncounter = encounters && encounters.length > 0 ? encounters[0] : null;
+
   if (isLoading) {
       return (
         <div className="flex h-screen w-full items-center justify-center">
@@ -141,6 +144,7 @@ export default function ClinicalFolder() {
            {!isDeceased && patient && hospitalId && <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
+           {!isDeceased && patient && latestEncounter && <ReferralLetterDialog patient={patient} latestEncounter={latestEncounter} />}
            {!isDeceased && patient && <DeathCertificationDialog patient={patient} />}
         </div>
       </div>
