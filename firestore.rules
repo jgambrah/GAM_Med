@@ -120,7 +120,7 @@ service cloud.firestore {
     }
     
     match /{path=**}/payments/{paymentId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
+      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
 
 
@@ -531,8 +531,8 @@ service cloud.firestore {
         allow read: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER' && resource.data.processedBy == request.auth.uid);
         
         // List: Directors/Admins can list all. Cashiers can only list their own payments using a query.
-        allow list: if isDirectorOrAdmin(hospitalId) || (request.query.where.processedBy == request.auth.uid);
-
+        allow list: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER');
+        
         // Create: Director/Admin/Cashier can create payments.
         allow create: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER');
         
