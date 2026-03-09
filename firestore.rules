@@ -240,11 +240,11 @@ service cloud.firestore {
       }
       
       match /blood_pints/{pintId} {
-        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow read, write, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
       
       match /blood_donors/{donorId} {
-        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow read, write, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
       
       match /cash_tills/{tillId} {
