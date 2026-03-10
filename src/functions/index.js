@@ -356,7 +356,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
   const hospitalRef = db.collection('hospitals').doc(); // Auto-generate ID for the new hospital
   const hospitalId = hospitalRef.id;
 
-  const rawPassword = Math.random().toString(36).slice(-8) + "!"; 
+  const rawPassword = Math.random().toString(36).slice(-8) + "!";
   const finalPassword = rawPassword.trim();
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
@@ -489,6 +489,55 @@ exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (r
     }
 });
 
+/**
+ * Creates a Clinical Referral and generates a unique referral number.
+ */
+exports.createReferral = onCall({ region: "us-central1", cors: true }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
+  
+  const { patientId, patientName, ehrNumber, latestEncounter, ...formData } = request.data;
+  const hospitalId = request.auth.token.hospitalId;
+  const hospitalRef = db.collection('hospitals').doc(hospitalId);
+
+  try {
+    let newRefNumber;
+    let newReferralId;
+
+    await db.runTransaction(async (transaction) => {
+      const hospitalDoc = await transaction.get(hospitalRef);
+      if (!hospitalDoc.exists()) throw new HttpsError('not-found', 'Hospital record not found.');
+
+      const hospital = hospitalDoc.data();
+      const newCounter = (hospital.referralCounter || 0) + 1;
+      const prefix = hospital.mrnPrefix || 'GAM';
+      const year = new Date().getFullYear().toString().slice(-2);
+      newRefNumber = `${prefix}/REF/${year}/${String(newCounter).padStart(3, '0')}`;
+
+      const referralRef = db.collection('referrals').doc();
+      newReferralId = referralRef.id;
+      
+      transaction.set(referralRef, {
+        ...formData,
+        referralNumber: newRefNumber,
+        patientId, patientName, ehrNumber,
+        vitalsAtReferral: latestEncounter?.vitals || {},
+        medications: latestEncounter?.prescription || [],
+        hospitalId,
+        referringDoctor: request.auth.token.name,
+        status: 'ISSUED',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      transaction.update(hospitalRef, { referralCounter: newCounter });
+    });
+
+    return { success: true, referralId: newReferralId, referralNumber: newRefNumber };
+  } catch (error) {
+    console.error("Referral creation failed:", error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
 
 /**
  * A CEO-level security tool to repair a user's roles and hospital assignment.
@@ -595,3 +644,8 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
+
+
+
+

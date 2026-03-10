@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/firebase';
-import { initiateEmailSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -19,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Stethoscope, Loader2 } from 'lucide-react';
 import { RequestDemoDialog } from '@/components/auth/RequestDemoDialog';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
@@ -43,11 +42,26 @@ export function AuthForm() {
   });
 
   const onSubmit = async (values: FormValues) => {
+    if (!auth) {
+        toast({ variant: 'destructive', title: 'Auth service not available.'});
+        return;
+    }
     setIsLoading(true);
-    initiateEmailSignIn(auth, values.email, values.password);
-    // Auth state change will be caught by the provider and trigger a page redirect.
-    // We can set a timeout to reset loading state in case of login failure.
-    setTimeout(() => setIsLoading(false), 5000); 
+    const cleanEmail = values.email.toLowerCase().trim();
+    const cleanPassword = values.password.trim();
+
+    try {
+        await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+        // Successful login will trigger onAuthStateChanged and redirection.
+        // We don't need to set loading to false here as the component will unmount.
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Access Denied",
+            description: "Invalid email or password. Please check for extra spaces.",
+        });
+        setIsLoading(false); // Reset loading state on error
+    }
   };
   
   const handleForgotPassword = async () => {
