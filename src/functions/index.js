@@ -165,10 +165,11 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
 
   const batch = db.batch();
   
-  // Create references
   const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
-  const encounterRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId).collection('encounters').doc();
   const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
+
+  // --- THE SOLID FIX: Use a single top-level encounters collection ---
+  const encounterRef = db.collection('encounters').doc();
 
   // Prepare encounter data
   const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
@@ -181,8 +182,6 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   
   const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
   const userProfile = userProfileSnap.data();
-
-  let finalIdToReturn = encounterRef.id;
 
   const createBillingItem = (item, type, qty = 1) => {
     let billingType = 'CASH_PAYMENT';
@@ -204,57 +203,51 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     });
   };
 
-  if (finalItems && finalItems.length > 0) {
-    if (isExternal) {
-        const externalOrderRef = db.collection('external_orders').doc();
-        finalIdToReturn = externalOrderRef.id; // Correct ID to return
-        batch.set(externalOrderRef, {
-            patientId, patientName, ehrNumber: patientData.ehrNumber, hospitalId,
-            items: finalItems,
-            type: 'EXTERNAL_REQUEST', // Generic type
-            doctorName: request.auth.token.name,
-            doctorMDC: userProfile?.licenseNumber || 'N/A',
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+  // Internal prescriptions are billed
+  if (!isExternal && finalItems && finalItems.length > 0) {
+      const drugSkus = finalItems.map(p => p.sku).filter(Boolean);
+      if(drugSkus.length > 0) {
+        const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
+        drugsSnap.forEach(doc => {
+            const rxItem = finalItems.find(p => p.sku === doc.data().sku);
+            const qty = rxItem?.qty || 1;
+            createBillingItem(doc.data(), 'PHARMACY', qty);
         });
-    } else {
-        const drugSkus = finalItems.map(p => p.sku).filter(Boolean);
-        if(drugSkus.length > 0) {
-          const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
-          drugsSnap.forEach(doc => {
-              const rxItem = finalItems.find(p => p.sku === doc.data().sku);
-              const qty = rxItem?.qty || 1;
-              createBillingItem(doc.data(), 'PHARMACY', qty);
-          });
-        }
-    }
+      }
   }
 
-  if (labOrders && labOrders.length > 0) {
-    hasPendingLabs = !isExternal;
-    for (const order of labOrders) {
-      const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
-      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: isExternal ? 'REFERRED_OUT' : 'PENDING' });
-      if (!isExternal) createBillingItem(order, 'LABORATORY');
+  // Internal diagnostics are billed
+  if (!isExternal) {
+    if (labOrders && labOrders.length > 0) {
+      hasPendingLabs = true;
+      for (const order of labOrders) {
+        const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
+        batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+        createBillingItem(order, 'LABORATORY');
+      }
     }
-  }
-
-  if (radiologyOrders && radiologyOrders.length > 0) {
-    hasPendingScans = !isExternal;
-    for (const order of radiologyOrders) {
-      const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
-      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: isExternal ? 'REFERRED_OUT' : 'PENDING' });
-      if (!isExternal) createBillingItem(order, 'IMAGING');
+  
+    if (radiologyOrders && radiologyOrders.length > 0) {
+      hasPendingScans = true;
+      for (const order of radiologyOrders) {
+        const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
+        batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+        createBillingItem(order, 'IMAGING');
+      }
     }
   }
   
+  // Set the main encounter document in the top-level collection
   batch.set(encounterRef, {
-    id: encounterRef.id, patientId, hospitalId, patientName, type: encounterType,
+    id: encounterRef.id, patientId, hospitalId, patientName, ehrNumber: patientData.ehrNumber, type: encounterType,
     providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
+    doctorMDC: userProfile?.licenseNumber || 'N/A', // For external print
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    items: finalItems,
+    items: finalItems, prescription: finalItems, // Support both legacy and new field names
     labOrders: labOrders || [], 
     radiologyOrders: radiologyOrders || [],
     hasPendingLabs, hasPendingScans,
+    isExternal: isExternal || false,
     ...restOfEncounterData
   });
   
@@ -262,14 +255,17 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     status: 'Waiting for Doctor', lastVitals: fullVitals, updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
-  if (!serviceSnap.empty) {
-      createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
+  if (!isExternal) {
+      const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
+      if (!serviceSnap.empty) {
+          createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
+      }
   }
+
 
   try {
     await batch.commit();
-    return { success: true, encounterId: finalIdToReturn, message: 'Encounter created successfully.' };
+    return { success: true, encounterId: encounterRef.id, message: 'Encounter created successfully.' };
   } catch (error) {
     console.error("Encounter creation failed:", error);
     throw new HttpsError('internal', 'Failed to save encounter and billing data.');

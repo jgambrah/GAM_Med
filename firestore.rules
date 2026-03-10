@@ -158,22 +158,11 @@ service cloud.firestore {
       allow create: if isClinicalStaff(request.resource.data.hospitalId);
       allow update, delete, list: if false;
     }
-
-    // --- PUBLIC VERIFICATION ACCESS ---
-    match /external_orders/{orderId} {
-      // ALLOW anyone with the exact ID (from QR scan) to view the document
-      allow get: if true;
-      // DENY anyone from listing all orders (browsing)
-      allow list: if false;
-      // Creation is handled by a backend function, but this rule provides a failsafe.
-      allow create: if isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DOCTOR', 'DIRECTOR', 'SUPER_ADMIN']);
-      allow update, delete: if false; // Immutable once issued
-    }
     
     // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
     match /encounters/{encounterId} {
       allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isSignedIn() && (resource.data.providerUid == request.auth.uid || isStaffOfHospital(resource.data.hospitalId));
+      allow read: if isAnyStaff(resource.data.hospitalId); // Any staff from the hospital can read any encounter
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
