@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -69,6 +68,7 @@ function OnboardingForm() {
         onSubmit={handleOnboard} 
         isLoading={loading} 
         pricingPlans={pricingPlans || []}
+        initialValues={initialFormValues}
     />
   );
 }
@@ -78,7 +78,7 @@ export default function Page() {
     <div className="max-w-4xl mx-auto py-10 px-4">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 text-black tracking-tight">Provisioning Engine</h1>
-        <p className="text-slate-500">Initializing a new secure hospital instance.</p>
+        <p className="text-slate-500">Deploy a new, fully-isolated hospital tenant onto the GAM_Med platform.</p>
       </div>
 
       <Suspense fallback={<div className="p-10 text-center">Loading Lead Details...</div>}>

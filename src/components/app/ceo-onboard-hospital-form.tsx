@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -16,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Hospital, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useEffect } from 'react';
 
 const regions = [
     { value: 'AHA', label: 'Ahafo' },
@@ -45,16 +45,19 @@ const formSchema = z.object({
   subscriptionPlan: z.string({ required_error: "Please select a plan." }),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
 type OnboardHospitalFormProps = {
-  onSubmit: (data: z.infer<typeof formSchema>) => void;
+  onSubmit: (data: FormValues) => void;
   isLoading: boolean;
   pricingPlans: { id: string; name: string, monthlyPrice: number }[];
+  initialValues?: Partial<FormValues>;
 };
 
-export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans }: OnboardHospitalFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
+export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans, initialValues }: OnboardHospitalFormProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: initialValues || {
       hospitalName: '',
       directorName: '',
       directorEmail: '',
@@ -62,6 +65,12 @@ export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans }: On
       subscriptionPlan: 'PRO'
     },
   });
+
+  useEffect(() => {
+    if (initialValues) {
+      form.reset(initialValues);
+    }
+  }, [initialValues, form]);
 
   return (
     <Form {...form}>
