@@ -27,23 +27,30 @@ export default function HospitalLayout({
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
+  const isLoading = isUserLoading || isProfileLoading;
+
   useEffect(() => {
-    // Redirect unauthenticated users
-    if (!isUserLoading && !user) {
-      router.replace('/');
-      return;
-    }
-    
-    // Once we have the profile, check for password change requirement
-    if (userProfile && userProfile.mustChangePassword) {
-      // Prevent redirect loop if already on the change password page
-      if (pathname !== '/auth/force-password-change') {
+    // This effect handles the redirection logic after loading is complete
+    if (!isLoading) {
+      if (!user) {
+        router.replace('/');
+      } else if (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change') {
         router.replace('/auth/force-password-change');
       }
     }
-    
-  }, [user, isUserLoading, userProfile, router, pathname]);
+  }, [isLoading, user, userProfile, router, pathname]);
 
+  // This is the main guard. It shows a loader until we know for sure the user is authenticated and ready.
+  // It prevents child pages from rendering and attempting to fetch data while unauthenticated.
+  if (isLoading || !user || (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change')) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+      );
+  }
+
+  // --- Layout Routing ---
   const isSupplyChainRoute = pathname.startsWith('/supply-chain');
   const isAccountantRoute = pathname.startsWith('/accountant');
   const isFinanceRoute = pathname.startsWith('/finance');
@@ -56,19 +63,8 @@ export default function HospitalLayout({
   const isMortuaryRoute = pathname.startsWith('/mortuary');
 
 
-  // While checking auth state or profile, show a loader
-  // This also prevents a flash of content for users who will be redirected
-  if (isUserLoading || isProfileLoading || (userProfile && userProfile.mustChangePassword && pathname !== '/auth/force-password-change')) {
-      return (
-        <div className="flex h-screen w-full items-center justify-center bg-background">
-            <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </div>
-      );
-  }
-
-
-  // This is the router for specialized layouts.
-  // If the path matches, we render the children directly, because the specialized layout will be inside.
+  // If the path matches a specialized layout, render children directly within a basic container.
+  // The specialized layout component itself will provide the sidebar.
   if (isSupplyChainRoute || isAccountantRoute || isFinanceRoute || isHrRoute || isAuditorRoute || isPharmacyRoute || isRadiologyRoute || isLabRoute || isReceptionRoute || isMortuaryRoute) {
     return (
         <div className="flex min-h-screen bg-slate-50 text-slate-900">
@@ -78,7 +74,7 @@ export default function HospitalLayout({
     )
   }
 
-  // This is the default layout for Director, Doctor, Nurse, etc.
+  // This is the default layout for Director, Doctor, Nurse, etc., using the main DirectorSidebar.
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
         <DirectorSidebar userProfile={userProfile} />

@@ -5,7 +5,8 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { doc } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function CeoLayout({
   children,
@@ -17,40 +18,39 @@ export default function CeoLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  // Fetch the user's full profile from Firestore
   const userDocRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+  
+  const isLoading = isUserLoading || isProfileLoading;
 
   useEffect(() => {
-    // Redirect unauthenticated users
-    if (!isUserLoading && !user) {
-      router.replace('/');
-      return;
-    }
-    
-    // Once we have the profile, check for password change requirement
-    if (userProfile && userProfile.mustChangePassword) {
-      // Prevent redirect loop if already on the change password page
-      if (pathname !== '/auth/force-password-change') {
+    // This effect handles the redirection logic once loading is complete
+    if (!isLoading) {
+      if (!user) {
+        router.replace('/');
+      } else if (userProfile?.role !== 'SUPER_ADMIN') {
+        router.replace('/dashboard'); // Or a generic access denied page
+      } else if (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change') {
         router.replace('/auth/force-password-change');
       }
     }
-    
-  }, [user, isUserLoading, userProfile, router, pathname]);
+  }, [isLoading, user, userProfile, router, pathname]);
 
-  // While checking auth state or profile, show a loader
-  if (isUserLoading || isProfileLoading || (userProfile && userProfile.mustChangePassword && pathname !== '/auth/force-password-change')) {
-      return (
-        <div className="flex h-screen w-full items-center justify-center bg-[#0f172a]">
-            <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </div>
-      );
+  // While loading, or if conditions for redirection are met, show a loader.
+  // This prevents rendering children prematurely.
+  if (isLoading || !user || userProfile?.role !== 'SUPER_ADMIN' || (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change')) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0f172a]">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
   }
 
+  // If authorized and ready, render the layout
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-slate-200">
         <CeoSidebar />
