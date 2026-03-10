@@ -39,12 +39,9 @@ export default function ExternalOrderPrint() {
 
   if (!order) return <div className="p-20 text-center font-black">Order not found.</div>;
 
-  // SOLID FIX: Combine all items into one array to prevent 'undefined' error
-  const clinicalItems = [
-    ...(order.prescription || []),
-    ...(order.labOrders || []),
-    ...(order.radiologyOrders || []),
-  ];
+  // SOLID FIX 1: Collapse all possible names into one array to prevent 'undefined' error
+  const clinicalItems = order.items || order.prescription || order.externalList || [];
+
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8">
@@ -55,7 +52,7 @@ export default function ExternalOrderPrint() {
               <FileText size={18}/> A4 Standard
            </button>
            <button onClick={() => setPrintFormat('POS')} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${printFormat === 'POS' ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>
-              <Smartphone size={18}/> POS Paper
+              <Smartphone size={18}/> POS Receipt
            </button>
         </div>
         <button onClick={() => window.print()} className="bg-slate-900 text-white px-10 py-3 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-600 transition-all">
@@ -65,13 +62,13 @@ export default function ExternalOrderPrint() {
 
       <div className="flex justify-center">
         {printFormat === 'A4' ? (
-          /* --- A4 PROFESSIONAL LAYOUT --- */}
+          /* --- A4 PROFESSIONAL LAYOUT --- */
           <div className="w-[210mm] bg-white p-16 shadow-sm border font-serif min-h-[297mm] text-black">
              <div className="text-center border-b-4 border-black pb-6 mb-10">
                 <h1 className="text-4xl font-black uppercase tracking-tighter">{hospital?.name}</h1>
                 <p className="text-sm uppercase font-bold">{hospital?.region} Region, Ghana</p>
                 <div className="bg-black text-white px-10 py-1 mt-4 inline-block text-sm font-black uppercase tracking-[0.3em]">
-                   Official Medical Order
+                   {order.isExternal ? 'EXTERNAL CLINICAL REQUEST' : 'PRESCRIPTION'}
                 </div>
              </div>
              
@@ -86,12 +83,11 @@ export default function ExternalOrderPrint() {
                       <div key={i} className="border-l-8 border-blue-600 pl-6 py-2">
                          <p className="font-black text-2xl uppercase italic">
                             {item.name} 
-                            {/* SOLID FIX 2: Only show brackets if strength is NOT empty and NOT just a space */}
-                            {item.strength && item.strength.trim().length > 0 ? ` (${item.strength})` : ''} 
+                            {item.strength && item.strength.trim() !== "" ? ` (${item.strength})` : ""} 
                          </p>
-                         {(item.instruction || item.dosage || item.indication) && (
-                            <p className="text-lg font-medium text-slate-700 mt-2 uppercase tracking-wide">
-                               👉 {item.instruction || item.dosage || item.indication}
+                         {(item.instruction || item.dosage) && (
+                            <p className="text-lg font-medium text-slate-700 mt-1 uppercase">
+                               {item.instruction || item.dosage}
                             </p>
                          )}
                       </div>
@@ -106,13 +102,13 @@ export default function ExternalOrderPrint() {
                    <p className="text-[10px] font-bold text-slate-400">Medical Officer (GamMed Authenticated)</p>
                 </div>
                 <div className="text-center">
-                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${order.id}`} size={100} />
+                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${encounterId}`} size={100} />
                    <p className="text-[8px] font-black uppercase mt-2">Scan to Verify</p>
                 </div>
              </div>
           </div>
         ) : (
-          /* --- POS THERMAL LAYOUT --- */}
+          /* --- POS THERMAL LAYOUT --- */
           <div className="w-[80mm] bg-white p-6 shadow-sm border-2 border-slate-200 font-mono text-black">
              <div className="text-center border-b-2 border-black pb-4 mb-4">
                 <h2 className="text-lg font-black uppercase leading-tight">{hospital?.name}</h2>
@@ -122,22 +118,22 @@ export default function ExternalOrderPrint() {
              <div className="text-[11px] mb-6 space-y-1 font-bold">
                 <p>DATE: {order.createdAt ? new Date(order.createdAt?.toDate()).toLocaleDateString() : 'N/A'}</p>
                 <p>PATIENT: {order.patientName?.toUpperCase()}</p>
-                <p>REF: {order.id?.slice(0,8).toUpperCase()}</p>
+                <p>REF: {typeof encounterId === 'string' ? encounterId.slice(0, 8).toUpperCase() : ''}</p>
              </div>
              <div className="border-y-2 border-black py-4 space-y-5">
                 {clinicalItems.map((item: any, i: number) => (
                    <div key={i} className="space-y-1">
                       <p className="font-black text-sm uppercase"># {item.name} {item.strength && item.strength.trim().length > 0 ? `(${item.strength})` : ''}</p>
-                      {(item.instruction || item.dosage || item.indication) && (
-                         <p className="text-[11px] italic pl-4">>> {item.instruction || item.dosage || item.indication}</p>
+                      {(item.instruction || item.dosage) && (
+                         <p className="text-[11px] italic pl-4">>> {item.instruction || item.dosage}</p>
                       )}
                    </div>
                 ))}
              </div>
              <div className="mt-6 text-center space-y-6">
-                <p className="text-[11px] font-black italic">SIGNED: DR. {order.providerName?.toUpperCase()}</p>
+                <p className="text-[11px] font-black italic">SIGNED: DR. {(order.providerName).toUpperCase()}</p>
                 <div className="flex justify-center bg-slate-50 p-4 rounded-2xl">
-                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${order.id}`} size={120} />
+                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${encounterId}`} size={120} />
                 </div>
                 <p className="text-[8px] font-black uppercase tracking-widest">Verify authenticity via QR Code</p>
                 <div className="border-t border-dashed pt-4">

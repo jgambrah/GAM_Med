@@ -1,42 +1,29 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { ShieldCheck, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function PublicOrderVerification() {
   const { id } = useParams();
-  const [order, setOrder] = useState<any>(null);
-  const [hospital, setHospital] = useState<any>(null);
-  const [status, setStatus] = useState<'loading' | 'valid' | 'invalid'>('loading');
   const firestore = useFirestore();
+  
+  const orderRef = useMemoFirebase(() => {
+    if (!firestore || !id) return null;
+    // The public link points to the globally accessible 'external_orders' collection
+    return doc(firestore, 'external_orders', id as string);
+  }, [firestore, id]);
+  const { data: order, isLoading: isOrderLoading } = useDoc(orderRef);
 
-  useEffect(() => {
-    if (!firestore || !id) {
-        if (!id) setStatus('invalid');
-        return;
-    };
+  const hospitalRef = useMemoFirebase(() => {
+    if (!firestore || !order?.hospitalId) return null;
+    return doc(firestore, 'hospitals', order.hospitalId);
+  }, [firestore, order]);
+  const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
-    const verify = async () => {
-      try {
-        const snap = await getDoc(doc(firestore, "external_orders", id as string));
-        if (snap.exists()) {
-          const data = snap.data();
-          setOrder(data);
-          const hSnap = await getDoc(doc(firestore, "hospitals", data.hospitalId));
-          setHospital(hSnap.exists() ? hSnap.data() : { name: "Unknown Facility" });
-          setStatus('valid');
-        } else {
-          setStatus('invalid');
-        }
-      } catch(e) {
-        console.error("Verification failed:", e);
-        setStatus('invalid');
-      }
-    };
-    verify();
-  }, [id, firestore]);
+  const status = isOrderLoading ? 'loading' : order ? 'valid' : 'invalid';
 
   if (status === 'loading') return (
     <div className="h-screen flex items-center justify-center font-black animate-pulse">
@@ -60,7 +47,7 @@ export default function PublicOrderVerification() {
         <div className="bg-green-600 p-8 text-white text-center">
            <CheckCircle2 size={48} className="mx-auto mb-2" />
            <h2 className="text-2xl font-black uppercase tracking-tighter">Verified Order</h2>
-           <p className="text-[10px] font-bold uppercase opacity-80">Authenticated by {hospital.name}</p>
+           <p className="text-[10px] font-bold uppercase opacity-80">Authenticated by {hospital?.name}</p>
         </div>
 
         <div className="p-8 space-y-6">
@@ -82,10 +69,10 @@ export default function PublicOrderVerification() {
            {/* PRESCRIBED ITEMS */}
            <div className="space-y-3">
               <p className="text-[10px] font-black text-slate-400 uppercase">Authenticated Items</p>
-              {order.items.map((item: any, i: number) => (
+              {(order.items || []).map((item: any, i: number) => (
                 <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
                    <span className="text-xs font-black uppercase">{item.name}</span>
-                   <span className="text-[10px] font-bold text-blue-600">{item.dosage}</span>
+                   <span className="text-[10px] font-bold text-blue-600">{item.dosage || item.instruction}</span>
                 </div>
               ))}
            </div>
