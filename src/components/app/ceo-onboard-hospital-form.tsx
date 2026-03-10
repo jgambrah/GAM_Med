@@ -43,6 +43,8 @@ const formSchema = z.object({
   directorEmail: z.string().email({ message: "A valid director email is required." }),
   mrnPrefix: z.string().min(2, "MRN Prefix is required.").max(5, "Prefix is too long."),
   subscriptionPlan: z.string({ required_error: "Please select a plan." }),
+  monthlyRateNumeric: z.coerce.number(),
+  monthlyRateWords: z.string().min(10, { message: 'Please write the full amount in words for verification.' }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -62,116 +64,185 @@ export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans, init
       directorName: '',
       directorEmail: '',
       mrnPrefix: '',
-      subscriptionPlan: 'PRO'
+      subscriptionPlan: 'PRO',
+      monthlyRateNumeric: 5000,
+      monthlyRateWords: '',
     },
   });
+
+  const selectedPlanId = form.watch('subscriptionPlan');
+
+  useEffect(() => {
+    const selectedPlan = pricingPlans.find(p => p.id === selectedPlanId);
+    if (selectedPlan) {
+        form.setValue('monthlyRateNumeric', selectedPlan.monthlyPrice);
+    }
+  }, [selectedPlanId, pricingPlans, form]);
 
   useEffect(() => {
     if (initialValues) {
       form.reset(initialValues);
+      const initialPlan = pricingPlans.find(p => p.id === initialValues.subscriptionPlan);
+      if (initialPlan) {
+        form.setValue('monthlyRateNumeric', initialPlan.monthlyPrice);
+      }
     }
-  }, [initialValues, form]);
+  }, [initialValues, form, pricingPlans]);
+
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-        <FormField
-          control={form.control}
-          name="hospitalName"
-          render={({ field }) => (
-            <FormItem className="md:col-span-2">
-              <FormLabel>Hospital Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Korle Bu Teaching Hospital" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-         <FormField
-          control={form.control}
-          name="region"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Region</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+            control={form.control}
+            name="hospitalName"
+            render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                <FormLabel>Hospital Name</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a region" />
-                  </SelectTrigger>
+                    <Input placeholder="e.g., Korle Bu Teaching Hospital" {...field} />
                 </FormControl>
-                <SelectContent>
-                  {regions.map((region) => (
-                    <SelectItem key={region.value} value={region.value}>{region.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-         <FormField
-          control={form.control}
-          name="mrnPrefix"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>MRN Prefix</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., KATH" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="directorName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Director's Full Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Dr. Jane Doe" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-         <FormField
-          control={form.control}
-          name="directorEmail"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Director's Email</FormLabel>
-              <FormControl>
-                <Input type="email" placeholder="director@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="subscriptionPlan"
-          render={({ field }) => (
-            <FormItem className="md:col-span-2">
-              <FormLabel>Subscription Plan</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="region"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Region</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a region" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                    {regions.map((region) => (
+                        <SelectItem key={region.value} value={region.value}>{region.label}</SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="mrnPrefix"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>MRN Prefix</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a plan" />
-                  </SelectTrigger>
+                    <Input placeholder="e.g., KATH" {...field} />
                 </FormControl>
-                <SelectContent>
-                  {pricingPlans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>{plan.name} (GHS {plan.monthlyPrice}/mo)</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" className="w-full md:col-span-2" disabled={isLoading}>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="directorName"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Director's Full Name</FormLabel>
+                <FormControl>
+                    <Input placeholder="e.g., Dr. Jane Doe" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="directorEmail"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Director's Email</FormLabel>
+                <FormControl>
+                    <Input type="email" placeholder="director@example.com" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="subscriptionPlan"
+            render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                <FormLabel>Subscription Plan</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a plan" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                    {pricingPlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>{plan.name} (GHS {plan.monthlyPrice}/mo)</SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+        </div>
+
+        <div className="mt-8 p-8 bg-slate-900 rounded-[40px] border-4 border-blue-600 shadow-2xl space-y-6">
+            <h3 className="text-xl font-black uppercase italic text-blue-400 border-b border-slate-800 pb-4">
+                Financial Authorization
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                    control={form.control}
+                    name="monthlyRateNumeric"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-black text-slate-500 uppercase">Numerical Rate (₵)</FormLabel>
+                            <FormControl>
+                                <Input 
+                                    type="number" 
+                                    className="w-full p-4 bg-slate-800 border-none rounded-2xl text-white font-black text-2xl"
+                                    {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="monthlyRateWords"
+                    render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                            <FormLabel className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                                Subscription Amount in Words (Legal Verification)
+                            </FormLabel>
+                            <FormControl>
+                                <Input 
+                                    required
+                                    placeholder="e.g. FIVE THOUSAND GHANA CEDIS ONLY"
+                                    className="w-full p-4 bg-slate-800 border-2 border-blue-900 focus:border-blue-500 rounded-2xl text-white font-bold uppercase italic outline-none transition-all mt-1"
+                                    {...field}
+                                    onChange={e => field.onChange(e.target.value.toUpperCase())}
+                                />
+                            </FormControl>
+                             <FormMessage />
+                             <p className="text-[8px] text-slate-500 mt-2 italic font-medium">
+                                * As the CEO, typing the amount in words serves as your formal authorization of this contract value.
+                             </p>
+                        </FormItem>
+                    )}
+                />
+            </div>
+        </div>
+
+        <Button type="submit" className="w-full h-14 text-base" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
