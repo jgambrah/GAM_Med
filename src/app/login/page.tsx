@@ -30,10 +30,14 @@ export default function LoginPage() {
                 return;
             }
             
-            const userRole = userProfile.role;
+            // THE SOLID FIX: Explicit redirect for SUPER_ADMIN
+            if (userProfile.role === 'SUPER_ADMIN') {
+                router.replace('/app-ceo/dashboard');
+                return;
+            }
 
+            // Default route for other hospital staff
             const portalRoutes: { [key: string]: string } = {
-                'SUPER_ADMIN': '/app-ceo/dashboard',
                 'DIRECTOR': '/dashboard',
                 'ADMIN': '/dashboard',
                 'HR_MANAGER': '/hr',
@@ -47,8 +51,9 @@ export default function LoginPage() {
                 'CASHIER': '/finance/billing',
                 'STORE_MANAGER': '/supply-chain',
             };
-            const destination = userRole ? portalRoutes[userRole] : '/dashboard';
-            router.replace(destination || '/dashboard');
+            const destination = portalRoutes[userProfile.role] || '/dashboard';
+            router.replace(destination);
+
         }).catch(error => {
             console.error("Error fetching user profile on login:", error);
         });

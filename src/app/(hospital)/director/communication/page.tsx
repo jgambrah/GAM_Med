@@ -19,14 +19,6 @@ export default function CommunicationHub() {
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  useEffect(() => {
-    // Redirect SUPER_ADMIN away from this hospital-specific page
-    if (userProfile && userProfile.role === 'SUPER_ADMIN') {
-        toast({ title: "Redirecting...", description: "Accessing global dashboards instead." });
-        router.replace('/app-ceo/dashboard');
-    }
-  }, [userProfile, router, toast]);
-
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN'].includes(userRole || '');
@@ -45,7 +37,7 @@ export default function CommunicationHub() {
 
   const isLoading = isUserLoading || isProfileLoading;
 
-  if (isLoading || userProfile?.role === 'SUPER_ADMIN') {
+  if (isLoading) {
     return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   }
 

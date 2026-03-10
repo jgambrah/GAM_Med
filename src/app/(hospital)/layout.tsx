@@ -34,6 +34,9 @@ export default function HospitalLayout({
     if (!isLoading) {
       if (!user) {
         router.replace('/');
+      } else if (userProfile?.role === 'SUPER_ADMIN') {
+        // THE SOLID FIX: A SUPER_ADMIN should not be in the hospital layout.
+        router.replace('/app-ceo/dashboard');
       } else if (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change') {
         router.replace('/auth/force-password-change');
       }
@@ -42,7 +45,7 @@ export default function HospitalLayout({
 
   // This is the main guard. It shows a loader until we know for sure the user is authenticated and ready.
   // It prevents child pages from rendering and attempting to fetch data while unauthenticated.
-  if (isLoading || !user || (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change')) {
+  if (isLoading || !user || userProfile?.role === 'SUPER_ADMIN' || (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change')) {
       return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
