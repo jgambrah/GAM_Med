@@ -200,6 +200,11 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const removeScan = (indexToRemove: number) => {
     setImagingOrders(imagingOrders.filter((_, index) => index !== indexToRemove));
   };
+  
+  // Clear lists when toggling between internal/external to prevent mix-ups
+  useEffect(() => { setPrescription([]); }, [isPrescriptionExternal]);
+  useEffect(() => { setLabOrders([]); }, [isLabExternal]);
+  useEffect(() => { setImagingOrders([]); }, [isRadiologyExternal]);
 
 
   const form = useForm<EncounterFormValues>({
@@ -247,9 +252,9 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         patientId,
         hospitalId,
         patientName,
-        prescription,
-        labOrders,
-        radiologyOrders: imagingOrders,
+        prescription: prescription || [],
+        labOrders: labOrders || [],
+        radiologyOrders: imagingOrders || [],
         isPrescriptionExternal,
         isLabExternal,
         isRadiologyExternal,
@@ -577,7 +582,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   );
 }
 
-function VitalInput({ control, name, label, icon: Icon }: any) {
+function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
     return (
         <FormField
             control={control}
@@ -592,6 +597,7 @@ function VitalInput({ control, name, label, icon: Icon }: any) {
                             type="text" 
                             className="rounded-xl text-card-foreground font-black text-center"
                             {...field}
+                            disabled={disabled}
                         />
                     </FormControl>
                 </FormItem>
