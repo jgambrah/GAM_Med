@@ -60,7 +60,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   // Standardized states
   const [isExternal, setIsExternal] = useState(false);
-  const [items, setItems] = useState<any[]>([]); // Standardized list for all items
+  const [items, setItems] = useState<any[]>([]);
 
   // States for external free-text input
   const [extItemName, setExtItemName] = useState('');
@@ -178,7 +178,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         patientId,
         hospitalId,
         patientName,
-        items: items || [], // Standardized name, fallback to empty array
+        items: items || [], // Standardized name
         isExternal: isExternal,
       };
 
@@ -187,7 +187,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
       if (result.data.success) {
         toast({ title: "Encounter Logged Successfully" });
         // Redirect to the print page
-        router.push(`/doctor/external-print/${result.data.encounterId}?hospitalId=${hospitalId}&patientId=${patientId}`);
+        router.push(`/doctor/external-print/${result.data.documentId}`);
       } else {
          throw new Error(result.data.message || "Failed to create encounter.");
       }
@@ -301,10 +301,10 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                   <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[32px] border-2 border-dashed border-slate-200">
                       <div>
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Type Item Name</label>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Item/Drug/Test Name</label>
                         <input 
                           className="w-full p-4 rounded-2xl border-none shadow-sm text-black font-bold"
-                          placeholder="e.g. MRI Scan / Ciprofloxacin"
+                          placeholder="e.g. MRI Brain with Contrast"
                           value={extItemName}
                           onChange={(e) => setExtItemName(e.target.value)}
                         />
@@ -331,7 +331,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <ProductSearchDropdown catalog={catalog || []} onSelect={(p) => addCatalogItem(p)} />
+                    <ProductSearchDropdown catalog={catalog || []} onSelect={addCatalogItem} />
                   </div>
                 )}
                 
@@ -385,4 +385,4 @@ function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
         />
     );
 }
-    
+

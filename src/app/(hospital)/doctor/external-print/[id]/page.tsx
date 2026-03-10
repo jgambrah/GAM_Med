@@ -80,7 +80,7 @@ export default function ExternalOrderPrint() {
                       <div key={i} className="border-l-8 border-blue-600 pl-6 py-2">
                          <p className="font-black text-2xl uppercase italic">
                             {item.name} 
-                            {item.strength && item.strength.trim() !== "" ? ` (${item.strength})` : ""} 
+                            {item.strength && item.strength.trim().length > 0 ? ` (${item.strength})` : ''} 
                          </p>
                          {(item.instruction || item.dosage) && (
                             <p className="text-lg font-medium text-slate-700 mt-1 uppercase">
@@ -122,7 +122,7 @@ export default function ExternalOrderPrint() {
                    <div key={i} className="space-y-1">
                       <p className="font-black text-sm uppercase"># {item.name} {item.strength && item.strength.trim().length > 0 ? `(${item.strength})` : ''}</p>
                       {(item.instruction || item.dosage) && (
-                         <p className="text-[11px] italic pl-4">{'>>'} {item.instruction || item.dosage}</p>
+                         <p className="text-[11px] italic pl-4">&gt;&gt; {item.instruction || item.dosage}</p>
                       )}
                    </div>
                 ))}
