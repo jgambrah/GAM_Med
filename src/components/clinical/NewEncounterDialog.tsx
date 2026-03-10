@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -60,6 +61,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
+  const firestore = useFirestore();
 
   // State Management
   const [isExternal, setIsExternal] = useState(false);
@@ -76,8 +78,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userProfile } = useDoc(userProfileRef);
-
-  const firestore = useFirestore();
 
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -184,15 +184,12 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
       const result: any = await createEncounter(payload);
   
-      if (result.data.success && result.data.encounterId) {
+      if (result.data.success && result.data.documentId) {
         toast({ title: "EHR Record Committed" });
         
-        // This is the standardized logic
         if (isExternal) {
-            // Redirect to the external print page, which looks at the 'encounters' collection
-            router.push(`/doctor/external-print/${result.data.encounterId}`);
+            router.push(`/doctor/external-print/${result.data.documentId}`);
         } else {
-            // For internal orders, we just close the dialog.
             setOpen(false);
             form.reset();
             setItems([]);
@@ -201,7 +198,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         }
 
       } else {
-        throw new Error(result.data.message || 'Cloud function did not return a success status or encounterId.');
+        throw new Error(result.data.message || 'Cloud function did not return a success status or ID.');
       }
     } catch (e: any) {
       console.error("Encounter submission failed:", e);
@@ -451,3 +448,5 @@ function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, o
     </div>
   );
 }
+
+    
