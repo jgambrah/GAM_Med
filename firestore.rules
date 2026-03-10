@@ -541,7 +541,8 @@ service cloud.firestore {
       }
 
       match /product_catalog/{productId} {
-        allow get, create, delete, list, update: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
       }
 
       match /suppliers/{supplierId} {
@@ -622,5 +623,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
