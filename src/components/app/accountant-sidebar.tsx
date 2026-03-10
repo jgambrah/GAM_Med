@@ -41,6 +41,7 @@ const menuGroups = [
       { name: "Accounts Payable", href: "/accountant/payable", icon: Landmark },
       { name: "Payer Registry", href: "/finance/receivables", icon: Building2 },
       { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp },
+      { name: "Institutional Schedule", href: "/finance/reports/institutional-schedule", icon: FileText },
       { name: "Billing Console", href: "/finance/billing", icon: CreditCard },
       { name: "Till Management", href: "/finance/till-management", icon: Lock },
       { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText },
@@ -124,5 +125,3 @@ export function AccountantSidebar() {
     </aside>
   );
 }
-
-    
