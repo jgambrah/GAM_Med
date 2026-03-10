@@ -148,10 +148,14 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   }
 
   const { 
-    patientId, patientName, vitals, encounterType, prescription, labOrders, radiologyOrders, 
-    isPrescriptionExternal, isLabExternal, isRadiologyExternal,
+    patientId, patientName, vitals, encounterType, 
+    prescription = [], labOrders = [], radiologyOrders = [], 
+    items, // Standardized field
+    isExternal, // Single flag
     ...restOfEncounterData 
   } = request.data;
+  
+  const finalItems = items || prescription || [];
   
   const hospitalId = request.auth.token.hospitalId;
 
@@ -200,24 +204,24 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     });
   };
 
-  if (prescription && prescription.length > 0) {
-    if (isPrescriptionExternal) {
+  if (finalItems && finalItems.length > 0) {
+    if (isExternal) {
         const externalOrderRef = db.collection('external_orders').doc();
         externalOrderIds.prescription = externalOrderRef.id;
         batch.set(externalOrderRef, {
             patientId, patientName, ehrNumber: patientData.ehrNumber, hospitalId,
-            items: prescription,
-            type: 'PRESCRIPTION',
+            items: finalItems, // Use the standardized list
+            type: 'EXTERNAL_REQUEST', // Generic type
             doctorName: request.auth.token.name,
             doctorMDC: userProfile?.licenseNumber || 'N/A',
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
     } else {
-        const drugSkus = prescription.map(p => p.sku).filter(Boolean);
+        const drugSkus = finalItems.map(p => p.sku).filter(Boolean);
         if(drugSkus.length > 0) {
           const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
           drugsSnap.forEach(doc => {
-              const rxItem = prescription.find(p => p.sku === doc.data().sku);
+              const rxItem = finalItems.find(p => p.sku === doc.data().sku);
               const qty = rxItem?.qty || 1;
               createBillingItem(doc.data(), 'PHARMACY', qty);
           });
@@ -226,38 +230,20 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   }
 
   if (labOrders && labOrders.length > 0) {
-    hasPendingLabs = !isLabExternal;
-    if (isLabExternal) {
-        const externalOrderRef = db.collection('external_orders').doc();
-        externalOrderIds.lab = externalOrderRef.id;
-        batch.set(externalOrderRef, {
-            patientId, patientName, ehrNumber: patientData.ehrNumber, hospitalId,
-            items: labOrders, type: 'LABORATORY', doctorName: request.auth.token.name,
-            doctorMDC: userProfile?.licenseNumber || 'N/A', createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-    }
+    hasPendingLabs = !isExternal;
     for (const order of labOrders) {
       const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
-      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: isLabExternal ? 'REFERRED_OUT' : 'PENDING' });
-      if (!isLabExternal) createBillingItem(order, 'LABORATORY');
+      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: isExternal ? 'REFERRED_OUT' : 'PENDING' });
+      if (!isExternal) createBillingItem(order, 'LABORATORY');
     }
   }
 
   if (radiologyOrders && radiologyOrders.length > 0) {
-    hasPendingScans = !isRadiologyExternal;
-    if (isRadiologyExternal) {
-        const externalOrderRef = db.collection('external_orders').doc();
-        externalOrderIds.imaging = externalOrderRef.id;
-        batch.set(externalOrderRef, {
-            patientId, patientName, ehrNumber: patientData.ehrNumber, hospitalId,
-            items: radiologyOrders, type: 'IMAGING', doctorName: request.auth.token.name,
-            doctorMDC: userProfile?.licenseNumber || 'N/A', createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-    }
+    hasPendingScans = !isExternal;
     for (const order of radiologyOrders) {
       const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
-      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: isRadiologyExternal ? 'REFERRED_OUT' : 'PENDING' });
-      if (!isRadiologyExternal) createBillingItem(order, 'IMAGING');
+      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: isExternal ? 'REFERRED_OUT' : 'PENDING' });
+      if (!isExternal) createBillingItem(order, 'IMAGING');
     }
   }
   
@@ -265,7 +251,9 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     id: encounterRef.id, patientId, hospitalId, patientName, type: encounterType,
     providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    prescription: prescription || [], labOrders: labOrders || [], radiologyOrders: radiologyOrders || [],
+    items: finalItems, // Save the standardized 'items'
+    labOrders: labOrders || [], 
+    radiologyOrders: radiologyOrders || [],
     hasPendingLabs, hasPendingScans,
     ...restOfEncounterData
   });
@@ -644,5 +632,6 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
 
 
