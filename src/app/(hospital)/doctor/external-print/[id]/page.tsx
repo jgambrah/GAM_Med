@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Printer, FileText, Smartphone, ArrowLeft, ShieldCheck, Landmark, Loader2, Stethoscope, MapPin } from 'lucide-react';
+import { Printer, FileText, Smartphone, ArrowLeft, ShieldCheck, Landmark, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -45,6 +45,8 @@ export default function ExternalOrderPrint() {
 
   if (!order) return <div className="p-20 text-center font-black">Order not found.</div>;
 
+  const clinicalItems = order.items || order.prescription || [];
+
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8">
       <div className="max-w-4xl mx-auto mb-8 print:hidden bg-white p-6 rounded-[32px] shadow-xl border-4 border-slate-900 flex justify-between items-center">
@@ -69,7 +71,7 @@ export default function ExternalOrderPrint() {
 
       <div className="flex justify-center">
         {printFormat === 'A4' ? (
-          <div className="w-[210mm] bg-white p-12 shadow-sm border font-serif min-h-[297mm]">
+          <div className="w-[210mm] bg-white p-12 shadow-sm border font-serif min-h-[297mm] text-black">
              <div className="text-center border-b-4 border-black pb-4 mb-8">
                 <h1 className="text-3xl font-black uppercase">{hospital?.name}</h1>
                 <p className="text-xs uppercase font-bold">{hospital?.region} Region, Ghana</p>
@@ -95,10 +97,17 @@ export default function ExternalOrderPrint() {
                    'Dx: Imaging Requests'}
                 </p>
                 <div className="space-y-4">
-                   {order.items?.map((item: any, i: number) => (
+                   {clinicalItems?.map((item: any, i: number) => (
                       <div key={i} className="border-l-4 border-blue-600 pl-4 py-1">
-                         <p className="font-black text-lg uppercase italic">{item.name}</p>
-                         <p className="text-sm font-medium">{item.instruction || item.dosage}</p>
+                         <p className="font-black text-lg uppercase italic">
+                            {item.name} 
+                            {item.strength ? ` (${item.strength})` : ''} 
+                         </p>
+                         {(item.instruction || item.dosage) && (
+                            <p className="text-sm font-medium text-slate-600 mt-1">
+                                {item.instruction || `${item.dosage}, ${item.frequency} for ${item.duration}`}
+                            </p>
+                         )}
                       </div>
                    ))}
                 </div>
@@ -125,10 +134,12 @@ export default function ExternalOrderPrint() {
                 <p>ID: {(id as string)?.slice(0,8).toUpperCase()}</p>
              </div>
              <div className="border-y border-black py-2 space-y-3">
-                {order.items?.map((item: any, i: number) => (
+                {clinicalItems?.map((item: any, i: number) => (
                    <div key={i} className="space-y-1">
-                      <p className="font-black text-xs uppercase">* {item.name}</p>
-                      <p className="text-[10px] italic pl-3">{item.instruction || item.dosage}</p>
+                      <p className="font-black text-xs uppercase">* {item.name} {item.strength ? `(${item.strength})` : ''}</p>
+                      {(item.instruction || item.dosage) && (
+                        <p className="text-[10px] italic pl-3">>> {item.instruction || `${item.dosage}, ${item.frequency} for ${item.duration}`}</p>
+                      )}
                    </div>
                 ))}
              </div>
@@ -146,3 +157,5 @@ export default function ExternalOrderPrint() {
     </div>
   );
 }
+
+    
