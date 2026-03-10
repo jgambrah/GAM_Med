@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -66,6 +67,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   const [drugSearch, setDrugSearch] = useState('');
   const [prescription, setPrescription] = useState<any[]>([]);
+  const [isPrescriptionExternal, setIsPrescriptionExternal] = useState(false);
   
   const [labSearch, setLabSearch] = useState('');
   const [labOrders, setLabOrders] = useState<any[]>([]);
@@ -228,11 +230,19 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         prescription,
         labOrders,
         radiologyOrders: imagingOrders,
+        isPrescriptionExternal,
+        isLabExternal,
+        isRadiologyExternal,
     };
 
     try {
       const encounterResult: any = await createEncounter(payload);
-
+      
+      const { externalOrderIds } = encounterResult.data;
+      if (externalOrderIds.prescription) window.open(`/doctor/external-print/${externalOrderIds.prescription}`);
+      if (externalOrderIds.lab) window.open(`/doctor/external-print/${externalOrderIds.lab}`);
+      if (externalOrderIds.imaging) window.open(`/doctor/external-print/${externalOrderIds.imaging}`);
+      
        // CRITICAL VITALS ALERT LOGIC
       const temp = parseFloat(values.vitals?.temp || '0');
       const spo2 = parseFloat(values.vitals?.spo2 || '100'); // Default to safe value
@@ -396,7 +406,18 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                 <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
                     <Pill size={16} /> Digital Prescription
                 </h3>
-                
+                <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100 mb-4">
+                    <input
+                        type="checkbox"
+                        id="prescription-external-toggle"
+                        className="w-5 h-5 rounded accent-amber-600"
+                        checked={isPrescriptionExternal}
+                        onChange={(e) => setIsPrescriptionExternal(e.target.checked)}
+                    />
+                    <label htmlFor="prescription-external-toggle" className="text-[10px] font-black uppercase text-amber-700">
+                        External Prescription (Skip Internal Billing/Dispensing)
+                    </label>
+                </div>
                 <div className="relative">
                     <Search className="absolute left-3 top-3 text-muted-foreground" size={16} />
                     <Input 
@@ -575,3 +596,4 @@ function VitalInput({ control, name, label, icon: Icon }: any) {
         />
     );
 }
+

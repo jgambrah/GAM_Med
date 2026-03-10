@@ -1,6 +1,23 @@
 
 {
   "entities": {
+    "ExternalOrder": {
+      "title": "External Clinical Order",
+      "description": "A printable document for services or prescriptions to be fulfilled by an external facility.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "ehrNumber": { "type": "string" },
+        "hospitalId": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "type": { "type": "string", "enum": ["PRESCRIPTION", "LABORATORY", "IMAGING"] },
+        "doctorName": { "type": "string" },
+        "doctorMDC": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "hospitalId", "items", "type", "doctorName"]
+    },
     "Referral": {
       "title": "Clinical Referral",
       "description": "A formal handover document for transferring a patient to another facility.",
@@ -2943,7 +2960,8 @@
             "PENDING",
             "COMPLETED",
             "CANCELLED",
-            "IMAGE_READY"
+            "IMAGE_READY",
+            "REFERRED_OUT"
           ]
         },
         "findings": {
@@ -3096,7 +3114,8 @@
           "enum": [
             "PENDING",
             "COMPLETED",
-            "CANCELLED"
+            "CANCELLED",
+            "REFERRED_OUT"
           ]
         },
         "resultValue": {
@@ -3297,6 +3316,10 @@
         "role": {
           "type": "string",
           "description": "The user's designated role (e.g., 'AppCEO', 'HospitalDirector', 'HR', 'Doctor', 'RADIOLOGIST')."
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "The user's professional license number (e.g. from MDC)."
         },
         "phoneNumber": {
           "type": "string",
@@ -4432,6 +4455,13 @@
   "firestore": {
     "structure": [
        {
+        "path": "/external_orders/{orderId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/ExternalOrder" },
+          "description": "Global collection for printable external orders (prescriptions, labs, scans)."
+        }
+      },
+       {
         "path": "/referrals/{referralId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/Referral" },
@@ -5114,3 +5144,4 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
+
