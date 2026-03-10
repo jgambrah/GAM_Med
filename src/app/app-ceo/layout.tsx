@@ -32,7 +32,7 @@ export default function CeoLayout({
     if (!isLoading) {
       if (!user) {
         router.replace('/');
-      } else if (userProfile?.role !== 'SUPER_ADMIN') {
+      } else if (userProfile && userProfile.role !== 'SUPER_ADMIN') {
         router.replace('/dashboard'); // Or a generic access denied page
       } else if (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change') {
         router.replace('/auth/force-password-change');
