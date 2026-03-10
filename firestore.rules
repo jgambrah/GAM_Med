@@ -124,10 +124,6 @@ service cloud.firestore {
         allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
 
-    match /{path=**}/encounters/{encounterId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
-    }
-
     match /{path=**}/lab_orders/{orderId} {
       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
     }
@@ -148,6 +144,10 @@ service cloud.firestore {
       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
 
+    match /{path=**}/encounters/{encounterId} {
+        allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+    }
+
 
     // --------------------------------
     // Global Platform Collections
@@ -165,9 +165,16 @@ service cloud.firestore {
       allow get: if true;
       // DENY anyone from listing all orders (browsing)
       allow list: if false;
-      // Only Doctors or CEO can create these
-      allow create: if request.auth != null && request.auth.token.role in ['DOCTOR', 'SUPER_ADMIN'];
+      // Creation is handled by a backend function, but this rule provides a failsafe.
+      allow create: if isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DOCTOR', 'DIRECTOR', 'SUPER_ADMIN']);
       allow update, delete: if false; // Immutable once issued
+    }
+    
+    // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
+    match /encounters/{encounterId} {
+      allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
+      allow read: if isClinicalStaff(resource.data.hospitalId);
+      allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
     match /nhis_batches/{batchId} {
