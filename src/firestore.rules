@@ -35,12 +35,12 @@ service cloud.firestore {
       let userData = getCallingUserData();
       let token = request.auth.token;
       
-      let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
       let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
 
       return isSuperAdmin() || (
         isSignedIn() 
-            && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
+            && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
             && (hasRoleInToken || hasRoleInDb)
       );
     }
@@ -48,42 +48,62 @@ service cloud.firestore {
     function isAuditorRole(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
       let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
 
-      return isSignedIn() 
-          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
-          && (hasRoleInToken || hasRoleInDb);
+      return isSuperAdmin() || (
+        isSignedIn() 
+          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+          && (hasRoleInToken || hasRoleInDb)
+      );
+    }
+    
+    function isPayerAuditor() {
+      return isSignedIn() && request.auth.token.role == 'PAYER_AUDITOR';
     }
 
     function isClinicalStaff(hospitalId) {
       let userData = getCallingUserData();
-       let token = request.auth.token;
-      let hasRoleInToken = token.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+      let token = request.auth.token;
+      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
       let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
       
-      return isSignedIn() 
-          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
-          && (hasRoleInToken || hasRoleInDb);
+      return isSuperAdmin() || (
+        isSignedIn() 
+          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+          && (hasRoleInToken || hasRoleInDb)
+      );
     }
     
     function isAnyStaff(hospitalId) {
       let userData = getCallingUserData();
-       let token = request.auth.token;
-      return isSignedIn() 
-          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId))
-          && (token.role != null || (userData != null && userData.role != null));
+      let token = request.auth.token;
+      return isSuperAdmin() || (
+        isSignedIn() 
+          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+          && ((token != null && token.role != null) || (userData != null && userData.role != null))
+      );
     }
     
     function isSupplyChainStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
       let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
 
-      return isSignedIn() 
-          && (token.hospitalId == hospitalId || (userData != null && userData.hospitalId == hospitalId)) 
-          && (hasRoleInToken || hasRoleInDb);
+      return isSuperAdmin() || (
+        isSignedIn() 
+          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId)) 
+          && (hasRoleInToken || hasRoleInDb)
+      );
+    }
+    
+    function isMortuaryStaff(hospitalId) {
+      let userData = getCallingUserData();
+      let token = request.auth.token;
+      let hasRole = (token != null && token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']) || 
+                    (userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']);
+      return isSuperAdmin() || (isSignedIn() && isStaffOfHospital(hospitalId) && hasRole);
     }
 
 
@@ -93,6 +113,11 @@ service cloud.firestore {
 
     match /{path=**}/beds/{bedId} {
       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+    }
+    
+    match /{path=**}/billing_items/{itemId} {
+      allow list: if isPayerAuditor() && request.auth.token.payerId != null;
+      allow get: if isPayerAuditor() && request.auth.token.payerId == resource.data.payerId;
     }
     
     match /{path=**}/deliveries/{deliveryId} {
@@ -240,13 +265,28 @@ service cloud.firestore {
       }
       
       match /blood_pints/{pintId} {
-        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow read, write, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
       
       match /blood_donors/{donorId} {
-        allow read, write: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow read, write, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
       
+      match /mortuary_records/{recordId} {
+        allow read, list, create, update: if isSuperAdmin() || isMortuaryStaff(hospitalId);
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+      
+      match /mortuary_chambers/{chamberId} {
+        allow read, list, create, update: if isSuperAdmin() || isMortuaryStaff(hospitalId);
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /mortuary_config/{configId} {
+        allow read: if isSuperAdmin() || isMortuaryStaff(hospitalId);
+        allow write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
       match /cash_tills/{tillId} {
         allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
         allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
