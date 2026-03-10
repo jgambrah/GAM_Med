@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -5,7 +6,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, orderBy, doc, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Loader2, ShieldAlert, Building2, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldAlert, Building2, ShieldCheck, CreditCard, Key, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -35,6 +36,7 @@ type Hospital = {
   region: string;
   status: 'active' | 'suspended';
   trialExpiry?: Timestamp;
+  provisioningSecret?: string;
 };
 
 export default function HospitalRegisterPage() {
@@ -47,6 +49,7 @@ export default function HospitalRegisterPage() {
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [dialogAction, setDialogAction] = useState<(() => void) | null>(null);
   const [dialogState, setDialogState] = useState<{ open: boolean; title: string; description: string; confirmText: string; variant: 'default' | 'destructive' }>({ open: false, title: '', description: '', confirmText: '', variant: 'default' });
+  const [showPass, setShowPass] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -152,7 +155,7 @@ export default function HospitalRegisterPage() {
   return (
     <>
     <div className="space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end border-b pb-4">
         <div>
           <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Facility <span className="text-primary">Directory</span></h1>
           <p className="text-muted-foreground font-medium">Global management of all onboarded hospital tenants.</p>
@@ -166,16 +169,15 @@ export default function HospitalRegisterPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-0">
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Hospital & ID</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Plan & Region</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Status</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Administrative Actions</TableHead>
+              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Facility & Plan</TableHead>
+              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Access Key</TableHead>
+              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {areHospitalsLoading && (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-48 text-center">
+                    <TableCell colSpan={3} className="h-48 text-center">
                         <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
                         <p className="text-muted-foreground">Loading facility registry...</p>
                     </TableCell>
@@ -190,46 +192,46 @@ export default function HospitalRegisterPage() {
                     </div>
                     <div>
                       <p className="font-bold text-card-foreground">{h.name}</p>
-                      <p className="text-[10px] font-mono font-bold text-primary/80 uppercase">{h.hospitalId} • EHR: {h.mrnPrefix}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-primary/80 uppercase">{h.hospitalId}</span>
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase bg-muted px-2 py-0.5 rounded">{h.subscriptionPlan}</span>
+                      </div>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="p-4">
-                  <div>
-                    <span className="text-xs font-bold text-card-foreground block">{h.subscriptionPlan || 'PRO TIER'}</span>
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">{h.region} REGION</span>
-                  </div>
-                </TableCell>
-                <TableCell className="p-4">
-                  {h.status === 'active' ? (
-                    <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
-                      <ShieldCheck size={14} /> ACTIVE
+                 <TableCell>
+                    <div className="bg-slate-100 p-3 rounded-xl border flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[8px] font-black text-slate-400 uppercase">Initial Access Key</p>
+                            <p className="text-xs font-mono font-bold text-blue-600">
+                                {showPass === h.id ? h.provisioningSecret : '••••••••'}
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setShowPass(showPass === h.id ? null : h.id)}
+                            className="text-slate-400 hover:text-blue-600 transition-all"
+                        >
+                            {showPass === h.id ? <EyeOff size={16}/> : <Eye size={16}/>}
+                        </button>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-red-600 font-bold text-xs">
-                      <ShieldAlert size={14} /> SUSPENDED
-                    </div>
-                  )}
-                </TableCell>
+                 </TableCell>
                 <TableCell className="p-4 text-right">
                   <div className="flex justify-end gap-2">
+                     <Button
+                        onClick={() => extendTrial(h)}
+                        variant="outline"
+                        size="sm"
+                        className="font-black uppercase text-[9px]"
+                      >
+                        +30d Trial
+                    </Button>
                     <Button 
                       onClick={() => toggleStatus(h)}
-                      variant="ghost"
+                      variant={h.status === 'active' ? 'destructive' : 'default'}
                       size="sm"
-                      className={`px-3 py-1.5 h-auto rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${
-                        h.status === 'active' ? 'text-destructive hover:bg-destructive hover:text-destructive-foreground' : 'text-green-600 hover:bg-green-600 hover:text-white'
-                      }`}
+                      className="font-black uppercase text-[9px]"
                     >
-                      {h.status === 'active' ? 'Kill Switch' : 'Reactivate'}
-                    </Button>
-                    <Button
-                      onClick={() => extendTrial(h)}
-                      variant="ghost"
-                      size="sm"
-                      className="px-3 py-1.5 h-auto text-primary rounded-lg text-[10px] font-black uppercase tracking-tighter hover:bg-primary hover:text-primary-foreground transition-all"
-                    >
-                      +30 Days Trial
+                      {h.status === 'active' ? 'Suspend' : 'Reactivate'}
                     </Button>
                   </div>
                 </TableCell>

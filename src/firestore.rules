@@ -166,14 +166,14 @@ service cloud.firestore {
       // DENY anyone from listing all orders (browsing)
       allow list: if false;
       // Creation is handled by a backend function, but this rule provides a failsafe.
-      allow create: if isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DOCTOR', 'DIRECTOR', 'SUPER_ADMIN']);
+      allow create: if isClinicalStaff(request.resource.data.hospitalId);
       allow update, delete: if false; // Immutable once issued
     }
     
     // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
     match /encounters/{encounterId} {
       allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isSignedIn() && (resource.data.providerUid == request.auth.uid || isStaffOfHospital(resource.data.hospitalId));
+      allow read: if isAnyStaff(resource.data.hospitalId);
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
@@ -279,7 +279,7 @@ service cloud.firestore {
     }
 
     match /hospitals/{hospitalId} {
-      allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
+      allow get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       allow list, create, update, delete: if isSuperAdmin();
       allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
 
@@ -541,7 +541,8 @@ service cloud.firestore {
       }
 
       match /product_catalog/{productId} {
-        allow get, create, delete, list, update: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
       }
 
       match /suppliers/{supplierId} {
