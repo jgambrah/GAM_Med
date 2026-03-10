@@ -167,7 +167,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   
   // Create references
   const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
-  const encounterRef = db.collection('encounters').doc(); // Store in root collection
+  const encounterRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId).collection('encounters').doc();
   const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
 
   // Prepare encounter data
@@ -342,9 +342,9 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
     mrnPrefix,
     subscriptionPlan,
     monthlyRateNumeric,
-    monthlyRateWords
+    monthlyRateWords,
   } = request.data;
-
+  
   if (!monthlyRateWords || monthlyRateWords.length < 10) {
      throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
   }
@@ -355,15 +355,18 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
   
   const hospitalRef = db.collection('hospitals').doc(); // Auto-generate ID for the new hospital
   const hospitalId = hospitalRef.id;
-  const generatedPassword = Math.random().toString(36).slice(-8) + "!";
+
+  const rawPassword = Math.random().toString(36).slice(-8) + "!"; 
+  const finalPassword = rawPassword.trim();
+  const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
     // Transaction for atomicity
     await db.runTransaction(async (transaction) => {
         // 1. Create Director Auth Account
         const directorUserRecord = await admin.auth().createUser({
-            email: directorEmail,
-            password: generatedPassword, 
+            email: cleanDirectorEmail,
+            password: finalPassword,
             displayName: directorName,
         });
         
@@ -379,12 +382,12 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
             name: hospitalName,
             region: region,
             directorUid: directorUserRecord.uid,
-            directorEmail: directorEmail,
+            directorEmail: cleanDirectorEmail,
             mrnPrefix: mrnPrefix,
             subscriptionPlan: subscriptionPlan,
             agreedRate: monthlyRateNumeric,
             agreedRateWords: monthlyRateWords,
-            provisioningSecret: generatedPassword,
+            provisioningSecret: finalPassword,
             status: 'active',
             isSuspended: false,
             subscriptionStatus: 'ACTIVE',
@@ -404,7 +407,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
         transaction.set(userRef, {
           uid: directorUserRecord.uid,
           fullName: directorName,
-          email: directorEmail,
+          email: cleanDirectorEmail,
           role: 'DIRECTOR',
           hospitalId: hospitalId,
           is_active: true,
@@ -592,4 +595,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
-

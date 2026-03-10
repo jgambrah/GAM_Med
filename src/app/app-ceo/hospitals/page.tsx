@@ -7,7 +7,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, orderBy, doc, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Loader2, ShieldAlert, Building2, ShieldCheck, CreditCard, Key, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ShieldAlert, Building2, ShieldCheck, CreditCard, Key, Eye, EyeOff, Clipboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -50,7 +50,7 @@ export default function HospitalRegisterPage() {
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [dialogAction, setDialogAction] = useState<(() => void) | null>(null);
   const [dialogState, setDialogState] = useState<{ open: boolean; title: string; description: string; confirmText: string; variant: 'default' | 'destructive' }>({ open: false, title: '', description: '', confirmText: '', variant: 'default' });
-  const [showPass, setShowPass] = useState<string | null>(null);
+  const [visibleKeyId, setVisibleKeyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -128,6 +128,11 @@ export default function HospitalRegisterPage() {
     );
   };
   
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({title: "Key Copied to Clipboard"});
+  };
+  
   const isOverallLoading = isUserAuthLoading || isClaimsLoading || areHospitalsLoading;
 
   if (isUserAuthLoading || isClaimsLoading) {
@@ -198,20 +203,34 @@ export default function HospitalRegisterPage() {
                     </div>
                   </div>
                 </TableCell>
-                 <TableCell>
-                    <div className="bg-slate-100 p-3 rounded-xl border flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase">Initial Access Key</p>
-                            <p className="text-xs font-mono font-bold text-blue-600">
-                                {showPass === h.id ? h.provisioningSecret : '••••••••'}
-                            </p>
+                 <TableCell className="p-6">
+                    <div className="bg-slate-900 p-4 rounded-3xl border-2 border-slate-800 flex items-center justify-between gap-4">
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Initial Access Key</p>
+                            <input 
+                                type={visibleKeyId === h.id ? "text" : "password"} 
+                                readOnly
+                                value={h.provisioningSecret || ""}
+                                className="bg-transparent border-none text-white font-mono font-bold text-sm w-full outline-none"
+                            />
                         </div>
-                        <button 
-                            onClick={() => setShowPass(showPass === h.id ? null : h.id)}
-                            className="text-slate-400 hover:text-blue-600 transition-all"
-                        >
-                            {showPass === h.id ? <EyeOff size={16}/> : <Eye size={16}/>}
-                        </button>
+                        
+                        <div className="flex gap-2">
+                            <button 
+                                type="button"
+                                onClick={() => setVisibleKeyId(visibleKeyId === h.id ? null : h.id)}
+                                className="p-2 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all"
+                            >
+                                {visibleKeyId === h.id ? <EyeOff size={16}/> : <Eye size={16}/>}
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => copyToClipboard(h.provisioningSecret || '')}
+                                className="p-2 bg-slate-800 rounded-xl text-slate-400 hover:text-blue-400 transition-all"
+                            >
+                                <Clipboard size={16}/>
+                            </button>
+                        </div>
                     </div>
                  </TableCell>
                 <TableCell className="p-4 text-right">
