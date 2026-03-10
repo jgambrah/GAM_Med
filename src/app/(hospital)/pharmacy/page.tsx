@@ -79,7 +79,7 @@ export default function PharmacistDashboard() {
                 <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
                 <h1 className="text-2xl font-bold">Access Denied</h1>
                 <p className="text-muted-foreground">You do not have pharmacist privileges.</p>
-                 <Button onClick={() => router.push('/dashboard')} className="mt-4">Return Home</Button>
+                 <Button onClick={() => router.push('/dashboard')} className="mt-4">Return to Login</Button>
             </div>
          </div>
     );
@@ -141,7 +141,7 @@ export default function PharmacistDashboard() {
                       </div>
                    </div>
                 </div>
-                <Link href={`/pharmacy/dispensing/${order.id}`}>
+                <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
                    <Button className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-primary/30 shadow-xl hover:bg-foreground transition-all">
                       Dispense Now <ChevronRight size={14} />
                    </Button>
