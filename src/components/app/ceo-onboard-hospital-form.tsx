@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -59,36 +60,28 @@ type OnboardHospitalFormProps = {
 export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans, initialValues }: OnboardHospitalFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialValues || {
+    defaultValues: {
       hospitalName: '',
+      region: 'GAR',
       directorName: '',
       directorEmail: '',
       mrnPrefix: '',
       subscriptionPlan: 'PRO',
       monthlyRateNumeric: 5000,
       monthlyRateWords: '',
+      ...(initialValues || {}), // Safely merge initial values, ensuring no field is undefined
     },
   });
 
   const selectedPlanId = form.watch('subscriptionPlan');
 
+  // This effect synchronizes the numeric rate when the plan is changed or on initial load with pre-filled data.
   useEffect(() => {
     const selectedPlan = pricingPlans.find(p => p.id === selectedPlanId);
     if (selectedPlan) {
         form.setValue('monthlyRateNumeric', selectedPlan.monthlyPrice);
     }
   }, [selectedPlanId, pricingPlans, form]);
-
-  useEffect(() => {
-    if (initialValues) {
-      form.reset(initialValues);
-      const initialPlan = pricingPlans.find(p => p.id === initialValues.subscriptionPlan);
-      if (initialPlan) {
-        form.setValue('monthlyRateNumeric', initialPlan.monthlyPrice);
-      }
-    }
-  }, [initialValues, form, pricingPlans]);
-
 
   return (
     <Form {...form}>
