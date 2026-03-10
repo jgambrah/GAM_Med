@@ -57,18 +57,17 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const [drugSearch, setDrugSearch] = useState('');
   const [prescription, setPrescription] = useState<any[]>([]);
   const [isPrescriptionExternal, setIsPrescriptionExternal] = useState(false);
+  const [externalDrugInput, setExternalDrugInput] = useState({ name: '', instruction: '' });
   
   const [labSearch, setLabSearch] = useState('');
   const [labOrders, setLabOrders] = useState<any[]>([]);
   const [isLabExternal, setIsLabExternal] = useState(false);
+  const [externalLabInput, setExternalLabInput] = useState({ name: '' });
+
 
   const [imagingSearch, setImagingSearch] = useState('');
   const [imagingOrders, setImagingOrders] = useState<any[]>([]);
   const [isRadiologyExternal, setIsRadiologyExternal] = useState(false);
-
-  // States for free-text external items
-  const [externalDrugInput, setExternalDrugInput] = useState({ name: '', instruction: '' });
-  const [externalLabInput, setExternalLabInput] = useState({ name: '' });
   const [externalScanInput, setExternalScanInput] = useState({ name: '', indication: '' });
   
   const patientRef = useMemoFirebase(() => {
