@@ -1,8 +1,8 @@
 'use client';
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useFirebaseApp } from '@/firebase';
+import { useFirebaseApp, useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,8 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   UserPlus, Fingerprint, Phone, HeartPulse, 
-  Save, Loader2, CreditCard 
+  Save, Loader2, CreditCard, Building2 
 } from 'lucide-react';
+import { collection, query, doc } from 'firebase/firestore';
 
 const formSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -22,6 +23,7 @@ const formSchema = z.object({
   dateOfBirth: z.string().min(1, "Date of Birth is required"),
   gender: z.string().min(1, "Gender is required"),
   ghanaCardId: z.string().optional(),
+  payerId: z.string().optional(),
   nhisNumber: z.string().optional(),
   phoneNumber: z.string().min(1, "Phone number is required"),
   emergencyContactName: z.string().optional(),
@@ -35,6 +37,22 @@ export default function RegisterPatientPage() {
   const [loading, setLoading] = useState(false);
   const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = userProfile?.hospitalId;
+
+  const payersQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, `hospitals/${hospitalId}/payers`));
+  }, [firestore, hospitalId]);
+  const { data: payers, isLoading: payersLoading } = useCollection(payersQuery);
 
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(formSchema),
@@ -45,6 +63,7 @@ export default function RegisterPatientPage() {
       otherNames: '',
       dateOfBirth: '',
       ghanaCardId: '',
+      payerId: 'CASH',
       nhisNumber: '',
       phoneNumber: '',
       emergencyContactName: '',
@@ -63,7 +82,14 @@ export default function RegisterPatientPage() {
     try {
       const functions = getFunctions(firebaseApp);
       const registerPatient = httpsCallable(functions, 'registerPatient');
-      const result: any = await registerPatient(values);
+
+      const selectedPayer = payers?.find(p => p.id === values.payerId);
+      const payload = {
+          ...values,
+          payerName: selectedPayer ? selectedPayer.name : 'Cash Patient'
+      };
+
+      const result: any = await registerPatient(payload);
 
       toast({
         title: "Patient Registered!",
@@ -141,14 +167,33 @@ export default function RegisterPatientPage() {
              <div className="bg-card p-6 rounded-3xl border shadow-sm space-y-4">
                 <div className="flex items-center gap-2 border-b pb-2">
                   <CreditCard className="text-primary" size={18} />
-                  <h3 className="font-bold text-sm uppercase tracking-widest text-foreground">Identification</h3>
+                  <h3 className="font-bold text-sm uppercase tracking-widest text-foreground">Identification & Insurance</h3>
                 </div>
                 <div className="space-y-4">
+                    <FormField control={form.control} name="payerId" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Primary Payer</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={payersLoading}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select Payer..." /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="CASH">Cash Patient</SelectItem>
+                                    {payers?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                    {form.watch('payerId') !== 'CASH' && (
+                        <FormField control={form.control} name="nhisNumber" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Policy / Staff ID Number</FormLabel>
+                                <FormControl><Input placeholder="Enter patient's membership ID..." {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                    )}
                    <FormField control={form.control} name="ghanaCardId" render={({ field }) => (
                         <FormItem><FormLabel>Ghana Card ID (GHA-XXXXXXXXX-X)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                   <FormField control={form.control} name="nhisNumber" render={({ field }) => (
-                        <FormItem><FormLabel>NHIS Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
              </div>
@@ -168,6 +213,14 @@ export default function RegisterPatientPage() {
                 </div>
              </div>
           </div>
+          
+           <FormField control={form.control} name="residentialAddress" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Residential Address</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}/>
 
           <button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground font-black py-5 rounded-2xl hover:bg-foreground transition-all shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-sm disabled:opacity-50">
              {loading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
