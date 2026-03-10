@@ -143,25 +143,22 @@ exports.registerPatient = onCall({ region: "us-central1", cors: true }, async (r
  * Creates a new clinical encounter and intelligently creates billing items based on insurance coverage.
  */
 exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (request) => {
-  const data = request.data;
+    const data = request.data;
   
-  try {
-    const finalItems = data.items || data.prescription || [];
+    try {
+        const encounterRef = db.collection("encounters").doc();
+        
+        await encounterRef.set({
+        ...data,
+        id: encounterRef.id,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
 
-    const encounterRef = db.collection("encounters").doc();
-    
-    await encounterRef.set({
-      ...data,
-      items: finalItems,
-      id: encounterRef.id,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return { success: true, encounterId: encounterRef.id };
-  } catch (error) {
-    console.error("Encounter creation failed:", error);
-    throw new HttpsError('internal', error.message);
-  }
+        return { success: true, encounterId: encounterRef.id };
+    } catch (error) {
+        console.error("Encounter creation failed:", error);
+        throw new HttpsError('internal', error.message);
+    }
 });
 
 
@@ -231,6 +228,9 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
     subscriptionPlan,
   } = request.data;
 
+  // THE SOLID FIX: Sanitize the plan. If undefined, use 'PRO'
+  const finalPlan = subscriptionPlan || 'PRO';
+
   if (!hospitalName || !directorEmail || !mrnPrefix) {
     throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
   }
@@ -262,7 +262,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
             directorUid: directorUserRecord.uid,
             directorEmail: directorEmail,
             mrnPrefix: mrnPrefix,
-            subscriptionPlan: subscriptionPlan,
+            subscriptionPlan: finalPlan, // Now it is guaranteed not to be undefined
             status: 'active',
             isSuspended: false,
             subscriptionStatus: 'ACTIVE',
@@ -362,6 +362,55 @@ exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (r
         console.error("SMS sending failed:", error);
         throw new HttpsError('internal', 'Could not send SMS.');
     }
+});
+
+/**
+ * Creates a Clinical Referral and generates a unique referral number.
+ */
+exports.createReferral = onCall({ region: "us-central1", cors: true }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
+  
+  const { patientId, patientName, ehrNumber, latestEncounter, ...formData } = request.data;
+  const hospitalId = request.auth.token.hospitalId;
+  const hospitalRef = db.collection('hospitals').doc(hospitalId);
+
+  try {
+    let newRefNumber;
+    let newReferralId;
+
+    await db.runTransaction(async (transaction) => {
+      const hospitalDoc = await transaction.get(hospitalRef);
+      if (!hospitalDoc.exists()) throw new HttpsError('not-found', 'Hospital record not found.');
+
+      const hospital = hospitalDoc.data();
+      const newCounter = (hospital.referralCounter || 0) + 1;
+      const prefix = hospital.mrnPrefix || 'GAM';
+      const year = new Date().getFullYear().toString().slice(-2);
+      newRefNumber = `${prefix}/REF/${year}/${String(newCounter).padStart(3, '0')}`;
+
+      const referralRef = db.collection('referrals').doc();
+      newReferralId = referralRef.id;
+      
+      transaction.set(referralRef, {
+        ...formData,
+        referralNumber: newRefNumber,
+        patientId, patientName, ehrNumber,
+        vitalsAtReferral: latestEncounter?.vitals || {},
+        medications: latestEncounter?.prescription || [],
+        hospitalId,
+        referringDoctor: request.auth.token.name,
+        status: 'ISSUED',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      transaction.update(hospitalRef, { referralCounter: newCounter });
+    });
+
+    return { success: true, referralId: newReferralId, referralNumber: newRefNumber };
+  } catch (error) {
+    console.error("Referral creation failed:", error);
+    throw new HttpsError('internal', error.message);
+  }
 });
 
 
@@ -470,3 +519,8 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
+
+
+
+

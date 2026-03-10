@@ -48,7 +48,7 @@ const formSchema = z.object({
 type OnboardHospitalFormProps = {
   onSubmit: (data: z.infer<typeof formSchema>) => void;
   isLoading: boolean;
-  pricingPlans: { id: string; monthlyPrice: number }[];
+  pricingPlans: { id: string; name: string, monthlyPrice: number }[];
 };
 
 export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans }: OnboardHospitalFormProps) {
@@ -59,6 +59,7 @@ export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans }: On
       directorName: '',
       directorEmail: '',
       mrnPrefix: '',
+      subscriptionPlan: 'PRO'
     },
   });
 
@@ -153,7 +154,7 @@ export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans }: On
                 </FormControl>
                 <SelectContent>
                   {pricingPlans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>{plan.id} (GHS {plan.monthlyPrice}/mo)</SelectItem>
+                    <SelectItem key={plan.id} value={plan.id}>{plan.name} (GHS {plan.monthlyPrice}/mo)</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -178,5 +179,3 @@ export function CeoOnboardHospitalForm({ onSubmit, isLoading, pricingPlans }: On
     </Form>
   );
 }
-
-    
