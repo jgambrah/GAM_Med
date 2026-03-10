@@ -147,6 +147,15 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
 
+  let hospitalId = request.auth.token.hospitalId;
+  // Fallback to Firestore if token is stale
+  if (!hospitalId && request.auth.uid) {
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (userDoc.exists) {
+        hospitalId = userDoc.data().hospitalId;
+    }
+  }
+  
   const { 
     patientId, patientName, vitals, encounterType, 
     labOrders = [], radiologyOrders = [], 
@@ -157,10 +166,9 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   
   const finalItems = items || [];
   
-  const hospitalId = request.auth.token.hospitalId;
 
   if (!patientId || !hospitalId || !encounterType) {
-    throw new HttpsError('invalid-argument', 'Missing required encounter data.');
+    throw new HttpsError('invalid-argument', 'Missing required encounter data or could not determine hospital ID.');
   }
 
   const batch = db.batch();

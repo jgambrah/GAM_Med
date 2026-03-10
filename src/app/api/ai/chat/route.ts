@@ -15,13 +15,14 @@ const genAI = new GoogleGenerativeAI(apiKey || "NO_KEY_DETECTED");
 
 export async function POST(req: Request) {
   try {
-    const { prompt, history, patientId, userRole, fullName } = await req.json();
+    const { prompt, history, patientId, hospitalId, userRole, fullName } = await req.json();
     
     let clinicalContext = "No patient file open.";
 
     // 1. THE AGGRESSIVE FETCH & FILTER:
-    if (patientId) {
+    if (patientId && hospitalId) {
       const encSnap = await adminDb.collectionGroup("encounters")
+        .where("hospitalId", "==", hospitalId) // Secure query by hospital
         .where("patientId", "==", patientId)
         .orderBy("createdAt", "desc")
         .limit(5) 

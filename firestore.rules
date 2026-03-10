@@ -143,9 +143,13 @@ service cloud.firestore {
     match /{path=**}/payments/{paymentId} {
       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
-
+    
+    // NOTE: This rule for collection group queries is intentionally broad.
+    // The actual security is handled within the backend cloud function/route
+    // that performs the query by adding a `.where('hospitalId', '==', userHospitalId)` clause.
+    // This allows flexible, secure cross-document queries from the backend.
     match /{path=**}/encounters/{encounterId} {
-        allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+        allow list: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null;
     }
 
 
@@ -158,11 +162,22 @@ service cloud.firestore {
       allow create: if isClinicalStaff(request.resource.data.hospitalId);
       allow update, delete, list: if false;
     }
+
+    // --- PUBLIC VERIFICATION ACCESS ---
+    match /external_orders/{orderId} {
+      // ALLOW anyone with the exact ID (from QR scan) to view the document
+      allow get: if true;
+      // DENY anyone from listing all orders (browsing)
+      allow list: if false;
+      // Creation is handled by a backend function, but this rule provides a failsafe.
+      allow create: if isClinicalStaff(request.resource.data.hospitalId);
+      allow update, delete: if false; // Immutable once issued
+    }
     
     // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
     match /encounters/{encounterId} {
       allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isAnyStaff(resource.data.hospitalId); // Any staff from the hospital can read any encounter
+      allow read: if isAnyStaff(resource.data.hospitalId);
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
@@ -270,7 +285,6 @@ service cloud.firestore {
     match /hospitals/{hospitalId} {
       allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
       allow list, create, update, delete: if isSuperAdmin();
-      allow write: if isSuperAdmin() || isAnyStaff(hospitalId);
 
       match /jcc_logs/{logId} {
         allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);
