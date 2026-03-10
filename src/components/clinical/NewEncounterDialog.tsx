@@ -184,11 +184,11 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
       const result: any = await createEncounter(payload);
   
-      if (result.data.success && result.data.documentId) {
+      if (result.data.success && result.data.encounterId) {
         toast({ title: "EHR Record Committed" });
         
         if (isExternal) {
-            router.push(`/doctor/external-print/${result.data.documentId}`);
+            router.push(`/doctor/external-print/${result.data.encounterId}`);
         } else {
             setOpen(false);
             form.reset();
@@ -448,5 +448,3 @@ function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, o
     </div>
   );
 }
-
-    
