@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -37,16 +36,6 @@ const encounterSchema = z.object({
     bmi: z.string().optional(),
     spo2: z.string().optional(),
   }).optional(),
-  prescription: z.array(z.object({
-    drugId: z.string(),
-    name: z.string(),
-    sku: z.string(),
-    strength: z.string().optional(),
-    dosage: z.string(),
-    frequency: z.string(),
-    duration: z.string(),
-    instructions: z.string(),
-  })).optional(),
 });
 
 type EncounterFormValues = z.infer<typeof encounterSchema>;
@@ -76,6 +65,11 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const [imagingSearch, setImagingSearch] = useState('');
   const [imagingOrders, setImagingOrders] = useState<any[]>([]);
   const [isRadiologyExternal, setIsRadiologyExternal] = useState(false);
+
+  // States for free-text external items
+  const [externalDrugInput, setExternalDrugInput] = useState({ name: '', instruction: '' });
+  const [externalLabInput, setExternalLabInput] = useState({ name: '' });
+  const [externalScanInput, setExternalScanInput] = useState({ name: '', indication: '' });
   
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -160,9 +154,37 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     setDrugSearch('');
   };
 
+  const addFreeTextDrug = () => {
+    if (!externalDrugInput.name) return;
+    const newDrug = {
+      drugId: `ft-${Date.now()}`,
+      name: externalDrugInput.name,
+      instructions: externalDrugInput.instruction,
+      sku: 'EXTERNAL',
+      dosage: '', frequency: '', duration: ''
+    };
+    setPrescription(current => [...current, newDrug]);
+    setExternalDrugInput({ name: '', instruction: '' });
+  };
+  
+  const addFreeTextLab = () => {
+    if (!externalLabInput.name) return;
+    const newTest = { testId: `ft-${Date.now()}`, name: externalLabInput.name };
+    setLabOrders(current => [...current, newTest]);
+    setExternalLabInput({ name: '' });
+  };
+
+  const addFreeTextScan = () => {
+    if (!externalScanInput.name) return;
+    const newScan = { scanId: `ft-${Date.now()}`, name: externalScanInput.name, indication: externalScanInput.indication };
+    setImagingOrders(current => [...current, newScan]);
+    setExternalScanInput({ name: '', indication: '' });
+  };
+
+
   const requestTest = (test: any) => {
     if (labOrders.some(order => order.testId === test.id)) return;
-    setLabOrders([...labOrders, { ...test, isExternal: isLabExternal, status: 'PENDING' }]);
+    setLabOrders([...labOrders, { ...test, status: 'PENDING' }]);
     setLabSearch('');
   };
   
@@ -172,7 +194,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
   const requestScan = (scan: any) => {
     if (imagingOrders.some(order => order.scanId === scan.id)) return; // prevent duplicates
-    setImagingOrders([...imagingOrders, { ...scan, isExternal: isRadiologyExternal, status: 'PENDING', indication: '' }]);
+    setImagingOrders([...imagingOrders, { ...scan, status: 'PENDING', indication: '' }]);
     setImagingSearch('');
   };
 
@@ -189,7 +211,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
       chiefComplaint: '',
       hpi: '',
       diagnosis: '',
-      prescription: [],
     },
   });
 
@@ -407,42 +428,40 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     <Pill size={16} /> Digital Prescription
                 </h3>
                 <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100 mb-4">
-                    <input
-                        type="checkbox"
-                        id="prescription-external-toggle"
-                        className="w-5 h-5 rounded accent-amber-600"
-                        checked={isPrescriptionExternal}
-                        onChange={(e) => setIsPrescriptionExternal(e.target.checked)}
-                    />
-                    <label htmlFor="prescription-external-toggle" className="text-[10px] font-black uppercase text-amber-700">
-                        External Prescription (Skip Internal Billing/Dispensing)
-                    </label>
+                    <input type="checkbox" id="prescription-external-toggle" className="w-5 h-5 rounded accent-amber-600" checked={isPrescriptionExternal} onChange={(e) => setIsPrescriptionExternal(e.target.checked)}/>
+                    <label htmlFor="prescription-external-toggle" className="text-[10px] font-black uppercase text-amber-700">Request from External Facility (Skip Internal Billing)</label>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-3 top-3 text-muted-foreground" size={16} />
-                    <Input 
-                    type="text" placeholder="Search Hospital Pharmacy Inventory..."
-                    className="pl-10"
-                    value={drugSearch} onChange={(e) => setDrugSearch(e.target.value)}
-                    />
-                    
-                    {drugSearch && (
-                    <div className="absolute w-full mt-1 bg-card border rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
-                        {isCatalogLoading && <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div>}
-                        {filteredInventory.map(item => (
-                        <div key={item.id} onClick={() => addDrugToOrder(item)} className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-0">
-                            <div>
-                            <p className="font-bold text-sm uppercase text-card-foreground">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">{item.category} • {item.purchasePrice} GHS</p>
-                            </div>
-                            <Plus size={16} className="text-primary" />
-                        </div>
-                        ))}
-                        {!isCatalogLoading && filteredInventory.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
+                
+                {isPrescriptionExternal ? (
+                  <div className="space-y-3 bg-amber-50/50 p-4 rounded-xl border-2 border-dashed border-amber-200">
+                    <div className="grid grid-cols-2 gap-2">
+                        <Input placeholder="Drug Name & Strength" value={externalDrugInput.name} onChange={e => setExternalDrugInput({...externalDrugInput, name: e.target.value})} />
+                        <Input placeholder="Dosage & Frequency" value={externalDrugInput.instruction} onChange={e => setExternalDrugInput({...externalDrugInput, instruction: e.target.value})}/>
                     </div>
-                    )}
-                </div>
-
+                    <Button type="button" size="sm" onClick={addFreeTextDrug} className="w-full">Add External Drug</Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                      <Search className="absolute left-3 top-3 text-muted-foreground" size={16} />
+                      <Input type="text" placeholder="Search Hospital Pharmacy Inventory..." className="pl-10" value={drugSearch} onChange={(e) => setDrugSearch(e.target.value)}/>
+                      {drugSearch && (
+                      <div className="absolute w-full mt-1 bg-card border rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
+                          {isCatalogLoading && <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div>}
+                          {filteredInventory.map(item => (
+                          <div key={item.id} onClick={() => addDrugToOrder(item)} className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-0">
+                              <div>
+                              <p className="font-bold text-sm uppercase text-card-foreground">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">{item.category} • {item.purchasePrice} GHS</p>
+                              </div>
+                              <Plus size={16} className="text-primary" />
+                          </div>
+                          ))}
+                          {!isCatalogLoading && filteredInventory.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
+                      </div>
+                      )}
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                     {prescription.map((item, idx) => (
                     <div key={idx} className="bg-muted/50 p-4 rounded-2xl flex flex-wrap gap-4 items-center justify-between">
@@ -450,12 +469,8 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                         <p className="font-bold text-primary text-sm uppercase">{item.name} ({item.strength})</p>
                         </div>
                         <div className="flex gap-2">
-                        <Input className="w-20 text-xs" placeholder="Dosage" value={item.dosage} onChange={e => {
-                            const updated = [...prescription]; updated[idx].dosage = e.target.value; setPrescription(updated);
-                        }} />
-                        <Input className="w-24 text-xs" placeholder="Frequency" value={item.frequency} onChange={e => {
-                            const updated = [...prescription]; updated[idx].frequency = e.target.value; setPrescription(updated);
-                        }} />
+                        <Input className="w-20 text-xs" placeholder="Dosage" value={item.dosage} onChange={e => { const updated = [...prescription]; updated[idx].dosage = e.target.value; setPrescription(updated); }} />
+                        <Input className="w-24 text-xs" placeholder="Frequency" value={item.frequency} onChange={e => { const updated = [...prescription]; updated[idx].frequency = e.target.value; setPrescription(updated); }} />
                         </div>
                     </div>
                     ))}
@@ -467,35 +482,32 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     <Beaker size={16} /> Laboratory Investigations
                 </h3>
                  <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100 mb-4">
-                    <input
-                    type="checkbox"
-                    id="lab-external-toggle"
-                    className="w-5 h-5 rounded accent-amber-600"
-                    checked={isLabExternal}
-                    onChange={(e) => setIsLabExternal(e.target.checked)}
-                    />
-                    <label htmlFor="lab-external-toggle" className="text-[10px] font-black uppercase text-amber-700">
-                    Request from External Facility (Skip Internal Billing)
-                    </label>
+                    <input type="checkbox" id="lab-external-toggle" className="w-5 h-5 rounded accent-amber-600" checked={isLabExternal} onChange={(e) => setIsLabExternal(e.target.checked)}/>
+                    <label htmlFor="lab-external-toggle" className="text-[10px] font-black uppercase text-amber-700">Request from External Facility (Skip Internal Billing)</label>
                 </div>
-                <div className="relative">
-                    <Input 
-                    type="text" placeholder="Search Hospital Lab Menu..."
-                    className="bg-purple-50 border-purple-100 text-foreground font-bold"
-                    value={labSearch} onChange={(e) => setLabSearch(e.target.value)}
-                    />
-                    {labSearch && (
-                    <div className="absolute w-full mt-1 bg-card border rounded-2xl shadow-2xl z-50">
-                        {isLabMenuLoading ? <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div> : 
-                        filteredLabMenu.map(t => (
-                        <div key={t.id} onClick={() => requestTest(t)} className="p-3 hover:bg-purple-50 cursor-pointer flex justify-between font-bold text-xs uppercase text-card-foreground border-b last:border-0">
-                            {t.name} <Plus size={14} className="text-purple-600" />
+                
+                 {isLabExternal ? (
+                     <div className="flex gap-2">
+                        <Input placeholder="Enter Test Name (e.g. PSA)" value={externalLabInput.name} onChange={e => setExternalLabInput({name: e.target.value})} />
+                        <Button type="button" onClick={addFreeTextLab}>Add</Button>
+                     </div>
+                 ) : (
+                    <div className="relative">
+                        <Input type="text" placeholder="Search Hospital Lab Menu..." className="bg-purple-50 border-purple-100 text-foreground font-bold" value={labSearch} onChange={(e) => setLabSearch(e.target.value)}/>
+                        {labSearch && (
+                        <div className="absolute w-full mt-1 bg-card border rounded-2xl shadow-2xl z-50">
+                            {isLabMenuLoading ? <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div> : 
+                            filteredLabMenu.map(t => (
+                            <div key={t.id} onClick={() => requestTest(t)} className="p-3 hover:bg-purple-50 cursor-pointer flex justify-between font-bold text-xs uppercase text-card-foreground border-b last:border-0">
+                                {t.name} <Plus size={14} className="text-purple-600" />
+                            </div>
+                            ))}
+                            {!isLabMenuLoading && filteredLabMenu.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
                         </div>
-                        ))}
-                         {!isLabMenuLoading && filteredLabMenu.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
+                        )}
                     </div>
-                    )}
-                </div>
+                )}
+                
                 <div className="flex flex-wrap gap-2">
                     {labOrders.map((order, i) => (
                     <div key={i} className="bg-purple-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2">
@@ -510,35 +522,33 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     <Layers size={16} /> Radiology & Imaging Requests
                 </h3>
                  <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100 mb-4">
-                    <input
-                    type="checkbox"
-                    id="radiology-external-toggle"
-                    className="w-5 h-5 rounded accent-amber-600"
-                    checked={isRadiologyExternal}
-                    onChange={(e) => setIsRadiologyExternal(e.target.checked)}
-                    />
-                    <label htmlFor="radiology-external-toggle" className="text-[10px] font-black uppercase text-amber-700">
-                    Request from External Facility (Skip Internal Billing)
-                    </label>
+                    <input type="checkbox" id="radiology-external-toggle" className="w-5 h-5 rounded accent-amber-600" checked={isRadiologyExternal} onChange={(e) => setIsRadiologyExternal(e.target.checked)} />
+                    <label htmlFor="radiology-external-toggle" className="text-[10px] font-black uppercase text-amber-700">Request from External Facility (Skip Internal Billing)</label>
                 </div>
-                <div className="relative">
-                    <Input 
-                    type="text" placeholder="Search Hospital Imaging Menu (X-ray, USS...)"
-                    className="bg-orange-50 border-orange-100 text-foreground font-bold"
-                    value={imagingSearch} onChange={(e) => setImagingSearch(e.target.value)}
-                    />
-                    {imagingSearch && (
-                    <div className="absolute w-full mt-1 bg-card border rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto">
-                        {isRadiologyMenuLoading ? <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div> : 
-                        filteredRadiologyMenu.map(s => (
-                        <div key={s.id} onClick={() => requestScan(s)} className="p-3 hover:bg-orange-50 cursor-pointer flex justify-between font-bold text-xs uppercase text-card-foreground border-b last:border-0">
-                            {s.name} <span className="text-[9px] text-orange-500 italic">{s.modality}</span>
-                        </div>
-                        ))}
-                        {!isRadiologyMenuLoading && filteredRadiologyMenu.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
+                
+                 {isRadiologyExternal ? (
+                    <div className="space-y-2">
+                        <Input placeholder="Enter Scan Name (e.g. MRI Brain)" value={externalScanInput.name} onChange={e => setExternalScanInput({...externalScanInput, name: e.target.value})} />
+                        <Input placeholder="Clinical Indication (e.g. Rule out tumor)" value={externalScanInput.indication} onChange={e => setExternalScanInput({...externalScanInput, indication: e.target.value})} />
+                        <Button type="button" size="sm" onClick={addFreeTextScan} className="w-full">Add External Scan</Button>
                     </div>
-                    )}
-                </div>
+                ) : (
+                    <div className="relative">
+                        <Input type="text" placeholder="Search Hospital Imaging Menu (X-ray, USS...)" className="bg-orange-50 border-orange-100 text-foreground font-bold" value={imagingSearch} onChange={(e) => setImagingSearch(e.target.value)} />
+                        {imagingSearch && (
+                        <div className="absolute w-full mt-1 bg-card border rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto">
+                            {isRadiologyMenuLoading ? <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div> : 
+                            filteredRadiologyMenu.map(s => (
+                            <div key={s.id} onClick={() => requestScan(s)} className="p-3 hover:bg-orange-50 cursor-pointer flex justify-between font-bold text-xs uppercase text-card-foreground border-b last:border-0">
+                                {s.name} <span className="text-[9px] text-orange-500 italic">{s.modality}</span>
+                            </div>
+                            ))}
+                            {!isRadiologyMenuLoading && filteredRadiologyMenu.length === 0 && <div className="p-3 text-center text-sm text-muted-foreground">No results found.</div>}
+                        </div>
+                        )}
+                    </div>
+                )}
+                
                 <div className="space-y-3">
                     {imagingOrders.map((order, i) => (
                     <div key={i} className="bg-card p-4 rounded-2xl border-2 border-orange-100 space-y-2">
@@ -546,19 +556,13 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                             <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">{order.name} ({order.modality})</span>
                             <X size={14} className="text-muted-foreground/50 cursor-pointer" onClick={() => removeScan(i)} />
                         </div>
-                        <Input 
-                        placeholder="Clinical Indication (e.g. Chronic cough for 2 weeks)"
-                        className="w-full p-2 text-xs border-0 border-b rounded-none bg-transparent outline-none focus-visible:ring-0 text-foreground italic font-medium"
-                        value={order.indication}
-                        onChange={(e) => {
-                            const up = [...imagingOrders]; up[i].indication = e.target.value; setImagingOrders(up);
-                        }}
+                        <Input placeholder="Clinical Indication (e.g. Chronic cough for 2 weeks)" className="w-full p-2 text-xs border-0 border-b rounded-none bg-transparent outline-none focus-visible:ring-0 text-foreground italic font-medium" value={order.indication}
+                        onChange={(e) => { const up = [...imagingOrders]; up[i].indication = e.target.value; setImagingOrders(up); }}
                         />
                     </div>
                     ))}
                 </div>
               </div>
-
             </div>
 
             <DialogFooter className="p-8 bg-muted/50 rounded-b-lg">
@@ -596,4 +600,3 @@ function VitalInput({ control, name, label, icon: Icon }: any) {
         />
     );
 }
-
