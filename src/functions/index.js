@@ -182,22 +182,23 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
 
   // 3. --- INTELLIGENT SPLIT-BILLING LOGIC ---
   const patientDoc = await patientRef.get();
-  if (!patientDoc.exists) throw new HttpsError('not-found', 'Patient record not found for billing.');
+  if (!patientDoc.exists()) throw new HttpsError('not-found', 'Patient record not found for billing.');
   const patientData = patientDoc.data();
   
   const payerId = patientData.payerId;
   let payerData = null;
-  if (payerId) {
+  if (payerId && payerId !== 'CASH') { // Check if a payer is assigned and it's not the cash placeholder
     const payerDoc = await db.collection('hospitals').doc(hospitalId).collection('payers').doc(payerId).get();
     if(payerDoc.exists()) payerData = payerDoc.data();
   }
 
+  // Helper function to create a billing item based on coverage
   const createBillingItem = (item, type, qty = 1) => {
     let isCovered = false;
     let priceToUse = item.sellingPrice || item.price || 0;
     let billingType = 'CASH_PAYMENT';
     let billPayerId = null;
-    let payerName = 'Cash';
+    let payerName = 'Cash Payment';
     let description = item.name;
 
     if(payerData) {
@@ -209,12 +210,14 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
       }
     }
     
+    // If it's a covered service, bill the institution.
     if(isCovered){
-      billingType = 'INSURANCE_CLAIM';
+      billingType = 'INSURANCE_CLAIM'; // This will be vetted later.
       billPayerId = payerId;
       payerName = payerData.name;
     } else if (payerData) {
-      description += ` (CASH / NOT COVERED)`;
+      // If patient has insurance but this item is not covered, it's a cash co-payment
+      description += ` (Cash Co-payment)`;
     }
     
     const billRef = billingItemsCollection.doc();
@@ -237,7 +240,12 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     const drugSkus = prescription.map(p => p.sku).filter(Boolean);
     if(drugSkus.length > 0) {
       const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
-      drugsSnap.forEach(doc => createBillingItem(doc.data(), 'PHARMACY'));
+      // Need to handle quantities from prescription here.
+      drugsSnap.forEach(doc => {
+          const rxItem = prescription.find(p => p.sku === doc.data().sku);
+          const qty = rxItem?.qty || 1; // Assume qty 1 if not specified
+          createBillingItem(doc.data(), 'PHARMACY', qty);
+      });
     }
   }
   
@@ -261,7 +269,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   
   try {
     await batch.commit();
-    return { success: true, encounterId: encounterRef.id, message: 'Encounter and billing items created successfully.' };
+    return { success: true, encounterId: encounterRef.id, message: 'Encounter and intelligent billing items created successfully.' };
   } catch (error) {
     console.error("Encounter creation failed:", error);
     throw new HttpsError('internal', 'Failed to save encounter and billing data.');
