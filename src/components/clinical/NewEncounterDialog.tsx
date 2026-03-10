@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
+import { useRouter } from 'next/navigation';
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -55,19 +56,21 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  
+  const router = useRouter();
+
   // Standardized states
   const [isExternal, setIsExternal] = useState(false);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]); // Standardized list for all items
 
   // States for external free-text input
   const [extItemName, setExtItemName] = useState('');
   const [extInstruction, setExtInstruction] = useState('');
-
-  // States for internal catalog search
-  const [drugSearch, setDrugSearch] = useState('');
-  const [labSearch, setLabSearch] = useState('');
-  const [imagingSearch, setImagingSearch] = useState('');
+  
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
 
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -109,27 +112,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     return query(collection(firestore, 'hospitals', hospitalId, 'product_catalog'));
   }, [firestore, hospitalId]);
   const { data: catalog, isLoading: isCatalogLoading } = useCollection(catalogQuery);
-  
-  const labMenuQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return collection(firestore, 'hospitals', hospitalId, 'lab_menu');
-  }, [firestore, hospitalId]);
-  const { data: labMenu, isLoading: isLabMenuLoading } = useCollection(labMenuQuery);
-  
-  const radiologyMenuQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, 'hospitals', hospitalId, 'radiology_menu'));
-  }, [firestore, hospitalId]);
-  const { data: radiologyMenu, isLoading: isRadiologyMenuLoading } = useCollection(radiologyMenuQuery);
-
-  const filteredInventory = (catalog || []).filter(item => 
-    drugSearch && (
-      item.name.toLowerCase().includes(drugSearch.toLowerCase()) || 
-      item.sku.toLowerCase().includes(drugSearch.toLowerCase())
-    )
-  );
-  const filteredLabMenu = (labMenu || []).filter(item => labSearch && item.name.toLowerCase().includes(labSearch.toLowerCase()));
-  const filteredRadiologyMenu = (radiologyMenu || []).filter(item => imagingSearch && item.name.toLowerCase().includes(imagingSearch.toLowerCase()));
 
   const form = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterSchema),
@@ -162,14 +144,15 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     const newItem = {
         name: extItemName,
         instruction: extInstruction,
+        isExternal: true, // Mark for billing bypass
         id: Date.now().toString()
     };
     setItems([...items, newItem]);
-    setExtItemName('');
-    setExtInstruction('');
+    setExtItemName(''); // Clear input
+    setExtInstruction(''); // Clear input
   };
-
-  const addCatalogItem = (item: any, type: string) => { // 'type' is unused now, but let's keep it for a bit
+  
+  const addCatalogItem = (item: any) => {
     if (!items.some(i => i.id === item.id)) {
       setItems(currentItems => [...currentItems, item]);
     }
@@ -180,37 +163,38 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   };
   
   const onSubmit = async (values: EncounterFormValues) => {
-    if (!firebaseApp || !firestore || !user) return toast({ variant: 'destructive', title: 'System not ready.' });
+    if (!firebaseApp || !firestore || !user || !hospitalId) {
+        toast({ variant: 'destructive', title: 'System not ready. Please try again.'});
+        return;
+    }
     setLoading(true);
-    
-    const functions = getFunctions(firebaseApp);
-    const createEncounter = httpsCallable(functions, 'createEncounter');
-    
-    const payload = {
+
+    try {
+      const functions = getFunctions(firebaseApp);
+      const createEncounter = httpsCallable(functions, 'createEncounter');
+
+      const payload = {
         ...values,
         patientId,
         hospitalId,
         patientName,
-        items, // The standardized 'items' array
-        isExternal,
-    };
+        items: items || [], // Standardized name, fallback to empty array
+        isExternal: isExternal,
+      };
 
-    try {
       const result: any = await createEncounter(payload);
-      toast({ title: 'Encounter Logged', description: `New ${values.encounterType} recorded for ${patientName}.` });
-      
-      // If an external order was made, open the print view
-      const externalOrderId = result.data.externalOrderIds?.prescription || result.data.externalOrderIds?.lab || result.data.externalOrderIds?.imaging;
-      if (isExternal && externalOrderId) {
-        window.open(`/doctor/external-print/${externalOrderId}`, '_blank');
+
+      if (result.data.success) {
+        toast({ title: "Encounter Logged Successfully" });
+        // Redirect to the print page
+        router.push(`/doctor/external-print/${result.data.encounterId}?hospitalId=${hospitalId}&patientId=${patientId}`);
+      } else {
+         throw new Error(result.data.message || "Failed to create encounter.");
       }
       
-      form.reset();
-      setItems([]);
-      setIsExternal(false);
-      setOpen(false);
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      console.error("Save Error:", error);
+      toast({ variant: "destructive", title: "Transaction Aborted", description: "Data might be incomplete. " + error.message });
     } finally {
       setLoading(false);
     }
@@ -236,14 +220,18 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
             </DialogHeader>
 
             <div className="p-8 space-y-8 bg-card">
-              {/* CREDIT STATUS CHECKER */}
               {!isPayerLoading && creditStatus.name !== 'CASH PAYMENT' && (
                 <div className={`p-4 rounded-2xl flex justify-between items-center ${!creditStatus.viable ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
-                  {/* ... content as before ... */}
+                    <div className="flex items-center gap-3">
+                        <ShieldAlert size={24}/>
+                        <div>
+                            <p className="font-black uppercase text-sm">{creditStatus.name}</p>
+                            <p className="text-xs">{!creditStatus.viable ? `Credit Limit Exceeded. Balance: GHS ${creditStatus.balance}` : `Outstanding: GHS ${creditStatus.balance}`}</p>
+                        </div>
+                    </div>
                 </div>
               )}
 
-              {/* VITALS SECTION */}
               <div className="space-y-4">
                 <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
                     <Activity size={16} /> Nursing Vitals
@@ -268,7 +256,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                  </div>
               </div>
               
-              {/* NOTES SECTION */}
               <div className="space-y-4 pt-4">
                 <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
                     <Clipboard size={16} /> Consultation Notes
@@ -289,12 +276,10 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                  )}/>
               </div>
 
-              {/* UNIFIED PRESCRIPTION/SERVICES SECTION */}
               <div className="space-y-4 border-t pt-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-widest text-blue-600">Medication & Services</h3>
                   
-                  {/* THE TOGGLE */}
                   <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-200">
                      <input 
                        type="checkbox" 
@@ -313,7 +298,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                 </div>
 
                 {isExternal ? (
-                  /* --- EXTERNAL TYPING AREA (FREE-TEXT) --- */
                   <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[32px] border-2 border-dashed border-slate-200">
                       <div>
@@ -346,10 +330,8 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     </div>
                   </div>
                 ) : (
-                  /* --- INTERNAL SEARCH AREA (CATALOG-BASED) --- */
                   <div className="space-y-4">
-                    <ProductSearchDropdown catalog={catalog || []} onSelect={(p) => addCatalogItem(p, 'DRUG')} />
-                    {/* Add Lab/Radiology searches here if needed */}
+                    <ProductSearchDropdown catalog={catalog || []} onSelect={(p) => addCatalogItem(p)} />
                   </div>
                 )}
                 
