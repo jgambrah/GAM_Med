@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -14,12 +15,6 @@ export default function ExternalOrderPrint() {
   const { user } = useUser();
   const [printFormat, setPrintFormat] = useState<'A4' | 'POS'>('A4');
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
-  const { data: userProfile } = useDoc(userProfileRef);
-  
   const orderRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
     return doc(firestore, `external_orders`, id as string);
@@ -45,67 +40,55 @@ export default function ExternalOrderPrint() {
 
   if (!order) return <div className="p-20 text-center font-black">Order not found.</div>;
 
-  const clinicalItems = order.items || order.prescription || [];
+  // SOLID FIX 1: Collapse all possible names into one array to prevent 'undefined' error
+  const clinicalItems = order.items || order.prescription || order.externalList || [];
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto mb-8 print:hidden bg-white p-6 rounded-[32px] shadow-xl border-4 border-slate-900 flex justify-between items-center">
+      {/* --- FORMAT SELECTOR (Hidden on Print) --- */}
+      <div className="max-w-4xl mx-auto mb-8 print:hidden bg-white p-6 rounded-[32px] shadow-xl border-4 border-slate-900 flex justify-between items-center font-bold">
         <div className="flex gap-4">
-           <button 
-             onClick={() => setPrintFormat('A4')}
-             className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${printFormat === 'A4' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}
-           >
+           <button onClick={() => setPrintFormat('A4')} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${printFormat === 'A4' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>
               <FileText size={18}/> A4 Standard
            </button>
-           <button 
-             onClick={() => setPrintFormat('POS')}
-             className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${printFormat === 'POS' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-400'}`}
-           >
-              <Smartphone size={18}/> POS Receipt
+           <button onClick={() => setPrintFormat('POS')} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${printFormat === 'POS' ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>
+              <Smartphone size={18}/> POS Paper
            </button>
         </div>
-        <button onClick={() => window.print()} className="bg-slate-900 text-white px-10 py-3 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-600">
+        <button onClick={() => window.print()} className="bg-slate-900 text-white px-10 py-3 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-600 transition-all">
            Execute Print
         </button>
       </div>
 
       <div className="flex justify-center">
         {printFormat === 'A4' ? (
-          <div className="w-[210mm] bg-white p-12 shadow-sm border font-serif min-h-[297mm] text-black">
-             <div className="text-center border-b-4 border-black pb-4 mb-8">
-                <h1 className="text-3xl font-black uppercase">{hospital?.name}</h1>
-                <p className="text-xs uppercase font-bold">{hospital?.region} Region, Ghana</p>
-                <div className="bg-black text-white px-8 py-1 mt-4 inline-block text-sm font-black uppercase tracking-widest">Medical Order / Prescription</div>
-             </div>
-             
-             <div className="grid grid-cols-2 gap-10 mb-10 text-sm">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase">Patient Name</p>
-                  <p className="font-black uppercase text-lg">{order.patientName}</p>
-                  <p className="text-xs">EHR: {order.ehrNumber || 'N/A'}</p>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase">Date of Issue</p>
-                  <p className="font-black">{order.createdAt ? new Date(order.createdAt?.toDate()).toLocaleDateString('en-GB') : 'N/A'}</p>
+          /* --- A4 PROFESSIONAL LAYOUT --- */
+          <div className="w-[210mm] bg-white p-16 shadow-sm border font-serif min-h-[297mm] text-black">
+             <div className="text-center border-b-4 border-black pb-6 mb-10">
+                <h1 className="text-4xl font-black uppercase tracking-tighter">{hospital?.name}</h1>
+                <p className="text-sm uppercase font-bold">{hospital?.region} Region, Ghana</p>
+                <div className="bg-black text-white px-10 py-1 mt-4 inline-block text-sm font-black uppercase tracking-[0.3em]">
+                   Official Medical Order
                 </div>
              </div>
              
-             <div className="space-y-6">
-                <p className="text-sm font-bold uppercase tracking-[0.3em] border-b-2 border-slate-100 pb-2">
-                  {order.type === 'PRESCRIPTION' ? 'Rx: Medication Orders' : 
-                   order.type === 'LABORATORY' ? 'Dx: Laboratory Requests' :
-                   'Dx: Imaging Requests'}
-                </p>
-                <div className="space-y-4">
-                   {clinicalItems?.map((item: any, i: number) => (
-                      <div key={i} className="border-l-4 border-blue-600 pl-4 py-1">
-                         <p className="font-black text-lg uppercase italic">
+             <div className="space-y-10">
+                <div className="flex justify-between text-sm">
+                  <p className="font-bold uppercase">Patient: <span className="underline ml-2">{order.patientName}</span></p>
+                  <p className="font-bold">Date: {order.createdAt ? new Date(order.createdAt?.toDate()).toLocaleDateString('en-GB') : 'N/A'}</p>
+                </div>
+                
+                <div className="space-y-8">
+                   {clinicalItems.map((item: any, i: number) => (
+                      <div key={i} className="border-l-8 border-blue-600 pl-6 py-2">
+                         <p className="font-black text-2xl uppercase italic">
                             {item.name} 
-                            {item.strength ? ` (${item.strength})` : ''} 
+                            {/* SOLID FIX 2: Only show brackets if strength is NOT empty and NOT just a space */}
+                            {item.strength && item.strength.trim().length > 0 ? ` (${item.strength})` : ''} 
                          </p>
                          {(item.instruction || item.dosage) && (
-                            <p className="text-sm font-medium text-slate-600 mt-1">
-                                {item.instruction || `${item.dosage}, ${item.frequency} for ${item.duration}`}
+                            <p className="text-lg font-medium text-slate-700 mt-2 uppercase tracking-wide">
+                               👉 {item.instruction || `${item.dosage}, ${item.frequency} for ${item.duration}`}
                             </p>
                          )}
                       </div>
@@ -113,43 +96,49 @@ export default function ExternalOrderPrint() {
                 </div>
              </div>
 
-             <div className="mt-20 flex justify-between items-end">
-                <div>
-                   <div className="w-48 border-b-2 border-black mb-2"></div>
-                   <p className="text-xs font-black">Dr. {order.doctorName}</p>
+             <div className="mt-auto pt-32 flex justify-between items-end">
+                <div className="space-y-2">
+                   <div className="w-64 border-b-4 border-black"></div>
+                   <p className="text-sm font-black uppercase">Dr. {order.doctorName || order.providerName}</p>
+                   <p className="text-[10px] font-bold text-slate-400">Medical Officer (GamMed Authenticated)</p>
                 </div>
-                <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${id}`} size={80} />
+                <div className="text-center">
+                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${id}`} size={100} />
+                   <p className="text-[8px] font-black uppercase mt-2">Scan to Verify</p>
+                </div>
              </div>
           </div>
         ) : (
-          <div className="w-[80mm] bg-white p-4 shadow-sm border font-mono text-black">
-             <div className="text-center border-b border-black pb-2 mb-4">
-                <h2 className="text-lg font-black uppercase">{hospital?.name}</h2>
+          /* --- POS THERMAL LAYOUT --- */
+          <div className="w-[80mm] bg-white p-6 shadow-sm border-2 border-slate-200 font-mono text-black">
+             <div className="text-center border-b-2 border-black pb-4 mb-4">
+                <h2 className="text-lg font-black uppercase leading-tight">{hospital?.name}</h2>
                 <p className="text-[10px] uppercase font-bold">{hospital?.region}</p>
-                <p className="text-[10px] mt-1">PRESCRIPTION / ORDER</p>
+                <p className="text-[10px] mt-2 font-black border-2 border-black inline-block px-2">OFFICIAL ORDER</p>
              </div>
-             <div className="text-[11px] mb-4 space-y-1">
+             <div className="text-[11px] mb-6 space-y-1 font-bold">
                 <p>DATE: {order.createdAt ? new Date(order.createdAt?.toDate()).toLocaleDateString() : 'N/A'}</p>
-                <p>PATIENT: {order.patientName}</p>
-                <p>ID: {(id as string)?.slice(0,8).toUpperCase()}</p>
+                <p>PATIENT: {order.patientName?.toUpperCase()}</p>
+                <p>REF: {(id as string)?.slice(0,8).toUpperCase()}</p>
              </div>
-             <div className="border-y border-black py-2 space-y-3">
-                {clinicalItems?.map((item: any, i: number) => (
+             <div className="border-y-2 border-black py-4 space-y-5">
+                {clinicalItems.map((item: any, i: number) => (
                    <div key={i} className="space-y-1">
-                      <p className="font-black text-xs uppercase">* {item.name} {item.strength ? `(${item.strength})` : ''}</p>
+                      <p className="font-black text-sm uppercase">
+                        # {item.name} {item.strength && item.strength.trim().length > 0 ? `(${item.strength})` : ''}
+                      </p>
                       {(item.instruction || item.dosage) && (
-                        <p className="text-[10px] italic pl-3">>> {item.instruction || `${item.dosage}, ${item.frequency} for ${item.duration}`}</p>
+                         <p className="text-[11px] italic pl-4">>> {item.instruction || `${item.dosage}, ${item.frequency} for ${item.duration}`}</p>
                       )}
                    </div>
                 ))}
              </div>
-             <div className="mt-4 text-center space-y-4">
-                <p className="text-[10px] font-bold">DR. {order.doctorName.toUpperCase()}</p>
-                <div className="flex justify-center">
-                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${id}`} size={100} />
+             <div className="mt-6 text-center space-y-6">
+                <p className="text-[11px] font-black italic">SIGNED: DR. {(order.doctorName || order.providerName).toUpperCase()}</p>
+                <div className="flex justify-center bg-slate-50 p-4 rounded-2xl">
+                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${id}`} size={120} />
                 </div>
-                <p className="text-[8px] uppercase">Scan to Verify Authenticity</p>
-                <p className="text-[8px] mt-4 border-t pt-2 italic">GamMed ERP - Digital Health</p>
+                <p className="text-[8px] font-black uppercase tracking-widest">Verify authenticity via QR Code</p>
              </div>
           </div>
         )}
@@ -157,5 +146,3 @@ export default function ExternalOrderPrint() {
     </div>
   );
 }
-
-    
