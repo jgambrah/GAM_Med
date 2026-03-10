@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -86,8 +87,7 @@ export default function HospitalRegisterPage() {
       }
       closeDialog();
   };
-
-  // THE KILL-SWITCH LOGIC
+  
   const toggleStatus = (hospital: Hospital) => {
     if (!firestore) return;
     const newStatus = hospital.status === 'active' ? 'suspended' : 'active';
@@ -107,7 +107,6 @@ export default function HospitalRegisterPage() {
     );
   };
 
-  // TRIAL EXTENSION LOGIC (+30 Days)
   const extendTrial = (hospital: Hospital) => {
     if (!firestore) return;
     const action = () => {
