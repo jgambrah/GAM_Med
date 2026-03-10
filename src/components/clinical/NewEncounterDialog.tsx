@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -19,6 +20,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
+import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -157,12 +159,17 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
   const addTypedItem = () => {
     if (!extItemName) return;
-    setItems([...items, { name: extItemName, instruction: extInstruction, id: Date.now().toString() }]);
+    const newItem = {
+        name: extItemName,
+        instruction: extInstruction,
+        id: Date.now().toString()
+    };
+    setItems([...items, newItem]);
     setExtItemName('');
     setExtInstruction('');
   };
 
-  const addCatalogItem = (item: any) => {
+  const addCatalogItem = (item: any, type: string) => { // 'type' is unused now, but let's keep it for a bit
     if (!items.some(i => i.id === item.id)) {
       setItems(currentItems => [...currentItems, item]);
     }
@@ -179,13 +186,12 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     const functions = getFunctions(firebaseApp);
     const createEncounter = httpsCallable(functions, 'createEncounter');
     
-    // SOLID FIX: Pass the single 'items' array
     const payload = {
         ...values,
         patientId,
         hospitalId,
         patientName,
-        items,
+        items, // The standardized 'items' array
         isExternal,
     };
 
@@ -194,8 +200,9 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
       toast({ title: 'Encounter Logged', description: `New ${values.encounterType} recorded for ${patientName}.` });
       
       // If an external order was made, open the print view
-      if (isExternal && result.data.externalOrderId) {
-        window.open(`/doctor/external-print/${result.data.externalOrderId}`, '_blank');
+      const externalOrderId = result.data.externalOrderIds?.prescription || result.data.externalOrderIds?.lab || result.data.externalOrderIds?.imaging;
+      if (isExternal && externalOrderId) {
+        window.open(`/doctor/external-print/${externalOrderId}`, '_blank');
       }
       
       form.reset();
@@ -266,7 +273,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                 <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
                     <Clipboard size={16} /> Consultation Notes
                 </h3>
-                {/* ... FormFields for encounterType, chiefComplaint, hpi, diagnosis ... */}
                  <FormField control={form.control} name="encounterType" render={({ field }) => (
                     <FormItem><FormLabel>Encounter Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>
                         <SelectItem value="Consultation">Consultation</SelectItem><SelectItem value="Vitals Check">Vitals Check</SelectItem><SelectItem value="Procedure">Procedure</SelectItem><SelectItem value="Admission">Admission</SelectItem>
@@ -287,29 +293,60 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
               <div className="space-y-4 border-t pt-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-widest text-blue-600">Medication & Services</h3>
+                  
+                  {/* THE TOGGLE */}
                   <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-200">
-                    <input type="checkbox" id="ext-toggle" className="w-5 h-5 rounded accent-amber-600 cursor-pointer" checked={isExternal} onChange={(e) => { setIsExternal(e.target.checked); setItems([]); }} />
-                    <label htmlFor="ext-toggle" className="text-[10px] font-black uppercase text-amber-700 cursor-pointer">External Facility (No Billing)</label>
+                     <input 
+                       type="checkbox" 
+                       id="ext-toggle"
+                       className="w-5 h-5 rounded accent-amber-600 cursor-pointer"
+                       checked={isExternal}
+                       onChange={(e) => {
+                          setIsExternal(e.target.checked);
+                          setItems([]); // Clear list when switching modes to avoid mixing
+                       }}
+                     />
+                     <label htmlFor="ext-toggle" className="text-[10px] font-black uppercase text-amber-700 cursor-pointer">
+                        External Facility (No Billing)
+                     </label>
                   </div>
                 </div>
 
                 {isExternal ? (
+                  /* --- EXTERNAL TYPING AREA (FREE-TEXT) --- */
                   <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[32px] border-2 border-dashed border-slate-200">
                       <div>
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Drug or Test Name</label>
-                        <input className="w-full p-4 rounded-2xl border-2 border-white bg-white text-black font-bold outline-none focus:border-amber-500 transition-all" placeholder="e.g. MRI Brain with Contrast" value={extItemName} onChange={(e) => setExtItemName(e.target.value)} />
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Type Item Name</label>
+                        <input 
+                          className="w-full p-4 rounded-2xl border-none shadow-sm text-black font-bold"
+                          placeholder="e.g. MRI Scan / Ciprofloxacin"
+                          value={extItemName}
+                          onChange={(e) => setExtItemName(e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Dosage / Instructions</label>
                         <div className="flex gap-2">
-                          <input className="flex-1 p-4 rounded-2xl border-2 border-white bg-white text-black font-bold outline-none focus:border-amber-500" placeholder="e.g. 1 tab twice daily" value={extInstruction} onChange={(e) => setExtInstruction(e.target.value)} />
-                          <button type="button" onClick={addTypedItem} className="bg-amber-600 text-white p-4 rounded-2xl hover:bg-black transition-all"><Plus size={24} /></button>
+                          <input 
+                            className="flex-1 p-4 rounded-2xl border-none shadow-sm text-black font-bold"
+                            placeholder="e.g. 1 tab twice daily"
+                            value={extInstruction}
+                            onChange={(e) => setExtInstruction(e.target.value)}
+                          />
+                          <button 
+                            type="button"
+                            onClick={addTypedItem}
+                            className="bg-blue-600 text-white p-4 rounded-2xl hover:bg-black transition-all"
+                          >
+                             <Plus size={24} />
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
+                  /* --- INTERNAL SEARCH AREA (CATALOG-BASED) --- */
                   <div className="space-y-4">
                     <ProductSearchDropdown catalog={catalog || []} onSelect={(p) => addCatalogItem(p, 'DRUG')} />
                     {/* Add Lab/Radiology searches here if needed */}
@@ -366,3 +403,4 @@ function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
         />
     );
 }
+    
