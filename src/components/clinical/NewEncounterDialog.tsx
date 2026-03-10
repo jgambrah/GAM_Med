@@ -175,23 +175,17 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         labOrders: labOrders || [],
         radiologyOrders: radiologyOrders || [],
         isExternal: isExternal, // The toggle state
-        hospitalId: hospitalId
+        hospitalId: hospitalId,
+        providerUid: user.uid,
+        providerName: user.displayName,
       };
   
       const result: any = await createEncounter(payload);
   
-      if (result.data.success && result.data.documentId) {
+      if (result.data.success && result.data.encounterId) {
         toast({ title: "EHR Record Committed" });
         
-        if (isExternal) {
-            router.push(`/doctor/external-print/${result.data.documentId}`);
-        } else {
-            setOpen(false);
-            form.reset();
-            setItems([]);
-            setLabOrders([]);
-            setRadiologyOrders([]);
-        }
+        router.push(`/doctor/external-print/${result.data.encounterId}`);
 
       } else {
         throw new Error(result.data.message || 'Cloud function did not return a success status or ID.');
