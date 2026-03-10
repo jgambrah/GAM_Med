@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, Loader2, Save, Thermometer, Activity, Scale, 
-  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2
+  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2, ChevronsUpDown, Check
 } from 'lucide-react';
 import { useFirebaseApp, useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -22,6 +22,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 import { useRouter } from 'next/navigation';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -58,11 +61,13 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const { toast } = useToast();
   const router = useRouter();
 
-  // Standardized states
+  // State Management
   const [isExternal, setIsExternal] = useState(false);
-  const [items, setItems] = useState<any[]>([]);
-
-  // States for external free-text input
+  const [items, setItems] = useState<any[]>([]); // For prescriptions or external free-text
+  const [labOrders, setLabOrders] = useState<any[]>([]);
+  const [radiologyOrders, setRadiologyOrders] = useState<any[]>([]);
+  
+  // Free-text input state for external orders
   const [extItemName, setExtItemName] = useState('');
   const [extInstruction, setExtInstruction] = useState('');
   
@@ -85,33 +90,13 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   }, [firestore, hospitalId, payerId]);
   const { data: payer, isLoading: isPayerLoading } = useDoc(payerRef);
 
-  const creditStatus = useMemo(() => {
-    if (!payer) return { viable: true, name: 'CASH PAYMENT', balance: 0 }; 
-    if (payer.type === 'NHIS' || payer.type === 'PRIVATE_INSURANCE') return { viable: true, name: payer.name, balance: payer.currentBalance || 0 };
-
-    const creditLimit = payer.creditLimit || 0;
-    const currentBalance = payer.currentBalance || 0;
-
-    if (creditLimit > 0 && currentBalance >= creditLimit) {
-      return { 
-        viable: false, 
-        reason: "CREDIT_LIMIT_EXCEEDED",
-        name: payer.name,
-        balance: currentBalance,
-      };
-    }
-    return { 
-      viable: true,
-      name: payer.name,
-      balance: currentBalance,
-    };
-  }, [payer]);
-  
-  const catalogQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, 'hospitals', hospitalId, 'product_catalog'));
-  }, [firestore, hospitalId]);
+  // DATA FETCHING
+  const catalogQuery = useMemoFirebase(() => firestore && hospitalId ? query(collection(firestore, 'hospitals', hospitalId, 'product_catalog')) : null, [firestore, hospitalId]);
   const { data: catalog, isLoading: isCatalogLoading } = useCollection(catalogQuery);
+  const labMenuQuery = useMemoFirebase(() => firestore && hospitalId ? query(collection(firestore, 'hospitals', hospitalId, 'lab_menu')) : null, [firestore, hospitalId]);
+  const { data: labMenu, isLoading: isLabMenuLoading } = useCollection(labMenuQuery);
+  const radiologyMenuQuery = useMemoFirebase(() => firestore && hospitalId ? query(collection(firestore, 'hospitals', hospitalId, 'radiology_menu')) : null, [firestore, hospitalId]);
+  const { data: radiologyMenu, isLoading: isRadiologyMenuLoading } = useCollection(radiologyMenuQuery);
 
   const form = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterSchema),
@@ -138,18 +123,25 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   }, [weight, height, form]);
   
   const bmiValue = form.watch('vitals.bmi') || '0.0';
-  
+
+  useEffect(() => {
+    // Clear all lists when switching modes
+    setItems([]);
+    setLabOrders([]);
+    setRadiologyOrders([]);
+  }, [isExternal]);
+
   const addTypedItem = () => {
     if (!extItemName) return;
     const newItem = {
         name: extItemName,
         instruction: extInstruction,
-        isExternal: true, // Mark for billing bypass
+        isExternal: true,
         id: Date.now().toString()
     };
     setItems([...items, newItem]);
-    setExtItemName(''); // Clear input
-    setExtInstruction(''); // Clear input
+    setExtItemName('');
+    setExtInstruction('');
   };
   
   const addCatalogItem = (item: any) => {
@@ -158,8 +150,8 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     }
   };
 
-  const removeItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const removeItem = (id: string, listSetter: React.Dispatch<React.SetStateAction<any[]>>) => {
+    listSetter(prev => prev.filter(item => item.id !== id));
   };
   
   const onSubmit = async (values: EncounterFormValues) => {
@@ -178,7 +170,9 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         patientId,
         hospitalId,
         patientName,
-        items: items || [], // Standardized name
+        items: items || [],
+        labOrders: labOrders || [],
+        radiologyOrders: radiologyOrders || [],
         isExternal: isExternal,
       };
 
@@ -186,8 +180,12 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
       if (result.data.success) {
         toast({ title: "Encounter Logged Successfully" });
-        // Redirect to the print page
-        router.push(`/doctor/external-print/${result.data.documentId}`);
+        if (isExternal) {
+            router.push(`/doctor/external-print/${result.data.externalOrderIds.prescription}`);
+        } else {
+            setOpen(false);
+            form.reset();
+        }
       } else {
          throw new Error(result.data.message || "Failed to create encounter.");
       }
@@ -207,7 +205,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
           <Plus /> New Encounter
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader className="bg-foreground p-8 text-background rounded-t-lg">
@@ -219,23 +217,10 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                 </DialogDescription>
             </DialogHeader>
 
-            <div className="p-8 space-y-8 bg-card">
-              {!isPayerLoading && creditStatus.name !== 'CASH PAYMENT' && (
-                <div className={`p-4 rounded-2xl flex justify-between items-center ${!creditStatus.viable ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
-                    <div className="flex items-center gap-3">
-                        <ShieldAlert size={24}/>
-                        <div>
-                            <p className="font-black uppercase text-sm">{creditStatus.name}</p>
-                            <p className="text-xs">{!creditStatus.viable ? `Credit Limit Exceeded. Balance: GHS ${creditStatus.balance}` : `Outstanding: GHS ${creditStatus.balance}`}</p>
-                        </div>
-                    </div>
-                </div>
-              )}
-
+            <div className="p-8 space-y-8 bg-card overflow-y-auto max-h-[calc(90vh-200px)]">
+              {/* Vitals and Notes */}
               <div className="space-y-4">
-                <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
-                    <Activity size={16} /> Nursing Vitals
-                </h3>
+                <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Activity size={16} /> Vitals & Notes</h3>
                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <VitalInput control={form.control} name="vitals.temp" label="Temp (°C)" icon={Thermometer} />
                     <div className="grid grid-cols-2 gap-1">
@@ -254,46 +239,51 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                         <span className="text-2xl font-black">{bmiValue}</span>
                     </div>
                  </div>
-              </div>
-              
-              <div className="space-y-4 pt-4">
-                <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
-                    <Clipboard size={16} /> Consultation Notes
-                </h3>
-                 <FormField control={form.control} name="encounterType" render={({ field }) => (
-                    <FormItem><FormLabel>Encounter Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>
-                        <SelectItem value="Consultation">Consultation</SelectItem><SelectItem value="Vitals Check">Vitals Check</SelectItem><SelectItem value="Procedure">Procedure</SelectItem><SelectItem value="Admission">Admission</SelectItem>
-                    </SelectContent></Select><FormMessage /></FormItem>
-                 )}/>
                  <FormField control={form.control} name="chiefComplaint" render={({ field }) => (
                     <FormItem><FormLabel>Chief Complaint</FormLabel><FormControl><Textarea placeholder="Why is the patient here?" {...field} /></FormControl></FormItem>
-                 )}/>
-                  <FormField control={form.control} name="hpi" render={({ field }) => (
-                    <FormItem><FormLabel>History of Presenting Illness (HPI)</FormLabel><FormControl><Textarea placeholder="Detailed symptoms, duration, and severity..." {...field} rows={4} /></FormControl></FormItem>
                  )}/>
                  <FormField control={form.control} name="diagnosis" render={({ field }) => (
                     <FormItem><FormLabel>Final Diagnosis / Impression</FormLabel><FormControl><Input placeholder="ICD-10 or clinical term" {...field} /></FormControl></FormItem>
                  )}/>
               </div>
 
+              {/* Diagnostics */}
+              <div className="space-y-4 pt-4">
+                <h3 className="text-primary font-black text-xs uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
+                  <Beaker size={16} /> Diagnostics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <DiagnosticSearch
+                        placeholder="Search Lab Tests..."
+                        menu={labMenu || []}
+                        onSelect={(item) => setLabOrders(prev => [...prev, item])}
+                        selectedItems={labOrders}
+                        onRemove={(id) => setLabOrders(prev => prev.filter(i => i.id !== id))}
+                        disabled={isExternal || isLabMenuLoading}
+                        title="Laboratory Requests"
+                    />
+                    <DiagnosticSearch
+                        placeholder="Search Imaging Scans..."
+                        menu={radiologyMenu || []}
+                        onSelect={(item) => setRadiologyOrders(prev => [...prev, item])}
+                        selectedItems={radiologyOrders}
+                        onRemove={(id) => setRadiologyOrders(prev => prev.filter(i => i.id !== id))}
+                        disabled={isExternal || isRadiologyMenuLoading}
+                        title="Imaging Requests"
+                    />
+                </div>
+              </div>
+
+              {/* Medication & Services */}
               <div className="space-y-4 border-t pt-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-widest text-blue-600">Medication & Services</h3>
-                  
                   <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-200">
-                     <input 
-                       type="checkbox" 
-                       id="ext-toggle"
-                       className="w-5 h-5 rounded accent-amber-600 cursor-pointer"
+                     <input type="checkbox" id="ext-toggle" className="w-5 h-5 rounded accent-amber-600 cursor-pointer"
                        checked={isExternal}
-                       onChange={(e) => {
-                          setIsExternal(e.target.checked);
-                          setItems([]); // Clear list when switching modes to avoid mixing
-                       }}
+                       onChange={(e) => setIsExternal(e.target.checked)}
                      />
-                     <label htmlFor="ext-toggle" className="text-[10px] font-black uppercase text-amber-700 cursor-pointer">
-                        External Facility (No Billing)
-                     </label>
+                     <label htmlFor="ext-toggle" className="text-[10px] font-black uppercase text-amber-700 cursor-pointer">External Referral</label>
                   </div>
                 </div>
 
@@ -302,27 +292,17 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[32px] border-2 border-dashed border-slate-200">
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Item/Drug/Test Name</label>
-                        <input 
-                          className="w-full p-4 rounded-2xl border-none shadow-sm text-black font-bold"
-                          placeholder="e.g. MRI Brain with Contrast"
-                          value={extItemName}
-                          onChange={(e) => setExtItemName(e.target.value)}
-                        />
+                        <input className="w-full p-4 rounded-2xl border-none shadow-sm text-black font-bold"
+                          placeholder="e.g. MRI Brain / Ciprofloxacin"
+                          value={extItemName} onChange={(e) => setExtItemName(e.target.value)} />
                       </div>
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Dosage / Instructions</label>
                         <div className="flex gap-2">
-                          <input 
-                            className="flex-1 p-4 rounded-2xl border-none shadow-sm text-black font-bold"
+                          <input className="flex-1 p-4 rounded-2xl border-none shadow-sm text-black font-bold"
                             placeholder="e.g. 1 tab twice daily"
-                            value={extInstruction}
-                            onChange={(e) => setExtInstruction(e.target.value)}
-                          />
-                          <button 
-                            type="button"
-                            onClick={addTypedItem}
-                            className="bg-blue-600 text-white p-4 rounded-2xl hover:bg-black transition-all"
-                          >
+                            value={extInstruction} onChange={(e) => setExtInstruction(e.target.value)} />
+                          <button type="button" onClick={addTypedItem} className="bg-blue-600 text-white p-4 rounded-2xl hover:bg-black transition-all">
                              <Plus size={24} />
                           </button>
                         </div>
@@ -342,17 +322,18 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                           <p className="font-black text-black uppercase text-sm">{item.name}</p>
                           <p className="text-[10px] text-blue-600 font-bold italic">{item.instruction || item.dosage || 'No instructions'}</p>
                        </div>
-                       <button type="button" onClick={() => removeItem(item.id)} className="text-red-300 hover:text-red-600"><Trash2 size={18} /></button>
+                       <button type="button" onClick={() => removeItem(item.id, setItems)} className="text-red-300 hover:text-red-600"><Trash2 size={18} /></button>
                     </div>
                   ))}
                 </div>
               </div>
+
             </div>
 
             <DialogFooter className="p-8 bg-muted/50 rounded-b-lg">
               <Button variant="ghost" onClick={() => setOpen(false)}>Discard</Button>
-              <Button type="submit" disabled={loading || !creditStatus.viable} className="disabled:bg-slate-300">
-                {loading ? <Loader2 className="animate-spin" /> : !creditStatus.viable ? 'Service Locked (Unpaid Debt)' : <><Save className="mr-2" size={18} /> Sign & Commit to EHR</>}
+              <Button type="submit" disabled={loading} className="disabled:bg-slate-300">
+                {loading ? <Loader2 className="animate-spin" /> : <><Save className="mr-2" size={18} /> Sign & Commit to EHR</>}
               </Button>
             </DialogFooter>
           </form>
@@ -373,12 +354,7 @@ function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
                         {Icon && <Icon size={14} />} {label}
                     </FormLabel>
                     <FormControl>
-                        <Input 
-                            type="text" 
-                            className="rounded-xl text-card-foreground font-black text-center"
-                            {...field}
-                            disabled={disabled}
-                        />
+                        <Input type="text" className="rounded-xl text-card-foreground font-black text-center" {...field} disabled={disabled} />
                     </FormControl>
                 </FormItem>
             )}
@@ -386,3 +362,58 @@ function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
     );
 }
 
+function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, onRemove, disabled, isLoading }: any) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  return (
+    <div className="bg-card p-6 rounded-[32px] border shadow-sm space-y-4">
+      <h4 className="text-xs font-black uppercase text-muted-foreground">{title}</h4>
+      <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={dropdownOpen}
+            className="w-full justify-between"
+            disabled={disabled}
+          >
+            {isLoading ? <Loader2 className="animate-spin" /> : placeholder}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+            <CommandInput placeholder="Search..." />
+            <CommandList>
+              <CommandEmpty>No results found.</CommandEmpty>
+              <CommandGroup>
+                {menu.map((item: any) => (
+                  <CommandItem
+                    key={item.id}
+                    value={item.name}
+                    onSelect={() => {
+                      onSelect(item);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", selectedItems.some((i:any) => i.id === item.id) ? "opacity-100" : "opacity-0")} />
+                    {item.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      <div className="space-y-2">
+        {selectedItems.map((item: any) => (
+          <div key={item.id} className="flex justify-between items-center bg-muted/50 p-2 pl-4 rounded-lg text-xs">
+            <span className="font-bold">{item.name}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => onRemove(item.id)}><X size={14} /></Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
