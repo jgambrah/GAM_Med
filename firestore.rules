@@ -171,10 +171,15 @@ service cloud.firestore {
     }
     
     // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
-    match /encounters/{encounterId} {
-      allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isClinicalStaff(resource.data.hospitalId);
-      allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
+    match /encounters/{id} {
+      // Allow the CEO to see all clinical encounters
+      // Allow the Doctor to see only if the encounter belongs to their hospital
+      allow read, list: if request.auth.token.role == 'SUPER_ADMIN' || 
+                        (request.auth != null && resource.data.hospitalId == request.auth.token.hospitalId);
+
+      // Allow the Doctor to create an encounter only if they stamp it with their hospitalId
+      allow create: if request.auth.token.role == 'SUPER_ADMIN' || 
+                      (request.auth != null && request.resource.data.hospitalId == request.auth.token.hospitalId);
     }
 
     match /nhis_batches/{batchId} {
@@ -622,3 +627,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
