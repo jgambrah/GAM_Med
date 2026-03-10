@@ -159,11 +159,15 @@ service cloud.firestore {
       allow update, delete, list: if false;
     }
 
+    // --- PUBLIC VERIFICATION ACCESS ---
     match /external_orders/{orderId} {
-      allow get: if true; // Allow public read for QR code verification
-      allow list: if false; // DISALLOW public browsing of all orders
-      allow create: if isClinicalStaff(request.resource.data.hospitalId);
-      allow update, delete: if false; // Orders should be immutable
+      // ALLOW anyone with the exact ID (from QR scan) to view the document
+      allow get: if true;
+      // DENY anyone from listing all orders (browsing)
+      allow list: if false;
+      // Only Doctors or CEO can create these
+      allow create: if request.auth != null && request.auth.token.role in ['DOCTOR', 'SUPER_ADMIN'];
+      allow update, delete: if false; // Immutable once issued
     }
 
     match /nhis_batches/{batchId} {

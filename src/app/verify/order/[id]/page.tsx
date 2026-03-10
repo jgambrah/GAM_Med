@@ -3,9 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { ShieldCheck, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { ShieldCheck, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 export default function PublicOrderVerification() {
   const { id } = useParams();
@@ -13,8 +11,6 @@ export default function PublicOrderVerification() {
   const [hospital, setHospital] = useState<any>(null);
   const [status, setStatus] = useState<'loading' | 'valid' | 'invalid'>('loading');
   const firestore = useFirestore();
-  const { toast } = useToast();
-  const router = useRouter();
 
   useEffect(() => {
     if (!firestore || !id) {
@@ -64,7 +60,7 @@ export default function PublicOrderVerification() {
         <div className="bg-green-600 p-8 text-white text-center">
            <CheckCircle2 size={48} className="mx-auto mb-2" />
            <h2 className="text-2xl font-black uppercase tracking-tighter">Verified Order</h2>
-           <p className="text-[10px] font-bold uppercase opacity-80">Authenticated by {hospital?.name}</p>
+           <p className="text-[10px] font-bold uppercase opacity-80">Authenticated by {hospital.name}</p>
         </div>
 
         <div className="p-8 space-y-6">
