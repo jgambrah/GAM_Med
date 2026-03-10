@@ -6,6 +6,7 @@ import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Printer, ShieldCheck, ArrowLeft, Landmark, Loader2, Stethoscope, MapPin } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function ExternalOrderPrint() {
   const { id } = useParams();
@@ -22,6 +23,7 @@ export default function ExternalOrderPrint() {
   
   const orderRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
+    // Assuming external_orders is a top-level collection
     return doc(firestore, `external_orders`, id as string);
   }, [firestore, id]);
   const { data: order, isLoading: isOrderLoading } = useDoc(orderRef);
@@ -65,7 +67,7 @@ export default function ExternalOrderPrint() {
                <div className="bg-slate-900 text-white px-6 py-1 text-sm font-black uppercase tracking-widest">
                   Clinical Order
                </div>
-               <p className="text-[10px] font-bold mt-2 text-slate-400">REF: {id.toString().slice(0, 10).toUpperCase()}</p>
+               <p className="text-[10px] font-bold mt-2 text-slate-400">REF: {(id as string).slice(0, 10).toUpperCase()}</p>
             </div>
          </div>
 
@@ -77,7 +79,7 @@ export default function ExternalOrderPrint() {
             </div>
             <div className="text-right space-y-1">
                <p className="text-[9px] font-black text-slate-400 uppercase">Date of Issue</p>
-               <p className="font-black">{new Date(order.createdAt?.toDate()).toLocaleDateString('en-GB')}</p>
+               <p className="font-black">{order.createdAt ? new Date(order.createdAt?.toDate()).toLocaleDateString('en-GB') : 'N/A'}</p>
             </div>
          </div>
 
@@ -110,13 +112,24 @@ export default function ExternalOrderPrint() {
          </div>
 
          <div className="pt-20 grid grid-cols-2 gap-20">
+            {/* LEFT: DOCTOR SIGNATURE */}
             <div className="space-y-2">
                <div className="border-b-2 border-slate-900 w-full h-12"></div>
                <p className="text-xs font-black uppercase">Dr. {order.doctorName}</p>
-               <p className="text-[10px] font-bold text-slate-400 uppercase italic">Medical Officer (MDC: {order.doctorMDC || 'N/A'})</p>
+               <p className="text-[10px] font-bold text-slate-400 uppercase italic">MDC: {order.doctorMDC || 'N/A'}</p>
             </div>
-             <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4">
-               <p className="text-[8px] font-black text-slate-300 uppercase mb-2">Official Hospital Stamp</p>
+
+            {/* RIGHT: THE QR VERIFICATION GATE */}
+            <div className="flex flex-col items-center justify-center border-2 border-slate-900 rounded-3xl p-4 bg-slate-50">
+               <QRCodeSVG 
+                 value={`https://gam-med.vercel.app/verify/order/${id}`} 
+                 size={80}
+                 level={"H"}
+                 includeMargin={true}
+               />
+               <p className="text-[8px] font-black text-slate-900 uppercase mt-2 tracking-tighter">
+                  Scan to Verify Authenticity
+               </p>
             </div>
          </div>
 
@@ -131,4 +144,3 @@ export default function ExternalOrderPrint() {
     </div>
   );
 }
-
