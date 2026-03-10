@@ -418,7 +418,8 @@ service cloud.firestore {
       }
 
       match /payers/{payerId} {
-        allow read, write, list, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /clinical_alerts/{alertId} {
@@ -541,7 +542,7 @@ service cloud.firestore {
       }
 
       match /product_catalog/{productId} {
-        allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create, update, delete: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
       }
 
