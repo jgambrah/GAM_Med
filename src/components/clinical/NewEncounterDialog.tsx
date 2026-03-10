@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,10 +9,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, Loader2, Save, Thermometer, Activity, Scale, 
-  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2, ChevronsUpDown, Check, FileSignature
+  HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2, ChevronsUpDown, Check, FileSignature
 } from 'lucide-react';
 import { useFirebaseApp, useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -22,8 +20,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 import { useRouter } from 'next/navigation';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { ReferralLetterDialog } from './ReferralLetterDialog';
 
@@ -65,7 +61,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   // State Management
   const [isExternal, setIsExternal] = useState(false);
-  const [items, setItems] = useState<any[]>([]); // Standardized list for both Internal/External
+  const [items, setItems] = useState<any[]>([]); // Standardized list for drugs/services
   const [labOrders, setLabOrders] = useState<any[]>([]);
   const [radiologyOrders, setRadiologyOrders] = useState<any[]>([]);
   
@@ -184,11 +180,11 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
       const result: any = await createEncounter(payload);
   
-      if (result.data.success && result.data.encounterId) {
+      if (result.data.success && result.data.documentId) {
         toast({ title: "EHR Record Committed" });
         
         if (isExternal) {
-            router.push(`/doctor/external-print/${result.data.encounterId}`);
+            router.push(`/doctor/external-print/${result.data.documentId}`);
         } else {
             setOpen(false);
             form.reset();
@@ -267,19 +263,21 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     <DiagnosticSearch
                         placeholder="Search Lab Tests..."
                         menu={labMenu || []}
-                        onSelect={(item) => setLabOrders(prev => [...prev, item])}
+                        onSelect={(item: any) => setLabOrders(prev => [...prev, item])}
                         selectedItems={labOrders}
-                        onRemove={(id) => setLabOrders(prev => prev.filter(i => i.id !== id))}
+                        onRemove={(id: string) => setLabOrders(prev => prev.filter(i => i.id !== id))}
                         disabled={isExternal || isLabMenuLoading}
+                        isLoading={isLabMenuLoading}
                         title="Laboratory Requests"
                     />
                     <DiagnosticSearch
                         placeholder="Search Imaging Scans..."
                         menu={radiologyMenu || []}
-                        onSelect={(item) => setRadiologyOrders(prev => [...prev, item])}
+                        onSelect={(item: any) => setRadiologyOrders(prev => [...prev, item])}
                         selectedItems={radiologyOrders}
-                        onRemove={(id) => setRadiologyOrders(prev => prev.filter(i => i.id !== id))}
+                        onRemove={(id: string) => setRadiologyOrders(prev => prev.filter(i => i.id !== id))}
                         disabled={isExternal || isRadiologyMenuLoading}
+                        isLoading={isRadiologyMenuLoading}
                         title="Imaging Requests"
                     />
                 </div>
@@ -342,7 +340,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                     </div>
                 ) : (
                     <div className="space-y-4">
-                      <ProductSearchDropdown catalog={catalog || []} onSelect={addCatalogItem} />
+                      <ProductSearchDropdown catalog={catalog || []} onSelect={(p) => addCatalogItem(p)} />
                     </div>
                 )}
                 
@@ -353,7 +351,9 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                             <p className="font-black text-black uppercase text-sm">{item.name}</p>
                             <p className="text-[10px] text-blue-600 font-bold italic">{item.instruction || item.dosage || 'No instructions'}</p>
                         </div>
-                        <button type="button" onClick={() => removeItem(item.id, setItems)} className="text-red-300 hover:text-red-600"><Trash2 size={18} /></button>
+                        <button type="button" onClick={() => removeItem(item.id, setItems)} className="text-red-300 hover:text-red-600">
+                            <Trash2 size={18} />
+                        </button>
                     </div>
                     ))}
                 </div>
@@ -395,47 +395,79 @@ function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
 
 function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, onRemove, disabled, isLoading }: any) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filteredMenu = useMemo(() => {
+    if (!menu) return [];
+    if (!searchTerm) return menu;
+    return menu.filter((item: any) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [menu, searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownRef]);
+
   return (
     <div className="bg-card p-6 rounded-[32px] border shadow-sm space-y-4">
       <h4 className="text-xs font-black uppercase text-muted-foreground">{title}</h4>
-      <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={dropdownOpen}
-            className="w-full justify-between"
-            disabled={disabled}
-          >
-            {isLoading ? <Loader2 className="animate-spin" /> : placeholder}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          <Command>
-            <CommandInput placeholder="Search..." />
-            <CommandList>
-              <CommandEmpty>No results found.</CommandEmpty>
-              <CommandGroup>
-                {menu.map((item: any) => (
-                  <CommandItem
+      <div className="relative" ref={dropdownRef}>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={dropdownOpen}
+          className="w-full justify-between"
+          disabled={disabled}
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+        >
+          {isLoading ? <Loader2 className="animate-spin" /> : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+        {dropdownOpen && (
+          <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover text-popover-foreground shadow-lg max-h-60 overflow-y-auto">
+            <div className="p-2">
+              <Input
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="p-1">
+              {filteredMenu.length === 0 ? (
+                <p className="p-2 text-center text-sm text-muted-foreground">No results.</p>
+              ) : (
+                filteredMenu.map((item: any) => (
+                  <div
                     key={item.id}
-                    value={item.name}
-                    onSelect={() => {
+                    className="flex items-center p-2 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
                       onSelect(item);
                       setDropdownOpen(false);
+                      setSearchTerm('');
                     }}
                   >
-                    <Check className={cn("mr-2 h-4 w-4", selectedItems.some((i:any) => i.id === item.id) ? "opacity-100" : "opacity-0")} />
-                    {item.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                    <Check className={cn("mr-2 h-4 w-4", selectedItems.some((i: any) => i.id === item.id) ? "opacity-100" : "opacity-0")} />
+                    <span className="text-sm">{item.name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-2">
         {selectedItems.map((item: any) => (
