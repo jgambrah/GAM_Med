@@ -66,10 +66,14 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   const [drugSearch, setDrugSearch] = useState('');
   const [prescription, setPrescription] = useState<any[]>([]);
+  
   const [labSearch, setLabSearch] = useState('');
   const [labOrders, setLabOrders] = useState<any[]>([]);
+  const [isLabExternal, setIsLabExternal] = useState(false);
+
   const [imagingSearch, setImagingSearch] = useState('');
   const [imagingOrders, setImagingOrders] = useState<any[]>([]);
+  const [isRadiologyExternal, setIsRadiologyExternal] = useState(false);
   
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -156,7 +160,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   const requestTest = (test: any) => {
     if (labOrders.some(order => order.testId === test.id)) return;
-    setLabOrders([...labOrders, { testId: test.id, name: test.name, status: 'PENDING' }]);
+    setLabOrders([...labOrders, { ...test, isExternal: isLabExternal, status: 'PENDING' }]);
     setLabSearch('');
   };
   
@@ -166,7 +170,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
   const requestScan = (scan: any) => {
     if (imagingOrders.some(order => order.scanId === scan.id)) return; // prevent duplicates
-    setImagingOrders([...imagingOrders, { scanId: scan.id, name: scan.name, modality: scan.modality, status: 'PENDING', indication: '' }]);
+    setImagingOrders([...imagingOrders, { ...scan, isExternal: isRadiologyExternal, status: 'PENDING', indication: '' }]);
     setImagingSearch('');
   };
 
@@ -441,6 +445,18 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                 <h3 className="text-purple-600 font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2">
                     <Beaker size={16} /> Laboratory Investigations
                 </h3>
+                 <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100 mb-4">
+                    <input
+                    type="checkbox"
+                    id="lab-external-toggle"
+                    className="w-5 h-5 rounded accent-amber-600"
+                    checked={isLabExternal}
+                    onChange={(e) => setIsLabExternal(e.target.checked)}
+                    />
+                    <label htmlFor="lab-external-toggle" className="text-[10px] font-black uppercase text-amber-700">
+                    Request from External Facility (Skip Internal Billing)
+                    </label>
+                </div>
                 <div className="relative">
                     <Input 
                     type="text" placeholder="Search Hospital Lab Menu..."
@@ -472,6 +488,18 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
                 <h3 className="text-orange-600 font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2">
                     <Layers size={16} /> Radiology & Imaging Requests
                 </h3>
+                 <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100 mb-4">
+                    <input
+                    type="checkbox"
+                    id="radiology-external-toggle"
+                    className="w-5 h-5 rounded accent-amber-600"
+                    checked={isRadiologyExternal}
+                    onChange={(e) => setIsRadiologyExternal(e.target.checked)}
+                    />
+                    <label htmlFor="radiology-external-toggle" className="text-[10px] font-black uppercase text-amber-700">
+                    Request from External Facility (Skip Internal Billing)
+                    </label>
+                </div>
                 <div className="relative">
                     <Input 
                     type="text" placeholder="Search Hospital Imaging Menu (X-ray, USS...)"
