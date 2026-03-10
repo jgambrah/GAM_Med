@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, Loader2, Save, Thermometer, Activity, Scale, 
-  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2, ChevronsUpDown, Check
+  Clipboard, HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2, ChevronsUpDown, Check, FileSignature
 } from 'lucide-react';
 import { useFirebaseApp, useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -25,6 +24,8 @@ import { useRouter } from 'next/navigation';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { ReferralLetterDialog } from './ReferralLetterDialog';
+
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -156,39 +157,60 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   };
   
   const onSubmit = async (values: EncounterFormValues) => {
+    if (!firebaseApp || !user || !userProfile) {
+      toast({ variant: 'destructive', title: 'System Error', description: 'System not ready. Please re-login.' });
+      return;
+    }
     setLoading(true);
+
     try {
+      const functions = getFunctions(firebaseApp);
+      const createEncounter = httpsCallable(functions, 'createEncounter');
+      
       const payload = {
         patientId,
         patientName,
+        encounterType: values.encounterType,
         vitals: values.vitals || {},
-        notes: {
-          chiefComplaint: values.chiefComplaint,
-          hpi: values.hpi,
-          diagnosis: values.diagnosis,
-        },
+        chiefComplaint: values.chiefComplaint,
+        hpi: values.hpi,
+        diagnosis: values.diagnosis,
         items: items || [], // Standardized name
-        isExternal: isExternal,
-        hospitalId: user?.hospitalId
+        labOrders: labOrders || [],
+        radiologyOrders: radiologyOrders || [],
+        isExternal: isExternal, // The toggle state
+        hospitalId: hospitalId
       };
   
-      const functions = getFunctions();
-      const createEncounter = httpsCallable(functions, 'createEncounter');
       const result: any = await createEncounter(payload);
   
-      if (result.data.success) {
+      if (result.data.success && result.data.encounterId) {
         toast({ title: "EHR Record Committed" });
-        setOpen(false);
         
-        // THE FIX: Redirect to the print page using the ID returned from the server
-        router.push(`/doctor/external-print/${result.data.encounterId}`);
+        // This is the standardized logic
+        if (isExternal) {
+            // Redirect to the external print page, which looks at the 'encounters' collection
+            router.push(`/doctor/external-print/${result.data.encounterId}`);
+        } else {
+            // For internal orders, we just close the dialog.
+            setOpen(false);
+            form.reset();
+            setItems([]);
+            setLabOrders([]);
+            setRadiologyOrders([]);
+        }
+
+      } else {
+        throw new Error(result.data.message || 'Cloud function did not return a success status or encounterId.');
       }
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: "Handshake Failed: " + error.message });
+    } catch (e: any) {
+      console.error("Encounter submission failed:", e);
+      toast({ variant: "destructive", title: "Submission Failed", description: e.message });
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
