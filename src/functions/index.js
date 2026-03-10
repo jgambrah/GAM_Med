@@ -158,44 +158,49 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   }
 
   const batch = db.batch();
+  
+  // Create references
+  const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
+  const encounterRef = patientRef.collection('encounters').doc();
   const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
 
-  // 1. Create the Encounter document
-  const encounterRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId).collection('encounters').doc();
+  // Prepare encounter data
   const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
-  
+  let hasPendingLabs = false;
+  let hasPendingScans = false;
+
   batch.set(encounterRef, {
     id: encounterRef.id, patientId, hospitalId, patientName, type: encounterType,
     providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    prescription, labOrders, radiologyOrders,
+    prescription: prescription || [],
+    hasPendingLabs,
+    hasPendingScans,
     ...restOfEncounterData
   });
 
-  // 2. Update patient status
-  const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
+  // Update patient status
   batch.update(patientRef, {
     status: 'Waiting for Doctor',
     lastVitals: fullVitals,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // 3. --- INTELLIGENT SPLIT-BILLING LOGIC ---
+  // --- INTELLIGENT BILLING & ORDER CREATION ---
   const patientDoc = await patientRef.get();
   if (!patientDoc.exists()) throw new HttpsError('not-found', 'Patient record not found for billing.');
   const patientData = patientDoc.data();
   
   const payerId = patientData.payerId;
   let payerData = null;
-  if (payerId && payerId !== 'CASH') { // Check if a payer is assigned and it's not the cash placeholder
+  if (payerId && payerId !== 'CASH') {
     const payerDoc = await db.collection('hospitals').doc(hospitalId).collection('payers').doc(payerId).get();
     if(payerDoc.exists()) payerData = payerDoc.data();
   }
-
-  // Helper function to create a billing item based on coverage
+  
   const createBillingItem = (item, type, qty = 1) => {
     let isCovered = false;
-    let priceToUse = item.sellingPrice || item.price || 0;
+    let priceToUse = item.price || 0;
     let billingType = 'CASH_PAYMENT';
     let billPayerId = null;
     let payerName = 'Cash Payment';
@@ -210,13 +215,11 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
       }
     }
     
-    // If it's a covered service, bill the institution.
     if(isCovered){
-      billingType = 'INSURANCE_CLAIM'; // This will be vetted later.
+      billingType = 'INSURANCE_CLAIM';
       billPayerId = payerId;
       payerName = payerData.name;
     } else if (payerData) {
-      // If patient has insurance but this item is not covered, it's a cash co-payment
       description += ` (Cash Co-payment)`;
     }
     
@@ -228,44 +231,49 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
       createdAt: admin.firestore.FieldValue.serverTimestamp(), billingType, payerId: billPayerId, payerName
     });
   };
-  
-  // A) Bill for Consultation
+
   const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
   if (!serviceSnap.empty) {
       createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
   }
 
-  // B) Bill for Prescribed Drugs
   if (prescription && prescription.length > 0) {
     const drugSkus = prescription.map(p => p.sku).filter(Boolean);
     if(drugSkus.length > 0) {
       const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
-      // Need to handle quantities from prescription here.
       drugsSnap.forEach(doc => {
           const rxItem = prescription.find(p => p.sku === doc.data().sku);
-          const qty = rxItem?.qty || 1; // Assume qty 1 if not specified
+          const qty = rxItem?.qty || 1;
           createBillingItem(doc.data(), 'PHARMACY', qty);
       });
     }
   }
   
-  // C) Bill for Lab Orders
   if (labOrders && labOrders.length > 0) {
-    const testIds = labOrders.map(l => l.testId).filter(Boolean);
-    if(testIds.length > 0) {
-      const testsSnap = await db.collection('hospitals').doc(hospitalId).collection('lab_menu').where(admin.firestore.FieldPath.documentId(), 'in', testIds).get();
-      testsSnap.forEach(doc => createBillingItem(doc.data(), 'LABORATORY'));
+    for (const order of labOrders) {
+      const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
+      const status = order.isExternal ? 'REFERRED_OUT' : 'PENDING';
+      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status });
+      if (!order.isExternal) {
+        createBillingItem(order, 'LABORATORY');
+        hasPendingLabs = true;
+      }
     }
   }
 
-  // D) Bill for Radiology Orders
   if (radiologyOrders && radiologyOrders.length > 0) {
-    const scanIds = radiologyOrders.map(s => s.scanId).filter(Boolean);
-    if(scanIds.length > 0) {
-      const scansSnap = await db.collection('hospitals').doc(hospitalId).collection('radiology_menu').where(admin.firestore.FieldPath.documentId(), 'in', scanIds).get();
-      scansSnap.forEach(doc => createBillingItem(doc.data(), 'IMAGING'));
+    for (const order of radiologyOrders) {
+      const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
+      const status = order.isExternal ? 'REFERRED_OUT' : 'PENDING';
+      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status });
+      if (!order.isExternal) {
+        createBillingItem(order, 'IMAGING');
+        hasPendingScans = true;
+      }
     }
   }
+
+  batch.update(encounterRef, { hasPendingLabs, hasPendingScans });
   
   try {
     await batch.commit();
@@ -632,4 +640,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
-
