@@ -1,6 +1,7 @@
+
 'use client';
 import { useState, useMemo } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Printer, FileText, Smartphone, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
@@ -8,24 +9,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ExternalOrderPrint() {
-  const { id: encounterId } = useParams();
-  const searchParams = useSearchParams();
+  const { id } = useParams();
   const firestore = useFirestore();
   const [printFormat, setPrintFormat] = useState<'A4' | 'POS'>('A4');
   
-  const hospitalId = searchParams.get('hospitalId');
-  const patientId = searchParams.get('patientId');
-
-  const encounterRef = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !patientId || !encounterId) return null;
-    return doc(firestore, `hospitals/${hospitalId}/patients/${patientId}/encounters`, encounterId as string);
-  }, [firestore, hospitalId, patientId, encounterId]);
-  const { data: order, isLoading: isOrderLoading } = useDoc(encounterRef);
+  const orderRef = useMemoFirebase(() => {
+    if (!firestore || !id) return null;
+    // The public link points to the globally accessible 'external_orders' collection
+    return doc(firestore, 'external_orders', id as string);
+  }, [firestore, id]);
+  const { data: order, isLoading: isOrderLoading } = useDoc(orderRef);
   
   const hospitalRef = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return doc(firestore, "hospitals", hospitalId);
-  }, [firestore, hospitalId]);
+    if (!firestore || !order?.hospitalId) return null;
+    return doc(firestore, "hospitals", order.hospitalId);
+  }, [firestore, order]);
   const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
   if (isOrderLoading || isHospitalLoading) {
@@ -39,7 +37,6 @@ export default function ExternalOrderPrint() {
 
   if (!order) return <div className="p-20 text-center font-black">Order not found.</div>;
 
-  // SOLID FIX 1: Collapse all possible names into one array to prevent 'undefined' error
   const clinicalItems = order.items || order.prescription || order.externalList || [];
 
 
@@ -68,7 +65,7 @@ export default function ExternalOrderPrint() {
                 <h1 className="text-4xl font-black uppercase tracking-tighter">{hospital?.name}</h1>
                 <p className="text-sm uppercase font-bold">{hospital?.region} Region, Ghana</p>
                 <div className="bg-black text-white px-10 py-1 mt-4 inline-block text-sm font-black uppercase tracking-[0.3em]">
-                   {order.isExternal ? 'EXTERNAL CLINICAL REQUEST' : 'PRESCRIPTION'}
+                   {order.type === 'EXTERNAL_REQUEST' ? 'EXTERNAL CLINICAL REQUEST' : 'PRESCRIPTION'}
                 </div>
              </div>
              
@@ -98,11 +95,11 @@ export default function ExternalOrderPrint() {
              <div className="mt-auto pt-32 flex justify-between items-end">
                 <div className="space-y-2">
                    <div className="w-64 border-b-4 border-black"></div>
-                   <p className="text-sm font-black uppercase">Dr. {order.providerName}</p>
+                   <p className="text-sm font-black uppercase">Dr. {order.doctorName || order.providerName}</p>
                    <p className="text-[10px] font-bold text-slate-400">Medical Officer (GamMed Authenticated)</p>
                 </div>
                 <div className="text-center">
-                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${encounterId}`} size={100} />
+                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${id}`} size={100} />
                    <p className="text-[8px] font-black uppercase mt-2">Scan to Verify</p>
                 </div>
              </div>
@@ -118,22 +115,22 @@ export default function ExternalOrderPrint() {
              <div className="text-[11px] mb-6 space-y-1 font-bold">
                 <p>DATE: {order.createdAt ? new Date(order.createdAt?.toDate()).toLocaleDateString() : 'N/A'}</p>
                 <p>PATIENT: {order.patientName?.toUpperCase()}</p>
-                <p>REF: {typeof encounterId === 'string' ? encounterId.slice(0, 8).toUpperCase() : ''}</p>
+                <p>REF: {typeof id === 'string' ? id.slice(0, 8).toUpperCase() : ''}</p>
              </div>
              <div className="border-y-2 border-black py-4 space-y-5">
                 {clinicalItems.map((item: any, i: number) => (
                    <div key={i} className="space-y-1">
                       <p className="font-black text-sm uppercase"># {item.name} {item.strength && item.strength.trim().length > 0 ? `(${item.strength})` : ''}</p>
                       {(item.instruction || item.dosage) && (
-                         <p className="text-[11px] italic pl-4">>> {item.instruction || item.dosage}</p>
+                         <p className="text-[11px] italic pl-4">{'>>'} {item.instruction || item.dosage}</p>
                       )}
                    </div>
                 ))}
              </div>
              <div className="mt-6 text-center space-y-6">
-                <p className="text-[11px] font-black italic">SIGNED: DR. {(order.providerName).toUpperCase()}</p>
+                <p className="text-[11px] font-black italic">SIGNED: DR. {(order.doctorName || order.providerName).toUpperCase()}</p>
                 <div className="flex justify-center bg-slate-50 p-4 rounded-2xl">
-                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${encounterId}`} size={120} />
+                   <QRCodeSVG value={`https://gam-med.vercel.app/verify/order/${id}`} size={120} />
                 </div>
                 <p className="text-[8px] font-black uppercase tracking-widest">Verify authenticity via QR Code</p>
                 <div className="border-t border-dashed pt-4">
