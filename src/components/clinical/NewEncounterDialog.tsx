@@ -57,13 +57,12 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const [loading, setLoading] = useState(false);
   const firebaseApp = useFirebaseApp();
   const { user } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
 
   // State Management
   const [isExternal, setIsExternal] = useState(false);
-  const [items, setItems] = useState<any[]>([]); // For prescriptions or external free-text
+  const [items, setItems] = useState<any[]>([]); // Standardized list for both Internal/External
   const [labOrders, setLabOrders] = useState<any[]>([]);
   const [radiologyOrders, setRadiologyOrders] = useState<any[]>([]);
   
@@ -76,6 +75,8 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userProfile } = useDoc(userProfileRef);
+
+  const firestore = useFirestore();
 
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -140,8 +141,8 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         id: Date.now().toString()
     };
     setItems([...items, newItem]);
-    setExtItemName('');
-    setExtInstruction('');
+    setExtItemName(''); // Clear input
+    setExtInstruction(''); // Clear input
   };
   
   const addCatalogItem = (item: any) => {
@@ -155,44 +156,35 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   };
   
   const onSubmit = async (values: EncounterFormValues) => {
-    if (!firebaseApp || !firestore || !user || !hospitalId) {
-        toast({ variant: 'destructive', title: 'System not ready. Please try again.'});
-        return;
-    }
     setLoading(true);
-
     try {
-      const functions = getFunctions(firebaseApp);
-      const createEncounter = httpsCallable(functions, 'createEncounter');
-
       const payload = {
-        ...values,
         patientId,
-        hospitalId,
         patientName,
-        items: items || [],
-        labOrders: labOrders || [],
-        radiologyOrders: radiologyOrders || [],
+        vitals: values.vitals || {},
+        notes: {
+          chiefComplaint: values.chiefComplaint,
+          hpi: values.hpi,
+          diagnosis: values.diagnosis,
+        },
+        items: items || [], // Standardized name
         isExternal: isExternal,
+        hospitalId: user?.hospitalId
       };
-
+  
+      const functions = getFunctions();
+      const createEncounter = httpsCallable(functions, 'createEncounter');
       const result: any = await createEncounter(payload);
-
+  
       if (result.data.success) {
-        toast({ title: "Encounter Logged Successfully" });
-        if (isExternal) {
-            router.push(`/doctor/external-print/${result.data.externalOrderIds.prescription}`);
-        } else {
-            setOpen(false);
-            form.reset();
-        }
-      } else {
-         throw new Error(result.data.message || "Failed to create encounter.");
+        toast({ title: "EHR Record Committed" });
+        setOpen(false);
+        
+        // THE FIX: Redirect to the print page using the ID returned from the server
+        router.push(`/doctor/external-print/${result.data.encounterId}`);
       }
-      
     } catch (error: any) {
-      console.error("Save Error:", error);
-      toast({ variant: "destructive", title: "Transaction Aborted", description: "Data might be incomplete. " + error.message });
+      toast({ variant: 'destructive', title: "Handshake Failed: " + error.message });
     } finally {
       setLoading(false);
     }
@@ -275,58 +267,78 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
               </div>
 
               {/* Medication & Services */}
-              <div className="space-y-4 border-t pt-6">
+               <div className="space-y-4 border-t pt-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-blue-600">Medication & Services</h3>
-                  <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-200">
-                     <input type="checkbox" id="ext-toggle" className="w-5 h-5 rounded accent-amber-600 cursor-pointer"
-                       checked={isExternal}
-                       onChange={(e) => setIsExternal(e.target.checked)}
-                     />
-                     <label htmlFor="ext-toggle" className="text-[10px] font-black uppercase text-amber-700 cursor-pointer">External Referral</label>
-                  </div>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-blue-600">Medication & Services</h3>
+                    <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-200">
+                    <input 
+                        type="checkbox" 
+                        id="ext-toggle"
+                        className="w-5 h-5 rounded accent-amber-600 cursor-pointer"
+                        checked={isExternal}
+                        onChange={(e) => {
+                            setIsExternal(e.target.checked);
+                            setItems([]);
+                            setLabOrders([]);
+                            setRadiologyOrders([]);
+                        }}
+                    />
+                    <label htmlFor="ext-toggle" className="text-[10px] font-black uppercase text-amber-700 cursor-pointer">
+                        External Facility (No Billing)
+                    </label>
+                    </div>
                 </div>
 
                 {isExternal ? (
-                  <div className="space-y-4 animate-in fade-in zoom-in duration-300">
+                    <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[32px] border-2 border-dashed border-slate-200">
-                      <div>
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Item/Drug/Test Name</label>
-                        <input className="w-full p-4 rounded-2xl border-none shadow-sm text-black font-bold"
-                          placeholder="e.g. MRI Brain / Ciprofloxacin"
-                          value={extItemName} onChange={(e) => setExtItemName(e.target.value)} />
-                      </div>
-                      <div>
+                        <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Type Item Name</label>
+                        <input 
+                            className="w-full p-4 rounded-2xl border-none shadow-sm text-black font-bold"
+                            placeholder="e.g. MRI Scan / Ciprofloxacin"
+                            value={extItemName}
+                            onChange={(e) => setExtItemName(e.target.value)}
+                        />
+                        </div>
+                        <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Dosage / Instructions</label>
                         <div className="flex gap-2">
-                          <input className="flex-1 p-4 rounded-2xl border-none shadow-sm text-black font-bold"
+                            <input 
+                            className="flex-1 p-4 rounded-2xl border-none shadow-sm text-black font-bold"
                             placeholder="e.g. 1 tab twice daily"
-                            value={extInstruction} onChange={(e) => setExtInstruction(e.target.value)} />
-                          <button type="button" onClick={addTypedItem} className="bg-blue-600 text-white p-4 rounded-2xl hover:bg-black transition-all">
-                             <Plus size={24} />
-                          </button>
+                            value={extInstruction}
+                            onChange={(e) => setExtInstruction(e.target.value)}
+                            />
+                            <button 
+                            type="button"
+                            onClick={addTypedItem}
+                            className="bg-blue-600 text-white p-4 rounded-2xl hover:bg-black transition-all"
+                            >
+                            <Plus size={24} />
+                            </button>
                         </div>
-                      </div>
+                        </div>
                     </div>
-                  </div>
+                    </div>
                 ) : (
-                  <div className="space-y-4">
-                    <ProductSearchDropdown catalog={catalog || []} onSelect={addCatalogItem} />
-                  </div>
+                    <div className="space-y-4">
+                      <ProductSearchDropdown catalog={catalog || []} onSelect={addCatalogItem} />
+                    </div>
                 )}
                 
                 <div className="space-y-2">
-                  {items.map((item, idx) => (
+                    {items.map((item, idx) => (
                     <div key={item.id || idx} className="bg-white p-4 rounded-2xl border-2 border-slate-50 flex justify-between items-center shadow-sm">
-                       <div>
-                          <p className="font-black text-black uppercase text-sm">{item.name}</p>
-                          <p className="text-[10px] text-blue-600 font-bold italic">{item.instruction || item.dosage || 'No instructions'}</p>
-                       </div>
-                       <button type="button" onClick={() => removeItem(item.id, setItems)} className="text-red-300 hover:text-red-600"><Trash2 size={18} /></button>
+                        <div>
+                            <p className="font-black text-black uppercase text-sm">{item.name}</p>
+                            <p className="text-[10px] text-blue-600 font-bold italic">{item.instruction || item.dosage || 'No instructions'}</p>
+                        </div>
+                        <button type="button" onClick={() => removeItem(item.id, setItems)} className="text-red-300 hover:text-red-600"><Trash2 size={18} /></button>
                     </div>
-                  ))}
+                    ))}
                 </div>
-              </div>
+                </div>
 
             </div>
 
