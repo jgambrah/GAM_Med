@@ -184,9 +184,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
       if (result.data.success && result.data.encounterId) {
         toast({ title: "EHR Record Committed" });
-        
         router.push(`/doctor/external-print/${result.data.encounterId}`);
-
       } else {
         throw new Error(result.data.message || 'Cloud function did not return a success status or ID.');
       }
