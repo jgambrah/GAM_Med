@@ -58,7 +58,7 @@ export function AuthForm() {
         toast({
             variant: "destructive",
             title: "Access Denied",
-            description: "Invalid email or password. Please check for extra spaces.",
+            description: "Login Failed: Check email and password accuracy.",
         });
         setIsLoading(false); // Reset loading state on error
     }

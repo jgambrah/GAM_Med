@@ -205,35 +205,30 @@ export default function HospitalRegisterPage() {
                   </div>
                 </TableCell>
                  <TableCell className="p-6">
-                    <div className="bg-[#0f172a] p-4 rounded-3xl border-2 border-slate-800 flex items-center justify-between gap-4 shadow-inner min-w-[200px]">
+                    <div className="bg-slate-900 p-4 rounded-3xl border-2 border-slate-800 flex items-center justify-between gap-4 shadow-inner min-w-[200px]">
                         <div className="flex-1 overflow-hidden">
-                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1">Director Access Key</p>
-                        
-                        <span className={`font-mono text-sm font-bold transition-all duration-300 select-all ${
-                            visibleKeyId === h.id ? 'text-white blur-none' : 'text-slate-600 blur-[4px]'
-                        }`}>
-                            {h.provisioningSecret || "NOT_SET"}
-                        </span>
+                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1">Initial Access Key</p>
+                        <input
+                            type={visibleKeyId === h.id ? "text" : "password"}
+                            readOnly
+                            value={h.provisioningSecret || "NOT_SET"}
+                            className="bg-transparent border-none text-white font-mono font-bold text-sm w-full outline-none"
+                        />
                         </div>
                         
                         <div className="flex gap-1">
-                        <button 
+                        <button
                             type="button"
                             onClick={() => setVisibleKeyId(visibleKeyId === h.id ? null : h.id)}
                             className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
                         >
                             {visibleKeyId === h.id ? <EyeOff size={16}/> : <Eye size={16}/>}
                         </button>
-
-                        <button 
+                        <button
                             type="button"
                             onClick={() => {
                             if (h.provisioningSecret) {
-                                navigator.clipboard.writeText(h.provisioningSecret);
-                                toast({
-                                title: "Key Copied Successfully",
-                                description: "Paste this directly into the password field."
-                                });
+                                copyToClipboard(h.provisioningSecret);
                             }
                             }}
                             className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-blue-400 transition-colors"
