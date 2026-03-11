@@ -9,23 +9,24 @@ const uid = "WMiDkAVfzaa0IgL6UOjwvnQ7dIk2"; // Marcus's UID
 
 async function forceStamp() {
   try {
-    // 1. Force the claims on the server
+    // 1. Force the claims on the server to match the database
     await admin.auth().setCustomUserClaims(uid, {
-      role: 'DOCTOR',
-      hospitalId: 'GAM-GAR-7578' // <--- Ensure this matches Marcus's actual Hospital ID
+      role: 'DIRECTOR', // CORRECTED to DIRECTOR as per your database record
+      hospitalId: 'GAM-GAR-7578'
     });
 
-    // 2. Update the document just in case
+    // 2. Update the document to ensure consistency
     await admin.firestore().collection('users').doc(uid).update({
-      role: 'DOCTOR',
+      role: 'DIRECTOR',
       hospitalId: 'GAM-GAR-7578',
       is_active: true
     });
 
-    console.log("✅ Claims set for Marcus.");
+    console.log("✅ Claims have been corrected for Marcus Amosah Henaku.");
+    console.log("👉 User must log out and log back in to apply changes.");
     process.exit();
   } catch (e) {
-    console.error(e);
+    console.error("❌ Failed to stamp claims:", e);
     process.exit(1);
   }
 }
