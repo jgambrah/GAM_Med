@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -51,7 +49,6 @@ export default function HospitalRegisterPage() {
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [dialogAction, setDialogAction] = useState<(() => void) | null>(null);
   const [dialogState, setDialogState] = useState<{ open: boolean; title: string; description: string; confirmText: string; variant: 'default' | 'destructive' }>({ open: false, title: '', description: '', confirmText: '', variant: 'default' });
-  const [visibleKeyId, setVisibleKeyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -129,11 +126,6 @@ export default function HospitalRegisterPage() {
     );
   };
   
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({title: "Key Copied to Clipboard"});
-  };
-  
   const isOverallLoading = isUserAuthLoading || isClaimsLoading || areHospitalsLoading;
 
   if (isUserAuthLoading || isClaimsLoading) {
@@ -204,40 +196,17 @@ export default function HospitalRegisterPage() {
                     </div>
                   </div>
                 </TableCell>
-                 <TableCell className="p-6">
-                    <div className="bg-slate-900 p-4 rounded-3xl border-2 border-slate-800 flex items-center justify-between gap-4 shadow-inner min-w-[200px]">
-                        <div className="flex-1 overflow-hidden">
-                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1">Initial Access Key</p>
-                        <input
-                            type={visibleKeyId === h.id ? "text" : "password"}
-                            readOnly
-                            value={h.provisioningSecret || "NOT_SET"}
-                            className="bg-transparent border-none text-white font-mono font-bold text-sm w-full outline-none"
-                        />
+                 <td className="p-6">
+                    <div className="bg-slate-900 p-4 rounded-3xl border-2 border-slate-800 flex items-center justify-between gap-4">
+                        <div>
+                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Initial Access Key</p>
+                        <p className="text-sm font-mono font-bold text-white mt-1">password123</p>
                         </div>
-                        
-                        <div className="flex gap-1">
-                        <button
-                            type="button"
-                            onClick={() => setVisibleKeyId(visibleKeyId === h.id ? null : h.id)}
-                            className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
-                        >
-                            {visibleKeyId === h.id ? <EyeOff size={16}/> : <Eye size={16}/>}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                            if (h.provisioningSecret) {
-                                copyToClipboard(h.provisioningSecret);
-                            }
-                            }}
-                            className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-blue-400 transition-colors"
-                        >
-                            <Clipboard size={16}/>
-                        </button>
+                        <div className="p-2 bg-green-500/10 rounded-xl">
+                            <ShieldCheck size={16} className="text-green-500" />
                         </div>
                     </div>
-                 </TableCell>
+                 </td>
                 <TableCell className="p-4 text-right">
                   <div className="flex justify-end gap-2">
                      <Button
@@ -281,4 +250,3 @@ export default function HospitalRegisterPage() {
     </>
   );
 }
-

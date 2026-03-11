@@ -333,7 +333,7 @@ exports.createWardAndBeds = onCall({ region: "us-central1", cors: true }, async 
 /**
  * A CEO-level function to provision a new hospital tenant.
  */
-exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYSTACK_SECRET_KEY"], cors: true }, async (request) => {
+exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
   }
@@ -349,6 +349,9 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
     monthlyRateWords,
   } = request.data;
   
+  // 1. THE STANDARDIZED DEFAULT PASSWORD
+  const defaultPassword = "password123";
+  
   if (!monthlyRateWords || monthlyRateWords.length < 10) {
      throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
   }
@@ -360,27 +363,25 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
   const hospitalRef = db.collection('hospitals').doc(); // Auto-generate ID for the new hospital
   const hospitalId = hospitalRef.id;
 
-  const rawPassword = Math.random().toString(36).slice(-8) + "!";
-  const finalPassword = rawPassword.trim();
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
     // Transaction for atomicity
     await db.runTransaction(async (transaction) => {
-        // 1. Create Director Auth Account
+        // 2. CREATE AUTH ACCOUNT WITH THE DEFAULT
         const directorUserRecord = await admin.auth().createUser({
             email: cleanDirectorEmail,
-            password: finalPassword,
+            password: defaultPassword,
             displayName: directorName,
         });
         
-        // 2. Set Custom Claims for Director
+        // 3. Set Custom Claims for Director
         await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
           role: 'DIRECTOR',
           hospitalId: hospitalId
         });
 
-        // 3. Create Hospital Document with all details
+        // 4. SAVE TO FIRESTORE (THE VAULT)
         transaction.set(hospitalRef, {
             hospitalId: hospitalId,
             name: hospitalName,
@@ -391,22 +392,24 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
             subscriptionPlan: subscriptionPlan,
             agreedRate: monthlyRateNumeric,
             agreedRateWords: monthlyRateWords,
-            provisioningSecret: finalPassword,
+            provisioningSecret: defaultPassword,
             status: 'active',
             isSuspended: false,
             subscriptionStatus: 'ACTIVE',
+            mustChangePassword: true, // THIS FLAG IS THE SECURITY GUARD
             patientCounter: 0,
             staffCounter: 0,
             poCounter: 0,
             pvCounter: 0,
             receiptCounter: 0,
+            referralCounter: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
             nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
             gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
         });
 
-        // 4. Create Director's Firestore Profile in /users
+        // 5. UPDATE USER PROFILE WITH THE FLAG
         const userRef = db.collection('users').doc(directorUserRecord.uid);
         transaction.set(userRef, {
           uid: directorUserRecord.uid,
@@ -415,19 +418,17 @@ exports.provisionFullHospital = onCall({ region: "us-central1", secrets: ["PAYST
           role: 'DIRECTOR',
           hospitalId: hospitalId,
           is_active: true,
-          mustChangePassword: true,
+          mustChangePassword: true, // Double protection
           onboardingComplete: true,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-
-        // 5. Update Global Platform Analytics
+        
         const configRef = db.doc('platform_config/summary');
         transaction.update(configRef, {
             totalFacilities: admin.firestore.FieldValue.increment(1),
             [`regionalBreakdown.${region}`]: admin.firestore.FieldValue.increment(1)
         });
         
-        // 6. PROVISION STANDARD CHART OF ACCOUNTS (Not in transaction, can be separate)
         const coaBatch = db.batch();
         const starterCOA = [
           { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
