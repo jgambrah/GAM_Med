@@ -121,7 +121,7 @@ export default function PatientPortalPage() {
             <Button className="w-full h-auto py-6 text-base" size="lg" variant="outline">My Upcoming Visits</Button>
           </Link>
         </div>
-
+        
         <Section title="Data Sharing & Consent" icon={<Share2 size={16} className="text-purple-600" />}>
             <div className="bg-white p-6 rounded-[32px] shadow-sm border flex items-center justify-between">
                 <div>
@@ -133,7 +133,7 @@ export default function PatientPortalPage() {
                 </Link>
             </div>
         </Section>
-        
+
         {hasError && (
              <div className="bg-destructive/10 text-destructive p-6 rounded-2xl text-center">
                  <ServerCrash className="mx-auto mb-2" />
