@@ -187,6 +187,11 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   const patientDoc = await patientRef.get();
   if (!patientDoc.exists()) throw new HttpsError('not-found', 'Patient record not found for billing.');
   const patientData = patientDoc.data();
+
+  // THE GLOBAL ANCHOR: Enforce the presence of a Ghana Card ID
+  if (!patientData.ghanaCardId) {
+    throw new HttpsError('failed-precondition', 'Patient is missing a Ghana Card ID. Please update their profile to enable longitudinal records.');
+  }
   
   const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
   const hospitalData = hospitalDoc.data();
@@ -654,6 +659,7 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
 
 
 
