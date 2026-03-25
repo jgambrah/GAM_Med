@@ -145,11 +145,10 @@ service cloud.firestore {
     }
     
     // NOTE: This rule for collection group queries is intentionally broad.
-    // The actual security is handled within the backend cloud function/route
-    // that performs the query by adding a `.where('hospitalId', '==', userHospitalId)` clause.
-    // This allows flexible, secure cross-document queries from the backend.
+    // This allows flexible, secure cross-document queries (e.g. for Longitudinal Patient Record).
+    // The actual filtering is done by `read` rules on the individual collections.
     match /{path=**}/encounters/{encounterId} {
-        allow list: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null;
+        allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
 
 
@@ -174,10 +173,11 @@ service cloud.firestore {
       allow update, delete: if false; // Immutable once issued
     }
     
-    // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
+    // --- TOP LEVEL ENCOUNTERS FOR PRINTING & LONGITUDINAL RECORD ---
     match /encounters/{encounterId} {
       allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isAnyStaff(resource.data.hospitalId);
+      // Any authenticated staff member from any hospital can read any encounter for the LPR.
+      allow read: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
