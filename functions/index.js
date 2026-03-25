@@ -188,6 +188,9 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   if (!patientDoc.exists()) throw new HttpsError('not-found', 'Patient record not found for billing.');
   const patientData = patientDoc.data();
   
+  const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
+  const hospitalData = hospitalDoc.data();
+  
   const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
   const userProfile = userProfileSnap.data();
 
@@ -248,6 +251,8 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   // Set the main encounter document in the top-level collection
   batch.set(encounterRef, {
     id: encounterRef.id, patientId, hospitalId, patientName, ehrNumber: patientData.ehrNumber, type: encounterType,
+    hospitalName: hospitalData?.name,
+    ghanaCardId: patientData.ghanaCardId,
     providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
     doctorMDC: userProfile?.licenseNumber || 'N/A', // For external print
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -349,6 +354,9 @@ exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, as
     monthlyRateWords,
   } = request.data;
   
+  // 1. THE STANDARDIZED DEFAULT PASSWORD
+  const defaultPassword = "password123";
+  
   if (!monthlyRateWords || monthlyRateWords.length < 10) {
      throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
   }
@@ -360,26 +368,25 @@ exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, as
   const hospitalRef = db.collection('hospitals').doc(); // Auto-generate ID for the new hospital
   const hospitalId = hospitalRef.id;
 
-  const defaultPassword = "password123";
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
     // Transaction for atomicity
     await db.runTransaction(async (transaction) => {
-        // CREATE AUTH ACCOUNT WITH THE DEFAULT
+        // 2. CREATE AUTH ACCOUNT WITH THE DEFAULT
         const directorUserRecord = await admin.auth().createUser({
             email: cleanDirectorEmail,
             password: defaultPassword,
             displayName: directorName,
         });
         
-        // Set Custom Claims for Director
+        // 3. Set Custom Claims for Director
         await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
           role: 'DIRECTOR',
           hospitalId: hospitalId
         });
 
-        // SAVE TO FIRESTORE (THE VAULT)
+        // 4. SAVE TO FIRESTORE (THE VAULT)
         transaction.set(hospitalRef, {
             hospitalId: hospitalId,
             name: hospitalName,
@@ -394,7 +401,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, as
             status: 'active',
             isSuspended: false,
             subscriptionStatus: 'ACTIVE',
-            mustChangePassword: true,
+            mustChangePassword: true, // THIS FLAG IS THE SECURITY GUARD
             patientCounter: 0,
             staffCounter: 0,
             poCounter: 0,
@@ -407,7 +414,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, as
             gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
         });
 
-        // Create Director's Firestore Profile in /users
+        // 5. UPDATE USER PROFILE WITH THE FLAG
         const userRef = db.collection('users').doc(directorUserRecord.uid);
         transaction.set(userRef, {
           uid: directorUserRecord.uid,

@@ -1,11 +1,12 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, where } from 'firebase/firestore';
+import { doc, collection, query, orderBy, where, collectionGroup } from 'firebase/firestore';
 import { 
   Activity, Thermometer, Pill, Beaker, 
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -53,8 +54,8 @@ export default function ClinicalFolder() {
 
   // 2. Listen to All Timeline Items for this patient
   const encountersQuery = useMemoFirebase(() => 
-    firestore && hospitalId && id ? query(collection(firestore, 'hospitals', hospitalId, 'patients', id as string, 'encounters'), orderBy('createdAt', 'desc')) : null,
-  [firestore, hospitalId, id]);
+    firestore && patient?.ghanaCardId ? query(collectionGroup(firestore, "encounters"), where("ghanaCardId", "==", patient.ghanaCardId), orderBy("createdAt", "desc")) : null,
+  [firestore, patient?.ghanaCardId]);
   const { data: encounters, isLoading: areEncountersLoading } = useCollection(encountersQuery);
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -162,8 +163,8 @@ export default function ClinicalFolder() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* 2. THE VISIT TIMELINE (Main EHR Body) */}
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="font-black text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <History size={16} className="text-primary" /> Longitudinal History
+          <h3 className="font-black text-xs uppercase tracking-widest text-blue-600 flex items-center gap-2">
+            <Globe size={16} /> Unified Longitudinal Record
           </h3>
           
           {encounters && encounters.length > 1 && <VitalsTrend data={encounters} />}
@@ -180,103 +181,36 @@ export default function ClinicalFolder() {
           ) : (
             timelineActivities?.map(activity => {
               if (activity.viewType === 'ENCOUNTER') {
+                const isLocal = activity.hospitalId === userProfile?.hospitalId;
                 return (
-                  <div key={activity.id} className="bg-card p-6 rounded-[32px] border shadow-sm space-y-4 hover:border-primary/20 transition-all">
-                    <div className="flex justify-between items-start border-b pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-muted p-2 rounded-xl text-primary font-bold text-xs">
-                          {format(activity.date, 'PP')}
-                        </div>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${activity.type === 'ANC Visit' ? 'bg-pink-100 text-pink-700' : 'bg-primary/10 text-primary'}`}>
-                          {activity.type}
+                  <div key={activity.id} className={`p-6 rounded-[32px] border-4 shadow-sm space-y-4 transition-all ${isLocal ? 'border-blue-100 bg-white' : 'border-slate-900 bg-slate-50'}`}>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${isLocal ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'}`}>
+                          {activity.hospitalName || 'External Facility'}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400">
+                          {activity.date ? new Date(activity.date).toLocaleDateString('en-GB') : ''}
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold text-muted-foreground italic">Signed by: {activity.providerName}</span>
+                      <span className="text-[10px] font-black text-blue-600 uppercase">Dr. {activity.providerName}</span>
                     </div>
-
-                    {activity.ancDetails && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 py-2 bg-pink-50/50 rounded-2xl p-4 border border-pink-100">
-                            <AncVitalItem label="Fundal Height" value={activity.ancDetails.fundalHeight} unit="cm" />
-                            <AncVitalItem label="Fetal Heart Rate" value={activity.ancDetails.fetalHeartRate} unit="bpm" />
-                            <AncVitalItem label="Presentation" value={activity.ancDetails.presentation} />
-                            <AncVitalItem label="Fetal Movement" value={activity.ancDetails.fetalMovement} />
+                    <div className="space-y-2">
+                      <p className="text-sm font-black text-black uppercase">Diagnosis: {activity.diagnosis || 'General Consultation'}</p>
+                      <p className="text-xs text-slate-600 leading-relaxed italic">"{activity.chiefComplaint || activity.hpi || 'No clinical notes.'}"</p>
+                    </div>
+                    {activity.prescription?.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
+                        <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Medications Ordered here:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activity.prescription.map((rx:any, i:any) => (
+                            <span key={i} className="bg-white border text-[10px] font-bold px-2 py-1 rounded-lg text-blue-800">
+                              {rx.name} {rx.dosage || ''}
+                            </span>
+                          ))}
                         </div>
-                    )}
-
-                    {activity.vitals && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 py-2">
-                        <VitalItem label="BP" value={activity.vitals.bp} unit="mmHg" />
-                        <VitalItem label="Temp" value={activity.vitals.temp} unit="°C" />
-                        <VitalItem label="Pulse" value={activity.vitals.pulse} unit="bpm" />
-                        <VitalItem label="Weight" value={activity.vitals.weight} unit="kg" />
                       </div>
                     )}
-
-                    <div className="text-card-foreground space-y-4">
-                        {activity.chiefComplaint && <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Chief Complaint</p>
-                            <p className="text-sm font-medium leading-relaxed">{activity.chiefComplaint}</p>
-                        </div>}
-                        {activity.hpi && <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">History of Presenting Illness</p>
-                            <p className="text-sm font-medium leading-relaxed">{activity.hpi}</p>
-                        </div>}
-                        {activity.diagnosis && <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Diagnosis</p>
-                            <p className="text-sm font-bold leading-relaxed">{activity.diagnosis}</p>
-                        </div>}
-                        
-                        {activity.prescription && activity.prescription.length > 0 && (
-                          <div className='pt-4 border-t mt-4'>
-                            <div className="flex justify-between items-center">
-                              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Prescription</p>
-                              <div>
-                                <p className="text-[8px] font-bold text-slate-400 mb-1 uppercase text-right">Scan to Verify Digital Signature</p>
-                                <QRCodeSVG 
-                                  value={`https://gammed.com/verify/rx/${activity.id}`} 
-                                  size={40} 
-                                  level={"H"}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-2 mt-2">
-                                {activity.prescription.map((order: any, index: number) => (
-                                    <div key={index} className="bg-blue-100/50 text-blue-800 px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between gap-2">
-                                        <span>{order.name} ({order.strength})</span>
-                                        <span className='font-mono'>{order.dosage} • {order.frequency}</span>
-                                    </div>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {activity.labOrders && activity.labOrders.length > 0 && (
-                            <div>
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 mt-4">Lab Requests</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {activity.labOrders.map((order: any, index: number) => (
-                                        <div key={index} className="bg-purple-100/50 text-purple-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                                            <Beaker size={14} />
-                                            <span>{order.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {activity.radiologyOrders && activity.radiologyOrders.length > 0 && (
-                            <div>
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 mt-4">Imaging Requests</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {activity.radiologyOrders.map((order: any, index: number) => (
-                                        <div key={index} className="bg-orange-100/50 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                                            <Layers size={14} />
-                                            <span>{order.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
                   </div>
                 )
               }
