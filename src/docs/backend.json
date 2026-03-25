@@ -2,18 +2,25 @@
   "entities": {
     "PatientConsent": {
       "title": "Patient Consent",
-      "description": "A record of a patient granting a specific hospital access to their longitudinal medical record.",
+      "description": "A record of a patient granting specific hospitals access to their longitudinal medical record. The document ID is the patient's Ghana Card ID.",
       "type": "object",
       "properties": {
-        "hospitalId": { "type": "string" },
-        "hospitalName": { "type": "string" },
         "ghanaCardId": { "type": "string" },
         "patientId": { "type": "string" },
         "patientName": { "type": "string" },
-        "status": { "type": "string", "enum": ["ACTIVE", "REVOKED"] },
-        "grantedAt": { "type": "string", "format": "date-time" }
+        "consentedHospitals": {
+          "type": "object",
+          "description": "A map of hospital IDs to consent details for which the patient has granted access.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "hospitalName": { "type": "string" },
+              "grantedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
       },
-      "required": ["hospitalId", "ghanaCardId", "patientId", "status", "grantedAt"]
+      "required": ["ghanaCardId", "patientId", "consentedHospitals"]
     },
     "ExternalOrder": {
       "title": "External Clinical Order",
@@ -4469,10 +4476,10 @@
   "firestore": {
     "structure": [
        {
-        "path": "/patient_consents/{consentId}",
+        "path": "/patient_consents/{ghanaCardId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/PatientConsent" },
-          "description": "Stores patient consents for sharing medical records across facilities. The document ID is a composite of hospitalId and the patient's ghanaCardId."
+          "description": "Stores patient consents for sharing medical records across facilities. The document ID is the patient's Ghana Card ID."
         }
       },
        {

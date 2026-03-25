@@ -143,20 +143,25 @@ service cloud.firestore {
     match /{path=**}/payments/{paymentId} {
       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
     }
-
+    
     match /{path=**}/encounters/{encounterId} {
-        allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+      allow read: if isSuperAdmin() 
+                   || isStaffOfHospital(resource.data.hospitalId)
+                   || (isSignedIn() && get(/databases/$(database)/documents/patient_consents/$(resource.data.ghanaCardId)).data.consentedHospitals[getCallingUserData().hospitalId] != null);
     }
 
 
     // --------------------------------
     // Global Platform Collections
     // --------------------------------
-
+    
     match /patient_consents/{consentId} {
-      // For now, allow any signed-in user to create/update their own consent.
-      // A more robust solution would involve specific patient portal roles.
-      allow read, write: if isSignedIn(); 
+      // Patients are not auth'd users, so we can't check owner.
+      // This is temporarily open, but should be locked down via a Callable Function
+      // that verifies patient identity before writing.
+      allow write: if true; 
+      allow read: if isSignedIn();
     }
 
     match /referrals/{referralId} {
@@ -179,7 +184,6 @@ service cloud.firestore {
     // --- TOP LEVEL ENCOUNTERS FOR PRINTING & LONGITUDINAL RECORD ---
     match /encounters/{encounterId} {
       allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isAnyStaff(resource.data.hospitalId) || (isSignedIn() && exists(/databases/$(database)/documents/patient_consents/$(getCallingUserData().hospitalId + "_" + resource.data.ghanaCardId)));
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 

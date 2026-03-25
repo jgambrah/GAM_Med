@@ -53,20 +53,27 @@ export default function ShareHistoryPage() {
     if (!firestore) return;
 
     setLoading(true);
-    const consentId = `${targetHospital.id}_${patient.ghanaCardId}`;
-    const consentRef = doc(firestore, "patient_consents", consentId);
+    // The document ID is now the patient's Ghana Card ID for easy lookup.
+    const consentRef = doc(firestore, "patient_consents", patient.ghanaCardId);
 
     try {
-      // Using setDocumentNonBlocking as per patterns
-      setDocumentNonBlocking(consentRef, {
-        hospitalId: targetHospital.id,
-        hospitalName: targetHospital.name,
+      // We use a nested map to store consent for each hospital.
+      // This allows a single document to manage all of a patient's consents.
+      const payload = {
         ghanaCardId: patient.ghanaCardId,
         patientId: patient.id,
         patientName: `${patient.firstName} ${patient.lastName}`,
-        status: 'ACTIVE',
-        grantedAt: serverTimestamp()
-      }, { merge: true }); // Use merge to be safe
+        consentedHospitals: {
+          [targetHospital.id]: { // Use hospital ID as the key
+            hospitalName: targetHospital.name,
+            grantedAt: serverTimestamp()
+          }
+        }
+      };
+
+      // Using merge: true ensures we add or update the consent for this hospital
+      // without overwriting consents for other hospitals.
+      setDocumentNonBlocking(consentRef, payload, { merge: true });
 
       toast({
         title: "History Shared Successfully",
