@@ -188,6 +188,9 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   if (!patientDoc.exists()) throw new HttpsError('not-found', 'Patient record not found for billing.');
   const patientData = patientDoc.data();
   
+  const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
+  const hospitalData = hospitalDoc.data();
+  
   const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
   const userProfile = userProfileSnap.data();
 
@@ -248,6 +251,8 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   // Set the main encounter document in the top-level collection
   batch.set(encounterRef, {
     id: encounterRef.id, patientId, hospitalId, patientName, ehrNumber: patientData.ehrNumber, type: encounterType,
+    hospitalName: hospitalData?.name,
+    ghanaCardId: patientData.ghanaCardId,
     providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
     doctorMDC: userProfile?.licenseNumber || 'N/A', // For external print
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -649,6 +654,7 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
 
 
 
