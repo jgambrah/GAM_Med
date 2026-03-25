@@ -155,7 +155,7 @@ service cloud.firestore {
     // --------------------------------
     // Global Platform Collections
     // --------------------------------
-
+    
     match /patient_consents/{consentId} {
       // Patients are not auth'd users, so we can't check owner.
       // This is temporarily open, but should be locked down via a Callable Function

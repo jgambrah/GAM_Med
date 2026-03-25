@@ -4475,21 +4475,21 @@
   },
   "firestore": {
     "structure": [
-       {
+      {
         "path": "/patient_consents/{ghanaCardId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/PatientConsent" },
           "description": "Stores patient consents for sharing medical records across facilities. The document ID is the patient's Ghana Card ID."
         }
       },
-       {
+      {
         "path": "/external_orders/{orderId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/ExternalOrder" },
           "description": "Global collection for printable external orders (prescriptions, labs, scans)."
         }
       },
-       {
+      {
         "path": "/referrals/{referralId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/Referral" },
