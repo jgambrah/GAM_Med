@@ -23,28 +23,14 @@ export default function ClinicalFolder() {
   const { id } = useParams();
   const { user } = useUser();
   const firestore = useFirestore();
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
-  const { data: userProfile } = useDoc(userProfileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  useEffect(() => {
-    if (user) {
-      setIsClaimsLoading(true);
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else {
-      setIsClaimsLoading(false);
-    }
-  }, [user]);
-
-  const hospitalId = claims?.hospitalId;
+  const hospitalId = userProfile?.hospitalId;
 
   // 1. Fetch Patient Biodata
   const patientRef = useMemoFirebase(() => 
@@ -52,7 +38,7 @@ export default function ClinicalFolder() {
   [firestore, hospitalId, id]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  // 2. Listen to All Timeline Items for this patient
+  // 2. THE GLOBAL QUERY: Listen to All Timeline Items for this patient using GhanaCardID
   const encountersQuery = useMemoFirebase(() => 
     firestore && patient?.ghanaCardId ? query(collectionGroup(firestore, "encounters"), where("ghanaCardId", "==", patient.ghanaCardId), orderBy("createdAt", "desc")) : null,
   [firestore, patient?.ghanaCardId]);
@@ -104,11 +90,10 @@ export default function ClinicalFolder() {
     if (areEncountersLoading || !encounters) {
       return "No encounter data available.";
     }
-    // The user's original code limited to 5 encounters. Let's do the same.
     return JSON.stringify(encounters.slice(0, 5));
   }, [encounters, areEncountersLoading]);
 
-  const isLoading = isClaimsLoading || isPatientLoading;
+  const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
   const isDeceased = patient?.status === 'DECEASED';
 
