@@ -6,7 +6,7 @@ import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
 import { 
   HeartPulse, Beaker, Camera, Pill, 
   CreditCard, Bell, 
-  Download, Loader2, ServerCrash, LogOut, Calendar
+  Download, Loader2, ServerCrash, LogOut, Calendar, Share2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -121,6 +121,18 @@ export default function PatientPortalPage() {
             <Button className="w-full h-auto py-6 text-base" size="lg" variant="outline">My Upcoming Visits</Button>
           </Link>
         </div>
+
+        <Section title="Data Sharing & Consent" icon={<Share2 size={16} className="text-purple-600" />}>
+            <div className="bg-white p-6 rounded-[32px] shadow-sm border flex items-center justify-between">
+                <div>
+                <h4 className="font-black text-black uppercase text-sm">Share Medical History</h4>
+                <p className="text-xs text-slate-500 font-medium">Grant another facility temporary access to your records.</p>
+                </div>
+                <Link href="/patient/portal/share">
+                    <Button>Authorize</Button>
+                </Link>
+            </div>
+        </Section>
         
         {hasError && (
              <div className="bg-destructive/10 text-destructive p-6 rounded-2xl text-center">

@@ -1,6 +1,20 @@
-
 {
   "entities": {
+    "PatientConsent": {
+      "title": "Patient Consent",
+      "description": "A record of a patient granting a specific hospital access to their longitudinal medical record.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "hospitalName": { "type": "string" },
+        "ghanaCardId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "REVOKED"] },
+        "grantedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "ghanaCardId", "patientId", "status", "grantedAt"]
+    },
     "ExternalOrder": {
       "title": "External Clinical Order",
       "description": "A printable document for services or prescriptions to be fulfilled by an external facility.",
@@ -4455,6 +4469,13 @@
   "firestore": {
     "structure": [
        {
+        "path": "/patient_consents/{consentId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/PatientConsent" },
+          "description": "Stores patient consents for sharing medical records across facilities. The document ID is a composite of hospitalId and the patient's ghanaCardId."
+        }
+      },
+       {
         "path": "/external_orders/{orderId}",
         "definition": {
           "schema": { "$ref": "#/backend/entities/ExternalOrder" },
@@ -5144,4 +5165,3 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
-

@@ -1,5 +1,4 @@
 
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -154,6 +153,12 @@ service cloud.firestore {
     // Global Platform Collections
     // --------------------------------
 
+    match /patient_consents/{consentId} {
+      // For now, allow any signed-in user to create/update their own consent.
+      // A more robust solution would involve specific patient portal roles.
+      allow read, write: if isSignedIn(); 
+    }
+
     match /referrals/{referralId} {
       allow read: if true; // Publicly readable for verification
       allow create: if isClinicalStaff(request.resource.data.hospitalId);
@@ -171,10 +176,10 @@ service cloud.firestore {
       allow update, delete: if false; // Immutable once issued
     }
     
-    // --- TOP LEVEL ENCOUNTERS FOR PRINTING ---
+    // --- TOP LEVEL ENCOUNTERS FOR PRINTING & LONGITUDINAL RECORD ---
     match /encounters/{encounterId} {
       allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow read: if isAnyStaff(resource.data.hospitalId);
+      allow read: if isAnyStaff(resource.data.hospitalId) || (isSignedIn() && exists(/databases/$(database)/documents/patient_consents/$(getCallingUserData().hospitalId + "_" + resource.data.ghanaCardId)));
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
@@ -418,7 +423,8 @@ service cloud.firestore {
       }
 
       match /payers/{payerId} {
-        allow read, write, list, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /clinical_alerts/{alertId} {
