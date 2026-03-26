@@ -14,9 +14,7 @@ export default function BulkStockUpload() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [csvData, setCsvData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
+  
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -25,11 +23,21 @@ export default function BulkStockUpload() {
 
   const hospitalId = userProfile?.hospitalId;
 
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
   const catalogQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(collection(firestore, `hospitals/${hospitalId}/product_catalog`));
   }, [firestore, hospitalId]);
-  const { data: catalog } = useCollection(catalogQuery);
+  const { data: catalogData } = useCollection(catalogQuery);
+
+  useEffect(() => {
+    if(catalogData) {
+      setCatalog(catalogData);
+    }
+  }, [catalogData]);
 
   const { toast } = useToast();
 
@@ -56,7 +64,7 @@ export default function BulkStockUpload() {
 
     try {
       for (const row of csvData) {
-        const product = catalog?.find(p => p.sku === row.SKU?.trim());
+        const product = catalog.find(p => p.sku === row.SKU?.trim().toUpperCase());
         
         if (!product) {
           console.error(`Skipping unknown SKU: ${row.SKU}`);
@@ -68,8 +76,9 @@ export default function BulkStockUpload() {
 
         const productRef = doc(firestore, `hospitals/${hospitalId}/product_catalog`, product.id);
         batch.update(productRef, {
-          purchasePrice: cost, // Update purchase price
-          priceLastUpdated: serverTimestamp()
+          purchasePrice: cost,
+          lastPurchasePrice: cost,
+          lastStockUpdate: serverTimestamp()
         });
 
         const moveRef = doc(collection(firestore, `hospitals/${hospitalId}/inventory_movements`));
@@ -77,7 +86,7 @@ export default function BulkStockUpload() {
           sku: product.sku,
           productName: product.name,
           qty: qty,
-          type: 'GRN_RECEIPT', // Using GRN type for consistency
+          type: 'GRN_RECEIPT', 
           source: 'BULK_UPLOAD',
           destination: row.Store || 'CENTRAL_STORE',
           costPrice: cost,
@@ -118,7 +127,7 @@ export default function BulkStockUpload() {
             <div className="bg-blue-50 p-6 rounded-full group-hover:bg-blue-600 group-hover:text-white transition-all">
                <FileUp size={48} />
             </div>
-            <h3 className="mt-6 text-xl font-black uppercase">Select CSV File</h3>
+            <h3 className="mt-6 text-xl font-black uppercase">Select Intake CSV</h3>
             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Columns: SKU, Quantity, CostPrice, Store, ExpiryDate</p>
          </label>
       </div>
@@ -138,7 +147,7 @@ export default function BulkStockUpload() {
                  </thead>
                  <tbody className="divide-y-2 divide-slate-50">
                     {csvData.map((row, i) => {
-                       const exists = catalog?.some(p => p.sku === row.SKU?.trim());
+                       const exists = catalog.some(p => p.sku === row.SKU?.trim().toUpperCase());
                        return (
                           <tr key={i} className={exists ? 'bg-white' : 'bg-red-50'}>
                              <td className="p-6">
@@ -146,12 +155,12 @@ export default function BulkStockUpload() {
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">{row.Store}</p>
                              </td>
                              <td className="p-6 text-center text-lg">{row.Quantity}</td>
-                             <td className="p-6 font-black text-blue-600">₵ {row.CostPrice}</td>
+                             <td className="p-6 font-black text-blue-600 italic">₵ {row.CostPrice}</td>
                              <td className="p-6 text-xs text-slate-500">{row.ExpiryDate}</td>
                              <td className="p-6">
                                 {exists ? 
                                    <span className="text-[9px] font-black bg-green-100 text-green-700 px-3 py-1 rounded-full uppercase italic">Ready</span> : 
-                                   <span className="text-[9px] font-black bg-red-100 text-red-700 px-3 py-1 rounded-full uppercase italic flex items-center gap-1"><AlertTriangle size={10}/> SKU Missing</span>
+                                   <span className="text-[9px] font-black bg-red-100 text-red-700 px-3 py-1 rounded-full uppercase italic flex items-center gap-1 w-fit"><AlertTriangle size={10}/> SKU Missing</span>
                                 }
                              </td>
                           </tr>
@@ -165,8 +174,8 @@ export default function BulkStockUpload() {
               <button onClick={() => setCsvData([])} className="flex-1 p-5 font-black text-slate-400 uppercase text-xs">Clear List</button>
               <button 
                 onClick={commitBulkStock}
-                disabled={uploading || csvData.some(row => !catalog?.some(p => p.sku === row.SKU?.trim()))}
-                className="flex-[2] bg-blue-600 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 hover:bg-black transition-all flex items-center justify-center gap-3 disabled:bg-slate-100 disabled:text-slate-300"
+                disabled={uploading || csvData.some(row => !catalog.some(p => p.sku === row.SKU?.trim().toUpperCase()))}
+                className="flex-[2] bg-blue-600 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-100 hover:bg-black transition-all flex items-center justify-center gap-3 disabled:bg-slate-100 disabled:text-slate-300"
               >
                  {uploading ? <Loader2 className="animate-spin" /> : <PackagePlus size={20} />}
                  Finalize Bulk Intake

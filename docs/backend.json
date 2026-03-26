@@ -1,5 +1,67 @@
 {
   "entities": {
+    "PatientConsent": {
+      "title": "Patient Consent",
+      "description": "A record of a patient granting specific hospitals access to their longitudinal medical record. The document ID is the patient's Ghana Card ID.",
+      "type": "object",
+      "properties": {
+        "ghanaCardId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "consentedHospitals": {
+          "type": "object",
+          "description": "A map of hospital IDs to consent details for which the patient has granted access.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "hospitalName": { "type": "string" },
+              "grantedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "required": ["ghanaCardId", "patientId", "consentedHospitals"]
+    },
+    "ExternalOrder": {
+      "title": "External Clinical Order",
+      "description": "A printable document for services or prescriptions to be fulfilled by an external facility.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "ehrNumber": { "type": "string" },
+        "hospitalId": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "type": { "type": "string", "enum": ["PRESCRIPTION", "LABORATORY", "IMAGING"] },
+        "doctorName": { "type": "string" },
+        "doctorMDC": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "hospitalId", "items", "type", "doctorName"]
+    },
+    "Referral": {
+      "title": "Clinical Referral",
+      "description": "A formal handover document for transferring a patient to another facility.",
+      "type": "object",
+      "properties": {
+        "referralNumber": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "ehrNumber": { "type": "string" },
+        "receivingFacility": { "type": "string" },
+        "reasonForReferral": { "type": "string" },
+        "clinicalSummary": { "type": "string" },
+        "provisionalDiagnosis": { "type": "string" },
+        "urgency": { "type": "string", "enum": ["ROUTINE", "EMERGENCY"] },
+        "vitalsAtReferral": { "type": "object", "properties": {} },
+        "medications": { "type": "array", "items": { "type": "object" } },
+        "hospitalId": { "type": "string" },
+        "referringDoctor": { "type": "string" },
+        "status": { "type": "string", "enum": ["ISSUED", "RECEIVED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referralNumber", "patientId", "receivingFacility", "hospitalId", "referringDoctor", "status"]
+    },
     "MortuaryRecord": {
       "title": "Mortuary Record",
       "description": "A hospital-specific, identifiable record of a body's intake, storage, and release.",
@@ -381,9 +443,11 @@
         "sku": { "type": "string" },
         "productName": { "type": "string" },
         "qty": { "type": "number", "description": "The quantity moved. Positive for additions, negative for deductions." },
-        "type": { "type": "string", "enum": ["INTERNAL_ISSUE", "STOCK_TAKE_ADJ", "GRN_RECEIPT", "DISPOSAL"] },
+        "type": { "type": "string", "enum": ["INTERNAL_ISSUE", "STOCK_TAKE_ADJ", "GRN_RECEIPT", "DISPOSAL", "BULK_UPLOAD_IN"] },
         "source": { "type": "string" },
         "destination": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date" },
         "authorizedBy": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -1955,6 +2019,19 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "currentBalance": {
+          "type": "number",
+          "description": "The current aggregated stock level for this item across all batches."
+        },
+        "lastPurchasePrice": {
+          "type": "number",
+          "description": "The cost price from the most recent purchase."
+        },
+        "lastStockUpdate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last inventory update for this item."
         }
       },
       "required": [
@@ -2919,7 +2996,8 @@
             "PENDING",
             "COMPLETED",
             "CANCELLED",
-            "IMAGE_READY"
+            "IMAGE_READY",
+            "REFERRED_OUT"
           ]
         },
         "findings": {
@@ -3072,7 +3150,8 @@
           "enum": [
             "PENDING",
             "COMPLETED",
-            "CANCELLED"
+            "CANCELLED",
+            "REFERRED_OUT"
           ]
         },
         "resultValue": {
@@ -3192,6 +3271,10 @@
             "type": "number",
             "description": "The current counter for generating unique NHIS Batch numbers."
         },
+        "referralCounter": {
+          "type": "number",
+          "description": "The current counter for generating unique Referral Letter numbers."
+        },
         "nextBillingDate": {
           "type": "string",
           "format": "date-time",
@@ -3235,7 +3318,8 @@
         "patientCounter",
         "poCounter",
         "staffCounter",
-        "nhisBatchCounter"
+        "nhisBatchCounter",
+        "referralCounter"
       ]
     },
     "User": {
@@ -3268,6 +3352,10 @@
         "role": {
           "type": "string",
           "description": "The user's designated role (e.g., 'AppCEO', 'HospitalDirector', 'HR', 'Doctor', 'RADIOLOGIST')."
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "The user's professional license number (e.g. from MDC)."
         },
         "phoneNumber": {
           "type": "string",
@@ -4402,6 +4490,27 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/patient_consents/{ghanaCardId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/PatientConsent" },
+          "description": "Stores patient consents for sharing medical records across facilities. The document ID is the patient's Ghana Card ID."
+        }
+      },
+      {
+        "path": "/external_orders/{orderId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/ExternalOrder" },
+          "description": "Global collection for printable external orders (prescriptions, labs, scans)."
+        }
+      },
+      {
+        "path": "/referrals/{referralId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/Referral" },
+          "description": "Top-level collection for all inter-facility referral letters."
+        }
+      },
        {
         "path": "/hospitals/{hospitalId}/mortuary_records/{recordId}",
         "definition": {
