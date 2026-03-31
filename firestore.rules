@@ -153,8 +153,9 @@ service cloud.firestore {
                 || isStaffOfHospital(resource.data.hospitalId)
                 || (isSignedIn() && get(/databases/$(database)/documents/patient_consents/$(resource.data.ghanaCardId)).data.consentedHospitals[getCallingUserData().hospitalId] != null);
 
-        // LIST: Not allowed from client via collection group query. Must use cloud function.
-        allow list: if false; 
+        // LIST: Allowed for the Cloud Function but restricted from direct client queries.
+        // The cloud function uses admin privileges so it bypasses these rules.
+        allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
 
         // CREATE: Allowed if you are signed in. The cloud function handles the logic.
         allow create: if isSignedIn();

@@ -224,7 +224,7 @@ export default function ClinicalFolder() {
                         <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Medications Ordered here:</p>
                         <div className="flex flex-wrap gap-2">
                           {activity.prescription.map((rx:any, i:any) => (
-                            <span key={i} className="bg-white border text-[10px] font-bold px-2 py-1 rounded-lg text-blue-800">
+                            <span key={i} className="bg-white border text-[10px] font-bold px-2 py-0.5 rounded-lg text-blue-800">
                               {rx.name} {rx.dosage || ''}
                             </span>
                           ))}

@@ -18,14 +18,19 @@ exports.getPatientHistory = onCall({ region: "us-central1", cors: true }, async 
     throw new HttpsError('unauthenticated', 'You must be authenticated to view patient history.');
   }
 
+  // ROBUSTNESS FIX: Get hospitalId from Firestore profile, not just claims.
+  const userProfileDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!userProfileDoc.exists) {
+      throw new HttpsError('not-found', 'User profile does not exist.');
+  }
+  const userHospitalId = userProfileDoc.data().hospitalId;
+  if (!userHospitalId) {
+    throw new HttpsError('failed-precondition', 'Your user profile is not associated with a hospital.');
+  }
+
   const { ghanaCardId } = request.data;
   if (!ghanaCardId) {
     throw new HttpsError('invalid-argument', 'Ghana Card ID is required.');
-  }
-  
-  const userHospitalId = request.auth.token.hospitalId;
-  if (!userHospitalId) {
-    throw new HttpsError('failed-precondition', 'Your user profile is not associated with a hospital.');
   }
 
   try {
@@ -64,13 +69,17 @@ exports.onboardStaff = onCall({ region: "us-central1", cors: true }, async (requ
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   }
 
-  const { fullName, email, role, contractType, ...optionalData } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
+  const adminProfileDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!adminProfileDoc.exists()) {
+      throw new HttpsError('not-found', 'Your user profile could not be found.');
+  }
+  const hospitalId = adminProfileDoc.data().hospitalId;
 
   if (!hospitalId) {
     throw new HttpsError('failed-precondition', 'Caller is not associated with a hospital.');
   }
   
+  const { fullName, email, role, contractType, ...optionalData } = request.data;
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
   try {
@@ -138,7 +147,11 @@ exports.registerPatient = onCall({ region: "us-central1", cors: true }, async (r
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
 
-  const hospitalId = request.auth.token.hospitalId;
+  const userProfileDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!userProfileDoc.exists()) throw new HttpsError('not-found', 'Your user profile could not be found.');
+  const hospitalId = userProfileDoc.data().hospitalId;
+  if (!hospitalId) throw new HttpsError('failed-precondition', 'Your account is not associated with a hospital.');
+
   const registeringStaffId = request.auth.uid;
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
@@ -188,6 +201,18 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
 
+  // ROBUSTNESS FIX: Fetch user profile once as the source of truth for hospitalId and other user data.
+  const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
+  if (!userProfileSnap.exists()) {
+    throw new HttpsError('not-found', 'User profile could not be found.');
+  }
+  const userProfile = userProfileSnap.data();
+  const hospitalId = userProfile.hospitalId;
+
+  if (!hospitalId) {
+    throw new HttpsError('failed-precondition', 'Your user account is not assigned to a hospital.');
+  }
+  
   const { 
     patientId, patientName, vitals, encounterType, 
     labOrders = [], radiologyOrders = [], 
@@ -198,10 +223,8 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   
   const finalItems = items || [];
   
-  const hospitalId = request.auth.token.hospitalId;
-
-  if (!patientId || !hospitalId || !encounterType) {
-    throw new HttpsError('invalid-argument', 'Missing required encounter data.');
+  if (!patientId || !encounterType) {
+    throw new HttpsError('invalid-argument', 'Missing required patientId or encounterType.');
   }
 
   const batch = db.batch();
@@ -221,9 +244,6 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
   const hospitalData = hospitalDoc.data();
   
-  const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
-  const userProfile = userProfileSnap.data();
-
   const createBillingItem = (item, type, qty = 1) => {
     let billingType = 'CASH_PAYMENT';
     let billPayerId = null;
@@ -248,15 +268,15 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     if (finalItems && finalItems.length > 0) {
       for (const rxItem of finalItems) {
         if (rxItem.sku) {
-          const productQuery = db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', '==', rxItem.sku).limit(1);
-          const productSnap = await productQuery.get();
-          if (!productSnap.empty) {
-            const productData = productSnap.docs[0].data();
-            const qty = rxItem.qty || 1;
-            createBillingItem(productData, 'PHARMACY', qty);
-          } else {
-            console.warn(`Product with SKU ${rxItem.sku} not found in catalog for billing.`);
-          }
+            const productQuery = db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', '==', rxItem.sku).limit(1);
+            const productSnap = await productQuery.get();
+            if (!productSnap.empty) {
+                const productData = productSnap.docs[0].data();
+                const qty = rxItem.qty || 1;
+                createBillingItem(productData, 'PHARMACY', qty);
+            } else {
+                console.warn(`Product with SKU ${rxItem.sku} not found in catalog for billing.`);
+            }
         }
       }
     }
@@ -266,7 +286,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     hasPendingLabs = !isExternal;
     for (const order of labOrders) {
       const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
-      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: userProfile.fullName, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
       if (!isExternal) createBillingItem(order, 'LABORATORY');
     }
   }
@@ -275,23 +295,23 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     hasPendingScans = !isExternal;
     for (const order of radiologyOrders) {
       const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
-      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+      batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: userProfile.fullName, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
       if (!isExternal) createBillingItem(order, 'IMAGING');
     }
   }
-
+  
   if (!isExternal) {
-    const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
-    if (!serviceSnap.empty) {
-        createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
-    }
+      const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
+      if (!serviceSnap.empty) {
+          createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
+      }
   }
   
   batch.set(encounterRef, {
     id: encounterRef.id, patientId, hospitalId, patientName, ehrNumber: patientData.ehrNumber, type: encounterType,
     hospitalName: hospitalData?.name,
     ghanaCardId: patientData.ghanaCardId,
-    providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
+    providerUid: request.auth.uid, providerName: userProfile.fullName || 'Unknown Staff', providerRole: userProfile.role || 'UNKNOWN',
     doctorMDC: userProfile?.licenseNumber || 'N/A',
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
     items: finalItems,
@@ -304,7 +324,8 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   });
   
   batch.update(patientRef, {
-    status: 'Waiting for Doctor', lastVitals: fullVitals, updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    status: 'Waiting for Assignment', // Corrected status
+    lastVitals: fullVitals, updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   try {
@@ -536,8 +557,13 @@ exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (r
 exports.createReferral = onCall({ region: "us-central1", cors: true }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   
+  const userProfileDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!userProfileDoc.exists()) throw new HttpsError('not-found', 'Your user profile could not be found.');
+  const hospitalId = userProfileDoc.data().hospitalId;
+  const userName = userProfileDoc.data().fullName;
+  if (!hospitalId) throw new HttpsError('failed-precondition', 'Your account is not associated with a hospital.');
+
   const { patientId, patientName, ehrNumber, latestEncounter, ...formData } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
   try {
@@ -564,7 +590,7 @@ exports.createReferral = onCall({ region: "us-central1", cors: true }, async (re
         vitalsAtReferral: latestEncounter?.vitals || {},
         medications: latestEncounter?.prescription || [],
         hospitalId,
-        referringDoctor: request.auth.token.name,
+        referringDoctor: userName,
         status: 'ISSUED',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -685,6 +711,7 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
 
 
 
