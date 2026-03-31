@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -54,7 +55,7 @@ export default function ClinicalFolder() {
     const fetchHistory = async () => {
       setAreEncountersLoading(true);
       try {
-        const functions = getFunctions(firebaseApp);
+        const functions = getFunctions(firebaseApp, 'us-central1');
         const getPatientHistory = httpsCallable(functions, 'getPatientHistory');
         
         const result: any = await getPatientHistory({ ghanaCardId: patient.ghanaCardId });
@@ -74,7 +75,7 @@ export default function ClinicalFolder() {
         }
 
       } catch (error: any) {
-        console.error("Error loading global history:", error);
+        console.error("Clinical Bridge Handshake Failed:", error);
         toast({
             variant: "destructive",
             title: "Could Not Load Global History",
