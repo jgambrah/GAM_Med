@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -57,7 +56,7 @@ export default function ClinicalFolder() {
   const scanResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
         collection(firestore, `hospitals/${hospitalId}/radiology_orders`),
-        where("patientId", "==", "COMPLETED"), // This is a bug, should be status
+        where("patientId", "==", id),
         where("status", "==", "COMPLETED"),
         orderBy("completedAt", "desc")
     ) : null,

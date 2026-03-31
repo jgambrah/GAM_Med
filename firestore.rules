@@ -112,7 +112,7 @@ service cloud.firestore {
     // ===================================
 
     match /{path=**}/beds/{bedId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
     }
 
     match /{path=**}/billing_items/{itemId} {
@@ -121,32 +121,36 @@ service cloud.firestore {
     }
 
     match /{path=**}/deliveries/{deliveryId} {
-        allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+        allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
     }
 
     match /{path=**}/lab_orders/{orderId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null) || request.query.limit == 1;
     }
 
     match /{path=**}/radiology_orders/{orderId} {
-       allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
+       allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null) || request.query.limit == 1;
     }
 
     match /{path=**}/maternity_profiles/{profileId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
     }
 
     match /{path=**}/patients/{patientId} {
-      allow list: if isSuperAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null) || request.query.limit == 1;
+      allow list: if isSuperAdmin() || (getCallingUserData().hospitalId != null) || request.query.limit == 1;
     }
 
     match /{path=**}/payments/{paymentId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
     }
     
     match /{path=**}/encounters/{encounterId} {
-      allow list: if isSuperAdmin() || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hospitalId != null);
-      allow read: if isSuperAdmin() 
+      // Allow broader list access for the collectionGroup query, as long as user is authenticated staff.
+      // The client-side query MUST constrain this by ghanaCardId.
+      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
+      
+      // Allow specific 'get' if the user is staff of that hospital OR has been granted consent.
+      allow get: if isSuperAdmin() 
                    || isStaffOfHospital(resource.data.hospitalId)
                    || (isSignedIn() && get(/databases/$(database)/documents/patient_consents/$(resource.data.ghanaCardId)).data.consentedHospitals[getCallingUserData().hospitalId] != null);
     }
