@@ -56,20 +56,31 @@ export default function ClinicalFolder() {
       try {
         const functions = getFunctions(firebaseApp);
         const getPatientHistory = httpsCallable(functions, 'getPatientHistory');
+        
         const result: any = await getPatientHistory({ ghanaCardId: patient.ghanaCardId });
         
-        if (result.data.success) {
-          const encountersWithDates = result.data.encounters.map((enc: any) => ({
+        const encountersData = result.data as any[];
+
+        if (Array.isArray(encountersData)) {
+          const encountersWithDates = encountersData.map((enc: any) => ({
             ...enc,
-            createdAt: new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
+            createdAt: enc.createdAt && enc.createdAt._seconds 
+              ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
+              : new Date()
           }));
           setAllEncounters(encountersWithDates);
         } else {
-          throw new Error(result.data.message || 'Failed to fetch history from cloud function.');
+           throw new Error("Invalid data format received from history function.");
         }
+
       } catch (error: any) {
-        console.error("Error calling getPatientHistory function:", error);
-        toast({ variant: 'destructive', title: 'Could Not Load Global History', description: error.message });
+        console.error("Error loading global history:", error);
+        toast({
+            variant: "destructive",
+            title: "Could Not Load Global History",
+            description: "There was a problem fetching the patient's unified record. " + error.message,
+        });
+        setAllEncounters([]);
       } finally {
         setAreEncountersLoading(false);
       }
