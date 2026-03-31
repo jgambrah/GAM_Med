@@ -12,6 +12,7 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
+
 // 1. THE MISSING COMPONENT: getPatientHistory
 // This fetches records across ALL hospitals for the unified view
 exports.getPatientHistory = onCall({ 
@@ -200,8 +201,17 @@ exports.createEncounter = onCall({
       id: encounterRef.id,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // NEW: Update patient status after encounter creation
+    const patientRef = db.collection('hospitals').doc(data.hospitalId).collection('patients').doc(data.patientId);
+    await patientRef.update({
+        status: 'Waiting for Assignment' // Or 'Waiting for Doctor' depending on your workflow
+    });
+
+
     return { success: true, encounterId: encounterRef.id };
   } catch (error) {
+    console.error("Encounter Error:", error);
     throw new HttpsError('internal', error.message);
   }
 });
@@ -581,3 +591,11 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
     
     
 
+
+
+
+
+
+
+
+    
