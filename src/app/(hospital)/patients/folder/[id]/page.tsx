@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, where, collectionGroup } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useFirebaseApp } from '@/firebase';
+import { doc, collection, query, orderBy, where, collectionGroup, Timestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Activity, Thermometer, Pill, Beaker, 
   History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe
@@ -22,6 +24,8 @@ export default function ClinicalFolder() {
   const { id } = useParams();
   const { user } = useUser();
   const firestore = useFirestore();
+  const firebaseApp = useFirebaseApp();
+  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -37,11 +41,43 @@ export default function ClinicalFolder() {
   [firestore, hospitalId, id]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  // 2. THE GLOBAL QUERY: Listen to All Timeline Items for this patient using GhanaCardID
-  const encountersQuery = useMemoFirebase(() => 
-    firestore && patient?.ghanaCardId ? query(collectionGroup(firestore, "encounters"), where("ghanaCardId", "==", patient.ghanaCardId), orderBy("createdAt", "desc")) : null,
-  [firestore, patient?.ghanaCardId]);
-  const { data: encounters, isLoading: areEncountersLoading } = useCollection(encountersQuery);
+  // 2. NEW: State for encounters fetched via Cloud Function
+  const [allEncounters, setAllEncounters] = useState<any[]>([]);
+  const [areEncountersLoading, setAreEncountersLoading] = useState(true);
+
+  useEffect(() => {
+    if (!patient?.ghanaCardId || !firebaseApp) {
+      if (patient) setAreEncountersLoading(false);
+      return;
+    }
+
+    const fetchHistory = async () => {
+      setAreEncountersLoading(true);
+      try {
+        const functions = getFunctions(firebaseApp);
+        const getPatientHistory = httpsCallable(functions, 'getPatientHistory');
+        const result: any = await getPatientHistory({ ghanaCardId: patient.ghanaCardId });
+        
+        if (result.data.success) {
+          const encountersWithDates = result.data.encounters.map((enc: any) => ({
+            ...enc,
+            createdAt: new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
+          }));
+          setAllEncounters(encountersWithDates);
+        } else {
+          throw new Error(result.data.message || 'Failed to fetch history from cloud function.');
+        }
+      } catch (error: any) {
+        console.error("Error calling getPatientHistory function:", error);
+        toast({ variant: 'destructive', title: 'Could Not Load Global History', description: error.message });
+      } finally {
+        setAreEncountersLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [patient?.ghanaCardId, firebaseApp, toast]);
+
 
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
@@ -56,8 +92,8 @@ export default function ClinicalFolder() {
   const scanResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
         collection(firestore, `hospitals/${hospitalId}/radiology_orders`),
-        where("patientId", "==", id),
         where("status", "==", "COMPLETED"),
+        where("patientId", "==", id),
         orderBy("completedAt", "desc")
     ) : null,
   [firestore, hospitalId, id]);
@@ -74,7 +110,7 @@ export default function ClinicalFolder() {
   
   const timelineActivities = useMemo(() => {
     const allActivities = [
-        ...(encounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt?.toDate() })),
+        ...(allEncounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt })),
         ...(completedLabs || []).map(l => ({ ...l, viewType: 'LAB_RESULT', date: l.completedAt?.toDate() })),
         ...(completedScans || []).map(s => ({ ...s, viewType: 'SCAN_RESULT', date: s.completedAt?.toDate() })),
         ...(procedureLogs || []).map(p => ({ ...p, viewType: 'PROCEDURE_LOG', date: p.createdAt?.toDate() }))
@@ -83,20 +119,20 @@ export default function ClinicalFolder() {
     return allActivities
         .filter(item => item.date)
         .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [encounters, completedLabs, completedScans, procedureLogs]);
+  }, [allEncounters, completedLabs, completedScans, procedureLogs]);
 
   const patientContextForAI = useMemo(() => {
-    if (areEncountersLoading || !encounters) {
+    if (areEncountersLoading || !allEncounters) {
       return "No encounter data available.";
     }
-    return JSON.stringify(encounters.slice(0, 5));
-  }, [encounters, areEncountersLoading]);
+    return JSON.stringify(allEncounters.slice(0, 5));
+  }, [allEncounters, areEncountersLoading]);
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
   const isDeceased = patient?.status === 'DECEASED';
 
-  const latestEncounter = encounters && encounters.length > 0 ? encounters[0] : null;
+  const latestEncounter = allEncounters && allEncounters.length > 0 ? allEncounters[0] : null;
 
   if (isLoading) {
       return (
@@ -151,7 +187,7 @@ export default function ClinicalFolder() {
             <Globe size={16} /> Unified Longitudinal Record
           </h3>
           
-          {encounters && encounters.length > 1 && <VitalsTrend data={encounters} />}
+          {allEncounters && allEncounters.length > 1 && <VitalsTrend data={allEncounters} />}
 
           {isTimelineLoading ? (
              <div className="space-y-4">

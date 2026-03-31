@@ -144,51 +144,45 @@ service cloud.firestore {
       allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
     }
     
+    // NEW: Combined rule for encounters
     match /{path=**}/encounters/{encounterId} {
-      // Allow broader list access for the collectionGroup query, as long as user is authenticated staff.
-      // The client-side query MUST constrain this by ghanaCardId.
-      allow list: if isSuperAdmin() || (isSignedIn() && getCallingUserData().hospitalId != null);
-      
-      // Allow specific 'get' if the user is staff of that hospital OR has been granted consent.
-      allow get: if isSuperAdmin() 
-                   || isStaffOfHospital(resource.data.hospitalId)
-                   || (isSignedIn() && get(/databases/$(database)/documents/patient_consents/$(resource.data.ghanaCardId)).data.consentedHospitals[getCallingUserData().hospitalId] != null);
-    }
+        // GET: Read a single encounter.
+        // Allowed if you are Super Admin, staff of the hospital that created it,
+        // or staff of a hospital that has patient consent.
+        allow get: if isSuperAdmin() 
+                || isStaffOfHospital(resource.data.hospitalId)
+                || (isSignedIn() && get(/databases/$(database)/documents/patient_consents/$(resource.data.ghanaCardId)).data.consentedHospitals[getCallingUserData().hospitalId] != null);
 
+        // LIST: Not allowed from client via collection group query. Must use cloud function.
+        allow list: if false; 
+
+        // CREATE: Allowed if you are signed in. The cloud function handles the logic.
+        allow create: if isSignedIn();
+
+        // UPDATE/DELETE: Allowed if you are Super Admin, or you are the provider who created it.
+        allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
+    }
 
     // --------------------------------
     // Global Platform Collections
     // --------------------------------
     
     match /patient_consents/{consentId} {
-      // Patients are not auth'd users, so we can't check owner.
-      // This is temporarily open, but should be locked down via a Callable Function
-      // that verifies patient identity before writing.
       allow write: if true; 
       allow read: if isSignedIn();
     }
 
     match /referrals/{referralId} {
-      allow read: if true; // Publicly readable for verification
+      allow read: if true; 
       allow create: if isClinicalStaff(request.resource.data.hospitalId);
       allow update, delete, list: if false;
     }
 
-    // --- PUBLIC VERIFICATION ACCESS ---
     match /external_orders/{orderId} {
-      // ALLOW anyone with the exact ID (from QR scan) to view the document
       allow get: if true;
-      // DENY anyone from listing all orders (browsing)
       allow list: if false;
-      // Creation is handled by a backend function, but this rule provides a failsafe.
       allow create: if isClinicalStaff(request.resource.data.hospitalId);
-      allow update, delete: if false; // Immutable once issued
-    }
-    
-    // --- TOP LEVEL ENCOUNTERS FOR PRINTING & LONGITUDINAL RECORD ---
-    match /encounters/{encounterId} {
-      allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
-      allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
+      allow update, delete: if false; 
     }
 
     match /nhis_batches/{batchId} {
@@ -202,13 +196,13 @@ service cloud.firestore {
 
     match /revenue_certificates/{certId} {
       allow read, list, create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
-      allow update, delete: if false; // Immutable
+      allow update, delete: if false; 
     }
 
     match /certified_schedules/{scheduleId} {
       allow read, list: if isSuperAdmin() || isAuditorRole(resource.data.hospitalId);
       allow create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
-      allow update, delete: if false; // Immutable
+      allow update, delete: if false; 
     }
 
     match /appointments/{appointmentId} {
@@ -525,10 +519,6 @@ service cloud.firestore {
       match /patients/{patientId} {
         allow get, create, delete, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow update: if isSuperAdmin() || (isAnyStaff(hospitalId) && (resource.data.isLocked == false || !('isLocked' in resource.data)));
-
-        match /encounters/{encounterId} {
-           allow read, list, create, update, delete: if isSuperAdmin() || isAnyStaff(hospitalId);
-        }
 
         match /maternity_profiles/{profileId} {
            allow read, list, create, update, delete: if isSuperAdmin() || isClinicalStaff(hospitalId);
