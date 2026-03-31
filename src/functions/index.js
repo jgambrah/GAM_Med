@@ -16,7 +16,7 @@ const db = admin.firestore();
 // This fetches records across ALL hospitals for the unified view
 exports.getPatientHistory = onCall({ 
   region: "us-central1", // Must match your deployment region
-  cors: true,            // This allows all origins (including your Cloud Workstation)
+  cors: "*",            // This allows all origins (including your Cloud Workstation)
   invoker: "public"      // Ensures the function is reachable
 }, async (request) => {
   // Check if user is authenticated
@@ -49,7 +49,7 @@ exports.getPatientHistory = onCall({
  * Onboards a new staff member.
  * Creates an Auth user and a corresponding user profile in Firestore.
  */
-exports.onboardStaff = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.onboardStaff = onCall({ region: "us-central1", cors: "*" }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   }
@@ -128,7 +128,7 @@ exports.onboardStaff = onCall({ region: "us-central1", cors: true }, async (requ
 /**
  * Registers a new patient and assigns a unique EHR number.
  */
-exports.registerPatient = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.registerPatient = onCall({ region: "us-central1", cors: "*" }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
@@ -183,7 +183,7 @@ exports.registerPatient = onCall({ region: "us-central1", cors: true }, async (r
 // UPDATED: createEncounter (Adding Safety and CORS)
 exports.createEncounter = onCall({ 
   region: "us-central1",
-  cors: true 
+  cors: "*" 
 }, async (request) => {
   const data = request.data;
   const db = admin.firestore();
@@ -210,7 +210,7 @@ exports.createEncounter = onCall({
 /**
  * Creates a new ward and automatically provisions the specified number of beds.
  */
-exports.createWardAndBeds = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.createWardAndBeds = onCall({ region: "us-central1", cors: "*" }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   }
@@ -259,7 +259,7 @@ exports.createWardAndBeds = onCall({ region: "us-central1", cors: true }, async 
 /**
  * A CEO-level function to provision a new hospital tenant.
  */
-exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.provisionFullHospital = onCall({ region: "us-central1", cors: "*" }, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
   }
@@ -387,7 +387,7 @@ exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, as
 /**
  * Sends an SMS message via a third-party gateway.
  */
-exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.sendClinicalSms = onCall({ region: "us-central1", cors: "*" }, async (request) => {
     // In a real app, you would use a secret for the API key.
     // const smsApiKey = functions.config().sms.key;
     const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY"; 
@@ -423,7 +423,7 @@ exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (r
 /**
  * Creates a Clinical Referral and generates a unique referral number.
  */
-exports.createReferral = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.createReferral = onCall({ region: "us-central1", cors: "*" }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   
   const userProfileDoc = await db.collection('users').doc(request.auth.uid).get();
@@ -478,7 +478,7 @@ exports.createReferral = onCall({ region: "us-central1", cors: true }, async (re
 /**
  * A CEO-level security tool to repair a user's roles and hospital assignment.
  */
-exports.repairUserIdentity = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.repairUserIdentity = onCall({ region: "us-central1", cors: "*" }, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin.');
   }
@@ -580,3 +580,4 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
