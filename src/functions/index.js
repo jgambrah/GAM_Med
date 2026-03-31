@@ -13,12 +13,15 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
-exports.getPatientHistory = onCall({ region: "us-central1", cors: true }, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'You must be authenticated to view patient history.');
-  }
-
-  // ROBUSTNESS FIX: Get hospitalId from Firestore profile, not just claims.
+// 1. THE MISSING COMPONENT: getPatientHistory
+// This fetches records across ALL hospitals for the unified view
+exports.getPatientHistory = onCall({ 
+  region: "us-central1",
+  cors: true // THIS FIXES THE CORS ERROR
+}, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Login required');
+  
+    // ROBUSTNESS FIX: Get hospitalId from Firestore profile, not just claims.
   const userProfileDoc = await db.collection('users').doc(request.auth.uid).get();
   if (!userProfileDoc.exists) {
       throw new HttpsError('not-found', 'User profile does not exist.');
@@ -54,8 +57,8 @@ exports.getPatientHistory = onCall({ region: "us-central1", cors: true }, async 
     return { success: true, encounters: accessibleEncounters };
 
   } catch (error) {
-    console.error("Error fetching patient history:", error);
-    throw new HttpsError('internal', 'An unexpected error occurred while fetching the patient timeline.');
+    console.error("Global History Error:", error);
+    throw new HttpsError('internal', error.message);
   }
 });
 
@@ -68,12 +71,13 @@ exports.onboardStaff = onCall({ region: "us-central1", cors: true }, async (requ
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   }
-
+  
   const adminProfileDoc = await db.collection('users').doc(request.auth.uid).get();
   if (!adminProfileDoc.exists()) {
       throw new HttpsError('not-found', 'Your user profile could not be found.');
   }
   const hospitalId = adminProfileDoc.data().hospitalId;
+
 
   if (!hospitalId) {
     throw new HttpsError('failed-precondition', 'Caller is not associated with a hospital.');
@@ -152,6 +156,7 @@ exports.registerPatient = onCall({ region: "us-central1", cors: true }, async (r
   const hospitalId = userProfileDoc.data().hospitalId;
   if (!hospitalId) throw new HttpsError('failed-precondition', 'Your account is not associated with a hospital.');
 
+
   const registeringStaffId = request.auth.uid;
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
@@ -201,7 +206,6 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
 
-  // ROBUSTNESS FIX: Fetch user profile once as the source of truth for hospitalId and other user data.
   const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
   if (!userProfileSnap.exists()) {
     throw new HttpsError('not-found', 'User profile could not be found.');
@@ -214,13 +218,18 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   }
   
   const { 
-    patientId, patientName, vitals, encounterType, 
+    patientId, ghanaCardId, patientName, vitals, encounterType, 
     labOrders = [], radiologyOrders = [], 
     items = [], // Standardized field
     isExternal, // Single flag
     ...restOfEncounterData 
   } = request.data;
   
+  // THE GLOBAL ANCHOR CHECK
+  if (!ghanaCardId) {
+    throw new HttpsError('invalid-argument', 'Ghana Card ID is required for network-wide longitudinal records.');
+  }
+
   const finalItems = items || [];
   
   if (!patientId || !encounterType) {
