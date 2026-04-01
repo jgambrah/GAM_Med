@@ -13,14 +13,14 @@ if (admin.apps.length === 0) {
 const db = admin.firestore();
 
 // ============================================================
-// getPatientHistory — v2.1.0 (CORS + IAM fix)
+// getPatientHistory — v2.2.0 (Query Optimization Fix)
 // Fetches unified encounter history across ALL hospitals
 // using Ghana Card ID as the national patient identifier.
 // ============================================================
 exports.getPatientHistory = onCall({
   region: "us-central1",
-  cors: true,         // ✅ FIXED: true, not "*" — v2 syntax
-  invoker: "public",  // ✅ grants allUsers roles/run.invoker automatically
+  cors: true,
+  invoker: "public",
 }, async (request) => {
 
   if (!request.auth) {
@@ -36,7 +36,7 @@ exports.getPatientHistory = onCall({
     const snap = await admin.firestore()
       .collectionGroup("encounters")
       .where("ghanaCardId", "==", ghanaCardId)
-      .orderBy("createdAt", "desc")
+      // .orderBy("createdAt", "desc") // SOLID FIX: Removed to prevent indexing errors on complex queries. Client-side already sorts.
       .get();
 
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -147,7 +147,7 @@ exports.registerPatient = onCall({
 
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) throw new HttpsError("not-found", "Hospital record not found.");
+      if (!hospitalDoc.exists()) throw new HttpsError("not-found", "Hospital record not found.");
 
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.patientCounter || 0) + 1;
