@@ -8,7 +8,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Activity, Thermometer, Pill, Beaker, 
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,9 +42,10 @@ export default function ClinicalFolder() {
   [firestore, hospitalId, id]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  // 2. NEW: State for encounters fetched via Cloud Function
+  // 2. State for encounters and the permission error
   const [allEncounters, setAllEncounters] = useState<any[]>([]);
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
+  const [permissionError, setPermissionError] = useState(false);
 
   useEffect(() => {
     if (!patient?.ghanaCardId || !firebaseApp) {
@@ -54,26 +55,41 @@ export default function ClinicalFolder() {
 
     const fetchHistory = async () => {
       setAreEncountersLoading(true);
+      setPermissionError(false); // Reset on each fetch
       try {
         const functions = getFunctions(firebaseApp, 'us-central1');
         const getPatientHistory = httpsCallable(functions, 'getPatientHistory');
         
-        const result: any = await getPatientHistory({ ghanaCardId: patient.ghanaCardId });
+        const result: any = await getPatientHistory({ 
+          ghanaCardId: patient.ghanaCardId,
+          patientId: patient.id,
+          homeHospitalId: patient.hospitalId
+        });
         
-        const encountersData = result.data as any[];
-
-        if (Array.isArray(encountersData)) {
-          const encountersWithDates = encountersData.map((enc: any) => ({
-            ...enc,
-            createdAt: enc.createdAt && enc.createdAt._seconds 
-              ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
-              : new Date()
-          }));
-          setAllEncounters(encountersWithDates);
+        if (result.data.success) {
+            const encountersData = result.data.data as any[];
+            if (Array.isArray(encountersData)) {
+              const encountersWithDates = encountersData.map((enc: any) => ({
+                ...enc,
+                createdAt: enc.createdAt && enc.createdAt._seconds 
+                  ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
+                  : new Date()
+              }));
+              setAllEncounters(encountersWithDates);
+            } else {
+               throw new Error("Invalid data format received from history function.");
+            }
+        } else if (result.data.reason === 'PERMISSION_REQUIRED') {
+            setPermissionError(true);
+            setAllEncounters([]); // Clear any old data
+            toast({
+                title: "Consent Required for Full History",
+                description: `This patient's primary records are from another facility. Please ask them to grant access via their MyGamMed patient portal.`,
+                duration: 10000,
+            });
         } else {
-           throw new Error("Invalid data format received from history function.");
+            throw new Error(result.data.message || "An unknown error occurred while fetching patient history.");
         }
-
       } catch (error: any) {
         console.error("Clinical Bridge Handshake Failed:", error);
         toast({
@@ -88,7 +104,7 @@ export default function ClinicalFolder() {
     };
 
     fetchHistory();
-  }, [patient?.ghanaCardId, firebaseApp, toast]);
+  }, [patient?.ghanaCardId, patient?.id, patient?.hospitalId, firebaseApp, toast]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -198,6 +214,18 @@ export default function ClinicalFolder() {
           <h3 className="font-black text-xs uppercase tracking-widest text-blue-600 flex items-center gap-2">
             <Globe size={16} /> Unified Longitudinal Record
           </h3>
+          
+          {permissionError && (
+            <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-800 p-4 rounded-r-lg" role="alert">
+                <div className="flex items-center gap-3">
+                    <ShieldAlert />
+                    <div>
+                        <p className="font-bold">Access Restricted</p>
+                        <p className="text-sm">Patient consent is required to view records from other facilities. Only records from your hospital are shown.</p>
+                    </div>
+                </div>
+            </div>
+          )}
           
           {allEncounters && allEncounters.length > 1 && <VitalsTrend data={allEncounters} />}
 
@@ -374,3 +402,5 @@ function AncVitalItem({ label, value, unit }: any) {
       </div>
     );
 }
+
+    

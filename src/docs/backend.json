@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "PatientConsent": {
@@ -443,9 +444,11 @@
         "sku": { "type": "string" },
         "productName": { "type": "string" },
         "qty": { "type": "number", "description": "The quantity moved. Positive for additions, negative for deductions." },
-        "type": { "type": "string", "enum": ["INTERNAL_ISSUE", "STOCK_TAKE_ADJ", "GRN_RECEIPT", "DISPOSAL"] },
+        "type": { "type": "string", "enum": ["INTERNAL_ISSUE", "STOCK_TAKE_ADJ", "GRN_RECEIPT", "DISPOSAL", "BULK_UPLOAD_IN"] },
         "source": { "type": "string" },
         "destination": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date" },
         "authorizedBy": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -2017,6 +2020,19 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "currentBalance": {
+          "type": "number",
+          "description": "The current aggregated stock level for this item across all batches."
+        },
+        "lastPurchasePrice": {
+          "type": "number",
+          "description": "The cost price from the most recent purchase."
+        },
+        "lastStockUpdate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last inventory update for this item."
         }
       },
       "required": [
@@ -3430,6 +3446,10 @@
           "type": "string",
           "description": "Reference to the Hospital under which this patient is registered."
         },
+        "homeHospitalId": {
+          "type": "string",
+          "description": "The hospital where the patient was first registered. This hospital has default access to all records."
+        },
         "ehrNumber": {
           "type": "string",
           "description": "The unique Electronic Health Record number for the patient within the hospital (e.g., KATH-00001)."
@@ -3566,6 +3586,7 @@
       "required": [
         "id",
         "hospitalId",
+        "homeHospitalId",
         "ehrNumber",
         "firstName",
         "lastName",
@@ -5172,3 +5193,5 @@
     "reasoning": "This Firestore data structure supports multi-tenancy and role-based access control (RBAC) without relying on custom claims, which cannot be managed from a client-only application. \n\n1.  **Role Management via User Profiles:** Instead of custom claims, a user's role and `hospitalId` are stored in a document in a top-level `/users/{userId}` collection. This allows for centralized user management.\n\n2.  **Server-Side Role Verification:** Security rules will use `get(/databases/$(database)/documents/users/$(request.auth.uid))` to fetch the calling user's profile document. This allows the rules to securely check the user's `role` and `hospitalId` on the server before granting access to data, enforcing multi-tenancy and RBAC.\n\n3.  **Global Admin Role:** A global 'AppCEO' role is managed via an existence check in the `/app_ceos/{appCeoId}` collection. This provides a secure entry point for system administration without requiring special claims.\n\n4.  **Data Segregation:** Hospital-specific data, like patients, remains nested under `/hospitals/{hospitalId}`. This organizes data logically by tenant, even though authorization is decoupled and centralized in the `/users` collection."
   }
 }
+
+    
