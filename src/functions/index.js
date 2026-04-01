@@ -12,6 +12,7 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
+
 // ============================================================
 // getPatientHistory — v2.2.0 (Permission Gate Architecture)
 // Fetches unified encounter history, respecting patient consent.

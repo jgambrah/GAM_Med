@@ -45,7 +45,7 @@ export default function ClinicalFolder() {
   // 2. State for encounters and the permission error
   const [allEncounters, setAllEncounters] = useState<any[]>([]);
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
-  const [permissionError, setPermissionError] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
 
   useEffect(() => {
     if (!patient?.ghanaCardId || !firebaseApp) {
@@ -55,12 +55,12 @@ export default function ClinicalFolder() {
 
     const fetchHistory = async () => {
       setAreEncountersLoading(true);
-      setPermissionError(false); // Reset on each fetch
+      setAuthRequired(false);
       try {
         const functions = getFunctions(firebaseApp, 'us-central1');
-        const getPatientHistory = httpsCallable(functions, 'getPatientHistory');
+        const getHistory = httpsCallable(functions, 'getPatientHistory');
         
-        const result: any = await getPatientHistory({ 
+        const result: any = await getHistory({ 
           ghanaCardId: patient.ghanaCardId,
           patientId: patient.id,
           homeHospitalId: patient.homeHospitalId || patient.hospitalId
@@ -79,10 +79,11 @@ export default function ClinicalFolder() {
             } else {
                throw new Error("Invalid data format received from history function.");
             }
+            setAuthRequired(false);
         } else if (result.data.reason === 'PERMISSION_REQUIRED') {
-            setPermissionError(true);
-            setAllEncounters([]); // Clear any old data
-            toast({
+          setAuthRequired(true);
+          setAllEncounters([]); // Clear any old data
+          toast({
                 title: "Consent Required for Full History",
                 description: `This patient's primary records are from another facility. Please ask them to grant access via their MyGamMed patient portal.`,
                 duration: 10000,
@@ -95,7 +96,7 @@ export default function ClinicalFolder() {
         toast({
             variant: "destructive",
             title: "Could Not Load Global History",
-            description: "There was a problem fetching the patient's unified record. " + error.message,
+            description: error.message,
         });
         setAllEncounters([]);
       } finally {
@@ -215,15 +216,14 @@ export default function ClinicalFolder() {
             <Globe size={16} /> Unified Longitudinal Record
           </h3>
           
-          {permissionError ? (
-            <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-800 p-4 rounded-r-lg" role="alert">
-                <div className="flex items-center gap-3">
-                    <ShieldAlert />
-                    <div>
-                        <p className="font-bold">Access Restricted</p>
-                        <p className="text-sm">Patient consent is required to view records from other facilities. Only records from your hospital are shown.</p>
-                    </div>
-                </div>
+          {authRequired ? (
+             <div className="bg-amber-100 border-2 border-dashed border-amber-200 p-10 rounded-[40px] text-center">
+                <ShieldAlert size={48} className="mx-auto text-amber-500 mb-4" />
+                <h3 className="text-xl font-black uppercase text-amber-900">Inter-Hospital Access Restricted</h3>
+                <p className="text-sm text-amber-700 mt-2">
+                    To see this patient's history from other facilities, the patient must log into 
+                    <strong> MyGamMed</strong> and authorize <strong>{userProfile?.hospitalName}</strong>.
+                </p>
             </div>
           ) : allEncounters && allEncounters.length > 1 ? (
             <VitalsTrend data={allEncounters} />
@@ -234,7 +234,7 @@ export default function ClinicalFolder() {
                 <Skeleton className="h-48 w-full rounded-3xl" />
                 <Skeleton className="h-32 w-full rounded-3xl" />
              </div>
-          ) : timelineActivities && timelineActivities.length === 0 && !permissionError ? (
+          ) : timelineActivities && timelineActivities.length === 0 && !authRequired ? (
             <div className="bg-card p-20 border-2 border-dashed rounded-[32px] text-center text-muted-foreground italic">
               No clinical encounters recorded. Register first vitals or consultation.
             </div>
