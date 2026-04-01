@@ -63,7 +63,7 @@ export default function ClinicalFolder() {
         const result: any = await getPatientHistory({ 
           ghanaCardId: patient.ghanaCardId,
           patientId: patient.id,
-          homeHospitalId: patient.hospitalId
+          homeHospitalId: patient.homeHospitalId || patient.hospitalId
         });
         
         if (result.data.success) {
@@ -104,7 +104,7 @@ export default function ClinicalFolder() {
     };
 
     fetchHistory();
-  }, [patient?.ghanaCardId, patient?.id, patient?.hospitalId, firebaseApp, toast]);
+  }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, toast]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -215,7 +215,7 @@ export default function ClinicalFolder() {
             <Globe size={16} /> Unified Longitudinal Record
           </h3>
           
-          {permissionError && (
+          {permissionError ? (
             <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-800 p-4 rounded-r-lg" role="alert">
                 <div className="flex items-center gap-3">
                     <ShieldAlert />
@@ -225,16 +225,16 @@ export default function ClinicalFolder() {
                     </div>
                 </div>
             </div>
-          )}
-          
-          {allEncounters && allEncounters.length > 1 && <VitalsTrend data={allEncounters} />}
+          ) : allEncounters && allEncounters.length > 1 ? (
+            <VitalsTrend data={allEncounters} />
+          ) : null}
 
           {isTimelineLoading ? (
              <div className="space-y-4">
                 <Skeleton className="h-48 w-full rounded-3xl" />
                 <Skeleton className="h-32 w-full rounded-3xl" />
              </div>
-          ) : timelineActivities && timelineActivities.length === 0 ? (
+          ) : timelineActivities && timelineActivities.length === 0 && !permissionError ? (
             <div className="bg-card p-20 border-2 border-dashed rounded-[32px] text-center text-muted-foreground italic">
               No clinical encounters recorded. Register first vitals or consultation.
             </div>
