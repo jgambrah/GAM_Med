@@ -8,7 +8,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Activity, Thermometer, Pill, Beaker, 
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,8 @@ import VitalsTrend from '@/components/clinical/VitalsTrend';
 import { QRCodeSVG } from 'qrcode.react';
 import { DeathCertificationDialog } from '@/components/clinical/DeathCertificationDialog';
 import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
+import { parseClinicalError } from '@/lib/error-handler';
+import { Button } from '@/components/ui/button';
 
 export default function ClinicalFolder() {
   const { id } = useParams();
@@ -46,64 +48,58 @@ export default function ClinicalFolder() {
   const [allEncounters, setAllEncounters] = useState<any[]>([]);
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
+  const [errorState, setErrorState] = useState<string | null>(null);
+
+  const fetchHistory = async () => {
+    if (!patient?.ghanaCardId || !firebaseApp) {
+        setAreEncountersLoading(false);
+        return;
+    }
+    
+    setErrorState(null);
+    setAreEncountersLoading(true);
+    setAuthRequired(false);
+
+    try {
+      const functions = getFunctions(firebaseApp, 'us-central1');
+      const getHistory = httpsCallable(functions, 'getPatientHistory');
+      
+      const result: any = await getHistory({ 
+        ghanaCardId: patient.ghanaCardId,
+        patientId: patient.id,
+        homeHospitalId: patient.homeHospitalId || patient.hospitalId
+      });
+      
+      if (result.data.success) {
+          const encountersData = result.data.data as any[];
+          if (Array.isArray(encountersData)) {
+            const encountersWithDates = encountersData.map((enc: any) => ({
+              ...enc,
+              createdAt: enc.createdAt && enc.createdAt._seconds 
+                ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
+                : new Date()
+            }));
+            setAllEncounters(encountersWithDates);
+          } else {
+             throw new Error("Invalid data format received from history function.");
+          }
+      } else if (result.data.reason === 'PERMISSION_REQUIRED') {
+        setAuthRequired(true);
+        setAllEncounters([]);
+        setErrorState("AUTHORIZATION_REQUIRED");
+      } else {
+          throw new Error(result.data.message || "An unknown error occurred while fetching patient history.");
+      }
+    } catch (error: any) {
+      const friendlyError = parseClinicalError(error);
+      setErrorState(friendlyError);
+      console.error("Clinical Bridge Handshake Failed:", error);
+    } finally {
+      setAreEncountersLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!patient?.ghanaCardId || !firebaseApp) {
-      if (patient) setAreEncountersLoading(false);
-      return;
-    }
-
-    const fetchHistory = async () => {
-      setAreEncountersLoading(true);
-      setAuthRequired(false);
-      try {
-        const functions = getFunctions(firebaseApp, 'us-central1');
-        const getHistory = httpsCallable(functions, 'getPatientHistory');
-        
-        const result: any = await getHistory({ 
-          ghanaCardId: patient.ghanaCardId,
-          patientId: patient.id,
-          homeHospitalId: patient.homeHospitalId || patient.hospitalId
-        });
-        
-        if (result.data.success) {
-            const encountersData = result.data.data as any[];
-            if (Array.isArray(encountersData)) {
-              const encountersWithDates = encountersData.map((enc: any) => ({
-                ...enc,
-                createdAt: enc.createdAt && enc.createdAt._seconds 
-                  ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
-                  : new Date()
-              }));
-              setAllEncounters(encountersWithDates);
-            } else {
-               throw new Error("Invalid data format received from history function.");
-            }
-            setAuthRequired(false);
-        } else if (result.data.reason === 'PERMISSION_REQUIRED') {
-          setAuthRequired(true);
-          setAllEncounters([]); // Clear any old data
-          toast({
-                title: "Consent Required for Full History",
-                description: `This patient's primary records are from another facility. Please ask them to grant access via their MyGamMed patient portal.`,
-                duration: 10000,
-            });
-        } else {
-            throw new Error(result.data.message || "An unknown error occurred while fetching patient history.");
-        }
-      } catch (error: any) {
-        console.error("Clinical Bridge Handshake Failed:", error);
-        toast({
-            variant: "destructive",
-            title: "Could Not Load Global History",
-            description: error.message,
-        });
-        setAllEncounters([]);
-      } finally {
-        setAreEncountersLoading(false);
-      }
-    };
-
     fetchHistory();
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, toast]);
 
@@ -216,7 +212,14 @@ export default function ClinicalFolder() {
             <Globe size={16} /> Unified Longitudinal Record
           </h3>
           
-          {authRequired ? (
+          {errorState ? (
+              <div className="p-10 bg-red-50 border-2 border-red-100 rounded-[40px] text-center">
+                <AlertCircle size={48} className="mx-auto text-red-600 mb-4" />
+                <h3 className="text-lg font-black uppercase text-red-900">Clinical Data Blocked</h3>
+                <p className="text-sm text-red-700 font-bold mt-2 uppercase italic">{errorState}</p>
+                <button onClick={fetchHistory} className="mt-6 px-6 py-2 bg-red-600 text-white rounded-full text-xs uppercase">Retry Sync</button>
+              </div>
+          ) : authRequired ? (
              <div className="bg-amber-100 border-2 border-dashed border-amber-200 p-10 rounded-[40px] text-center">
                 <ShieldAlert size={48} className="mx-auto text-amber-500 mb-4" />
                 <h3 className="text-xl font-black uppercase text-amber-900">Inter-Hospital Access Restricted</h3>
@@ -402,5 +405,3 @@ function AncVitalItem({ label, value, unit }: any) {
       </div>
     );
 }
-
-    

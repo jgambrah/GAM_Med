@@ -55,7 +55,7 @@ exports.getPatientHistory = onCall({
     // If check passes, run the universal search
     const snap = await db.collectionGroup("encounters")
       .where("ghanaCardId", "==", ghanaCardId)
-      .orderBy("createdAt", "desc") // ✅ RE-ENABLED with index
+      .orderBy("createdAt", "desc")
       .get();
       
     return {
@@ -210,6 +210,15 @@ exports.createEncounter = onCall({
     throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   }
 
+  // SPECIFIC VALIDATION
+  if (!request.data.ghanaCardId) {
+    throw new HttpsError('invalid-argument', 'VALIDATION FAILED: Patient must have a Ghana Card ID to enable network history.');
+  }
+  
+  if (!request.data.vitals || !request.data.vitals.systolic || !request.data.vitals.diastolic) {
+    throw new HttpsError('invalid-argument', 'CLINICAL ERROR: Blood Pressure readings are mandatory for this encounter.');
+  }
+
   let hospitalId = request.auth.token.hospitalId;
   // Fallback to Firestore if token is stale
   if (!hospitalId && request.auth.uid) {
@@ -239,10 +248,8 @@ exports.createEncounter = onCall({
   const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
   const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
 
-  // --- THE SOLID FIX: Use a single top-level encounters collection ---
   const encounterRef = db.collection('encounters').doc();
 
-  // Prepare encounter data
   const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
   let hasPendingLabs = false;
   let hasPendingScans = false;
@@ -277,7 +284,6 @@ exports.createEncounter = onCall({
     });
   };
 
-  // Internal prescriptions are billed
   if (!isExternal && finalItems && finalItems.length > 0) {
       for (const rxItem of finalItems) {
         if (rxItem.sku) {
@@ -294,7 +300,6 @@ exports.createEncounter = onCall({
       }
   }
 
-  // Internal diagnostics are billed
   if (!isExternal) {
     if (labOrders && labOrders.length > 0) {
       hasPendingLabs = true;
@@ -315,15 +320,14 @@ exports.createEncounter = onCall({
     }
   }
   
-  // Set the main encounter document in the top-level collection
   batch.set(encounterRef, {
     id: encounterRef.id, patientId, hospitalId, patientName, ehrNumber: patientData.ehrNumber, type: encounterType,
     hospitalName: hospitalData?.name,
     ghanaCardId: patientData.ghanaCardId,
     providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
-    doctorMDC: userProfile?.licenseNumber || 'N/A', // For external print
+    doctorMDC: userProfile?.licenseNumber || 'N/A',
     vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    items: finalItems, prescription: finalItems, // Support both legacy and new field names
+    items: finalItems, prescription: finalItems,
     labOrders: labOrders || [], 
     radiologyOrders: radiologyOrders || [],
     hasPendingLabs, hasPendingScans,
@@ -342,13 +346,12 @@ exports.createEncounter = onCall({
       }
   }
 
-
   try {
     await batch.commit();
     return { success: true, encounterId: encounterRef.id, message: 'Encounter created successfully.' };
   } catch (error) {
     console.error("Encounter creation failed:", error);
-    throw new HttpsError('internal', 'Failed to save encounter and billing data.');
+    throw new HttpsError('internal', error.message);
   }
 });
 
@@ -565,8 +568,13 @@ exports.createReferral = onCall({
 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "You must be an authenticated staff member.");
   
+  const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
+  if (!userProfileDoc.exists()) throw new HttpsError("not-found", "Your user profile could not be found.");
+  const hospitalId = userProfileDoc.data().hospitalId;
+  const userName = userProfileDoc.data().fullName;
+  if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
+
   const { patientId, patientName, ehrNumber, latestEncounter, ...formData } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
   const hospitalRef = db.collection("hospitals").doc(hospitalId);
 
   try {
@@ -585,15 +593,17 @@ exports.createReferral = onCall({
 
       const referralRef = db.collection("referrals").doc();
       newReferralId = referralRef.id;
-      
+
       transaction.set(referralRef, {
         ...formData,
         referralNumber: newRefNumber,
-        patientId, patientName, ehrNumber,
+        patientId,
+        patientName,
+        ehrNumber,
         vitalsAtReferral: latestEncounter?.vitals || {},
         medications: latestEncounter?.prescription || [],
         hospitalId,
-        referringDoctor: request.auth.token.name,
+        referringDoctor: userName,
         status: "ISSUED",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -633,35 +643,88 @@ exports.repairUserIdentity = onCall({
   }
 });
 
+
 // ============================================================
 // AUTOMATED AUDIT TRIGGERS (CEO SURVEILLANCE)
 // ============================================================
-exports.auditPatientRegistration = onDocumentCreated("hospitals/{hospitalId}/patients/{patientId}", async (event) => {
-  const data = event.data.data();
-  if (!data) return null;
-  const actor = await admin.auth().getUser(data.registeredBy);
-  return db.collection("global_audit_logs").add({ type: "CLINICAL", action: "PATIENT_REGISTERED", hospitalId: data.hospitalId || "Unknown", actorId: data.registeredBy, actorName: actor.displayName || "System", details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`, timestamp: admin.firestore.FieldValue.serverTimestamp() });
-});
-exports.auditPayments = onDocumentCreated("hospitals/{hospitalId}/payments/{paymentId}", async (event) => {
-  const data = event.data.data();
-  if (!data) return null;
-  return db.collection("global_audit_logs").add({ type: "FINANCIAL", action: "PAYMENT_RECEIVED", hospitalId: data.hospitalId, actorId: data.processedBy, actorName: data.processedByName || "Cashier", details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`, timestamp: admin.firestore.FieldValue.serverTimestamp() });
-});
-exports.auditHospitalStatus = onDocumentUpdated("hospitals/{hospitalId}", async (event) => {
-  const before = event.data.before.data();
-  const after = event.data.after.data();
-  if (!before || !after) return null;
-  if (before.status !== after.status) {
-    return db.collection("global_audit_logs").add({ type: "SECURITY", action: "FACILITY_STATUS_CHANGE", hospitalId: event.params.hospitalId, actorId: "SYSTEM", actorName: "App CEO / System Autopilot", details: `Hospital status moved from ${before.status} to ${after.status}`, timestamp: admin.firestore.FieldValue.serverTimestamp() });
+exports.auditPatientRegistration = onDocumentCreated(
+  "hospitals/{hospitalId}/patients/{patientId}",
+  async (event) => {
+    const data = event.data.data();
+    if (!data) return null;
+
+    const actor = await admin.auth().getUser(data.registeredBy);
+    return admin.firestore().collection("global_audit_logs").add({
+      type: "CLINICAL",
+      action: "PATIENT_REGISTERED",
+      hospitalId: data.hospitalId || "Unknown",
+      actorId: data.registeredBy,
+      actorName: actor.displayName || "System",
+      details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
   }
-  return null;
-});
-exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase_orders/{poId}", async (event) => {
-  const data = event.data.data();
-  if (!data) return null;
-  const totalValue = (data.items || []).reduce((sum, item) => sum + (item.price || 0) * (item.quantityOrdered || 0), 0);
-  if (totalValue > 5000) {
-    return db.collection("global_audit_logs").add({ type: "FINANCIAL", action: "LARGE_PO_ISSUED", hospitalId: data.hospitalId, actorId: data.orderedBy, actorName: data.orderedByName || "Procurement Officer", details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`, timestamp: admin.firestore.FieldValue.serverTimestamp() });
+);
+exports.auditPayments = onDocumentCreated(
+  "hospitals/{hospitalId}/payments/{paymentId}",
+  async (event) => {
+    const data = event.data.data();
+    if (!data) return null;
+    return admin.firestore().collection("global_audit_logs").add({
+      type: "FINANCIAL",
+      action: "PAYMENT_RECEIVED",
+      hospitalId: data.hospitalId,
+      actorId: data.processedBy,
+      actorName: data.processedByName || "Cashier",
+      details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
   }
-  return null;
-});
+);
+exports.auditHospitalStatus = onDocumentUpdated(
+  "hospitals/{hospitalId}",
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    if (!before || !after) return null;
+
+    if (before.status !== after.status) {
+      return admin.firestore().collection("global_audit_logs").add({
+        type: "SECURITY",
+        action: "FACILITY_STATUS_CHANGE",
+        hospitalId: event.params.hospitalId,
+        actorId: "SYSTEM",
+        actorName: "App CEO / System Autopilot",
+        details: `Hospital status moved from ${before.status} to ${after.status}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    return null;
+  }
+);
+exports.auditPurchaseOrders = onDocumentCreated(
+  "hospitals/{hospitalId}/purchase_orders/{poId}",
+  async (event) => {
+    const data = event.data.data();
+    if (!data) return null;
+
+    const totalValue = (data.items || []).reduce(
+      (sum, item) => sum + (item.price || 0) * (item.quantityOrdered || 0),
+      0
+    );
+
+    if (totalValue > 5000) {
+      return admin.firestore().collection("global_audit_logs").add({
+        type: "FINANCIAL",
+        action: "LARGE_PO_ISSUED",
+        hospitalId: data.hospitalId,
+        actorId: data.orderedBy,
+        actorName: data.orderedByName || "Procurement Officer",
+        details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    return null;
+  }
+);
+
