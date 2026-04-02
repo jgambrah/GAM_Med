@@ -12,8 +12,76 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
+exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (request) => {
+  const data = request.data;
+  const db = admin.firestore();
+
+  // 1. Check Auth
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
+
+  try {
+    // 2. Locate the Patient (The Anchor)
+    if (!data.patientId) throw new Error("Missing Patient ID in request.");
+    
+    const patientRef = db.collection("hospitals").doc(data.hospitalId).collection("patients").doc(data.patientId);
+    const patientDoc = await patientRef.get();
+
+    if (!patientDoc.exists) {
+      throw new Error(`Patient ID ${data.patientId} not found in database.`);
+    }
+
+    // 3. START ATOMIC TRANSACTION
+    const batch = db.batch();
+    const encounterRef = db.collection("encounters").doc();
+
+    // Standardize data to prevent 'undefined' errors
+    const sanitizedVitals = data.vitals || {};
+
+    const encounterDoc = {
+      id: encounterRef.id,
+      patientId: data.patientId,
+      patientName: data.patientName || "N/A",
+      ghanaCardId: data.ghanaCardId || "N/A",
+      hospitalId: request.auth.token.hospitalId,
+      hospitalName: data.hospitalName || "N/A",
+      providerId: request.auth.uid,
+      providerName: request.auth.token.name || "Medical Officer",
+      encounterType: data.encounterType || "OPD",
+      vitals: {
+        bp: sanitizedVitals.bp || "",
+        temp: sanitizedVitals.temp || "",
+        pulse: sanitizedVitals.pulse || "",
+        respiration: sanitizedVitals.respiration || "",
+        weight: sanitizedVitals.weight || "",
+        height: sanitizedVitals.height || "",
+        bmi: sanitizedVitals.bmi || ""
+      },
+      notes: data.notes || "",
+      diagnosis: data.diagnosis || "",
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    batch.set(encounterRef, encounterDoc);
+
+    // 4. Update Patient Master
+    batch.update(patientRef, {
+      status: 'Consultation Completed',
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+    return { success: true, encounterId: encounterRef.id };
+
+  } catch (error) {
+    console.error("FATAL_BACKEND_ERROR:", error.message);
+    // This allows the frontend 'parseClinicalError' to show the REAL reason
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+
 // ============================================================
-// getPatientHistory — v2.2.0 (Enhanced Logging & Consent Check)
+// getPatientHistory — v2.1.0 (CORS + IAM fix)
 // Fetches unified encounter history across ALL hospitals
 // using Ghana Card ID as the national patient identifier.
 // ============================================================
@@ -26,40 +94,22 @@ exports.getPatientHistory = onCall({
     throw new HttpsError("unauthenticated", "The clinical request requires an authorized session.");
   }
 
-  const { ghanaCardId, homeHospitalId } = request.data;
-  const currentHospitalId = request.auth.token.hospitalId;
-
+  const { ghanaCardId } = request.data;
   if (!ghanaCardId) {
     throw new HttpsError("invalid-argument", "Ghana Card ID is missing from the request.");
   }
 
   try {
-    // SECURITY CHECK:
-    // If the doctor is NOT from the home hospital, check for explicit consent
-    if (currentHospitalId !== homeHospitalId) {
-      const consentRef = db.collection("patient_consents").doc(ghanaCardId);
-      const consentSnap = await consentRef.get();
-      
-      if (!consentSnap.exists || !consentSnap.data().consentedHospitals?.[currentHospitalId]) {
-        // Instead of an error, we return a specific message
-        return { success: false, reason: 'PERMISSION_REQUIRED' };
-      }
-    }
-
-    console.log(`Auditing Clinical History for Ghana Card: ${ghanaCardId}`);
-
-    const snap = await db.collectionGroup("encounters")
+    const snap = await admin.firestore()
+      .collectionGroup("encounters")
       .where("ghanaCardId", "==", ghanaCardId)
-      .orderBy("createdAt", "desc") // This is fine IF the index exists
+      .orderBy("createdAt", "desc")
       .get();
 
-    return {
-      success: true,
-      data: snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    };
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
-    console.error("DETAILED_CLINICAL_ERROR:", error);
-    throw new HttpsError('internal', error.message || 'Unknown database error');
+    console.error("Clinical History Engine Error:", error);
+    throw new HttpsError("internal", error.message);
   }
 });
 
@@ -155,7 +205,6 @@ exports.registerPatient = onCall({
   const hospitalId = userProfileDoc.data().hospitalId;
   if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
 
-
   const registeringStaffId = request.auth.uid;
   const hospitalRef = db.collection("hospitals").doc(hospitalId);
 
@@ -163,13 +212,10 @@ exports.registerPatient = onCall({
     const patientData = request.data;
     let newEhrNumber;
 
-    // Transaction to safely increment patient counter and create patient
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) {
-        throw new HttpsError("not-found", "Hospital record not found.");
-      }
-      
+      if (!hospitalDoc.exists) throw new HttpsError("not-found", "Hospital record not found.");
+
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.patientCounter || 0) + 1;
       const prefix = hospital.mrnPrefix || "GAM";
@@ -180,14 +226,13 @@ exports.registerPatient = onCall({
       transaction.set(patientRef, {
         ...patientData,
         ehrNumber: newEhrNumber,
-        homeHospitalId: hospitalId, // ✅ Set the home hospital on creation
-        hospitalId: hospitalId,
+        hospitalId,
         registeredBy: registeringStaffId,
         status: "Awaiting Vitals",
         checkInTime: admin.firestore.FieldValue.serverTimestamp(),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      
+
       transaction.update(hospitalRef, { patientCounter: newCounter });
     });
 
@@ -198,93 +243,11 @@ exports.registerPatient = onCall({
   }
 });
 
-// ✅ THE CORRECTED FUNCTION
-exports.createEncounter = onCall({ 
-  region: "us-central1", 
-  cors: true 
-}, async (request) => {
-  const data = request.data;
-  const db = admin.firestore();
 
-  // 1. Security Check
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
-
-  try {
-    // DATA SANITIZATION: Prevents Firestore from crashing on 'undefined' values
-    const clean = (val) => (val === undefined || val === null ? "" : val);
-
-    // 2. Fetch the patient document to verify existence
-    const patientRef = db.collection("hospitals").doc(data.hospitalId).collection("patients").doc(data.patientId);
-    const patientDoc = await patientRef.get();
-
-    // --- THE CRITICAL FIX (Line 188) ---
-    // REMOVED the brackets (). It must be .exists, not .exists()
-    if (!patientDoc.exists) {
-      throw new HttpsError('not-found', 'Patient record not found in the system.');
-    }
-
-    const batch = db.batch();
-    const encounterRef = db.collection("encounters").doc();
-
-    // 3. CONSTRUCT THE DOCUMENT SAFELY
-    const encounterData = {
-      id: encounterRef.id,
-      patientId: clean(data.patientId),
-      patientName: clean(data.patientName),
-      ghanaCardId: clean(data.ghanaCardId),
-      hospitalId: clean(data.hospitalId),
-      hospitalName: clean(data.hospitalName),
-      providerUid: request.auth.uid,
-      providerName: clean(request.auth.token.name),
-      providerRole: clean(data.providerRole),
-      encounterType: clean(data.encounterType || 'OPD Consultation'),
-      vitals: {
-        bp: clean(data.vitals?.bp),
-        temp: clean(data.vitals?.temp),
-        pulse: clean(data.vitals?.pulse),
-        respiration: clean(data.vitals?.respiration),
-        weight: clean(data.vitals?.weight),
-        height: clean(data.vitals?.height),
-        bmi: clean(data.vitals?.bmi),
-        spo2: clean(data.vitals?.spo2),
-      },
-      chiefComplaint: clean(data.chiefComplaint),
-      hpi: clean(data.hpi),
-      diagnosis: clean(data.diagnosis || ""),
-      isExternal: data.isExternal || false,
-      items: data.items || [],
-      prescription: data.items || [], // Legacy support
-      labOrders: data.labOrders || [],
-      radiologyOrders: data.radiologyOrders || [],
-      hasPendingLabs: (data.labOrders || []).length > 0,
-      hasPendingScans: (data.radiologyOrders || []).length > 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    batch.set(encounterRef, encounterData);
-
-    // 4. UPDATE PATIENT MASTER STATUS
-    batch.update(patientRef, {
-      status: 'Waiting for Assignment',
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastVitals: encounterData.vitals
-    });
-
-    await batch.commit();
-    
-    console.log(`✅ EHR Successfully Committed: ${encounterRef.id}`);
-    return { success: true, encounterId: encounterRef.id };
-
-  } catch (error) {
-    console.error("CRITICAL_LOG: createEncounter failed:", error.message);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-
-/**
- * Creates a new ward and automatically provisions the specified number of beds.
- */
+// ============================================================
+// createWardAndBeds
+// Creates a ward and provisions all beds automatically.
+// ============================================================
 exports.createWardAndBeds = onCall({
   region: "us-central1",
   cors: true,
@@ -334,9 +297,10 @@ exports.createWardAndBeds = onCall({
 });
 
 
-/**
- * A CEO-level function to provision a new hospital tenant.
- */
+// ============================================================
+// provisionFullHospital
+// CEO-level: spins up a complete new hospital tenant.
+// ============================================================
 exports.provisionFullHospital = onCall({
   region: "us-central1",
   cors: true,
@@ -452,9 +416,10 @@ exports.provisionFullHospital = onCall({
 });
 
 
-/**
- * Sends an SMS message via a third-party gateway.
- */
+// ============================================================
+// sendClinicalSms
+// Sends an SMS via third-party gateway and logs it.
+// ============================================================
 exports.sendClinicalSms = onCall({
   region: "us-central1",
   cors: true,
@@ -487,9 +452,10 @@ exports.sendClinicalSms = onCall({
 });
 
 
-/**
- * Creates a Clinical Referral and generates a unique referral number.
- */
+// ============================================================
+// createReferral
+// Creates a clinical referral with a unique referral number.
+// ============================================================
 exports.createReferral = onCall({
   region: "us-central1",
   cors: true,
@@ -548,9 +514,10 @@ exports.createReferral = onCall({
 });
 
 
-/**
- * A CEO-level security tool to repair a user's roles and hospital assignment.
- */
+// ============================================================
+// repairUserIdentity
+// CEO tool: repairs a user's role and hospital assignment.
+// ============================================================
 exports.repairUserIdentity = onCall({
   region: "us-central1",
   cors: true,

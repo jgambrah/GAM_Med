@@ -161,45 +161,56 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     }
     setLoading(true);
 
+    const payload = {
+        patientId: patientId || "",
+        patientName: patientName || "Unknown",
+        ghanaCardId: patient?.ghanaCardId || "N/A",
+        hospitalId: hospitalId,
+        hospitalName: userProfile?.hospitalName || "GamMed Facility",
+        encounterType: values.encounterType || 'OPD Consultation',
+        vitals: {
+            bp: `${values.vitals?.systolic || '0'}/${values.vitals?.diastolic || '0'}`,
+            temp: values.vitals?.temp || "",
+            pulse: values.vitals?.pulse || "",
+            respiration: values.vitals?.respiration || "",
+            weight: values.vitals?.weight || "",
+            height: values.vitals?.height || "",
+            bmi: values.vitals?.bmi || "",
+            spo2: values.vitals?.spo2 || ""
+        },
+        notes: [values.chiefComplaint, values.hpi].filter(Boolean).join('\n\n'),
+        diagnosis: values.diagnosis || "",
+        isExternal: isExternal,
+        items: items || [],
+        labOrders: labOrders || [],
+        radiologyOrders: radiologyOrders || [],
+    };
+    
+    console.log("🚀 SENDING TO CLOUD:", payload);
+
     try {
       const functions = getFunctions(firebaseApp, 'us-central1');
       const createEncounter = httpsCallable(functions, 'createEncounter');
-      
-      const payload = {
-        patientId,
-        patientName,
-        encounterType: values.encounterType,
-        vitals: values.vitals || {},
-        chiefComplaint: values.chiefComplaint,
-        hpi: values.hpi,
-        diagnosis: values.diagnosis,
-        items: items || [], // Standardized name
-        labOrders: labOrders || [],
-        radiologyOrders: radiologyOrders || [],
-        isExternal: isExternal, // The toggle state
-        hospitalId: hospitalId,
-        providerUid: user.uid,
-        providerName: user.displayName,
-        ghanaCardId: patient?.ghanaCardId
-      };
-  
       const result: any = await createEncounter(payload);
-  
+
       if (result.data.success && result.data.encounterId) {
         toast({ title: "EHR Record Committed" });
-        router.push(`/doctor/external-print/${result.data.encounterId}`);
+        if (isExternal) {
+          router.push(`/doctor/external-print/${result.data.encounterId}`);
+        }
+        setOpen(false);
+        form.reset();
       } else {
         throw new Error(result.data.message || 'Cloud function did not return a success status or ID.');
       }
     } catch (error: any) {
       const friendlyMessage = parseClinicalError(error);
-      console.error("Submission Failure Details:", error);
-      
+      console.error("❌ CLOUD CRASH DETAILS:", error);
       toast({
-          variant: "destructive",
-          title: "COMMIT FAILED",
-          description: friendlyMessage,
-          duration: 6000,
+        variant: "destructive",
+        title: "COMMIT FAILED",
+        description: friendlyMessage,
+        duration: 6000,
       });
     } finally {
       setLoading(false);
