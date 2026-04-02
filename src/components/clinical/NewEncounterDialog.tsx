@@ -156,34 +156,35 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   
   const onSubmit = async (values: EncounterFormValues) => {
     if (!firebaseApp || !user || !userProfile) {
-      toast({ variant: 'destructive', title: 'System Error', description: 'System not ready. Please re-login.' });
-      return;
+        toast({ variant: 'destructive', title: 'System Error', description: 'System not ready. Please re-login.' });
+        return;
     }
     setLoading(true);
 
     const payload = {
-        patientId: patientId || "",
-        patientName: patientName || "Unknown",
-        ghanaCardId: patient?.ghanaCardId || "N/A",
-        hospitalId: hospitalId,
-        hospitalName: userProfile?.hospitalName || "GamMed Facility",
-        encounterType: values.encounterType || 'OPD Consultation',
-        vitals: {
-            bp: `${values.vitals?.systolic || '0'}/${values.vitals?.diastolic || '0'}`,
-            temp: values.vitals?.temp || "",
-            pulse: values.vitals?.pulse || "",
-            respiration: values.vitals?.respiration || "",
-            weight: values.vitals?.weight || "",
-            height: values.vitals?.height || "",
-            bmi: values.vitals?.bmi || "",
-            spo2: values.vitals?.spo2 || ""
-        },
-        notes: [values.chiefComplaint, values.hpi].filter(Boolean).join('\n\n'),
-        diagnosis: values.diagnosis || "",
-        isExternal: isExternal,
-        items: items || [],
-        labOrders: labOrders || [],
-        radiologyOrders: radiologyOrders || [],
+      patientId: patientId || "",
+      patientName: patientName || "Unknown",
+      ghanaCardId: patient?.ghanaCardId || "N/A",
+      hospitalId: hospitalId,
+      hospitalName: userProfile?.hospitalName || "GamMed Facility",
+      encounterType: values.encounterType || 'OPD Consultation',
+      vitals: {
+          bp: `${values.vitals?.systolic || '0'}/${values.vitals?.diastolic || '0'}`,
+          temp: values.vitals?.temp || "",
+          pulse: values.vitals?.pulse || "",
+          respiration: values.vitals?.respiration || "",
+          weight: values.vitals?.weight || "",
+          height: values.vitals?.height || "",
+          bmi: values.vitals?.bmi || "",
+          spo2: values.vitals?.spo2 || ""
+      },
+      chiefComplaint: values.chiefComplaint || '',
+      hpi: values.hpi || '',
+      diagnosis: values.diagnosis || "",
+      isExternal: isExternal,
+      items: items || [],
+      labOrders: labOrders || [],
+      radiologyOrders: radiologyOrders || [],
     };
     
     console.log("🚀 SENDING TO CLOUD:", payload);
@@ -493,3 +494,5 @@ function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, o
     </div>
   );
 }
+
+    

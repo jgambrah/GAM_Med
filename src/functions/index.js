@@ -44,7 +44,7 @@ exports.getPatientHistory = onCall({
     // If we pass the check, run the Universal Search
     const snap = await db.collectionGroup("encounters")
       .where("ghanaCardId", "==", ghanaCardId)
-      // .orderBy("createdAt", "desc") // This requires an index, removed for now
+      .orderBy("createdAt", "desc")
       .get();
 
     return {
@@ -193,68 +193,81 @@ exports.registerPatient = onCall({
 // createEncounter
 // Records a new clinical encounter and updates patient status.
 // ============================================================
-exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (request) => {
+exports.createEncounter = onCall({
+  region: "us-central1",
+  cors: true,
+  invoker: "public",
+}, async (request) => {
   const data = request.data;
   const db = admin.firestore();
 
   // 1. Security Check
   if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
+  
+  const hospitalId = request.auth.token.hospitalId; 
+  const clean = (val) => (val === undefined || val === null ? "" : val);
+
+  if (!hospitalId) {
+    throw new HttpsError('failed-precondition', 'User is not associated with a hospital.');
+  }
+  if (!data.patientId) {
+    throw new HttpsError('invalid-argument', 'Patient ID is missing.');
+  }
 
   try {
-    // DATA SANITIZATION: Prevents Firestore from crashing on 'undefined' values
-    const clean = (val) => (val === undefined ? "" : val);
-
-    const hospitalId = clean(request.auth.token.hospitalId);
-    if (!hospitalId) {
-        throw new HttpsError('failed-precondition', 'User is not associated with a hospital.');
-    }
-    if (!data.patientId) {
-        throw new HttpsError('invalid-argument', 'Patient ID is missing.');
-    }
-
-    // 2. Fetch the patient document with the correct path
     const patientRef = db.collection("hospitals").doc(hospitalId).collection("patients").doc(data.patientId);
     const patientDoc = await patientRef.get();
 
-    // --- THE CRITICAL FIX (Line 188) ---
-    // REMOVED the brackets (). It must be .exists, not .exists()
     if (!patientDoc.exists) {
-      throw new HttpsError('not-found', 'Patient record not found in the system.');
+      throw new HttpsError('not-found', `Patient record not found at path: ${patientRef.path}`);
     }
 
     const batch = db.batch();
     const encounterRef = db.collection("encounters").doc();
-
+    
     // 3. CONSTRUCT THE DOCUMENT SAFELY
+    const sanitizedVitals = data.vitals || {};
     const encounterData = {
       id: encounterRef.id,
       patientId: clean(data.patientId),
       patientName: clean(data.patientName),
       ghanaCardId: clean(data.ghanaCardId),
+      ehrNumber: patientDoc.data().ehrNumber,
       hospitalId: hospitalId,
       hospitalName: clean(data.hospitalName),
-      providerId: request.auth.uid,
+      providerUid: request.auth.uid,
       providerName: clean(request.auth.token.name),
+      providerRole: clean(request.auth.token.role),
       encounterType: clean(data.encounterType || 'OPD Consultation'),
       vitals: {
-        bp: clean(data.vitals?.bp),
-        temp: clean(data.vitals?.temp),
-        pulse: clean(data.vitals?.pulse),
-        respiration: clean(data.vitals?.respiration),
-        weight: clean(data.vitals?.weight),
-        height: clean(data.vitals?.height),
-        bmi: clean(data.vitals?.bmi)
+        bp: clean(sanitizedVitals.bp),
+        systolic: clean(sanitizedVitals.systolic),
+        diastolic: clean(sanitizedVitals.diastolic),
+        temp: clean(sanitizedVitals.temp),
+        pulse: clean(sanitizedVitals.pulse),
+        respiration: clean(sanitizedVitals.respiration),
+        weight: clean(sanitizedVitals.weight),
+        height: clean(sanitizedVitals.height),
+        bmi: clean(sanitizedVitals.bmi),
+        spo2: clean(sanitizedVitals.spo2),
       },
+      chiefComplaint: clean(data.chiefComplaint || ""),
+      hpi: clean(data.hpi || ""),
       notes: clean(data.notes || ""),
       diagnosis: clean(data.diagnosis || ""),
       isExternal: data.isExternal || false,
       items: data.items || [],
+      prescription: data.items || [],
+      labOrders: data.labOrders || [],
+      radiologyOrders: data.radiologyOrders || [],
+      hasPendingLabs: (data.labOrders || []).length > 0,
+      hasPendingScans: (data.radiologyOrders || []).length > 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-
+    
     batch.set(encounterRef, encounterData);
-
-    // 4. UPDATE PATIENT MASTER STATUS
+    
+    // 4. Update Patient Master Status
     batch.update(patientRef, {
       status: 'Waiting for Assignment',
       lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -267,11 +280,10 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     return { success: true, encounterId: encounterRef.id };
 
   } catch (error) {
-    console.error("CRITICAL_LOG: createEncounter failed:", error.message);
+    console.error("FATAL_BACKEND_ERROR:", error.message);
     throw new HttpsError('internal', error.message);
   }
 });
-
 
 
 // ============================================================
@@ -659,3 +671,5 @@ exports.auditPurchaseOrders = onDocumentCreated(
     return null;
   }
 );
+
+    
