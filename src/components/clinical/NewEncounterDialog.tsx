@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
@@ -22,6 +23,7 @@ import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown'
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ReferralLetterDialog } from './ReferralLetterDialog';
+import { parseClinicalError } from '@/lib/error-handler';
 
 
 const encounterSchema = z.object({
@@ -160,7 +162,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     setLoading(true);
 
     try {
-      const functions = getFunctions(firebaseApp);
+      const functions = getFunctions(firebaseApp, 'us-central1');
       const createEncounter = httpsCallable(functions, 'createEncounter');
       
       const payload = {
@@ -178,6 +180,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
         hospitalId: hospitalId,
         providerUid: user.uid,
         providerName: user.displayName,
+        ghanaCardId: patient?.ghanaCardId
       };
   
       const result: any = await createEncounter(payload);
@@ -188,9 +191,16 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
       } else {
         throw new Error(result.data.message || 'Cloud function did not return a success status or ID.');
       }
-    } catch (e: any) {
-      console.error("Encounter submission failed:", e);
-      toast({ variant: "destructive", title: "Submission Failed", description: e.message });
+    } catch (error: any) {
+      const friendlyMessage = parseClinicalError(error);
+      console.error("Submission Failure Details:", error);
+      
+      toast({
+          variant: "destructive",
+          title: "COMMIT FAILED",
+          description: friendlyMessage,
+          duration: 6000,
+      });
     } finally {
       setLoading(false);
     }
