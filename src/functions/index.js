@@ -12,16 +12,19 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
+// 1. GLOBAL OPTIONS: This forces CORS to be open for all your Vercel branches
+const globalOptions = { 
+  region: "us-central1", 
+  cors: true, // This allows all origins including Vercel previews
+  invoker: "public" 
+};
+
 // ============================================================
 // getPatientHistory — v2.1.0 (CORS + IAM fix)
 // Fetches unified encounter history across ALL hospitals
 // using Ghana Card ID as the national patient identifier.
 // ============================================================
-exports.getPatientHistory = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.getPatientHistory = onCall(globalOptions, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "The clinical request requires an authorized session.");
   }
@@ -44,7 +47,6 @@ exports.getPatientHistory = onCall({
     // If we pass the check, run the Universal Search
     const snap = await db.collectionGroup("encounters")
       .where("ghanaCardId", "==", ghanaCardId)
-      .orderBy("createdAt", "desc")
       .get();
 
     return {
@@ -62,11 +64,7 @@ exports.getPatientHistory = onCall({
 // onboardStaff
 // Creates an Auth user and Firestore profile for a new staff member.
 // ============================================================
-exports.onboardStaff = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.onboardStaff = onCall(globalOptions, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be an authenticated administrator.");
   }
@@ -135,11 +133,7 @@ exports.onboardStaff = onCall({
 // registerPatient
 // Registers a new patient and assigns a unique EHR number.
 // ============================================================
-exports.registerPatient = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.registerPatient = onCall(globalOptions, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be an authenticated staff member.");
   }
@@ -193,11 +187,7 @@ exports.registerPatient = onCall({
 // createEncounter
 // Records a new clinical encounter and updates patient status.
 // ============================================================
-exports.createEncounter = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.createEncounter = onCall(globalOptions, async (request) => {
   const data = request.data;
   const db = admin.firestore();
 
@@ -290,11 +280,7 @@ exports.createEncounter = onCall({
 // createWardAndBeds
 // Creates a ward and provisions all beds automatically.
 // ============================================================
-exports.createWardAndBeds = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.createWardAndBeds = onCall(globalOptions, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be an authenticated administrator.");
   }
@@ -343,11 +329,7 @@ exports.createWardAndBeds = onCall({
 // provisionFullHospital
 // CEO-level: spins up a complete new hospital tenant.
 // ============================================================
-exports.provisionFullHospital = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.provisionFullHospital = onCall(globalOptions, async (request) => {
   if (request.auth?.token.role !== "SUPER_ADMIN") {
     throw new HttpsError("permission-denied", "You must be a Super Admin to perform this action.");
   }
@@ -462,11 +444,7 @@ exports.provisionFullHospital = onCall({
 // sendClinicalSms
 // Sends an SMS via third-party gateway and logs it.
 // ============================================================
-exports.sendClinicalSms = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.sendClinicalSms = onCall(globalOptions, async (request) => {
   const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY";
   const { phoneNumber, message, hospitalId, senderId } = request.data;
 
@@ -498,11 +476,7 @@ exports.sendClinicalSms = onCall({
 // createReferral
 // Creates a clinical referral with a unique referral number.
 // ============================================================
-exports.createReferral = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.createReferral = onCall(globalOptions, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "You must be an authenticated staff member.");
 
   const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
@@ -560,11 +534,7 @@ exports.createReferral = onCall({
 // repairUserIdentity
 // CEO tool: repairs a user's role and hospital assignment.
 // ============================================================
-exports.repairUserIdentity = onCall({
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-}, async (request) => {
+exports.repairUserIdentity = onCall(globalOptions, async (request) => {
   if (request.auth?.token.role !== "SUPER_ADMIN") {
     throw new HttpsError("permission-denied", "You must be a Super Admin.");
   }
@@ -671,5 +641,3 @@ exports.auditPurchaseOrders = onDocumentCreated(
     return null;
   }
 );
-
-    

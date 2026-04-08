@@ -163,9 +163,9 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
     const payload = {
       patientId: patientId || "",
-      patientName: patientName || "Unknown",
-      ghanaCardId: patient?.ghanaCardId || "N/A",
-      hospitalId: hospitalId,
+      patientName: patientName || "N/A",
+      ghanaCardId: patient?.ghanaCardId || "GHA-NOT-SET",
+      hospitalId: hospitalId || "",
       hospitalName: userProfile?.hospitalName || "GamMed Facility",
       encounterType: values.encounterType || 'OPD Consultation',
       vitals: {
@@ -494,5 +494,3 @@ function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, o
     </div>
   );
 }
-
-    
