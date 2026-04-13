@@ -71,20 +71,12 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
 
     if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
 
-    // --- THE UNIVERSAL LOOKUP ---
-    let patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
-    let patientDoc = await patientRef.get();
+    // Correctly look up the patient within the hospital's sub-collection
+    const patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
+    const patientDoc = await patientRef.get();
     
-    // 2. FALLBACK: If not found, try the root collection
     if (!patientDoc.exists) {
-      console.log("🔍 Sub-collection lookup failed, trying root /patients...");
-      patientRef = doc(db, "patients", data.patientId);
-      patientDoc = await patientRef.get();
-    }
-
-    // 3. FINAL VERIFICATION
-    if (!patientDoc.exists) {
-      throw new Error(`CRITICAL: Patient document [${data.patientId}] not found in any clinical ledger.`);
+      throw new HttpsError('not-found', `Patient record [${data.patientId}] not found in this facility.`);
     }
 
     const patientData = patientDoc.data();
@@ -103,7 +95,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
       providerUid: request.auth.uid,
       providerName: request.auth.token.name || "Medical Officer",
       providerRole: request.auth.token.role,
-      encounterType: data.encounterType || "OPD",
+      encounterType: data.encounterType || 'OPD Consultation',
       vitals: {
         bp: sanitizedVitals.bp || "",
         temp: sanitizedVitals.temp || "",
@@ -114,13 +106,14 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         bmi: sanitizedVitals.bmi || ""
       },
       chiefComplaint: clean(data.chiefComplaint),
+      hpi: clean(data.hpi),
       diagnosis: clean(data.diagnosis),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isExternal: data.isExternal || false,
       items: data.items || [],
       prescription: data.items || [],
       labOrders: data.labOrders || [],
       radiologyOrders: data.radiologyOrders || [],
-      isExternal: data.isExternal || false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     
     batch.set(encounterRef, encounterDoc);

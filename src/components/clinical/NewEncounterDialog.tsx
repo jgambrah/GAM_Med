@@ -52,7 +52,10 @@ interface NewEncounterDialogProps {
   patientName: string;
 }
 
-export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEncounterDialogProps) {
+export function NewEncounterDialog({ patientId: propsPatientId, hospitalId, patientName }: NewEncounterDialogProps) {
+  const { id: patientDocIdFromParams } = useParams();
+  const patientId = propsPatientId || patientDocIdFromParams;
+    
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const firebaseApp = useFirebaseApp();
@@ -60,7 +63,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
-  const { id: patientDocId } = useParams();
 
   // State Management
   const [isExternal, setIsExternal] = useState(false);
@@ -68,7 +70,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const [labOrders, setLabOrders] = useState<any[]>([]);
   const [radiologyOrders, setRadiologyOrders] = useState<any[]>([]);
   
-  // Free-text input state for external orders
   const [extItemName, setExtItemName] = useState('');
   const [extInstruction, setExtInstruction] = useState('');
   
@@ -80,18 +81,16 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
-    return doc(firestore, 'hospitals', hospitalId, 'patients', patientId);
+    return doc(firestore, 'hospitals', hospitalId, 'patients', patientId as string);
   }, [firestore, hospitalId, patientId]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  const payerId = patient?.payerId;
-  const payerRef = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !payerId) return null;
-    return doc(firestore, `hospitals/${hospitalId}/payers`, payerId);
-  }, [firestore, hospitalId, payerId]);
-  const { data: payer, isLoading: isPayerLoading } = useDoc(payerRef);
+  const hospitalRef = useMemoFirebase(() => {
+    if(!firestore || !hospitalId) return null;
+    return doc(firestore, 'hospitals', hospitalId);
+  }, [firestore, hospitalId]);
+  const {data: hospital} = useDoc(hospitalRef);
 
-  // DATA FETCHING
   const catalogQuery = useMemoFirebase(() => firestore && hospitalId ? query(collection(firestore, 'hospitals', hospitalId, 'product_catalog')) : null, [firestore, hospitalId]);
   const { data: catalog, isLoading: isCatalogLoading } = useCollection(catalogQuery);
   const labMenuQuery = useMemoFirebase(() => firestore && hospitalId ? query(collection(firestore, 'hospitals', hospitalId, 'lab_menu')) : null, [firestore, hospitalId]);
@@ -126,7 +125,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const bmiValue = form.watch('vitals.bmi') || '0.0';
 
   useEffect(() => {
-    // Clear all lists when switching modes
     setItems([]);
     setLabOrders([]);
     setRadiologyOrders([]);
@@ -134,15 +132,10 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
 
   const addTypedItem = () => {
     if (!extItemName) return;
-    const newItem = {
-        name: extItemName,
-        instruction: extInstruction,
-        isExternal: true,
-        id: Date.now().toString()
-    };
+    const newItem = { name: extItemName, instruction: extInstruction, isExternal: true, id: Date.now().toString() };
     setItems([...items, newItem]);
-    setExtItemName(''); // Clear input
-    setExtInstruction(''); // Clear input
+    setExtItemName('');
+    setExtInstruction('');
   };
   
   const addCatalogItem = (item: any) => {
@@ -163,13 +156,14 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     setLoading(true);
 
     const payload = {
-      patientId: patientDocId,
-      patientName: patientName || "N/A",
+      patientId: patientId, // Ensure this is the actual document ID
+      patientName: patient ? `${patient.firstName} ${patient.lastName}` : "N/A",
       ghanaCardId: patient?.ghanaCardId || "N/A",
-      hospitalId: userProfile?.hospitalId || "",
-      hospitalName: userProfile?.hospitalName || "GamMed Facility",
+      hospitalName: hospital?.name || "GamMed Facility",
       encounterType: values.encounterType || 'OPD Consultation',
       vitals: {
+          systolic: values.vitals?.systolic || "",
+          diastolic: values.vitals?.diastolic || "",
           bp: `${values.vitals?.systolic || '0'}/${values.vitals?.diastolic || '0'}`,
           temp: values.vitals?.temp || "",
           pulse: values.vitals?.pulse || "",
@@ -494,5 +488,3 @@ function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, o
     </div>
   );
 }
-
-    
