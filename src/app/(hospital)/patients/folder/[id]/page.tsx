@@ -237,7 +237,7 @@ export default function ClinicalFolder() {
                 <Skeleton className="h-48 w-full rounded-3xl" />
                 <Skeleton className="h-32 w-full rounded-3xl" />
              </div>
-          ) : timelineActivities && timelineActivities.length === 0 && !authRequired ? (
+          ) : timelineActivities && timelineActivities.length === 0 && !authRequired && !errorState ? (
             <div className="bg-card p-20 border-2 border-dashed rounded-[32px] text-center text-muted-foreground italic">
               No clinical encounters recorded. Register first vitals or consultation.
             </div>
