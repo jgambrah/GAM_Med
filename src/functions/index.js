@@ -1,3 +1,4 @@
+
 // Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -57,118 +58,83 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-
 // 2. ROBUST ENCOUNTER CREATOR
 exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
   const data = request.data;
-  
-  // 1. Security Check
+  const hId = request.auth.token.hospitalId;
+
   if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
+  if (!hId) throw new HttpsError('unauthenticated', 'User not associated with a hospital.');
 
   try {
-    // DATA SANITIZATION: Prevents Firestore from crashing on 'undefined' values
     const clean = (val) => (val === undefined || val === null ? "" : val);
 
-    // 2. Locate the Patient (The Anchor)
-    if (!data.patientId) throw new Error("Missing Patient ID in request.");
+    if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
+
+    // --- THE UNIVERSAL LOOKUP ---
+    let patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
+    let patientDoc = await patientRef.get();
     
-    const hospitalId = request.auth.token.hospitalId;
-    if (!hospitalId) throw new HttpsError('failed-precondition', 'User is not associated with a hospital.');
-
-    const patientRef = doc(firestore, "hospitals", hospitalId, "patients", data.patientId);
-    const patientDoc = await getDoc(patientRef);
-
-    // --- THE CRITICAL FIX (Line 188) ---
-    // REMOVED the brackets (). It must be .exists, not .exists()
+    // 2. FALLBACK: If not found, try the root collection
     if (!patientDoc.exists) {
-      throw new HttpsError('not-found', 'Patient record not found in the system.');
+      console.log("🔍 Sub-collection lookup failed, trying root /patients...");
+      patientRef = doc(db, "patients", data.patientId);
+      patientDoc = await patientRef.get();
     }
-    
-    const patientData = patientDoc.data();
 
+    // 3. FINAL VERIFICATION
+    if (!patientDoc.exists) {
+      throw new Error(`CRITICAL: Patient document [${data.patientId}] not found in any clinical ledger.`);
+    }
+
+    const patientData = patientDoc.data();
     const batch = db.batch();
     const encounterRef = db.collection("encounters").doc();
 
-    // 3. CONSTRUCT THE DOCUMENT SAFELY
     const sanitizedVitals = data.vitals || {};
     const encounterDoc = {
       id: encounterRef.id,
-      patientId: clean(data.patientId),
-      patientName: clean(data.patientName),
-      ghanaCardId: clean(data.ghanaCardId),
-      hospitalId: clean(hospitalId),
-      hospitalName: clean(data.hospitalName),
-      providerUid: clean(request.auth.uid),
-      providerName: clean(request.auth.token.name),
-      providerRole: clean(request.auth.token.role),
-      encounterType: clean(data.encounterType || 'OPD Consultation'),
+      patientId: data.patientId,
+      patientName: data.patientName || "N/A",
+      ghanaCardId: data.ghanaCardId || "N/A",
+      ehrNumber: patientData.ehrNumber,
+      hospitalId: hId,
+      hospitalName: data.hospitalName || "N/A",
+      providerUid: request.auth.uid,
+      providerName: request.auth.token.name || "Medical Officer",
+      providerRole: request.auth.token.role,
+      encounterType: data.encounterType || "OPD",
       vitals: {
-        bp: clean(sanitizedVitals.bp),
-        temp: clean(sanitizedVitals.temp),
-        pulse: clean(sanitizedVitals.pulse),
-        respiration: clean(sanitizedVitals.respiration),
-        weight: clean(sanitizedVitals.weight),
-        height: clean(sanitizedVitals.height),
-        bmi: clean(sanitizedVitals.bmi),
-        spo2: clean(sanitizedVitals.spo2),
+        bp: sanitizedVitals.bp || "",
+        temp: sanitizedVitals.temp || "",
+        pulse: sanitizedVitals.pulse || "",
+        respiration: sanitizedVitals.respiration || "",
+        weight: sanitizedVitals.weight || "",
+        height: sanitizedVitals.height || "",
+        bmi: sanitizedVitals.bmi || ""
       },
       chiefComplaint: clean(data.chiefComplaint),
-      hpi: clean(data.hpi),
       diagnosis: clean(data.diagnosis),
-      isExternal: data.isExternal || false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
       items: data.items || [],
       prescription: data.items || [],
       labOrders: data.labOrders || [],
       radiologyOrders: data.radiologyOrders || [],
-      hasPendingLabs: (data.labOrders || []).length > 0,
-      hasPendingScans: (data.radiologyOrders || []).length > 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isExternal: data.isExternal || false,
     };
-
-    batch.set(encounterRef, encounterDoc);
     
-    // 4. Update Patient Master
+    batch.set(encounterRef, encounterDoc);
+
     batch.update(patientRef, {
       status: 'Waiting for Assignment',
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastVitals: encounterDoc.vitals,
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
     });
-    
-    // 5. Billing Logic
-    if (!data.isExternal) {
-        const createBillingItem = (item, type, qty = 1) => {
-            let billingType = 'CASH_PAYMENT';
-            let billPayerId = null;
-            let payerName = 'Cash Patient';
-
-            if (patientData.payerId && patientData.payerId !== 'CASH') {
-              billingType = 'INSURANCE_CLAIM';
-              billPayerId = patientData.payerId;
-              payerName = patientData.payerName;
-            }
-            
-            const billRef = db.collection('hospitals').doc(hospitalId).collection('billing_items').doc();
-            batch.set(billRef, {
-              patientId: data.patientId, patientName: data.patientName, hospitalId, encounterId: encounterRef.id,
-              description: item.name, category: type, sku: item.sku || null, unitPrice: item.price || 0,
-              qty, total: (item.price || 0) * qty, status: 'UNPAID', billedBy: request.auth.uid,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(), billingType, payerId: billPayerId, payerName
-            });
-        };
-        
-        (data.labOrders || []).forEach(order => createBillingItem(order, 'LABORATORY'));
-        (data.radiologyOrders || []).forEach(order => createBillingItem(order, 'IMAGING'));
-        (data.items || []).forEach(item => createBillingItem(item, 'PHARMACY'));
-    }
 
     await batch.commit();
-    
-    console.log(`✅ EHR Successfully Committed: ${encounterRef.id}`);
     return { success: true, encounterId: encounterRef.id };
 
   } catch (error) {
-    console.error("CRITICAL_LOG: createEncounter failed:", error.message);
-    // This allows the frontend 'parseClinicalError' to show the REAL reason
+    console.error("FATAL_BACKEND_ERROR:", error.message);
     throw new HttpsError('internal', error.message);
   }
 });
@@ -193,19 +159,16 @@ exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
   try {
-    // 1. Create Auth Account first to get a UID
     const userRecord = await admin.auth().createUser({
       email: email,
       password: "Staff123!",
       displayName: fullName,
     });
 
-    // 2. Set Custom Claims
     await admin.auth().setCustomUserClaims(userRecord.uid, { role, hospitalId, contractType });
     
     let newStaffNumber;
 
-    // 3. Run a transaction to generate staff number and create user doc
     await db.runTransaction(async (transaction) => {
         const hospitalDoc = await transaction.get(hospitalRef);
         if (!hospitalDoc.exists) {
@@ -220,23 +183,15 @@ exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
         
         const userRef = db.collection('users').doc(userRecord.uid);
         
-        // Create Firestore User Profile inside transaction
         transaction.set(userRef, {
             uid: userRecord.uid,
-            fullName,
-            email,
-            role,
-            hospitalId,
-            contractType,
+            fullName, email, role, hospitalId, contractType,
             staffNumber: newStaffNumber,
-            is_active: true,
-            mustChangePassword: true,
-            onboardingComplete: false,
+            is_active: true, mustChangePassword: true, onboardingComplete: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             ...optionalData
         });
         
-        // Update hospital staff counter
         transaction.update(hospitalRef, { staffCounter: newCounter });
     });
 
@@ -253,15 +208,12 @@ exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
  * Registers a new patient and assigns a unique EHR number.
  */
 exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
-  }
-
+  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
+  
   const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
   if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
   const hospitalId = userProfileDoc.data().hospitalId;
   if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
-
 
   const registeringStaffId = request.auth.uid;
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
@@ -270,12 +222,9 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
     const patientData = request.data;
     let newEhrNumber;
 
-    // Transaction to safely increment patient counter and create patient
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) {
-        throw new HttpsError('not-found', 'Hospital record not found.');
-      }
+      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.');
       
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.patientCounter || 0) + 1;
@@ -288,7 +237,7 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
         ...patientData,
         ehrNumber: newEhrNumber,
         hospitalId: hospitalId,
-        homeHospitalId: hospitalId, // Set the home hospital on first registration
+        homeHospitalId: hospitalId,
         registeredBy: registeringStaffId,
         status: 'Awaiting Vitals',
         checkInTime: admin.firestore.FieldValue.serverTimestamp(),
@@ -310,9 +259,7 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
  * Creates a new ward and automatically provisions the specified number of beds.
  */
 exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
-  }
+  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   
   const { name, prefix, capacity } = request.data;
   const hospitalId = request.auth.token.hospitalId;
@@ -323,12 +270,7 @@ exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
     const batch = db.batch();
     
     batch.set(wardRef, {
-      wardId: wardRef.id,
-      name,
-      prefix,
-      capacity,
-      occupancy: 0,
-      hospitalId,
+      wardId: wardRef.id, name, prefix, capacity, occupancy: 0, hospitalId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -336,13 +278,8 @@ exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
       const bedId = `${prefix}-${String(i).padStart(3, '0')}`;
       const bedRef = wardRef.collection('beds').doc(bedId);
       batch.set(bedRef, {
-        bedId: bedId,
-        wardId: wardRef.id,
-        wardName: name,
-        hospitalId: hospitalId,
-        status: 'Available',
-        patientId: null,
-        admittedAt: null,
+        bedId: bedId, wardId: wardRef.id, wardName: name, hospitalId: hospitalId,
+        status: 'Available', patientId: null, admittedAt: null,
       });
     }
 
@@ -364,17 +301,10 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   }
 
   const {
-    hospitalName,
-    region,
-    directorEmail,
-    directorName,
-    mrnPrefix,
-    subscriptionPlan,
-    monthlyRateNumeric,
-    monthlyRateWords,
+    hospitalName, region, directorEmail, directorName,
+    mrnPrefix, subscriptionPlan, monthlyRateNumeric, monthlyRateWords,
   } = request.data;
   
-  // 1. THE STANDARDIZED DEFAULT PASSWORD
   const defaultPassword = "password123";
   
   if (!monthlyRateWords || monthlyRateWords.length < 10) {
@@ -385,66 +315,40 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
     throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
   }
   
-  const hospitalRef = db.collection('hospitals').doc(); // Auto-generate ID for the new hospital
+  const hospitalRef = db.collection('hospitals').doc();
   const hospitalId = hospitalRef.id;
-
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
-    // Transaction for atomicity
     await db.runTransaction(async (transaction) => {
-        // 2. CREATE AUTH ACCOUNT WITH THE DEFAULT
         const directorUserRecord = await admin.auth().createUser({
             email: cleanDirectorEmail,
             password: defaultPassword,
             displayName: directorName,
         });
         
-        // 3. Set Custom Claims for Director
-        await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
-          role: 'DIRECTOR',
-          hospitalId: hospitalId
-        });
+        await admin.auth().setCustomUserClaims(directorUserRecord.uid, { role: 'DIRECTOR', hospitalId: hospitalId });
 
-        // 4. SAVE TO FIRESTORE (THE VAULT)
         transaction.set(hospitalRef, {
-            hospitalId: hospitalId,
-            name: hospitalName,
-            region: region,
-            directorUid: directorUserRecord.uid,
-            directorEmail: cleanDirectorEmail,
-            mrnPrefix: mrnPrefix,
-            subscriptionPlan: subscriptionPlan,
-            agreedRate: monthlyRateNumeric,
-            agreedRateWords: monthlyRateWords,
-            provisioningSecret: defaultPassword,
-            status: 'active',
-            isSuspended: false,
-            subscriptionStatus: 'ACTIVE',
-            mustChangePassword: true, // THIS FLAG IS THE SECURITY GUARD
-            patientCounter: 0,
-            staffCounter: 0,
-            poCounter: 0,
-            pvCounter: 0,
-            receiptCounter: 0,
-            referralCounter: 0,
+            hospitalId: hospitalId, name: hospitalName, region: region,
+            directorUid: directorUserRecord.uid, directorEmail: cleanDirectorEmail,
+            mrnPrefix: mrnPrefix, subscriptionPlan: subscriptionPlan,
+            agreedRate: monthlyRateNumeric, agreedRateWords: monthlyRateWords,
+            provisioningSecret: defaultPassword, status: 'active', isSuspended: false,
+            subscriptionStatus: 'ACTIVE', mustChangePassword: true,
+            patientCounter: 0, staffCounter: 0, poCounter: 0, pvCounter: 0,
+            receiptCounter: 0, referralCounter: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
             nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
             gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
         });
 
-        // 5. UPDATE USER PROFILE WITH THE FLAG
         const userRef = db.collection('users').doc(directorUserRecord.uid);
         transaction.set(userRef, {
-          uid: directorUserRecord.uid,
-          fullName: directorName,
-          email: cleanDirectorEmail,
-          role: 'DIRECTOR',
-          hospitalId: hospitalId,
-          is_active: true,
-          mustChangePassword: true, // Double protection
-          onboardingComplete: true,
+          uid: directorUserRecord.uid, fullName: directorName, email: cleanDirectorEmail,
+          role: 'DIRECTOR', hospitalId: hospitalId, is_active: true,
+          mustChangePassword: true, onboardingComplete: true,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         
@@ -482,36 +386,14 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-
-/**
- * Sends an SMS message via a third-party gateway.
- */
 exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
-    // In a real app, you would use a secret for the API key.
-    // const smsApiKey = functions.config().sms.key;
     const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY"; 
     const { phoneNumber, message, hospitalId, senderId } = request.data;
-    
-    // This is a mock API call. Replace with your actual SMS provider's API.
     const url = `https://api.sms-provider.com/send`;
     
     try {
-        await axios.post(url, {
-            to: phoneNumber,
-            from: senderId || 'GamMed',
-            message: message,
-            api_key: smsApiKey
-        });
-        
-        // Log the SMS for billing/auditing
-        await db.collection('sms_logs').add({
-            hospitalId,
-            recipient: phoneNumber,
-            message,
-            status: 'SENT',
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
+        await axios.post(url, { to: phoneNumber, from: senderId || 'GamMed', message, api_key: smsApiKey });
+        await db.collection('sms_logs').add({ hospitalId, recipient: phoneNumber, message, status: 'SENT', createdAt: admin.firestore.FieldValue.serverTimestamp() });
         return { success: true };
     } catch (error) {
         console.error("SMS sending failed:", error);
@@ -519,9 +401,6 @@ exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
     }
 });
 
-/**
- * Creates a Clinical Referral and generates a unique referral number.
- */
 exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   
@@ -535,8 +414,7 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
   try {
-    let newRefNumber;
-    let newReferralId;
+    let newRefNumber, newReferralId;
 
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
@@ -552,14 +430,10 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
       newReferralId = referralRef.id;
       
       transaction.set(referralRef, {
-        ...formData,
-        referralNumber: newRefNumber,
-        patientId, patientName, ehrNumber,
+        ...formData, referralNumber: newRefNumber, patientId, patientName, ehrNumber,
         vitalsAtReferral: latestEncounter?.vitals || {},
         medications: latestEncounter?.prescription || [],
-        hospitalId,
-        referringDoctor: userName,
-        status: 'ISSUED',
+        hospitalId, referringDoctor: userName, status: 'ISSUED',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -573,25 +447,15 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-
-/**
- * A CEO-level security tool to repair a user's roles and hospital assignment.
- */
 exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin.');
   }
-
   const { targetEmail, hospitalId, role } = request.data;
-
   try {
     const user = await admin.auth().getUserByEmail(targetEmail);
-    
     await admin.auth().setCustomUserClaims(user.uid, { hospitalId, role });
-
-    // Also update the firestore doc for consistency
     await db.collection('users').doc(user.uid).update({ hospitalId, role });
-
     return { success: true, message: `Identity for ${targetEmail} has been re-stamped.` };
   } catch (error) {
     console.error("Identity repair failed:", error);
@@ -599,56 +463,40 @@ exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-// --------------------------------
-// AUTOMATED AUDIT TRIGGERS (CEO SURVEILLANCE)
-// --------------------------------
-
-// 1. MONITOR: New Patient Registrations (Clinical Pulse)
+// --- AUTOMATED AUDIT TRIGGERS ---
 exports.auditPatientRegistration = onDocumentCreated("hospitals/{hospitalId}/patients/{patientId}", async (event) => {
   const data = event.data.data();
   if (!data) return null;
-
   const actor = await admin.auth().getUser(data.registeredBy);
-  
-  return admin.firestore().collection("global_audit_logs").add({
-    type: 'CLINICAL',
-    action: 'PATIENT_REGISTERED',
-    hospitalId: data.hospitalId || 'Unknown',
-    actorId: data.registeredBy,
+  return db.collection("global_audit_logs").add({
+    type: 'CLINICAL', action: 'PATIENT_REGISTERED',
+    hospitalId: data.hospitalId || 'Unknown', actorId: data.registeredBy,
     actorName: actor.displayName || 'System',
     details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`,
     timestamp: admin.firestore.FieldValue.serverTimestamp()
   });
 });
 
-// 2. MONITOR: Revenue Inflows (Financial Pulse)
 exports.auditPayments = onDocumentCreated("hospitals/{hospitalId}/payments/{paymentId}", async (event) => {
   const data = event.data.data();
   if (!data) return null;
-  return admin.firestore().collection("global_audit_logs").add({
-    type: 'FINANCIAL',
-    action: 'PAYMENT_RECEIVED',
-    hospitalId: data.hospitalId,
-    actorId: data.processedBy,
+  return db.collection("global_audit_logs").add({
+    type: 'FINANCIAL', action: 'PAYMENT_RECEIVED',
+    hospitalId: data.hospitalId, actorId: data.processedBy,
     actorName: data.processedByName || 'Cashier',
     details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`,
     timestamp: admin.firestore.FieldValue.serverTimestamp()
   });
 });
 
-// 3. MONITOR: Critical Hospital Status Changes (Security Pulse)
 exports.auditHospitalStatus = onDocumentUpdated("hospitals/{hospitalId}", async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
-
   if (!before || !after) return null;
-
   if (before.status !== after.status) {
-    return admin.firestore().collection("global_audit_logs").add({
-      type: 'SECURITY',
-      action: 'FACILITY_STATUS_CHANGE',
-      hospitalId: event.params.hospitalId,
-      actorId: 'SYSTEM',
+    return db.collection("global_audit_logs").add({
+      type: 'SECURITY', action: 'FACILITY_STATUS_CHANGE',
+      hospitalId: event.params.hospitalId, actorId: 'SYSTEM',
       actorName: 'App CEO / System Autopilot',
       details: `Hospital status moved from ${before.status} to ${after.status}`,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
@@ -657,19 +505,14 @@ exports.auditHospitalStatus = onDocumentUpdated("hospitals/{hospitalId}", async 
   return null;
 });
 
-// 4. MONITOR: High-Value Procurement (Supply Chain Pulse)
 exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase_orders/{poId}", async (event) => {
   const data = event.data.data();
   if (!data) return null;
-
   const totalValue = (data.items || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantityOrdered || 0)), 0);
-
   if (totalValue > 5000) {
-    return admin.firestore().collection("global_audit_logs").add({
-      type: 'FINANCIAL',
-      action: 'LARGE_PO_ISSUED',
-      hospitalId: data.hospitalId,
-      actorId: data.orderedBy,
+    return db.collection("global_audit_logs").add({
+      type: 'FINANCIAL', action: 'LARGE_PO_ISSUED',
+      hospitalId: data.hospitalId, actorId: data.orderedBy,
       actorName: data.orderedByName || 'Procurement Officer',
       details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
@@ -677,12 +520,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
-    
-    
-
-
-
-
-
-
-

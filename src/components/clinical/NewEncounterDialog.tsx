@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ReferralLetterDialog } from './ReferralLetterDialog';
 import { parseClinicalError } from '@/lib/error-handler';
@@ -60,6 +60,7 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
+  const { id: patientDocId } = useParams();
 
   // State Management
   const [isExternal, setIsExternal] = useState(false);
@@ -155,17 +156,17 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
   };
   
   const onSubmit = async (values: EncounterFormValues) => {
-    if (!firebaseApp || !user || !userProfile) {
-        toast({ variant: 'destructive', title: 'System Error', description: 'System not ready. Please re-login.' });
+    if (!firebaseApp) {
+        toast({ variant: 'destructive', title: 'Error', description: 'System not ready. Please try again.'});
         return;
     }
     setLoading(true);
 
     const payload = {
-      patientId: patientId || "",
+      patientId: patientDocId,
       patientName: patientName || "N/A",
-      ghanaCardId: patient?.ghanaCardId || "GHA-NOT-SET",
-      hospitalId: hospitalId || "",
+      ghanaCardId: patient?.ghanaCardId || "N/A",
+      hospitalId: userProfile?.hospitalId || "",
       hospitalName: userProfile?.hospitalName || "GamMed Facility",
       encounterType: values.encounterType || 'OPD Consultation',
       vitals: {
@@ -387,7 +388,6 @@ export function NewEncounterDialog({ patientId, hospitalId, patientName }: NewEn
     </Dialog>
   );
 }
-
 function VitalInput({ control, name, label, icon: Icon, disabled }: any) {
     return (
         <FormField
@@ -494,3 +494,5 @@ function DiagnosticSearch({ title, placeholder, menu, onSelect, selectedItems, o
     </div>
   );
 }
+
+    
