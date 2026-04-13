@@ -12,59 +12,162 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
-// 1. GLOBAL OPTIONS: This forces CORS to be open for all your Vercel branches
-const globalOptions = { 
-  region: "us-central1", 
-  cors: true, // This allows all origins including Vercel previews
-  invoker: "public" 
+// THE RESILIENCE WRAPPER
+const GLOBAL_CONFIG = {
+  region: "us-central1",
+  cors: true,
+  invoker: "public",
+  maxInstances: 10
 };
 
-// ============================================================
-// getPatientHistory — v2.1.0 (CORS + IAM fix)
-// Fetches unified encounter history across ALL hospitals
-// using Ghana Card ID as the national patient identifier.
-// ============================================================
-exports.getPatientHistory = onCall(globalOptions, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "The clinical request requires an authorized session.");
-  }
-
-  const { ghanaCardId, patientId, homeHospitalId } = request.data;
+// 1. ROBUST HISTORY LOADER
+exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Login Required');
+  
   const currentHospitalId = request.auth.token.hospitalId;
-
+  
   try {
-    // SECURITY CHECK:
-    // If the doctor is NOT from the home hospital, check for explicit consent
+    const { ghanaCardId, homeHospitalId } = request.data;
+    if (!ghanaCardId) throw new HttpsError("invalid-argument", "MISSING_GHANA_CARD_ID");
+
+    // SECURITY CHECK
     if (currentHospitalId !== homeHospitalId) {
       const consentDoc = await db.collection("patient_consents").doc(ghanaCardId).get();
-      
       if (!consentDoc.exists || !consentDoc.data().consentedHospitals[currentHospitalId]) {
-        // Instead of an error, we return a specific message
+        console.log(`Permission denied for ${currentHospitalId} on patient ${ghanaCardId}`);
         return { success: false, reason: 'PERMISSION_REQUIRED' };
       }
     }
+    console.log(`Auditing Clinical History for Ghana Card: ${ghanaCardId}`);
 
-    // If we pass the check, run the Universal Search
     const snap = await db.collectionGroup("encounters")
       .where("ghanaCardId", "==", ghanaCardId)
+      .orderBy("createdAt", "desc")
       .get();
 
-    return {
-      success: true,
-      data: snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    return { 
+      success: true, 
+      data: snap.docs.map(d => ({ id: d.id, ...d.data() })) 
     };
   } catch (error) {
-    console.error("Clinical History Engine Error:", error);
-    throw new HttpsError("internal", error.message);
+    console.error("❌ HISTORY_FATAL_ERROR:", error.message);
+    throw new HttpsError('internal', error.message || 'Unknown database error');
   }
 });
 
+// 2. ROBUST ENCOUNTER CREATOR
+exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
+  console.log("📥 ENCOUNTER_INITIATED:", JSON.stringify(request.data));
 
-// ============================================================
-// onboardStaff
-// Creates an Auth user and Firestore profile for a new staff member.
-// ============================================================
-exports.onboardStaff = onCall(globalOptions, async (request) => {
+  // Security Gate
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Login Required');
+  
+  const hospitalId = request.auth.token.hospitalId; 
+  
+  if(!hospitalId) {
+      throw new HttpsError('failed-precondition', 'Your user token is missing a hospital ID.');
+  }
+
+  try {
+    const data = request.data;
+    const clean = (val) => (val === undefined || val === null ? "" : val);
+
+    if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
+
+    const patientRef = db.collection("hospitals").doc(hospitalId).collection("patients").doc(data.patientId);
+    const patientDoc = await patientRef.get();
+
+    if (!patientDoc.exists) { // THE CRITICAL FIX
+      throw new Error(`Patient ID ${data.patientId} not found in database.`);
+    }
+
+    const batch = db.batch();
+    const encounterRef = db.collection("encounters").doc();
+    
+    const sanitizedVitals = data.vitals || {};
+    const encounterDoc = {
+      id: encounterRef.id,
+      patientId: clean(data.patientId),
+      patientName: clean(data.patientName),
+      ghanaCardId: clean(data.ghanaCardId),
+      ehrNumber: clean(patientDoc.data().ehrNumber),
+      hospitalId: clean(hospitalId),
+      hospitalName: clean(data.hospitalName),
+      providerUid: request.auth.uid,
+      providerName: clean(request.auth.token.name),
+      providerRole: clean(request.auth.token.role),
+      encounterType: clean(data.encounterType || 'OPD Consultation'),
+      vitals: {
+        bp: clean(sanitizedVitals.bp),
+        systolic: clean(sanitizedVitals.systolic),
+        diastolic: clean(sanitizedVitals.diastolic),
+        temp: clean(sanitizedVitals.temp),
+        pulse: clean(sanitizedVitals.pulse),
+        respiration: clean(sanitizedVitals.respiration),
+        weight: clean(sanitizedVitals.weight),
+        height: clean(sanitizedVitals.height),
+        bmi: clean(sanitizedVitals.bmi),
+        spo2: clean(sanitizedVitals.spo2),
+      },
+      chiefComplaint: clean(data.chiefComplaint),
+      hpi: clean(data.hpi),
+      diagnosis: clean(data.diagnosis),
+      isExternal: data.isExternal || false,
+      items: data.items || [],
+      prescription: data.items || [],
+      labOrders: data.labOrders || [],
+      radiologyOrders: data.radiologyOrders || [],
+      hasPendingLabs: (data.labOrders || []).length > 0,
+      hasPendingScans: (data.radiologyOrders || []).length > 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    batch.set(encounterRef, encounterDoc);
+    
+    batch.update(patientRef, {
+      status: 'Waiting for Assignment',
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastVitals: encounterDoc.vitals
+    });
+    
+    // Billing Logic
+    if (!data.isExternal) {
+        const createBillingItem = (item, type, qty = 1) => {
+            let billingType = 'CASH_PAYMENT';
+            let billPayerId = null;
+            let payerName = 'Cash Patient';
+
+            if (patientDoc.data().payerId && patientDoc.data().payerId !== 'CASH') {
+              billingType = 'INSURANCE_CLAIM';
+              billPayerId = patientDoc.data().payerId;
+              payerName = patientDoc.data().payerName;
+            }
+            
+            const billRef = db.collection('hospitals').doc(hospitalId).collection('billing_items').doc();
+            batch.set(billRef, {
+              patientId: data.patientId, patientName: data.patientName, hospitalId, encounterId: encounterRef.id,
+              description: item.name, category: type, sku: item.sku || null, unitPrice: item.price || 0,
+              qty, total: (item.price || 0) * qty, status: 'UNPAID', billedBy: request.auth.uid,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(), billingType, payerId: billPayerId, payerName
+            });
+        };
+        
+        (data.labOrders || []).forEach(order => createBillingItem(order, 'LABORATORY'));
+        (data.radiologyOrders || []).forEach(order => createBillingItem(order, 'IMAGING'));
+        (data.items || []).forEach(item => createBillingItem(item, 'PHARMACY'));
+    }
+
+    await batch.commit();
+    console.log("✅ ENCOUNTER_SUCCESS:", encounterRef.id);
+    return { success: true, encounterId: encounterRef.id };
+
+  } catch (error) {
+    console.error("❌ ENCOUNTER_FATAL_ERROR:", error.message);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be an authenticated administrator.");
   }
@@ -128,12 +231,7 @@ exports.onboardStaff = onCall(globalOptions, async (request) => {
   }
 });
 
-
-// ============================================================
-// registerPatient
-// Registers a new patient and assigns a unique EHR number.
-// ============================================================
-exports.registerPatient = onCall(globalOptions, async (request) => {
+exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be an authenticated staff member.");
   }
@@ -182,105 +280,7 @@ exports.registerPatient = onCall(globalOptions, async (request) => {
   }
 });
 
-
-// ============================================================
-// createEncounter
-// Records a new clinical encounter and updates patient status.
-// ============================================================
-exports.createEncounter = onCall(globalOptions, async (request) => {
-  const data = request.data;
-  const db = admin.firestore();
-
-  // 1. Security Check
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
-  
-  const hospitalId = request.auth.token.hospitalId; 
-  const clean = (val) => (val === undefined || val === null ? "" : val);
-
-  if (!hospitalId) {
-    throw new HttpsError('failed-precondition', 'User is not associated with a hospital.');
-  }
-  if (!data.patientId) {
-    throw new HttpsError('invalid-argument', 'Patient ID is missing.');
-  }
-
-  try {
-    const patientRef = db.collection("hospitals").doc(hospitalId).collection("patients").doc(data.patientId);
-    const patientDoc = await patientRef.get();
-
-    if (!patientDoc.exists) {
-      throw new HttpsError('not-found', `Patient record not found at path: ${patientRef.path}`);
-    }
-
-    const batch = db.batch();
-    const encounterRef = db.collection("encounters").doc();
-    
-    // 3. CONSTRUCT THE DOCUMENT SAFELY
-    const sanitizedVitals = data.vitals || {};
-    const encounterData = {
-      id: encounterRef.id,
-      patientId: clean(data.patientId),
-      patientName: clean(data.patientName),
-      ghanaCardId: clean(data.ghanaCardId),
-      ehrNumber: patientDoc.data().ehrNumber,
-      hospitalId: hospitalId,
-      hospitalName: clean(data.hospitalName),
-      providerUid: request.auth.uid,
-      providerName: clean(request.auth.token.name),
-      providerRole: clean(request.auth.token.role),
-      encounterType: clean(data.encounterType || 'OPD Consultation'),
-      vitals: {
-        bp: clean(sanitizedVitals.bp),
-        systolic: clean(sanitizedVitals.systolic),
-        diastolic: clean(sanitizedVitals.diastolic),
-        temp: clean(sanitizedVitals.temp),
-        pulse: clean(sanitizedVitals.pulse),
-        respiration: clean(sanitizedVitals.respiration),
-        weight: clean(sanitizedVitals.weight),
-        height: clean(sanitizedVitals.height),
-        bmi: clean(sanitizedVitals.bmi),
-        spo2: clean(sanitizedVitals.spo2),
-      },
-      chiefComplaint: clean(data.chiefComplaint || ""),
-      hpi: clean(data.hpi || ""),
-      notes: clean(data.notes || ""),
-      diagnosis: clean(data.diagnosis || ""),
-      isExternal: data.isExternal || false,
-      items: data.items || [],
-      prescription: data.items || [],
-      labOrders: data.labOrders || [],
-      radiologyOrders: data.radiologyOrders || [],
-      hasPendingLabs: (data.labOrders || []).length > 0,
-      hasPendingScans: (data.radiologyOrders || []).length > 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-    
-    batch.set(encounterRef, encounterData);
-    
-    // 4. Update Patient Master Status
-    batch.update(patientRef, {
-      status: 'Waiting for Assignment',
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastVitals: encounterData.vitals
-    });
-
-    await batch.commit();
-    
-    console.log(`✅ EHR Successfully Committed: ${encounterRef.id}`);
-    return { success: true, encounterId: encounterRef.id };
-
-  } catch (error) {
-    console.error("FATAL_BACKEND_ERROR:", error.message);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-
-// ============================================================
-// createWardAndBeds
-// Creates a ward and provisions all beds automatically.
-// ============================================================
-exports.createWardAndBeds = onCall(globalOptions, async (request) => {
+exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be an authenticated administrator.");
   }
@@ -324,12 +324,7 @@ exports.createWardAndBeds = onCall(globalOptions, async (request) => {
   }
 });
 
-
-// ============================================================
-// provisionFullHospital
-// CEO-level: spins up a complete new hospital tenant.
-// ============================================================
-exports.provisionFullHospital = onCall(globalOptions, async (request) => {
+exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   if (request.auth?.token.role !== "SUPER_ADMIN") {
     throw new HttpsError("permission-denied", "You must be a Super Admin to perform this action.");
   }
@@ -439,12 +434,7 @@ exports.provisionFullHospital = onCall(globalOptions, async (request) => {
   }
 });
 
-
-// ============================================================
-// sendClinicalSms
-// Sends an SMS via third-party gateway and logs it.
-// ============================================================
-exports.sendClinicalSms = onCall(globalOptions, async (request) => {
+exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
   const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY";
   const { phoneNumber, message, hospitalId, senderId } = request.data;
 
@@ -471,12 +461,7 @@ exports.sendClinicalSms = onCall(globalOptions, async (request) => {
   }
 });
 
-
-// ============================================================
-// createReferral
-// Creates a clinical referral with a unique referral number.
-// ============================================================
-exports.createReferral = onCall(globalOptions, async (request) => {
+exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "You must be an authenticated staff member.");
 
   const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
@@ -529,12 +514,7 @@ exports.createReferral = onCall(globalOptions, async (request) => {
   }
 });
 
-
-// ============================================================
-// repairUserIdentity
-// CEO tool: repairs a user's role and hospital assignment.
-// ============================================================
-exports.repairUserIdentity = onCall(globalOptions, async (request) => {
+exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
   if (request.auth?.token.role !== "SUPER_ADMIN") {
     throw new HttpsError("permission-denied", "You must be a Super Admin.");
   }
@@ -553,91 +533,65 @@ exports.repairUserIdentity = onCall(globalOptions, async (request) => {
   }
 });
 
+// AUTOMATED AUDIT TRIGGERS
+exports.auditPatientRegistration = onDocumentCreated("hospitals/{hospitalId}/patients/{patientId}", async (event) => {
+  const data = event.data.data();
+  if (!data) return null;
+  const actor = await admin.auth().getUser(data.registeredBy);
+  return admin.firestore().collection("global_audit_logs").add({
+    type: "CLINICAL",
+    action: "PATIENT_REGISTERED",
+    hospitalId: data.hospitalId || "Unknown",
+    actorId: data.registeredBy,
+    actorName: actor.displayName || "System",
+    details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+});
 
-// ============================================================
-// AUTOMATED AUDIT TRIGGERS (CEO SURVEILLANCE)
-// ============================================================
+exports.auditPayments = onDocumentCreated("hospitals/{hospitalId}/payments/{paymentId}", async (event) => {
+  const data = event.data.data();
+  if (!data) return null;
+  return admin.firestore().collection("global_audit_logs").add({
+    type: "FINANCIAL",
+    action: "PAYMENT_RECEIVED",
+    hospitalId: data.hospitalId,
+    actorId: data.processedBy,
+    actorName: data.processedByName || "Cashier",
+    details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+});
 
-exports.auditPatientRegistration = onDocumentCreated(
-  "hospitals/{hospitalId}/patients/{patientId}",
-  async (event) => {
-    const data = event.data.data();
-    if (!data) return null;
+exports.auditHospitalStatus = onDocumentUpdated("hospitals/{hospitalId}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (!before || !after || before.status === after.status) return null;
+  return admin.firestore().collection("global_audit_logs").add({
+    type: "SECURITY",
+    action: "FACILITY_STATUS_CHANGE",
+    hospitalId: event.params.hospitalId,
+    actorId: "SYSTEM",
+    actorName: "App CEO / System Autopilot",
+    details: `Hospital status moved from ${before.status} to ${after.status}`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+});
 
-    const actor = await admin.auth().getUser(data.registeredBy);
-    return admin.firestore().collection("global_audit_logs").add({
-      type: "CLINICAL",
-      action: "PATIENT_REGISTERED",
-      hospitalId: data.hospitalId || "Unknown",
-      actorId: data.registeredBy,
-      actorName: actor.displayName || "System",
-      details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  }
-);
-
-exports.auditPayments = onDocumentCreated(
-  "hospitals/{hospitalId}/payments/{paymentId}",
-  async (event) => {
-    const data = event.data.data();
-    if (!data) return null;
+exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase_orders/{poId}", async (event) => {
+  const data = event.data.data();
+  if (!data) return null;
+  const totalValue = (data.items || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantityOrdered || 0)), 0);
+  if (totalValue > 5000) {
     return admin.firestore().collection("global_audit_logs").add({
       type: "FINANCIAL",
-      action: "PAYMENT_RECEIVED",
+      action: "LARGE_PO_ISSUED",
       hospitalId: data.hospitalId,
-      actorId: data.processedBy,
-      actorName: data.processedByName || "Cashier",
-      details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`,
+      actorId: data.orderedBy,
+      actorName: data.orderedByName || "Procurement Officer",
+      details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
-);
-
-exports.auditHospitalStatus = onDocumentUpdated(
-  "hospitals/{hospitalId}",
-  async (event) => {
-    const before = event.data.before.data();
-    const after = event.data.after.data();
-    if (!before || !after) return null;
-
-    if (before.status !== after.status) {
-      return admin.firestore().collection("global_audit_logs").add({
-        type: "SECURITY",
-        action: "FACILITY_STATUS_CHANGE",
-        hospitalId: event.params.hospitalId,
-        actorId: "SYSTEM",
-        actorName: "App CEO / System Autopilot",
-        details: `Hospital status moved from ${before.status} to ${after.status}`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-    return null;
-  }
-);
-
-exports.auditPurchaseOrders = onDocumentCreated(
-  "hospitals/{hospitalId}/purchase_orders/{poId}",
-  async (event) => {
-    const data = event.data.data();
-    if (!data) return null;
-
-    const totalValue = (data.items || []).reduce(
-      (sum, item) => sum + (item.price || 0) * (item.quantityOrdered || 0),
-      0
-    );
-
-    if (totalValue > 5000) {
-      return admin.firestore().collection("global_audit_logs").add({
-        type: "FINANCIAL",
-        action: "LARGE_PO_ISSUED",
-        hospitalId: data.hospitalId,
-        actorId: data.orderedBy,
-        actorName: data.orderedByName || "Procurement Officer",
-        details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-    return null;
-  }
-);
+  return null;
+});
