@@ -1,3 +1,4 @@
+// Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
@@ -74,8 +75,8 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     const hospitalId = request.auth.token.hospitalId;
     if (!hospitalId) throw new HttpsError('failed-precondition', 'User is not associated with a hospital.');
 
-    const patientRef = db.collection("hospitals").doc(hospitalId).collection("patients").doc(data.patientId);
-    const patientDoc = await patientRef.get();
+    const patientRef = doc(firestore, "hospitals", hospitalId, "patients", data.patientId);
+    const patientDoc = await getDoc(patientRef);
 
     // --- THE CRITICAL FIX (Line 188) ---
     // REMOVED the brackets (). It must be .exists, not .exists()
@@ -678,3 +679,10 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
 });
     
     
+
+
+
+
+
+
+
