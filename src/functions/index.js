@@ -71,16 +71,26 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     const clean = (val) => (val === undefined || val === null ? "" : val);
 
     if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
-
-    const patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
-    const patientDoc = await patientRef.get();
     
-    // THE CRITICAL FIX: .exists is a property, not a function
+    // --- THE UNIVERSAL BACKEND LOOKUP ---
+    // 1. TRY ROOT COLLECTION FIRST (The New Standard)
+    let patientRef = db.collection("patients").doc(data.patientId);
+    let patientDoc = await patientRef.get();
+
+    // 2. FALLBACK: If not found, try the Hospital Sub-collection (Legacy/Internal)
     if (!patientDoc.exists) {
-      throw new HttpsError('not-found', `Patient record [${data.patientId}] not found in this facility.`);
+      console.log("🔍 Root lookup failed, trying sub-collection...");
+      patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
+      patientDoc = await patientRef.get();
     }
 
+    // 3. FINAL VERIFICATION
+    if (!patientDoc.exists) {
+      throw new Error(`CRITICAL: Patient document [${data.patientId}] not found in any clinical ledger.`);
+    }
     const patientData = patientDoc.data();
+    // --- END OF FIX ---
+
     const batch = db.batch();
     const encounterRef = db.collection("encounters").doc();
 
