@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -8,7 +7,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Activity, Thermometer, Pill, Beaker, 
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -208,18 +207,14 @@ export default function ClinicalFolder() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* 2. THE VISIT TIMELINE (Main EHR Body) */}
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="font-black text-xs uppercase tracking-widest text-blue-600 flex items-center gap-2">
-            <Globe size={16} /> Unified Longitudinal Record
-          </h3>
-          
-          {errorState ? (
-              <div className="p-10 bg-red-50 border-2 border-red-100 rounded-[40px] text-center">
-                <AlertCircle size={48} className="mx-auto text-red-600 mb-4" />
-                <h3 className="text-lg font-black uppercase text-red-900">Clinical Data Blocked</h3>
-                <p className="text-sm text-red-700 font-bold mt-2 uppercase italic">{errorState}</p>
-                <button onClick={fetchHistory} className="mt-6 px-6 py-2 bg-red-600 text-white rounded-full text-xs uppercase">Retry Sync</button>
-              </div>
-          ) : authRequired ? (
+          <div className="flex justify-between items-center px-2">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                <History size={16} className="text-blue-600" /> Medical History Timeline
+            </h3>
+            {errorState && <span className="text-[8px] font-bold text-amber-500 uppercase animate-pulse">Syncing...</span>}
+          </div>
+
+          {authRequired ? (
              <div className="bg-amber-100 border-2 border-dashed border-amber-200 p-10 rounded-[40px] text-center">
                 <ShieldAlert size={48} className="mx-auto text-amber-500 mb-4" />
                 <h3 className="text-xl font-black uppercase text-amber-900">Inter-Hospital Access Restricted</h3>
@@ -228,21 +223,26 @@ export default function ClinicalFolder() {
                     <strong> MyGamMed</strong> and authorize <strong>{userProfile?.hospitalName}</strong>.
                 </p>
             </div>
-          ) : allEncounters && allEncounters.length > 1 ? (
+          ) : allEncounters && allEncounters.length > 1 && !errorState ? (
             <VitalsTrend data={allEncounters} />
           ) : null}
 
           {isTimelineLoading ? (
-             <div className="space-y-4">
-                <Skeleton className="h-48 w-full rounded-3xl" />
-                <Skeleton className="h-32 w-full rounded-3xl" />
-             </div>
-          ) : timelineActivities && timelineActivities.length === 0 && !authRequired && !errorState ? (
-            <div className="bg-card p-20 border-2 border-dashed rounded-[32px] text-center text-muted-foreground italic">
-              No clinical encounters recorded. Register first vitals or consultation.
+            <div className="space-y-4">
+              <Skeleton className="h-48 w-full rounded-3xl" />
+              <Skeleton className="h-32 w-full rounded-3xl" />
+            </div>
+          ) : timelineActivities.length === 0 ? (
+            <div className="bg-white p-12 rounded-[40px] border-2 border-dashed border-slate-100 text-center">
+               <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ClipboardList className="text-slate-300" />
+               </div>
+               <p className="text-sm font-medium text-slate-400 italic">
+                  {errorState ? "Clinical history is synchronizing..." : "No clinical encounters recorded yet."}
+               </p>
             </div>
           ) : (
-            timelineActivities?.map(activity => {
+            timelineActivities.map(activity => {
               if (activity.viewType === 'ENCOUNTER') {
                 const isLocal = activity.hospitalId === userProfile?.hospitalId;
                 return (
@@ -384,24 +384,4 @@ export default function ClinicalFolder() {
       </div>
     </div>
   );
-}
-
-function VitalItem({ label, value, unit }: any) {
-  if (!value) return null;
-  return (
-    <div className="bg-muted/50 p-2 rounded-xl text-center">
-      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">{label}</p>
-      <p className="text-sm font-bold text-card-foreground">{value} <span className="text-[8px] text-muted-foreground">{unit}</span></p>
-    </div>
-  );
-}
-
-function AncVitalItem({ label, value, unit }: any) {
-    if (!value) return null;
-    return (
-      <div className="text-center">
-        <p className="text-[9px] font-black text-pink-900/50 uppercase tracking-tighter">{label}</p>
-        <p className="text-sm font-bold text-pink-900">{value} <span className="text-[8px]">{unit}</span></p>
-      </div>
-    );
 }
