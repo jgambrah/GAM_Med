@@ -7,29 +7,36 @@ import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
-    try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-
-    return getSdks(firebaseApp);
+  if (getApps().length) {
+    return getSdks(getApp());
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  // This logic allows for both automatic initialization in a hosting environment
+  // and manual initialization with a config object for local development.
+
+  try {
+    // First, try to initialize without a config. This will succeed if Firebase
+    // hosting environment variables are present.
+    const app = initializeApp();
+    console.log("Firebase initialized automatically via hosting environment.");
+    return getSdks(app);
+  } catch (e: any) {
+    // If automatic initialization fails, check if we have a valid config object.
+    if (firebaseConfig && firebaseConfig.projectId) {
+      console.log("Automatic initialization failed, falling back to firebaseConfig object.");
+      const app = initializeApp(firebaseConfig);
+      return getSdks(app);
+    } else {
+      // If we are here, it means auto-init failed AND the firebaseConfig is missing.
+      console.error(
+        "Firebase initialization failed. No hosting environment detected and firebaseConfig is incomplete. Ensure your NEXT_PUBLIC_FIREBASE_... environment variables are set."
+      );
+      // We throw a more specific error to guide the developer.
+      throw new Error(
+        "Firebase configuration is missing. Please set up your .env.local file with the correct Firebase credentials."
+      );
+    }
+  }
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
