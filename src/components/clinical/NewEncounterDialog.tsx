@@ -5,6 +5,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Dialog![CDATA[
+'use client';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger 
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
@@ -196,10 +203,15 @@ export function NewEncounterDialog({ patientId: propsPatientId, hospitalId, pati
       if (result.data.success && result.data.encounterId) {
         toast({ title: "EHR Record Committed" });
         if (isExternal) {
-          router.push(`/doctor/external-print/${result.data.encounterId}`);
+          // GIVE THE CLOUD 1 SECOND TO "BREATHE"
+          setTimeout(() => {
+            router.push(`/doctor/external-print/${result.data.encounterId}`);
+            setOpen(false); // Close dialog after pushing
+          }, 1000);
+        } else {
+            setOpen(false); // If not external, just close
         }
-        setOpen(false);
-        form.reset();
+        form.reset(); // Reset form regardless
       } else {
         throw new Error(result.data.message || 'Cloud function did not return a success status or ID.');
       }
