@@ -31,29 +31,34 @@ export default function CEOMasterAnalytics() {
   const isSuperAdmin = claims?.role === 'SUPER_ADMIN';
 
   // --- Data Fetching ---
-  // The query for hospitals has been removed to prevent permission errors.
-  const hospitals: any[] | null = [];
-  
+  // This query has been removed to prevent permission errors for non-super-admins.
+  // The dashboard will now rely on pre-aggregated data from 'platform_config'.
+  const platformConfigRef = useMemoFirebase(() => isSuperAdmin && firestore ? doc(firestore, 'platform_config', 'summary') : null, [firestore, isSuperAdmin]);
+  const { data: platformConfig, isLoading: areStatsLoading } = useDoc(platformConfigRef);
+
   const pricingPlansQuery = useMemoFirebase(() => isSuperAdmin && firestore ? collection(firestore, 'pricing_plans') : null, [firestore, isSuperAdmin]);
   const { data: pricingPlans, isLoading: arePricingPlansLoading } = useCollection(pricingPlansQuery);
-
-  const stats = useMemo(() => {
-    // Return default zeroed-out stats since we are not fetching hospitals
-    return { totalFacilities: 0, totalPatients: 0, regionalBreakdown: {} };
-  }, []);
+  
+  // No longer fetches all hospitals
+  const hospitalsQuery = useMemoFirebase(() => isSuperAdmin && firestore ? query(collection(firestore, 'hospitals')) : null, [firestore, isSuperAdmin]);
+  const { data: hospitals, isLoading: areHospitalsLoading } = useCollection(hospitalsQuery);
 
 
   const regionalData = useMemo(() => {
-    // Return empty array since we have no hospital data
-    return [];
-  }, []);
+    if (!platformConfig?.regionalBreakdown) return [];
+    return Object.entries(platformConfig.regionalBreakdown).map(([name, value]) => ({ name, value: value as number}));
+  }, [platformConfig]);
 
   const projectedARR = useMemo(() => {
-    // Return 0 since we have no hospital data
-    return 0;
-  }, []);
+    if (!hospitals || !pricingPlans) return 0;
+    const monthlyRevenue = hospitals.reduce((total, hospital) => {
+        const plan = pricingPlans.find(p => p.id === hospital.subscriptionPlan);
+        return total + (plan?.monthlyPrice || 0);
+    }, 0);
+    return monthlyRevenue * 12;
+  }, [hospitals, pricingPlans]);
   
-  const isLoading = isUserLoading || isClaimsLoading || arePricingPlansLoading;
+  const isLoading = isUserLoading || isClaimsLoading || arePricingPlansLoading || areHospitalsLoading || areStatsLoading;
 
   if (isLoading) {
     return (
@@ -100,8 +105,8 @@ export default function CEOMasterAnalytics() {
 
       {/* --- MASTER KPI GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <GlobalCard label="Total Network Facilities" value={stats.totalFacilities.toString() ?? '0'} icon={<Building2/>} color="blue" />
-        <GlobalCard label="Total Lives Managed" value={stats.totalPatients.toLocaleString() ?? '0'} icon={<Users/>} color="purple" />
+        <GlobalCard label="Total Network Facilities" value={platformConfig?.totalFacilities?.toString() ?? '0'} icon={<Building2/>} color="blue" />
+        <GlobalCard label="Total Lives Managed" value={platformConfig?.totalPatients?.toLocaleString() ?? '0'} icon={<Users/>} color="purple" />
         <GlobalCard label="Annual Recurring Revenue (ARR)" value={`₵ ${projectedARR.toLocaleString()}`} icon={<Wallet/>} color="green" />
       </div>
 
@@ -190,5 +195,3 @@ function GlobalCard({ label, value, icon, color }: any) {
     </div>
   );
 }
-
-    
