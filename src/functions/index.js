@@ -1,4 +1,3 @@
-
 // Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -53,28 +52,30 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
       data: snap.docs.map(d => ({ id: d.id, ...d.data() })) 
     };
   } catch (error) {
-    console.error("❌ HISTORY_FATAL_ERROR:", error.message);
+    console.error("FATAL: getPatientHistory", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message || 'Unknown database error');
   }
 });
 
 // 2. ROBUST ENCOUNTER CREATOR
 exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
-  const data = request.data;
-  const hId = request.auth.token.hospitalId;
-
+  // Security Gate first
   if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
+  
+  const hId = request.auth.token.hospitalId;
   if (!hId) throw new HttpsError('unauthenticated', 'User not associated with a hospital.');
 
+  const data = request.data;
+  
   try {
     const clean = (val) => (val === undefined || val === null ? "" : val);
 
     if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
 
-    // Correctly look up the patient within the hospital's sub-collection
     const patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
     const patientDoc = await patientRef.get();
     
+    // THE CRITICAL FIX: .exists is a property, not a function
     if (!patientDoc.exists) {
       throw new HttpsError('not-found', `Patient record [${data.patientId}] not found in this facility.`);
     }
@@ -127,7 +128,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     return { success: true, encounterId: encounterRef.id };
 
   } catch (error) {
-    console.error("FATAL_BACKEND_ERROR:", error.message);
+    console.error("FATAL: createEncounter", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
@@ -135,7 +136,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
 
 /**
  * Onboards a new staff member.
- * Creates an Auth user and a corresponding user profile in Firestore.
  */
 exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) {
@@ -191,7 +191,7 @@ exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
 
     return { success: true, message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` };
   } catch (error) {
-    console.error("Onboarding failed:", error);
+    console.error("FATAL: onboardStaff", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
@@ -230,7 +230,7 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
         ...patientData,
         ehrNumber: newEhrNumber,
         hospitalId: hospitalId,
-        homeHospitalId: hospitalId,
+        homeHospitalId: hospitalId, // Set home hospital on creation
         registeredBy: registeringStaffId,
         status: 'Awaiting Vitals',
         checkInTime: admin.firestore.FieldValue.serverTimestamp(),
@@ -242,7 +242,7 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
 
     return { success: true, ehrNumber: newEhrNumber };
   } catch (error) {
-    console.error("Patient registration failed:", error);
+    console.error("FATAL: registerPatient", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
@@ -279,7 +279,7 @@ exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
     await batch.commit();
     return { success: true, message: `Ward '${name}' and ${capacity} beds created.` };
   } catch (error) {
-    console.error("Ward creation failed:", error);
+    console.error("FATAL: createWardAndBeds", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
@@ -313,15 +313,20 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
-    await db.runTransaction(async (transaction) => {
-        const directorUserRecord = await admin.auth().createUser({
-            email: cleanDirectorEmail,
-            password: defaultPassword,
-            displayName: directorName,
-        });
-        
-        await admin.auth().setCustomUserClaims(directorUserRecord.uid, { role: 'DIRECTOR', hospitalId: hospitalId });
+    // Perform Auth operations OUTSIDE the transaction
+    const directorUserRecord = await admin.auth().createUser({
+        email: cleanDirectorEmail,
+        password: defaultPassword,
+        displayName: directorName,
+    });
+    
+    await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
+      role: 'DIRECTOR',
+      hospitalId: hospitalId
+    });
 
+    // Transaction for Firestore atomicity
+    await db.runTransaction(async (transaction) => {
         transaction.set(hospitalRef, {
             hospitalId: hospitalId, name: hospitalName, region: region,
             directorUid: directorUserRecord.uid, directorEmail: cleanDirectorEmail,
@@ -330,7 +335,7 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
             provisioningSecret: defaultPassword, status: 'active', isSuspended: false,
             subscriptionStatus: 'ACTIVE', mustChangePassword: true,
             patientCounter: 0, staffCounter: 0, poCounter: 0, pvCounter: 0,
-            receiptCounter: 0, referralCounter: 0,
+            receiptCounter: 0, referralCounter: 0, nhisBatchCounter: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
             nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
@@ -346,64 +351,68 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
         });
         
         const configRef = db.doc('platform_config/summary');
-        transaction.update(configRef, {
-            totalFacilities: admin.firestore.FieldValue.increment(1),
-            [`regionalBreakdown.${region}`]: admin.firestore.FieldValue.increment(1)
-        });
-        
-        const coaBatch = db.batch();
-        const starterCOA = [
-          { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
-          { code: '1001', name: 'Petty Cash Vault', category: 'ASSETS' },
-          { code: '1099', name: 'Accumulated Depreciation', category: 'LIABILITIES' },
-          { code: '1200', name: 'Accounts Receivable (NHIS)', category: 'ASSETS' },
-          { code: '2000', name: 'Accounts Payable (Suppliers)', category: 'LIABILITIES' },
-          { code: '2100', name: 'Withholding Tax Payable (GRA)', category: 'LIABILITIES', isSystemAccount: true },
-          { code: '3000', name: 'Director Capital Contribution', category: 'CAPITAL' },
-          { code: '4000', name: 'Clinical Revenue (Cash)', category: 'REVENUE' },
-          { code: '5000', name: 'Staff Salary Expense', category: 'EXPENSES' },
-          { code: '5005', name: 'Depreciation Expense', category: 'EXPENSES' },
-        ];
-        const coaCollectionRef = hospitalRef.collection('chart_of_accounts');
-        starterCOA.forEach(acc => {
-            const newAccRef = coaCollectionRef.doc();
-            coaBatch.set(newAccRef, { ...acc, currentBalance: 0, hospitalId: hospitalId });
-        });
-        await coaBatch.commit();
+        const configDoc = await transaction.get(configRef);
+        if(configDoc.exists) {
+            transaction.update(configRef, {
+                totalFacilities: admin.firestore.FieldValue.increment(1),
+                [`regionalBreakdown.${region}`]: admin.firestore.FieldValue.increment(1)
+            });
+        }
     });
+
+    // Post-transaction batch for non-critical setup
+    const coaBatch = db.batch();
+    const starterCOA = [
+      { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
+      { code: '1001', name: 'Petty Cash Vault', category: 'ASSETS' },
+      { code: '1099', name: 'Accumulated Depreciation', category: 'LIABILITIES' },
+      { code: '1200', name: 'Accounts Receivable (NHIS)', category: 'ASSETS' },
+      { code: '2000', name: 'Accounts Payable (Suppliers)', category: 'LIABILITIES' },
+      { code: '2100', name: 'Withholding Tax Payable (GRA)', category: 'LIABILITIES', isSystemAccount: true },
+      { code: '3000', name: 'Director Capital Contribution', category: 'CAPITAL' },
+      { code: '4000', name: 'Clinical Revenue (Cash)', category: 'REVENUE' },
+      { code: '5000', name: 'Staff Salary Expense', category: 'EXPENSES' },
+      { code: '5005', name: 'Depreciation Expense', category: 'EXPENSES' },
+    ];
+    const coaCollectionRef = hospitalRef.collection('chart_of_accounts');
+    starterCOA.forEach(acc => {
+        const newAccRef = coaCollectionRef.doc();
+        coaBatch.set(newAccRef, { ...acc, currentBalance: 0, hospitalId: hospitalId });
+    });
+    await coaBatch.commit();
 
     return { success: true, hospitalId: hospitalId, message: `${hospitalName} provisioned successfully.` };
   } catch (error) {
-    console.error("Full Hospital Provisioning Failed:", error);
+    console.error("FATAL: provisionFullHospital", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
 
 exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
-    const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY"; 
+    const smsApiKey = process.env.SMS_API_KEY; // Corrected
     const { phoneNumber, message, hospitalId, senderId } = request.data;
     const url = `https://api.sms-provider.com/send`;
     
     try {
+        if (!smsApiKey || smsApiKey === "YOUR_SMS_GATEWAY_API_KEY") {
+            console.warn("SMS_API_KEY not configured. Skipping SMS send.");
+            return { success: false, message: "SMS gateway not configured."};
+        }
         await axios.post(url, { to: phoneNumber, from: senderId || 'GamMed', message, api_key: smsApiKey });
         await db.collection('sms_logs').add({ hospitalId, recipient: phoneNumber, message, status: 'SENT', createdAt: admin.firestore.FieldValue.serverTimestamp() });
         return { success: true };
     } catch (error) {
-        console.error("SMS sending failed:", error);
+        console.error("FATAL: sendClinicalSms", error.code, error.message, error.stack);
         throw new HttpsError('internal', 'Could not send SMS.');
     }
 });
 
+
 exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   
-  const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
-  if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
-  const hospitalId = userProfileDoc.data().hospitalId;
-  const userName = userProfileDoc.data().fullName;
-  if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
-
   const { patientId, patientName, ehrNumber, latestEncounter, ...formData } = request.data;
+  const hospitalId = request.auth.token.hospitalId;
   const hospitalRef = db.collection('hospitals').doc(hospitalId);
 
   try {
@@ -411,7 +420,7 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
 
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists()) throw new HttpsError('not-found', 'Hospital record not found.');
+      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.'); // Corrected
 
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.referralCounter || 0) + 1;
@@ -426,7 +435,7 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
         ...formData, referralNumber: newRefNumber, patientId, patientName, ehrNumber,
         vitalsAtReferral: latestEncounter?.vitals || {},
         medications: latestEncounter?.prescription || [],
-        hospitalId, referringDoctor: userName, status: 'ISSUED',
+        hospitalId, referringDoctor: request.auth.token.name, status: 'ISSUED',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -435,10 +444,11 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
 
     return { success: true, referralId: newReferralId, referralNumber: newRefNumber };
   } catch (error) {
-    console.error("Referral creation failed:", error);
+    console.error("FATAL: createReferral", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
+
 
 exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
@@ -451,7 +461,7 @@ exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
     await db.collection('users').doc(user.uid).update({ hospitalId, role });
     return { success: true, message: `Identity for ${targetEmail} has been re-stamped.` };
   } catch (error) {
-    console.error("Identity repair failed:", error);
+    console.error("FATAL: repairUserIdentity", error.code, error.message, error.stack);
     throw new HttpsError('internal', error.message);
   }
 });
