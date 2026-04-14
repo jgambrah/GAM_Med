@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase';
@@ -31,34 +32,15 @@ export default function CEOMasterAnalytics() {
   const isSuperAdmin = claims?.role === 'SUPER_ADMIN';
 
   // --- Data Fetching ---
-  // This query has been removed to prevent permission errors for non-super-admins.
-  // The dashboard will now rely on pre-aggregated data from 'platform_config'.
   const platformConfigRef = useMemoFirebase(() => isSuperAdmin && firestore ? doc(firestore, 'platform_config', 'summary') : null, [firestore, isSuperAdmin]);
   const { data: platformConfig, isLoading: areStatsLoading } = useDoc(platformConfigRef);
-
-  const pricingPlansQuery = useMemoFirebase(() => isSuperAdmin && firestore ? collection(firestore, 'pricing_plans') : null, [firestore, isSuperAdmin]);
-  const { data: pricingPlans, isLoading: arePricingPlansLoading } = useCollection(pricingPlansQuery);
-  
-  // No longer fetches all hospitals
-  const hospitalsQuery = useMemoFirebase(() => isSuperAdmin && firestore ? query(collection(firestore, 'hospitals')) : null, [firestore, isSuperAdmin]);
-  const { data: hospitals, isLoading: areHospitalsLoading } = useCollection(hospitalsQuery);
-
 
   const regionalData = useMemo(() => {
     if (!platformConfig?.regionalBreakdown) return [];
     return Object.entries(platformConfig.regionalBreakdown).map(([name, value]) => ({ name, value: value as number}));
   }, [platformConfig]);
-
-  const projectedARR = useMemo(() => {
-    if (!hospitals || !pricingPlans) return 0;
-    const monthlyRevenue = hospitals.reduce((total, hospital) => {
-        const plan = pricingPlans.find(p => p.id === hospital.subscriptionPlan);
-        return total + (plan?.monthlyPrice || 0);
-    }, 0);
-    return monthlyRevenue * 12;
-  }, [hospitals, pricingPlans]);
   
-  const isLoading = isUserLoading || isClaimsLoading || arePricingPlansLoading || areHospitalsLoading || areStatsLoading;
+  const isLoading = isUserLoading || isClaimsLoading || areStatsLoading;
 
   if (isLoading) {
     return (
@@ -107,13 +89,13 @@ export default function CEOMasterAnalytics() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <GlobalCard label="Total Network Facilities" value={platformConfig?.totalFacilities?.toString() ?? '0'} icon={<Building2/>} color="blue" />
         <GlobalCard label="Total Lives Managed" value={platformConfig?.totalPatients?.toLocaleString() ?? '0'} icon={<Users/>} color="purple" />
-        <GlobalCard label="Annual Recurring Revenue (ARR)" value={`₵ ${projectedARR.toLocaleString()}`} icon={<Wallet/>} color="green" />
+        <GlobalCard label="Est. Monthly Revenue (MRR)" value={`₵ ${platformConfig?.totalRevenue?.toLocaleString() ?? '0'}`} icon={<Wallet/>} color="green" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         
         {/* --- REGIONAL HEATMAP (GHANA) --- */}
-        <div className="lg:col-span-2 bg-white p-10 rounded-[50px] border-4 border-slate-100 shadow-sm space-y-8">
+        <div className="lg:col-span-3 bg-white p-10 rounded-[50px] border-4 border-slate-100 shadow-sm space-y-8">
            <div className="flex justify-between items-center">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                 <Map size={18} className="text-blue-600" /> Regional Density Heatmap
@@ -134,40 +116,6 @@ export default function CEOMasterAnalytics() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-           </div>
-        </div>
-
-        {/* --- SUBSCRIPTION REVENUE QUEUE --- */}
-        <div className="space-y-6">
-           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 px-2">
-              <CreditCard size={18} className="text-green-600" /> SaaS Billing Status
-           </h3>
-           <div className="bg-white rounded-[40px] border-4 border-slate-900 overflow-hidden shadow-2xl divide-y-4 divide-slate-900">
-              {hospitals?.slice(0, 5).map(h => {
-                const plan = pricingPlans?.find(p => p.id === h.subscriptionPlan);
-                const price = plan?.monthlyPrice || 0;
-                return (
-                    <div key={h.id} className="p-6 space-y-3">
-                       <div className="flex justify-between items-center">
-                          <p className="font-black text-xs uppercase text-black truncate w-40">{h.name}</p>
-                          <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${h.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                             {h.status}
-                          </span>
-                       </div>
-                       <div className="flex justify-between items-center">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">Tier: {h.subscriptionPlan || 'PRO'}</p>
-                          <p className="text-xs font-black text-blue-600">₵ {price.toLocaleString()}/mo</p>
-                       </div>
-                    </div>
-                )
-              })}
-              <div className="p-6 bg-slate-900">
-                 <Link href="/app-ceo/billing">
-                  <Button variant="outline" className="w-full bg-blue-600 text-white py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-black transition-all">
-                      Open Billing Manager
-                  </Button>
-                </Link>
-              </div>
            </div>
         </div>
       </div>
