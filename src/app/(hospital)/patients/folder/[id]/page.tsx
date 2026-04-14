@@ -155,9 +155,7 @@ export default function PatientFolderHub() {
 
   const localEncountersQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
-        collectionGroup(firestore, "encounters"),
-        where("hospitalId", "==", hospitalId),
-        where("patientId", "==", id),
+        collection(firestore, `hospitals/${hospitalId}/patients/${id}/encounters`),
         orderBy("createdAt", "desc")
     ) : null,
   [firestore, hospitalId, id]);
@@ -287,16 +285,16 @@ export default function PatientFolderHub() {
         )}
 
         {activeTab === 'NETWORK' && (
-           <div className="space-y-6">
-              <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-xl flex items-center gap-6 border-b-8 border-blue-900">
-                 <Globe className="animate-pulse" size={40} />
-                 <div>
+            <div className="space-y-6">
+                <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-xl flex items-center gap-6 border-b-8 border-blue-900">
+                    <Globe className="animate-pulse" size={40} />
+                    <div>
                     <h2 className="text-2xl font-black uppercase tracking-tighter">Unified <span className="text-blue-200 italic">Longitudinal Record</span></h2>
                     <p className="text-[10px] font-bold uppercase opacity-70">Sourced from the GamMed National Grid</p>
-                 </div>
-              </div>
-                {/* [Insert the getPatientHistory map logic we built in the previous turn] */}
-                 {authRequired ? (
+                    </div>
+                </div>
+
+                {authRequired ? (
                     <div className="bg-amber-100 border-2 border-dashed border-amber-200 p-10 rounded-[40px] text-center">
                         <ShieldAlert size={48} className="mx-auto text-amber-500 mb-4" />
                         <h3 className="text-xl font-black uppercase text-amber-900">Inter-Hospital Access Restricted</h3>
@@ -305,61 +303,61 @@ export default function PatientFolderHub() {
                             <strong> MyGamMed</strong> and authorize <strong>{userProfile?.hospitalName}</strong>.
                         </p>
                     </div>
-                  ) : isTimelineLoading ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-48 w-full rounded-3xl" />
-                      <Skeleton className="h-32 w-full rounded-3xl" />
+                ) : isTimelineLoading ? (
+                <div className="space-y-4">
+                    <Skeleton className="h-48 w-full rounded-3xl" />
+                    <Skeleton className="h-32 w-full rounded-3xl" />
+                </div>
+                ) : timelineActivities.length === 0 ? (
+                <div className="bg-white p-12 rounded-[40px] border-2 border-dashed border-slate-100 text-center">
+                    <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ClipboardList className="text-slate-300" />
                     </div>
-                  ) : timelineActivities.length === 0 ? (
-                    <div className="bg-white p-12 rounded-[40px] border-2 border-dashed border-slate-100 text-center">
-                       <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <ClipboardList className="text-slate-300" />
-                       </div>
-                       <p className="text-sm font-medium text-slate-400 italic">
-                          {errorState ? "Clinical history is synchronizing..." : "No clinical encounters recorded yet."}
-                       </p>
-                    </div>
-                  ) : (
-                    timelineActivities.map(activity => {
-                      if (activity.viewType === 'ENCOUNTER') {
-                        const isLocal = activity.hospitalId === userProfile?.hospitalId;
-                        return (
-                          <div key={activity.id} className={`p-6 rounded-[32px] border-4 shadow-sm space-y-4 transition-all ${isLocal ? 'border-blue-100 bg-white' : 'border-slate-900 bg-slate-50'}`}>
-                            <div className="flex justify-between items-start mb-4">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${isLocal ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'}`}>
-                                  {activity.hospitalName || 'External Facility'}
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-400">
-                                  {activity.date ? new Date(activity.date).toLocaleDateString('en-GB') : ''}
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-black text-blue-600 uppercase">Dr. {activity.providerName}</span>
+                    <p className="text-sm font-medium text-slate-400 italic">
+                        {errorState ? "Clinical history is synchronizing..." : "No clinical encounters recorded yet."}
+                    </p>
+                </div>
+                ) : (
+                timelineActivities.map(activity => {
+                    if (activity.viewType === 'ENCOUNTER') {
+                    const isLocal = activity.hospitalId === userProfile?.hospitalId;
+                    return (
+                        <div key={activity.id} className={`p-6 rounded-[32px] border-4 shadow-sm space-y-4 transition-all ${isLocal ? 'border-blue-100 bg-white' : 'border-slate-900 bg-slate-50'}`}>
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${isLocal ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'}`}>
+                                {activity.hospitalName || 'External Facility'}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400">
+                                {activity.date ? new Date(activity.date).toLocaleDateString('en-GB') : ''}
+                            </span>
                             </div>
-                            <div className="space-y-2">
-                              <p className="text-sm font-black text-black uppercase">Diagnosis: {activity.diagnosis || 'General Consultation'}</p>
-                              <p className="text-xs text-slate-600 leading-relaxed italic">"{activity.chiefComplaint || activity.hpi || 'No clinical notes.'}"</p>
+                            <span className="text-[10px] font-black text-blue-600 uppercase">Dr. {activity.providerName}</span>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-black text-black uppercase">Diagnosis: {activity.diagnosis || 'General Consultation'}</p>
+                            <p className="text-xs text-slate-600 leading-relaxed italic">"{activity.chiefComplaint || activity.hpi || 'No clinical notes.'}"</p>
+                        </div>
+                        {activity.prescription?.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
+                            <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Medications Ordered here:</p>
+                            <div className="flex flex-wrap gap-2">
+                                {activity.prescription.map((rx:any, i:any) => (
+                                <span key={i} className="bg-white border text-[10px] font-bold px-2 py-0.5 rounded-lg text-blue-800">
+                                    {rx.name} {rx.dosage || ''}
+                                </span>
+                                ))}
                             </div>
-                            {activity.prescription?.length > 0 && (
-                              <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
-                                <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Medications Ordered here:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {activity.prescription.map((rx:any, i:any) => (
-                                    <span key={i} className="bg-white border text-[10px] font-bold px-2 py-0.5 rounded-lg text-blue-800">
-                                      {rx.name} {rx.dosage || ''}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      }
-                      // ... Other activity types would go here ...
-                      return null;
-                    })
-                  )}
-           </div>
+                            </div>
+                        )}
+                        </div>
+                    )
+                    }
+                    // ... Other activity types would go here ...
+                    return null;
+                })
+                )}
+            </div>
         )}
 
         {activeTab === 'BILLING' && (
@@ -372,5 +370,3 @@ export default function PatientFolderHub() {
     </div>
   );
 }
-
-    

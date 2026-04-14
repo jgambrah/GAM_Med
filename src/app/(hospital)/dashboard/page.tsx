@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -32,13 +33,7 @@ export default function DirectorDashboard() {
   }, [firestore, hospitalId]);
   const { data: hospitalInfo, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
-  const staffQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, "users"), where("hospitalId", "==", hospitalId));
-  }, [firestore, hospitalId]);
-  const { data: staff, isLoading: isStaffLoading } = useCollection(staffQuery);
-
-  const isLoading = isUserLoading || isProfileLoading || isHospitalLoading || isStaffLoading;
+  const isLoading = isUserLoading || isProfileLoading || isHospitalLoading;
 
   if (isLoading) {
       return (
@@ -85,7 +80,7 @@ export default function DirectorDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Total Staff" value={staff?.length ?? 0} icon={<Users className="text-blue-600" />} />
+        <StatCard title="Total Staff" value={hospitalInfo?.staffCounter ?? 0} icon={<Users className="text-blue-600" />} />
         <StatCard title="Total Patients" value={hospitalInfo?.patientCounter ?? 0} icon={<Activity className="text-green-600" />} />
         <StatCard title="OPD Visits (Today)" value="0" icon={<ClipboardList className="text-orange-600" />} />
         <StatCard title="Revenue (GHS)" value="0.00" icon={<CreditCard className="text-purple-600" />} />
