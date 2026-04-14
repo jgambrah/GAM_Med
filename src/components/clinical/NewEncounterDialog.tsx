@@ -95,7 +95,7 @@ export function NewEncounterDialog({
   patientName,
 }: NewEncounterDialogProps) {
   const { id: patientDocIdFromParams } = useParams();
-  const patientId = propsPatientId || patientDocIdFromParams;
+  const patientId = propsPatientId || (patientDocIdFromParams as string);
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -127,10 +127,10 @@ export function NewEncounterDialog({
       'hospitals',
       hospitalId,
       'patients',
-      patientId as string
+      patientId
     );
   }, [firestore, hospitalId, patientId]);
-  const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+  const { data: patientData, isLoading: isPatientLoading } = useDoc(patientRef);
 
   const hospitalRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -246,9 +246,9 @@ export function NewEncounterDialog({
     setLoading(true);
 
     const payload = {
-      patientId: patientId, // This is the Firestore document ID
-      patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'N/A',
-      ghanaCardId: patient?.ghanaCardId || 'GHA-NOT-SET',
+      patientId: patientId,
+      patientName: patientName || `${patientData?.firstName} ${patientData?.lastName}`,
+      ghanaCardId: patientData?.ghanaCardId || 'GHA-NOT-SET',
       hospitalName: userProfile?.hospitalName || 'GamMed Facility',
       encounterType: values.encounterType || 'OPD Consultation',
       vitals: {
@@ -273,9 +273,9 @@ export function NewEncounterDialog({
       labOrders: labOrders || [],
       radiologyOrders: radiologyOrders || [],
     };
-
-    console.log('PATIENT ID BEING SENT:', patientId);
-    console.log('TYPE:', typeof patientId);
+    
+    console.log("PATIENT ID BEING SENT:", payload.patientId);
+    console.log("TYPE:", typeof payload.patientId);
 
     try {
       const functions = getFunctions(firebaseApp, 'us-central1');
@@ -285,15 +285,14 @@ export function NewEncounterDialog({
       if (result.data.success && result.data.encounterId) {
         toast({ title: 'EHR Record Committed' });
         if (isExternal) {
-          // GIVE THE CLOUD 1 SECOND TO "BREATHE"
           setTimeout(() => {
             router.push(`/doctor/external-print/${result.data.encounterId}`);
-            setOpen(false); // Close dialog after pushing
+            setOpen(false);
           }, 1000);
         } else {
-          setOpen(false); // If not external, just close
+          setOpen(false);
         }
-        form.reset(); // Reset form regardless
+        form.reset();
       } else {
         throw new Error(
           result.data.message ||

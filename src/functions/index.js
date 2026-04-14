@@ -57,31 +57,34 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-// 2. ROBUST ENCOUNTER CREATOR
+
+/**
+ * Creates a new clinical encounter and intelligently creates billing items based on insurance coverage.
+ */
 exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
   // Security Gate first
   if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
   
-  const hId = request.auth.token.hospitalId;
-  if (!hId) throw new HttpsError('unauthenticated', 'User not associated with a hospital.');
+  const hospitalId = request.auth.token.hospitalId;
+  if (!hospitalId) throw new HttpsError('unauthenticated', 'User not associated with a hospital.');
 
   const data = request.data;
+  const { patientId, ...restOfData } = data;
   
   try {
     const clean = (val) => (val === undefined || val === null ? "" : val);
 
-    if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
+    if (!patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
     
     // --- SMART LOOKUP LOGIC ---
-    let patientRef = db.collection('hospitals').doc(hId).collection('patients').doc(data.patientId);
+    let patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
     let patientDoc = await patientRef.get();
 
     if (!patientDoc.exists) {
       console.log("⚠️ ID lookup failed, attempting EHR search...");
-      // Fallback: Search the collection for the EHR Number
-      const ehrQuery = await db.collection('hospitals').doc(hId)
+      const ehrQuery = await db.collection('hospitals').doc(hospitalId)
         .collection('patients')
-        .where("ehrNumber", "==", data.patientId)
+        .where("ehrNumber", "==", patientId)
         .limit(1)
         .get();
         
@@ -89,65 +92,155 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         patientDoc = ehrQuery.docs[0];
         patientRef = patientDoc.ref;
       } else {
-        throw new HttpsError('not-found', 'CRITICAL: No patient record matches this ID or EHR Number.');
+        throw new HttpsError('not-found', `CRITICAL: No patient record matches this ID or EHR Number: ${patientId}`);
       }
     }
-    const patientData = patientDoc.data();
-    // --- END OF FIX ---
+    // --- END OF SMART LOOKUP ---
 
+    const patientData = patientDoc.data();
+    if (!patientData) throw new HttpsError('not-found', 'Patient data is empty.');
 
     const batch = db.batch();
     const encounterRef = db.collection("encounters").doc();
+    
+    const { 
+        patientName, vitals, encounterType, 
+        labOrders = [], radiologyOrders = [], 
+        items = [], 
+        isExternal,
+        ...restOfEncounterData 
+    } = restOfData;
 
-    const sanitizedVitals = data.vitals || {};
-    const encounterDoc = {
-      id: encounterRef.id,
-      patientId: data.patientId,
-      patientName: data.patientName || "N/A",
-      ghanaCardId: data.ghanaCardId || "N/A",
-      ehrNumber: patientData.ehrNumber,
-      hospitalId: hId,
-      hospitalName: data.hospitalName || "N/A",
-      providerUid: request.auth.uid,
-      providerName: request.auth.token.name || "Medical Officer",
-      providerRole: request.auth.token.role,
-      encounterType: data.encounterType || 'OPD Consultation',
-      vitals: {
-        bp: sanitizedVitals.bp || "",
-        temp: sanitizedVitals.temp || "",
-        pulse: sanitizedVitals.pulse || "",
-        respiration: sanitizedVitals.respiration || "",
-        weight: sanitizedVitals.weight || "",
-        height: sanitizedVitals.height || "",
-        bmi: sanitizedVitals.bmi || ""
-      },
-      chiefComplaint: clean(data.chiefComplaint),
-      hpi: clean(data.hpi),
-      diagnosis: clean(data.diagnosis),
-      isExternal: data.isExternal || false,
-      items: data.items || [],
-      prescription: data.items || [],
-      labOrders: data.labOrders || [],
-      radiologyOrders: data.radiologyOrders || [],
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    const finalItems = items || [];
+    const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
+
+    const createBillingItem = (item, type, qty = 1) => {
+        let billingType = 'CASH_PAYMENT';
+        let billPayerId = null;
+        let payerName = 'Cash Patient';
+
+        if (patientData.payerId && patientData.payerId !== 'CASH') {
+            billingType = 'INSURANCE_CLAIM';
+            billPayerId = patientData.payerId;
+            payerName = patientData.payerName;
+        }
+        
+        const billRef = billingItemsCollection.doc();
+        batch.set(billRef, {
+            patientId: patientDoc.id,
+            patientName: `${patientData.firstName} ${patientData.lastName}`,
+            hospitalId,
+            encounterId: encounterRef.id,
+            description: item.name,
+            category: type,
+            sku: item.sku || null,
+            unitPrice: item.price || 0,
+            qty,
+            total: (item.price || 0) * qty,
+            status: 'UNPAID',
+            billedBy: request.auth.uid,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            billingType,
+            payerId: billPayerId,
+            payerName
+        });
     };
     
-    batch.set(encounterRef, encounterDoc);
+    if (!isExternal && finalItems && finalItems.length > 0) {
+      for (const rxItem of finalItems) {
+        if (rxItem.sku) {
+            const productQuery = db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', '==', rxItem.sku).limit(1);
+            const productSnap = await productQuery.get();
+            if (!productSnap.empty) {
+                const productData = productSnap.docs[0].data();
+                const qty = rxItem.qty || 1;
+                createBillingItem(productData, 'PHARMACY', qty);
+            } else {
+                console.warn(`Product with SKU ${rxItem.sku} not found in catalog for billing.`);
+            }
+        }
+      }
+    }
+    
+    let hasPendingLabs = false;
+    let hasPendingScans = false;
 
-    batch.update(patientRef, {
-      status: 'Waiting for Assignment',
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
+    if (!isExternal) {
+        if (labOrders && labOrders.length > 0) {
+          hasPendingLabs = true;
+          for (const order of labOrders) {
+            const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
+            batch.set(orderRef, { ...order, orderId: orderRef.id, patientId: patientDoc.id, patientName: `${patientData.firstName} ${patientData.lastName}`, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+            createBillingItem(order, 'LABORATORY');
+          }
+        }
+      
+        if (radiologyOrders && radiologyOrders.length > 0) {
+          hasPendingScans = true;
+          for (const order of radiologyOrders) {
+            const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
+            batch.set(orderRef, { ...order, orderId: orderRef.id, patientId: patientDoc.id, patientName: `${patientData.firstName} ${patientData.lastName}`, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+            createBillingItem(order, 'IMAGING');
+          }
+        }
+    }
+
+    const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
+    const hospitalData = hospitalDoc.data();
+    const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
+    const userProfileData = userProfileSnap.data();
+
+    const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
+
+    batch.set(encounterRef, {
+        id: encounterRef.id,
+        patientId: patientDoc.id,
+        hospitalId,
+        patientName: `${patientData.firstName} ${patientData.lastName}`,
+        ehrNumber: patientData.ehrNumber,
+        type: encounterType,
+        hospitalName: hospitalData?.name,
+        ghanaCardId: patientData.ghanaCardId,
+        providerUid: request.auth.uid,
+        providerName: request.auth.token.name || 'Unknown Staff',
+        providerRole: request.auth.token.role || 'UNKNOWN',
+        doctorMDC: userProfileData?.licenseNumber || 'N/A',
+        vitals: fullVitals,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        items: finalItems,
+        prescription: finalItems,
+        labOrders: labOrders || [],
+        radiologyOrders: radiologyOrders || [],
+        hasPendingLabs,
+        hasPendingScans,
+        isExternal: isExternal || false,
+        ...restOfEncounterData,
+        chiefComplaint: clean(data.chiefComplaint),
+        hpi: clean(data.hpi),
+        diagnosis: clean(data.diagnosis),
     });
 
+    batch.update(patientRef, {
+        status: 'Waiting for Assignment',
+        lastVitals: fullVitals,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    if (!isExternal) {
+        const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
+        if (!serviceSnap.empty) {
+            createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
+        }
+    }
+    
     await batch.commit();
     return { success: true, encounterId: encounterRef.id };
 
-  } catch (error) {
-    console.error("FATAL: createEncounter", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
+  } catch(error) {
+      console.error("FATAL: createEncounter", error.code, error.message, error.stack);
+      throw new HttpsError('internal', error.message);
   }
 });
-
 
 /**
  * Onboards a new staff member.
