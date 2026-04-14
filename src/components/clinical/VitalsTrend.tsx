@@ -1,3 +1,4 @@
+
 'use client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Activity, Thermometer } from 'lucide-react';
@@ -5,13 +6,13 @@ import { Activity, Thermometer } from 'lucide-react';
 export default function VitalsTrend({ data }: { data: any[] }) {
   // We reverse the data to show Chronological order (Oldest to Newest)
   const chartData = [...data].reverse().map(enc => ({
-    date: enc.createdAt?.toDate()
-        ? new Date(enc.createdAt.toDate()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+    date: enc.createdAt
+        ? new Date(enc.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
         : 'Unknown Date',
-    Temp: enc.vitals?.temp ?? null,
-    Systolic: enc.vitals?.systolic ?? null,
-    Diastolic: enc.vitals?.diastolic ?? null,
-    Pulse: enc.vitals?.pulse ?? null,
+    Temp: enc.vitals?.temp ? parseFloat(enc.vitals.temp) : null,
+    Systolic: enc.vitals?.systolic ? parseInt(enc.vitals.systolic, 10) : null,
+    Diastolic: enc.vitals?.diastolic ? parseInt(enc.vitals.diastolic, 10) : null,
+    Pulse: enc.vitals?.pulse ? parseInt(enc.vitals.pulse, 10) : null,
   }));
 
   return (
