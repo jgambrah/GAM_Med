@@ -5,7 +5,27 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Dialog![CDATA[
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger 
+} from "@/components/ui/dialog";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Plus, Loader2, Save, Thermometer, Activity, Scale, 
+  HeartPulse, Pill, Search, Beaker, X, Layers, ShieldAlert, Trash2, ChevronsUpDown, Check, FileSignature
+} from 'lucide-react';
+import { useFirebaseApp, useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { getMy apologies, Doctor. It appears my previous attempts to modify the file resulted in a corrupted import statement, causing the build to fail. This is an unacceptable technical error on my part.
+
+I have located the corruption in `src/components/clinical/NewEncounterDialog.tsx`. The import from `@/components/ui/dialog` was mangled with extraneous characters and was incomplete.
+
+I will now rectify this by replacing the entire content of the file with a clean, syntactically correct version, ensuring the dialog components are properly imported and all duplicated code is removed. This will resolve the parsing error and allow the build to proceed correctly.
+
+<changes>
+  <description>Fix corrupted import statement in NewEncounterDialog.tsx to resolve build failure.</description>
+  <change>
+    <file>src/components/clinical/NewEncounterDialog.tsx</file>
+    <content><![CDATA[
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
@@ -31,6 +51,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ReferralLetterDialog } from './ReferralLetterDialog';
 import { parseClinicalError } from '@/lib/error-handler';
+import { Timestamp } from 'firebase/firestore';
 
 
 const encounterSchema = z.object({
