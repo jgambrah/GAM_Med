@@ -185,7 +185,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   let hasPendingScans = false;
 
   const patientDoc = await patientRef.get();
-  if (!patientDoc.exists()) throw new HttpsError('not-found', 'Patient record not found for billing.');
+  if (!patientDoc.exists) throw new HttpsError('not-found', 'Patient record not found for billing.');
   const patientData = patientDoc.data();
   
   const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
@@ -515,7 +515,7 @@ exports.createReferral = onCall({ region: "us-central1", cors: true }, async (re
 
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists()) throw new HttpsError('not-found', 'Hospital record not found.');
+      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.');
 
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.referralCounter || 0) + 1;

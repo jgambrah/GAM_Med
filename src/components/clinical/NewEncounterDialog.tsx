@@ -155,6 +155,9 @@ export function NewEncounterDialog({ patientId: propsPatientId, hospitalId, pati
     }
     setLoading(true);
 
+    console.log("PATIENT ID BEING SENT:", patientId);
+    console.log("TYPE:", typeof patientId);
+
     const payload = {
       patientId: patientId, // Ensure this is the actual document ID
       patientName: patient ? `${patient.firstName} ${patient.lastName}` : "N/A",
