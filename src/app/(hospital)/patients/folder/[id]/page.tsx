@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -246,6 +247,7 @@ export default function PatientFolderHub() {
            label="Hospital History"
            icon={<History size={16}/>}
          />
+         {/* THE MISSING TAP */}
          <TabButton
            active={activeTab === 'NETWORK'}
            onClick={() => setActiveTab('NETWORK')}
@@ -264,11 +266,64 @@ export default function PatientFolderHub() {
       {/* --- 4. CONDITIONAL CONTENT RENDER --- */}
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-3">
-                <VitalsTrend data={allEncounters} />
-              </div>
-           </div>
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex items-center gap-2 px-2">
+               <Activity className="text-blue-600" size={18} />
+               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Current Vital Snapshot</h3>
+            </div>
+
+            {/* --- THE VITALS GRID --- */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <VitalDisplay 
+                label="Blood Pressure" 
+                value={patient?.lastVitals?.bp || "0/0"} 
+                unit="mmHg" 
+                color="text-red-600" 
+              />
+              <VitalDisplay 
+                label="Body Temp" 
+                value={patient?.lastVitals?.temp || "0"} 
+                unit="°C" 
+                color="text-orange-600" 
+              />
+              <VitalDisplay 
+                label="Pulse Rate" 
+                value={patient?.lastVitals?.pulse || "0"} 
+                unit="bpm" 
+                color="text-blue-600" 
+              />
+              <VitalDisplay 
+                label="Respiration" 
+                value={patient?.lastVitals?.respiration || "0"} 
+                unit="bpm" 
+                color="text-purple-600" 
+              />
+              <VitalDisplay 
+                label="Oxygen (SpO2)" 
+                value={patient?.lastVitals?.spo2 || "0"} 
+                unit="%" 
+                color={Number(patient?.lastVitals?.spo2) < 90 ? "text-red-500" : "text-green-600"} 
+              />
+            </div>
+
+            {/* BMI & WEIGHT SECTION */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+               <div className="bg-white p-6 rounded-[32px] border shadow-sm flex justify-between items-center">
+                  <div>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Weight & Height</p>
+                     <p className="text-lg font-black text-black mt-1">
+                        {patient?.lastVitals?.weight || "N/A"} kg / {patient?.lastVitals?.height || "N/A"} cm
+                     </p>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calculated BMI</p>
+                     <p className={`text-2xl font-black italic ${Number(patient?.lastVitals?.bmi) > 30 ? 'text-red-600' : 'text-blue-600'}`}>
+                        {patient?.lastVitals?.bmi || "0.0"}
+                     </p>
+                  </div>
+               </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'LOCAL' && (
@@ -366,6 +421,18 @@ export default function PatientFolderHub() {
            </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// --- SUB-COMPONENT FOR CLEANER CODE ---
+function VitalDisplay({ label, value, unit, color }: any) {
+  return (
+    <div className="bg-white p-6 rounded-[32px] border-2 border-slate-50 shadow-sm flex flex-col items-center justify-center text-center hover:border-blue-200 transition-all">
+       <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-2">{label}</p>
+       <p className={`text-2xl font-black italic tracking-tighter ${color}`}>
+          {value} <span className="text-[10px] text-slate-300 not-italic font-bold">{unit}</span>
+       </p>
     </div>
   );
 }
