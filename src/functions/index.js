@@ -72,24 +72,29 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
 
     if (!data.patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
     
-    // --- THE UNIVERSAL BACKEND LOOKUP ---
-    // 1. TRY ROOT COLLECTION FIRST (The New Standard)
-    let patientRef = db.collection("patients").doc(data.patientId);
+    // --- SMART LOOKUP LOGIC ---
+    let patientRef = db.collection('hospitals').doc(hId).collection('patients').doc(data.patientId);
     let patientDoc = await patientRef.get();
 
-    // 2. FALLBACK: If not found, try the Hospital Sub-collection (Legacy/Internal)
     if (!patientDoc.exists) {
-      console.log("🔍 Root lookup failed, trying sub-collection...");
-      patientRef = db.collection("hospitals").doc(hId).collection("patients").doc(data.patientId);
-      patientDoc = await patientRef.get();
-    }
-
-    // 3. FINAL VERIFICATION
-    if (!patientDoc.exists) {
-      throw new Error(`CRITICAL: Patient document [${data.patientId}] not found in any clinical ledger.`);
+      console.log("⚠️ ID lookup failed, attempting EHR search...");
+      // Fallback: Search the collection for the EHR Number
+      const ehrQuery = await db.collection('hospitals').doc(hId)
+        .collection('patients')
+        .where("ehrNumber", "==", data.patientId)
+        .limit(1)
+        .get();
+        
+      if (!ehrQuery.empty) {
+        patientDoc = ehrQuery.docs[0];
+        patientRef = patientDoc.ref;
+      } else {
+        throw new HttpsError('not-found', 'CRITICAL: No patient record matches this ID or EHR Number.');
+      }
     }
     const patientData = patientDoc.data();
     // --- END OF FIX ---
+
 
     const batch = db.batch();
     const encounterRef = db.collection("encounters").doc();

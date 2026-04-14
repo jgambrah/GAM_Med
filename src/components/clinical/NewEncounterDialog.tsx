@@ -155,37 +155,38 @@ export function NewEncounterDialog({ patientId: propsPatientId, hospitalId, pati
     }
     setLoading(true);
 
-    console.log("PATIENT ID BEING SENT:", patientId);
-    console.log("TYPE:", typeof patientId);
-
     const payload = {
-      patientId: patientId, // Ensure this is the actual document ID
-      patientName: patient ? `${patient.firstName} ${patient.lastName}` : "N/A",
-      ghanaCardId: patient?.ghanaCardId || "N/A",
-      hospitalName: hospital?.name || "GamMed Facility",
-      encounterType: values.encounterType || 'OPD Consultation',
-      vitals: {
-          systolic: values.vitals?.systolic || "",
-          diastolic: values.vitals?.diastolic || "",
-          bp: `${values.vitals?.systolic || '0'}/${values.vitals?.diastolic || '0'}`,
-          temp: values.vitals?.temp || "",
-          pulse: values.vitals?.pulse || "",
-          respiration: values.vitals?.respiration || "",
-          weight: values.vitals?.weight || "",
-          height: values.vitals?.height || "",
-          bmi: values.vitals?.bmi || "",
-          spo2: values.vitals?.spo2 || ""
-      },
-      chiefComplaint: values.chiefComplaint || '',
-      hpi: values.hpi || '',
-      diagnosis: values.diagnosis || "",
-      isExternal: isExternal,
-      items: items || [],
-      labOrders: labOrders || [],
-      radiologyOrders: radiologyOrders || [],
+        patientId: patientId, // This is the Firestore document ID
+        patientName: patient ? `${patient.firstName} ${patient.lastName}` : "N/A",
+        ghanaCardId: patient?.ghanaCardId || "GHA-NOT-SET",
+        hospitalName: userProfile?.hospitalName || "GamMed Facility",
+        encounterType: values.encounterType || 'OPD Consultation',
+        vitals: {
+            systolic: values.vitals?.systolic || "",
+            diastolic: values.vitals?.diastolic || "",
+            bp: `${values.vitals?.systolic || '0'}/${values.vitals?.diastolic || '0'}`,
+            temp: values.vitals?.temp || "",
+            pulse: values.vitals?.pulse || "",
+            respiration: values.vitals?.respiration || "",
+            weight: values.vitals?.weight || "",
+            height: values.vitals?.height || "",
+            bmi: values.vitals?.bmi || "",
+            spo2: values.vitals?.spo2 || ""
+        },
+        chiefComplaint: values.chiefComplaint || '',
+        hpi: values.hpi || '',
+        diagnosis: values.diagnosis || "",
+        isExternal: isExternal,
+        items: items || [],
+        labOrders: labOrders || [],
+        radiologyOrders: radiologyOrders || [],
     };
     
+    // DEBUG LOG
     console.log("🚀 SENDING TO CLOUD:", payload);
+    console.log("PATIENT ID BEING SENT:", payload.patientId);
+    console.log("TYPE:", typeof payload.patientId);
+
 
     try {
       const functions = getFunctions(firebaseApp, 'us-central1');
