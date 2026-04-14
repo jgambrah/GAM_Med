@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
@@ -87,12 +86,14 @@ interface NewEncounterDialogProps {
   patientId: string;
   hospitalId: string;
   patientName: string;
+  onSuccess?: () => void;
 }
 
 export function NewEncounterDialog({
   patientId: propsPatientId,
   hospitalId,
   patientName,
+  onSuccess
 }: NewEncounterDialogProps) {
   const { id: patientDocIdFromParams } = useParams();
   const patientId = propsPatientId || (patientDocIdFromParams as string);
@@ -284,6 +285,7 @@ export function NewEncounterDialog({
 
       if (result.data.success && result.data.encounterId) {
         toast({ title: 'EHR Record Committed' });
+        onSuccess?.(); // Call the success callback to trigger a refresh
         if (isExternal) {
           setTimeout(() => {
             router.push(`/doctor/external-print/${result.data.encounterId}`);
