@@ -26,11 +26,11 @@ import { type Encounter } from '@/types/encounter';
 // THE SUB-COMPONENT FOR THE TAB
 function TabButton({ label, icon, active, onClick, color = "black" }: any) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={`flex items-center gap-3 px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${
-        active 
-        ? (color === 'blue' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-white shadow-lg') 
+        active
+        ? (color === 'blue' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-white shadow-lg')
         : 'text-slate-400 hover:bg-slate-50'
       }`}
     >
@@ -68,23 +68,23 @@ function PatientSummaryCard({ summary, isLoading }: { summary: any, isLoading: b
             </div>
             <ul className="space-y-2 text-sm">
                 <li className="flex justify-between">
-                    <span className="text-muted-foreground">Encounters:</span> 
+                    <span className="text-muted-foreground">Encounters:</span>
                     <span className="font-bold">{summary.encounterCount} on record</span>
                 </li>
                 <li className="flex justify-between">
-                    <span className="text-muted-foreground">Top Complaints:</span> 
+                    <span className="text-muted-foreground">Top Complaints:</span>
                     <span className="font-bold">{summary.complaints.join(', ') || 'N/A'}</span>
                 </li>
                 <li className="flex justify-between">
-                    <span className="text-muted-foreground">Latest Diagnosis:</span> 
+                    <span className="text-muted-foreground">Latest Diagnosis:</span>
                     <span className="font-bold">{summary.latestDiagnosis}</span>
                 </li>
                 <li className="flex justify-between">
-                    <span className="text-muted-foreground">Avg. Temp:</span> 
+                    <span className="text-muted-foreground">Avg. Temp:</span>
                     <span className="font-bold">{summary.avgTemp ? `${summary.avgTemp}°C` : 'N/A'}</span>
                 </li>
                  <li className="flex justify-between items-center bg-amber-50 p-2 rounded-lg mt-2">
-                    <span className="text-amber-700 font-bold">Risk Flag:</span> 
+                    <span className="text-amber-700 font-bold">Risk Flag:</span>
                     <span className="font-black text-amber-900">{summary.risk}</span>
                 </li>
             </ul>
@@ -149,7 +149,7 @@ export default function PatientFolderHub() {
                 chiefComplaint: enc.chiefComplaint || enc.complaint || '',
                 diagnosis: enc.diagnosis || enc.assessment || '',
                 vitals: enc.vitals || {},
-                prescription: enc.prescription || enc.items || [],
+                prescription: enc.prescription || enc.medications || [],
                 labOrders: enc.labOrders || [],
                 radiologyOrders: enc.radiologyOrders || [],
                 providerName: enc.providerName,
@@ -170,8 +170,8 @@ export default function PatientFolderHub() {
           throw new Error(result.data.message || "An unknown error occurred while fetching patient history.");
       }
     } catch (error: any) {
-      const friendlyError = parseClinicalError(error);
-      setErrorState(friendlyError);
+      const friendlyMessage = parseClinicalError(error);
+      setErrorState(friendlyMessage);
       console.error("Clinical Bridge Handshake Failed:", error);
     } finally {
       setAreEncountersLoading(false);
@@ -185,6 +185,59 @@ export default function PatientFolderHub() {
       setAreEncountersLoading(false);
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
+  
+  const generateClinicalAlerts = (encounters: any[]) => {
+    if (!encounters || encounters.length === 0) return [];
+
+    const alerts: string[] = [];
+    const recent = encounters.slice(0, 5);
+
+    const bpReadings = recent
+      .map(e => e.vitals?.bp)
+      .filter(Boolean);
+
+    const temps = recent
+      .map(e => Number(e.vitals?.temp))
+      .filter(t => !isNaN(t));
+
+    const spo2s = recent
+      .map(e => Number(e.vitals?.spo2))
+      .filter(s => !isNaN(s));
+
+    const pulses = recent
+      .map(e => Number(e.vitals?.pulse))
+      .filter(p => !isNaN(p));
+
+    // 🔴 Hypertension check
+    const highBPCount = bpReadings.filter(bp => {
+      const [sys] = bp.split('/').map(Number);
+      return sys >= 140;
+    }).length;
+
+    if (highBPCount >= 2) {
+      alerts.push("⚠ Possible Hypertension (Repeated high BP)");
+    }
+
+    // 🔴 Fever check
+    const highTemp = temps.some(t => t > 37.5);
+    if (highTemp) {
+      alerts.push("⚠ Fever detected");
+    }
+
+    // 🔴 Oxygen check
+    const lowSpo2 = spo2s.some(s => s < 92);
+    if (lowSpo2) {
+      alerts.push("⚠ Low Oxygen Saturation");
+    }
+
+    // 🔴 Pulse check
+    const highPulse = pulses.some(p => p > 100);
+    if (highPulse) {
+      alerts.push("⚠ Tachycardia (High Pulse)");
+    }
+
+    return alerts;
+  };
 
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
@@ -253,7 +306,7 @@ export default function PatientFolderHub() {
     const diagnoses = recent.map(e => e.diagnosis).filter(Boolean);
     const temps = recent.map(e => Number(e.vitals?.temp)).filter(t => t && !isNaN(t));
     const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
-    
+
     let risk = "Low";
     if (avgTemp && Number(avgTemp) > 37.5) {
       risk = "Possible infection";
@@ -269,6 +322,11 @@ export default function PatientFolderHub() {
   };
 
   const patientSummary = useMemo(() => generatePatientSummary(allEncounters), [allEncounters]);
+  
+  const clinicalAlerts = useMemo(() => {
+    return generateClinicalAlerts(allEncounters);
+  }, [allEncounters]);
+
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
@@ -320,6 +378,20 @@ export default function PatientFolderHub() {
                 </div>
             </div>
         )}
+
+      {clinicalAlerts.length > 0 && (
+        <div className="bg-red-50 border-2 border-red-200 p-6 rounded-[32px] space-y-2 animate-in fade-in duration-300">
+            <h3 className="text-xs font-black uppercase text-red-600">
+            Clinical Alerts
+            </h3>
+
+            {clinicalAlerts.map((alert, index) => (
+            <p key={index} className="text-sm font-bold text-red-700">
+                {alert}
+            </p>
+            ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton
