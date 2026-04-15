@@ -25,12 +25,15 @@ const ClinicalAssistantInputSchema = z.object({
 });
 export type ClinicalAssistantInput = z.infer<typeof ClinicalAssistantInputSchema>;
 
+// STEP 1: New stricter JSON output schema
 const ClinicalAssistantOutputSchema = z.object({
     summary: z.string().describe("A concise clinical summary of the patient's recent history."),
-    riskLevel: z.string().describe("The assessed risk level: Low, Medium, High, or Critical."),
+    riskLevel: z.enum(["Low", "Medium", "High", "Critical"]).describe("The assessed risk level."),
     possibleConditions: z.array(z.string()).describe("A list of possible differential diagnoses based on the data."),
-    keyConcerns: z.array(z.string()).describe("A bulleted list of the most important clinical concerns."),
+    keyFindings: z.array(z.string()).describe("A bulleted list of the most important clinical findings from the data."),
+    concerns: z.array(z.string()).describe("A bulleted list of potential clinical concerns or risks."),
     recommendations: z.array(z.string()).describe("A list of recommended next steps for the clinician."),
+    dataQualityFlags: z.array(z.string()).describe("A list of potential data quality issues, like 'POSSIBLE_SENSOR_ERROR_OR_DATA_ENTRY_ERROR' for SpO2 < 50."),
 });
 export type ClinicalAssistantOutput = z.infer<typeof ClinicalAssistantOutputSchema>;
 
@@ -38,22 +41,17 @@ export async function askClinicalAssistant(input: ClinicalAssistantInput): Promi
   return clinicalAssistantFlow(input);
 }
 
-const systemInstruction = `You are an expert clinical decision support system integrated into a hospital EHR in Ghana.
+// STEP 1: Stricter system prompt
+const systemInstruction = `You are a hospital-grade Clinical Decision Support AI.
 
-Analyze the provided PATIENT_CONTEXT, which contains recent clinical encounters.
+CRITICAL RULES:
+- ONLY use the provided patient data.
+- DO NOT assume missing values. If data is missing, explicitly say "Not available" in your summary.
+- DO NOT fabricate diagnoses or vitals.
+- If a value looks clinically impossible (e.g., SpO2 < 50%), flag it in the "dataQualityFlags" array as 'POSSIBLE_SENSOR_OR_DATA_ENTRY_ERROR'.
+- Your entire output MUST be a single, valid JSON object that conforms to the provided schema. Do not wrap it in markdown or add any extra text.
 
-Based *only* on the provided data, you must:
-1.  **Clinical Summary**: Write a concise, professional summary of the patient's recent history.
-2.  **Possible Conditions**: List the top 2-3 differential diagnoses.
-3.  **Risk Level**: Assign a risk level: Low, Medium, High, or Critical.
-4.  **Key Clinical Concerns**: Identify the most pressing clinical issues.
-5.  **Recommended Next Steps**: Suggest immediate, actionable steps for the doctor (e.g., "Repeat BP," "Order Chest X-Ray," "Consider specialist referral").
-
-CONSTRAINTS:
-- Output *must* be in the specified JSON format.
-- Do not invent data. If data is missing, state it in your summary.
-- Be conservative. Focus on decision support, not making a final, definitive diagnosis.
-- Do not suggest specific drug prescriptions.
+You will answer the user's query based on the provided context. First, analyze the patient data to provide a structured clinical assessment, then use that assessment to answer the user's specific question.
 `;
 
 const clinicalAssistantFlow = ai.defineFlow(
@@ -63,22 +61,29 @@ const clinicalAssistantFlow = ai.defineFlow(
     outputSchema: ClinicalAssistantOutputSchema,
   },
   async (input) => {
+    // STEP 3: Controlled temperature
     const { output } = await ai.generate({
+      model: ai.model('gemini-1.5-pro'),
       system: systemInstruction,
+      history: input.history,
       prompt: `
         PATIENT_CONTEXT:
         ${input.patientContext}
 
         ---
-        USER_QUERY (if any):
+        USER_QUERY:
         ${input.prompt}
       `,
       output: { schema: ClinicalAssistantOutputSchema },
+      config: {
+        temperature: 0.2,
+      },
     });
     
     if (!output) {
-      throw new Error('The AI failed to generate a response.');
+      throw new Error('AI output failed validation or was empty.');
     }
+
     return output;
   }
 );

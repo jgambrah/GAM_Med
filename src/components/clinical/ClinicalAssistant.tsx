@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { doc, collection, query, where, orderBy } from 'firebase/firestore';
@@ -48,12 +48,31 @@ export function ClinicalAssistant() {
   }, [firestore, patientId, userProfile?.hospitalId]);
   const { data: allEncounters } = useCollection<Encounter>(encountersQuery);
 
+  // STEP 4: Clean data before sending
+  const cleanEncounters = useMemo(() => {
+    if (!allEncounters) return [];
+    return allEncounters
+      .filter(e => e && (e.vitals || e.diagnosis || e.chiefComplaint))
+      .map(e => ({
+        ...e,
+        vitals: {
+          bp: e.vitals?.bp || null,
+          temp: Number(e.vitals?.temp) || null,
+          pulse: Number(e.vitals?.pulse) || null,
+          respiration: Number(e.vitals?.respiration) || null,
+          spo2: Number(e.vitals?.spo2) || null,
+        }
+      }));
+  }, [allEncounters]);
+
   const formatResponse = (output: ClinicalAssistantOutput): string => {
     let response = `${output.summary}\n\n`;
     if (output.riskLevel) response += `**Risk Level:** ${output.riskLevel}\n\n`;
     if (output.possibleConditions?.length > 0) response += `**Possible Conditions:**\n- ${output.possibleConditions.join('\n- ')}\n\n`;
-    if (output.keyConcerns?.length > 0) response += `**Key Concerns:**\n- ${output.keyConcerns.join('\n- ')}\n\n`;
-    if (output.recommendations?.length > 0) response += `**Recommendations:**\n- ${output.recommendations.join('\n- ')}`;
+    if (output.keyFindings?.length > 0) response += `**Key Findings:**\n- ${output.keyFindings.join('\n- ')}\n\n`;
+    if (output.concerns?.length > 0) response += `**Concerns:**\n- ${output.concerns.join('\n- ')}\n\n`;
+    if (output.recommendations?.length > 0) response += `**Recommendations:**\n- ${output.recommendations.join('\n- ')}\n\n`;
+    if (output.dataQualityFlags?.length > 0) response += `**Data Quality Flags:**\n- ${output.dataQualityFlags.join('\n- ')}`;
     return response;
   };
 
@@ -75,7 +94,7 @@ export function ClinicalAssistant() {
 
       const aiInput: ClinicalAssistantInput = {
         prompt: input,
-        patientContext: JSON.stringify(allEncounters.slice(0, 5)),
+        patientContext: JSON.stringify(cleanEncounters.slice(0, 5)), // Use cleaned data
         userRole: userProfile.role || 'Clinician',
         fullName: userProfile.fullName || 'Doctor',
         hospitalId: userProfile.hospitalId || '',
