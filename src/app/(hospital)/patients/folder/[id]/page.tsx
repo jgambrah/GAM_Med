@@ -23,6 +23,125 @@ import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
 
+const calculateRiskScore = (encounters: any[]) => {
+  if (!encounters?.length) return 0;
+
+  let score = 0;
+
+  const recent = encounters.slice(0, 10);
+
+  for (const e of recent) {
+    const temp = Number(e.vitals?.temp);
+    const spo2 = Number(e.vitals?.spo2);
+    const sys = e.vitals?.bp?.split("/")[0];
+
+    if (temp > 38) score += 2;
+    if (spo2 && spo2 < 92) score += 3;
+    if (sys && Number(sys) > 140) score += 2;
+  }
+
+  return Math.min(score, 10); // cap at 10
+};
+
+const generateClinicalReasoning = (encounters: any[]) => {
+  if (!encounters?.length) return "No sufficient data for reasoning.";
+
+  const diagnoses = encounters.map(e => e.diagnosis).filter(Boolean);
+
+  const freq: Record<string, number> = {};
+
+  diagnoses.forEach(d => {
+    const key = d.toLowerCase();
+    freq[key] = (freq[key] || 0) + 1;
+  });
+
+  const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+
+  if (top && top[1] >= 3) {
+    return `Most likely recurrent condition: ${top[0]}. Consider chronic or unresolved disease process.`;
+  }
+
+  return "No dominant diagnostic pattern identified.";
+};
+
+const generateClinicalRecommendation = (riskScore: number) => {
+  if (riskScore >= 7) {
+    return [
+      "Immediate clinical review required",
+      "Consider admission or escalation",
+      "Continuous vital monitoring recommended"
+    ];
+  }
+
+  if (riskScore >= 4) {
+    return [
+      "Schedule follow-up within 48–72 hours",
+      "Monitor vitals closely",
+      "Consider additional diagnostic tests"
+    ];
+  }
+
+  return [
+    "Routine outpatient follow-up",
+    "Continue current management"
+  ];
+};
+
+const generateClinicalNarrative = (patient: any, encounters: any[]) => {
+    if (!encounters || encounters.length === 0) {
+      return "No clinical history available to generate narrative.";
+    }
+  
+    const recent = encounters.slice(0, 5);
+  
+    const name = patient?.firstName || "The patient";
+    const age = patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : "";
+  
+    const complaints = recent
+      .map(e => e.chiefComplaint)
+      .filter(Boolean);
+  
+    const diagnoses = recent
+      .map(e => e.diagnosis)
+      .filter(Boolean);
+  
+    const temps = recent
+      .map(e => Number(e.vitals?.temp))
+      .filter(t => !isNaN(t));
+  
+    const avgTemp =
+      temps.length > 0
+        ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
+        : null;
+  
+    const mainComplaint = complaints[0] || "general illness";
+    const mainDiagnosis = diagnoses[0] || "under evaluation";
+  
+    return `
+CLINICAL SUMMARY:
+
+${name}${age ? `, ${age} years old` : ""}, presents with ${mainComplaint}. 
+Over the last ${recent.length} encounter(s), the patient has shown recurrent clinical presentations.
+
+Primary working diagnosis: ${mainDiagnosis}.
+
+${avgTemp ? `Average recorded temperature: ${avgTemp}°C indicating possible febrile pattern.` : ""}
+
+Clinical impression suggests the need for further evaluation and monitoring.
+  `.trim();
+};
+
+const aiClinicalEngine = (patient: any, encounters: any[]) => {
+  const riskScore = calculateRiskScore(encounters);
+
+  return {
+    summary: generateClinicalNarrative(patient, encounters),
+    riskScore,
+    reasoning: generateClinicalReasoning(encounters),
+    recommendations: generateClinicalRecommendation(riskScore)
+  };
+};
+
 // THE SUB-COMPONENT FOR THE TAB
 function TabButton({ label, icon, active, onClick, color = "black" }: any) {
   return (
@@ -46,50 +165,6 @@ function MiniVital({ label, value, unit }: any) {
        <p className="text-sm font-black text-black">{value || '--'}<span className="text-[8px] ml-0.5 opacity-40">{unit}</span></p>
     </div>
   );
-}
-
-function PatientSummaryCard({ summary, isLoading }: { summary: any, isLoading: boolean }) {
-    if (isLoading) {
-        return <Skeleton className="h-36 w-full rounded-[32px]" />;
-    }
-    if (typeof summary === 'string') {
-        return (
-            <div className="bg-white p-6 rounded-[32px] border shadow-sm flex items-center gap-4">
-                <BrainCircuit className="text-primary" size={24} />
-                <p className="text-sm font-medium text-muted-foreground">{summary}</p>
-            </div>
-        )
-    }
-    return (
-        <div className="bg-white p-6 rounded-[32px] border shadow-sm">
-            <div className="flex items-center gap-3 mb-4 border-b pb-3">
-                <BrainCircuit className="text-primary" size={20} />
-                <h3 className="text-sm font-black uppercase tracking-widest text-foreground">AI Clinical Summary</h3>
-            </div>
-            <ul className="space-y-2 text-sm">
-                <li className="flex justify-between">
-                    <span className="text-muted-foreground">Encounters:</span>
-                    <span className="font-bold">{summary.encounterCount} on record</span>
-                </li>
-                <li className="flex justify-between">
-                    <span className="text-muted-foreground">Top Complaints:</span>
-                    <span className="font-bold">{summary.complaints.join(', ') || 'N/A'}</span>
-                </li>
-                <li className="flex justify-between">
-                    <span className="text-muted-foreground">Latest Diagnosis:</span>
-                    <span className="font-bold">{summary.latestDiagnosis}</span>
-                </li>
-                <li className="flex justify-between">
-                    <span className="text-muted-foreground">Avg. Temp:</span>
-                    <span className="font-bold">{summary.avgTemp ? `${summary.avgTemp}°C` : 'N/A'}</span>
-                </li>
-                 <li className="flex justify-between items-center bg-amber-50 p-2 rounded-lg mt-2">
-                    <span className="text-amber-700 font-bold">Risk Flag:</span>
-                    <span className="font-black text-amber-900">{summary.risk}</span>
-                </li>
-            </ul>
-        </div>
-    )
 }
 
 export default function PatientFolderHub() {
@@ -187,179 +262,6 @@ export default function PatientFolderHub() {
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
   
-  const generateClinicalAlerts = (encounters: any[]) => {
-    if (!encounters || encounters.length === 0) return [];
-
-    const alerts: string[] = [];
-    const recent = encounters.slice(0, 5);
-
-    const bpReadings = recent
-      .map(e => e.vitals?.bp)
-      .filter(Boolean);
-
-    const temps = recent
-      .map(e => Number(e.vitals?.temp))
-      .filter(t => !isNaN(t));
-
-    const spo2s = recent
-      .map(e => Number(e.vitals?.spo2))
-      .filter(s => !isNaN(s));
-
-    const pulses = recent
-      .map(e => Number(e.vitals?.pulse))
-      .filter(p => !isNaN(p));
-
-    // 🔴 Hypertension check
-    const highBPCount = bpReadings.filter(bp => {
-      const [sys] = bp.split('/').map(Number);
-      return sys >= 140;
-    }).length;
-
-    if (highBPCount >= 2) {
-      alerts.push("⚠ Possible Hypertension (Repeated high BP)");
-    }
-
-    // 🔴 Fever check
-    const highTemp = temps.some(t => t > 37.5);
-    if (highTemp) {
-      alerts.push("⚠ Fever detected");
-    }
-
-    // 🔴 Oxygen check
-    const lowSpo2 = spo2s.some(s => s < 92);
-    if (lowSpo2) {
-      alerts.push("⚠ Low Oxygen Saturation");
-    }
-
-    // 🔴 Pulse check
-    const highPulse = pulses.some(p => p > 100);
-    if (highPulse) {
-      alerts.push("⚠ Tachycardia (High Pulse)");
-    }
-
-    return alerts;
-  };
-  
-  const generateClinicalInsights = (encounters: any[]) => {
-    if (!encounters || encounters.length < 2) return [];
-  
-    const insights: string[] = [];
-  
-    const recent = encounters.slice(0, 10);
-  
-    // 🔍 1. Hypertension Risk (trend-based)
-    const highBPCount = recent.filter(e => {
-      const bp = e.vitals?.bp;
-      if (!bp) return false;
-      const [sys] = bp.split('/').map(Number);
-      return sys >= 140;
-    }).length;
-  
-    if (highBPCount >= 3) {
-      insights.push("⚠ Patient at risk of Chronic Hypertension");
-    }
-  
-    // 🔍 2. Recurrent Diagnosis Pattern
-    const diagnoses = recent
-      .map(e => e.diagnosis?.toLowerCase())
-      .filter(Boolean);
-  
-    const diagnosisCount: Record<string, number> = {};
-  
-    diagnoses.forEach(d => {
-      diagnosisCount[d] = (diagnosisCount[d] || 0) + 1;
-    });
-  
-    Object.entries(diagnosisCount).forEach(([diag, count]) => {
-      if (count >= 3) {
-        insights.push(`⚠ Recurrent condition detected: ${diag}`);
-      }
-    });
-  
-    // 🔍 3. Frequent Visits (utilization risk)
-    if (recent.length >= 5) {
-      insights.push("⚠ High healthcare utilization (frequent visits)");
-    }
-  
-    // 🔍 4. Fever Trend
-    const feverCount = recent.filter(e => Number(e.vitals?.temp) > 37.5).length;
-  
-    if (feverCount >= 3) {
-      insights.push("⚠ Recurrent fever pattern detected");
-    }
-  
-    return insights;
-  };
-
-  const generatePatientSummary = (encounters: Encounter[]) => {
-    if (!encounters || encounters.length === 0) {
-      return "No clinical history available.";
-    }
-
-    const recent = encounters.slice(0, 5);
-    const complaints = recent.map(e => e.chiefComplaint).filter(Boolean);
-    const diagnoses = recent.map(e => e.diagnosis).filter(Boolean);
-    const temps = recent.map(e => Number(e.vitals?.temp)).filter(t => t && !isNaN(t));
-    const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
-
-    let risk = "Low";
-    if (avgTemp && Number(avgTemp) > 37.5) {
-      risk = "Possible infection";
-    }
-
-    return {
-      encounterCount: encounters.length,
-      complaints: [...new Set(complaints)].slice(0, 3),
-      latestDiagnosis: diagnoses[0] || "N/A",
-      avgTemp,
-      risk,
-    };
-  };
-  
-  const generateClinicalNarrative = (patient: any, encounters: any[]) => {
-    if (!encounters || encounters.length === 0) {
-      return "No clinical history available to generate narrative.";
-    }
-  
-    const recent = encounters.slice(0, 5);
-  
-    const name = patient?.firstName || "The patient";
-    const age = patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : "";
-  
-    const complaints = recent
-      .map(e => e.chiefComplaint)
-      .filter(Boolean);
-  
-    const diagnoses = recent
-      .map(e => e.diagnosis)
-      .filter(Boolean);
-  
-    const temps = recent
-      .map(e => Number(e.vitals?.temp))
-      .filter(t => !isNaN(t));
-  
-    const avgTemp =
-      temps.length > 0
-        ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
-        : null;
-  
-    const mainComplaint = complaints[0] || "general illness";
-    const mainDiagnosis = diagnoses[0] || "under evaluation";
-  
-    return `
-  CLINICAL SUMMARY:
-  
-  ${name}${age ? `, ${age} years old` : ""}, presents with ${mainComplaint}. 
-  Over the last ${recent.length} encounter(s), the patient has shown recurrent clinical presentations.
-  
-  Primary working diagnosis: ${mainDiagnosis}.
-  
-  ${avgTemp ? `Average recorded temperature: ${avgTemp}°C indicating possible febrile pattern.` : ""}
-  
-  Clinical impression suggests the need for further evaluation and monitoring.
-    `.trim();
-  };
-
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
         collection(firestore, `hospitals/${hospitalId}/lab_orders`),
@@ -416,11 +318,10 @@ export default function PatientFolderHub() {
     }
     return JSON.stringify(allEncounters.slice(0, 5));
   }, [allEncounters, areEncountersLoading]);
-
-  const patientSummary = useMemo(() => generatePatientSummary(allEncounters), [allEncounters]);
-  const clinicalAlerts = useMemo(() => generateClinicalAlerts(allEncounters), [allEncounters]);
-  const clinicalInsights = useMemo(() => generateClinicalInsights(allEncounters), [allEncounters]);
-  const clinicalNarrative = useMemo(() => generateClinicalNarrative(patient, allEncounters), [patient, allEncounters]);
+  
+  const aiInsight = useMemo(() => {
+    return aiClinicalEngine(patient, allEncounters);
+  }, [patient, allEncounters]);
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
@@ -473,33 +374,28 @@ export default function PatientFolderHub() {
             </div>
         )}
 
-      {clinicalAlerts.length > 0 && (
-        <div className="bg-red-50 border-2 border-red-200 p-6 rounded-[32px] space-y-2 animate-in fade-in duration-300">
-            <h3 className="text-xs font-black uppercase text-red-600">
-            Clinical Alerts
-            </h3>
-
-            {clinicalAlerts.map((alert, index) => (
-            <p key={index} className="text-sm font-bold text-red-700">
-                {alert}
-            </p>
-            ))}
+        <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
+          <h2 className="text-xs font-black uppercase text-blue-300">
+            AI Clinical Intelligence Engine
+          </h2>
+          <p className="text-sm whitespace-pre-line">
+            {aiInsight.summary}
+          </p>
+          <div className="text-sm">
+            <strong>Risk Score:</strong> {aiInsight.riskScore}/10
+          </div>
+          <div className="text-sm">
+            <strong>Clinical Reasoning:</strong> {aiInsight.reasoning}
+          </div>
+          <div>
+            <strong>Recommendations:</strong>
+            <ul className="list-disc ml-5 text-sm">
+              {aiInsight.recommendations.map((r: string, i: number) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
         </div>
-      )}
-      
-      {clinicalInsights.length > 0 && (
-        <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-[32px] space-y-2 animate-in fade-in duration-300">
-            <h3 className="text-xs font-black uppercase text-amber-600">
-            Predictive Insights
-            </h3>
-
-            {clinicalInsights.map((insight, index) => (
-            <p key={index} className="text-sm font-bold text-amber-700">
-                {insight}
-            </p>
-            ))}
-        </div>
-      )}
 
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton
@@ -532,15 +428,6 @@ export default function PatientFolderHub() {
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
           <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="bg-slate-900 text-white p-6 rounded-[32px] shadow-xl">
-              <h3 className="text-xs font-black uppercase text-blue-300 mb-3">
-                AI Clinical Narrative
-              </h3>
-              <p className="text-sm leading-relaxed whitespace-pre-line">
-                {clinicalNarrative}
-              </p>
-            </div>
-            <PatientSummaryCard summary={patientSummary} isLoading={isTimelineLoading} />
             <div className="flex items-center gap-2 px-2">
                <Activity className="text-blue-600" size={18} />
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Current Vital Snapshot</h3>
