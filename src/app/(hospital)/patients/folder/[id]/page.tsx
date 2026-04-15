@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -131,6 +130,19 @@ export default function PatientFolderHub() {
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
 
+  useEffect(() => {
+    if (allEncounters.length > 0) {
+      console.log(
+        "ENCOUNTER DATA:",
+        allEncounters.map(e => ({
+          hasVitals: !!e.vitals,
+          hasComplaint: !!e.chiefComplaint,
+          hasDiagnosis: !!e.diagnosis,
+          hasPrescription: !!e.prescription
+        }))
+      );
+    }
+  }, [allEncounters]);
 
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
@@ -397,7 +409,7 @@ export default function PatientFolderHub() {
                            <div className="space-y-2">
                               <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
                               <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
-                                 "{encounter.chiefComplaint || 'No subjective complaints recorded.'}"
+                                 "{encounter.chiefComplaint || 'No history recorded.'}"
                               </p>
                            </div>
                            <div className="space-y-2">
