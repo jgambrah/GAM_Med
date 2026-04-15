@@ -372,6 +372,8 @@ export default function PatientFolderHub() {
                 ) : (
                     timelineActivities.filter(a => a.viewType === 'ENCOUNTER').map((encounter) => (
                       <div key={encounter.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
+                        
+                        {/* 1. DOCUMENT HEADER */}
                         <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                            <div>
                               <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
@@ -390,6 +392,8 @@ export default function PatientFolderHub() {
                               </p>
                            </div>
                         </div>
+
+                        {/* 2. VITALS SNAPSHOT (Detailed) */}
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-slate-50 p-6 rounded-[32px]">
                            <MiniVital label="BP" value={encounter.vitals?.bp} unit="mmHg" />
                            <MiniVital label="Temp" value={encounter.vitals?.temp} unit="°C" />
@@ -398,6 +402,8 @@ export default function PatientFolderHub() {
                            <MiniVital label="BMI" value={encounter.vitals?.bmi} unit="" />
                            <MiniVital label="Weight" value={encounter.vitals?.weight} unit="kg" />
                         </div>
+
+                        {/* 3. CLINICAL NOTES (The Fix) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                            <div className="space-y-2">
                               <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
@@ -412,6 +418,8 @@ export default function PatientFolderHub() {
                               </p>
                            </div>
                         </div>
+
+                        {/* 4. INVESTIGATIONS (Labs & Scans) */}
                         {(encounter.labOrders?.length > 0 || encounter.radiologyOrders?.length > 0) && (
                           <div className="space-y-4">
                              <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Diagnostic Requests</p>
@@ -431,6 +439,8 @@ export default function PatientFolderHub() {
                              </div>
                           </div>
                         )}
+
+                        {/* 5. MEDICATIONS */}
                         {encounter.prescription?.length > 0 && (
                           <div className="bg-[#0f172a] p-6 rounded-[32px] text-white">
                              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Treatment Plan / RX</p>
