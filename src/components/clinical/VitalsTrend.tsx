@@ -8,7 +8,6 @@ export default function VitalsTrend({ data }: { data: any[] }) {
     date: enc.createdAt?.toDate()
         ? enc.createdAt.toDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
         : 'Unknown Date',
-    Temp: enc.vitals?.temp ? parseFloat(enc.vitals.temp) : null,
     Systolic: enc.vitals?.systolic ? parseInt(enc.vitals.systolic, 10) : null,
     Diastolic: enc.vitals?.diastolic ? parseInt(enc.vitals.diastolic, 10) : null,
     Pulse: enc.vitals?.pulse ? parseInt(enc.vitals.pulse, 10) : null,
@@ -21,8 +20,9 @@ export default function VitalsTrend({ data }: { data: any[] }) {
           <Activity size={16} className="text-primary" /> Longitudinal Vitals Trend
         </h3>
         <div className="flex gap-4">
-           <div className="flex items-center gap-1 text-[10px] font-bold text-red-500 uppercase"><div className="w-2 h-2 bg-red-500 rounded-full"/> BP</div>
-           <div className="flex items-center gap-1 text-[10px] font-bold text-blue-500 uppercase"><div className="w-2 h-2 bg-blue-500 rounded-full"/> Temp</div>
+           <div className="flex items-center gap-1 text-[10px] font-bold text-red-500 uppercase"><div className="w-2 h-2 bg-red-500 rounded-full"/> Sys</div>
+           <div className="flex items-center gap-1 text-[10px] font-bold text-orange-500 uppercase"><div className="w-2 h-2 bg-orange-500 rounded-full"/> Dia</div>
+           <div className="flex items-center gap-1 text-[10px] font-bold text-blue-500 uppercase"><div className="w-2 h-2 bg-blue-500 rounded-full"/> Pulse</div>
         </div>
       </div>
 
@@ -31,12 +31,14 @@ export default function VitalsTrend({ data }: { data: any[] }) {
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
-            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
+            <YAxis yAxisId="bp" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
+            <YAxis yAxisId="pulse" orientation="right" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
             <Tooltip 
               contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
             />
-            <Line connectNulls type="monotone" dataKey="Systolic" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, fill: '#ef4444' }} />
-            <Line connectNulls type="monotone" dataKey="Temp" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
+            <Line yAxisId="bp" connectNulls type="monotone" dataKey="Systolic" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
+            <Line yAxisId="bp" connectNulls type="monotone" dataKey="Diastolic" stroke="#f97316" strokeWidth={2} dot={{ r: 4 }} />
+            <Line yAxisId="pulse" connectNulls type="monotone" dataKey="Pulse" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>

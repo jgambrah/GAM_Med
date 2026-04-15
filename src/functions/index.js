@@ -69,6 +69,8 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
           hospitalName: d.hospitalName,
         };
     });
+    
+    console.log("Returning encounters:", encounters.length);
 
     return { success: true, data: encounters };
 

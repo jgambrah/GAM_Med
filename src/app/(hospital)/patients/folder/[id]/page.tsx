@@ -129,11 +129,10 @@ export default function PatientFolderHub() {
       setAreEncountersLoading(false);
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
-
+  
   useEffect(() => {
     if (allEncounters.length > 0) {
-      console.log(
-        "ENCOUNTER DATA:",
+      console.log("ENCOUNTER DATA:", 
         allEncounters.map(e => ({
           hasVitals: !!e.vitals,
           hasComplaint: !!e.chiefComplaint,
@@ -282,7 +281,7 @@ export default function PatientFolderHub() {
 
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
-           <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex items-center gap-2 px-2">
                <Activity className="text-blue-600" size={18} />
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Current Vital Snapshot</h3>
@@ -409,7 +408,7 @@ export default function PatientFolderHub() {
                            <div className="space-y-2">
                               <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
                               <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
-                                 "{encounter.chiefComplaint || 'No history recorded.'}"
+                                 "{encounter.chiefComplaint || 'No subjective complaints recorded.'}"
                               </p>
                            </div>
                            <div className="space-y-2">
