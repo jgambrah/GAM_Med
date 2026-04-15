@@ -26,11 +26,11 @@ import { Button } from '@/components/ui/button';
 // THE SUB-COMPONENT FOR THE TAB
 function TabButton({ label, icon, active, onClick, color = "black" }: any) {
   return (
-    <button
+    <button 
       onClick={onClick}
       className={`flex items-center gap-3 px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${
-        active
-        ? (color === 'blue' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-white shadow-lg')
+        active 
+        ? (color === 'blue' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-white shadow-lg') 
         : 'text-slate-400 hover:bg-slate-50'
       }`}
     >
@@ -120,8 +120,13 @@ export default function PatientFolderHub() {
   };
 
   useEffect(() => {
-    fetchHistory();
-  }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, toast]);
+    if(patient?.ghanaCardId){
+      fetchHistory();
+    } else if (!isPatientLoading) {
+      // If patient data is loaded and there's no card ID, we can stop loading.
+      setAreEncountersLoading(false);
+    }
+  }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -374,40 +379,74 @@ export default function PatientFolderHub() {
                 ) : (
                 timelineActivities.map(activity => {
                     if (activity.viewType === 'ENCOUNTER') {
-                    const isLocal = activity.hospitalId === userProfile?.hospitalId;
-                    return (
-                        <div key={activity.id} className={`p-6 rounded-[32px] border-4 shadow-sm space-y-4 transition-all ${isLocal ? 'border-blue-100 bg-white' : 'border-slate-900 bg-slate-50'}`}>
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${isLocal ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'}`}>
-                                {activity.hospitalName || 'External Facility'}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-400">
-                                {activity.date ? new Date(activity.date).toLocaleDateString('en-GB') : ''}
-                            </span>
+                        const isLocal = activity.hospitalId === userProfile?.hospitalId;
+                        const encounter = activity;
+                        return (
+                             <div key={encounter.id} className="bg-white p-8 rounded-[40px] border-2 border-slate-100 shadow-sm space-y-6 mb-4">
+                                <div className="flex justify-between items-start border-b pb-4">
+                                <div>
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic ${isLocal ? 'bg-blue-600 text-white' : 'bg-slate-800 text-white'}`}>
+                                        {encounter.hospitalName || 'External Facility'}
+                                    </span>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">
+                                        Signed by Dr. {encounter.providerName} • {encounter.date ? new Date(encounter.date).toLocaleString() : ''}
+                                    </p>
+                                </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Chief Complaint / History</p>
+                                    <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
+                                        "{encounter.notes || encounter.chiefComplaint || 'No history recorded.'}"
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">Diagnosis / Impression</p>
+                                    <p className="text-lg font-black text-black uppercase tracking-tight">
+                                        {encounter.diagnosis || 'No Diagnosis Provided'}
+                                    </p>
+                                </div>
+                                </div>
+                                {((encounter.items && encounter.items.length > 0) || (encounter.prescription && encounter.prescription.length > 0)) && (
+                                <div className="bg-slate-50 p-6 rounded-3xl space-y-3">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prescribed Medications</p>
+                                    <div className="flex flex-wrap gap-3">
+                                    {(encounter.items || encounter.prescription).map((rx: any, idx: number) => (
+                                        <div key={idx} className="bg-white border-2 border-slate-200 px-4 py-2 rounded-2xl">
+                                        <p className="text-xs font-black text-black uppercase">{rx.name}</p>
+                                        <p className="text-[9px] font-bold text-blue-600 uppercase">{rx.instruction || rx.dosage}</p>
+                                        </div>
+                                    ))}
+                                    </div>
+                                </div>
+                                )}
+                                {encounter.labOrders?.length > 0 && (
+                                <div className="pt-4 border-t border-dashed">
+                                    <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest mb-2">Laboratory Requests</p>
+                                    <div className="flex flex-wrap gap-2">
+                                    {encounter.labOrders.map((lab: any, i: number) => (
+                                        <span key={i} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-3 py-1 rounded-lg border border-purple-100 uppercase">
+                                        {lab.testName || lab.name}
+                                        </span>
+                                    ))}
+                                    </div>
+                                </div>
+                                )}
+                                {encounter.radiologyOrders?.length > 0 && (
+                                    <div className="pt-4 border-t border-dashed">
+                                        <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest mb-2">Imaging Requests</p>
+                                        <div className="flex flex-wrap gap-2">
+                                        {encounter.radiologyOrders.map((scan: any, i: number) => (
+                                            <span key={i} className="bg-orange-50 text-orange-700 text-[10px] font-bold px-3 py-1 rounded-lg border border-orange-100 uppercase">
+                                            {scan.scanName || scan.name}
+                                            </span>
+                                        ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <span className="text-[10px] font-black text-blue-600 uppercase">Dr. {activity.providerName}</span>
-                        </div>
-                        <div className="space-y-2">
-                            <p className="text-sm font-black text-black uppercase">Diagnosis: {activity.diagnosis || 'General Consultation'}</p>
-                            <p className="text-xs text-slate-600 leading-relaxed italic">"{activity.chiefComplaint || activity.hpi || 'No clinical notes.'}"</p>
-                        </div>
-                        {activity.prescription?.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
-                            <p className="text-[9px] font-black text-slate-400 uppercase mb-2">Medications Ordered here:</p>
-                            <div className="flex flex-wrap gap-2">
-                                {activity.prescription.map((rx:any, i:any) => (
-                                <span key={i} className="bg-white border text-[10px] font-bold px-2 py-0.5 rounded-lg text-blue-800">
-                                    {rx.name} {rx.dosage || ''}
-                                </span>
-                                ))}
-                            </div>
-                            </div>
-                        )}
-                        </div>
-                    )
+                        )
                     }
-                    // ... Other activity types would go here ...
                     return null;
                 })
                 )}
@@ -436,3 +475,5 @@ function VitalDisplay({ label, value, unit, color }: any) {
     </div>
   );
 }
+
+    
