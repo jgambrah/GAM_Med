@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -39,6 +38,15 @@ function TabButton({ label, icon, active, onClick, color = "black" }: any) {
   );
 }
 
+// --- HELPER COMPONENT ---
+function MiniVital({ label, value, unit }: any) {
+  return (
+    <div className="text-center">
+       <p className="text-[8px] font-black text-slate-400 uppercase">{label}</p>
+       <p className="text-sm font-black text-black">{value || '--'}<span className="text-[8px] ml-0.5 opacity-40">{unit}</span></p>
+    </div>
+  );
+}
 
 export default function PatientFolderHub() {
   const { id } = useParams();
@@ -203,7 +211,7 @@ export default function PatientFolderHub() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* --- 2. THE CLINICAL HEADER (Already built) --- */}
+      {/* --- 2. THE CLINICAL HEADER --- */}
       <div className="bg-[#0f172a] text-white p-8 rounded-[40px] shadow-2xl flex flex-wrap justify-between items-center gap-6">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center text-3xl font-black">
@@ -252,7 +260,6 @@ export default function PatientFolderHub() {
            label="Hospital History"
            icon={<History size={16}/>}
          />
-         {/* THE MISSING TAP */}
          <TabButton
            active={activeTab === 'NETWORK'}
            onClick={() => setActiveTab('NETWORK')}
@@ -271,13 +278,11 @@ export default function PatientFolderHub() {
       {/* --- 4. CONDITIONAL CONTENT RENDER --- */}
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
+           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex items-center gap-2 px-2">
                <Activity className="text-blue-600" size={18} />
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Current Vital Snapshot</h3>
             </div>
-
-            {/* --- THE VITALS GRID --- */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <VitalDisplay 
                 label="Blood Pressure" 
@@ -310,8 +315,6 @@ export default function PatientFolderHub() {
                 color={Number(patient?.lastVitals?.spo2) < 90 ? "text-red-500" : "text-green-600"} 
               />
             </div>
-
-            {/* BMI & WEIGHT SECTION */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                <div className="bg-white p-6 rounded-[32px] border shadow-sm flex justify-between items-center">
                   <div>
@@ -327,6 +330,7 @@ export default function PatientFolderHub() {
                      </p>
                   </div>
                </div>
+                <VitalsTrend data={allEncounters} />
             </div>
           </div>
         )}
@@ -334,12 +338,13 @@ export default function PatientFolderHub() {
         {activeTab === 'LOCAL' && (
            <div className="space-y-6">
               <h3 className="font-black text-xs uppercase tracking-widest text-slate-400 border-b pb-2">Records from {userProfile?.hospitalName}</h3>
-              {localEncounters?.map((item: any) => (
-                <div key={item.id} className="bg-white p-6 rounded-[32px] border shadow-sm">
-                    <p className="font-black uppercase text-sm text-black">{item.diagnosis || 'General Review'}</p>
-                    <p className="text-xs text-slate-500 mt-2">{item.chiefComplaint}</p>
+              {localEncounters?.map((encounter: any) => (
+                <div key={encounter.id} className="bg-white p-6 rounded-[32px] border shadow-sm">
+                    <p className="font-black uppercase text-sm text-black">{encounter.diagnosis || 'General Review'}</p>
+                    <p className="text-xs text-slate-500 mt-2">{encounter.chiefComplaint}</p>
                 </div>
               ))}
+              {(!localEncounters || localEncounters.length === 0) && <p className="text-muted-foreground italic">No local encounters found.</p>}
            </div>
         )}
 
@@ -353,7 +358,9 @@ export default function PatientFolderHub() {
                     </div>
                 </div>
 
-                {authRequired ? (
+                {isTimelineLoading ? (
+                    <div className="p-10 text-center"><Loader2 className="animate-spin" /></div>
+                ) : authRequired ? (
                     <div className="bg-amber-100 border-2 border-dashed border-amber-200 p-10 rounded-[40px] text-center">
                         <ShieldAlert size={48} className="mx-auto text-amber-500 mb-4" />
                         <h3 className="text-xl font-black uppercase text-amber-900">Inter-Hospital Access Restricted</h3>
@@ -362,93 +369,83 @@ export default function PatientFolderHub() {
                             <strong> MyGamMed</strong> and authorize <strong>{userProfile?.hospitalName}</strong>.
                         </p>
                     </div>
-                ) : isTimelineLoading ? (
-                <div className="space-y-4">
-                    <Skeleton className="h-48 w-full rounded-3xl" />
-                    <Skeleton className="h-32 w-full rounded-3xl" />
-                </div>
-                ) : timelineActivities.length === 0 ? (
-                <div className="bg-white p-12 rounded-[40px] border-2 border-dashed border-slate-100 text-center">
-                    <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <ClipboardList className="text-slate-300" />
-                    </div>
-                    <p className="text-sm font-medium text-slate-400 italic">
-                        {errorState ? "Clinical history is synchronizing..." : "No clinical encounters recorded yet."}
-                    </p>
-                </div>
                 ) : (
-                timelineActivities.map(activity => {
-                    if (activity.viewType === 'ENCOUNTER') {
-                        const isLocal = activity.hospitalId === userProfile?.hospitalId;
-                        const encounter = activity;
-                        return (
-                             <div key={encounter.id} className="bg-white p-8 rounded-[40px] border-2 border-slate-100 shadow-sm space-y-6 mb-4">
-                                <div className="flex justify-between items-start border-b pb-4">
-                                <div>
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic ${isLocal ? 'bg-blue-600 text-white' : 'bg-slate-800 text-white'}`}>
-                                        {encounter.hospitalName || 'External Facility'}
-                                    </span>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">
-                                        Signed by Dr. {encounter.providerName} • {encounter.date ? new Date(encounter.date).toLocaleString() : ''}
-                                    </p>
-                                </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Chief Complaint / History</p>
-                                    <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
-                                        "{encounter.notes || encounter.chiefComplaint || 'No history recorded.'}"
-                                    </p>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">Diagnosis / Impression</p>
-                                    <p className="text-lg font-black text-black uppercase tracking-tight">
-                                        {encounter.diagnosis || 'No Diagnosis Provided'}
-                                    </p>
-                                </div>
-                                </div>
-                                {((encounter.items && encounter.items.length > 0) || (encounter.prescription && encounter.prescription.length > 0)) && (
-                                <div className="bg-slate-50 p-6 rounded-3xl space-y-3">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prescribed Medications</p>
-                                    <div className="flex flex-wrap gap-3">
-                                    {(encounter.items || encounter.prescription).map((rx: any, idx: number) => (
-                                        <div key={idx} className="bg-white border-2 border-slate-200 px-4 py-2 rounded-2xl">
-                                        <p className="text-xs font-black text-black uppercase">{rx.name}</p>
-                                        <p className="text-[9px] font-bold text-blue-600 uppercase">{rx.instruction || rx.dosage}</p>
-                                        </div>
-                                    ))}
-                                    </div>
-                                </div>
-                                )}
-                                {encounter.labOrders?.length > 0 && (
-                                <div className="pt-4 border-t border-dashed">
-                                    <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest mb-2">Laboratory Requests</p>
-                                    <div className="flex flex-wrap gap-2">
-                                    {encounter.labOrders.map((lab: any, i: number) => (
-                                        <span key={i} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-3 py-1 rounded-lg border border-purple-100 uppercase">
-                                        {lab.testName || lab.name}
-                                        </span>
-                                    ))}
-                                    </div>
-                                </div>
-                                )}
-                                {encounter.radiologyOrders?.length > 0 && (
-                                    <div className="pt-4 border-t border-dashed">
-                                        <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest mb-2">Imaging Requests</p>
-                                        <div className="flex flex-wrap gap-2">
-                                        {encounter.radiologyOrders.map((scan: any, i: number) => (
-                                            <span key={i} className="bg-orange-50 text-orange-700 text-[10px] font-bold px-3 py-1 rounded-lg border border-orange-100 uppercase">
-                                            {scan.scanName || scan.name}
-                                            </span>
-                                        ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )
-                    }
-                    return null;
-                })
+                    timelineActivities.filter(a => a.viewType === 'ENCOUNTER').map((encounter) => (
+                      <div key={encounter.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
+                        <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                           <div>
+                              <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
+                                 {encounter.type || 'Consultation'}
+                              </span>
+                              <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                 Authenticated by: {encounter.providerName} ({encounter.providerRole})
+                              </p>
+                           </div>
+                           <div className="text-right">
+                              <p className="text-[10px] font-black text-slate-900 uppercase">
+                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                              </p>
+                              <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
+                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </p>
+                           </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-slate-50 p-6 rounded-[32px]">
+                           <MiniVital label="BP" value={encounter.vitals?.bp} unit="mmHg" />
+                           <MiniVital label="Temp" value={encounter.vitals?.temp} unit="°C" />
+                           <MiniVital label="Pulse" value={encounter.vitals?.pulse} unit="bpm" />
+                           <MiniVital label="Resp" value={encounter.vitals?.respiration} unit="bpm" />
+                           <MiniVital label="BMI" value={encounter.vitals?.bmi} unit="" />
+                           <MiniVital label="Weight" value={encounter.vitals?.weight} unit="kg" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                           <div className="space-y-2">
+                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
+                              <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
+                                 "{encounter.chiefComplaint || 'No subjective complaints recorded.'}"
+                              </p>
+                           </div>
+                           <div className="space-y-2">
+                              <p className="text-[9px] font-black text-red-600 uppercase tracking-widest border-l-4 border-red-600 pl-3">Provisional Diagnosis</p>
+                              <p className="text-lg font-black text-black uppercase tracking-tight">
+                                 {encounter.diagnosis || 'Pending Review'}
+                              </p>
+                           </div>
+                        </div>
+                        {(encounter.labOrders?.length > 0 || encounter.radiologyOrders?.length > 0) && (
+                          <div className="space-y-4">
+                             <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Diagnostic Requests</p>
+                             <div className="flex flex-wrap gap-3">
+                                {encounter.labOrders?.map((lab: any, i: number) => (
+                                   <div key={i} className="bg-purple-50 text-purple-700 px-4 py-2 rounded-2xl border border-purple-100 flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-purple-400" />
+                                      <span className="text-[11px] font-black uppercase">{lab.name || lab.testName}</span>
+                                   </div>
+                                ))}
+                                {encounter.radiologyOrders?.map((scan: any, i: number) => (
+                                   <div key={i} className="bg-orange-50 text-orange-700 px-4 py-2 rounded-2xl border border-orange-100 flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-orange-400" />
+                                      <span className="text-[11px] font-black uppercase">{scan.name}</span>
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                        )}
+                        {encounter.prescription?.length > 0 && (
+                          <div className="bg-[#0f172a] p-6 rounded-[32px] text-white">
+                             <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Treatment Plan / RX</p>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {encounter.prescription.map((rx: any, idx: number) => (
+                                   <div key={idx} className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+                                      <p className="text-xs font-black uppercase text-white">{rx.name}</p>
+                                      <p className="text-[10px] font-bold text-blue-400 mt-1 uppercase italic">{rx.dosage} • {rx.frequency}</p>
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
                 )}
             </div>
         )}
@@ -464,7 +461,7 @@ export default function PatientFolderHub() {
   );
 }
 
-// --- SUB-COMPONENT FOR CLEANER CODE ---
+
 function VitalDisplay({ label, value, unit, color }: any) {
   return (
     <div className="bg-white p-6 rounded-[32px] border-2 border-slate-50 shadow-sm flex flex-col items-center justify-center text-center hover:border-blue-200 transition-all">
@@ -475,5 +472,3 @@ function VitalDisplay({ label, value, unit, color }: any) {
     </div>
   );
 }
-
-    
