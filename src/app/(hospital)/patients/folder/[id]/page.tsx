@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, differenceInYears } from 'date-fns';
 import { AdmissionDialog } from '@/components/clinical/AdmissionDialog';
 import { ProcedureLogDialog } from '@/components/clinical/ProcedureLogDialog';
 import { MaternityEnrollmentDialog } from '@/components/clinical/MaternityEnrollmentDialog';
@@ -291,6 +291,75 @@ export default function PatientFolderHub() {
     return insights;
   };
 
+  const generatePatientSummary = (encounters: Encounter[]) => {
+    if (!encounters || encounters.length === 0) {
+      return "No clinical history available.";
+    }
+
+    const recent = encounters.slice(0, 5);
+    const complaints = recent.map(e => e.chiefComplaint).filter(Boolean);
+    const diagnoses = recent.map(e => e.diagnosis).filter(Boolean);
+    const temps = recent.map(e => Number(e.vitals?.temp)).filter(t => t && !isNaN(t));
+    const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
+
+    let risk = "Low";
+    if (avgTemp && Number(avgTemp) > 37.5) {
+      risk = "Possible infection";
+    }
+
+    return {
+      encounterCount: encounters.length,
+      complaints: [...new Set(complaints)].slice(0, 3),
+      latestDiagnosis: diagnoses[0] || "N/A",
+      avgTemp,
+      risk,
+    };
+  };
+  
+  const generateClinicalNarrative = (patient: any, encounters: any[]) => {
+    if (!encounters || encounters.length === 0) {
+      return "No clinical history available to generate narrative.";
+    }
+  
+    const recent = encounters.slice(0, 5);
+  
+    const name = patient?.firstName || "The patient";
+    const age = patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : "";
+  
+    const complaints = recent
+      .map(e => e.chiefComplaint)
+      .filter(Boolean);
+  
+    const diagnoses = recent
+      .map(e => e.diagnosis)
+      .filter(Boolean);
+  
+    const temps = recent
+      .map(e => Number(e.vitals?.temp))
+      .filter(t => !isNaN(t));
+  
+    const avgTemp =
+      temps.length > 0
+        ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
+        : null;
+  
+    const mainComplaint = complaints[0] || "general illness";
+    const mainDiagnosis = diagnoses[0] || "under evaluation";
+  
+    return `
+  CLINICAL SUMMARY:
+  
+  ${name}${age ? `, ${age} years old` : ""}, presents with ${mainComplaint}. 
+  Over the last ${recent.length} encounter(s), the patient has shown recurrent clinical presentations.
+  
+  Primary working diagnosis: ${mainDiagnosis}.
+  
+  ${avgTemp ? `Average recorded temperature: ${avgTemp}°C indicating possible febrile pattern.` : ""}
+  
+  Clinical impression suggests the need for further evaluation and monitoring.
+    `.trim();
+  };
+
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
         collection(firestore, `hospitals/${hospitalId}/lab_orders`),
@@ -348,41 +417,10 @@ export default function PatientFolderHub() {
     return JSON.stringify(allEncounters.slice(0, 5));
   }, [allEncounters, areEncountersLoading]);
 
-  const generatePatientSummary = (encounters: Encounter[]) => {
-    if (!encounters || encounters.length === 0) {
-      return "No clinical history available.";
-    }
-
-    const recent = encounters.slice(0, 5);
-    const complaints = recent.map(e => e.chiefComplaint).filter(Boolean);
-    const diagnoses = recent.map(e => e.diagnosis).filter(Boolean);
-    const temps = recent.map(e => Number(e.vitals?.temp)).filter(t => t && !isNaN(t));
-    const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
-
-    let risk = "Low";
-    if (avgTemp && Number(avgTemp) > 37.5) {
-      risk = "Possible infection";
-    }
-
-    return {
-      encounterCount: encounters.length,
-      complaints: [...new Set(complaints)].slice(0, 3),
-      latestDiagnosis: diagnoses[0] || "N/A",
-      avgTemp,
-      risk,
-    };
-  };
-
   const patientSummary = useMemo(() => generatePatientSummary(allEncounters), [allEncounters]);
-  
-  const clinicalAlerts = useMemo(() => {
-    return generateClinicalAlerts(allEncounters);
-  }, [allEncounters]);
-
-  const clinicalInsights = useMemo(() => {
-    return generateClinicalInsights(allEncounters);
-  }, [allEncounters]);
-
+  const clinicalAlerts = useMemo(() => generateClinicalAlerts(allEncounters), [allEncounters]);
+  const clinicalInsights = useMemo(() => generateClinicalInsights(allEncounters), [allEncounters]);
+  const clinicalNarrative = useMemo(() => generateClinicalNarrative(patient, allEncounters), [patient, allEncounters]);
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
@@ -494,6 +532,14 @@ export default function PatientFolderHub() {
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
           <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="bg-slate-900 text-white p-6 rounded-[32px] shadow-xl">
+              <h3 className="text-xs font-black uppercase text-blue-300 mb-3">
+                AI Clinical Narrative
+              </h3>
+              <p className="text-sm leading-relaxed whitespace-pre-line">
+                {clinicalNarrative}
+              </p>
+            </div>
             <PatientSummaryCard summary={patientSummary} isLoading={isTimelineLoading} />
             <div className="flex items-center gap-2 px-2">
                <Activity className="text-blue-600" size={18} />
