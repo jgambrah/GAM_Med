@@ -63,7 +63,7 @@ const clinicalAssistantFlow = ai.defineFlow(
   async (input) => {
     // STEP 3: Controlled temperature
     const { output } = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+      model: 'googleai/gemini-2.5-flash',
       system: systemInstruction,
       history: input.history,
       prompt: `
