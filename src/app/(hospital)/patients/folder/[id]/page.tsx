@@ -7,7 +7,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import {
   Activity, Thermometer, Pill, Beaker,
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,6 +46,50 @@ function MiniVital({ label, value, unit }: any) {
        <p className="text-sm font-black text-black">{value || '--'}<span className="text-[8px] ml-0.5 opacity-40">{unit}</span></p>
     </div>
   );
+}
+
+function PatientSummaryCard({ summary, isLoading }: { summary: any, isLoading: boolean }) {
+    if (isLoading) {
+        return <Skeleton className="h-36 w-full rounded-[32px]" />;
+    }
+    if (typeof summary === 'string') {
+        return (
+            <div className="bg-white p-6 rounded-[32px] border shadow-sm flex items-center gap-4">
+                <BrainCircuit className="text-primary" size={24} />
+                <p className="text-sm font-medium text-muted-foreground">{summary}</p>
+            </div>
+        )
+    }
+    return (
+        <div className="bg-white p-6 rounded-[32px] border shadow-sm">
+            <div className="flex items-center gap-3 mb-4 border-b pb-3">
+                <BrainCircuit className="text-primary" size={20} />
+                <h3 className="text-sm font-black uppercase tracking-widest text-foreground">AI Clinical Summary</h3>
+            </div>
+            <ul className="space-y-2 text-sm">
+                <li className="flex justify-between">
+                    <span className="text-muted-foreground">Encounters:</span> 
+                    <span className="font-bold">{summary.encounterCount} on record</span>
+                </li>
+                <li className="flex justify-between">
+                    <span className="text-muted-foreground">Top Complaints:</span> 
+                    <span className="font-bold">{summary.complaints.join(', ') || 'N/A'}</span>
+                </li>
+                <li className="flex justify-between">
+                    <span className="text-muted-foreground">Latest Diagnosis:</span> 
+                    <span className="font-bold">{summary.latestDiagnosis}</span>
+                </li>
+                <li className="flex justify-between">
+                    <span className="text-muted-foreground">Avg. Temp:</span> 
+                    <span className="font-bold">{summary.avgTemp ? `${summary.avgTemp}°C` : 'N/A'}</span>
+                </li>
+                 <li className="flex justify-between items-center bg-amber-50 p-2 rounded-lg mt-2">
+                    <span className="text-amber-700 font-bold">Risk Flag:</span> 
+                    <span className="font-black text-amber-900">{summary.risk}</span>
+                </li>
+            </ul>
+        </div>
+    )
 }
 
 export default function PatientFolderHub() {
@@ -199,6 +243,33 @@ export default function PatientFolderHub() {
     return JSON.stringify(allEncounters.slice(0, 5));
   }, [allEncounters, areEncountersLoading]);
 
+  const generatePatientSummary = (encounters: Encounter[]) => {
+    if (!encounters || encounters.length === 0) {
+      return "No clinical history available.";
+    }
+
+    const recent = encounters.slice(0, 5);
+    const complaints = recent.map(e => e.chiefComplaint).filter(Boolean);
+    const diagnoses = recent.map(e => e.diagnosis).filter(Boolean);
+    const temps = recent.map(e => Number(e.vitals?.temp)).filter(t => t && !isNaN(t));
+    const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null;
+    
+    let risk = "Low";
+    if (avgTemp && Number(avgTemp) > 37.5) {
+      risk = "Possible infection";
+    }
+
+    return {
+      encounterCount: encounters.length,
+      complaints: [...new Set(complaints)].slice(0, 3),
+      latestDiagnosis: diagnoses[0] || "N/A",
+      avgTemp,
+      risk,
+    };
+  };
+
+  const patientSummary = useMemo(() => generatePatientSummary(allEncounters), [allEncounters]);
+
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
   const isDeceased = patient?.status === 'DECEASED';
@@ -281,6 +352,7 @@ export default function PatientFolderHub() {
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
           <div className="space-y-6 animate-in fade-in duration-500">
+            <PatientSummaryCard summary={patientSummary} isLoading={isTimelineLoading} />
             <div className="flex items-center gap-2 px-2">
                <Activity className="text-blue-600" size={18} />
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Current Vital Snapshot</h3>
