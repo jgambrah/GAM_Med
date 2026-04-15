@@ -22,125 +22,8 @@ import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
+import { askClinicalAssistant } from '@/ai/flows/ai-clinical-assistant';
 
-const calculateRiskScore = (encounters: any[]) => {
-  if (!encounters?.length) return 0;
-
-  let score = 0;
-
-  const recent = encounters.slice(0, 10);
-
-  for (const e of recent) {
-    const temp = Number(e.vitals?.temp);
-    const spo2 = Number(e.vitals?.spo2);
-    const sys = e.vitals?.bp?.split("/")[0];
-
-    if (temp > 38) score += 2;
-    if (spo2 && spo2 < 92) score += 3;
-    if (sys && Number(sys) > 140) score += 2;
-  }
-
-  return Math.min(score, 10); // cap at 10
-};
-
-const generateClinicalReasoning = (encounters: any[]) => {
-  if (!encounters?.length) return "No sufficient data for reasoning.";
-
-  const diagnoses = encounters.map(e => e.diagnosis).filter(Boolean);
-
-  const freq: Record<string, number> = {};
-
-  diagnoses.forEach(d => {
-    const key = d.toLowerCase();
-    freq[key] = (freq[key] || 0) + 1;
-  });
-
-  const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
-
-  if (top && top[1] >= 3) {
-    return `Most likely recurrent condition: ${top[0]}. Consider chronic or unresolved disease process.`;
-  }
-
-  return "No dominant diagnostic pattern identified.";
-};
-
-const generateClinicalRecommendation = (riskScore: number) => {
-  if (riskScore >= 7) {
-    return [
-      "Immediate clinical review required",
-      "Consider admission or escalation",
-      "Continuous vital monitoring recommended"
-    ];
-  }
-
-  if (riskScore >= 4) {
-    return [
-      "Schedule follow-up within 48–72 hours",
-      "Monitor vitals closely",
-      "Consider additional diagnostic tests"
-    ];
-  }
-
-  return [
-    "Routine outpatient follow-up",
-    "Continue current management"
-  ];
-};
-
-const generateClinicalNarrative = (patient: any, encounters: any[]) => {
-    if (!encounters || encounters.length === 0) {
-      return "No clinical history available to generate narrative.";
-    }
-  
-    const recent = encounters.slice(0, 5);
-  
-    const name = patient?.firstName || "The patient";
-    const age = patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : "";
-  
-    const complaints = recent
-      .map(e => e.chiefComplaint)
-      .filter(Boolean);
-  
-    const diagnoses = recent
-      .map(e => e.diagnosis)
-      .filter(Boolean);
-  
-    const temps = recent
-      .map(e => Number(e.vitals?.temp))
-      .filter(t => !isNaN(t));
-  
-    const avgTemp =
-      temps.length > 0
-        ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
-        : null;
-  
-    const mainComplaint = complaints[0] || "general illness";
-    const mainDiagnosis = diagnoses[0] || "under evaluation";
-  
-    return `
-CLINICAL SUMMARY:
-
-${name}${age ? `, ${age} years old` : ""}, presents with ${mainComplaint}. 
-Over the last ${recent.length} encounter(s), the patient has shown recurrent clinical presentations.
-
-Primary working diagnosis: ${mainDiagnosis}.
-
-${avgTemp ? `Average recorded temperature: ${avgTemp}°C indicating possible febrile pattern.` : ""}
-
-Clinical impression suggests the need for further evaluation and monitoring.
-  `.trim();
-};
-
-const aiClinicalEngine = (patient: any, encounters: any[]) => {
-  const riskScore = calculateRiskScore(encounters);
-
-  return {
-    summary: generateClinicalNarrative(patient, encounters),
-    riskScore,
-    reasoning: generateClinicalReasoning(encounters),
-    recommendations: generateClinicalRecommendation(riskScore)
-  };
-};
 
 // THE SUB-COMPONENT FOR THE TAB
 function TabButton({ label, icon, active, onClick, color = "black" }: any) {
@@ -192,6 +75,9 @@ export default function PatientFolderHub() {
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
+  
+  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [isAiLoading, setIsAiLoading] = useState(true);
 
   const fetchHistory = async () => {
     if (!patient?.ghanaCardId || !firebaseApp) {
@@ -262,6 +148,42 @@ export default function PatientFolderHub() {
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
   
+  useEffect(() => {
+    const fetchInsight = async () => {
+    if (!patient || allEncounters.length === 0 || !userProfile) return;
+
+    setIsAiLoading(true);
+    try {
+        const result = await askClinicalAssistant({
+        prompt: 'Analyze this patient file.', // a default prompt
+        patientContext: JSON.stringify(allEncounters.slice(0, 5)),
+        userRole: userProfile.role || 'Clinician',
+        fullName: userProfile.fullName || 'Doctor',
+        hospitalId: userProfile.hospitalId || '',
+      });
+      setAiInsight(result);
+    } catch (error) {
+      console.error("Error fetching AI insight:", error);
+      toast({
+        variant: 'destructive',
+        title: 'AI Assistant Error',
+        description: 'Could not generate clinical insights.'
+      });
+      setAiInsight(null);
+    } finally {
+      setIsAiLoading(false);
+    }
+    };
+
+    if (allEncounters.length > 0) {
+        fetchInsight();
+    } else if (!areEncountersLoading) {
+        // If there are no encounters and we're not loading them, don't show AI loader
+        setIsAiLoading(false);
+    }
+}, [patient, allEncounters, userProfile, areEncountersLoading, toast]);
+
+
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
         collection(firestore, `hospitals/${hospitalId}/lab_orders`),
@@ -311,17 +233,6 @@ export default function PatientFolderHub() {
         .filter(item => item.date)
         .sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [allEncounters, completedLabs, completedScans, procedureLogs]);
-
-  const patientContextForAI = useMemo(() => {
-    if (areEncountersLoading || !allEncounters) {
-      return "No encounter data available.";
-    }
-    return JSON.stringify(allEncounters.slice(0, 5));
-  }, [allEncounters, areEncountersLoading]);
-  
-  const aiInsight = useMemo(() => {
-    return aiClinicalEngine(patient, allEncounters);
-  }, [patient, allEncounters]);
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
@@ -375,27 +286,50 @@ export default function PatientFolderHub() {
         )}
 
         <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
-          <h2 className="text-xs font-black uppercase text-blue-300">
-            AI Clinical Intelligence Engine
-          </h2>
-          <p className="text-sm whitespace-pre-line">
-            {aiInsight.summary}
-          </p>
-          <div className="text-sm">
-            <strong>Risk Score:</strong> {aiInsight.riskScore}/10
-          </div>
-          <div className="text-sm">
-            <strong>Clinical Reasoning:</strong> {aiInsight.reasoning}
-          </div>
-          <div>
-            <strong>Recommendations:</strong>
-            <ul className="list-disc ml-5 text-sm">
-              {aiInsight.recommendations.map((r: string, i: number) => (
-                <li key={i}>{r}</li>
-              ))}
-            </ul>
-          </div>
+            <h2 className="text-xs font-black uppercase text-blue-300">
+                Gemini AI Clinical Doctor
+            </h2>
+            {isAiLoading ? (
+                <div className="flex items-center gap-2 text-slate-300">
+                    <Loader2 className="animate-spin" size={16}/> Thinking...
+                </div>
+            ) : aiInsight ? (
+                <>
+                    <p className="text-sm whitespace-pre-line">
+                        {aiInsight.summary}
+                    </p>
+
+                    <div className="text-sm">
+                        <strong>Risk Level:</strong> {aiInsight.riskLevel}
+                    </div>
+                    
+                    <div className="text-sm">
+                        <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
+                    </div>
+
+                    <div>
+                        <strong>Key Concerns:</strong>
+                        <ul className="list-disc ml-5 text-sm">
+                            {(aiInsight.keyConcerns || []).map((r: string, i: number) => (
+                                <li key={i}>{r}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <strong>Recommendations:</strong>
+                        <ul className="list-disc ml-5 text-sm">
+                        {(aiInsight.recommendations || []).map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                        ))}
+                        </ul>
+                    </div>
+                </>
+            ) : (
+                <p className="text-sm text-slate-400 italic">AI analysis could not be generated.</p>
+            )}
         </div>
+
 
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton

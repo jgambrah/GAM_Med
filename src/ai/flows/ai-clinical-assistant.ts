@@ -26,7 +26,11 @@ const ClinicalAssistantInputSchema = z.object({
 export type ClinicalAssistantInput = z.infer<typeof ClinicalAssistantInputSchema>;
 
 const ClinicalAssistantOutputSchema = z.object({
-  text: z.string().describe('The AI-generated response.'),
+    summary: z.string().describe("A concise clinical summary of the patient's recent history."),
+    riskLevel: z.string().describe("The assessed risk level: Low, Medium, High, or Critical."),
+    possibleConditions: z.array(z.string()).describe("A list of possible differential diagnoses based on the data."),
+    keyConcerns: z.array(z.string()).describe("A bulleted list of the most important clinical concerns."),
+    recommendations: z.array(z.string()).describe("A list of recommended next steps for the clinician."),
 });
 export type ClinicalAssistantOutput = z.infer<typeof ClinicalAssistantOutputSchema>;
 
@@ -34,21 +38,23 @@ export async function askClinicalAssistant(input: ClinicalAssistantInput): Promi
   return clinicalAssistantFlow(input);
 }
 
-const systemInstruction = `You are the GamMed Clinical Co-Pilot, a high-level medical consultant assistant in Ghana.
+const systemInstruction = `You are an expert clinical decision support system integrated into a hospital EHR in Ghana.
 
-CONTEXT MANAGEMENT:
-- If the user acknowledges a summary, DO NOT repeat the vitals again. Move to the next clinical step.
-- Only show "Navigation Assistance" if the user specifically asks "How do I..." or "Where is...".
+Analyze the provided PATIENT_CONTEXT, which contains recent clinical encounters.
 
-CLINICAL PROTOCOLS (Ghana Health Service Standard):
-- RESPIRATORY (RR 45): This is a CRITICAL EMERGENCY. Suggest immediate stabilization, airway check, and oxygen. List potential differentials: Pulmonary Embolism, Acute Heart Failure, or Severe Pneumonia.
-- HYPERTENSION (92 Diastolic): Refer to GHS Hypertension guidelines. Suggest repeating BP after rest and checking for end-organ damage (blurred vision, headache).
-- OBESITY (BMI 58): Suggest long-term metabolic review and screening for Sleep Apnea.
+Based *only* on the provided data, you must:
+1.  **Clinical Summary**: Write a concise, professional summary of the patient's recent history.
+2.  **Possible Conditions**: List the top 2-3 differential diagnoses.
+3.  **Risk Level**: Assign a risk level: Low, Medium, High, or Critical.
+4.  **Key Clinical Concerns**: Identify the most pressing clinical issues.
+5.  **Recommended Next Steps**: Suggest immediate, actionable steps for the doctor (e.g., "Repeat BP," "Order Chest X-Ray," "Consider specialist referral").
 
-RESPONSE STYLE:
-- Be concise. Don't say "I'm ready to assist you" every time. 
-- Use "Socratic Questioning": Ask the doctor about missing data (e.g., "Doctor, given the high RR, have you checked the SpO2 or Chest sounds?").
-- Always end with the mandatory disclaimer: "I am an AI assistant. Final clinical decisions must be made by a licensed professional."`;
+CONSTRAINTS:
+- Output *must* be in the specified JSON format.
+- Do not invent data. If data is missing, state it in your summary.
+- Be conservative. Focus on decision support, not making a final, definitive diagnosis.
+- Do not suggest specific drug prescriptions.
+`;
 
 const clinicalAssistantFlow = ai.defineFlow(
   {
@@ -57,23 +63,22 @@ const clinicalAssistantFlow = ai.defineFlow(
     outputSchema: ClinicalAssistantOutputSchema,
   },
   async (input) => {
-    // Dynamic context information to be provided with each prompt.
-    const dynamicContext = `
-      User: ${input.fullName} (${input.userRole})
-      Hospital ID: ${input.hospitalId}
-      Provided Patient Context: ${input.patientContext}
-    `;
-
     const { output } = await ai.generate({
-      system: systemInstruction, // Static system-level instructions
-      prompt: `${dynamicContext}\n\nUser Query: ${input.prompt}`, // Dynamic context combined with the user's latest question
-      history: input.history, // The previous turns of the conversation
+      system: systemInstruction,
+      prompt: `
+        PATIENT_CONTEXT:
+        ${input.patientContext}
+
+        ---
+        USER_QUERY (if any):
+        ${input.prompt}
+      `,
       output: { schema: ClinicalAssistantOutputSchema },
     });
     
     if (!output) {
       throw new Error('The AI failed to generate a response.');
     }
-    return { text: output.text };
+    return output;
   }
 );
