@@ -30,6 +30,7 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
   const currentHospitalId = userProfileDoc.data().hospitalId;
 
   try {
+    console.log("getPatientHistory v2 deployed");
     const { ghanaCardId, homeHospitalId } = request.data;
     if (!ghanaCardId) throw new HttpsError("invalid-argument", "MISSING_GHANA_CARD_ID");
 
@@ -49,33 +50,164 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
       .get();
 
     // EXPLICIT MAPPING: This ensures the frontend receives a predictable data shape.
-    return {
-      success: true,
-      data: snap.docs.map(doc => {
+    const encounters = snap.docs.map(doc => {
         const d = doc.data();
         return {
           id: doc.id,
           createdAt: d.createdAt,
           vitals: d.vitals,
           chiefComplaint: d.chiefComplaint,
+          hpi: d.hpi,
           diagnosis: d.diagnosis,
           prescription: d.prescription,
+          items: d.items,
           labOrders: d.labOrders,
           radiologyOrders: d.radiologyOrders,
-          // also include other relevant fields for display
           type: d.type,
           providerName: d.providerName,
           providerRole: d.providerRole,
-          items: d.items,
+          hospitalName: d.hospitalName,
         };
-      })
-    };
+    });
+
+    return { success: true, data: encounters };
+
   } catch (error) {
-    console.error("FATAL: getPatientHistory", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message || 'Unknown database error');
+    console.error("FATAL: getPatientHistory", error);
+    throw new HttpsError('internal', 'An internal error occurred while fetching clinical history.');
   }
 });
 
+
+/**
+ * Onboards a new staff member.
+ * Creates an Auth user and a corresponding user profile in Firestore.
+ */
+exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
+  }
+
+  const { fullName, email, role, contractType, ...optionalData } = request.data;
+  const hospitalId = request.auth.token.hospitalId;
+
+  if (!hospitalId) {
+    throw new HttpsError('failed-precondition', 'Caller is not associated with a hospital.');
+  }
+  
+  const hospitalRef = db.collection('hospitals').doc(hospitalId);
+
+  try {
+    // 1. Create Auth Account first to get a UID
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: "Staff123!",
+      displayName: fullName,
+    });
+
+    // 2. Set Custom Claims
+    await admin.auth().setCustomUserClaims(userRecord.uid, { role, hospitalId, contractType });
+    
+    let newStaffNumber;
+
+    // 3. Run a transaction to generate staff number and create user doc
+    await db.runTransaction(async (transaction) => {
+        const hospitalDoc = await transaction.get(hospitalRef);
+        if (!hospitalDoc.exists) {
+            throw new HttpsError('not-found', 'Hospital record not found.');
+        }
+
+        const hospital = hospitalDoc.data();
+        const newCounter = (hospital.staffCounter || 0) + 1;
+        const prefix = hospital.mrnPrefix || 'GAM';
+        const year = new Date().getFullYear().toString().slice(-2);
+        newStaffNumber = `${prefix}/STF/${year}/${String(newCounter).padStart(4, '0')}`;
+        
+        const userRef = db.collection('users').doc(userRecord.uid);
+        
+        // Create Firestore User Profile inside transaction
+        transaction.set(userRef, {
+            uid: userRecord.uid,
+            fullName,
+            email,
+            role,
+            hospitalId,
+            contractType,
+            staffNumber: newStaffNumber,
+            is_active: true,
+            mustChangePassword: true,
+            onboardingComplete: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            ...optionalData
+        });
+        
+        // Update hospital staff counter
+        transaction.update(hospitalRef, { staffCounter: newCounter });
+    });
+
+
+    return { success: true, message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` };
+  } catch (error) {
+    console.error("Onboarding failed:", error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+
+/**
+ * Registers a new patient and assigns a unique EHR number.
+ */
+exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
+  }
+  
+  const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
+  const hospitalId = userProfileDoc.data().hospitalId;
+  if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
+  
+  const registeringStaffId = request.auth.uid;
+  const hospitalRef = db.collection('hospitals').doc(hospitalId);
+
+  try {
+    const patientData = request.data;
+    let newEhrNumber;
+
+    // Transaction to safely increment patient counter and create patient
+    await db.runTransaction(async (transaction) => {
+      const hospitalDoc = await transaction.get(hospitalRef);
+      if (!hospitalDoc.exists) {
+        throw new HttpsError('not-found', 'Hospital record not found.');
+      }
+      
+      const hospital = hospitalDoc.data();
+      const newCounter = (hospital.patientCounter || 0) + 1;
+      const prefix = hospital.mrnPrefix || 'GAM';
+      const year = new Date().getFullYear().toString().slice(-2);
+      newEhrNumber = `${prefix}/EHR/${year}/${String(newCounter).padStart(4, '0')}`;
+
+      const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc();
+      transaction.set(patientRef, {
+        ...patientData,
+        ehrNumber: newEhrNumber,
+        hospitalId: hospitalId,
+        homeHospitalId: hospitalId, // Set home hospital on creation
+        registeredBy: registeringStaffId,
+        status: 'Awaiting Vitals',
+        checkInTime: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      
+      transaction.update(hospitalRef, { patientCounter: newCounter });
+    });
+
+    return { success: true, ehrNumber: newEhrNumber };
+  } catch (error) {
+    console.error("Patient registration failed:", error);
+    throw new HttpsError('internal', error.message);
+  }
+});
 
 /**
  * Creates a new clinical encounter and intelligently creates billing items based on insurance coverage.
@@ -163,18 +295,14 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     };
     
     if (!isExternal && finalItems && finalItems.length > 0) {
-      for (const rxItem of finalItems) {
-        if (rxItem.sku) {
-            const productQuery = db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', '==', rxItem.sku).limit(1);
-            const productSnap = await productQuery.get();
-            if (!productSnap.empty) {
-                const productData = productSnap.docs[0].data();
-                const qty = rxItem.qty || 1;
-                createBillingItem(productData, 'PHARMACY', qty);
-            } else {
-                console.warn(`Product with SKU ${rxItem.sku} not found in catalog for billing.`);
-            }
-        }
+      const drugSkus = finalItems.map(p => p.sku).filter(Boolean);
+      if(drugSkus.length > 0) {
+        const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
+        drugsSnap.forEach(doc => {
+            const rxItem = finalItems.find(p => p.sku === doc.data().sku);
+            const qty = rxItem?.qty || 1;
+            createBillingItem(doc.data(), 'PHARMACY', qty);
+        });
       }
     }
     
@@ -255,112 +383,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
   } catch(error) {
       console.error("FATAL: createEncounter", error.code, error.message, error.stack);
       throw new HttpsError('internal', error.message);
-  }
-});
-
-exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
-  }
-
-  const { fullName, email, role, contractType, ...optionalData } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
-
-  if (!hospitalId) {
-    throw new HttpsError('failed-precondition', 'Caller is not associated with a hospital.');
-  }
-  
-  const hospitalRef = db.collection('hospitals').doc(hospitalId);
-
-  try {
-    const userRecord = await admin.auth().createUser({
-      email: email,
-      password: "Staff123!",
-      displayName: fullName,
-    });
-
-    await admin.auth().setCustomUserClaims(userRecord.uid, { role, hospitalId, contractType });
-    
-    let newStaffNumber;
-
-    await db.runTransaction(async (transaction) => {
-        const hospitalDoc = await transaction.get(hospitalRef);
-        if (!hospitalDoc.exists) {
-            throw new HttpsError('not-found', 'Hospital record not found.');
-        }
-
-        const hospital = hospitalDoc.data();
-        const newCounter = (hospital.staffCounter || 0) + 1;
-        const prefix = hospital.mrnPrefix || 'GAM';
-        const year = new Date().getFullYear().toString().slice(-2);
-        newStaffNumber = `${prefix}/STF/${year}/${String(newCounter).padStart(4, '0')}`;
-        
-        const userRef = db.collection('users').doc(userRecord.uid);
-        
-        transaction.set(userRef, {
-            uid: userRecord.uid,
-            fullName, email, role, hospitalId, contractType,
-            staffNumber: newStaffNumber,
-            is_active: true, mustChangePassword: true, onboardingComplete: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...optionalData
-        });
-        
-        transaction.update(hospitalRef, { staffCounter: newCounter });
-    });
-
-
-    return { success: true, message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` };
-  } catch (error) {
-    console.error("FATAL: onboardStaff", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
-  
-  const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
-  if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
-  const hospitalId = userProfileDoc.data().hospitalId;
-  if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
-
-  const registeringStaffId = request.auth.uid;
-  const hospitalRef = db.collection('hospitals').doc(hospitalId);
-
-  try {
-    const patientData = request.data;
-    let newEhrNumber;
-
-    await db.runTransaction(async (transaction) => {
-      const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.');
-      
-      const hospital = hospitalDoc.data();
-      const newCounter = (hospital.patientCounter || 0) + 1;
-      const prefix = hospital.mrnPrefix || 'GAM';
-      const year = new Date().getFullYear().toString().slice(-2);
-      newEhrNumber = `${prefix}/EHR/${year}/${String(newCounter).padStart(4, '0')}`;
-
-      const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc();
-      transaction.set(patientRef, {
-        ...patientData,
-        ehrNumber: newEhrNumber,
-        hospitalId: hospitalId,
-        homeHospitalId: hospitalId, // Set home hospital on creation
-        registeredBy: registeringStaffId,
-        status: 'Awaiting Vitals',
-        checkInTime: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      
-      transaction.update(hospitalRef, { patientCounter: newCounter });
-    });
-
-    return { success: true, ehrNumber: newEhrNumber };
-  } catch (error) {
-    console.error("FATAL: registerPatient", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
   }
 });
 
@@ -525,7 +547,7 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
 
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.');
+      if (!hospitalDoc.exists()) throw new HttpsError('not-found', 'Hospital record not found.');
 
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.referralCounter || 0) + 1;
