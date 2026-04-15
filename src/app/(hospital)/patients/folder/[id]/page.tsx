@@ -21,6 +21,7 @@ import { DeathCertificationDialog } from '@/components/clinical/DeathCertificati
 import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
+import { type Encounter } from '@/types/encounter';
 
 // THE SUB-COMPONENT FOR THE TAB
 function TabButton({ label, icon, active, onClick, color = "black" }: any) {
@@ -54,7 +55,7 @@ export default function PatientFolderHub() {
   const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'SUMMARY' | 'LOCAL' | 'NETWORK' | 'BILLING'>('SUMMARY');
+  const [activeTab, setActiveTab] = useState<'SUMMARY' | 'LOCAL' | 'NETWORK' | 'BILLING'>('NETWORK');
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -68,7 +69,7 @@ export default function PatientFolderHub() {
   [firestore, hospitalId, id]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  const [allEncounters, setAllEncounters] = useState<any[]>([]);
+  const [allEncounters, setAllEncounters] = useState<Encounter[]>([]);
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
@@ -96,13 +97,24 @@ export default function PatientFolderHub() {
       if (result.data.success) {
           const encountersData = result.data.data as any[];
           if (Array.isArray(encountersData)) {
-            const encountersWithTimestamps = encountersData.map((enc: any) => ({
-                ...enc,
-                createdAt: enc.createdAt && enc.createdAt._seconds
-                    ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds)
-                    : null
+            const normalizedEncounters: Encounter[] = encountersData.map((enc: any) => ({
+                id: enc.id,
+                createdAt: enc.createdAt?._seconds
+                  ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
+                  : new Date(),
+                chiefComplaint: enc.chiefComplaint || enc.complaint || '',
+                diagnosis: enc.diagnosis || enc.assessment || '',
+                vitals: enc.vitals || {},
+                prescription: enc.prescription || enc.items || [],
+                labOrders: enc.labOrders || [],
+                radiologyOrders: enc.radiologyOrders || [],
+                providerName: enc.providerName,
+                providerRole: enc.providerRole,
+                hospitalId: enc.hospitalId,
+                type: enc.type,
+                hospitalName: enc.hospitalName,
             }));
-            setAllEncounters(encountersWithTimestamps);
+            setAllEncounters(normalizedEncounters);
           } else {
              throw new Error("Invalid data format received from history function.");
           }
@@ -129,19 +141,6 @@ export default function PatientFolderHub() {
       setAreEncountersLoading(false);
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
-  
-  useEffect(() => {
-    if (allEncounters.length > 0) {
-      console.log("ENCOUNTER DATA:", 
-        allEncounters.map(e => ({
-          hasVitals: !!e.vitals,
-          hasComplaint: !!e.chiefComplaint,
-          hasDiagnosis: !!e.diagnosis,
-          hasPrescription: !!e.prescription
-        }))
-      );
-    }
-  }, [allEncounters]);
 
   const labResultsQuery = useMemoFirebase(() =>
     firestore && hospitalId && id ? query(
@@ -182,7 +181,7 @@ export default function PatientFolderHub() {
 
   const timelineActivities = useMemo(() => {
     const allActivities = [
-        ...(allEncounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt?.toDate() })),
+        ...(allEncounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt })),
         ...(completedLabs || []).map(l => ({ ...l, viewType: 'LAB_RESULT', date: l.completedAt?.toDate() })),
         ...(completedScans || []).map(s => ({ ...s, viewType: 'SCAN_RESULT', date: s.completedAt?.toDate() })),
         ...(procedureLogs || []).map(p => ({ ...p, viewType: 'PROCEDURE_LOG', date: p.createdAt?.toDate() }))
@@ -382,15 +381,15 @@ export default function PatientFolderHub() {
                                  {encounter.type || 'Consultation'}
                               </span>
                               <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                 Authenticated by: {encounter.providerName} ({encounter.providerRole})
+                                 {encounter.hospitalName} • Dr. {encounter.providerName} ({encounter.providerRole})
                               </p>
                            </div>
                            <div className="text-right">
                               <p className="text-[10px] font-black text-slate-900 uppercase">
-                                 {encounter.createdAt ? new Date(encounter.createdAt?.toDate()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
                               </p>
                               <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
-                                 {encounter.createdAt ? new Date(encounter.createdAt?.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                               </p>
                            </div>
                         </div>
