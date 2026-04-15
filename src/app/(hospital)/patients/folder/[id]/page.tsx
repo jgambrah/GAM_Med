@@ -159,6 +159,7 @@ export default function PatientFolderHub() {
                 hospitalName: enc.hospitalName,
             }));
             setAllEncounters(normalizedEncounters);
+            console.log("ENCOUNTER DATA:", normalizedEncounters.map(e => ({ hasVitals: !!e.vitals, hasComplaint: !!e.chiefComplaint, hasDiagnosis: !!e.diagnosis, hasPrescription: !!e.prescription && e.prescription.length > 0 })));
           } else {
              throw new Error("Invalid data format received from history function.");
           }
@@ -237,6 +238,57 @@ export default function PatientFolderHub() {
     }
 
     return alerts;
+  };
+  
+  const generateClinicalInsights = (encounters: any[]) => {
+    if (!encounters || encounters.length < 2) return [];
+  
+    const insights: string[] = [];
+  
+    const recent = encounters.slice(0, 10);
+  
+    // 🔍 1. Hypertension Risk (trend-based)
+    const highBPCount = recent.filter(e => {
+      const bp = e.vitals?.bp;
+      if (!bp) return false;
+      const [sys] = bp.split('/').map(Number);
+      return sys >= 140;
+    }).length;
+  
+    if (highBPCount >= 3) {
+      insights.push("⚠ Patient at risk of Chronic Hypertension");
+    }
+  
+    // 🔍 2. Recurrent Diagnosis Pattern
+    const diagnoses = recent
+      .map(e => e.diagnosis?.toLowerCase())
+      .filter(Boolean);
+  
+    const diagnosisCount: Record<string, number> = {};
+  
+    diagnoses.forEach(d => {
+      diagnosisCount[d] = (diagnosisCount[d] || 0) + 1;
+    });
+  
+    Object.entries(diagnosisCount).forEach(([diag, count]) => {
+      if (count >= 3) {
+        insights.push(`⚠ Recurrent condition detected: ${diag}`);
+      }
+    });
+  
+    // 🔍 3. Frequent Visits (utilization risk)
+    if (recent.length >= 5) {
+      insights.push("⚠ High healthcare utilization (frequent visits)");
+    }
+  
+    // 🔍 4. Fever Trend
+    const feverCount = recent.filter(e => Number(e.vitals?.temp) > 37.5).length;
+  
+    if (feverCount >= 3) {
+      insights.push("⚠ Recurrent fever pattern detected");
+    }
+  
+    return insights;
   };
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -327,6 +379,10 @@ export default function PatientFolderHub() {
     return generateClinicalAlerts(allEncounters);
   }, [allEncounters]);
 
+  const clinicalInsights = useMemo(() => {
+    return generateClinicalInsights(allEncounters);
+  }, [allEncounters]);
+
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading;
@@ -388,6 +444,20 @@ export default function PatientFolderHub() {
             {clinicalAlerts.map((alert, index) => (
             <p key={index} className="text-sm font-bold text-red-700">
                 {alert}
+            </p>
+            ))}
+        </div>
+      )}
+      
+      {clinicalInsights.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-[32px] space-y-2 animate-in fade-in duration-300">
+            <h3 className="text-xs font-black uppercase text-amber-600">
+            Predictive Insights
+            </h3>
+
+            {clinicalInsights.map((insight, index) => (
+            <p key={index} className="text-sm font-bold text-amber-700">
+                {insight}
             </p>
             ))}
         </div>
