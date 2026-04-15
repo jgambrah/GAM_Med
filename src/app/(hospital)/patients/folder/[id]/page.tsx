@@ -22,7 +22,6 @@ import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
-import { askClinicalAssistant } from '@/ai/flows/ai-clinical-assistant';
 
 
 // THE SUB-COMPONENT FOR THE TAB
@@ -76,9 +75,6 @@ export default function PatientFolderHub() {
   const [authRequired, setAuthRequired] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
   
-  const [aiInsight, setAiInsight] = useState<any>(null);
-  const [isAiLoading, setIsAiLoading] = useState(true);
-
   const fetchHistory = async () => {
     if (!patient?.ghanaCardId || !firebaseApp) {
         setAreEncountersLoading(false);
@@ -147,41 +143,6 @@ export default function PatientFolderHub() {
       setAreEncountersLoading(false);
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
-  
-  useEffect(() => {
-    const fetchInsight = async () => {
-    if (!patient || allEncounters.length === 0 || !userProfile) return;
-
-    setIsAiLoading(true);
-    try {
-        const result = await askClinicalAssistant({
-        prompt: 'Analyze this patient file.', // a default prompt
-        patientContext: JSON.stringify(allEncounters.slice(0, 5)),
-        userRole: userProfile.role || 'Clinician',
-        fullName: userProfile.fullName || 'Doctor',
-        hospitalId: userProfile.hospitalId || '',
-      });
-      setAiInsight(result);
-    } catch (error) {
-      console.error("Error fetching AI insight:", error);
-      toast({
-        variant: 'destructive',
-        title: 'AI Assistant Error',
-        description: 'Could not generate clinical insights.'
-      });
-      setAiInsight(null);
-    } finally {
-      setIsAiLoading(false);
-    }
-    };
-
-    if (allEncounters.length > 0) {
-        fetchInsight();
-    } else if (!areEncountersLoading) {
-        // If there are no encounters and we're not loading them, don't show AI loader
-        setIsAiLoading(false);
-    }
-}, [patient, allEncounters, userProfile, areEncountersLoading, toast]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -284,52 +245,6 @@ export default function PatientFolderHub() {
                 </div>
             </div>
         )}
-
-        <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
-            <h2 className="text-xs font-black uppercase text-blue-300">
-                Gemini AI Clinical Doctor
-            </h2>
-            {isAiLoading ? (
-                <div className="flex items-center gap-2 text-slate-300">
-                    <Loader2 className="animate-spin" size={16}/> Thinking...
-                </div>
-            ) : aiInsight ? (
-                <>
-                    <p className="text-sm whitespace-pre-line">
-                        {aiInsight.summary}
-                    </p>
-
-                    <div className="text-sm">
-                        <strong>Risk Level:</strong> {aiInsight.riskLevel}
-                    </div>
-                    
-                    <div className="text-sm">
-                        <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
-                    </div>
-
-                    <div>
-                        <strong>Key Concerns:</strong>
-                        <ul className="list-disc ml-5 text-sm">
-                            {(aiInsight.keyConcerns || []).map((r: string, i: number) => (
-                                <li key={i}>{r}</li>
-                            ))}
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <strong>Recommendations:</strong>
-                        <ul className="list-disc ml-5 text-sm">
-                        {(aiInsight.recommendations || []).map((r: string, i: number) => (
-                            <li key={i}>{r}</li>
-                        ))}
-                        </ul>
-                    </div>
-                </>
-            ) : (
-                <p className="text-sm text-slate-400 italic">AI analysis could not be generated.</p>
-            )}
-        </div>
-
 
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton

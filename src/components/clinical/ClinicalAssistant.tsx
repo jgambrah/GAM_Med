@@ -1,15 +1,15 @@
-
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { useParams } from 'next/navigation';
-import { doc } from 'firebase/firestore';
-import { 
-  BrainCircuit, Send, X, Sparkles, 
-  Loader2 
+import { doc, collection, query, where, orderBy } from 'firebase/firestore';
+import {
+  BrainCircuit, Send, X, Sparkles,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
+import { askClinicalAssistant, ClinicalAssistantInput } from '@/ai/flows/ai-clinical-assistant';
+import { Encounter } from '@/types/encounter';
 
 type Message = {
     role: 'user' | 'assistant';
@@ -18,13 +18,15 @@ type Message = {
 
 export function ClinicalAssistant() {
   const { user } = useUser();
-  const { id: patientId } = useParams(); // Automatically detect if we are in a patient folder
+  const { id: patientId } = useParams();
   const firestore = useFirestore();
   const { toast } = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+      { role: 'assistant', content: 'Good day, Doctor. I have reviewed the patient file. How can I assist?' }
+  ]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -35,9 +37,19 @@ export function ClinicalAssistant() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userProfile } = useDoc(userProfileRef);
+  
+  const encountersQuery = useMemoFirebase(() => {
+    if (!firestore || !patientId || !userProfile?.hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${userProfile.hospitalId}/patients/${patientId}/encounters`), 
+      orderBy('createdAt', 'desc'), 
+      where('patientId', '==', patientId)
+    );
+  }, [firestore, patientId, userProfile?.hospitalId]);
+  const { data: allEncounters } = useCollection<Encounter>(encountersQuery);
 
   const handleSend = async () => {
-    if (!input.trim() || !userProfile) return;
+    if (!input.trim() || !userProfile || !allEncounters) return;
 
     const userMessage: Message = { role: 'user', content: input };
     const updatedMessages = [...messages, userMessage];
@@ -46,36 +58,24 @@ export function ClinicalAssistant() {
     setIsLoading(true);
 
     try {
-      // THE FIX: 
-      // 1. Filter the chat to remove the initial "Greeting" if it's the first item.
-      // 2. Map roles to 'user' and 'model' (Gemini requirement).
       const formattedHistory = messages
-        .filter((msg, index) => !(index === 0 && msg.role === 'assistant')) // Skip first greeting
-        .slice(-6) // Take last 6 for efficiency
+        .slice(-6)
         .map(m => ({
-          role: m.role === 'user' ? 'user' : 'model',
+          role: m.role === 'user' ? 'user' : 'model' as 'user' | 'model',
           parts: [{ text: m.content }]
         }));
+
+      const aiInput: ClinicalAssistantInput = {
+        prompt: input,
+        patientContext: JSON.stringify(allEncounters.slice(0, 5)),
+        userRole: userProfile.role || 'Clinician',
+        fullName: userProfile.fullName || 'Doctor',
+        history: formattedHistory
+      };
+
+      const responseText = await askClinicalAssistant(aiInput);
       
-      const res = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            prompt: input, 
-            history: formattedHistory,
-            patientId: Array.isArray(patientId) ? patientId[0] : patientId || null,
-            userRole: userProfile?.role,
-            fullName: userProfile?.fullName
-          }),
-      });
-
-      if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || 'API request failed');
-      }
-
-      const data = await res.json();
-      const assistantMessage: Message = { role: 'assistant', content: data.text };
+      const assistantMessage: Message = { role: 'assistant', content: responseText };
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error: any) {
@@ -83,7 +83,7 @@ export function ClinicalAssistant() {
       toast({
         variant: "destructive",
         title: "Assistant Error",
-        description: "Assistant disconnected. Check internet or API key.",
+        description: "The AI assistant could not be reached. Please check your configuration.",
       });
       const errorMessage: Message = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
       setMessages(prev => [...prev, errorMessage]);
@@ -92,13 +92,12 @@ export function ClinicalAssistant() {
     }
   };
   
-  if (!user) return null; // Don't show for logged-out users
+  if (!user || !patientId) return null;
 
   return (
     <div className="fixed bottom-8 right-8 z-50 font-bold print:hidden">
       {isOpen ? (
         <div className="bg-white w-[380px] h-[550px] rounded-[32px] border-4 border-slate-900 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
-          {/* AI Header */}
           <div className="bg-[#0f172a] p-5 text-white flex justify-between items-center border-b-4 border-blue-600">
              <div className="flex items-center gap-3">
                 <div className="bg-blue-600 p-2 rounded-xl animate-pulse"><BrainCircuit size={20}/></div>
@@ -107,25 +106,20 @@ export function ClinicalAssistant() {
              <button onClick={() => setIsOpen(false)}><X size={20} className="text-slate-400 hover:text-white"/></button>
           </div>
 
-          {/* Chat Flow */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-             <div className="bg-blue-100 p-4 rounded-2xl rounded-tl-none text-[11px] text-blue-900 leading-relaxed">
-                Good day, Dr. Tracy. I've reviewed the latest entries in Esi's folder. The BMI and Diastolic BP are of significant clinical concern. How shall we manage her?
-             </div>
              {messages.map((msg, i) => (
                <div key={i} className={'p-4 rounded-2xl text-[11px] max-w-[85%] ' + (msg.role === 'user' ? 'bg-white border-2 border-slate-200 ml-auto rounded-tr-none text-black' : 'bg-blue-600 text-white rounded-tl-none shadow-md')}>
-                 <p dangerouslySetInnerHTML={{ __html: msg.content.replace(/\\n/g, '<br />') }} />
+                 <p dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br />') }} />
                </div>
              ))}
              {isLoading && <Loader2 className="animate-spin text-blue-600 mx-auto" />}
           </div>
 
-          {/* Input Area */}
           <div className="p-4 bg-white border-t">
              <div className="relative">
                 <input 
                   className="w-full p-4 pr-12 bg-slate-100 rounded-2xl border-none outline-none text-black text-xs font-bold"
-                  placeholder="Ask about treatment or navigation..."
+                  placeholder="Ask about this patient..."
                   value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
                 />
