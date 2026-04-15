@@ -22,6 +22,7 @@ import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
+import { askClinicalAssistant } from '@/ai/flows/ai-clinical-assistant';
 
 
 // THE SUB-COMPONENT FOR THE TAB
@@ -75,6 +76,9 @@ export default function PatientFolderHub() {
   const [authRequired, setAuthRequired] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
   
+  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [isAiLoading, setIsAiLoading] = useState(true);
+
   const fetchHistory = async () => {
     if (!patient?.ghanaCardId || !firebaseApp) {
         setAreEncountersLoading(false);
@@ -116,7 +120,6 @@ export default function PatientFolderHub() {
                 hospitalName: enc.hospitalName,
             }));
             setAllEncounters(normalizedEncounters);
-            console.log("ENCOUNTER DATA:", normalizedEncounters.map(e => ({ hasVitals: !!e.vitals, hasComplaint: !!e.chiefComplaint, hasDiagnosis: !!e.diagnosis, hasPrescription: !!e.prescription && e.prescription.length > 0 })));
           } else {
              throw new Error("Invalid data format received from history function.");
           }
@@ -142,7 +145,43 @@ export default function PatientFolderHub() {
     } else if (!isPatientLoading) {
       setAreEncountersLoading(false);
     }
-  }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient?.ghanaCardId, patient?.id, firebaseApp, isPatientLoading]);
+  
+  useEffect(() => {
+    const fetchInsight = async () => {
+    if (!patient || allEncounters.length === 0 || !userProfile) return;
+
+    setIsAiLoading(true);
+    try {
+        const result = await askClinicalAssistant({
+        prompt: 'Analyze this patient file.', // a default prompt
+        patientContext: JSON.stringify(allEncounters.slice(0, 5)),
+        userRole: userProfile.role || 'Clinician',
+        fullName: userProfile.fullName || 'Doctor',
+        hospitalId: userProfile.hospitalId || '',
+      });
+      setAiInsight(result);
+    } catch (error) {
+      console.error("Error fetching AI insight:", error);
+      toast({
+        variant: 'destructive',
+        title: 'AI Assistant Error',
+        description: 'Could not generate clinical insights.'
+      });
+      setAiInsight(null);
+    } finally {
+      setIsAiLoading(false);
+    }
+    };
+
+    if (allEncounters.length > 0) {
+        fetchInsight();
+    } else if (!areEncountersLoading) {
+        // If there are no encounters and we're not loading them, don't show AI loader
+        setIsAiLoading(false);
+    }
+}, [patient, allEncounters, userProfile, areEncountersLoading, toast]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -245,6 +284,41 @@ export default function PatientFolderHub() {
                 </div>
             </div>
         )}
+        
+        {isAiLoading ? (
+            <Skeleton className="h-64 w-full rounded-[32px]" />
+        ) : aiInsight && (
+            <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
+                <h2 className="text-xs font-black uppercase text-blue-300">
+                    Gemini AI Clinical Doctor
+                </h2>
+                <p className="text-sm whitespace-pre-line">
+                    {aiInsight.summary}
+                </p>
+                <div className="text-sm">
+                    <strong>Risk Level:</strong> {aiInsight.riskLevel}
+                </div>
+                <div className="text-sm">
+                    <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
+                </div>
+                <div>
+                    <strong>Key Concerns:</strong>
+                    <ul className="list-disc ml-5 text-sm">
+                    {(aiInsight.keyConcerns || []).map((r: string, i: number) => (
+                        <li key={i}>{r}</li>
+                    ))}
+                    </ul>
+                </div>
+                <div>
+                    <strong>Recommendations:</strong>
+                    <ul className="list-disc ml-5 text-sm">
+                    {(aiInsight.recommendations || []).map((r: string, i: number) => (
+                        <li key={i}>{r}</li>
+                    ))}
+                    </ul>
+                </div>
+            </div>
+        )}
 
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton
@@ -310,7 +384,7 @@ export default function PatientFolderHub() {
                 label="Oxygen (SpO2)" 
                 value={patient?.lastVitals?.spo2 || "0"} 
                 unit="%" 
-                color={Number(patient?.lastVitals?.spo2) < 90 ? "text-red-500" : "text-green-600"} 
+                color={Number(patient?.lastVitals?.spo2) < 92 ? "text-red-500" : "text-green-600"} 
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">

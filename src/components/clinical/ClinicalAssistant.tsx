@@ -8,7 +8,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { askClinicalAssistant, ClinicalAssistantInput } from '@/ai/flows/ai-clinical-assistant';
+import { askClinicalAssistant, ClinicalAssistantInput, ClinicalAssistantOutput } from '@/ai/flows/ai-clinical-assistant';
 import { Encounter } from '@/types/encounter';
 
 type Message = {
@@ -48,12 +48,20 @@ export function ClinicalAssistant() {
   }, [firestore, patientId, userProfile?.hospitalId]);
   const { data: allEncounters } = useCollection<Encounter>(encountersQuery);
 
+  const formatResponse = (output: ClinicalAssistantOutput): string => {
+    let response = `${output.summary}\n\n`;
+    if (output.riskLevel) response += `**Risk Level:** ${output.riskLevel}\n\n`;
+    if (output.possibleConditions?.length > 0) response += `**Possible Conditions:**\n- ${output.possibleConditions.join('\n- ')}\n\n`;
+    if (output.keyConcerns?.length > 0) response += `**Key Concerns:**\n- ${output.keyConcerns.join('\n- ')}\n\n`;
+    if (output.recommendations?.length > 0) response += `**Recommendations:**\n- ${output.recommendations.join('\n- ')}`;
+    return response;
+  };
+
   const handleSend = async () => {
     if (!input.trim() || !userProfile || !allEncounters) return;
 
     const userMessage: Message = { role: 'user', content: input };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
@@ -70,10 +78,12 @@ export function ClinicalAssistant() {
         patientContext: JSON.stringify(allEncounters.slice(0, 5)),
         userRole: userProfile.role || 'Clinician',
         fullName: userProfile.fullName || 'Doctor',
+        hospitalId: userProfile.hospitalId || '',
         history: formattedHistory
       };
 
-      const responseText = await askClinicalAssistant(aiInput);
+      const structuredResponse = await askClinicalAssistant(aiInput);
+      const responseText = formatResponse(structuredResponse);
       
       const assistantMessage: Message = { role: 'assistant', content: responseText };
       setMessages(prev => [...prev, assistantMessage]);
@@ -109,7 +119,7 @@ export function ClinicalAssistant() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
              {messages.map((msg, i) => (
                <div key={i} className={'p-4 rounded-2xl text-[11px] max-w-[85%] ' + (msg.role === 'user' ? 'bg-white border-2 border-slate-200 ml-auto rounded-tr-none text-black' : 'bg-blue-600 text-white rounded-tl-none shadow-md')}>
-                 <p dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br />') }} />
+                 <p dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                </div>
              ))}
              {isLoading && <Loader2 className="animate-spin text-blue-600 mx-auto" />}
