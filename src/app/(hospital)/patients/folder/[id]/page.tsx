@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -38,7 +39,6 @@ function TabButton({ label, icon, active, onClick, color = "black" }: any) {
   );
 }
 
-// --- HELPER COMPONENT ---
 function MiniVital({ label, value, unit }: any) {
   return (
     <div className="text-center">
@@ -55,9 +55,7 @@ export default function PatientFolderHub() {
   const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
 
-  // 1. STATE FOR ACTIVE TAB
   const [activeTab, setActiveTab] = useState<'SUMMARY' | 'LOCAL' | 'NETWORK' | 'BILLING'>('SUMMARY');
-
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -66,13 +64,11 @@ export default function PatientFolderHub() {
 
   const hospitalId = userProfile?.hospitalId;
 
-  // 1. Fetch Patient Biodata
   const patientRef = useMemoFirebase(() =>
     firestore && hospitalId && id ? doc(firestore, 'hospitals', hospitalId, 'patients', id as string) : null,
   [firestore, hospitalId, id]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  // 2. State for encounters and the permission error
   const [allEncounters, setAllEncounters] = useState<any[]>([]);
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
@@ -101,13 +97,13 @@ export default function PatientFolderHub() {
       if (result.data.success) {
           const encountersData = result.data.data as any[];
           if (Array.isArray(encountersData)) {
-            const encountersWithDates = encountersData.map((enc: any) => ({
-              ...enc,
-              createdAt: enc.createdAt && enc.createdAt._seconds
-                ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds).toDate()
-                : new Date()
+            const encountersWithTimestamps = encountersData.map((enc: any) => ({
+                ...enc,
+                createdAt: enc.createdAt && enc.createdAt._seconds
+                    ? new Timestamp(enc.createdAt._seconds, enc.createdAt._nanoseconds)
+                    : null
             }));
-            setAllEncounters(encountersWithDates);
+            setAllEncounters(encountersWithTimestamps);
           } else {
              throw new Error("Invalid data format received from history function.");
           }
@@ -131,7 +127,6 @@ export default function PatientFolderHub() {
     if(patient?.ghanaCardId){
       fetchHistory();
     } else if (!isPatientLoading) {
-      // If patient data is loaded and there's no card ID, we can stop loading.
       setAreEncountersLoading(false);
     }
   }, [patient?.ghanaCardId, patient?.id, patient?.homeHospitalId, patient?.hospitalId, firebaseApp, isPatientLoading]);
@@ -176,7 +171,7 @@ export default function PatientFolderHub() {
 
   const timelineActivities = useMemo(() => {
     const allActivities = [
-        ...(allEncounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt })),
+        ...(allEncounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt?.toDate() })),
         ...(completedLabs || []).map(l => ({ ...l, viewType: 'LAB_RESULT', date: l.completedAt?.toDate() })),
         ...(completedScans || []).map(s => ({ ...s, viewType: 'SCAN_RESULT', date: s.completedAt?.toDate() })),
         ...(procedureLogs || []).map(p => ({ ...p, viewType: 'PROCEDURE_LOG', date: p.createdAt?.toDate() }))
@@ -211,7 +206,6 @@ export default function PatientFolderHub() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* --- 2. THE CLINICAL HEADER --- */}
       <div className="bg-[#0f172a] text-white p-8 rounded-[40px] shadow-2xl flex flex-wrap justify-between items-center gap-6">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center text-3xl font-black">
@@ -246,7 +240,6 @@ export default function PatientFolderHub() {
             </div>
         )}
 
-      {/* --- 3. THE "SOLID" TAB NAVIGATION --- */}
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton
            active={activeTab === 'SUMMARY'}
@@ -275,7 +268,6 @@ export default function PatientFolderHub() {
          />
       </div>
 
-      {/* --- 4. CONDITIONAL CONTENT RENDER --- */}
       <div className="animate-in fade-in duration-500 pt-4">
         {activeTab === 'SUMMARY' && (
            <div className="space-y-6 animate-in fade-in duration-500">
@@ -373,7 +365,6 @@ export default function PatientFolderHub() {
                     timelineActivities.filter(a => a.viewType === 'ENCOUNTER').map((encounter) => (
                       <div key={encounter.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
                         
-                        {/* 1. DOCUMENT HEADER */}
                         <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                            <div>
                               <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
@@ -385,15 +376,14 @@ export default function PatientFolderHub() {
                            </div>
                            <div className="text-right">
                               <p className="text-[10px] font-black text-slate-900 uppercase">
-                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                 {encounter.createdAt ? new Date(encounter.createdAt?.toDate()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
                               </p>
                               <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
-                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                 {encounter.createdAt ? new Date(encounter.createdAt?.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                               </p>
                            </div>
                         </div>
 
-                        {/* 2. VITALS SNAPSHOT (Detailed) */}
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-slate-50 p-6 rounded-[32px]">
                            <MiniVital label="BP" value={encounter.vitals?.bp} unit="mmHg" />
                            <MiniVital label="Temp" value={encounter.vitals?.temp} unit="°C" />
@@ -403,7 +393,6 @@ export default function PatientFolderHub() {
                            <MiniVital label="Weight" value={encounter.vitals?.weight} unit="kg" />
                         </div>
 
-                        {/* 3. CLINICAL NOTES (The Fix) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                            <div className="space-y-2">
                               <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
@@ -419,7 +408,6 @@ export default function PatientFolderHub() {
                            </div>
                         </div>
 
-                        {/* 4. INVESTIGATIONS (Labs & Scans) */}
                         {(encounter.labOrders?.length > 0 || encounter.radiologyOrders?.length > 0) && (
                           <div className="space-y-4">
                              <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Diagnostic Requests</p>
@@ -440,7 +428,6 @@ export default function PatientFolderHub() {
                           </div>
                         )}
 
-                        {/* 5. MEDICATIONS */}
                         {encounter.prescription?.length > 0 && (
                           <div className="bg-[#0f172a] p-6 rounded-[32px] text-white">
                              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Treatment Plan / RX</p>

@@ -25,7 +25,6 @@ const GLOBAL_CONFIG = {
 exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login Required');
   
-  // This function now uses the user's ID token to find their hospital, making it more secure.
   const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
   if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
   const currentHospitalId = userProfileDoc.data().hospitalId;
@@ -34,7 +33,6 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
     const { ghanaCardId, homeHospitalId } = request.data;
     if (!ghanaCardId) throw new HttpsError("invalid-argument", "MISSING_GHANA_CARD_ID");
 
-    // SECURITY CHECK: Verify consent if the requesting hospital is not the patient's home hospital.
     if (currentHospitalId !== homeHospitalId) {
       const consentDoc = await db.collection("patient_consents").doc(ghanaCardId).get();
       if (!consentDoc.exists || !consentDoc.data().consentedHospitals[currentHospitalId]) {
@@ -57,29 +55,18 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
         const d = doc.data();
         return {
           id: doc.id,
-          createdAt: d.createdAt || null,
-          patientId: d.patientId || null,
-          hospitalId: d.hospitalId || null,
-          hospitalName: d.hospitalName || null,
-          ghanaCardId: d.ghanaCardId || null,
-          ehrNumber: d.ehrNumber || null,
-          patientName: d.patientName || null,
-          type: d.type || null,
-          providerUid: d.providerUid || null,
-          providerName: d.providerName || null,
-          providerRole: d.providerRole || null,
-          vitals: d.vitals || {},
-          chiefComplaint: d.chiefComplaint || null,
-          hpi: d.hpi || null,
-          diagnosis: d.diagnosis || null,
-          prescription: d.prescription || [], // Support both old and new field
-          items: d.items || [],
-          labOrders: d.labOrders || [],
-          radiologyOrders: d.radiologyOrders || [],
-          isDispensed: d.isDispensed || false,
-          hasPendingLabs: d.hasPendingLabs || false,
-          hasPendingScans: d.hasPendingScans || false,
-          isExternal: d.isExternal || false,
+          createdAt: d.createdAt,
+          vitals: d.vitals,
+          chiefComplaint: d.chiefComplaint,
+          diagnosis: d.diagnosis,
+          prescription: d.prescription,
+          labOrders: d.labOrders,
+          radiologyOrders: d.radiologyOrders,
+          // also include other relevant fields for display
+          type: d.type,
+          providerName: d.providerName,
+          providerRole: d.providerRole,
+          items: d.items,
         };
       })
     };
@@ -108,7 +95,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
 
     if (!patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
     
-    // --- SMART LOOKUP LOGIC ---
     let patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
     let patientDoc = await patientRef.get();
 
@@ -127,13 +113,11 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         throw new HttpsError('not-found', 'CRITICAL: No patient record matches this ID or EHR Number.');
       }
     }
-    // --- END OF SMART LOOKUP ---
-
     const patientData = patientDoc.data();
     if (!patientData) throw new HttpsError('not-found', 'Patient data is empty.');
 
     const batch = db.batch();
-    const encounterRef = db.collection("encounters").doc();
+    const encounterRef = doc(collection(firestore, "encounters"));
     
     const { 
         patientName, vitals, encounterType, 
@@ -274,9 +258,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-/**
- * Onboards a new staff member.
- */
 exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
@@ -336,10 +317,6 @@ exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-
-/**
- * Registers a new patient and assigns a unique EHR number.
- */
 exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   
@@ -387,10 +364,6 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-
-/**
- * Creates a new ward and automatically provisions the specified number of beds.
- */
 exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
   
@@ -424,10 +397,6 @@ exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-
-/**
- * A CEO-level function to provision a new hospital tenant.
- */
 exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
     throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
@@ -453,7 +422,6 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
-    // Perform Auth operations OUTSIDE the transaction
     const directorUserRecord = await admin.auth().createUser({
         email: cleanDirectorEmail,
         password: defaultPassword,
@@ -465,7 +433,6 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
       hospitalId: hospitalId
     });
 
-    // Transaction for Firestore atomicity
     await db.runTransaction(async (transaction) => {
         transaction.set(hospitalRef, {
             hospitalId: hospitalId, name: hospitalName, region: region,
@@ -500,7 +467,6 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
         }
     });
 
-    // Post-transaction batch for non-critical setup
     const coaBatch = db.batch();
     const starterCOA = [
       { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
@@ -529,7 +495,7 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
 });
 
 exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
-    const smsApiKey = process.env.SMS_API_KEY; // Corrected
+    const smsApiKey = process.env.SMS_API_KEY;
     const { phoneNumber, message, hospitalId, senderId } = request.data;
     const url = `https://api.sms-provider.com/send`;
     
@@ -547,7 +513,6 @@ exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
     }
 });
 
-
 exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
   
@@ -560,7 +525,7 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
 
     await db.runTransaction(async (transaction) => {
       const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.'); // Corrected
+      if (!hospitalDoc.exists) throw new HttpsError('not-found', 'Hospital record not found.');
 
       const hospital = hospitalDoc.data();
       const newCounter = (hospital.referralCounter || 0) + 1;
@@ -588,7 +553,6 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
     throw new HttpsError('internal', error.message);
   }
 });
-
 
 exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
   if (request.auth?.token.role !== 'SUPER_ADMIN') {
