@@ -22,7 +22,7 @@ import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
-import { askClinicalAssistant } from '@/ai/flows/ai-clinical-assistant';
+import { askClinicalAssistant, ClinicalAssistantOutput } from '@/ai/flows/ai-clinical-assistant';
 
 
 // THE SUB-COMPONENT FOR THE TAB
@@ -213,13 +213,10 @@ export default function PatientFolderHub() {
   [firestore, hospitalId, id]);
   const { data: procedureLogs, isLoading: areProceduresLoading } = useCollection(procedureLogsQuery);
 
-  const localEncountersQuery = useMemoFirebase(() =>
-    firestore && hospitalId && id ? query(
-        collection(firestore, `hospitals/${hospitalId}/patients/${id}/encounters`),
-        orderBy("createdAt", "desc")
-    ) : null,
-  [firestore, hospitalId, id]);
-  const { data: localEncounters } = useCollection(localEncountersQuery);
+  const localEncounters = useMemo(() => {
+    if (!allEncounters || !hospitalId) return [];
+    return allEncounters.filter(encounter => encounter.hospitalId === hospitalId);
+  }, [allEncounters, hospitalId]);
 
   const timelineActivities = useMemo(() => {
     const allActivities = [
@@ -284,41 +281,52 @@ export default function PatientFolderHub() {
                 </div>
             </div>
         )}
-        
-        {isAiLoading ? (
-            <Skeleton className="h-64 w-full rounded-[32px]" />
-        ) : aiInsight && (
-            <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
-                <h2 className="text-xs font-black uppercase text-blue-300">
-                    Gemini AI Clinical Doctor
-                </h2>
-                <p className="text-sm whitespace-pre-line">
-                    {aiInsight.summary}
-                </p>
-                <div className="text-sm">
-                    <strong>Risk Level:</strong> {aiInsight.riskLevel}
+
+        <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
+            <h2 className="text-xs font-black uppercase text-blue-300">
+                Gemini AI Clinical Doctor
+            </h2>
+            {isAiLoading ? (
+                <div className="flex items-center gap-2 text-slate-300">
+                    <Loader2 className="animate-spin" size={16}/> Thinking...
                 </div>
-                <div className="text-sm">
-                    <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
-                </div>
-                <div>
-                    <strong>Key Concerns:</strong>
-                    <ul className="list-disc ml-5 text-sm">
-                    {(aiInsight.keyConcerns || []).map((r: string, i: number) => (
-                        <li key={i}>{r}</li>
-                    ))}
-                    </ul>
-                </div>
-                <div>
-                    <strong>Recommendations:</strong>
-                    <ul className="list-disc ml-5 text-sm">
-                    {(aiInsight.recommendations || []).map((r: string, i: number) => (
-                        <li key={i}>{r}</li>
-                    ))}
-                    </ul>
-                </div>
-            </div>
-        )}
+            ) : aiInsight ? (
+                <>
+                    <p className="text-sm whitespace-pre-line">
+                        {aiInsight.summary}
+                    </p>
+
+                    <div className="text-sm">
+                        <strong>Risk Level:</strong> {aiInsight.riskLevel}
+                    </div>
+                    
+                    <div className="text-sm">
+                        <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
+                    </div>
+
+                    <div>
+                        <strong>Key Concerns:</strong>
+                        <ul className="list-disc ml-5 text-sm">
+                            {(aiInsight.keyConcerns || []).map((r: string, i: number) => (
+                                <li key={i}>{r}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <strong>Recommendations:</strong>
+                        <ul className="list-disc ml-5 text-sm">
+                        {(aiInsight.recommendations || []).map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                        ))}
+                        </ul>
+                    </div>
+                </>
+            ) : (
+                <p className="text-sm text-slate-400 italic">AI analysis could not be generated.</p>
+            )}
+        </div>
+
 
       <div className="flex flex-wrap gap-2 bg-white p-2 rounded-[30px] border shadow-sm sticky top-4 z-20">
          <TabButton
@@ -384,7 +392,7 @@ export default function PatientFolderHub() {
                 label="Oxygen (SpO2)" 
                 value={patient?.lastVitals?.spo2 || "0"} 
                 unit="%" 
-                color={Number(patient?.lastVitals?.spo2) < 92 ? "text-red-500" : "text-green-600"} 
+                color={Number(patient?.lastVitals?.spo2) < 90 ? "text-red-500" : "text-green-600"} 
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
