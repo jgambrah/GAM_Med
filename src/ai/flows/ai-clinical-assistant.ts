@@ -67,7 +67,7 @@ Return format:
 
 const generateWithFallback = async (config: any) => {
   try {
-    return await ai.generate({ ...config, model: 'googleai/gemini-1.5-pro-latest' });
+    return await ai.generate({ ...config, model: 'googleai/gemini-3-flash-preview' });
   } catch (error) {
     console.warn("Primary model failed, switching to Flash...", error);
     return await ai.generate({ ...config, model: 'googleai/gemini-2.5-flash' });
@@ -95,6 +95,10 @@ const safeParseAIResponse = (text: string): Partial<ClinicalAssistantOutput> => 
     return {
       summary: "AI output was malformed. Please review patient data manually.",
       riskLevel: "Critical",
+      possibleConditions: [],
+      keyFindings: [],
+      concerns: ["AI output was malformed or failed to parse."],
+      recommendations: ["Manual clinical review is required due to AI system error."],
       dataQualityFlags: ["INVALID_JSON_RESPONSE"],
     };
   }
@@ -103,19 +107,16 @@ const safeParseAIResponse = (text: string): Partial<ClinicalAssistantOutput> => 
 const validateAIOutput = (output: any): output is ClinicalAssistantOutput => {
   if (!output) return false;
   const allowedRisks = ["Low", "Medium", "High", "Critical"];
-  // Required fields
-  if (typeof output.summary !== 'string' || typeof output.riskLevel !== 'string' || !allowedRisks.includes(output.riskLevel)) {
-    return false;
-  }
-  // Optional array fields - check if they are arrays if they exist
-  const optionalArrays = ['possibleConditions', 'keyFindings', 'concerns', 'recommendations', 'dataQualityFlags'];
-  for (const key of optionalArrays) {
-    // If the key exists and it's not an array, validation fails.
-    if (output[key] !== undefined && !Array.isArray(output[key])) {
-      return false;
-    }
-  }
-  return true;
+  
+  const hasSummary = typeof output.summary === 'string';
+  const hasValidRisk = typeof output.riskLevel === 'string' && allowedRisks.includes(output.riskLevel);
+  const hasPossibleConditions = Array.isArray(output.possibleConditions);
+  const hasKeyFindings = Array.isArray(output.keyFindings);
+  const hasConcerns = Array.isArray(output.concerns);
+  const hasRecommendations = Array.isArray(output.recommendations);
+  const hasDataQualityFlags = Array.isArray(output.dataQualityFlags);
+
+  return hasSummary && hasValidRisk && hasPossibleConditions && hasKeyFindings && hasConcerns && hasRecommendations && hasDataQualityFlags;
 };
 
 const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
@@ -134,7 +135,7 @@ const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
       riskLevel: "Critical",
       possibleConditions: [],
       keyFindings: [],
-      concerns: ["AI output validation failed."],
+      concerns: ["AI output did not match the required format."],
       recommendations: ["Manual clinical review is required due to AI system error."],
       dataQualityFlags: ["AI_VALIDATION_FAILURE"],
     };
