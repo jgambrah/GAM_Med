@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DirectorSidebar } from "@/components/app/director-sidebar";

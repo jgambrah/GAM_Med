@@ -262,7 +262,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 py-4">
-        {[...visibleMenuGroups, myPortalMenu].map((group, idx) => (
+        {[myPortalMenu, ...visibleMenuGroups].map((group, idx) => (
           <div key={idx} className="mb-6">
             <h3 className="text-[10px] font-bold text-slate-400 tracking-widest px-3 mb-2 uppercase">
               {group.title}
