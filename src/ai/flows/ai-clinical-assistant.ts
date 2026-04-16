@@ -141,28 +141,35 @@ const validateAIOutput = (output: any): output is ClinicalAssistantOutput => {
 };
 
 const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
-  const result: any = await generateWithRetry(() => generateWithFallback(config));
-  
-  if(!result?.output){
+  const result = await generateWithRetry(() => generateWithFallback(config));
+
+  // If Genkit provides a parsed output, try to validate it directly.
+  if (result.output && validateAIOutput(result.output)) {
+    return result.output as ClinicalAssistantOutput;
+  }
+
+  // If no structured output, get the raw text.
+  const rawText = result.text;
+  if (!rawText) {
     return {
-      summary: "AI system failed to generate any output.",
-      riskLevel: "Critical",
+      summary: 'AI system failed to generate any output.',
+      riskLevel: 'Critical',
       possibleConditions: [],
       keyFindings: [],
-      concerns: ["AI_SYSTEM_NO_RESPONSE"],
-      recommendations: ["Manual clinical review is required due to AI system error."],
-      dataQualityFlags: ["AI_NO_OUTPUT"],
+      concerns: ['AI_SYSTEM_NO_RESPONSE'],
+      recommendations: ['Manual clinical review is required due to AI system error.'],
+      dataQualityFlags: ['AI_NO_OUTPUT'],
     };
   }
 
-  const rawText = result.output as string;
+  // Try to parse the raw text if we didn't get a valid structured output.
   const parsed = extractJSON(rawText);
 
   if (parsed && validateAIOutput(parsed)) {
     return parsed as ClinicalAssistantOutput;
   }
 
-  console.warn("AI JSON failed, recovering with raw output");
+  console.warn("AI JSON failed validation or parsing, recovering with raw output");
   return recoverAIOutput(rawText);
 };
 
