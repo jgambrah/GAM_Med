@@ -70,7 +70,7 @@ const generateWithFallback = async (config: any) => {
     return await ai.generate({ ...config, model: 'googleai/gemini-1.5-pro-latest' });
   } catch (error) {
     console.warn("Primary model failed, switching to Flash...", error);
-    return await ai.generate({ ...config, model: 'googleai/gemini-1.5-flash' });
+    return await ai.generate({ ...config, model: 'googleai/gemini-2.5-flash' });
   }
 };
 
