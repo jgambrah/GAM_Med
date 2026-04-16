@@ -89,6 +89,33 @@ interface NewEncounterDialogProps {
   onSuccess?: () => void;
 }
 
+const validateVitals = (vitals: any) => {
+  const errors: string[] = [];
+  if (!vitals) return errors;
+
+  const temp = Number(vitals.temp);
+  if (vitals.temp && (temp < 30 || temp > 45)) {
+    errors.push("Invalid temperature");
+  }
+
+  const spo2 = Number(vitals.spo2);
+  if (vitals.spo2 && (spo2 < 70 || spo2 > 100)) {
+    errors.push("Invalid SpO2");
+  }
+
+  const pulse = Number(vitals.pulse);
+  if (vitals.pulse && (pulse < 30 || pulse > 220)) {
+    errors.push("Invalid pulse");
+  }
+  
+  const respiration = Number(vitals.respiration);
+  if (vitals.respiration && (respiration < 5 || respiration > 60)) {
+    errors.push("Invalid respiration");
+  }
+
+  return errors;
+};
+
 export function NewEncounterDialog({
   patientId: propsPatientId,
   hospitalId,
@@ -245,6 +272,17 @@ export function NewEncounterDialog({
       return;
     }
     setLoading(true);
+
+    const vitalErrors = validateVitals(values.vitals);
+    if (vitalErrors.length > 0) {
+      toast({
+        title: "Invalid Vitals",
+        description: vitalErrors.join(", "),
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
 
     const payload = {
       patientId: patientId,
