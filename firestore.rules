@@ -169,6 +169,12 @@ service cloud.firestore {
     // Global Platform Collections
     // --------------------------------
 
+    match /ai_audit_logs/{logId} {
+      allow create: if isSignedIn();
+      allow read, list: if isSuperAdmin() || isAuditorRole(getCallingUserData().hospitalId);
+      allow update, delete: if false;
+    }
+
     match /ai_analysis/{patientId} {
         allow read: if isStaffOfHospital(resource.data.hospitalId);
         allow write: if isStaffOfHospital(request.resource.data.hospitalId);
@@ -638,3 +644,4 @@ service cloud.firestore {
     }
   }
 }
+

@@ -1,7 +1,8 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useFirebaseApp, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useFirebaseApp, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { doc, collection, query, orderBy, where, collectionGroup, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +24,7 @@ import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
 import { askClinicalAssistant, ClinicalAssistantOutput } from '@/ai/flows/ai-clinical-assistant';
+import { ClinicalAssistant } from '@/components/clinical/ClinicalAssistant';
 
 
 // THE SUB-COMPONENT FOR THE TAB
@@ -150,7 +152,7 @@ export default function PatientFolderHub() {
   
   useEffect(() => {
     const fetchInsight = async () => {
-    if (!patient || allEncounters.length === 0 || !userProfile || !firestore) return;
+    if (!patient || allEncounters.length === 0 || !userProfile || !firestore || !user) return;
 
     setIsAiLoading(true);
     try {
@@ -171,7 +173,30 @@ export default function PatientFolderHub() {
             hospitalId: userProfile.hospitalId,
             patientId: id,
             generatedAt: serverTimestamp()
+        }, { merge: true });
+
+        // Audit Log
+        addDocumentNonBlocking(collection(firestore, "ai_audit_logs"), {
+            patientId: patient.id,
+            input: JSON.stringify(allEncounters.slice(0, 5)),
+            output: result,
+            userId: user.uid,
+            timestamp: serverTimestamp()
         });
+
+        // Critical Alert
+        if (result.riskLevel === "Critical") {
+            addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/clinical_alerts`), {
+                hospitalId: hospitalId,
+                patientId: patient.id,
+                patientName: `${patient.firstName} ${patient.lastName}`,
+                encounterId: id,
+                alertType: 'CRITICAL_AI_ALERT',
+                message: `AI detected Critical Risk: ${result.summary}`,
+                status: 'UNREAD',
+                createdAt: serverTimestamp(),
+            });
+        }
       }
 
     } catch (error) {
@@ -192,7 +217,7 @@ export default function PatientFolderHub() {
     } else if (!areEncountersLoading) {
         setIsAiLoading(false);
     }
-}, [patient, allEncounters, userProfile, areEncountersLoading, toast, firestore, id]);
+  }, [patient, allEncounters, userProfile, areEncountersLoading, toast, firestore, id, user, hospitalId]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -582,3 +607,5 @@ function VitalDisplay({ label, value, unit, color }: any) {
     </div>
   );
 }
+
+
