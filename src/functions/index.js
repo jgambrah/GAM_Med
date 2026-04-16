@@ -485,29 +485,40 @@ async function assertSuperAdmin(uid) {
   const userDoc = await userDocRef.get();
 
   if (!userDoc.exists) {
-    throw new HttpsError(
-      'permission-denied',
-      'Access denied. Not a registered platform administrator.'
-    );
+    throw new HttpsError('permission-denied', 'Access denied. Not a registered platform administrator.');
   }
 
   const data = userDoc.data();
 
   if (data.isActive === false) {
-    throw new HttpsError(
-      'permission-denied',
-      'Your admin access has been revoked.'
-    );
+    throw new HttpsError('permission-denied', 'Your admin access has been revoked.');
   }
   
   if (data.permissions?.canProvisionHospital !== true) {
-      throw new HttpsError(
-        'permission-denied',
-        'You are not authorized to provision new hospitals.'
-    );
+      throw new HttpsError('permission-denied', 'You are not authorized to provision new hospitals.');
   }
+}
 
-  return data;
+async function createChartOfAccounts(hospitalRef, hospitalId) {
+    const coaBatch = db.batch();
+    const starterCOA = [
+      { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
+      { code: '1001', name: 'Petty Cash Vault', category: 'ASSETS' },
+      { code: '1099', name: 'Accumulated Depreciation', category: 'LIABILITIES' },
+      { code: '1200', name: 'Accounts Receivable (NHIS)', category: 'ASSETS' },
+      { code: '2000', name: 'Accounts Payable (Suppliers)', category: 'LIABILITIES' },
+      { code: '2100', name: 'Withholding Tax Payable (GRA)', category: 'LIABILITIES', isSystemAccount: true },
+      { code: '3000', name: 'Director Capital Contribution', category: 'CAPITAL' },
+      { code: '4000', name: 'Clinical Revenue (Cash)', category: 'REVENUE' },
+      { code: '5000', name: 'Staff Salary Expense', category: 'EXPENSES' },
+      { code: '5005', name: 'Depreciation Expense', category: 'EXPENSES' },
+    ];
+    const coaCollectionRef = hospitalRef.collection('chart_of_accounts');
+    starterCOA.forEach(acc => {
+        const newAccRef = coaCollectionRef.doc();
+        coaBatch.set(newAccRef, { ...acc, currentBalance: 0, hospitalId: hospitalId });
+    });
+    await coaBatch.commit();
 }
 
 exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
@@ -528,8 +539,6 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
     mrnPrefix, subscriptionPlan, monthlyRateNumeric, monthlyRateWords,
   } = request.data;
   
-  const tempPassword = crypto.randomBytes(10).toString("base64");
-  
   if (!monthlyRateWords || monthlyRateWords.length < 10) {
      throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
   }
@@ -537,39 +546,32 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   if (!hospitalName || !directorEmail || !mrnPrefix) {
     throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
   }
-
+  
   const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
-  // Check 1: Director Email uniqueness in Auth
+  // Uniqueness Checks
   let existingUser;
   try {
     existingUser = await admin.auth().getUserByEmail(cleanDirectorEmail);
   } catch (error) {
-    if (error.code !== 'auth/user-not-found') {
-      throw new HttpsError('internal', error.message);
-    }
+    if (error.code !== 'auth/user-not-found') throw new HttpsError('internal', error.message);
   }
-  if (existingUser) {
-    throw new HttpsError('already-exists', `A director with the email ${cleanDirectorEmail} already exists.`);
-  }
+  if (existingUser) throw new HttpsError('already-exists', `A user with the email ${cleanDirectorEmail} already exists.`);
 
-  // Check 2: Hospital Name uniqueness
   const hospitalNameQuery = await db.collection('hospitals').where('name', '==', hospitalName).limit(1).get();
-  if (!hospitalNameQuery.empty) {
-    throw new HttpsError('already-exists', `A hospital with the name "${hospitalName}" already exists.`);
-  }
+  if (!hospitalNameQuery.empty) throw new HttpsError('already-exists', `A hospital with the name "${hospitalName}" already exists.`);
   
-  // Check 3: MRN Prefix uniqueness
   const prefixQuery = await db.collection('hospitals').where('mrnPrefix', '==', mrnPrefix.toUpperCase()).limit(1).get();
-  if (!prefixQuery.empty) {
-    throw new HttpsError('already-exists', `The MRN prefix "${mrnPrefix.toUpperCase()}" is already in use.`);
-  }
+  if (!prefixQuery.empty) throw new HttpsError('already-exists', `The MRN prefix "${mrnPrefix.toUpperCase()}" is already in use.`);
   
+  let directorUserRecord = null;
   const hospitalRef = db.collection('hospitals').doc();
   const hospitalId = hospitalRef.id;
 
   try {
-    const directorUserRecord = await admin.auth().createUser({
+    const tempPassword = crypto.randomBytes(10).toString("base64");
+
+    directorUserRecord = await admin.auth().createUser({
         email: cleanDirectorEmail,
         password: tempPassword,
         displayName: directorName,
@@ -614,30 +616,21 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
         }
     });
 
-    const coaBatch = db.batch();
-    const starterCOA = [
-      { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
-      { code: '1001', name: 'Petty Cash Vault', category: 'ASSETS' },
-      { code: '1099', name: 'Accumulated Depreciation', category: 'LIABILITIES' },
-      { code: '1200', name: 'Accounts Receivable (NHIS)', category: 'ASSETS' },
-      { code: '2000', name: 'Accounts Payable (Suppliers)', category: 'LIABILITIES' },
-      { code: '2100', name: 'Withholding Tax Payable (GRA)', category: 'LIABILITIES', isSystemAccount: true },
-      { code: '3000', name: 'Director Capital Contribution', category: 'CAPITAL' },
-      { code: '4000', name: 'Clinical Revenue (Cash)', category: 'REVENUE' },
-      { code: '5000', name: 'Staff Salary Expense', category: 'EXPENSES' },
-      { code: '5005', name: 'Depreciation Expense', category: 'EXPENSES' },
-    ];
-    const coaCollectionRef = hospitalRef.collection('chart_of_accounts');
-    starterCOA.forEach(acc => {
-        const newAccRef = coaCollectionRef.doc();
-        coaBatch.set(newAccRef, { ...acc, currentBalance: 0, hospitalId: hospitalId });
-    });
-    await coaBatch.commit();
+    await createChartOfAccounts(hospitalRef, hospitalId);
 
     return { success: true, hospitalId: hospitalId, message: `${hospitalName} provisioned successfully.` };
   } catch (error) {
     console.error("FATAL: provisionFullHospital", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
+
+    if (directorUserRecord?.uid) {
+        try {
+            await admin.auth().deleteUser(directorUserRecord.uid);
+            console.log(`Rollback successful: Auth user ${directorUserRecord.uid} deleted.`);
+        } catch (rollbackError) {
+            console.error(`CRITICAL: Failed to rollback Auth user ${directorUserRecord.uid}`, rollbackError);
+        }
+    }
+    throw new HttpsError('internal', `Hospital provisioning failed and was rolled back. Reason: ${error.message}`);
   }
 });
 
@@ -774,3 +767,4 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
+
