@@ -1,710 +1,208 @@
+'use client';
+import { useState, useMemo, useEffect } from 'react';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc, serverTimestamp, writeBatch, increment, getDocs, getDoc } from 'firebase/firestore';
+import { 
+  Library, Box, Send, FileJson, 
+  CheckCircle2, Printer, Loader2, Landmark, 
+  Layers, AlertCircle, ShieldAlert
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
-// Version 2.2 - Permissions Bound & Logic Synchronized
-
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
-const admin = require("firebase-admin");
-const { addDays } = require("date-fns");
-const axios = require("axios");
-
-// Initialize Firebase Admin SDK
-if (admin.apps.length === 0) {
-  admin.initializeApp();
-}
-
-const db = admin.firestore();
-
-// THE RESILIENCE WRAPPER
-const GLOBAL_CONFIG = {
-  region: "us-central1",
-  cors: true,
-  invoker: "public",
-  maxInstances: 10
+type ReceivableClaim = {
+    id: string;
+    patientName: string;
+    amount: number;
+    createdAt: { toDate: () => Date };
 };
 
-// 1. ROBUST HISTORY LOADER (THE "TITAN-GRADE" FIX)
-exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Login Required');
+export default function NHISBatchingPortal() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [processing, setProcessing] = useState(false);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+
+  const hospitalId = userProfile?.hospitalId;
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userProfile?.role || '');
   
-  const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
-  if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
-  const currentHospitalId = userProfileDoc.data().hospitalId;
+  // 1. Fetch all items that are VETTED and UNPAID but NOT yet batched
+  const vettedClaimsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/receivables`),
+      where("payerName", "==", "NHIS"),
+      where("status", "==", "UNPAID"),
+    );
+  }, [firestore, hospitalId]);
+  const { data: vettedClaims, isLoading: areClaimsLoading } = useCollection<ReceivableClaim>(vettedClaimsQuery);
 
-  try {
-    const { ghanaCardId, homeHospitalId } = request.data;
-    if (!ghanaCardId) throw new HttpsError("invalid-argument", "MISSING_GHANA_CARD_ID");
+  const totalValue = useMemo(() => {
+    if (!vettedClaims) return 0;
+    return vettedClaims.reduce((acc, curr) => acc + curr.amount, 0);
+  }, [vettedClaims]);
 
-    if (currentHospitalId !== homeHospitalId) {
-      const consentDoc = await db.collection("patient_consents").doc(ghanaCardId).get();
-      if (!consentDoc.exists || !consentDoc.data().consentedHospitals[currentHospitalId]) {
-        console.log(`Permission denied for ${currentHospitalId} on patient ${ghanaCardId}`);
-        return { success: false, reason: 'PERMISSION_REQUIRED' };
-      }
+  const handleCreateBatch = async () => {
+    if (!vettedClaims || vettedClaims.length === 0 || !hospitalId || !user || !firestore) {
+        toast({ variant: 'destructive', title: 'No claims to batch.' });
+        return;
     }
-    
-    console.log(`Auditing Clinical History for Ghana Card: ${ghanaCardId}`);
+    setProcessing(true);
 
-    const snap = await db.collectionGroup("encounters")
-      .where("ghanaCardId", "==", ghanaCardId)
-      .orderBy("createdAt", "desc")
-      .get();
-
-    // EXPLICIT MAPPING: This ensures the frontend receives a predictable data shape.
-    const encounters = snap.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          createdAt: d.createdAt,
-          vitals: d.vitals,
-          chiefComplaint: d.chiefComplaint,
-          hpi: d.hpi,
-          diagnosis: d.diagnosis,
-          prescription: d.prescription,
-          items: d.items,
-          labOrders: d.labOrders,
-          radiologyOrders: d.radiologyOrders,
-          type: d.type,
-          providerName: d.providerName,
-          providerRole: d.providerRole,
-          hospitalName: d.hospitalName,
-        };
-    });
-
-    return { success: true, data: encounters };
-
-  } catch (error) {
-    console.error("FATAL: getPatientHistory", error);
-    throw new HttpsError('internal', 'An internal error occurred while fetching clinical history.');
-  }
-});
-
-
-/**
- * Onboards a new staff member.
- * Creates an Auth user and a corresponding user profile in Firestore.
- */
-exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
-  }
-
-  const { fullName, email, role, contractType, ...optionalData } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
-
-  if (!hospitalId) {
-    throw new HttpsError('failed-precondition', 'Caller is not associated with a hospital.');
-  }
-  
-  const hospitalRef = db.collection('hospitals').doc(hospitalId);
-
-  try {
-    // 1. Create Auth Account first to get a UID
-    const userRecord = await admin.auth().createUser({
-      email: email,
-      password: "Staff123!",
-      displayName: fullName,
-    });
-
-    // 2. Set Custom Claims
-    await admin.auth().setCustomUserClaims(userRecord.uid, { role, hospitalId, contractType });
-    
-    let newStaffNumber;
-
-    // 3. Run a transaction to generate staff number and create user doc
-    await db.runTransaction(async (transaction) => {
-        const hospitalDoc = await transaction.get(hospitalRef);
-        if (!hospitalDoc.exists) {
-            throw new HttpsError('not-found', 'Hospital record not found.');
-        }
-
-        const hospital = hospitalDoc.data();
-        const newCounter = (hospital.staffCounter || 0) + 1;
-        const prefix = hospital.mrnPrefix || 'GAM';
-        const year = new Date().getFullYear().toString().slice(-2);
-        newStaffNumber = `${prefix}/STF/${year}/${String(newCounter).padStart(4, '0')}`;
-        
-        const userRef = db.collection('users').doc(userRecord.uid);
-        
-        // Create Firestore User Profile inside transaction
-        transaction.set(userRef, {
-            uid: userRecord.uid,
-            fullName,
-            email,
-            role,
-            hospitalId,
-            contractType,
-            staffNumber: newStaffNumber,
-            is_active: true,
-            mustChangePassword: true,
-            onboardingComplete: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            ...optionalData
-        });
-        
-        // Update hospital staff counter
-        transaction.update(hospitalRef, { staffCounter: newCounter });
-    });
-
-
-    return { success: true, message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` };
-  } catch (error) {
-    console.error("Onboarding failed:", error);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-
-/**
- * Registers a new patient and assigns a unique EHR number.
- */
-exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
-  }
-  
-  const userProfileDoc = await db.collection("users").doc(request.auth.uid).get();
-  if (!userProfileDoc.exists) throw new HttpsError("not-found", "Your user profile could not be found.");
-  const hospitalId = userProfileDoc.data().hospitalId;
-  if (!hospitalId) throw new HttpsError("failed-precondition", "Your account is not associated with a hospital.");
-  
-  const registeringStaffId = request.auth.uid;
-  const hospitalRef = db.collection('hospitals').doc(hospitalId);
-
-  try {
-    const patientData = request.data;
-    let newEhrNumber;
-
-    // Transaction to safely increment patient counter and create patient
-    await db.runTransaction(async (transaction) => {
-      const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists) {
-        throw new HttpsError('not-found', 'Hospital record not found.');
-      }
-      
-      const hospital = hospitalDoc.data();
-      const newCounter = (hospital.patientCounter || 0) + 1;
-      const prefix = hospital.mrnPrefix || 'GAM';
-      const year = new Date().getFullYear().toString().slice(-2);
-      newEhrNumber = `${prefix}/EHR/${year}/${String(newCounter).padStart(4, '0')}`;
-
-      const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc();
-      transaction.set(patientRef, {
-        ...patientData,
-        ehrNumber: newEhrNumber,
-        hospitalId: hospitalId,
-        homeHospitalId: hospitalId, // Set home hospital on creation
-        registeredBy: registeringStaffId,
-        status: 'Awaiting Vitals',
-        checkInTime: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      
-      transaction.update(hospitalRef, { patientCounter: newCounter });
-    });
-
-    return { success: true, ehrNumber: newEhrNumber };
-  } catch (error) {
-    console.error("Patient registration failed:", error);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-const evaluateCriticalAlerts = (vitals) => {
-    const alerts = [];
-    const spo2 = Number(vitals?.spo2);
-    const resp = Number(vitals?.respiration);
-    const pulse = Number(vitals?.pulse);
-    const temp = Number(vitals?.temp);
-  
-    if (spo2 && spo2 < 90) {
-      alerts.push({
-        type: "CRITICAL_OXYGEN",
-        message: `SpO2 critically low (${spo2}%)`,
-        severity: "CRITICAL"
-      });
-    }
-  
-    if (resp && resp > 30) {
-      alerts.push({
-        type: "RESPIRATORY_DISTRESS",
-        message: `High respiration rate (${resp}/min)`,
-        severity: "CRITICAL"
-      });
-    }
-  
-    if (pulse && pulse > 130) {
-      alerts.push({
-        type: "TACHYCARDIA",
-        message: `Pulse critically high (${pulse} bpm)`,
-        severity: "HIGH"
-      });
-    }
-  
-    if (temp && temp > 39) {
-      alerts.push({
-        type: "HIGH_FEVER",
-        message: `High temperature (${temp}°C)`,
-        severity: "HIGH"
-      });
-    }
-    return alerts;
-};
-
-/**
- * Creates a new clinical encounter and intelligently creates billing items based on insurance coverage.
- */
-exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
-  // Security Gate first
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Session Expired.');
-  
-  const hospitalId = request.auth.token.hospitalId;
-  if (!hospitalId) throw new HttpsError('unauthenticated', 'User not associated with a hospital.');
-
-  const data = request.data;
-  const { patientId, ...restOfData } = data;
-  
-  try {
-    const clean = (val) => (val === undefined || val === null ? "" : val);
-
-    if (!patientId) throw new Error("CRITICAL_MISSING_FIELD: patientId");
-    
-    let patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
-    let patientDoc = await patientRef.get();
-
-    if (!patientDoc.exists) {
-      console.log("⚠️ ID lookup failed, attempting EHR search...");
-      const ehrQuery = await db.collection('hospitals').doc(hospitalId)
-        .collection('patients')
-        .where("ehrNumber", "==", patientId)
-        .limit(1)
-        .get();
-        
-      if (!ehrQuery.empty) {
-        patientDoc = ehrQuery.docs[0];
-        patientRef = patientDoc.ref;
-      } else {
-        throw new HttpsError('not-found', 'CRITICAL: No patient record matches this ID or EHR Number.');
-      }
-    }
-    const patientData = patientDoc.data();
-    if (!patientData) throw new HttpsError('not-found', 'Patient data is empty.');
-
-    const batch = db.batch();
-    const encounterRef = doc(collection(firestore, "encounters"));
-    
-    const { 
-        patientName, vitals, encounterType, 
-        labOrders = [], radiologyOrders = [], 
-        items = [], 
-        isExternal,
-        ...restOfEncounterData 
-    } = restOfData;
-
-    const finalItems = items || [];
-    const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
-
-    const createBillingItem = (item, type, qty = 1) => {
-        let billingType = 'CASH_PAYMENT';
-        let billPayerId = null;
-        let payerName = 'Cash Patient';
-
-        if (patientData.payerId && patientData.payerId !== 'CASH') {
-            billingType = 'INSURANCE_CLAIM';
-            billPayerId = patientData.payerId;
-            payerName = patientData.payerName;
-        }
-        
-        const billRef = billingItemsCollection.doc();
-        batch.set(billRef, {
-            patientId: patientDoc.id,
-            patientName: `${patientData.firstName} ${patientData.lastName}`,
-            hospitalId,
-            encounterId: encounterRef.id,
-            description: item.name,
-            category: type,
-            sku: item.sku || null,
-            unitPrice: item.price || 0,
-            qty,
-            total: (item.price || 0) * qty,
-            status: 'UNPAID',
-            billedBy: request.auth.uid,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            billingType,
-            payerId: billPayerId,
-            payerName
-        });
-    };
-    
-    if (!isExternal && finalItems && finalItems.length > 0) {
-      const drugSkus = finalItems.map(p => p.sku).filter(Boolean);
-      if(drugSkus.length > 0) {
-        const drugsSnap = await db.collection('hospitals').doc(hospitalId).collection('product_catalog').where('sku', 'in', drugSkus).get();
-        drugsSnap.forEach(doc => {
-            const rxItem = finalItems.find(p => p.sku === doc.data().sku);
-            const qty = rxItem?.qty || 1;
-            createBillingItem(doc.data(), 'PHARMACY', qty);
-        });
-      }
-    }
-    
-    let hasPendingLabs = false;
-    let hasPendingScans = false;
-
-    if (!isExternal) {
-        if (labOrders && labOrders.length > 0) {
-          hasPendingLabs = true;
-          for (const order of labOrders) {
-            const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
-            batch.set(orderRef, { ...order, orderId: orderRef.id, patientId: patientDoc.id, patientName: `${patientData.firstName} ${patientData.lastName}`, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
-            createBillingItem(order, 'LABORATORY');
-          }
-        }
-      
-        if (radiologyOrders && radiologyOrders.length > 0) {
-          hasPendingScans = true;
-          for (const order of radiologyOrders) {
-            const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
-            batch.set(orderRef, { ...order, orderId: orderRef.id, patientId: patientDoc.id, patientName: `${patientData.firstName} ${patientData.lastName}`, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
-            createBillingItem(order, 'IMAGING');
-          }
-        }
-    }
-
-    const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
-    const hospitalData = hospitalDoc.data();
-    const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
-    const userProfileData = userProfileSnap.data();
-
-    const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
-
-    batch.set(encounterRef, {
-        id: encounterRef.id,
-        patientId: patientDoc.id,
-        hospitalId,
-        patientName: `${patientData.firstName} ${patientData.lastName}`,
-        ehrNumber: patientData.ehrNumber,
-        type: encounterType,
-        hospitalName: hospitalData?.name,
-        ghanaCardId: patientData.ghanaCardId,
-        providerUid: request.auth.uid,
-        providerName: request.auth.token.name || 'Unknown Staff',
-        providerRole: request.auth.token.role || 'UNKNOWN',
-        doctorMDC: userProfileData?.licenseNumber || 'N/A',
-        vitals: fullVitals,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        items: finalItems,
-        prescription: finalItems,
-        labOrders: labOrders || [],
-        radiologyOrders: radiologyOrders || [],
-        hasPendingLabs,
-        hasPendingScans,
-        isExternal: isExternal || false,
-        ...restOfEncounterData,
-        chiefComplaint: clean(data.chiefComplaint),
-        hpi: clean(data.hpi),
-        diagnosis: clean(data.diagnosis),
-    });
-
-    batch.update(patientRef, {
-        status: 'Waiting for Assignment',
-        lastVitals: fullVitals,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    
-    // SERVER-SIDE ALERT ENGINE
-    const vitalAlerts = evaluateCriticalAlerts(fullVitals);
-    if (vitalAlerts.length > 0) {
-        vitalAlerts.forEach(alert => {
-            const alertRef = db.collection('hospitals').doc(hospitalId).collection('clinical_alerts').doc();
-            batch.set(alertRef, {
-                hospitalId,
-                patientId: patientDoc.id,
-                patientName: `${patientData.firstName} ${patientData.lastName}`,
-                encounterId: encounterRef.id,
-                alertType: 'CRITICAL_VITALS',
-                message: alert.message,
-                status: 'UNREAD',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-        });
-    }
-
-    if (!isExternal) {
-        const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
-        if (!serviceSnap.empty) {
-            createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
-        }
-    }
-    
-    await batch.commit();
-    return { success: true, encounterId: encounterRef.id };
-
-  } catch(error) {
-      console.error("FATAL: createEncounter", error.code, error.message, error.stack);
-      throw new HttpsError('internal', error.message);
-  }
-});
-
-exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated administrator.');
-  
-  const { name, prefix, capacity } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
-
-  try {
-    const wardRef = db.collection('hospitals').doc(hospitalId).collection('wards').doc();
-    
-    const batch = db.batch();
-    
-    batch.set(wardRef, {
-      wardId: wardRef.id, name, prefix, capacity, occupancy: 0, hospitalId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    for (let i = 1; i <= capacity; i++) {
-      const bedId = `${prefix}-${String(i).padStart(3, '0')}`;
-      const bedRef = wardRef.collection('beds').doc(bedId);
-      batch.set(bedRef, {
-        bedId: bedId, wardId: wardRef.id, wardName: name, hospitalId: hospitalId,
-        status: 'Available', patientId: null, admittedAt: null,
-      });
-    }
-
-    await batch.commit();
-    return { success: true, message: `Ward '${name}' and ${capacity} beds created.` };
-  } catch (error) {
-    console.error("FATAL: createWardAndBeds", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
-  if (request.auth?.token.role !== 'SUPER_ADMIN') {
-    throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
-  }
-
-  const {
-    hospitalName, region, directorEmail, directorName,
-    mrnPrefix, subscriptionPlan, monthlyRateNumeric, monthlyRateWords,
-  } = request.data;
-  
-  const defaultPassword = "password123";
-  
-  if (!monthlyRateWords || monthlyRateWords.length < 10) {
-     throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
-  }
-
-  if (!hospitalName || !directorEmail || !mrnPrefix) {
-    throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
-  }
-  
-  const hospitalRef = db.collection('hospitals').doc();
-  const hospitalId = hospitalRef.id;
-  const cleanDirectorEmail = directorEmail.toLowerCase().trim();
-
-  try {
-    const directorUserRecord = await admin.auth().createUser({
-        email: cleanDirectorEmail,
-        password: defaultPassword,
-        displayName: directorName,
-    });
-    
-    await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
-      role: 'DIRECTOR',
-      hospitalId: hospitalId
-    });
-
-    await db.runTransaction(async (transaction) => {
-        transaction.set(hospitalRef, {
-            hospitalId: hospitalId, name: hospitalName, region: region,
-            directorUid: directorUserRecord.uid, directorEmail: cleanDirectorEmail,
-            mrnPrefix: mrnPrefix, subscriptionPlan: subscriptionPlan,
-            agreedRate: monthlyRateNumeric, agreedRateWords: monthlyRateWords,
-            provisioningSecret: defaultPassword, status: 'active', isSuspended: false,
-            subscriptionStatus: 'ACTIVE', mustChangePassword: true,
-            patientCounter: 0, staffCounter: 0, poCounter: 0, pvCounter: 0,
-            receiptCounter: 0, referralCounter: 0, nhisBatchCounter: 0,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
-            nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
-            gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
-        });
-
-        const userRef = db.collection('users').doc(directorUserRecord.uid);
-        transaction.set(userRef, {
-          uid: directorUserRecord.uid, fullName: directorName, email: cleanDirectorEmail,
-          role: 'DIRECTOR', hospitalId: hospitalId, is_active: true,
-          mustChangePassword: true, onboardingComplete: true,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        
-        const configRef = db.doc('platform_config/summary');
-        const configDoc = await transaction.get(configRef);
-        if(configDoc.exists) {
-            transaction.update(configRef, {
-                totalFacilities: admin.firestore.FieldValue.increment(1),
-                [`regionalBreakdown.${region}`]: admin.firestore.FieldValue.increment(1)
-            });
-        }
-    });
-
-    const coaBatch = db.batch();
-    const starterCOA = [
-      { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
-      { code: '1001', name: 'Petty Cash Vault', category: 'ASSETS' },
-      { code: '1099', name: 'Accumulated Depreciation', category: 'LIABILITIES' },
-      { code: '1200', name: 'Accounts Receivable (NHIS)', category: 'ASSETS' },
-      { code: '2000', name: 'Accounts Payable (Suppliers)', category: 'LIABILITIES' },
-      { code: '2100', name: 'Withholding Tax Payable (GRA)', category: 'LIABILITIES', isSystemAccount: true },
-      { code: '3000', name: 'Director Capital Contribution', category: 'CAPITAL' },
-      { code: '4000', name: 'Clinical Revenue (Cash)', category: 'REVENUE' },
-      { code: '5000', name: 'Staff Salary Expense', category: 'EXPENSES' },
-      { code: '5005', name: 'Depreciation Expense', category: 'EXPENSES' },
-    ];
-    const coaCollectionRef = hospitalRef.collection('chart_of_accounts');
-    starterCOA.forEach(acc => {
-        const newAccRef = coaCollectionRef.doc();
-        coaBatch.set(newAccRef, { ...acc, currentBalance: 0, hospitalId: hospitalId });
-    });
-    await coaBatch.commit();
-
-    return { success: true, hospitalId: hospitalId, message: `${hospitalName} provisioned successfully.` };
-  } catch (error) {
-    console.error("FATAL: provisionFullHospital", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
-  }
-});
-
-exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
-    const smsApiKey = process.env.SMS_API_KEY;
-    const { phoneNumber, message, hospitalId, senderId } = request.data;
-    const url = `https://api.sms-provider.com/send`;
-    
     try {
-        if (!smsApiKey || smsApiKey === "YOUR_SMS_GATEWAY_API_KEY") {
-            console.warn("SMS_API_KEY not configured. Skipping SMS send.");
-            return { success: false, message: "SMS gateway not configured."};
-        }
-        await axios.post(url, { to: phoneNumber, from: senderId || 'GamMed', message, api_key: smsApiKey });
-        await db.collection('sms_logs').add({ hospitalId, recipient: phoneNumber, message, status: 'SENT', createdAt: admin.firestore.FieldValue.serverTimestamp() });
-        return { success: true };
-    } catch (error) {
-        console.error("FATAL: sendClinicalSms", error.code, error.message, error.stack);
-        throw new HttpsError('internal', 'Could not send SMS.');
+        const hRef = doc(firestore, "hospitals", hospitalId);
+        const hSnap = await getDoc(hRef);
+        if (!hSnap.exists()) throw new Error("Hospital document not found.");
+
+        const hData = hSnap.data();
+        const nextBatchNum = (hData.nhisBatchCounter || 0) + 1;
+        const year = new Date().getFullYear().toString().slice(-2);
+        const batchNumber = `${hData.mrnPrefix}/NHIS/${year}/${String(nextBatchNum).padStart(3, '0')}`;
+
+        const batch = writeBatch(firestore);
+        const batchRef = doc(collection(firestore, "nhis_batches"));
+        
+        batch.set(batchRef, {
+            batchNumber, hospitalId,
+            claimCount: vettedClaims.length,
+            totalValue,
+            status: 'BATCHED_PENDING_SUBMISSION',
+            createdAt: serverTimestamp(),
+            createdBy: user.uid,
+            createdByName: user.displayName,
+        });
+
+        vettedClaims.forEach(claim => {
+            const claimRef = doc(firestore, `hospitals/${hospitalId}/receivables`, claim.id);
+            batch.update(claimRef, { 
+                batchId: batchRef.id, 
+                batchNumber,
+                status: 'SUBMITTED_TO_NHIA' 
+            });
+        });
+
+        batch.update(hRef, { nhisBatchCounter: increment(1) });
+        
+        await batch.commit();
+        toast({ title: "NHIS Batch Created Successfully", description: "Claims are now ready for digital and physical submission." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Batch Creation Failed", description: e.message });
+    } finally {
+      setProcessing(false);
     }
-});
-
-exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'You must be an authenticated staff member.');
+  };
   
-  const { patientId, patientName, ehrNumber, latestEncounter, ...formData } = request.data;
-  const hospitalId = request.auth.token.hospitalId;
-  const hospitalRef = db.collection('hospitals').doc(hospitalId);
+  const isLoading = isUserLoading || isProfileLoading;
+  if(isLoading) return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>
 
-  try {
-    let newRefNumber, newReferralId;
-
-    await db.runTransaction(async (transaction) => {
-      const hospitalDoc = await transaction.get(hospitalRef);
-      if (!hospitalDoc.exists()) throw new HttpsError('not-found', 'Hospital record not found.');
-
-      const hospital = hospitalDoc.data();
-      const newCounter = (hospital.referralCounter || 0) + 1;
-      const prefix = hospital.mrnPrefix || 'GAM';
-      const year = new Date().getFullYear().toString().slice(-2);
-      newRefNumber = `${prefix}/REF/${year}/${String(newCounter).padStart(3, '0')}`;
-
-      const referralRef = db.collection('referrals').doc();
-      newReferralId = referralRef.id;
-      
-      transaction.set(referralRef, {
-        ...formData, referralNumber: newRefNumber, patientId, patientName, ehrNumber,
-        vitalsAtReferral: latestEncounter?.vitals || {},
-        medications: latestEncounter?.prescription || [],
-        hospitalId, referringDoctor: request.auth.token.name, status: 'ISSUED',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      transaction.update(hospitalRef, { referralCounter: newCounter });
-    });
-
-    return { success: true, referralId: newReferralId, referralNumber: newRefNumber };
-  } catch (error) {
-    console.error("FATAL: createReferral", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
+  if(!isAuthorized && !isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-muted-foreground">You are not authorized for this module.</p>
+          <Button onClick={() => router.push('/dashboard')} className="mt-4">Return Home</Button>
+        </div>
+      </div>
+    );
   }
-});
 
-exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
-  if (request.auth?.token.role !== 'SUPER_ADMIN') {
-    throw new HttpsError('permission-denied', 'You must be a Super Admin.');
-  }
-  const { targetEmail, hospitalId, role } = request.data;
-  try {
-    const user = await admin.auth().getUserByEmail(targetEmail);
-    await admin.auth().setCustomUserClaims(user.uid, { hospitalId, role });
-    await db.collection('users').doc(user.uid).update({ hospitalId, role });
-    return { success: true, message: `Identity for ${targetEmail} has been re-stamped.` };
-  } catch (error) {
-    console.error("FATAL: repairUserIdentity", error.code, error.message, error.stack);
-    throw new HttpsError('internal', error.message);
-  }
-});
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-8 text-black font-bold">
+      <div className="flex flex-col md:flex-row justify-between items-end border-b-8 border-slate-900 pb-8 gap-6">
+        <div>
+           <div className="flex items-center gap-3 text-blue-600 mb-2">
+              <Landmark size={32} />
+              <span className="text-[10px] font-black uppercase tracking-[0.4em]">NHIA Compliance Module</span>
+           </div>
+           <h1 className="text-5xl font-black uppercase tracking-tighter italic leading-none">NHIS Bulk <span className="text-blue-600">Batching</span></h1>
+        </div>
+        
+        <div className="bg-blue-600 text-white p-6 rounded-[32px] shadow-2xl flex items-center gap-6 border-b-8 border-blue-900">
+           <div className="text-right">
+              <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Ready for Batching</p>
+              <p className="text-2xl font-black italic">₵ {areClaimsLoading ? '...' : totalValue.toLocaleString()}</p>
+           </div>
+           <div className="bg-white/20 p-3 rounded-2xl"><Layers size={24}/></div>
+        </div>
+      </div>
 
-// --- AUTOMATED AUDIT TRIGGERS ---
-exports.auditPatientRegistration = onDocumentCreated("hospitals/{hospitalId}/patients/{patientId}", async (event) => {
-  const data = event.data.data();
-  if (!data) return null;
-  const actor = await admin.auth().getUser(data.registeredBy);
-  return db.collection("global_audit_logs").add({
-    type: 'CLINICAL', action: 'PATIENT_REGISTERED',
-    hospitalId: data.hospitalId || 'Unknown', actorId: data.registeredBy,
-    actorName: actor.displayName || 'System',
-    details: `New EHR created for ${data.firstName} ${data.lastName} (${data.ehrNumber})`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
-  });
-});
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+              <Box size={16} className="text-blue-600" /> Vetted Unbatched Claims
+           </h3>
+           <div className="bg-white rounded-[40px] border-4 border-slate-900 overflow-hidden shadow-xl">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b-2 border-slate-100">
+                   <tr>
+                      <th className="p-4 text-[10px] uppercase">Patient & Visit</th>
+                      <th className="p-4 text-[10px] uppercase text-right">Claim Value (₵)</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y">
+                   {areClaimsLoading && <tr><td colSpan={2} className="p-20 text-center"><Loader2 className="animate-spin" /></td></tr>}
+                   {!areClaimsLoading && vettedClaims?.length === 0 ? (
+                     <tr><td colSpan={2} className="p-20 text-center text-slate-300 italic">No vetted claims ready for batching.</td></tr>
+                   ) : vettedClaims?.map(claim => (
+                     <tr key={claim.id} className="hover:bg-blue-50/50 transition-all font-bold">
+                        <td className="p-4 uppercase text-xs">
+                           {claim.patientName}
+                           <p className="text-[8px] text-slate-400">VETTED ON: {new Date(claim.createdAt?.toDate()).toLocaleDateString()}</p>
+                        </td>
+                        <td className="p-4 text-right">₵ {claim.amount.toFixed(2)}</td>
+                     </tr>
+                   ))}
+                </tbody>
+              </table>
+           </div>
+        </div>
 
-exports.auditPayments = onDocumentCreated("hospitals/{hospitalId}/payments/{paymentId}", async (event) => {
-  const data = event.data.data();
-  if (!data) return null;
-  return db.collection("global_audit_logs").add({
-    type: 'FINANCIAL', action: 'PAYMENT_RECEIVED',
-    hospitalId: data.hospitalId, actorId: data.processedBy,
-    actorName: data.processedByName || 'Cashier',
-    details: `Revenue Secured: GHS ${data.totalAmount} from ${data.patientName} (Ref: ${data.paymentId})`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
-  });
-});
+        <div className="space-y-6">
+           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Execute Submission</h3>
+           <div className="bg-[#0f172a] p-8 rounded-[40px] text-white shadow-2xl space-y-8">
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span className="text-[10px] text-slate-400 uppercase">Total Count</span>
+                    <span className="text-xl font-black">{vettedClaims?.length || 0} Claims</span>
+                 </div>
+                 <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span className="text-[10px] text-slate-400 uppercase">Total Value</span>
+                    <span className="text-xl font-black text-blue-400">₵ {totalValue.toFixed(2)}</span>
+                 </div>
+              </div>
 
-exports.auditHospitalStatus = onDocumentUpdated("hospitals/{hospitalId}", async (event) => {
-  const before = event.data.before.data();
-  const after = event.data.after.data();
-  if (!before || !after) return null;
-  if (before.status !== after.status) {
-    return db.collection("global_audit_logs").add({
-      type: 'SECURITY', action: 'FACILITY_STATUS_CHANGE',
-      hospitalId: event.params.hospitalId, actorId: 'SYSTEM',
-      actorName: 'App CEO / System Autopilot',
-      details: `Hospital status moved from ${before.status} to ${after.status}`,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-  }
-  return null;
-});
+              <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 flex items-start gap-3">
+                 <AlertCircle size={20} className="text-blue-400 shrink-0" />
+                 <p className="text-[9px] font-medium text-blue-200 leading-relaxed uppercase">
+                    By generating this batch, you are locking these claims for NHIA submission. They will move to 'Accounts Receivable - Pending NHIA Settlement'.
+                 </p>
+              </div>
 
-exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase_orders/{poId}", async (event) => {
-  const data = event.data.data();
-  if (!data) return null;
-  const totalValue = (data.items || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantityOrdered || 0)), 0);
-  if (totalValue > 5000) {
-    return db.collection("global_audit_logs").add({
-      type: 'FINANCIAL', action: 'LARGE_PO_ISSUED',
-      hospitalId: data.hospitalId, actorId: data.orderedBy,
-      actorName: data.orderedByName || 'Procurement Officer',
-      details: `High-value PO issued to ${data.supplierName} for GHS ${totalValue.toLocaleString()}`,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-  }
-  return null;
-});
+              <button 
+                onClick={handleCreateBatch}
+                disabled={!vettedClaims || vettedClaims.length === 0 || processing}
+                className="w-full bg-blue-600 hover:bg-white hover:text-black text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl transition-all flex items-center justify-center gap-3 disabled:bg-slate-800"
+              >
+                 {processing ? <Loader2 className="animate-spin" /> : <Library size={18}/>}
+                 Seal & Generate NHIS Batch
+              </button>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+    
+
+    
