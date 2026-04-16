@@ -195,6 +195,7 @@ export default function PatientFolderHub() {
                 alertType: 'CRITICAL_AI_ALERT',
                 message: `AI detected Critical Risk: ${result.summary}`,
                 status: 'UNREAD',
+                severity: result.riskLevel || 'Critical',
                 createdAt: serverTimestamp(),
             });
         }

@@ -1,3 +1,4 @@
+
 // Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -30,7 +31,6 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
   const currentHospitalId = userProfileDoc.data().hospitalId;
 
   try {
-    console.log("getPatientHistory v2 deployed");
     const { ghanaCardId, homeHospitalId } = request.data;
     if (!ghanaCardId) throw new HttpsError("invalid-argument", "MISSING_GHANA_CARD_ID");
 
@@ -69,8 +69,6 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
           hospitalName: d.hospitalName,
         };
     });
-    
-    console.log("Returning encounters:", encounters.length);
 
     return { success: true, data: encounters };
 
@@ -210,6 +208,47 @@ exports.registerPatient = onCall(GLOBAL_CONFIG, async (request) => {
     throw new HttpsError('internal', error.message);
   }
 });
+
+const evaluateCriticalAlerts = (vitals) => {
+    const alerts = [];
+    const spo2 = Number(vitals?.spo2);
+    const resp = Number(vitals?.respiration);
+    const pulse = Number(vitals?.pulse);
+    const temp = Number(vitals?.temp);
+  
+    if (spo2 && spo2 < 90) {
+      alerts.push({
+        type: "CRITICAL_OXYGEN",
+        message: `SpO2 critically low (${spo2}%)`,
+        severity: "CRITICAL"
+      });
+    }
+  
+    if (resp && resp > 30) {
+      alerts.push({
+        type: "RESPIRATORY_DISTRESS",
+        message: `High respiration rate (${resp}/min)`,
+        severity: "CRITICAL"
+      });
+    }
+  
+    if (pulse && pulse > 130) {
+      alerts.push({
+        type: "TACHYCARDIA",
+        message: `Pulse critically high (${pulse} bpm)`,
+        severity: "HIGH"
+      });
+    }
+  
+    if (temp && temp > 39) {
+      alerts.push({
+        type: "HIGH_FEVER",
+        message: `High temperature (${temp}°C)`,
+        severity: "HIGH"
+      });
+    }
+    return alerts;
+};
 
 /**
  * Creates a new clinical encounter and intelligently creates billing items based on insurance coverage.
@@ -371,6 +410,25 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         lastVitals: fullVitals,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    
+    // SERVER-SIDE ALERT ENGINE
+    const vitalAlerts = evaluateCriticalAlerts(fullVitals);
+    if (vitalAlerts.length > 0) {
+        vitalAlerts.forEach(alert => {
+            const alertRef = db.collection('hospitals').doc(hospitalId).collection('clinical_alerts').doc();
+            batch.set(alertRef, {
+                hospitalId,
+                patientId: patientDoc.id,
+                patientName: `${patientData.firstName} ${patientData.lastName}`,
+                encounterId: encounterRef.id,
+                alertType: 'CRITICAL_VITALS',
+                message: alert.message,
+                status: 'UNREAD',
+                severity: alert.severity,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        });
+    }
 
     if (!isExternal) {
         const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();

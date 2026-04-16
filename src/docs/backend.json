@@ -1,6 +1,19 @@
 
 {
   "entities": {
+    "AI_AuditLog": {
+      "title": "AI Audit Log",
+      "description": "Records every interaction with the clinical AI for safety and review.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "input": { "type": "string", "description": "The stringified JSON of the input provided to the AI." },
+        "output": { "type": "object", "description": "The structured JSON output from the AI." },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "input", "output", "userId", "timestamp"]
+    },
     "PatientConsent": {
       "title": "Patient Consent",
       "description": "A record of a patient granting specific hospitals access to their longitudinal medical record. The document ID is the patient's Ghana Card ID.",
@@ -22,6 +35,23 @@
         }
       },
       "required": ["ghanaCardId", "patientId", "consentedHospitals"]
+    },
+    "AIAnalysis": {
+      "title": "AI Clinical Analysis",
+      "description": "Stores the output of the Gemini Clinical Decision Support System for a specific patient.",
+      "type": "object",
+      "properties": {
+        "hospitalId": { "type": "string" },
+        "summary": { "type": "string" },
+        "riskLevel": { "type": "string" },
+        "possibleConditions": { "type": "array", "items": { "type": "string" } },
+        "keyFindings": { "type": "array", "items": { "type": "string" } },
+        "concerns": { "type": "array", "items": { "type": "string" } },
+        "recommendations": { "type": "array", "items": { "type": "string" } },
+        "dataQualityFlags": { "type": "array", "items": { "type": "string" } },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalId", "summary", "riskLevel", "generatedAt"]
     },
     "ExternalOrder": {
       "title": "External Clinical Order",
@@ -2469,8 +2499,13 @@
           "type": "string",
           "enum": [
             "CRITICAL_VITALS",
+            "CRITICAL_AI_ALERT",
             "OTHER"
           ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
         },
         "message": {
           "type": "string"
@@ -2501,7 +2536,8 @@
         "alertType",
         "message",
         "status",
-        "createdAt"
+        "createdAt",
+        "severity"
       ]
     },
     "StaffAttendance": {
@@ -4496,6 +4532,20 @@
   },
   "firestore": {
     "structure": [
+      {
+        "path": "/ai_analysis/{patientId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/AIAnalysis" },
+          "description": "Stores AI-generated clinical insights for auditing and review. Read by clinicians, written by the system automatically."
+        }
+      },
+      {
+        "path": "/ai_audit_logs/{logId}",
+        "definition": {
+          "schema": { "$ref": "#/backend/entities/AI_AuditLog" },
+          "description": "Immutable log of all AI generation events for auditing."
+        }
+      },
       {
         "path": "/patient_consents/{ghanaCardId}",
         "definition": {
