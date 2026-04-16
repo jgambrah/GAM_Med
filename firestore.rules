@@ -302,6 +302,10 @@ service cloud.firestore {
     match /hospitals/{hospitalId} {
       allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
       allow list, create, update, delete: if isSuperAdmin();
+      
+      match /clinical_alerts/{alertId} {
+        allow get, list, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
+      }
 
       match /jcc_logs/{logId} {
         allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);
@@ -440,10 +444,6 @@ service cloud.firestore {
       match /payers/{payerId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
-      }
-
-      match /clinical_alerts/{alertId} {
-        allow get, create, list, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
 
       match /disposal_logs/{logId} {
