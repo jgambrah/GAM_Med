@@ -168,6 +168,11 @@ service cloud.firestore {
     // --------------------------------
     // Global Platform Collections
     // --------------------------------
+
+    match /ai_analysis/{patientId} {
+        allow read: if isStaffOfHospital(resource.data.hospitalId);
+        allow write: if isStaffOfHospital(request.resource.data.hospitalId);
+    }
     
     match /patient_consents/{consentId} {
       allow write: if true; 

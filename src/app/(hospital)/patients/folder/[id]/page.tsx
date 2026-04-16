@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useFirebaseApp } from '@/firebase';
-import { doc, collection, query, orderBy, where, collectionGroup, Timestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useFirebaseApp, setDocumentNonBlocking } from '@/firebase';
+import { doc, collection, query, orderBy, where, collectionGroup, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -76,7 +76,7 @@ export default function PatientFolderHub() {
   const [authRequired, setAuthRequired] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
   
-  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [aiInsight, setAiInsight] = useState<ClinicalAssistantOutput | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(true);
 
   const fetchHistory = async () => {
@@ -150,7 +150,7 @@ export default function PatientFolderHub() {
   
   useEffect(() => {
     const fetchInsight = async () => {
-    if (!patient || allEncounters.length === 0 || !userProfile) return;
+    if (!patient || allEncounters.length === 0 || !userProfile || !firestore) return;
 
     setIsAiLoading(true);
     try {
@@ -162,6 +162,18 @@ export default function PatientFolderHub() {
         hospitalId: userProfile.hospitalId || '',
       });
       setAiInsight(result);
+      
+      // Persist the AI result
+      if (result && userProfile?.hospitalId) {
+        const aiAnalysisRef = doc(firestore, 'ai_analysis', id as string);
+        setDocumentNonBlocking(aiAnalysisRef, {
+            ...result,
+            hospitalId: userProfile.hospitalId,
+            patientId: id,
+            generatedAt: serverTimestamp()
+        });
+      }
+
     } catch (error) {
       console.error("Error fetching AI insight:", error);
       toast({
@@ -178,10 +190,9 @@ export default function PatientFolderHub() {
     if (allEncounters.length > 0) {
         fetchInsight();
     } else if (!areEncountersLoading) {
-        // If there are no encounters and we're not loading them, don't show AI loader
         setIsAiLoading(false);
     }
-}, [patient, allEncounters, userProfile, areEncountersLoading, toast]);
+}, [patient, allEncounters, userProfile, areEncountersLoading, toast, firestore, id]);
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -283,9 +294,14 @@ export default function PatientFolderHub() {
         )}
 
         <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
-            <h2 className="text-xs font-black uppercase text-blue-300">
-                Gemini AI Clinical Doctor
-            </h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-xs font-black uppercase text-blue-300">
+                    Gemini AI Clinical Doctor
+                </h2>
+                <div className="text-xs text-red-400 font-bold bg-red-500/20 px-3 py-1 rounded-full">
+                    AI-GENERATED (NOT A MEDICAL DIAGNOSIS)
+                </div>
+            </div>
             {isAiLoading ? (
                 <div className="flex items-center gap-2 text-slate-300">
                     <Loader2 className="animate-spin" size={16}/> Thinking...
@@ -303,7 +319,7 @@ export default function PatientFolderHub() {
                     <div className="text-sm">
                         <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
                     </div>
-                    
+
                     <div>
                         <strong>Key Findings:</strong>
                         <ul className="list-disc ml-5 text-sm">
