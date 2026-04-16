@@ -22,9 +22,6 @@ service cloud.firestore {
       );
     }
 
-    // THE SOLID FIX: All helper functions now use a robust get() and .exists check
-    // to prevent errors on null data, which was causing rule failures.
-
     function isStaffOfHospital(hospitalId) {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       return isSignedIn() && userDoc.exists && userDoc.data.hospitalId == hospitalId;
@@ -516,7 +513,7 @@ service cloud.firestore {
 
        match /billing_items/{itemId} {
         allow create: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow get, update, delete, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CASHIER';
+        allow get, update, delete, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER';
       }
 
       match /patients/{patientId} {
@@ -571,24 +568,24 @@ service cloud.firestore {
 
       match /lab_menu/{testId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create, update, delete: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'ADMIN', 'DIRECTOR'];
       }
 
       match /lab_orders/{orderId} {
         allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create: if false;
-        allow update: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
+        allow update: if isSuperAdmin() || getCallingUserData().role in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /radiology_menu/{scanId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create, update, delete: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'ADMIN', 'DIRECTOR'];
       }
 
       match /procedure_menu/{procedureId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create, update, delete: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'DIRECTOR'];
+        allow create, update, delete: if isSuperAdmin() || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
       }
 
       match /procedure_logs/{logId} {
@@ -598,32 +595,32 @@ service cloud.firestore {
       match /radiology_orders/{orderId} {
         allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create: if false;
-        allow update: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
+        allow update: if isSuperAdmin() || getCallingUserData().role in ['RADIOLOGIST', 'DIRECTOR', 'ADMIN'];
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /wards/{wardId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create, delete: if isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DIRECTOR', 'ADMIN'];
-        allow update: if isSuperAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DIRECTOR', 'ADMIN']) ||
+        allow create, delete: if isSuperAdmin() || getCallingUserData().role in ['DIRECTOR', 'ADMIN'];
+        allow update: if isSuperAdmin() || (getCallingUserData().role in ['DIRECTOR', 'ADMIN']) ||
                          (isClinicalStaff(hospitalId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['occupancy']));
 
         match /beds/{bedId} {
            allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
            allow create, delete: if false;
-           allow update: if isSuperAdmin() || isClinicalStaff(hospitalId) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'DIRECTOR'];
+           allow update: if isSuperAdmin() || isClinicalStaff(hospitalId) || getCallingUserData().role in ['ADMIN', 'DIRECTOR'];
         }
       }
 
       match /payments/{paymentId} {
         // Read: A Director/Admin can read any payment. A cashier can only read their own.
-        allow read: if isDirectorOrAdmin(hospitalId) || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CASHIER' && resource.data.processedBy == request.auth.uid);
+        allow read: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER' && resource.data.processedBy == request.auth.uid);
 
         // List: Directors/Admins can list all. Cashiers can only list their own payments using a query.
-        allow list: if isDirectorOrAdmin(hospitalId) || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CASHIER');
+        allow list: if isDirectorOrAdmin(hospitalId) || (getCallingUserData() != null && getCallingUserData().role == 'CASHIER');
 
         // Create: Director/Admin/Cashier can create payments.
-        allow create: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CASHIER');
+        allow create: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) || getCallingUserData().role == 'CASHIER');
 
         allow delete: if false; // Payments are immutable
 
