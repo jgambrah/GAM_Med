@@ -10,6 +10,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
+// --- SCHEMAS AND TYPES ---
+
 const HistoryPartSchema = z.object({
   role: z.enum(['user', 'model']),
   parts: z.array(z.object({ text: z.string() })),
@@ -25,7 +27,6 @@ const ClinicalAssistantInputSchema = z.object({
 });
 export type ClinicalAssistantInput = z.infer<typeof ClinicalAssistantInputSchema>;
 
-// STEP 1: New stricter JSON output schema
 const ClinicalAssistantOutputSchema = z.object({
     summary: z.string().describe("A concise clinical summary of the patient's recent history."),
     riskLevel: z.enum(["Low", "Medium", "High", "Critical"]).describe("The assessed risk level."),
@@ -37,22 +38,113 @@ const ClinicalAssistantOutputSchema = z.object({
 });
 export type ClinicalAssistantOutput = z.infer<typeof ClinicalAssistantOutputSchema>;
 
-export async function askClinicalAssistant(input: ClinicalAssistantInput): Promise<ClinicalAssistantOutput> {
-  return clinicalAssistantFlow(input);
-}
+// --- SYSTEM PROMPT ---
 
-// STEP 1: Stricter system prompt
-const systemInstruction = `You are a hospital-grade Clinical Decision Support AI.
+const systemInstruction = `
+You are a hospital-grade Clinical Decision Support AI.
 
 CRITICAL RULES:
 - ONLY use the provided patient data.
-- DO NOT assume missing values. If data is missing, explicitly say "Not available" in your summary.
+- DO NOT assume missing values. If data is missing, explicitly say "Not available" in the summary.
 - DO NOT fabricate diagnoses or vitals.
 - If a value looks clinically impossible (e.g., SpO2 < 50%), flag it in the "dataQualityFlags" array as 'POSSIBLE_SENSOR_OR_DATA_ENTRY_ERROR'.
 - Your entire output MUST be a single, valid JSON object that conforms to the provided schema. Do not wrap it in markdown or add any extra text.
 
-You will answer the user's query based on the provided context. First, analyze the patient data to provide a structured clinical assessment, then use that assessment to answer the user's specific question.
+Return format:
+{
+  "summary": string,
+  "riskLevel": "Low" | "Medium" | "High" | "Critical",
+  "possibleConditions": string[],
+  "keyFindings": string[],
+  "concerns": string[],
+  "recommendations": string[],
+  "dataQualityFlags": string[]
+}
 `;
+
+
+// --- HARDENING FUNCTIONS ---
+
+const generateWithFallback = async (config: any) => {
+  try {
+    return await ai.generate({ ...config, model: 'googleai/gemini-1.5-pro-latest' });
+  } catch (error) {
+    console.warn("Primary model failed, switching to Flash...", error);
+    return await ai.generate({ ...config, model: 'googleai/gemini-1.5-flash' });
+  }
+};
+
+const generateWithRetry = async (fn: () => Promise<any>, retries = 2) => {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === retries) throw err;
+      console.log(`AI call failed, retry ${i + 1}...`);
+      await new Promise(res => setTimeout(res, 500 * (i + 1))); // exponential backoff
+    }
+  }
+};
+
+const safeParseAIResponse = (text: string): Partial<ClinicalAssistantOutput> => {
+  try {
+    const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("AI Response JSON Parsing Failed:", e);
+    return {
+      summary: "AI output was malformed. Please review patient data manually.",
+      riskLevel: "Critical",
+      dataQualityFlags: ["INVALID_JSON_RESPONSE"],
+    };
+  }
+};
+
+const validateAIOutput = (output: any): output is ClinicalAssistantOutput => {
+  if (!output) return false;
+  const allowedRisks = ["Low", "Medium", "High", "Critical"];
+  return (
+    typeof output.summary === 'string' &&
+    typeof output.riskLevel === 'string' &&
+    allowedRisks.includes(output.riskLevel) &&
+    Array.isArray(output.possibleConditions) &&
+    Array.isArray(output.keyFindings) &&
+    Array.isArray(output.concerns) &&
+    Array.isArray(output.recommendations) &&
+    Array.isArray(output.dataQualityFlags)
+  );
+};
+
+const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
+  const result: any = await generateWithRetry(() => generateWithFallback(config));
+  
+  if(!result?.output){
+      throw new Error("AI generated no output.");
+  }
+
+  const parsed = safeParseAIResponse(result.output as string);
+
+  if (!validateAIOutput(parsed)) {
+    console.warn("AI output validation failed.", parsed);
+    return {
+      summary: "AI output failed validation. Please review patient data manually.",
+      riskLevel: "Critical",
+      possibleConditions: [],
+      keyFindings: [],
+      concerns: ["AI output validation failed."],
+      recommendations: ["Manual clinical review is required due to AI system error."],
+      dataQualityFlags: ["AI_VALIDATION_FAILURE"],
+    };
+  }
+  return parsed;
+};
+
+
+// --- MAIN FLOW ---
+
+export async function askClinicalAssistant(input: ClinicalAssistantInput): Promise<ClinicalAssistantOutput> {
+  return clinicalAssistantFlow(input);
+}
 
 const clinicalAssistantFlow = ai.defineFlow(
   {
@@ -61,11 +153,8 @@ const clinicalAssistantFlow = ai.defineFlow(
     outputSchema: ClinicalAssistantOutputSchema,
   },
   async (input) => {
-    // STEP 3: Controlled temperature
-    const { output } = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+    const config = {
       system: systemInstruction,
-      history: input.history,
       prompt: `
         PATIENT_CONTEXT:
         ${input.patientContext}
@@ -74,16 +163,12 @@ const clinicalAssistantFlow = ai.defineFlow(
         USER_QUERY:
         ${input.prompt}
       `,
-      output: { schema: ClinicalAssistantOutputSchema },
       config: {
         temperature: 0.2,
       },
-    });
+    };
     
-    if (!output) {
-      throw new Error('AI output failed validation or was empty.');
-    }
-
+    const output = await runSafeAI(config);
     return output;
   }
 );
