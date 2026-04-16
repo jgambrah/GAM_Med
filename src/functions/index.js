@@ -537,10 +537,36 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
   if (!hospitalName || !directorEmail || !mrnPrefix) {
     throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
   }
+
+  const cleanDirectorEmail = directorEmail.toLowerCase().trim();
+
+  // Check 1: Director Email uniqueness in Auth
+  let existingUser;
+  try {
+    existingUser = await admin.auth().getUserByEmail(cleanDirectorEmail);
+  } catch (error) {
+    if (error.code !== 'auth/user-not-found') {
+      throw new HttpsError('internal', error.message);
+    }
+  }
+  if (existingUser) {
+    throw new HttpsError('already-exists', `A director with the email ${cleanDirectorEmail} already exists.`);
+  }
+
+  // Check 2: Hospital Name uniqueness
+  const hospitalNameQuery = await db.collection('hospitals').where('name', '==', hospitalName).limit(1).get();
+  if (!hospitalNameQuery.empty) {
+    throw new HttpsError('already-exists', `A hospital with the name "${hospitalName}" already exists.`);
+  }
+  
+  // Check 3: MRN Prefix uniqueness
+  const prefixQuery = await db.collection('hospitals').where('mrnPrefix', '==', mrnPrefix.toUpperCase()).limit(1).get();
+  if (!prefixQuery.empty) {
+    throw new HttpsError('already-exists', `The MRN prefix "${mrnPrefix.toUpperCase()}" is already in use.`);
+  }
   
   const hospitalRef = db.collection('hospitals').doc();
   const hospitalId = hospitalRef.id;
-  const cleanDirectorEmail = directorEmail.toLowerCase().trim();
 
   try {
     const directorUserRecord = await admin.auth().createUser({
