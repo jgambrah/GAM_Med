@@ -1,5 +1,4 @@
 
-
 // Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -539,6 +538,11 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
     mrnPrefix, subscriptionPlan, monthlyRateNumeric, monthlyRateWords,
   } = request.data;
   
+  const contextInfo = {
+    ip: request.rawRequest?.ip || null,
+    userAgent: request.rawRequest?.headers['user-agent'] || null,
+  };
+  
   if (!monthlyRateWords || monthlyRateWords.length < 10) {
      throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
   }
@@ -618,6 +622,24 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
 
     await createChartOfAccounts(hospitalRef, hospitalId);
 
+    await db.collection("global_audit_logs").add({
+        type: 'SYSTEM',
+        action: 'HOSPITAL_PROVISIONED',
+        hospitalId: hospitalId,
+        hospitalName: hospitalName,
+        actorId: request.auth.uid,
+        actorName: request.auth.token.name || 'Super Admin',
+        details: `New hospital '${hospitalName}' created with director ${directorName} (${cleanDirectorEmail})`,
+        metadata: {
+            region,
+            subscriptionPlan,
+            agreedRate: monthlyRateNumeric,
+            mrnPrefix
+        },
+        context: contextInfo,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
     return { success: true, hospitalId: hospitalId, message: `${hospitalName} provisioned successfully.` };
   } catch (error) {
     console.error("FATAL: provisionFullHospital", error.code, error.message, error.stack);
@@ -630,6 +652,19 @@ exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
             console.error(`CRITICAL: Failed to rollback Auth user ${directorUserRecord.uid}`, rollbackError);
         }
     }
+    
+    // Log the failed attempt for security auditing
+    await db.collection("global_audit_logs").add({
+        type: 'SECURITY',
+        action: 'HOSPITAL_PROVISION_FAILED',
+        actorId: request.auth?.uid || 'UNKNOWN',
+        actorName: request.auth?.token?.name || 'Unknown Attacker',
+        details: `Failed attempt to provision hospital '${hospitalName}' with email '${cleanDirectorEmail}'.`,
+        error: error.message,
+        context: contextInfo,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
     throw new HttpsError('internal', `Hospital provisioning failed and was rolled back. Reason: ${error.message}`);
   }
 });
@@ -767,4 +802,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
-
