@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { 
-  Users, Activity, Loader2, ShieldAlert, AlertTriangle, Link as LinkIcon
+  Users, Activity, Loader2, ShieldAlert, AlertTriangle, Link as LinkIcon, ShieldCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from 'next/link';
