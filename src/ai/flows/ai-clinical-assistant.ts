@@ -103,16 +103,19 @@ const safeParseAIResponse = (text: string): Partial<ClinicalAssistantOutput> => 
 const validateAIOutput = (output: any): output is ClinicalAssistantOutput => {
   if (!output) return false;
   const allowedRisks = ["Low", "Medium", "High", "Critical"];
-  return (
-    typeof output.summary === 'string' &&
-    typeof output.riskLevel === 'string' &&
-    allowedRisks.includes(output.riskLevel) &&
-    Array.isArray(output.possibleConditions) &&
-    Array.isArray(output.keyFindings) &&
-    Array.isArray(output.concerns) &&
-    Array.isArray(output.recommendations) &&
-    Array.isArray(output.dataQualityFlags)
-  );
+  // Required fields
+  if (typeof output.summary !== 'string' || typeof output.riskLevel !== 'string' || !allowedRisks.includes(output.riskLevel)) {
+    return false;
+  }
+  // Optional array fields - check if they are arrays if they exist
+  const optionalArrays = ['possibleConditions', 'keyFindings', 'concerns', 'recommendations', 'dataQualityFlags'];
+  for (const key of optionalArrays) {
+    // If the key exists and it's not an array, validation fails.
+    if (output[key] !== undefined && !Array.isArray(output[key])) {
+      return false;
+    }
+  }
+  return true;
 };
 
 const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
@@ -136,7 +139,7 @@ const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
       dataQualityFlags: ["AI_VALIDATION_FAILURE"],
     };
   }
-  return parsed;
+  return parsed as ClinicalAssistantOutput;
 };
 
 

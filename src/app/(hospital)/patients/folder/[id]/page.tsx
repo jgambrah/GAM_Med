@@ -303,13 +303,22 @@ export default function PatientFolderHub() {
                     <div className="text-sm">
                         <strong>Possible Conditions:</strong> {(aiInsight.possibleConditions || []).join(', ')}
                     </div>
+                    
+                    <div>
+                        <strong>Key Findings:</strong>
+                        <ul className="list-disc ml-5 text-sm">
+                        {(aiInsight.keyFindings || []).map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                        ))}
+                        </ul>
+                    </div>
 
                     <div>
-                        <strong>Key Concerns:</strong>
+                        <strong>Concerns:</strong>
                         <ul className="list-disc ml-5 text-sm">
-                            {(aiInsight.keyConcerns || []).map((r: string, i: number) => (
-                                <li key={i}>{r}</li>
-                            ))}
+                        {(aiInsight.concerns || []).map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                        ))}
                         </ul>
                     </div>
                     
