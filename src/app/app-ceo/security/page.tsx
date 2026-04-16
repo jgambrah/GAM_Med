@@ -18,9 +18,11 @@ type Hospital = {
 
 const userRoles = [
   { value: 'DIRECTOR', label: 'Director' },
-  { value: 'HR', label: 'HR Manager' },
+  { value: 'HR_MANAGER', label: 'HR Manager' },
   { value: 'DOCTOR', label: 'Doctor' },
   { value: 'PHARMACIST', label: 'Pharmacist' },
+  { value: 'ACCOUNTANT', label: 'Accountant' },
+  { value: 'ADMIN', label: 'Administrator' },
 ];
 
 export default function SecurityHubPage() {
