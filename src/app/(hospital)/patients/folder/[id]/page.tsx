@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -161,6 +162,7 @@ export default function PatientFolderHub() {
         userRole: userProfile.role || 'Clinician',
         fullName: userProfile.fullName || 'Doctor',
         hospitalId: userProfile.hospitalId || '',
+        history: []
       });
       setAiInsight(result);
       
@@ -319,9 +321,12 @@ export default function PatientFolderHub() {
 
         <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
             <div className="flex justify-between items-center">
-                <h2 className="text-xs font-black uppercase text-blue-300">
-                    Gemini AI Clinical Doctor
-                </h2>
+                <div>
+                    <h2 className="text-xs font-black uppercase text-blue-300">
+                        Gemini AI Clinical Doctor
+                    </h2>
+                    <p className="text-xs text-red-500 font-bold mt-1">AI-GENERATED (NOT A MEDICAL DIAGNOSIS)</p>
+                </div>
                 {aiInsight?.triage && (
                     <div className={`px-4 py-2 rounded-xl font-black text-white text-xs ${
                         aiInsight.triage.triageRisk === "Critical" ? "bg-red-600" :
