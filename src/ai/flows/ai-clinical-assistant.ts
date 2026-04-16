@@ -81,7 +81,7 @@ const generateWithFallback = async (config: any) => {
     // Fallback (fast + reliable)
     return await ai.generate({
       ...config,
-      model: 'googleai/gemini-3-flash-preview',
+      model: 'googleai/gemini-2.5-flash',
     });
   }
 };
@@ -98,7 +98,10 @@ const generateWithRetry = async (fn: () => Promise<any>, retries = 2) => {
   }
 };
 
-const extractJSON = (text: string): any | null => {
+const extractJSON = (text: string | null | undefined): any | null => {
+  if (typeof text !== 'string') {
+    return null;
+  }
   try {
     const cleaned = text.replace(/```json|```/g, "").trim();
     return JSON.parse(cleaned);
@@ -174,6 +177,72 @@ const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
 };
 
 
+// --- PROTOCOL ENGINE ---
+
+const clinicalProtocols = {
+  cholera: {
+    triggers: (enc: any) => {
+      const complaint = enc.chiefComplaint?.toLowerCase() || "";
+      return (
+        complaint.includes("diarrhea") ||
+        complaint.includes("vomiting")
+      );
+    },
+    rules: [
+      "Assess dehydration level immediately (Protocol)",
+      "Start oral or IV rehydration (Protocol)",
+      "Monitor electrolytes (Protocol)",
+      "Confirm with stool test if available (Protocol)"
+    ]
+  },
+  respiratory_distress: {
+    triggers: (enc: any) => {
+      const spo2 = Number(enc.vitals?.spo2);
+      const resp = Number(enc.vitals?.respiration);
+      return (spo2 && spo2 < 92) || (resp && resp > 30);
+    },
+    rules: [
+      "Administer oxygen immediately (Protocol)",
+      "Monitor airway and breathing (Protocol)",
+      "Consider ICU admission if severe (Protocol)"
+    ]
+  }
+};
+
+const applyClinicalProtocols = (encounters: any[]) => {
+  const recommendations: string[] = [];
+  if (!Array.isArray(encounters)) return recommendations;
+
+  encounters.slice(0, 5).forEach(enc => {
+    if (!enc) return;
+    Object.values(clinicalProtocols).forEach(protocol => {
+      if (protocol.triggers(enc)) {
+        recommendations.push(...protocol.rules);
+      }
+    });
+  });
+
+  return [...new Set(recommendations)]; // Return unique recommendations
+};
+
+const enhanceWithProtocols = (aiOutput: ClinicalAssistantOutput, encounters: any[]): ClinicalAssistantOutput => {
+  const protocolRecs = applyClinicalProtocols(encounters);
+  return {
+    ...aiOutput,
+    recommendations: [
+      ...(aiOutput.recommendations || []),
+      ...protocolRecs
+    ]
+  };
+};
+
+const runFullClinicalEngine = async (config: any, encounters: any[]): Promise<ClinicalAssistantOutput> => {
+  const aiResult = await runSafeAI(config);
+  const enhanced = enhanceWithProtocols(aiResult, encounters);
+  return enhanced;
+};
+
+
 // --- MAIN FLOW ---
 
 export async function askClinicalAssistant(input: ClinicalAssistantInput): Promise<ClinicalAssistantOutput> {
@@ -202,7 +271,14 @@ const clinicalAssistantFlow = ai.defineFlow(
       },
     };
     
-    const output = await runSafeAI(config);
+    let encounters = [];
+    try {
+        encounters = JSON.parse(input.patientContext);
+    } catch (e) {
+        console.warn("Could not parse patientContext for protocol engine.");
+    }
+    
+    const output = await runFullClinicalEngine(config, encounters);
     return output;
   }
 );
