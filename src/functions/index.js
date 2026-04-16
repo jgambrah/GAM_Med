@@ -1,4 +1,5 @@
 
+
 // Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -428,6 +429,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
                 encounterId: encounterRef.id,
                 alertType: 'CRITICAL_VITALS',
                 message: alert.message,
+                severity: alert.severity,
                 status: 'UNREAD',
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
