@@ -35,6 +35,10 @@ const ClinicalAssistantOutputSchema = z.object({
     concerns: z.array(z.string()).describe("A bulleted list of potential clinical concerns or risks."),
     recommendations: z.array(z.string()).describe("A list of recommended next steps for the clinician."),
     dataQualityFlags: z.array(z.string()).describe("A list of potential data quality issues, like 'POSSIBLE_SENSOR_ERROR_OR_DATA_ENTRY_ERROR' for SpO2 < 50."),
+    triage: z.object({
+        news2Score: z.number(),
+        triageRisk: z.string(),
+    }).optional(),
 });
 export type ClinicalAssistantOutput = z.infer<typeof ClinicalAssistantOutputSchema>;
 
@@ -129,53 +133,106 @@ const recoverAIOutput = (text: string): ClinicalAssistantOutput => {
 };
 
 const validateAIOutput = (output: any): output is ClinicalAssistantOutput => {
-  if (!output) return false;
-  const allowedRisks = ["Low", "Medium", "High", "Critical"];
+    if (!output) return false;
+    const allowedRisks = ["Low", "Medium", "High", "Critical"];
+    
+    const hasSummary = typeof output.summary === 'string';
+    const hasValidRisk = typeof output.riskLevel === 'string' && allowedRisks.includes(output.riskLevel);
+    const hasPossibleConditions = Array.isArray(output.possibleConditions);
+    const hasKeyFindings = Array.isArray(output.keyFindings);
+    const hasConcerns = Array.isArray(output.concerns);
+    const hasRecommendations = Array.isArray(output.recommendations);
+    const hasDataQualityFlags = Array.isArray(output.dataQualityFlags);
   
-  const hasSummary = typeof output.summary === 'string';
-  const hasValidRisk = typeof output.riskLevel === 'string' && allowedRisks.includes(output.riskLevel);
-  const hasPossibleConditions = Array.isArray(output.possibleConditions);
-  const hasKeyFindings = Array.isArray(output.keyFindings);
-  const hasConcerns = Array.isArray(output.concerns);
-  const hasRecommendations = Array.isArray(output.recommendations);
-  const hasDataQualityFlags = Array.isArray(output.dataQualityFlags);
-
-  return hasSummary && hasValidRisk && hasPossibleConditions && hasKeyFindings && hasConcerns && hasRecommendations && hasDataQualityFlags;
-};
+    return hasSummary && hasValidRisk && hasPossibleConditions && hasKeyFindings && hasConcerns && hasRecommendations && hasDataQualityFlags;
+  };
 
 const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
-  const result = await generateWithRetry(() => generateWithFallback(config));
+    const result = await generateWithRetry(() => generateWithFallback(config));
+  
+    // If Genkit provides a parsed output, try to validate it directly.
+    if (result.output && validateAIOutput(result.output)) {
+      return result.output as ClinicalAssistantOutput;
+    }
+  
+    // If no structured output, get the raw text.
+    const rawText = result.text;
+    if (!rawText) {
+      return {
+        summary: 'AI system failed to generate any output.',
+        riskLevel: 'Critical',
+        possibleConditions: [],
+        keyFindings: [],
+        concerns: ['AI_SYSTEM_NO_RESPONSE'],
+        recommendations: ['Manual clinical review is required due to AI system error.'],
+        dataQualityFlags: ['AI_NO_OUTPUT'],
+      };
+    }
+  
+    // Try to parse the raw text if we didn't get a valid structured output.
+    const parsed = extractJSON(rawText);
+  
+    if (parsed && validateAIOutput(parsed)) {
+      return parsed as ClinicalAssistantOutput;
+    }
+  
+    console.warn("AI JSON failed validation or parsing, recovering with raw output");
+    return recoverAIOutput(rawText);
+  };
 
-  // If Genkit provides a parsed output, try to validate it directly.
-  if (result.output && validateAIOutput(result.output)) {
-    return result.output as ClinicalAssistantOutput;
-  }
 
-  // If no structured output, get the raw text.
-  const rawText = result.text;
-  if (!rawText) {
-    return {
-      summary: 'AI system failed to generate any output.',
-      riskLevel: 'Critical',
-      possibleConditions: [],
-      keyFindings: [],
-      concerns: ['AI_SYSTEM_NO_RESPONSE'],
-      recommendations: ['Manual clinical review is required due to AI system error.'],
-      dataQualityFlags: ['AI_NO_OUTPUT'],
-    };
-  }
+// --- TRIAGE SCORING ENGINE ---
+const calculateNEWS2 = (vitals: any) => {
+  let score = 0;
 
-  // Try to parse the raw text if we didn't get a valid structured output.
-  const parsed = extractJSON(rawText);
+  const resp = Number(vitals.respiration);
+  const spo2 = Number(vitals.spo2);
+  const temp = Number(vitals.temp);
+  const pulse = Number(vitals.pulse);
 
-  if (parsed && validateAIOutput(parsed)) {
-    return parsed as ClinicalAssistantOutput;
-  }
+  // Respiration
+  if (resp >= 25) score += 3;
+  else if (resp >= 21) score += 2;
+  else if (resp <= 8) score += 3;
 
-  console.warn("AI JSON failed validation or parsing, recovering with raw output");
-  return recoverAIOutput(rawText);
+  // SpO2
+  if (spo2 <= 91) score += 3;
+  else if (spo2 <= 93) score += 2;
+  else if (spo2 <= 95) score += 1;
+
+  // Temperature
+  if (temp >= 39) score += 2;
+  else if (temp <= 35) score += 3;
+
+  // Pulse
+  if (pulse >= 131) score += 3;
+  else if (pulse >= 111) score += 2;
+  else if (pulse <= 40) score += 3;
+
+  return score;
 };
 
+const classifyNEWS2 = (score: number) => {
+  if (score >= 7) return "Critical";
+  if (score >= 5) return "High";
+  if (score >= 3) return "Medium";
+  return "Low";
+};
+
+const applyTriageScoring = (encounters: any[]) => {
+  if (!encounters || encounters.length === 0) return null;
+  const latest = encounters[0];
+
+  if (!latest?.vitals) return null;
+
+  const score = calculateNEWS2(latest.vitals);
+  const risk = classifyNEWS2(score);
+
+  return {
+    news2Score: score,
+    triageRisk: risk
+  };
+};
 
 // --- PROTOCOL ENGINE ---
 
@@ -236,10 +293,15 @@ const enhanceWithProtocols = (aiOutput: ClinicalAssistantOutput, encounters: any
   };
 };
 
-const runFullClinicalEngine = async (config: any, encounters: any[]): Promise<ClinicalAssistantOutput> => {
+const runFullClinicalSystem = async (config: any, encounters: any[]): Promise<ClinicalAssistantOutput> => {
   const aiResult = await runSafeAI(config);
-  const enhanced = enhanceWithProtocols(aiResult, encounters);
-  return enhanced;
+  const withProtocols = enhanceWithProtocols(aiResult, encounters);
+  const triage = applyTriageScoring(encounters);
+
+  return {
+    ...withProtocols,
+    triage: triage || undefined,
+  };
 };
 
 
@@ -278,7 +340,7 @@ const clinicalAssistantFlow = ai.defineFlow(
         console.warn("Could not parse patientContext for protocol engine.");
     }
     
-    const output = await runFullClinicalEngine(config, encounters);
+    const output = await runFullClinicalSystem(config, encounters);
     return output;
   }
 );

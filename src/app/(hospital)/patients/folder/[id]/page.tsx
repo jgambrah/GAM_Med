@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -185,7 +184,7 @@ export default function PatientFolderHub() {
         });
 
         // Critical Alert
-        if (result.riskLevel === "Critical") {
+        if (result.riskLevel === "Critical" || result.triage?.triageRisk === 'Critical') {
             addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/clinical_alerts`), {
                 hospitalId: hospitalId,
                 patientId: patient.id,
@@ -323,9 +322,16 @@ export default function PatientFolderHub() {
                 <h2 className="text-xs font-black uppercase text-blue-300">
                     Gemini AI Clinical Doctor
                 </h2>
-                <div className="text-xs text-red-400 font-bold bg-red-500/20 px-3 py-1 rounded-full">
-                    AI-GENERATED (NOT A MEDICAL DIAGNOSIS)
-                </div>
+                {aiInsight?.triage && (
+                    <div className={`px-4 py-2 rounded-xl font-black text-white text-xs ${
+                        aiInsight.triage.triageRisk === "Critical" ? "bg-red-600" :
+                        aiInsight.triage.triageRisk === "High" ? "bg-orange-500" :
+                        aiInsight.triage.triageRisk === "Medium" ? "bg-yellow-500" :
+                        "bg-green-600"
+                    }`}>
+                        NEWS2: {aiInsight.triage.news2Score} ({aiInsight.triage.triageRisk})
+                    </div>
+                )}
             </div>
             {isAiLoading ? (
                 <div className="flex items-center gap-2 text-slate-300">
@@ -607,5 +613,3 @@ function VitalDisplay({ label, value, unit, color }: any) {
     </div>
   );
 }
-
-
