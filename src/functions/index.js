@@ -424,7 +424,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
                 alertType: 'CRITICAL_VITALS',
                 message: alert.message,
                 status: 'UNREAD',
-                severity: alert.severity,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         });
@@ -709,3 +708,4 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
+
