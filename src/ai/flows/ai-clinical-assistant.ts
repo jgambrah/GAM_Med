@@ -60,6 +60,9 @@ Return format:
   "recommendations": string[],
   "dataQualityFlags": string[]
 }
+
+RETURN JSON ONLY.
+If you cannot comply, return BEST POSSIBLE STRUCTURED TEXT.
 `;
 
 
@@ -67,10 +70,19 @@ Return format:
 
 const generateWithFallback = async (config: any) => {
   try {
-    return await ai.generate({ ...config, model: 'googleai/gemini-3-flash-preview' });
+    // Primary (high intelligence)
+    return await ai.generate({
+      ...config,
+      model: 'googleai/gemini-1.5-pro-latest',
+    });
   } catch (error) {
     console.warn("Primary model failed, switching to Flash...", error);
-    return await ai.generate({ ...config, model: 'googleai/gemini-2.5-flash' });
+
+    // Fallback (fast + reliable)
+    return await ai.generate({
+      ...config,
+      model: 'googleai/gemini-1.5-flash',
+    });
   }
 };
 
@@ -86,22 +98,31 @@ const generateWithRetry = async (fn: () => Promise<any>, retries = 2) => {
   }
 };
 
-const safeParseAIResponse = (text: string): Partial<ClinicalAssistantOutput> => {
+const extractJSON = (text: string): any | null => {
   try {
-    const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const cleaned = text.replace(/```json|```/g, "").trim();
     return JSON.parse(cleaned);
-  } catch (e) {
-    console.error("AI Response JSON Parsing Failed:", e);
-    return {
-      summary: "AI output was malformed. Please review patient data manually.",
-      riskLevel: "Critical",
-      possibleConditions: [],
-      keyFindings: [],
-      concerns: ["AI output was malformed or failed to parse."],
-      recommendations: ["Manual clinical review is required due to AI system error."],
-      dataQualityFlags: ["INVALID_JSON_RESPONSE"],
-    };
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {}
+    }
+    return null;
   }
+};
+
+const recoverAIOutput = (text: string): ClinicalAssistantOutput => {
+  return {
+    summary: text,
+    riskLevel: "Critical",
+    possibleConditions: [],
+    keyFindings: [],
+    concerns: ["Unstructured AI response"],
+    recommendations: ["Review AI summary manually"],
+    dataQualityFlags: ["FALLBACK_MODE"]
+  };
 };
 
 const validateAIOutput = (output: any): output is ClinicalAssistantOutput => {
@@ -123,24 +144,26 @@ const runSafeAI = async (config: any): Promise<ClinicalAssistantOutput> => {
   const result: any = await generateWithRetry(() => generateWithFallback(config));
   
   if(!result?.output){
-      throw new Error("AI generated no output.");
-  }
-
-  const parsed = safeParseAIResponse(result.output as string);
-
-  if (!validateAIOutput(parsed)) {
-    console.warn("AI output validation failed.", parsed);
     return {
-      summary: "AI output failed validation. Please review patient data manually.",
+      summary: "AI system failed to generate any output.",
       riskLevel: "Critical",
       possibleConditions: [],
       keyFindings: [],
-      concerns: ["AI output did not match the required format."],
+      concerns: ["AI_SYSTEM_NO_RESPONSE"],
       recommendations: ["Manual clinical review is required due to AI system error."],
-      dataQualityFlags: ["AI_VALIDATION_FAILURE"],
+      dataQualityFlags: ["AI_NO_OUTPUT"],
     };
   }
-  return parsed as ClinicalAssistantOutput;
+
+  const rawText = result.output as string;
+  const parsed = extractJSON(rawText);
+
+  if (parsed && validateAIOutput(parsed)) {
+    return parsed as ClinicalAssistantOutput;
+  }
+
+  console.warn("AI JSON failed, recovering with raw output");
+  return recoverAIOutput(rawText);
 };
 
 
