@@ -73,7 +73,7 @@ const generateWithFallback = async (config: any) => {
     // Primary (high intelligence)
     return await ai.generate({
       ...config,
-      model: 'googleai/gemini-1.5-pro-latest',
+      model: 'googleai/gemini-3-flash-preview',
     });
   } catch (error) {
     console.warn("Primary model failed, switching to Flash...", error);
@@ -81,7 +81,7 @@ const generateWithFallback = async (config: any) => {
     // Fallback (fast + reliable)
     return await ai.generate({
       ...config,
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-3-flash-preview',
     });
   }
 };
