@@ -286,8 +286,8 @@ service cloud.firestore {
       allow list, create, update, delete: if isSuperAdmin();
       
       match /clinical_alerts/{alertId} {
-        allow get, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
         allow list: if isSuperAdmin() || isClinicalStaffToken(hospitalId);
+        allow get, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
 
       match /jcc_logs/{logId} {
@@ -627,5 +627,3 @@ service cloud.firestore {
     }
   }
 }
-
-  
