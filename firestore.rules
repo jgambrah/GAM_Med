@@ -439,7 +439,11 @@ service cloud.firestore {
       }
 
       match /clinical_alerts/{alertId} {
-        allow list: if isSuperAdmin() || isClinicalStaffToken(hospitalId);
+        allow list: if isSuperAdmin() || (
+            request.auth != null &&
+            request.auth.token.hospitalId == hospitalId &&
+            request.auth.token.role in ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST']
+        );
         allow get, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
       }
 
