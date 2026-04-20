@@ -26,6 +26,13 @@ service cloud.firestore {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       return isSignedIn() && userDoc != null && userDoc.data.hospitalId == hospitalId;
     }
+    
+    function isClinicalStaffToken(hospitalId) {
+      let token = request.auth.token;
+      return isSignedIn()
+        && token.hospitalId == hospitalId
+        && token.role in ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+    }
 
     function isDirectorOrAdmin(hospitalId) {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
@@ -279,7 +286,8 @@ service cloud.firestore {
       allow list, create, update, delete: if isSuperAdmin();
       
       match /clinical_alerts/{alertId} {
-        allow read, list, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow get, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow list: if isSuperAdmin() || isClinicalStaffToken(hospitalId);
       }
 
       match /jcc_logs/{logId} {
@@ -620,4 +628,4 @@ service cloud.firestore {
   }
 }
 
-    
+  
