@@ -30,7 +30,7 @@
     },
     {
       "collectionGroup": "patients",
-      "queryScope": "COLLECTION_GROUP",
+      "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "status",
