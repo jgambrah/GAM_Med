@@ -78,7 +78,7 @@ export default function PatientFolderHub() {
   const [errorState, setErrorState] = useState<string | null>(null);
   
   const [aiInsight, setAiInsight] = useState<ClinicalAssistantOutput | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(true);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const fetchHistory = async () => {
     if (!patient?.ghanaCardId || !firebaseApp) {
@@ -149,76 +149,88 @@ export default function PatientFolderHub() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient?.ghanaCardId, patient?.id, firebaseApp, isPatientLoading]);
   
-  useEffect(() => {
-    const fetchInsight = async () => {
-    if (!patient || allEncounters.length === 0 || !userProfile || !firestore || !user) return;
+  const cleanEncounters = useMemo(() => {
+    if (!allEncounters) return [];
+    return allEncounters
+      .filter(e => e && (e.vitals || e.diagnosis || e.chiefComplaint))
+      .map(e => ({
+        ...e,
+        vitals: {
+          bp: e.vitals?.bp || null,
+          temp: Number(e.vitals?.temp) || null,
+          pulse: Number(e.vitals?.pulse) || null,
+          respiration: Number(e.vitals?.respiration) || null,
+          spo2: Number(e.vitals?.spo2) || null,
+        }
+      }));
+  }, [allEncounters]);
+
+  const handleGenerateInsight = async () => {
+    if (!patient || allEncounters.length === 0 || !userProfile || !firestore || !user) {
+        toast({
+            variant: "destructive",
+            title: "Cannot Generate Insight",
+            description: "Not enough patient data is available to run the AI analysis.",
+        });
+        return;
+    }
 
     setIsAiLoading(true);
+    setAiInsight(null);
     try {
         const result = await askClinicalAssistant({
-        prompt: 'Analyze this patient file.', // a default prompt
-        patientContext: JSON.stringify(allEncounters.slice(0, 5)),
-        userRole: userProfile.role || 'Clinician',
-        fullName: userProfile.fullName || 'Doctor',
-        hospitalId: userProfile.hospitalId || '',
-        history: []
-      });
-      setAiInsight(result);
-      
-      // Persist the AI result
-      if (result && userProfile?.hospitalId) {
-        const aiAnalysisRef = doc(firestore, 'ai_analysis', id as string);
-        setDocumentNonBlocking(aiAnalysisRef, {
-            ...result,
-            hospitalId: userProfile.hospitalId,
-            patientId: id,
-            generatedAt: serverTimestamp()
-        }, { merge: true });
-
-        // Audit Log
-        addDocumentNonBlocking(collection(firestore, "ai_audit_logs"), {
-            patientId: patient.id,
-            input: JSON.stringify(allEncounters.slice(0, 5)),
-            output: result,
-            userId: user.uid,
-            timestamp: serverTimestamp()
+            prompt: 'Analyze this patient file.',
+            patientContext: JSON.stringify(cleanEncounters.slice(0, 5)),
+            userRole: userProfile.role || 'Clinician',
+            fullName: userProfile.fullName || 'Doctor',
+            hospitalId: userProfile.hospitalId || '',
+            history: []
         });
+        setAiInsight(result);
 
-        // Critical Alert
-        if (result.riskLevel === "Critical" || result.triage?.triageRisk === 'Critical') {
-            addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/clinical_alerts`), {
-                hospitalId: hospitalId,
+        if (result && userProfile?.hospitalId) {
+            const aiAnalysisRef = doc(firestore, 'ai_analysis', id as string);
+            setDocumentNonBlocking(aiAnalysisRef, {
+                ...result,
+                hospitalId: userProfile.hospitalId,
+                patientId: id,
+                generatedAt: serverTimestamp()
+            }, { merge: true });
+
+            addDocumentNonBlocking(collection(firestore, "ai_audit_logs"), {
                 patientId: patient.id,
-                patientName: `${patient.firstName} ${patient.lastName}`,
-                encounterId: allEncounters[0].id,
-                alertType: 'CRITICAL_AI_ALERT',
-                message: `AI detected Critical Risk: ${result.summary}`,
-                status: 'UNREAD',
-                severity: result.riskLevel || 'Critical',
-                createdAt: serverTimestamp(),
+                input: JSON.stringify(cleanEncounters.slice(0, 5)),
+                output: result,
+                userId: user.uid,
+                timestamp: serverTimestamp()
             });
+
+            if (result.riskLevel === "Critical" || result.triage?.triageRisk === 'Critical') {
+                addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/clinical_alerts`), {
+                    hospitalId: hospitalId,
+                    patientId: patient.id,
+                    patientName: `${patient.firstName} ${patient.lastName}`,
+                    encounterId: allEncounters[0].id,
+                    alertType: 'CRITICAL_AI_ALERT',
+                    message: `AI detected Critical Risk: ${result.summary}`,
+                    severity: result.riskLevel || 'Critical',
+                    status: 'UNREAD',
+                    createdAt: serverTimestamp(),
+                });
+            }
         }
-      }
-
     } catch (error) {
-      console.error("Error fetching AI insight:", error);
-      toast({
-        variant: 'destructive',
-        title: 'AI Assistant Error',
-        description: 'Could not generate clinical insights.'
-      });
-      setAiInsight(null);
+        console.error("Error fetching AI insight:", error);
+        toast({
+            variant: 'destructive',
+            title: 'AI Assistant Error',
+            description: 'Could not generate clinical insights.'
+        });
+        setAiInsight(null);
     } finally {
-      setIsAiLoading(false);
-    }
-    };
-
-    if (allEncounters.length > 0) {
-        fetchInsight();
-    } else if (!areEncountersLoading) {
         setIsAiLoading(false);
     }
-  }, [patient, allEncounters, userProfile, areEncountersLoading, toast, firestore, id, user, hospitalId]);
+  };
 
 
   const labResultsQuery = useMemoFirebase(() =>
@@ -339,8 +351,9 @@ export default function PatientFolderHub() {
                 )}
             </div>
             {isAiLoading ? (
-                <div className="flex items-center gap-2 text-slate-300">
-                    <Loader2 className="animate-spin" size={16}/> Thinking...
+                <div className="flex items-center justify-center p-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-300" />
+                    <span className="ml-4 text-slate-300 italic">Gemini is analyzing the file...</span>
                 </div>
             ) : aiInsight ? (
                 <>
@@ -384,7 +397,13 @@ export default function PatientFolderHub() {
                     </div>
                 </>
             ) : (
-                <p className="text-sm text-slate-400 italic">AI analysis could not be generated.</p>
+                 <div className="text-center py-6">
+                    <Button onClick={handleGenerateInsight} className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg">
+                        <BrainCircuit className="mr-2 h-5 w-5" />
+                        Generate AI Clinical Summary
+                    </Button>
+                    <p className="text-xs text-slate-400 mt-3">Analyzes the latest 5 encounters for risks & insights. This will make an API call.</p>
+                </div>
             )}
         </div>
 
