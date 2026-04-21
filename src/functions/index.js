@@ -9,6 +9,13 @@ const { addDays } = require("date-fns");
 const axios = require("axios");
 const crypto = require("crypto");
 
+// Centralize status strings
+const PATIENT_STATUS = {
+  AWAITING_VITALS: "Awaiting Vitals",
+  WAITING_ASSIGNMENT: "Waiting for Assignment",
+  WAITING_DOCTOR: "Waiting for Doctor",
+};
+
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -412,7 +419,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     });
 
     batch.update(patientRef, {
-        status: 'Waiting for Assignment',
+        status: PATIENT_STATUS.WAITING_ASSIGNMENT,
         lastVitals: fullVitals,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -810,3 +817,12 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
+    
+    
+
+
+
+
+
+
+

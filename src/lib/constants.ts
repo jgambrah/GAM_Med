@@ -1,4 +1,5 @@
 
+
 export const HOSPITAL_DEPARTMENTS = [
   'Administration',
   'Clinical / Medical',
@@ -28,3 +29,12 @@ export const PPE_SUB_DIVISIONS = [
   { id: 'PLANT', label: 'Plant (Machinery, Power, HVAC)' },
   { id: 'EQUIPMENT', label: 'Equipment (Clinical & Office)' }
 ];
+
+export const PATIENT_STATUS = {
+  AWAITING_VITALS: "Awaiting Vitals",
+  WAITING_ASSIGNMENT: "Waiting for Assignment",
+  WAITING_DOCTOR: "Waiting for Doctor",
+  ACTIVE: "Active",
+  INACTIVE: "Inactive",
+  DECEASED: "Deceased",
+};

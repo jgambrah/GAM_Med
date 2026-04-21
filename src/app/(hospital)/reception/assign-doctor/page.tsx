@@ -9,6 +9,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import { PATIENT_STATUS } from '@/lib/constants';
 
 export default function PatientAssignmentDesk() {
   const { user, isUserLoading } = useUser();
@@ -32,7 +33,7 @@ export default function PatientAssignmentDesk() {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, 'hospitals', hospitalId, 'patients'),
-      where("status", "==", "Waiting for Assignment"),
+      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT),
       orderBy("createdAt", "asc")
     );
   }, [firestore, hospitalId]);
