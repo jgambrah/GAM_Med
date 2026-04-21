@@ -1,7 +1,16 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, getDocs, orderBy, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  doc,
+  serverTimestamp,
+  updateDoc,
+  getDocs
+} from 'firebase/firestore';
 import { 
   UserCheck, Users, Stethoscope, ArrowRight, 
   Clock, MapPin, Loader2, CheckCircle2, ShieldAlert 
@@ -33,8 +42,8 @@ export default function PatientAssignmentDesk() {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, 'hospitals', hospitalId, 'patients'),
-      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT),
-      orderBy("createdAt", "asc")
+      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT)
+      // orderBy("createdAt", "asc") // Temporarily removed for testing
     );
   }, [firestore, hospitalId]);
   const { data: unassignedPatients, isLoading: arePatientsLoading } = useCollection(unassignedPatientsQuery);
