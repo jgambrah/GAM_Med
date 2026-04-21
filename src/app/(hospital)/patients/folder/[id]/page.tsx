@@ -71,6 +71,15 @@ export default function PatientFolderHub() {
     firestore && hospitalId && id ? doc(firestore, 'hospitals', hospitalId, 'patients', id as string) : null,
   [firestore, hospitalId, id]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+  
+  const [isVitalsDialogOpen, setIsVitalsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (patient?.status === 'Awaiting Vitals') {
+      setIsVitalsDialogOpen(true);
+    }
+  }, [patient]);
+
 
   const [allEncounters, setAllEncounters] = useState<Encounter[]>([]);
   const [areEncountersLoading, setAreEncountersLoading] = useState(true);
@@ -312,7 +321,17 @@ export default function PatientFolderHub() {
           </div>
         </div>
         <div className="flex gap-3">
-           {!isDeceased && patient && hospitalId && <NewEncounterDialog onSuccess={fetchHistory} patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
+           {!isDeceased && patient && hospitalId && <NewEncounterDialog 
+                open={isVitalsDialogOpen}
+                onOpenChange={setIsVitalsDialogOpen}
+                onSuccess={() => {
+                    fetchHistory();
+                    setIsVitalsDialogOpen(false);
+                }}
+                patientId={id as string} 
+                hospitalId={hospitalId} 
+                patientName={`${patient?.firstName} ${patient?.lastName}`} 
+            />}
            {!isDeceased && patient && hospitalId && <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
@@ -331,7 +350,7 @@ export default function PatientFolderHub() {
             </div>
         )}
 
-        <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
+      <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
             <div className="flex justify-between items-center">
                 <div>
                     <h2 className="text-xs font-black uppercase text-blue-300">
@@ -339,7 +358,7 @@ export default function PatientFolderHub() {
                     </h2>
                     <p className="text-xs text-red-500 font-bold mt-1">AI-GENERATED (NOT A MEDICAL DIAGNOSIS)</p>
                 </div>
-                {aiInsight?.triage && (
+                 {aiInsight?.triage && (
                     <div className={`px-4 py-2 rounded-xl font-black text-white text-xs ${
                         aiInsight.triage.triageRisk === "Critical" ? "bg-red-600" :
                         aiInsight.triage.triageRisk === "High" ? "bg-orange-500" :

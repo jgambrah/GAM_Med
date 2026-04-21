@@ -87,6 +87,8 @@ interface NewEncounterDialogProps {
   hospitalId: string;
   patientName: string;
   onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const validateVitals = (vitals: any) => {
@@ -120,13 +122,19 @@ export function NewEncounterDialog({
   patientId: propsPatientId,
   hospitalId,
   patientName,
-  onSuccess
+  onSuccess,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
 }: NewEncounterDialogProps) {
   const { id: patientDocIdFromParams } = useParams();
   const patientId = propsPatientId || (patientDocIdFromParams as string);
 
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const loading = form.formState.isSubmitting;
+  
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = setControlledOpen || setInternalOpen;
+  
   const firebaseApp = useFirebaseApp();
   const { user } = useUser();
   const { toast } = useToast();
@@ -271,8 +279,7 @@ export function NewEncounterDialog({
       });
       return;
     }
-    setLoading(true);
-
+    
     const vitalErrors = validateVitals(values.vitals);
     if (vitalErrors.length > 0) {
       toast({
@@ -280,7 +287,6 @@ export function NewEncounterDialog({
         description: vitalErrors.join(", "),
         variant: "destructive",
       });
-      setLoading(false);
       return;
     }
 
@@ -313,9 +319,6 @@ export function NewEncounterDialog({
       radiologyOrders: radiologyOrders || [],
     };
     
-    console.log("PATIENT ID BEING SENT:", payload.patientId);
-    console.log("TYPE:", typeof payload.patientId);
-
     try {
       const functions = getFunctions(firebaseApp, 'us-central1');
       const createEncounter = httpsCallable(functions, 'createEncounter');
@@ -348,8 +351,6 @@ export function NewEncounterDialog({
         description: friendlyMessage,
         duration: 6000,
       });
-    } finally {
-      setLoading(false);
     }
   };
 
