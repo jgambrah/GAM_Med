@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
@@ -250,17 +249,6 @@ export default function PatientFolderHub() {
     ) : null,
   [firestore, hospitalId, id]);
   const { data: procedureLogs, isLoading: areProceduresLoading } = useCollection(procedureLogsQuery);
-  
-  const alertsQuery = useMemoFirebase(() =>
-    firestore && hospitalId && id ? query(
-        collection(firestore, `hospitals/${hospitalId}/clinical_alerts`),
-        where("patientId", "==", id),
-        where("status", "==", "UNREAD"),
-        orderBy("createdAt", "desc")
-    ) : null,
-  [firestore, hospitalId, id]);
-  const { data: alerts, isLoading: areAlertsLoading } = useCollection(alertsQuery);
-
 
   const localEncounters = useMemo(() => {
     if (!allEncounters || !hospitalId) return [];
@@ -321,18 +309,6 @@ export default function PatientFolderHub() {
         </div>
       </div>
       
-       {alerts && alerts.length > 0 && (
-          <div className="bg-red-600 text-white p-4 rounded-xl flex items-start gap-4 animate-pulse">
-            <AlertCircle className="shrink-0 mt-1" />
-            <div>
-              <p className="font-black uppercase text-sm">Critical Alerts ({alerts.length})</p>
-              <ul className="text-xs list-disc list-inside">
-                {alerts.map((a, i) => ( <li key={i}>{a.message}</li> ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
        {isDeceased && (
             <div className="bg-slate-900 text-white p-4 rounded-xl flex items-center gap-4 my-4">
                 <Skull size={24} />
