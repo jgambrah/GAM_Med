@@ -42,8 +42,8 @@ export default function PatientAssignmentDesk() {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, 'hospitals', hospitalId, 'patients'),
-      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT)
-      // orderBy("createdAt", "asc") // Temporarily removed for testing
+      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT),
+      orderBy("createdAt", "asc")
     );
   }, [firestore, hospitalId]);
   const { data: unassignedPatients, isLoading: arePatientsLoading } = useCollection(unassignedPatientsQuery);
@@ -186,3 +186,4 @@ export default function PatientAssignmentDesk() {
     </div>
   );
 }
+    
