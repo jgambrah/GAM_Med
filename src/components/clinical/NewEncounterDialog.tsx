@@ -149,6 +149,29 @@ export function NewEncounterDialog({
   const [extItemName, setExtItemName] = useState('');
   const [extInstruction, setExtInstruction] = useState('');
 
+  const form = useForm<EncounterFormValues>({
+    resolver: zodResolver(encounterSchema),
+    defaultValues: {
+      encounterType: 'Consultation',
+      vitals: {
+        temp: '',
+        systolic: '',
+        diastolic: '',
+        pulse: '',
+        respiration: '',
+        weight: '',
+        height: '',
+        spo2: '',
+        bmi: '0.0',
+      },
+      chiefComplaint: '',
+      hpi: '',
+      diagnosis: '',
+    },
+  });
+
+  const loading = form.formState.isSubmitting;
+
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -201,29 +224,7 @@ export function NewEncounterDialog({
   const { data: radiologyMenu, isLoading: isRadiologyMenuLoading } =
     useCollection(radiologyMenuQuery);
 
-  const form = useForm<EncounterFormValues>({
-    resolver: zodResolver(encounterSchema),
-    defaultValues: {
-      encounterType: 'Consultation',
-      vitals: {
-        temp: '',
-        systolic: '',
-        diastolic: '',
-        pulse: '',
-        respiration: '',
-        weight: '',
-        height: '',
-        spo2: '',
-        bmi: '0.0',
-      },
-      chiefComplaint: '',
-      hpi: '',
-      diagnosis: '',
-    },
-  });
   
-  const loading = form.formState.isSubmitting;
-
   const weight = form.watch('vitals.weight');
   const height = form.watch('vitals.height');
 
