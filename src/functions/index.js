@@ -7,14 +7,6 @@ const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/
 const admin = require("firebase-admin");
 const { addDays } = require("date-fns");
 const axios = require("axios");
-const crypto = require("crypto");
-
-// Centralize status strings
-const PATIENT_STATUS = {
-  AWAITING_VITALS: "Awaiting Vitals",
-  WAITING_ASSIGNMENT: "Waiting for Assignment",
-  WAITING_DOCTOR: "Waiting for Doctor",
-};
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
@@ -155,11 +147,7 @@ exports.onboardStaff = onCall(GLOBAL_CONFIG, async (request) => {
     });
 
 
-    return { 
-        success: true, 
-        staffUid: userRecord.uid,
-        message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` 
-    };
+    return { success: true, message: `${fullName} onboarded with Staff ID: ${newStaffNumber}.` };
   } catch (error) {
     console.error("Onboarding failed:", error);
     throw new HttpsError('internal', error.message);
@@ -303,7 +291,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     if (!patientData) throw new HttpsError('not-found', 'Patient data is empty.');
 
     const batch = db.batch();
-    const encounterRef = doc(collection(firestore, "encounters"));
+    const encounterRef = db.collection("encounters").doc();
     
     const { 
         patientName, vitals, encounterType, 
@@ -419,7 +407,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     });
 
     batch.update(patientRef, {
-        status: PATIENT_STATUS.WAITING_ASSIGNMENT,
+        status: 'Waiting for Assignment',
         lastVitals: fullVitals,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -436,7 +424,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
                 encounterId: encounterRef.id,
                 alertType: 'CRITICAL_VITALS',
                 message: alert.message,
-                severity: alert.severity,
                 status: 'UNREAD',
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
@@ -492,7 +479,76 @@ exports.createWardAndBeds = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
-async function createChartOfAccounts(hospitalRef, hospitalId) {
+exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
+  if (request.auth?.token.role !== 'SUPER_ADMIN') {
+    throw new HttpsError('permission-denied', 'You must be a Super Admin to perform this action.');
+  }
+
+  const {
+    hospitalName, region, directorEmail, directorName,
+    mrnPrefix, subscriptionPlan, monthlyRateNumeric, monthlyRateWords,
+  } = request.data;
+  
+  const defaultPassword = "password123";
+  
+  if (!monthlyRateWords || monthlyRateWords.length < 10) {
+     throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
+  }
+
+  if (!hospitalName || !directorEmail || !mrnPrefix) {
+    throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
+  }
+  
+  const hospitalRef = db.collection('hospitals').doc();
+  const hospitalId = hospitalRef.id;
+  const cleanDirectorEmail = directorEmail.toLowerCase().trim();
+
+  try {
+    const directorUserRecord = await admin.auth().createUser({
+        email: cleanDirectorEmail,
+        password: defaultPassword,
+        displayName: directorName,
+    });
+    
+    await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
+      role: 'DIRECTOR',
+      hospitalId: hospitalId
+    });
+
+    await db.runTransaction(async (transaction) => {
+        transaction.set(hospitalRef, {
+            hospitalId: hospitalId, name: hospitalName, region: region,
+            directorUid: directorUserRecord.uid, directorEmail: cleanDirectorEmail,
+            mrnPrefix: mrnPrefix, subscriptionPlan: subscriptionPlan,
+            agreedRate: monthlyRateNumeric, agreedRateWords: monthlyRateWords,
+            provisioningSecret: defaultPassword, status: 'active', isSuspended: false,
+            subscriptionStatus: 'ACTIVE', mustChangePassword: true,
+            patientCounter: 0, staffCounter: 0, poCounter: 0, pvCounter: 0,
+            receiptCounter: 0, referralCounter: 0, nhisBatchCounter: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
+            nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
+            gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
+        });
+
+        const userRef = db.collection('users').doc(directorUserRecord.uid);
+        transaction.set(userRef, {
+          uid: directorUserRecord.uid, fullName: directorName, email: cleanDirectorEmail,
+          role: 'DIRECTOR', hospitalId: hospitalId, is_active: true,
+          mustChangePassword: true, onboardingComplete: true,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        
+        const configRef = db.doc('platform_config/summary');
+        const configDoc = await transaction.get(configRef);
+        if(configDoc.exists) {
+            transaction.update(configRef, {
+                totalFacilities: admin.firestore.FieldValue.increment(1),
+                [`regionalBreakdown.${region}`]: admin.firestore.FieldValue.increment(1)
+            });
+        }
+    });
+
     const coaBatch = db.batch();
     const starterCOA = [
       { code: '1000', name: 'GCB Operations Bank', category: 'ASSETS' },
@@ -512,177 +568,13 @@ async function createChartOfAccounts(hospitalRef, hospitalId) {
         coaBatch.set(newAccRef, { ...acc, currentBalance: 0, hospitalId: hospitalId });
     });
     await coaBatch.commit();
-}
 
-async function assertSuperAdmin(uid) {
-  const userDocRef = db.collection('app_ceos').doc(uid);
-  const userDoc = await userDocRef.get();
-
-  if (!userDoc.exists) {
-    throw new HttpsError('permission-denied', 'Access denied. Not a registered platform administrator.');
+    return { success: true, hospitalId: hospitalId, message: `${hospitalName} provisioned successfully.` };
+  } catch (error) {
+    console.error("FATAL: provisionFullHospital", error.code, error.message, error.stack);
+    throw new HttpsError('internal', error.message);
   }
-
-  const data = userDoc.data();
-
-  if (data.isActive === false) {
-    throw new HttpsError('permission-denied', 'Your admin access has been revoked.');
-  }
-  
-  if (data.permissions?.canProvisionHospital !== true) {
-      throw new HttpsError('permission-denied', 'You are not authorized to provision new hospitals.');
-  }
-}
-
-exports.provisionFullHospital = onCall(GLOBAL_CONFIG, async (request) => {
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'Authentication required.');
-    }
-
-    if (request.auth.token.role !== 'SUPER_ADMIN') {
-        throw new HttpsError('permission-denied', 'Insufficient privileges.');
-    }
-
-    await assertSuperAdmin(request.auth.uid);
-
-    const {
-        hospitalName, region, directorEmail, directorName,
-        mrnPrefix, subscriptionPlan, monthlyRateNumeric, monthlyRateWords,
-    } = request.data;
-    
-    const contextInfo = {
-        ip: request.rawRequest?.ip || null,
-        userAgent: request.rawRequest?.headers['user-agent'] || null,
-    };
-    
-    if (!monthlyRateWords || monthlyRateWords.length < 10) {
-        throw new HttpsError('invalid-argument', 'You must type the subscription amount in words to authorize.');
-    }
-    
-    if (!hospitalName || !directorEmail || !mrnPrefix) {
-        throw new HttpsError('invalid-argument', 'Missing required fields for hospital provisioning.');
-    }
-    
-    const cleanDirectorEmail = directorEmail.toLowerCase().trim();
-
-    let existingUser;
-    try {
-        existingUser = await admin.auth().getUserByEmail(cleanDirectorEmail);
-    } catch (error) {
-        if (error.code !== 'auth/user-not-found') throw new HttpsError('internal', error.message);
-    }
-    if (existingUser) throw new HttpsError('already-exists', `A user with the email ${cleanDirectorEmail} already exists.`);
-
-    const hospitalNameQuery = await db.collection('hospitals').where('name', '==', hospitalName).limit(1).get();
-    if (!hospitalNameQuery.empty) throw new HttpsError('already-exists', `A hospital with the name "${hospitalName}" already exists.`);
-    
-    const prefixQuery = await db.collection('hospitals').where('mrnPrefix', '==', mrnPrefix.toUpperCase()).limit(1).get();
-    if (!prefixQuery.empty) throw new HttpsError('already-exists', `The MRN prefix "${mrnPrefix.toUpperCase()}" is already in use.`);
-    
-    let directorUserRecord = null;
-    const hospitalRef = db.collection('hospitals').doc();
-    const hospitalId = hospitalRef.id;
-    
-    try {
-        const tempPassword = crypto.randomBytes(10).toString("base64");
-    
-        directorUserRecord = await admin.auth().createUser({
-            email: cleanDirectorEmail,
-            password: tempPassword,
-            displayName: directorName,
-        });
-        
-        await admin.auth().setCustomUserClaims(directorUserRecord.uid, {
-          role: 'DIRECTOR',
-          hospitalId: hospitalId
-        });
-    
-        await db.runTransaction(async (transaction) => {
-            transaction.set(hospitalRef, {
-                hospitalId: hospitalId, name: hospitalName, region: region,
-                directorUid: directorUserRecord.uid, directorEmail: cleanDirectorEmail,
-                mrnPrefix: mrnPrefix.toUpperCase(), subscriptionPlan: subscriptionPlan,
-                agreedRate: monthlyRateNumeric, agreedRateWords: monthlyRateWords,
-                status: 'active', isSuspended: false,
-                subscriptionStatus: 'ACTIVE', mustChangePassword: true,
-                patientCounter: 0, staffCounter: 0, poCounter: 0, pvCounter: 0,
-                receiptCounter: 0, referralCounter: 0, nhisBatchCounter: 0,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                trialExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
-                nextBillingDate: admin.firestore.Timestamp.fromDate(addDays(new Date(), 30)),
-                gracePeriodExpiry: admin.firestore.Timestamp.fromDate(addDays(new Date(), 35)),
-            });
-    
-            const userRef = db.collection('users').doc(directorUserRecord.uid);
-            transaction.set(userRef, {
-              uid: directorUserRecord.uid, fullName: directorName, email: cleanDirectorEmail,
-              role: 'DIRECTOR', hospitalId: hospitalId, is_active: true,
-              mustChangePassword: true, onboardingComplete: true,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            
-            const configRef = db.doc('platform_config/summary');
-            const configDoc = await transaction.get(configRef);
-            if(configDoc.exists) {
-                transaction.update(configRef, {
-                    totalFacilities: admin.firestore.FieldValue.increment(1),
-                    [`regionalBreakdown.${region}`]: admin.firestore.FieldValue.increment(1)
-                });
-            }
-        });
-    
-        await createChartOfAccounts(hospitalRef, hospitalId);
-    
-        await db.collection("global_audit_logs").add({
-            type: 'SYSTEM',
-            action: 'HOSPITAL_PROVISIONED',
-            hospitalId: hospitalId,
-            hospitalName: hospitalName,
-            actorId: request.auth.uid,
-            actorName: request.auth.token.name || 'Super Admin',
-            details: `New hospital '${hospitalName}' created with director ${directorName} (${cleanDirectorEmail})`,
-            metadata: {
-                region,
-                subscriptionPlan,
-                agreedRate: monthlyRateNumeric,
-                mrnPrefix
-            },
-            context: contextInfo,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    
-        return { 
-            success: true, 
-            hospitalId: hospitalId, 
-            directorUid: directorUserRecord.uid,
-            message: `${hospitalName} provisioned successfully.` 
-        };
-    } catch (error) {
-        console.error("FATAL: provisionFullHospital", error.code, error.message, error.stack);
-    
-        if (directorUserRecord?.uid) {
-            try {
-                await admin.auth().deleteUser(directorUserRecord.uid);
-                console.log(`Rollback successful: Auth user ${directorUserRecord.uid} deleted.`);
-            } catch (rollbackError) {
-                console.error(`CRITICAL: Failed to rollback Auth user ${directorUserRecord.uid}`, rollbackError);
-            }
-        }
-        
-        await db.collection("global_audit_logs").add({
-            type: 'SECURITY',
-            action: 'HOSPITAL_PROVISION_FAILED',
-            actorId: request.auth?.uid || 'UNKNOWN',
-            actorName: request.auth?.token?.name || 'Unknown Attacker',
-            details: `Failed attempt to provision hospital '${hospitalName}' with email '${cleanDirectorEmail}'.`,
-            error: error.message,
-            context: contextInfo,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
-    
-        throw new HttpsError('internal', `Hospital provisioning failed and was rolled back. Reason: ${error.message}`);
-    }
 });
-
 
 exports.sendClinicalSms = onCall(GLOBAL_CONFIG, async (request) => {
     const smsApiKey = process.env.SMS_API_KEY;
@@ -817,12 +709,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
-    
-    
-
-
-
-
-
-
-
