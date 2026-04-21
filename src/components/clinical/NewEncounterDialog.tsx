@@ -130,7 +130,6 @@ export function NewEncounterDialog({
   const patientId = propsPatientId || (patientDocIdFromParams as string);
 
   const [internalOpen, setInternalOpen] = useState(false);
-  const loading = form.formState.isSubmitting;
   
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = setControlledOpen || setInternalOpen;
@@ -222,6 +221,8 @@ export function NewEncounterDialog({
       diagnosis: '',
     },
   });
+  
+  const loading = form.formState.isSubmitting;
 
   const weight = form.watch('vitals.weight');
   const height = form.watch('vitals.height');
