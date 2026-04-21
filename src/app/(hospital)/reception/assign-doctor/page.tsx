@@ -104,8 +104,8 @@ export default function PatientAssignmentDesk() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto text-black font-bold">
       <div className="flex justify-between items-end border-b-4 border-slate-900 pb-6">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Patient <span className="text-blue-600">Dispatcher</span></h1>
-          <p className="text-slate-500 font-bold text-xs uppercase italic">Directing clinical traffic to available consulting rooms.</p>
+          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Assignment <span className="text-blue-600">Queue</span></h1>
+          <p className="text-slate-500 font-bold text-xs uppercase italic">Patients with vitals taken, waiting for a doctor.</p>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default function PatientAssignmentDesk() {
         {/* LEFT: UNASSIGNED QUEUE */}
         <div className="space-y-6">
            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-              <Clock size={16} className="text-orange-500" /> Ready for Consultation ({arePatientsLoading ? '...' : unassignedPatients?.length ?? 0})
+              <Clock size={16} className="text-orange-500" /> Waiting for Assignment ({arePatientsLoading ? '...' : unassignedPatients?.length ?? 0})
            </h3>
            
            <div className="space-y-4">
