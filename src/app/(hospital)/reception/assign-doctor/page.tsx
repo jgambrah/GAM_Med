@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -25,7 +24,7 @@ export default function PatientAssignmentDesk() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
-  
+
   const hospitalId = userProfile?.hospitalId;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'NURSE', 'RECEPTIONIST'].includes(userProfile?.role || '');
 
@@ -34,7 +33,8 @@ export default function PatientAssignmentDesk() {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, 'hospitals', hospitalId, 'patients'),
-      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT)
+      where("status", "==", PATIENT_STATUS.WAITING_ASSIGNMENT),
+      orderBy("createdAt", "asc")
     );
   }, [firestore, hospitalId]);
   const { data: unassignedPatients, isLoading: arePatientsLoading } = useCollection(unassignedPatientsQuery);
