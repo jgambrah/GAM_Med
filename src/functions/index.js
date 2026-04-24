@@ -291,8 +291,6 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     if (!patientData) throw new HttpsError('not-found', 'Patient data is empty.');
 
     const batch = db.batch();
-    
-    console.log("DEBUG CHECK: about to use Firestore Admin SDK for encounter ref");
     const encounterRef = db.collection("encounters").doc();
     
     const { 
@@ -711,4 +709,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
-
