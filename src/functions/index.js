@@ -709,5 +709,3 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   }
   return null;
 });
-
-```
