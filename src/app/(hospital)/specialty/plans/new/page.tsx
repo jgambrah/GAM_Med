@@ -158,14 +158,9 @@ export default function NewTreatmentPlanPage() {
             control={form.control}
             name="linkedKitSku"
             render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                     <FormLabel>Consumable Kit (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={kitsLoading}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select a billable kit for each session"/></SelectTrigger></FormControl>
-                        <SelectContent>
-                            {kits?.map(k => <SelectItem key={k.id} value={k.sku}>{k.name} - GHS {k.sellingPrice}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    <KitCombobox kits={kits || []} isLoading={kitsLoading} field={field} />
                     <FormMessage />
                 </FormItem>
             )}
@@ -214,6 +209,55 @@ function PatientCombobox({ patients, isLoading, field }: any) {
                 >
                   <Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />
                   {p.firstName} {p.lastName} ({p.ehrNumber})
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function KitCombobox({ kits, isLoading, field }: any) {
+  const [open, setOpen] = useState(false);
+  
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+          disabled={isLoading}
+        >
+          {field.value
+            ? (() => {
+                const k = kits.find((kit: any) => kit.sku === field.value);
+                return k ? `${k.name} (GHS ${k.sellingPrice})` : "Select consumable kit..."
+              })()
+            : "Select consumable kit..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Search by kit name or SKU..." />
+          <CommandList>
+            <CommandEmpty>No kit found.</CommandEmpty>
+            <CommandGroup>
+              {kits.map((k: any) => (
+                <CommandItem
+                  key={k.id}
+                  value={`${k.name} ${k.sku}`}
+                  onSelect={() => {
+                    field.onChange(k.sku);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", field.value === k.sku ? "opacity-100" : "opacity-0")} />
+                  {k.name} (GHS {k.sellingPrice})
                 </CommandItem>
               ))}
             </CommandGroup>

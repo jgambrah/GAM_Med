@@ -55,7 +55,8 @@ export default function SurgeryLogPage() {
         completedAt: serverTimestamp()
       });
 
-      // 2. FINANCIAL TRIGGER: Add Theater Fee
+      // 2. FINANCIAL TRIGGER: Add Theater Fee using tariff procedure price
+      const procedurePrice = typeof (surgery as any).procedurePrice === 'number' ? (surgery as any).procedurePrice : 1500;
       const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
       batch.set(billRef, {
         patientId: surgery.patientId,
@@ -63,8 +64,8 @@ export default function SurgeryLogPage() {
         hospitalId: hospitalId,
         description: `Surgical Theater Fee (${surgery.procedureName})`,
         category: 'PROCEDURE',
-        total: 1500, // Pre-set Theater base cost
-        unitPrice: 1500,
+        total: procedurePrice,
+        unitPrice: procedurePrice,
         qty: 1,
         status: 'UNPAID',
         billedBy: user.uid,

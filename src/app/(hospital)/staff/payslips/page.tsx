@@ -8,6 +8,7 @@ import {
   ChevronRight, Calendar, Printer, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 export default function StaffPayslipPortal() {
   const { user, isUserLoading: isAuthLoading } = useUser();
@@ -67,6 +68,14 @@ export default function StaffPayslipPortal() {
 
   if (!selectedSlip) return <div className="p-20 text-center font-black animate-pulse uppercase italic text-slate-400">No payslip selected.</div>;
 
+  const netSalary = selectedSlip.netSalary ?? 0;
+  const gross = selectedSlip.gross ?? 0;
+  const basic = selectedSlip.basic ?? 0;
+  const ssnitEmployee = selectedSlip.ssnitEmployee ?? 0;
+  const paye = selectedSlip.paye ?? 0;
+  const otherDeductions = selectedSlip.otherDeductions ?? 0;
+  const roleName = selectedSlip.role ?? '';
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 text-card-foreground">
       {/* MOBILE-FIRST MONTH SELECTOR */}
@@ -99,7 +108,7 @@ export default function StaffPayslipPortal() {
              </div>
              <div>
                 <p className="text-xl font-black uppercase tracking-tight">{user?.displayName}</p>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase">{selectedSlip?.role} • ID: {user?.uid.slice(0,6)}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">{roleName} • ID: {user?.uid.slice(0,6)}</p>
              </div>
           </div>
         </div>
@@ -107,16 +116,16 @@ export default function StaffPayslipPortal() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-b">
            <div className="p-8 border-r bg-primary/5">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Net Take-Home Pay</p>
-              <h3 className="text-4xl font-black text-primary tracking-tighter">₵ {selectedSlip.netSalary.toLocaleString(undefined, {minimumFractionDigits: 2})}</h3>
+              <h3 className="text-4xl font-black text-primary tracking-tighter">₵ {netSalary.toLocaleString(undefined, {minimumFractionDigits: 2})}</h3>
            </div>
            <div className="p-8 flex flex-col justify-center">
               <div className="flex justify-between items-center mb-2">
                  <span className="text-[10px] font-black text-muted-foreground uppercase">Gross Salary</span>
-                 <span className="font-bold text-card-foreground">₵ {selectedSlip.gross.toFixed(2)}</span>
+                 <span className="font-bold text-card-foreground">₵ {gross.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center text-destructive">
                  <span className="text-[10px] font-black uppercase">Total Deductions</span>
-                 <span className="font-bold">(₵ {(selectedSlip.gross - selectedSlip.netSalary).toFixed(2)})</span>
+                 <span className="font-bold">(₵ {(gross - netSalary).toFixed(2)})</span>
               </div>
            </div>
         </div>
@@ -127,10 +136,10 @@ export default function StaffPayslipPortal() {
                  <TrendingUp size={14}/> Monthly Earnings
               </h4>
               <div className="space-y-3">
-                 <LineItem label="Basic Salary" value={selectedSlip.basic} />
+                 <LineItem label="Basic Salary" value={basic} />
                  <div className="p-3 bg-muted/50 rounded-xl">
                     <p className="text-[9px] font-bold text-muted-foreground uppercase">Fixed Allowances</p>
-                    <p className="text-sm font-black text-card-foreground">₵ {(selectedSlip.gross - selectedSlip.basic).toFixed(2)}</p>
+                    <p className="text-sm font-black text-card-foreground">₵ {(gross - basic).toFixed(2)}</p>
                  </div>
               </div>
            </div>
@@ -140,9 +149,9 @@ export default function StaffPayslipPortal() {
                  <Landmark size={14}/> Statutory & Voluntary
               </h4>
               <div className="space-y-3">
-                 <LineItem label="SSNIT (Employee 5.5%)" value={selectedSlip.ssnitEmployee} isDeduction />
-                 <LineItem label="PAYE (Income Tax)" value={selectedSlip.paye} isDeduction />
-                 <LineItem label="Other Deductions" value={selectedSlip.otherDeductions} isDeduction />
+                 <LineItem label="SSNIT (Employee 5.5%)" value={ssnitEmployee} isDeduction />
+                 <LineItem label="PAYE (Income Tax)" value={paye} isDeduction />
+                 <LineItem label="Other Deductions" value={otherDeductions} isDeduction />
               </div>
            </div>
         </div>
@@ -155,11 +164,11 @@ export default function StaffPayslipPortal() {
            <div className="grid grid-cols-2 gap-8">
               <div>
                  <p className="text-[9px] font-bold text-muted-foreground uppercase">Total SSNIT (Employer + You)</p>
-                 <p className="text-lg font-black text-primary">₵ {(selectedSlip.basic * 0.185).toFixed(2)}</p>
+                 <p className="text-lg font-black text-primary">₵ {(basic * 0.185).toFixed(2)}</p>
               </div>
               <div className="text-right">
                  <p className="text-[9px] font-bold text-muted-foreground uppercase">Tier 2 (Occupational)</p>
-                 <p className="text-lg font-black text-green-400">₵ {(selectedSlip.basic * 0.05).toFixed(2)}</p>
+                 <p className="text-lg font-black text-green-400">₵ {(basic * 0.05).toFixed(2)}</p>
               </div>
            </div>
            <p className="text-[8px] text-muted-foreground/70 mt-4 italic">Note: These amounts are remitted directly to SSNIT and your Pension Fund Manager on your behalf.</p>
@@ -186,11 +195,12 @@ export default function StaffPayslipPortal() {
 }
 
 function LineItem({ label, value, isDeduction = false }: any) {
+  const numValue = typeof value === 'number' ? value : 0;
   return (
     <div className="flex justify-between items-center py-2 border-b border-dashed border-border last:border-0">
        <span className="text-[11px] font-bold text-muted-foreground uppercase">{label}</span>
        <span className={`text-sm font-black ${isDeduction ? 'text-destructive' : 'text-card-foreground'}`}>
-          {isDeduction ? '-' : ''}₵ {value.toFixed(2)}
+          {isDeduction ? '-' : ''}₵ {numValue.toFixed(2)}
        </span>
     </div>
   );

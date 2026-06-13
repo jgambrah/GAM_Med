@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink } from 'lucide-react';
+import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink, CreditCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export default function HospitalProfilePage() {
   }, [firestore, hospitalId]);
   const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'comms'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'comms' | 'payments'>('profile');
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -54,6 +54,8 @@ export default function HospitalProfilePage() {
     emailProvider: 'MOCK',
     emailApiKey: '',
     emailFromAddress: '',
+    paystackPublicKey: '',
+    paystackSecretKey: '',
   });
 
   // Sync state once data loads
@@ -75,6 +77,8 @@ export default function HospitalProfilePage() {
         emailProvider: hospital.emailProvider || 'MOCK',
         emailApiKey: hospital.emailApiKey || '',
         emailFromAddress: hospital.emailFromAddress || '',
+        paystackPublicKey: hospital.paystackPublicKey || '',
+        paystackSecretKey: hospital.paystackSecretKey || '',
       });
     }
   }, [hospital]);
@@ -101,6 +105,8 @@ export default function HospitalProfilePage() {
         emailProvider: form.emailProvider,
         emailApiKey: form.emailApiKey.trim(),
         emailFromAddress: form.emailFromAddress.trim(),
+        paystackPublicKey: form.paystackPublicKey.trim(),
+        paystackSecretKey: form.paystackSecretKey.trim(),
       });
 
       toast({
@@ -178,6 +184,15 @@ export default function HospitalProfilePage() {
               }`}
             >
               Comms Integrations
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('payments')}
+              className={`pb-2 px-4 font-black uppercase text-[10px] tracking-widest border-b-2 transition-all outline-none ${
+                activeTab === 'payments' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Payments
             </button>
           </div>
 
@@ -446,6 +461,64 @@ export default function HospitalProfilePage() {
                       value={form.emailApiKey}
                       onChange={e => setForm({ ...form, emailApiKey: e.target.value })}
                     />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="space-y-8 animate-in fade-in duration-200">
+              <div className="space-y-6">
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pb-4 text-emerald-600">
+                  <CreditCard size={22} /> Paystack MoMo Integration
+                </h2>
+
+                <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 flex flex-col gap-4 text-xs font-bold">
+                  <div className="flex items-center gap-2 font-black text-emerald-700">
+                    <HelpCircle size={16} /> Setup Instructions:
+                  </div>
+                  <ol className="list-decimal pl-5 space-y-2 text-slate-600 font-medium">
+                    <li>Create or log into your account at the <a href="https://dashboard.paystack.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline inline-flex items-center gap-1 font-bold">Paystack Dashboard <ExternalLink size={10} /></a>.</li>
+                    <li>Go to your dashboard's <strong>Settings &rarr; API Keys & Webhooks</strong>.</li>
+                    <li>Copy your <strong>Public Key</strong> and <strong>Secret Key</strong> (for testing, you can use <code>pk_test_...</code> and <code>sk_test_...</code>) and paste them below.</li>
+                    <li>Copy the callback webhook URL below and paste it into the <strong>Webhook URL</strong> field under your Paystack Settings dashboard:</li>
+                  </ol>
+                  
+                  {/* Webhook Clipboard Display */}
+                  <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col gap-2 font-mono text-[10px] select-all break-all border border-slate-800">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest font-sans">Your Webhook Callback URL:</span>
+                    <code>{typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/paystack?hospitalId=${hospitalId}` : `https://yourdomain.com/api/webhooks/paystack?hospitalId=${hospitalId}`}</code>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Paystack Public Key</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Key size={16} /></span>
+                      <input
+                        type="text"
+                        placeholder="pk_live_... or pk_test_..."
+                        className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                        value={form.paystackPublicKey}
+                        onChange={e => setForm({ ...form, paystackPublicKey: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Paystack Secret Key</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Key size={16} /></span>
+                      <input
+                        type="password"
+                        placeholder="sk_live_... or sk_test_..."
+                        className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                        value={form.paystackSecretKey}
+                        onChange={e => setForm({ ...form, paystackSecretKey: e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

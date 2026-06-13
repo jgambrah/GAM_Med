@@ -1,13 +1,38 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import {
   Calendar as CalIcon, ChevronLeft, ChevronRight,
   Clock, User, MoreVertical, CheckCircle2,
   AlertCircle, ExternalLink, CalendarDays, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
+
+// Helper to convert time slots e.g. "09:00 AM" to minutes and compare against 24h start/end strings e.g. "08:00"
+const isTimeWithinRange = (timeStr: string, start: string, end: string) => {
+  try {
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (modifier === 'PM' && hours !== 12) {
+      hours += 12;
+    }
+    if (modifier === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    const slotMinutes = hours * 60 + minutes;
+
+    const [startH, startM] = start.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+
+    const [endH, endM] = end.split(':').map(Number);
+    const endMinutes = endH * 60 + endM;
+
+    return slotMinutes >= startMinutes && slotMinutes < endMinutes;
+  } catch (e) {
+    return true; // Fallback to showing as available if parsing fails
+  }
+};
 
 export default function DoctorWeeklyCalendar() {
   const { user, isUserLoading } = useUser();
@@ -19,22 +44,24 @@ export default function DoctorWeeklyCalendar() {
     return new Date(today.setDate(diff));
   });
 
+  // Fetch appointments for this doctor. Filtered client-side/in-memory to bypass index-creation dependency.
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
-    const startOfWeek = new Date(currentWeekStart);
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 7);
-
     return query(
       collection(firestore, "appointments"),
-      where("doctorId", "==", user.uid),
-      where("date", ">=", startOfWeek.toISOString().split('T')[0]),
-      where("date", "<", endOfWeek.toISOString().split('T')[0])
+      where("doctorId", "==", user.uid)
     );
-  }, [firestore, user, currentWeekStart]);
+  }, [firestore, user]);
 
   const { data: appointments, isLoading: areAppointmentsLoading } = useCollection(appointmentsQuery);
+
+  // Fetch doctor availability configuration
+  const availabilityRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, "doctor_availability", user.uid);
+  }, [firestore, user]);
+
+  const { data: availability, isLoading: isAvailabilityLoading } = useDoc(availabilityRef);
 
   const getDaysOfWeek = (start: Date) => {
     const days = [];
@@ -49,12 +76,33 @@ export default function DoctorWeeklyCalendar() {
   const weekDays = getDaysOfWeek(currentWeekStart);
   const timeSlots = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
 
+  // Check if a specific slot is within set availability
+  const isAvailable = useMemo(() => {
+    return (date: Date, timeStr: string) => {
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      if (!availability) {
+        // Default availability: Monday - Friday, 08:00 AM to 04:00 PM (16:00)
+        const defaultDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        if (!defaultDays.includes(dayName)) return false;
+        return isTimeWithinRange(timeStr, '08:00', '16:00');
+      }
+
+      const activeDays = availability.days || [];
+      if (!activeDays.includes(dayName)) return false;
+
+      const start = availability.startTime || '08:00';
+      const end = availability.endTime || '16:00';
+      return isTimeWithinRange(timeStr, start, end);
+    };
+  }, [availability]);
+
   const getAppointment = (date: Date, time: string) => {
     const dateStr = date.toISOString().split('T')[0];
     return appointments?.find(a => a.date === dateStr && a.timeSlot === time);
   };
   
-  const isLoading = isUserLoading || areAppointmentsLoading;
+  const isLoading = isUserLoading || areAppointmentsLoading || isAvailabilityLoading;
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto text-black font-bold">
@@ -110,6 +158,7 @@ export default function DoctorWeeklyCalendar() {
                 {/* DAYS SLOTS */}
                 {weekDays.map((day, dIdx) => {
                   const appt = getAppointment(day, time);
+                  const onDuty = isAvailable(day, time);
                   return (
                     <div key={dIdx} className="relative h-24 p-2 transition-all hover:bg-blue-50/30">
                       {appt ? (
@@ -131,9 +180,13 @@ export default function DoctorWeeklyCalendar() {
                             {appt.status !== 'CANCELLED_BY_PATIENT' && <ExternalLink size={10} className="opacity-40 ml-auto" />}
                           </div>
                         </Link>
+                      ) : onDuty ? (
+                        <div className="h-full w-full border-2 border-dashed border-blue-200 bg-blue-50/10 rounded-2xl flex items-center justify-center">
+                           <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Available</span>
+                        </div>
                       ) : (
-                        <div className="h-full w-full border-2 border-dashed border-slate-50 rounded-2xl flex items-center justify-center">
-                           <span className="text-[8px] font-black text-slate-200 uppercase tracking-widest">Available</span>
+                        <div className="h-full w-full bg-slate-50/80 border border-slate-200/50 rounded-2xl flex items-center justify-center opacity-65">
+                           <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Off-Duty</span>
                         </div>
                       )}
                     </div>
@@ -163,3 +216,4 @@ function LegendItem({ color, label }: any) {
     </div>
   );
 }
+

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collectionGroup, query, where, doc, serverTimestamp } from 'firebase/firestore';
+import { collectionGroup, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { ClipboardList, CheckCircle, Clock, User, ShieldAlert, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,8 @@ export default function DispensingQueue() {
     return query(
       collectionGroup(firestore, "encounters"),
       where("hospitalId", "==", hospitalId),
-      where("isDispensed", "==", false)
+      where("isDispensed", "==", false),
+      orderBy("createdAt", "desc")
     );
   }, [firestore, hospitalId]);
   

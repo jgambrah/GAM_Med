@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { usePaystackPayment } from 'react-paystack';
 
 export default function PatientInvoicePage() {
   const { id: patientId } = useParams();
@@ -18,6 +19,7 @@ export default function PatientInvoicePage() {
   
   const [loading, setLoading] = useState(false);
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const [resolvedChamberId, setResolvedChamberId] = useState<string | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -46,6 +48,23 @@ export default function PatientInvoicePage() {
     return doc(firestore, 'hospitals', hospitalId, 'mortuary_records', patientId as string);
   }, [firestore, hospitalId, patientId]);
   const { data: mortuaryRecord, isLoading: isMortuaryLoading } = useDoc(mortuaryRef);
+
+  // Resolve Mortuary Chamber ID
+  useEffect(() => {
+    if (mortuaryRecord) {
+      if (mortuaryRecord.chamberId) {
+        setResolvedChamberId(mortuaryRecord.chamberId);
+      } else if (firestore && hospitalId && patientId) {
+        const chambersRef = collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`);
+        const q = query(chambersRef, where("bodyId", "==", patientId as string));
+        getDocs(q).then(qSnap => {
+          if (!qSnap.empty) {
+            setResolvedChamberId(qSnap.docs[0].id);
+          }
+        });
+      }
+    }
+  }, [mortuaryRecord, firestore, hospitalId, patientId]);
   
   // 2. Fetch all UNPAID billable items for this patient
   const billingItemsQuery = useMemoFirebase(() => {
@@ -64,11 +83,49 @@ export default function PatientInvoicePage() {
   }, [firestore, hospitalId]);
   const { data: payers, isLoading: payersLoading } = useCollection(payersQuery);
 
-
   const total = useMemo(() => {
     if (!billItems) return 0;
     return billItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
   }, [billItems]);
+
+  const displayName = useMemo(() => {
+    return patient 
+        ? `${patient.firstName} ${patient.lastName}` 
+        : (mortuaryRecord ? `Family of ${mortuaryRecord.bodyName}` : 'Unknown Recipient');
+  }, [patient, mortuaryRecord]);
+
+  const paystackConfig = {
+    reference: (new Date()).getTime().toString(),
+    email: patient?.email || hospital?.email || 'patient@gammed.com',
+    amount: Math.round(total * 100),
+    publicKey: hospital?.paystackPublicKey || 'pk_test_placeholder',
+    metadata: {
+      custom_fields: [
+        { display_name: "Hospital ID", variable_name: "hospital_id", value: hospitalId || '' },
+        { display_name: "Patient ID", variable_name: "patient_id", value: patientId || '' },
+        { display_name: "Patient Name", variable_name: "patient_name", value: displayName },
+        { display_name: "Billing Item IDs", variable_name: "billing_item_ids", value: billItems ? billItems.map(item => item.id).join(',') : '' },
+        { display_name: "Payment Category", variable_name: "payment_category", value: "PATIENT_BILL" },
+        { display_name: "Is Mortuary", variable_name: "is_mortuary", value: !!mortuaryRecord ? "true" : "false" },
+        { display_name: "Chamber ID", variable_name: "chamber_id", value: resolvedChamberId || "" },
+        { display_name: "Total Amount", variable_name: "total_amount", value: total.toString() }
+      ]
+    }
+  };
+
+  const initializePayment = usePaystackPayment(paystackConfig);
+
+  const handlePaystackSuccess = (reference: any) => {
+    toast({ title: "Payment Authorized", description: `Paystack reference ${reference.reference} received. Crediting billing file...` });
+    setTimeout(() => {
+      router.push('/finance/billing');
+    }, 2000);
+  };
+
+  const handlePaystackClose = () => {
+    toast({ variant: 'destructive', title: "Checkout Closed", description: "The checkout window was closed before completion." });
+  };
+
 
   const handleRecordPayment = async () => {
     if (!hospitalId || !firestore || !user || (!patient && !mortuaryRecord) || !billItems) {
@@ -360,11 +417,18 @@ export default function PatientInvoicePage() {
             <Button 
                size="lg" 
                className="h-auto py-5 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:brightness-95 hover:bg-black transition-all" 
-               onClick={handleRecordPayment} 
+               onClick={() => {
+                 if (paymentMode === 'MoMo' && hospital?.paystackPublicKey) {
+                   initializePayment({ onSuccess: handlePaystackSuccess, onClose: handlePaystackClose });
+                 } else {
+                   handleRecordPayment();
+                 }
+               }} 
                disabled={loading}
                style={{ backgroundColor: hospital?.primaryColor || '#0f172a' }}
             >
-               {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={18} />} Record Payment & Close File
+               {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={18} />} 
+               {paymentMode === 'MoMo' && hospital?.paystackPublicKey ? "Pay via MoMo / Paystack" : "Record Payment & Close File"}
             </Button>
             <Button size="lg" variant="outline" className="h-auto py-5 bg-card hover:bg-muted border-2 border-foreground/20 text-foreground rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3" onClick={handlePrint}>
                <Printer size={18} /> Print Official Receipt

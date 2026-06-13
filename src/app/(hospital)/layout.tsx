@@ -46,7 +46,7 @@ export default function HospitalLayout({
 
   // This is the main guard. It shows a loader until we know for sure the user is authenticated and ready.
   // It prevents child pages from rendering and attempting to fetch data while unauthenticated.
-  if (isLoading || !user || userProfile?.role === 'SUPER_ADMIN' || (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change')) {
+  if (isLoading || !user || !userProfile || !userProfile.hospitalId || userProfile?.role === 'SUPER_ADMIN' || (userProfile?.mustChangePassword && pathname !== '/auth/force-password-change')) {
       return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />

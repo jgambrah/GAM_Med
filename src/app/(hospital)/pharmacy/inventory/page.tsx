@@ -221,7 +221,7 @@ export default function PharmacyInventory() {
                         {item.quantity < 20 && <AlertCircle size={14} />}
                     </div>
                     </TableCell>
-                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{item.price.toFixed(2)}</TableCell>
+                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{(typeof item.price === 'number' ? item.price : Number(item.price) || 0).toFixed(2)}</TableCell>
                 </TableRow>
                 ))
             )}
