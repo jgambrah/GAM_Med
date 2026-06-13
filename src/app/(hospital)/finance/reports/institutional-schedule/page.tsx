@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import { Landmark, FileText, Printer, Loader2, ShieldAlert } from 'lucide-react';
+import { Landmark, FileText, Printer, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';

@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { 
   TrendingUp, TrendingDown, Zap, 
   AlertCircle, Save, Loader2, RefreshCcw, 
-  CheckCircle2 
+  CheckCircle2, Trash2, Search 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,31 @@ export default function BulkPriceUpdater() {
   const [method, setMethod] = useState<'PERCENT_INC' | 'PERCENT_DEC' | 'FIXED_INC'>('PERCENT_INC');
   const [value, setValue] = useState<number>(0);
   const [previewItems, setPreviewItems] = useState<any[]>([]);
+  const [previewSearch, setPreviewSearch] = useState('');
+
+  const handleUpdatePreviewPrice = (itemId: string, newPriceVal: string) => {
+    const price = parseFloat(newPriceVal);
+    if (isNaN(price) || price < 0) return;
+    setPreviewItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, newPrice: price };
+      }
+      return item;
+    }));
+  };
+
+  const handleRemovePreviewItem = (itemId: string) => {
+    setPreviewItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const filteredPreviewItems = useMemo(() => {
+    if (!previewSearch) return previewItems;
+    const lower = previewSearch.toLowerCase();
+    return previewItems.filter(item => 
+      item.name?.toLowerCase().includes(lower) || 
+      item.sku?.toLowerCase().includes(lower)
+    );
+  }, [previewItems, previewSearch]);
 
   const hospitalId = userProfile?.hospitalId;
 
@@ -165,32 +190,75 @@ export default function BulkPriceUpdater() {
              </Button>
           </div>
 
+          <div className="relative max-w-xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Input 
+              placeholder="Search preview items by Name or SKU..."
+              className="w-full pl-12 pr-4 py-5 rounded-2xl border-2 bg-card"
+              value={previewSearch}
+              onChange={(e) => setPreviewSearch(e.target.value)}
+            />
+          </div>
+
           <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="p-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground">Product Name / SKU</th>
                   <th className="p-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground text-right">Old Price (GHS)</th>
-                  <th className="p-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground text-right">New Price (GHS)</th>
+                  <th className="p-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground text-center">New Price (GHS)</th>
                   <th className="p-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground text-right">Impact</th>
+                  <th className="p-6 text-[10px] uppercase font-black tracking-widest text-muted-foreground text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {previewItems.map(item => (
-                  <tr key={item.id} className="hover:bg-muted/50 transition-all">
-                    <td className="p-6">
-                       <p className="uppercase text-sm font-bold text-card-foreground">{item.name}</p>
-                       <p className="text-[10px] text-primary font-black">{item.sku}</p>
-                    </td>
-                    <td className="p-6 text-right text-muted-foreground italic font-mono">GHS {item.oldPrice.toFixed(2)}</td>
-                    <td className="p-6 text-right font-black text-primary font-mono">GHS {item.newPrice.toFixed(2)}</td>
-                    <td className="p-6 text-right">
-                       <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${item.newPrice > item.oldPrice ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {item.newPrice > item.oldPrice ? `+GHS ${(item.newPrice - item.oldPrice).toFixed(2)}` : `-GHS ${(item.oldPrice - item.newPrice).toFixed(2)}`}
-                       </span>
+                {filteredPreviewItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-12 text-center text-muted-foreground italic font-medium">
+                      No items matching search criteria.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredPreviewItems.map(item => {
+                    const priceDiff = item.newPrice - item.oldPrice;
+                    return (
+                      <tr key={item.id} className="hover:bg-muted/50 transition-all font-bold">
+                        <td className="p-6">
+                           <p className="uppercase text-sm font-bold text-card-foreground">{item.name}</p>
+                           <p className="text-[10px] text-primary font-black">{item.sku}</p>
+                        </td>
+                        <td className="p-6 text-right text-muted-foreground italic font-mono">GHS {item.oldPrice.toFixed(2)}</td>
+                        <td className="p-6 text-center">
+                          <div className="flex items-center justify-center gap-2 font-mono">
+                            <span className="text-[10px] text-primary font-black">GHS</span>
+                            <Input 
+                              type="number"
+                              step="0.01"
+                              className="w-28 p-2 h-auto rounded-xl border font-black text-right"
+                              value={item.newPrice}
+                              onChange={(e) => handleUpdatePreviewPrice(item.id, e.target.value)}
+                            />
+                          </div>
+                        </td>
+                        <td className="p-6 text-right">
+                           <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${priceDiff > 0 ? 'bg-green-100 text-green-700' : priceDiff < 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
+                              {priceDiff > 0 ? `+GHS ${priceDiff.toFixed(2)}` : priceDiff < 0 ? `-GHS ${Math.abs(priceDiff).toFixed(2)}` : 'No Change'}
+                           </span>
+                        </td>
+                        <td className="p-6 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:bg-destructive/10 rounded-full"
+                            onClick={() => handleRemovePreviewItem(item.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

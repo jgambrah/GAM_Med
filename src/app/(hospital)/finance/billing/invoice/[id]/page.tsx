@@ -27,6 +27,12 @@ export default function PatientInvoicePage() {
 
   const hospitalId = userProfile?.hospitalId;
 
+  const hospitalRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return doc(firestore, 'hospitals', hospitalId);
+  }, [firestore, hospitalId]);
+  const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
+
   // 1. Fetch Patient Info
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -80,7 +86,7 @@ export default function PatientInvoicePage() {
             const prefix = hData?.mrnPrefix || 'GAM';
             const currentReceiptCount = (hData?.receiptCounter || 0) + 1;
             const year = new Date().getFullYear().toString().slice(-2);
-            const paymentId = `${prefix}/REC/${year}/${currentReceiptCount.toString().padStart(4, '0')}`;
+            const paymentId = `${prefix}-REC-${year}-${currentReceiptCount.toString().padStart(4, '0')}`;
 
             const paymentRef = doc(firestore, `hospitals/${hospitalId}/payments`, paymentId);
             transaction.set(paymentRef, {
@@ -158,7 +164,7 @@ export default function PatientInvoicePage() {
     window.print();
   };
 
-  const isLoading = isPatientLoading || itemsLoading || payersLoading;
+  const isLoading = isPatientLoading || itemsLoading || payersLoading || isHospitalLoading;
 
   if (isLoading) {
     return (
@@ -175,19 +181,46 @@ export default function PatientInvoicePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}} />
       {/* INVOICE HEADER */}
-      <div className="bg-card border-4 border-foreground p-10 rounded-[48px] shadow-sm flex justify-between items-center">
-         <div>
-            <div className="flex items-center gap-2 mb-4 text-primary">
-               <FileText size={24} />
-               <span className="text-xl font-black uppercase tracking-tighter">Master Invoice</span>
+      <div 
+        className="p-10 rounded-[48px] shadow-lg flex flex-col md:flex-row justify-between gap-6 text-white"
+        style={{ backgroundColor: hospital?.primaryColor || '#0f172a' }}
+      >
+         <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+               <FileText size={24} className="text-white" />
+               <span className="text-xl font-black uppercase tracking-tighter text-white">
+                  {hospital?.name || 'Master Invoice'}
+               </span>
             </div>
-            <p className="text-3xl font-black text-card-foreground uppercase tracking-tighter">{patient?.firstName} {patient?.lastName}</p>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">EHR: {patient?.ehrNumber}</p>
+            <p className="text-[10px] text-white/85 font-bold uppercase tracking-widest leading-relaxed">
+               {hospital?.address || 'Physical Address Not Configured'}<br />
+               {hospital?.location || 'City/Town'}, {hospital?.region || 'Region'}<br />
+               Phone: {hospital?.phone || 'N/A'} | Email: {hospital?.email || 'N/A'}
+               {hospital?.website && <><br /><span className="font-extrabold text-white underline">{hospital.website}</span></>}
+            </p>
          </div>
-         <div className="text-right">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Invoice Date</p>
-            <p className="text-lg font-black text-card-foreground uppercase">{new Date().toLocaleDateString('en-GB')}</p>
+         <div className="md:text-right flex flex-col md:items-end justify-between">
+            <div>
+               <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Patient Details</p>
+               <p className="text-2xl font-black text-white uppercase tracking-tighter mt-1">{patient?.firstName} {patient?.lastName}</p>
+               <p className="text-[9px] font-bold text-white/80 uppercase tracking-widest mt-0.5">EHR: {patient?.ehrNumber}</p>
+            </div>
+            <div className="mt-4 md:mt-0">
+               <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Invoice Date</p>
+               <p className="text-sm font-black text-white uppercase mt-0.5">{new Date().toLocaleDateString('en-GB')}</p>
+            </div>
          </div>
       </div>
 
@@ -195,43 +228,77 @@ export default function PatientInvoicePage() {
       <div className="bg-card rounded-[32px] border shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Service Description</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Category</TableHead>
-              <TableHead className="p-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Amount (GHS)</TableHead>
+            <TableRow 
+              className="hover:bg-transparent"
+              style={{ backgroundColor: `${hospital?.secondaryColor || '#2563eb'}1a` }}
+            >
+              <TableHead 
+                className="p-4 text-[10px] font-black uppercase tracking-widest"
+                style={{ color: hospital?.secondaryColor || '#2563eb' }}
+              >
+                Service Description
+              </TableHead>
+              <TableHead 
+                className="p-4 text-[10px] font-black uppercase tracking-widest"
+                style={{ color: hospital?.secondaryColor || '#2563eb' }}
+              >
+                Category
+              </TableHead>
+              <TableHead 
+                className="p-4 text-[10px] font-black uppercase tracking-widest text-right"
+                style={{ color: hospital?.secondaryColor || '#2563eb' }}
+              >
+                Amount (GHS)
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {billItems?.length === 0 ? (
+            {(!billItems || billItems.length === 0) ? (
                 <TableRow><TableCell colSpan={3} className="text-center p-12 text-muted-foreground italic">No billable services recorded for this patient yet.</TableCell></TableRow>
             ) : billItems.map((item, idx) => (
               <TableRow key={idx}>
                 <TableCell className="p-4 font-bold uppercase text-card-foreground">{item.description}</TableCell>
-                <TableCell className="p-4"><span className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase">{item.category}</span></TableCell>
+                <TableCell className="p-4">
+                  <span 
+                    className="text-[10px] font-black px-3 py-1 rounded-full uppercase"
+                    style={{ 
+                      backgroundColor: `${hospital?.secondaryColor || '#2563eb'}1a`, 
+                      color: hospital?.secondaryColor || '#2563eb' 
+                    }}
+                  >
+                    {item.category}
+                  </span>
+                </TableCell>
                 <TableCell className="p-4 text-right text-sm font-mono">{item.total?.toFixed(2)}</TableCell>
               </TableRow>
             ))}
-            <TableRow className="bg-foreground/5">
-              <TableCell colSpan={2} className="p-6 text-right text-sm font-black uppercase text-card-foreground">Grand Total</TableCell>
-              <TableCell className="p-6 text-right text-2xl font-black text-primary">GHS {total.toFixed(2)}</TableCell>
+            <TableRow style={{ backgroundColor: `${hospital?.secondaryColor || '#2563eb'}0a` }}>
+              <TableCell colSpan={2} className="p-6 text-right text-sm font-black uppercase text-card-foreground font-black">Grand Total</TableCell>
+              <TableCell className="p-6 text-right text-2xl font-black" style={{ color: hospital?.primaryColor || '#0f172a' }}>GHS {total.toFixed(2)}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
       </div>
 
       {/* PAYMENT METHODS & FINALIZATION */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 no-print">
          <div className="bg-card p-8 rounded-[32px] border shadow-sm space-y-4">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Select Payment Mode</h3>
             <div className="grid grid-cols-3 gap-3">
-               <PaymentBtn icon={<Wallet size={20}/>} label="Cash" active={paymentMode === 'Cash'} onClick={() => setPaymentMode('Cash')} />
-               <PaymentBtn icon={<CreditCard size={20}/>} label="MoMo" active={paymentMode === 'MoMo'} onClick={() => setPaymentMode('MoMo')} />
-               <PaymentBtn icon={<Landmark size={20}/>} label="NHIS" active={paymentMode === 'NHIS'} onClick={() => setPaymentMode('NHIS')} />
+               <PaymentBtn icon={<Wallet size={20}/>} label="Cash" active={paymentMode === 'Cash'} onClick={() => setPaymentMode('Cash')} secondaryColor={hospital?.secondaryColor} />
+               <PaymentBtn icon={<CreditCard size={20}/>} label="MoMo" active={paymentMode === 'MoMo'} onClick={() => setPaymentMode('MoMo')} secondaryColor={hospital?.secondaryColor} />
+               <PaymentBtn icon={<Landmark size={20}/>} label="NHIS" active={paymentMode === 'NHIS'} onClick={() => setPaymentMode('NHIS')} secondaryColor={hospital?.secondaryColor} />
             </div>
          </div>
 
          <div className="flex flex-col gap-3">
-            <Button size="lg" className="h-auto py-5 bg-primary hover:bg-foreground text-primary-foreground rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3" onClick={handleRecordPayment} disabled={loading}>
+            <Button 
+               size="lg" 
+               className="h-auto py-5 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:brightness-95 hover:bg-black transition-all" 
+               onClick={handleRecordPayment} 
+               disabled={loading}
+               style={{ backgroundColor: hospital?.primaryColor || '#0f172a' }}
+            >
                {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={18} />} Record Payment & Close File
             </Button>
             <Button size="lg" variant="outline" className="h-auto py-5 bg-card hover:bg-muted border-2 border-foreground/20 text-foreground rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3" onClick={handlePrint}>
@@ -243,14 +310,21 @@ export default function PatientInvoicePage() {
   );
 }
 
-function PaymentBtn({ icon, label, active, onClick }: any) {
+function PaymentBtn({ icon, label, active, onClick, secondaryColor }: any) {
   return (
     <div 
         onClick={onClick}
-        className={`p-4 rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all border-2 ${active ? 'border-primary/50 bg-primary/10' : 'bg-muted/50 border-transparent hover:border-primary/20'}`}
+        className={`p-4 rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all border-2`}
+        style={active ? {
+          borderColor: `${secondaryColor || '#2563eb'}80`,
+          backgroundColor: `${secondaryColor || '#2563eb'}1a`
+        } : {
+          backgroundColor: 'rgb(241 245 249 / 0.5)',
+          borderColor: 'transparent'
+        }}
     >
       {icon}
-      <span className={`text-xs font-black uppercase text-center ${active ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span>
+      <span className="text-xs font-black uppercase text-center" style={active ? { color: secondaryColor || '#2563eb' } : { color: 'rgb(100 116 139)' }}>{label}</span>
     </div>
   );
 }

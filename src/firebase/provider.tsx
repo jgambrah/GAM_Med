@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, doc, setDoc } from 'firebase/firestore';
 import { Auth, User, onIdTokenChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
@@ -91,6 +91,28 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     );
     return () => unsubscribe(); // Cleanup
   }, [auth]); // Depends on the auth instance
+
+  // Self-healing Firestore profile hook for Marcus
+  useEffect(() => {
+    const firebaseUser = userAuthState.user;
+    if (firebaseUser && firestore && firebaseUser.email === 'marcusamosah@gmail.com') {
+      const userRef = doc(firestore, 'users', firebaseUser.uid);
+      setDoc(userRef, {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        fullName: firebaseUser.displayName || 'Marcus Amosah Henaku',
+        role: 'DIRECTOR',
+        hospitalId: 'GAM-GAR-7578',
+        is_active: true,
+        mustChangePassword: false,
+        onboardingComplete: true
+      }, { merge: true }).then(() => {
+        console.log("✅ User profile self-healed in Firestore!");
+      }).catch((e) => {
+        console.error("❌ User profile self-healing failed:", e);
+      });
+    }
+  }, [userAuthState.user, firestore]);
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {

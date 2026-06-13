@@ -48,6 +48,7 @@ const menuGroups = [
       { name: "Claims Vetting", href: "/finance/insurance/vetting", icon: FileSearch },
       { name: "NHIS Batching", href: "/finance/insurance/nhis-batching", icon: Library },
       { name: "Tariff Master", href: "/finance/tariffs", icon: Tag },
+      { name: "General Services Setup", href: "/finance/setup", icon: Settings },
       { name: "Bulk Adjustments", href: "/finance/tariffs/bulk", icon: Zap },
     ]
   }

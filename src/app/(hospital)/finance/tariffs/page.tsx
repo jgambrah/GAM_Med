@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, doc, query, serverTimestamp } from 'firebase/firestore';
-import { Tag, Save, Plus, Edit3, HeartPulse, Beaker, Camera, BedDouble, Loader2, ShieldAlert, Package, Percent } from 'lucide-react';
+import { Tag, Save, Plus, Edit3, HeartPulse, Beaker, Camera, BedDouble, Loader2, ShieldAlert, Package, Percent, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,45 @@ export default function TariffManagerPage() {
   const { data: radiologyServices, isLoading: radiologyLoading } = useCollection(radiologyMenuQuery);
   const { data: procedureServices, isLoading: procedureLoading } = useCollection(procedureMenuQuery);
   
-  const updatePrice = (collectionName: string, docId: string, newPriceStr: string, field: 'price' | 'sellingPrice' = 'price') => {
+  const [productSearch, setProductSearch] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    if (!productSearch) return products;
+    const lower = productSearch.toLowerCase();
+    return products.filter((p: any) => p.name?.toLowerCase().includes(lower) || p.sku?.toLowerCase().includes(lower));
+  }, [products, productSearch]);
+
+  const filteredGeneralServices = useMemo(() => {
+    if (!generalServices) return [];
+    if (!serviceSearch) return generalServices;
+    const lower = serviceSearch.toLowerCase();
+    return generalServices.filter((s: any) => s.name?.toLowerCase().includes(lower));
+  }, [generalServices, serviceSearch]);
+
+  const filteredLabServices = useMemo(() => {
+    if (!labServices) return [];
+    if (!serviceSearch) return labServices;
+    const lower = serviceSearch.toLowerCase();
+    return labServices.filter((s: any) => s.name?.toLowerCase().includes(lower));
+  }, [labServices, serviceSearch]);
+
+  const filteredRadiologyServices = useMemo(() => {
+    if (!radiologyServices) return [];
+    if (!serviceSearch) return radiologyServices;
+    const lower = serviceSearch.toLowerCase();
+    return radiologyServices.filter((s: any) => s.name?.toLowerCase().includes(lower));
+  }, [radiologyServices, serviceSearch]);
+
+  const filteredProcedureServices = useMemo(() => {
+    if (!procedureServices) return [];
+    if (!serviceSearch) return procedureServices;
+    const lower = serviceSearch.toLowerCase();
+    return procedureServices.filter((s: any) => s.name?.toLowerCase().includes(lower));
+  }, [procedureServices, serviceSearch]);
+  
+  const updatePrice = (collectionName: string, docId: string, newPriceStr: string, field: 'price' | 'sellingPrice' | 'purchasePrice' = 'price') => {
     if (!hospitalId || !firestore) return;
     const newPrice = parseFloat(newPriceStr);
     if (isNaN(newPrice) || newPrice < 0) {
@@ -90,7 +128,17 @@ export default function TariffManagerPage() {
           <TabsTrigger value="products">Products & Consumables</TabsTrigger>
           <TabsTrigger value="services">Clinical Services</TabsTrigger>
         </TabsList>
-        <TabsContent value="products" className="mt-6">
+        <TabsContent value="products" className="mt-6 space-y-4">
+          <div className="relative max-w-xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Input 
+              placeholder="Search products by Name or SKU..."
+              className="w-full pl-12 pr-4 py-5 rounded-2xl border-2 bg-card"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+            />
+          </div>
+
           <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
             <Table>
                 <TableHeader>
@@ -104,8 +152,17 @@ export default function TariffManagerPage() {
                 </TableHeader>
                 <TableBody>
                     {productsLoading && <TableRow><TableCell colSpan={5} className="text-center p-12"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>}
-                    {products?.map(p => {
-                      const margin = p.sellingPrice > 0 ? (((p.sellingPrice - p.purchasePrice) / p.sellingPrice) * 100).toFixed(1) : 0;
+                    {!productsLoading && filteredProducts.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center p-12 text-muted-foreground italic">
+                                No products found matching your search.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                    {filteredProducts.map((p: any) => {
+                      const purchasePrice = p.purchasePrice ?? 0;
+                      const sellingPrice = p.sellingPrice ?? 0;
+                      const margin = sellingPrice > 0 ? (((sellingPrice - purchasePrice) / sellingPrice) * 100).toFixed(1) : 0;
                       return (
                         <TableRow key={p.id} className="hover:bg-primary/5 transition-all">
                           <TableCell className="p-6">
@@ -115,14 +172,26 @@ export default function TariffManagerPage() {
                           <TableCell className="p-6">
                             <span className="text-[9px] font-black bg-muted px-3 py-1 rounded-full text-muted-foreground uppercase">{p.storeType}</span>
                           </TableCell>
-                          <TableCell className="p-6 text-center text-muted-foreground font-mono">GHS {p.purchasePrice?.toFixed(2)}</TableCell>
+                          <TableCell className="p-6 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-[10px] text-muted-foreground font-black">GHS</span>
+                                <Input 
+                                type="number" 
+                                step="0.01"
+                                className="w-24 p-2 h-auto rounded-xl border font-black text-right"
+                                defaultValue={purchasePrice || 0}
+                                onBlur={(e) => updatePrice('product_catalog', p.id, e.target.value, 'purchasePrice')}
+                                />
+                            </div>
+                          </TableCell>
                           <TableCell className="p-6 text-right">
                             <div className="flex items-center justify-end gap-2">
                                 <span className="text-[10px] text-primary font-black">GHS</span>
                                 <Input 
                                 type="number" 
+                                step="0.01"
                                 className="w-28 p-2 h-auto rounded-xl border-2 font-black text-right"
-                                defaultValue={p.sellingPrice || 0}
+                                defaultValue={sellingPrice || 0}
                                 onBlur={(e) => updatePrice('product_catalog', p.id, e.target.value, 'sellingPrice')}
                                 />
                             </div>
@@ -139,41 +208,51 @@ export default function TariffManagerPage() {
             </Table>
           </div>
         </TabsContent>
-        <TabsContent value="services" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <TariffSection 
-                title="Clinical & General Services" 
-                icon={<HeartPulse size={20}/>} 
-                services={generalServices}
-                collectionName="general_services"
-                onUpdate={updatePrice}
-                isLoading={generalLoading}
-                />
-                <TariffSection 
-                title="Laboratory Tests" 
-                icon={<Beaker size={20}/>} 
-                services={labServices}
-                collectionName="lab_menu"
-                onUpdate={updatePrice}
-                isLoading={labLoading}
-                />
-                <TariffSection 
-                title="Radiology & Imaging" 
-                icon={<Camera size={20}/>} 
-                services={radiologyServices}
-                collectionName="radiology_menu"
-                onUpdate={updatePrice}
-                isLoading={radiologyLoading}
-                />
-                <TariffSection 
-                title="Clinical Procedures" 
-                icon={<Edit3 size={20}/>} 
-                services={procedureServices}
-                collectionName="procedure_menu"
-                onUpdate={updatePrice}
-                isLoading={procedureLoading}
-                />
-            </div>
+        <TabsContent value="services" className="mt-6 space-y-4">
+          <div className="relative max-w-xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Input 
+              placeholder="Search services & clinical procedures..."
+              className="w-full pl-12 pr-4 py-5 rounded-2xl border-2 bg-card"
+              value={serviceSearch}
+              onChange={(e) => setServiceSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <TariffSection 
+              title="Clinical & General Services" 
+              icon={<HeartPulse size={20}/>} 
+              services={filteredGeneralServices}
+              collectionName="general_services"
+              onUpdate={updatePrice}
+              isLoading={generalLoading}
+            />
+            <TariffSection 
+              title="Laboratory Tests" 
+              icon={<Beaker size={20}/>} 
+              services={filteredLabServices}
+              collectionName="lab_menu"
+              onUpdate={updatePrice}
+              isLoading={labLoading}
+            />
+            <TariffSection 
+              title="Radiology & Imaging" 
+              icon={<Camera size={20}/>} 
+              services={filteredRadiologyServices}
+              collectionName="radiology_menu"
+              onUpdate={updatePrice}
+              isLoading={radiologyLoading}
+            />
+            <TariffSection 
+              title="Clinical Procedures" 
+              icon={<Edit3 size={20}/>} 
+              services={filteredProcedureServices}
+              collectionName="procedure_menu"
+              onUpdate={updatePrice}
+              isLoading={procedureLoading}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

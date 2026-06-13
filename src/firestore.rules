@@ -16,8 +16,9 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
+      let token = request.auth.token;
       return isSignedIn() && (
-        request.auth.token.role == 'SUPER_ADMIN' ||
+        (token != null && 'role' in token && token.role == 'SUPER_ADMIN') ||
         exists(/databases/$(database)/documents/app_ceos/$(request.auth.uid))
       );
     }
@@ -28,19 +29,22 @@ service cloud.firestore {
 
     function isStaffOfHospital(hospitalId) {
       let userData = getCallingUserData();
-      return isSignedIn() && userData != null && userData.hospitalId == hospitalId;
+      return isSignedIn() && userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
     }
 
     function isDirectorOrAdmin(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
 
-      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
-      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'HR_MANAGER'];
+
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
 
       return isSuperAdmin() || (
         isSignedIn()
-            && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+            && (hasHospitalInToken || hasHospitalInDb)
             && (hasRoleInToken || hasRoleInDb)
       );
     }
@@ -48,52 +52,75 @@ service cloud.firestore {
     function isAuditorRole(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
-      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
 
       return isSuperAdmin() || (
         isSignedIn()
-          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+          && (hasHospitalInToken || hasHospitalInDb)
           && (hasRoleInToken || hasRoleInDb)
       );
     }
 
     function isPayerAuditor() {
-      return isSignedIn() && request.auth.token.role == 'PAYER_AUDITOR';
+      let token = request.auth.token;
+      return isSignedIn() && token != null && 'role' in token && token.role == 'PAYER_AUDITOR';
     }
 
     function isClinicalStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
-      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
+
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
 
       return isSuperAdmin() || (
         isSignedIn()
-          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+          && (hasHospitalInToken || hasHospitalInDb)
           && (hasRoleInToken || hasRoleInDb)
       );
+    }
+    
+    function isClinicalStaffToken(hospitalId) {
+      let token = request.auth.token;
+      return isSignedIn()
+        && token != null
+        && 'hospitalId' in token && token.hospitalId == hospitalId
+        && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST'];
     }
 
     function isAnyStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
+      let hasRoleInToken = token != null && 'role' in token && token.role != null;
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role != null;
+
       return isSuperAdmin() || (
         isSignedIn()
-          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
-          && ((token != null && token.role != null) || (userData != null && userData.role != null))
+          && (hasHospitalInToken || hasHospitalInDb)
+          && (hasRoleInToken || hasRoleInDb)
       );
     }
 
     function isSupplyChainStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token != null && token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
-      let hasRoleInDb = userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
 
       return isSuperAdmin() || (
         isSignedIn()
-          && ((token != null && token.hospitalId == hospitalId) || (userData != null && userData.hospitalId == hospitalId))
+          && (hasHospitalInToken || hasHospitalInDb)
           && (hasRoleInToken || hasRoleInDb)
       );
     }
@@ -101,8 +128,8 @@ service cloud.firestore {
     function isMortuaryStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRole = (token != null && token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']) ||
-                    (userData != null && userData.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']);
+      let hasRole = (token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']) ||
+                    (userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']);
       return isSuperAdmin() || (isSignedIn() && isStaffOfHospital(hospitalId) && hasRole);
     }
 
@@ -290,7 +317,17 @@ service cloud.firestore {
 
     match /hospitals/{hospitalId} {
       allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-      allow list, create, update, delete: if isSuperAdmin();
+      allow list, create, delete: if isSuperAdmin();
+      allow update: if isSuperAdmin() || (
+        isAnyStaff(hospitalId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['receiptCounter', 'pvCounter', 'poCounter', 'nhisBatchCounter'])
+      ) || (
+        isDirectorOrAdmin(hospitalId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'receiptCounter', 'pvCounter', 'poCounter', 'nhisBatchCounter',
+          'name', 'address', 'location', 'region', 'phone', 'email', 'website', 'primaryColor', 'secondaryColor', 'logoUrl'
+        ])
+      );
 
       match /jcc_logs/{logId} {
         allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);

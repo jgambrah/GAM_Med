@@ -149,6 +149,7 @@ const allMenuGroups = [
     title: "Administrative",
     roles: ['DIRECTOR', 'ADMIN'],
     items: [
+      { name: "Hospital Profile", href: "/director/profile", icon: Settings },
       { name: "Staff", href: "/staff", icon: Users },
       { name: "Procedure Setup", href: "/procedures/setup", icon: Scissors },
       { name: "Subscription", href: "/director/subscription", icon: CreditCard },
@@ -192,6 +193,7 @@ const allMenuGroups = [
       { name: "Claims Vetting", href: "/finance/insurance/vetting", icon: FileSearch, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "NHIS Batching", href: "/finance/insurance/nhis-batching", icon: Library, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Tariff Master", href: "/finance/tariffs", icon: Tag, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
+      { name: "General Services Setup", href: "/finance/setup", icon: Settings, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Bulk Adjustments", href: "/finance/tariffs/bulk", icon: Zap, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
     ]
   },

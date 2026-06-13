@@ -12,6 +12,22 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 
+function safeToDate(val: any): Date | null {
+  if (!val) return null;
+  if (typeof val.toDate === 'function') return val.toDate();
+  if (val instanceof Date) return val;
+  if (typeof val === 'object') {
+    if (typeof val.seconds === 'number') {
+      return new Date(val.seconds * 1000 + (val.nanoseconds || 0) / 1000000);
+    }
+    if (typeof val._seconds === 'number') {
+      return new Date(val._seconds * 1000 + (val._nanoseconds || 0) / 1000000);
+    }
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export default function CommandCenterDashboard() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -131,7 +147,7 @@ export default function CommandCenterDashboard() {
                         ))}
                     </div>
                      <p className="text-[10px] text-muted-foreground mt-4 italic">
-                        Last seen {patient.updatedAt ? formatDistanceToNow(patient.updatedAt.toDate(), {addSuffix: true}) : 'recently'}.
+                        Last seen {safeToDate(patient.updatedAt) ? formatDistanceToNow(safeToDate(patient.updatedAt)!, {addSuffix: true}) : 'recently'}.
                      </p>
                 </div>
             </Link>

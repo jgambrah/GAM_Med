@@ -68,7 +68,7 @@ export default function InsuranceVettingQueue() {
 
       <div className="grid grid-cols-1 gap-4">
         {areClaimsLoading ? <div className="p-20 text-center"><Loader2 className="animate-spin text-primary"/></div> : 
-        pendingClaims?.length === 0 ? (
+        (!pendingClaims || pendingClaims.length === 0) ? (
           <div className="p-20 bg-slate-50 rounded-[40px] border-2 border-dashed text-center text-slate-300 italic uppercase font-black">
              All clinical claims have been vetted.
           </div>

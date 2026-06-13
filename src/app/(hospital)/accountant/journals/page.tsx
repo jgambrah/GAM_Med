@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, writeBatch, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, serverTimestamp, increment, orderBy, limit } from 'firebase/firestore';
 import { 
   Plus, Trash2, Save, AlertCircle, 
   CheckCircle2, Calculator, ArrowLeftRight, Loader2, ShieldAlert
@@ -47,6 +47,16 @@ export default function JournalEntryManager() {
     return query(collection(firestore, "hospitals", hospitalId, "chart_of_accounts"), where("hospitalId", "==", hospitalId));
   }, [firestore, hospitalId]);
   const { data: coa, isLoading: isCoaLoading } = useCollection(coaQuery);
+
+  const journalHistoryQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, "hospitals", hospitalId, "journal_entries"),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+  }, [firestore, hospitalId]);
+  const { data: journalHistory, isLoading: isHistoryLoading } = useCollection(journalHistoryQuery);
 
   // CALCULATE TOTALS
   const totalDebit = lines.reduce((sum, line) => sum + (Number(line.debit) || 0), 0);
@@ -169,12 +179,12 @@ export default function JournalEntryManager() {
             {lines.map((line, idx) => (
               <tr key={idx} className="group hover:bg-muted/30 transition-all">
                 <td className="p-2 border-r">
-                   <select 
-                     className="w-full p-3 bg-transparent font-bold text-card-foreground outline-none focus:bg-card rounded-xl"
-                     value={line.accountId} onChange={e => handleUpdateLine(idx, 'accountId', e.target.value)}>
-                     <option value="">Search Account...</option>
-                     {isCoaLoading ? <option>Loading...</option> : coa?.map(a => <option key={a.id} value={a.id}>{a.accountCode} - {a.name} ({a.category})</option>)}
-                   </select>
+                   <SearchableAccountSelect 
+                     value={line.accountId} 
+                     onChange={val => handleUpdateLine(idx, 'accountId', val)} 
+                     coa={coa} 
+                     isCoaLoading={isCoaLoading} 
+                   />
                 </td>
                 <td className="p-2 border-r bg-muted/50">
                    <input 
@@ -220,6 +230,146 @@ export default function JournalEntryManager() {
            </Button>
         </div>
       </div>
+
+      {/* JOURNAL HISTORY LIST */}
+      <div className="bg-card rounded-[40px] border shadow-xl overflow-hidden p-8 space-y-6">
+        <div>
+          <h2 className="text-xl font-black uppercase tracking-tight text-foreground">Journal Voucher History</h2>
+          <p className="text-muted-foreground font-bold text-xs uppercase italic mt-0.5">Track status of manual ledger adjustments</p>
+        </div>
+
+        <div className="divide-y divide-border">
+          {isHistoryLoading ? (
+            <div className="p-10 text-center"><Loader2 className="animate-spin text-primary" /></div>
+          ) : !journalHistory || journalHistory.length === 0 ? (
+            <div className="p-10 text-center text-muted-foreground italic text-xs uppercase">No journals created yet.</div>
+          ) : (
+            journalHistory.map(jv => (
+              <div key={jv.id} className="py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-muted/10 transition-all px-2 rounded-2xl">
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono font-black text-sm text-foreground">{jv.jvNumber}</span>
+                    <span className="text-[10px] text-slate-500 font-bold">{jv.createdAt ? new Date(jv.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                    <span 
+                      className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                        jv.status === 'AUTHORIZED' 
+                          ? 'bg-green-50 text-green-600 border border-green-200' 
+                          : jv.status === 'QUERIED' 
+                          ? 'bg-red-50 text-red-600 border border-red-200' 
+                          : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
+                      }`}
+                    >
+                      {jv.status === 'AUTHORIZED' ? 'Approved & Posted' : jv.status === 'QUERIED' ? 'Rejected / Queried' : 'Awaiting Review'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 font-bold leading-normal truncate">{jv.narration}</p>
+                  
+                  {/* Show audit comment if queried */}
+                  {jv.status === 'QUERIED' && jv.auditComment && (
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-[10px] font-bold text-red-700 leading-normal">
+                      ⚠️ Auditor's Reason: "{jv.auditComment}"
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-right shrink-0 flex flex-col items-end">
+                  <p className="text-[9px] font-black text-slate-400 uppercase">Total Amount</p>
+                  <p className="text-base font-black text-primary font-mono">GHS {jv.totalAmount?.toFixed(2)}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SearchableAccountSelect({ value, onChange, coa, isCoaLoading }: {
+  value: string;
+  onChange: (val: string) => void;
+  coa: any[] | undefined;
+  isCoaLoading: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const selectedAccount = useMemo(() => {
+    return coa?.find(a => a.id === value);
+  }, [coa, value]);
+
+  const filteredCoa = useMemo(() => {
+    if (!coa) return [];
+    if (!search) return coa;
+    const term = search.toLowerCase();
+    return coa.filter(a => 
+      a.accountCode?.toLowerCase().includes(term) ||
+      a.name?.toLowerCase().includes(term) ||
+      a.category?.toLowerCase().includes(term)
+    );
+  }, [coa, search]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClose = () => setIsOpen(false);
+    window.addEventListener('click', handleClose);
+    return () => window.removeEventListener('click', handleClose);
+  }, [isOpen]);
+
+  return (
+    <div className="relative w-full" onClick={e => e.stopPropagation()}>
+      <button
+        type="button"
+        className="w-full p-3 bg-transparent font-bold text-card-foreground outline-none text-left rounded-xl hover:bg-muted/40 transition-all flex justify-between items-center"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className="truncate max-w-[90%] block">
+          {selectedAccount 
+            ? `${selectedAccount.accountCode} - ${selectedAccount.name} (${selectedAccount.category})`
+            : "Search Account..."}
+        </span>
+        <span className="text-[10px] text-muted-foreground font-black">▼</span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 mt-1 w-full max-h-60 bg-card border-2 shadow-2xl rounded-2xl overflow-hidden z-50 flex flex-col">
+          <div className="p-2 border-b bg-muted/30">
+            <input
+              type="text"
+              className="w-full p-2 border rounded-xl bg-card font-bold text-xs outline-none focus:border-primary"
+              placeholder="Search by code, name, or category..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto flex-1 divide-y divide-border max-h-48">
+            {isCoaLoading ? (
+              <div className="p-3 text-muted-foreground text-xs italic">Loading...</div>
+            ) : filteredCoa.length === 0 ? (
+              <div className="p-3 text-muted-foreground text-xs italic">No accounts found</div>
+            ) : (
+              filteredCoa.map(a => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={`w-full p-3 text-left hover:bg-primary hover:text-primary-foreground text-xs font-bold transition-all flex items-center ${a.id === value ? 'bg-primary/10 text-primary' : 'text-card-foreground'}`}
+                  onClick={() => {
+                    onChange(a.id);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <span className="font-mono text-primary font-black mr-2 bg-primary/10 px-1.5 py-0.5 rounded text-[10px] group-hover:text-white shrink-0">{a.accountCode}</span>
+                  <span className="truncate">{a.name}</span>
+                  <span className="ml-auto opacity-60 text-[9px] font-bold shrink-0">({a.category})</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
