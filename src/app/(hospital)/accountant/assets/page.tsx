@@ -1,8 +1,7 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, query, serverTimestamp, doc, writeBatch, increment, getDocs, where } from 'firebase/firestore';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,6 +19,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import { ASSET_GROUPS, PPE_SUB_DIVISIONS } from '@/lib/constants';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const assetGroupIds = ASSET_GROUPS.map(g => g.id) as [string, ...string[]];
 
@@ -42,7 +52,6 @@ const assetSchema = z.object({
     message: "Sub-Division is required for PPE assets.",
     path: ["subDivision"],
 });
-
 
 type AssetFormValues = z.infer<typeof assetSchema>;
 
@@ -68,6 +77,20 @@ export default function FixedAssetManagementPage() {
   }, [firestore, hospitalId]);
   const { data: assets, isLoading: areAssetsLoading } = useCollection(assetsQuery);
 
+  // Fetch chart of accounts to find 5005 & 1099
+  const coaQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`));
+  }, [firestore, hospitalId]);
+  const { data: coa } = useCollection(coaQuery);
+
+  const [periodMonth, setPeriodMonth] = useState(() => new Date().getMonth());
+  const [periodYear, setPeriodYear] = useState(() => new Date().getFullYear());
+
+  const periodKey = useMemo(() => {
+    return `${periodYear}-${String(periodMonth + 1).padStart(2, '0')}`;
+  }, [periodMonth, periodYear]);
+
   const calculateDepreciation = (asset: any) => {
     if (!asset.purchaseDate) return { accumulatedDep: 0, netBookValue: asset.purchasePrice };
     const purchaseDate = new Date(asset.purchaseDate);
@@ -80,6 +103,28 @@ export default function FixedAssetManagementPage() {
 
     return { accumulatedDep, netBookValue };
   };
+
+  const calculateMonthlyDep = (asset: any) => {
+    if (!asset.usefulLife || asset.usefulLife <= 0) return 0;
+    const yearlyDep = (asset.purchasePrice - (asset.salvageValue || 0)) / asset.usefulLife;
+    const monthlyDep = yearlyDep / 12;
+    
+    const currentDep = asset.accumulatedDepreciation || 0;
+    const maxDep = asset.purchasePrice - (asset.salvageValue || 0);
+    const remainingDep = maxDep - currentDep;
+    
+    return Math.max(0, Math.min(monthlyDep, remainingDep));
+  };
+
+  // Filter assets that are operational and have not been depreciated this period
+  const eligibleAssets = useMemo(() => {
+    if (!assets) return [];
+    return assets.filter((a: any) => 
+      a.status === 'OPERATIONAL' && 
+      a.lastDepreciationPeriod !== periodKey &&
+      calculateMonthlyDep(a) > 0
+    );
+  }, [assets, periodKey]);
   
   const pageIsLoading = isUserLoading || isProfileLoading;
   
@@ -111,7 +156,42 @@ export default function FixedAssetManagementPage() {
           <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Fixed <span className="text-primary">Assets</span></h1>
           <p className="text-muted-foreground font-medium">Capital Asset Tracking & Depreciation Management.</p>
         </div>
-        <AddAssetDialog hospitalId={hospitalId} isOpen={isAddAssetOpen} setIsOpen={setIsAddAssetOpen} />
+        <div className="flex items-center gap-3">
+          {/* Target Period Selectors */}
+          <div className="flex gap-1.5 no-print">
+            <select 
+              value={periodMonth} 
+              onChange={e => setPeriodMonth(parseInt(e.target.value))}
+              className="border-2 border-slate-200 rounded-xl px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-800 bg-white outline-none"
+            >
+              {Array.from({ length: 12 }).map((_, i) => (
+                <option key={i} value={i}>
+                  {new Date(2026, i).toLocaleString('en-US', { month: 'short' })}
+                </option>
+              ))}
+            </select>
+            <select 
+              value={periodYear} 
+              onChange={e => setPeriodYear(parseInt(e.target.value))}
+              className="border-2 border-slate-200 rounded-xl px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-800 bg-white outline-none"
+            >
+              {[2025, 2026, 2027, 2028].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
+          {hospitalId && (
+            <PostDepreciationButton 
+              hospitalId={hospitalId} 
+              eligibleAssets={eligibleAssets} 
+              coa={coa} 
+              periodKey={periodKey} 
+              calculateMonthlyDep={calculateMonthlyDep}
+            />
+          )}
+          <AddAssetDialog hospitalId={hospitalId} isOpen={isAddAssetOpen} setIsOpen={setIsAddAssetOpen} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -164,6 +244,149 @@ export default function FixedAssetManagementPage() {
     </div>
   );
 }
+
+const PostDepreciationButton = ({ 
+  hospitalId, 
+  eligibleAssets, 
+  coa, 
+  periodKey,
+  calculateMonthlyDep
+}: { 
+  hospitalId: string; 
+  eligibleAssets: any[]; 
+  coa: any[] | undefined; 
+  periodKey: string; 
+  calculateMonthlyDep: (asset: any) => number;
+}) => {
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const [loading, setLoading] = useState(false);
+
+  const totalMonthlyDepreciation = useMemo(() => {
+    return eligibleAssets.reduce((acc, curr) => acc + calculateMonthlyDep(curr), 0);
+  }, [eligibleAssets, calculateMonthlyDep]);
+
+  const handlePostDepreciation = async () => {
+    if (!firestore || !hospitalId || !user) return;
+    if (eligibleAssets.length === 0) {
+      toast({ title: "No Assets Pending Depreciation", description: "All operational assets are already up to date for this period." });
+      return;
+    }
+
+    setLoading(true);
+    const batch = writeBatch(firestore);
+
+    try {
+      // Find the account codes in COA
+      const expenseAccount = coa?.find(a => a.accountCode === "5005");
+      const contraAssetAccount = coa?.find(a => a.accountCode === "1099");
+
+      if (!expenseAccount) throw new Error("Depreciation Expense Account (5005) not found in Chart of Accounts.");
+      if (!contraAssetAccount) throw new Error("Accumulated Depreciation Account (1099) not found in Chart of Accounts.");
+
+      // Create Pending Journal Voucher
+      const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_entries`));
+      const jvNumber = `JV-DEP-${periodKey}-${Date.now().toString().slice(-4)}`;
+
+      batch.set(jvRef, {
+        jvNumber,
+        narration: `Automated Depreciation Charge for ${periodKey} (${eligibleAssets.length} assets processed)`,
+        totalAmount: totalMonthlyDepreciation,
+        hospitalId,
+        createdBy: user.uid,
+        createdByName: user.displayName || "Accountant",
+        createdAt: serverTimestamp(),
+        type: 'DEPRECIATION',
+        status: 'PENDING_APPROVAL',
+        lines: [
+          { accountId: expenseAccount.id, accountName: expenseAccount.name, debit: totalMonthlyDepreciation, credit: 0 },
+          { accountId: contraAssetAccount.id, accountName: contraAssetAccount.name, debit: 0, credit: totalMonthlyDepreciation }
+        ]
+      });
+
+      // Update assets and create history
+      eligibleAssets.forEach(asset => {
+        const monthlyDep = calculateMonthlyDep(asset);
+        const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, asset.id);
+        
+        batch.update(assetRef, {
+          lastDepreciationPeriod: periodKey,
+          accumulatedDepreciation: increment(monthlyDep)
+        });
+
+        const historyRef = doc(collection(firestore, `hospitals/${hospitalId}/depreciation_history`));
+        batch.set(historyRef, {
+          assetId: asset.id,
+          assetName: asset.name,
+          assetCategory: asset.category,
+          subDivision: asset.subDivision || null,
+          hospitalId,
+          period: periodKey,
+          amount: monthlyDep,
+          createdAt: serverTimestamp()
+        });
+      });
+
+      // Write Global Audit Log
+      const auditRef = doc(collection(firestore, "global_audit_logs"));
+      batch.set(auditRef, {
+        type: 'FINANCIAL',
+        action: 'DEPRECIATION_JV_STAGED',
+        hospitalId,
+        actorId: user.uid,
+        actorName: user.displayName || "Accountant",
+        details: `Staged GHS ${totalMonthlyDepreciation.toFixed(2)} depreciation JV for period ${periodKey}`,
+        timestamp: serverTimestamp()
+      });
+
+      await batch.commit();
+      toast({ title: "Depreciation JV Submitted", description: `Journal Voucher ${jvNumber} has been sent to the Auditor console.` });
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Depreciation Posting Failed", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          disabled={eligibleAssets.length === 0} 
+          className="bg-slate-900 text-white hover:bg-slate-800 font-black uppercase text-[10px] tracking-widest rounded-2xl py-3.5 h-auto transition-all flex items-center gap-2 border-0"
+        >
+          <Calculator size={14} /> Post Depreciation JV ({eligibleAssets.length})
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Depreciation Journal Entry</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-3">
+            <p>
+              This will stage a depreciation charge of <span className="font-extrabold text-foreground">GHS {totalMonthlyDepreciation.toLocaleString(undefined, {minimumFractionDigits: 2})}</span> for the period <span className="font-extrabold text-slate-900">{periodKey}</span>.
+            </p>
+            <p className="text-xs text-muted-foreground uppercase leading-relaxed font-bold">
+              It will create a pending double-entry Journal Voucher (Debit: Depreciation Expense, Credit: Accumulated Depreciation) and submit it for Auditor approval. Individual asset wear-and-tear records will be locked for this period.
+            </p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handlePostDepreciation}
+            disabled={loading}
+            className="bg-slate-900 hover:bg-primary text-white"
+          >
+            {loading ? "Posting..." : "Confirm & Send to Auditor"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
 
 const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, isOpen: boolean, setIsOpen: (open: boolean) => void }) => {
     const { toast } = useToast();

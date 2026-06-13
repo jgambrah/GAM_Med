@@ -19,9 +19,11 @@ const menuGroups = [
       { name: "Accountant Console", href: "/accountant", icon: LayoutDashboard },
       { name: "Financial Reports", href: "/accountant/reports", icon: BarChart3 },
       { name: "Chart of Accounts", href: "/accountant/coa", icon: FolderTree },
+      { name: "Budgeting Console", href: "/accountant/budgets", icon: Calculator },
       { name: "Fixed Assets", href: "/accountant/assets", icon: Building2 },
       { name: "Asset Schedule", href: "/accountant/assets/schedule", icon: Calendar },
       { name: "Depreciation", href: "/accountant/assets/depreciation", icon: TrendingDown },
+      { name: "Bank Reconciliation", href: "/accountant/reconciliation", icon: CheckCircle2 },
     ]
   },
   {
@@ -29,6 +31,7 @@ const menuGroups = [
     items: [
       { name: "Journal Vouchers", href: "/accountant/journals", icon: ArrowLeftRight },
       { name: "Payment Vouchers", href: "/accountant/payments", icon: FileText },
+      { name: "Vendor Registry", href: "/accountant/vendors", icon: Building2 },
       { name: "Voucher Archive", href: "/accountant/payments/archive", icon: History },
       { name: "Audit Queries", href: "/accountant/queries", icon: AlertCircle },
       { name: "Locum Payments", href: "/accountant/locum-payments", icon: UserCheck },

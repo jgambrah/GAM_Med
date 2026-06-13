@@ -32,6 +32,9 @@ export default function BodyReleaseCertificate() {
   }, [firestore, hospitalId]);
   const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
+  const primaryColor = useMemo(() => hospital?.primaryColor || '#0f172a', [hospital]);
+  const secondaryColor = useMemo(() => hospital?.secondaryColor || '#2563eb', [hospital]);
+
   const isLoading = isRecordLoading || isHospitalLoading;
   
   if (isLoading) {
@@ -49,56 +52,102 @@ export default function BodyReleaseCertificate() {
     <div className="p-8 max-w-4xl mx-auto space-y-8 text-black">
       {/* SCREEN ONLY NAV */}
       <div className="print:hidden flex justify-between items-center">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-black transition-all">
+        <button 
+          onClick={() => router.back()} 
+          className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-black transition-all outline-none"
+        >
           <ArrowLeft size={14}/> Back to Archive
         </button>
-        <button onClick={() => window.print()} className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase flex items-center gap-2 shadow-xl hover:bg-black transition-all">
+        <button 
+          onClick={() => window.print()} 
+          className="text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl border-none transition-all hover:opacity-90"
+          style={{ backgroundColor: secondaryColor }}
+        >
           <Printer size={16}/> Print Official Certificate
         </button>
       </div>
 
       {/* --- THE CERTIFICATE (PRINT VIEW) --- */}
-      <div className="bg-white border-[10px] border-double border-slate-900 p-12 shadow-sm font-serif">
-         <div className="text-center border-b-4 border-black pb-6 mb-8">
-            <h1 className="text-3xl font-black uppercase tracking-tighter">{hospital?.name}</h1>
-            <p className="text-sm font-bold uppercase tracking-widest mt-1">{hospital?.region} REGION • MORTUARY DEPARTMENT</p>
-            <div className="bg-black text-white inline-block px-10 py-1 mt-4 rounded-full text-sm font-bold uppercase tracking-[0.3em]">
+      <div 
+        className="bg-white p-12 shadow-sm font-serif border-[12px] border-double transition-all"
+        style={{ borderColor: primaryColor }}
+      >
+         {/* Letterhead section with dynamic profile branding */}
+         <div 
+           className="text-center pb-6 mb-8 border-b-4"
+           style={{ borderBottomColor: primaryColor }}
+         >
+            {hospital?.logoUrl && (
+              <img 
+                src={hospital.logoUrl} 
+                alt="Hospital Logo" 
+                className="h-16 mx-auto mb-3 object-contain"
+              />
+            )}
+            <h1 
+              className="text-3xl font-black uppercase tracking-tighter leading-none"
+              style={{ color: primaryColor }}
+            >
+              {hospital?.name || 'GAM_MED CLINICAL HUB'}
+            </h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest mt-1.5 text-slate-500">
+               {hospital?.address && `${hospital.address} • `} 
+               {hospital?.location && `${hospital.location} • `} 
+               {hospital?.region && `${hospital.region} Region`}
+            </p>
+            <p className="text-[9px] font-semibold text-slate-400 mt-0.5 lowercase tracking-wider">
+               phone: {hospital?.phone || 'N/A'} • email: {hospital?.email || 'N/A'} • web: {hospital?.website || 'N/A'}
+            </p>
+
+            <div 
+              className="text-white inline-block px-10 py-1.5 mt-5 rounded-full text-sm font-black uppercase tracking-[0.3em]"
+              style={{ backgroundColor: primaryColor }}
+            >
                Body Release Certificate
             </div>
          </div>
 
          <div className="grid grid-cols-2 gap-10 mb-10 text-sm">
             <div>
-               <p className="font-bold">Record ID: <span className="underline ml-2">{record.bodyId}</span></p>
-               <p className="font-bold">Date Released: <span className="underline ml-2">{record.releasedAt ? new Date(record.releasedAt?.toDate()).toLocaleDateString('en-GB') : 'N/A'}</span></p>
+               <p className="font-bold text-slate-600">Record ID: <span className="font-mono text-slate-900 font-black underline ml-2">{record.bodyId}</span></p>
+               <p className="font-bold text-slate-600">Date Released: <span className="text-slate-900 font-black underline ml-2">{record.releasedAt ? new Date(record.releasedAt?.toDate()).toLocaleDateString('en-GB') : 'N/A'}</span></p>
             </div>
          </div>
 
          <div className="space-y-6">
-            <p className="text-sm leading-relaxed italic">
+            <p className="text-sm leading-relaxed italic text-slate-800">
                This is to certify that the remains of the deceased, <strong>{record.bodyName}</strong> (Ref: {record.bodyId}), have been formally released from this facility.
             </p>
 
-            <div className="bg-slate-50 p-8 rounded-3xl border-2 border-black space-y-6">
+            <div 
+              className="bg-slate-50 p-8 rounded-3xl border-2 space-y-6"
+              style={{ borderColor: primaryColor }}
+            >
                 <div>
                   <p className="text-[10px] font-black uppercase text-slate-400">Released To (Family Representative)</p>
-                  <p className="font-black uppercase text-lg">{record.releasedToName}</p>
+                  <p className="font-black uppercase text-lg text-slate-900">{record.releasedToName}</p>
                </div>
                <div>
                   <p className="text-[10px] font-black uppercase text-slate-400">ID Verification (Ghana Card)</p>
-                  <p className="font-mono font-bold text-lg">{record.releasedToID}</p>
+                  <p className="font-mono font-bold text-lg text-slate-900">{record.releasedToID}</p>
                </div>
             </div>
          </div>
 
          {/* SIGNATURE BLOCKS */}
          <div className="grid grid-cols-2 gap-20 mt-24">
-            <div className="border-t-2 border-slate-900 pt-2 text-center">
-               <p className="text-[10px] font-black uppercase">Mortuary Attendant</p>
-               <p className="text-[11px] font-bold mt-2 italic">{user?.displayName}</p>
+            <div 
+              className="border-t-2 pt-2 text-center"
+              style={{ borderTopColor: primaryColor }}
+            >
+               <p className="text-[10px] font-black uppercase text-slate-500">Mortuary Attendant</p>
+               <p className="text-[11px] font-bold mt-2 italic text-slate-800">{user?.displayName}</p>
             </div>
-            <div className="border-t-2 border-slate-900 pt-2 text-center">
-               <p className="text-[10px] font-black uppercase">Family Representative</p>
+            <div 
+              className="border-t-2 pt-2 text-center"
+              style={{ borderTopColor: primaryColor }}
+            >
+               <p className="text-[10px] font-black uppercase text-slate-500">Family Representative</p>
                <div className="h-10"></div>
             </div>
          </div>

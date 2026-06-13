@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, orderBy, writeBatch, increment, runTransaction } from 'firebase/firestore';
 import { Truck, CheckCircle2, Loader2, ShieldAlert, PackageCheck, AlertCircle, XCircle, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,26 +14,18 @@ export default function IssueRequisitionsPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [selectedReq, setSelectedReq] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [issuingQuantities, setIssuingQuantities] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
   
   const approvedQuery = useMemoFirebase(() => {
@@ -134,7 +126,7 @@ export default function IssueRequisitionsPage() {
     }
   };
 
-  const pageIsLoading = isUserLoading || isClaimsLoading;
+  const pageIsLoading = isUserLoading || isProfileLoading;
   if (pageIsLoading) return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>;
 
   if (!isAuthorized) {

@@ -54,7 +54,8 @@ export default function PaymentVoucherManager() {
     whtLabel: 'Exempt / 0% (Exemption Certificate)',
     narration: '',
     payee: '',
-    pvNumber: ''
+    pvNumber: '',
+    vendorId: ''
   });
   
   useEffect(() => {
@@ -78,9 +79,64 @@ export default function PaymentVoucherManager() {
   const coaQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`), where("hospitalId", "==", hospitalId)) : null, [firestore, hospitalId]);
   const { data: coa, isLoading: isCoaLoading } = useCollection(coaQuery);
 
+  // Fetch vendors
+  const vendorsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "hospitals", hospitalId, "vendors"));
+  }, [firestore, hospitalId]);
+  const { data: vendors, isLoading: isVendorsLoading } = useCollection(vendorsQuery);
+
+  // Fetch budgets
+  const budgetsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "hospitals", hospitalId, "budgets"));
+  }, [firestore, hospitalId]);
+  const { data: budgets, isLoading: isBudgetsLoading } = useCollection(budgetsQuery);
+
+  const selectedBudget = useMemo(() => {
+    if (!budgets || !form.debitAccountId) return null;
+    return budgets.find(b => b.accountId === form.debitAccountId);
+  }, [budgets, form.debitAccountId]);
+
+  const budgetRemaining = useMemo(() => {
+    if (!selectedBudget) return null;
+    return (selectedBudget.limit || 0) - (selectedBudget.spent || 0);
+  }, [selectedBudget]);
+
+  const isOverBudget = useMemo(() => {
+    if (budgetRemaining === null) return false;
+    return form.grossAmount > budgetRemaining;
+  }, [budgetRemaining, form.grossAmount]);
+
   const vatAmount = form.applyVat ? form.grossAmount * 0.219 : 0;
   const whtAmount = form.grossAmount * form.whtRate;
   const netAmount = form.grossAmount + vatAmount - whtAmount;
+
+  const handleSelectVendor = (vendorId: string) => {
+    if (!vendorId) {
+      setForm(prev => ({
+        ...prev,
+        vendorId: '',
+        payee: '',
+        whtRate: 0,
+        whtLabel: 'Exempt / 0% (Exemption Certificate)'
+      }));
+      return;
+    }
+    const vendor = vendors?.find(v => v.id === vendorId);
+    if (vendor) {
+      // Find matching WHT rate option from WHT_RATES
+      const matchedWht = WHT_RATES.find(r => Math.abs(r.rate - (vendor.defaultWhtRate / 100)) < 0.001) || WHT_RATES[0];
+      setForm(prev => ({
+        ...prev,
+        vendorId: vendor.id,
+        payee: vendor.name,
+        whtRate: matchedWht.rate,
+        whtLabel: matchedWht.label,
+        narration: prev.narration || `Payment to ${vendor.name} (Bank: ${vendor.bankName}, A/C: ${vendor.accountNumber}, TIN: ${vendor.tin})`
+      }));
+    }
+  };
 
   const handleAuthorizePayment = async () => {
     if (!form.debitAccountId || !form.creditAccountId || form.grossAmount <= 0) {
@@ -111,14 +167,21 @@ export default function PaymentVoucherManager() {
         if (!debitAccount || !creditAccount) throw new Error("Selected account not found");
         
         // 1. Create the master PV record with PENDING status
+        const selectedVendor = vendors?.find(v => v.id === form.vendorId);
+        
+        // 1. Create the master PV record with PENDING status
         transaction.set(pvRef, {
           ...form, pvNumber, vatAmount, whtAmount, netAmount,
           hospitalId,
           debitAccountName: debitAccount.name,
           creditAccountName: creditAccount.name,
+          vendorId: form.vendorId || '',
+          vendorTin: selectedVendor?.tin || '',
+          vendorBankName: selectedVendor?.bankName || '',
+          vendorAccountNumber: selectedVendor?.accountNumber || '',
           processedBy: user.uid,
           processedByName: user.displayName,
-          status: 'PENDING_APPROVAL', // <<< CHANGED
+          status: 'PENDING_APPROVAL',
           createdAt: serverTimestamp()
         });
         
@@ -196,13 +259,33 @@ export default function PaymentVoucherManager() {
                       {isCoaLoading ? <option>Loading...</option> : coa?.filter(a => a.category === 'ASSETS').map(a => <option key={a.id} value={a.id}>{a.accountCode} - {a.name}</option>)}
                    </select>
                 </div>
-             </div>
+              </div>
 
-             <div>
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">Payee Information</label>
-                <input required className="w-full p-4 border rounded-2xl mt-1 text-card-foreground font-bold bg-muted" 
-                  placeholder="Official Name of Recipient" value={form.payee} onChange={e => setForm({...form, payee: e.target.value})} />
-             </div>
+              {selectedBudget && (
+                <div className={`p-4 rounded-2xl border-2 font-bold text-xs ${isOverBudget ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+                  {isOverBudget 
+                    ? `⚠️ Warning: Budget exceeded! Available: GHS ${budgetRemaining?.toFixed(2)} | Limit: GHS ${selectedBudget.limit?.toFixed(2)}`
+                    : `✅ Budget Check: Available: GHS ${budgetRemaining?.toFixed(2)} | Limit: GHS ${selectedBudget.limit?.toFixed(2)}`
+                  }
+                </div>
+              )}
+
+              <div>
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Registered Vendor Link (Optional)</label>
+                 <select className="w-full p-4 border rounded-2xl mt-1 text-slate-900 font-bold bg-slate-50 outline-none"
+                   value={form.vendorId} onChange={e => handleSelectVendor(e.target.value)}>
+                   <option value="">-- Select Registered Vendor (or fill manually below) --</option>
+                   {isVendorsLoading ? <option>Loading vendors...</option> : vendors?.map(v => (
+                     <option key={v.id} value={v.id}>{v.name} (TIN: {v.tin})</option>
+                   ))}
+                 </select>
+              </div>
+
+              <div>
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Payee Information</label>
+                 <input required className="w-full p-4 border rounded-2xl mt-1 text-slate-900 font-bold bg-slate-50" 
+                   placeholder="Official Name of Recipient" value={form.payee} onChange={e => setForm({...form, payee: e.target.value})} />
+              </div>
 
              <div>
                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">Detailed Narration</label>

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp, writeBatch, runTransaction, increment } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp, writeBatch, runTransaction, increment, getDocs } from 'firebase/firestore';
 import { UserCheck, Box, LogOut, Loader2, ShieldAlert, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -64,14 +64,33 @@ export default function MortuaryRegisterPage() {
     setLoading(true);
 
     try {
+        let chamberIdToUse = selectedRecord.chamberId;
+
+        // Dynamic lookup fallback if chamberId is missing on the record
+        if (!chamberIdToUse) {
+            const chambersRef = collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`);
+            const q = query(chambersRef, where("bodyId", "==", selectedRecord.id));
+            const qSnap = await getDocs(q);
+            if (!qSnap.empty) {
+                chamberIdToUse = qSnap.docs[0].id;
+            }
+        }
+
+        if (!chamberIdToUse) {
+            toast({ variant: "destructive", title: "Release Blocked", description: "This record has no assigned cold storage chamber ID." });
+            setLoading(false);
+            return;
+        }
+
+        const totalBill = calculateBill(selectedRecord);
+        const hasBill = totalBill > 0;
+
         await runTransaction(firestore, async (transaction) => {
             const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, selectedRecord.id);
-            const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, selectedRecord.chamberId);
-            
-            const totalBill = calculateBill(selectedRecord);
+            const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, chamberIdToUse);
             
             // 1. BILLING: Create the final billing item for the mortuary stay
-            if (totalBill > 0) {
+            if (hasBill) {
               const billRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
               transaction.set(billRef, {
                   description: `Mortuary Services for Body of ${selectedRecord.bodyName}`,
@@ -84,28 +103,43 @@ export default function MortuaryRegisterPage() {
                   billedBy: user.uid,
                   createdAt: serverTimestamp(),
               });
+
+              // 2. CHAIN OF CUSTODY: Update status to PENDING_RELEASE and save release info
+              transaction.update(recordRef, { 
+                  status: 'PENDING_RELEASE',
+                  releasedToName: releaseInfo.name,
+                  releasedToID: releaseInfo.idNumber,
+                  releasedBy: user.uid,
+              });
+              // We do NOT free the chamber or set record status to RELEASED until the cashier records payment!
+            } else {
+              // If there's no outstanding balance, release immediately
+              transaction.update(recordRef, { 
+                  status: 'RELEASED',
+                  releasedToName: releaseInfo.name,
+                  releasedToID: releaseInfo.idNumber,
+                  releasedBy: user.uid,
+                  releasedAt: serverTimestamp(),
+              });
+
+              transaction.update(chamberRef, { 
+                  status: 'AVAILABLE',
+                  bodyId: null,
+                  bodyName: null,
+                  admittedAt: null,
+              });
             }
-
-            // 2. CHAIN OF CUSTODY: Update the mortuary record with release details
-            transaction.update(recordRef, { 
-                status: 'RELEASED',
-                releasedToName: releaseInfo.name,
-                releasedToID: releaseInfo.idNumber,
-                releasedBy: user.uid,
-                releasedAt: serverTimestamp(),
-            });
-
-            // 3. LOGISTICS: Free up the chamber
-            transaction.update(chamberRef, { 
-                status: 'AVAILABLE',
-                bodyId: null,
-                bodyName: null,
-                admittedAt: null,
-            });
         });
 
-        toast({ title: "Body Release Authorized", description: `Final bill sent to cashier. Printing certificate...` });
-        router.push(`/mortuary/release/certificate/${selectedRecord.id}`);
+        if (hasBill) {
+            toast({ 
+                title: "Release Bill Generated", 
+                description: `Bill of GHS ${totalBill.toLocaleString(undefined, {minimumFractionDigits: 2})} sent to Cashier's Till. Body release will clear upon payment.` 
+            });
+        } else {
+            toast({ title: "Body Released", description: "No outstanding storage fees. Printing certificate..." });
+            router.push(`/mortuary/release/certificate/${selectedRecord.id}`);
+        }
         setIsReleaseDialogOpen(false);
         setSelectedRecord(null);
 

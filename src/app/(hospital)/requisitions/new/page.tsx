@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 import { Send, Plus, Trash2, Loader2, ClipboardList, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -22,22 +22,14 @@ export default function NewRequisitionPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
-
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'NURSE', 'DOCTOR', 'PHARMACIST', 'STORE_MANAGER'].includes(userRole);
 
   const [items, setItems] = useState<RequisitionItem[]>([]);
@@ -97,7 +89,7 @@ export default function NewRequisitionPage() {
     }
   };
 
-  const pageIsLoading = isUserLoading || isClaimsLoading;
+  const pageIsLoading = isUserLoading || isProfileLoading;
   if (pageIsLoading) {
     return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }

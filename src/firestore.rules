@@ -128,8 +128,8 @@ service cloud.firestore {
     function isMortuaryStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRole = (token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']) ||
-                    (userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT']);
+      let hasRole = (token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT', 'CASHIER', 'ACCOUNTANT']) ||
+                    (userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT', 'CASHIER', 'ACCOUNTANT']);
       return isSuperAdmin() || (isSignedIn() && isStaffOfHospital(hospitalId) && hasRole);
     }
 
@@ -325,7 +325,8 @@ service cloud.firestore {
         isDirectorOrAdmin(hospitalId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'receiptCounter', 'pvCounter', 'poCounter', 'nhisBatchCounter',
-          'name', 'address', 'location', 'region', 'phone', 'email', 'website', 'primaryColor', 'secondaryColor', 'logoUrl'
+          'name', 'address', 'location', 'region', 'phone', 'email', 'website', 'primaryColor', 'secondaryColor', 'logoUrl',
+          'smsProvider', 'smsApiKey', 'smsSenderId', 'emailProvider', 'emailApiKey', 'emailFromAddress'
         ])
       );
 
@@ -464,6 +465,16 @@ service cloud.firestore {
       }
 
       match /payers/{payerId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /vendors/{vendorId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /budgets/{budgetId} {
         allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }

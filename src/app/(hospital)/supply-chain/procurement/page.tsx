@@ -19,7 +19,7 @@ const supplierSchema = z.object({
   tin: z.string().min(1, "TIN is required for compliance."),
   contactPerson: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email("Invalid email").optional(),
+  email: z.union([z.string().length(0), z.string().email("Invalid email")]).optional(),
   category: z.string().min(1, "Category is required."),
 });
 
@@ -31,23 +31,16 @@ export default function SupplierDirectoryPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
   const suppliersQuery = useMemoFirebase(() => {
@@ -81,7 +74,7 @@ export default function SupplierDirectoryPage() {
     setIsAddSupplierOpen(false);
   };
   
-  const isLoading = isUserLoading || isClaimsLoading;
+  const isLoading = isUserLoading || isProfileLoading;
 
   if (isLoading) {
     return (

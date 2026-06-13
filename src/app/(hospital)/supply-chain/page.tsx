@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { ShoppingCart, Users, Plus, BarChart3, TrendingUp, Loader2, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,22 +23,14 @@ export default function ProcurementDashboard() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-        setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
-
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
   // Fetching data
@@ -71,9 +63,9 @@ export default function ProcurementDashboard() {
     return count;
   }, [catalog, inventory]);
 
-  const isLoading = suppliersLoading || posLoading || catalogLoading || inventoryLoading || isUserLoading || isClaimsLoading;
+  const isLoading = suppliersLoading || posLoading || catalogLoading || inventoryLoading || isUserLoading || isProfileLoading;
   
-  if (isUserLoading || isClaimsLoading) {
+  if (isUserLoading || isProfileLoading) {
     return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }
 

@@ -71,7 +71,7 @@ export default function DisposalLogsPage() {
             ) : logs?.map(log => (
               <tr key={log.id} className="hover:bg-slate-50 transition-all font-bold">
                 <td className="p-6">
-                   <p className="text-xs">{new Date(log.createdAt?.toDate()).toLocaleDateString('en-GB')}</p>
+                   <p className="text-xs">{log.createdAt ? new Date(log.createdAt.toDate()).toLocaleDateString('en-GB') : 'Pending...'}</p>
                    <p className="text-[9px] text-slate-400 font-black">#{log.disposalId}</p>
                 </td>
                 <td className="p-6">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText } from 'lucide-react';
+import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ export default function HospitalProfilePage() {
   }, [firestore, hospitalId]);
   const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'comms'>('profile');
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -47,6 +48,12 @@ export default function HospitalProfilePage() {
     website: '',
     primaryColor: '#0f172a',
     secondaryColor: '#2563eb',
+    smsProvider: 'MOCK',
+    smsApiKey: '',
+    smsSenderId: '',
+    emailProvider: 'MOCK',
+    emailApiKey: '',
+    emailFromAddress: '',
   });
 
   // Sync state once data loads
@@ -62,6 +69,12 @@ export default function HospitalProfilePage() {
         website: hospital.website || '',
         primaryColor: hospital.primaryColor || '#0f172a',
         secondaryColor: hospital.secondaryColor || '#2563eb',
+        smsProvider: hospital.smsProvider || 'MOCK',
+        smsApiKey: hospital.smsApiKey || '',
+        smsSenderId: hospital.smsSenderId || '',
+        emailProvider: hospital.emailProvider || 'MOCK',
+        emailApiKey: hospital.emailApiKey || '',
+        emailFromAddress: hospital.emailFromAddress || '',
       });
     }
   }, [hospital]);
@@ -82,6 +95,12 @@ export default function HospitalProfilePage() {
         website: form.website.trim(),
         primaryColor: form.primaryColor,
         secondaryColor: form.secondaryColor,
+        smsProvider: form.smsProvider,
+        smsApiKey: form.smsApiKey.trim(),
+        smsSenderId: form.smsSenderId.trim(),
+        emailProvider: form.emailProvider,
+        emailApiKey: form.emailApiKey.trim(),
+        emailFromAddress: form.emailFromAddress.trim(),
       });
 
       toast({
@@ -141,155 +160,297 @@ export default function HospitalProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Main Settings Form */}
         <form onSubmit={handleSave} className="lg:col-span-7 bg-white p-6 md:p-10 rounded-[40px] border shadow-sm space-y-6">
-          <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pb-4">
-            <Building2 size={22} className="text-primary" /> Institution Info
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Hospital / Clinic Name</label>
-              <input
-                required
-                type="text"
-                placeholder="e.g. GAM Medical Clinic"
-                className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Region</label>
-                <select
-                  required
-                  className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                  value={form.region}
-                  onChange={e => setForm({ ...form, region: e.target.value })}
-                >
-                  <option value="">Select Region...</option>
-                  {GHANA_REGIONS.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">City / Town</label>
-                <input
-                  required
-                  type="text"
-                  placeholder="e.g. Accra"
-                  className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                  value={form.location}
-                  onChange={e => setForm({ ...form, location: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Physical Address</label>
-              <input
-                required
-                type="text"
-                placeholder="e.g. Plot 24 Ring Road Central, near GRA building"
-                className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                value={form.address}
-                onChange={e => setForm({ ...form, address: e.target.value })}
-              />
-            </div>
-
-            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-6 pb-4">
-              <Phone size={20} className="text-primary" /> Contacts & Social
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Official Phone Number</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Phone size={16} /></span>
-                  <input
-                    required
-                    type="tel"
-                    placeholder="e.g. +233 24 123 4567"
-                    className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                    value={form.phone}
-                    onChange={e => setForm({ ...form, phone: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Official Email</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Mail size={16} /></span>
-                  <input
-                    required
-                    type="email"
-                    placeholder="e.g. contact@gammed.com"
-                    className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                    value={form.email}
-                    onChange={e => setForm({ ...form, email: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Website URL</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Globe size={16} /></span>
-                <input
-                  type="url"
-                  placeholder="e.g. https://www.gammed.com"
-                  className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
-                  value={form.website}
-                  onChange={e => setForm({ ...form, website: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-6 pb-4">
-              <Palette size={20} className="text-primary" /> Visual Identity (Theme Colors)
-            </h2>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-2">Primary Brand Color</label>
-                <div className="flex gap-3 items-center">
-                  <input
-                    type="color"
-                    className="w-12 h-12 rounded-xl cursor-pointer border p-1"
-                    value={form.primaryColor}
-                    onChange={e => setForm({ ...form, primaryColor: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    className="w-full p-3 border rounded-xl bg-slate-50 font-mono font-bold text-sm outline-none"
-                    value={form.primaryColor.toUpperCase()}
-                    onChange={e => setForm({ ...form, primaryColor: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-2">Secondary / Accent Color</label>
-                <div className="flex gap-3 items-center">
-                  <input
-                    type="color"
-                    className="w-12 h-12 rounded-xl cursor-pointer border p-1"
-                    value={form.secondaryColor}
-                    onChange={e => setForm({ ...form, secondaryColor: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    className="w-full p-3 border rounded-xl bg-slate-50 font-mono font-bold text-sm outline-none"
-                    value={form.secondaryColor.toUpperCase()}
-                    onChange={e => setForm({ ...form, secondaryColor: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
+          <div className="flex gap-4 border-b pb-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('profile')}
+              className={`pb-2 px-4 font-black uppercase text-[10px] tracking-widest border-b-2 transition-all outline-none ${
+                activeTab === 'profile' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Hospital Identity
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('comms')}
+              className={`pb-2 px-4 font-black uppercase text-[10px] tracking-widest border-b-2 transition-all outline-none ${
+                activeTab === 'comms' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Comms Integrations
+            </button>
           </div>
+
+          {activeTab === 'profile' && (
+            <>
+              <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pb-4">
+                <Building2 size={22} className="text-primary" /> Institution Info
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Hospital / Clinic Name</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. GAM Medical Clinic"
+                    className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Region</label>
+                    <select
+                      required
+                      className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.region}
+                      onChange={e => setForm({ ...form, region: e.target.value })}
+                    >
+                      <option value="">Select Region...</option>
+                      {GHANA_REGIONS.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">City / Town</label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. Accra"
+                      className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.location}
+                      onChange={e => setForm({ ...form, location: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Physical Address</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Plot 24 Ring Road Central, near GRA building"
+                    className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                    value={form.address}
+                    onChange={e => setForm({ ...form, address: e.target.value })}
+                  />
+                </div>
+
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-6 pb-4">
+                  <Phone size={20} className="text-primary" /> Contacts & Social
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Official Phone Number</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Phone size={16} /></span>
+                      <input
+                        required
+                        type="tel"
+                        placeholder="e.g. +233 24 123 4567"
+                        className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                        value={form.phone}
+                        onChange={e => setForm({ ...form, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Official Email</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Mail size={16} /></span>
+                      <input
+                        required
+                        type="email"
+                        placeholder="e.g. contact@gammed.com"
+                        className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                        value={form.email}
+                        onChange={e => setForm({ ...form, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Website URL</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Globe size={16} /></span>
+                    <input
+                      type="url"
+                      placeholder="e.g. https://www.gammed.com"
+                      className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.website}
+                      onChange={e => setForm({ ...form, website: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-6 pb-4">
+                  <Palette size={20} className="text-primary" /> Visual Identity (Theme Colors)
+                </h2>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-2">Primary Brand Color</label>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="color"
+                        className="w-12 h-12 rounded-xl cursor-pointer border p-1"
+                        value={form.primaryColor}
+                        onChange={e => setForm({ ...form, primaryColor: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        className="w-full p-3 border rounded-xl bg-slate-50 font-mono font-bold text-sm outline-none"
+                        value={form.primaryColor.toUpperCase()}
+                        onChange={e => setForm({ ...form, primaryColor: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-2">Secondary / Accent Color</label>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="color"
+                        className="w-12 h-12 rounded-xl cursor-pointer border p-1"
+                        value={form.secondaryColor}
+                        onChange={e => setForm({ ...form, secondaryColor: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        className="w-full p-3 border rounded-xl bg-slate-50 font-mono font-bold text-sm outline-none"
+                        value={form.secondaryColor.toUpperCase()}
+                        onChange={e => setForm({ ...form, secondaryColor: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'comms' && (
+            <div className="space-y-8 animate-in fade-in duration-200">
+              {/* SMS GATEWAY SETTINGS */}
+              <div className="space-y-6">
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pb-4 text-blue-600">
+                  <MessageSquare size={22} /> SMS Gateway Config (Arkesel)
+                </h2>
+
+                <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 flex flex-col gap-4 text-xs font-bold">
+                  <div className="flex items-center gap-2 font-black text-blue-700">
+                    <HelpCircle size={16} /> Setup Instructions:
+                  </div>
+                  <ol className="list-decimal pl-5 space-y-2 text-slate-600 font-medium">
+                    <li>Create an account at the <a href="https://arkesel.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Arkesel SMS Gateway <ExternalLink size={10} /></a>.</li>
+                    <li>Go to your dashboard's <strong>Settings &rarr; API Keys</strong>, generate a new API key, and paste it below.</li>
+                    <li>Request a custom <strong>Sender ID</strong> (max 11 chars) in the Arkesel console. Use the default <code>GamMed</code> until approved.</li>
+                  </ol>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">SMS Integration Mode</label>
+                    <select
+                      className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.smsProvider}
+                      onChange={e => setForm({ ...form, smsProvider: e.target.value })}
+                    >
+                      <option value="MOCK">MOCK (Sandbox Mode)</option>
+                      <option value="ARKESEL">ARKESEL (Production SMS)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Sender ID (e.g. Hospital Initials)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. GamMed"
+                      maxLength={11}
+                      className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.smsSenderId}
+                      onChange={e => setForm({ ...form, smsSenderId: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Arkesel API Key</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Key size={16} /></span>
+                    <input
+                      type="password"
+                      placeholder="Enter Arkesel API key..."
+                      className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.smsApiKey}
+                      onChange={e => setForm({ ...form, smsApiKey: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* EMAIL GATEWAY SETTINGS */}
+              <div className="space-y-6 pt-6">
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pb-4 text-purple-600">
+                  <Mail size={22} /> Email Gateway Config (Resend)
+                </h2>
+
+                <div className="bg-purple-50/50 p-6 rounded-3xl border border-purple-100 flex flex-col gap-4 text-xs font-bold">
+                  <div className="flex items-center gap-2 font-black text-purple-700">
+                    <HelpCircle size={16} /> Setup Instructions:
+                  </div>
+                  <ol className="list-decimal pl-5 space-y-2 text-slate-600 font-medium">
+                    <li>Create an account at the <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline inline-flex items-center gap-1">Resend Dashboard <ExternalLink size={10} /></a>.</li>
+                    <li>Add and verify your hospital's custom sending domain in the <strong>Domains</strong> section.</li>
+                    <li>Create an API Key with "Sending" permissions, and paste it below. Enter your custom sender email (e.g. <code>no-reply@yourdomain.com</code>).</li>
+                  </ol>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Email Integration Mode</label>
+                    <select
+                      className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.emailProvider}
+                      onChange={e => setForm({ ...form, emailProvider: e.target.value })}
+                    >
+                      <option value="MOCK">MOCK (Sandbox Mode)</option>
+                      <option value="RESEND">RESEND (Production Email)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Sender From Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. notifications@gammed.com"
+                      className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.emailFromAddress}
+                      onChange={e => setForm({ ...form, emailFromAddress: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Resend API Key</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Key size={16} /></span>
+                    <input
+                      type="password"
+                      placeholder="re_..."
+                      className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
+                      value={form.emailApiKey}
+                      onChange={e => setForm({ ...form, emailApiKey: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <Button
             type="submit"

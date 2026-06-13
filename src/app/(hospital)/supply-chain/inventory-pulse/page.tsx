@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
 import { AlertCircle, CheckCircle2, XCircle, Loader2, ShieldAlert, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -26,22 +26,14 @@ export default function InventoryPulsePage() {
     const firestore = useFirestore();
     const router = useRouter();
 
-    const [claims, setClaims] = useState<any>(null);
-    const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+    const userProfileRef = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-    useEffect(() => {
-        if (user) {
-            user.getIdTokenResult(true).then((idTokenResult) => {
-                setClaims(idTokenResult.claims);
-                setIsClaimsLoading(false);
-            });
-        } else if (!isUserLoading) {
-            setIsClaimsLoading(false);
-        }
-    }, [user, isUserLoading]);
-
-    const hospitalId = claims?.hospitalId;
-    const userRole = claims?.role;
+    const hospitalId = userProfile?.hospitalId;
+    const userRole = userProfile?.role;
     const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
     // Fetch master catalog and inventory
@@ -82,7 +74,7 @@ export default function InventoryPulsePage() {
         return { adequate, low, stockOut };
     }, [stockStatusData]);
     
-    const pageIsLoading = isUserLoading || isClaimsLoading;
+    const pageIsLoading = isUserLoading || isProfileLoading;
     const dataIsLoading = catalogLoading || inventoryLoading;
 
     if (pageIsLoading) {

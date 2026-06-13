@@ -471,35 +471,153 @@ exports.provisionFullHospital = onCall({ region: "us-central1", cors: true }, as
  * Sends an SMS message via a third-party gateway.
  */
 exports.sendClinicalSms = onCall({ region: "us-central1", cors: true }, async (request) => {
-    // In a real app, you would use a secret for the API key.
-    // const smsApiKey = functions.config().sms.key;
-    const smsApiKey = "YOUR_SMS_GATEWAY_API_KEY"; 
     const { phoneNumber, message, hospitalId, senderId } = request.data;
-    
-    // This is a mock API call. Replace with your actual SMS provider's API.
-    const url = `https://api.sms-provider.com/send`;
-    
-    try {
-        await axios.post(url, {
-            to: phoneNumber,
-            from: senderId || 'GamMed',
-            message: message,
-            api_key: smsApiKey
-        });
-        
-        // Log the SMS for billing/auditing
-        await db.collection('sms_logs').add({
-            hospitalId,
-            recipient: phoneNumber,
-            message,
-            status: 'SENT',
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+    if (!phoneNumber || !message) {
+        throw new HttpsError('invalid-argument', 'Missing phoneNumber or message');
+    }
 
-        return { success: true };
+    try {
+        let finalProvider = 'MOCK';
+        let finalApiKey = null;
+        let finalSenderId = senderId || 'GamMed';
+
+        if (hospitalId) {
+            const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
+            if (hospitalDoc.exists) {
+                const hospitalData = hospitalDoc.data();
+                if (hospitalData.smsProvider) {
+                    finalProvider = hospitalData.smsProvider;
+                }
+                if (hospitalData.smsApiKey) {
+                    finalApiKey = hospitalData.smsApiKey;
+                }
+                if (hospitalData.smsSenderId) {
+                    finalSenderId = hospitalData.smsSenderId;
+                }
+            }
+        }
+
+        // Fallback to process.env.SMS_API_KEY
+        if (!finalApiKey && process.env.SMS_API_KEY && process.env.SMS_API_KEY !== "YOUR_SMS_GATEWAY_API_KEY") {
+            finalApiKey = process.env.SMS_API_KEY;
+            finalProvider = process.env.SMS_PROVIDER || 'ARKESEL';
+        }
+
+        if (finalProvider === 'ARKESEL' && finalApiKey) {
+            const url = `https://api.arkesel.com/sms/v2/sms/send`;
+            await axios.post(url, {
+                sender: finalSenderId.substring(0, 11),
+                message: message,
+                recipients: [phoneNumber]
+            }, {
+                headers: {
+                    'api-key': finalApiKey,
+                    'Content-Type': 'application/json'
+                }
+            });
+            await db.collection('sms_logs').add({
+                hospitalId: hospitalId || 'SYSTEM',
+                recipient: phoneNumber,
+                message,
+                status: 'SENT',
+                provider: 'ARKESEL',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            return { success: true };
+        } else {
+            console.log(`[MOCK SMS] To: ${phoneNumber} | From: ${finalSenderId} | Msg: ${message}`);
+            await db.collection('sms_logs').add({
+                hospitalId: hospitalId || 'SYSTEM',
+                recipient: phoneNumber,
+                message,
+                status: 'SENT',
+                provider: 'MOCK',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            return { success: true, mock: true };
+        }
     } catch (error) {
-        console.error("SMS sending failed:", error);
-        throw new HttpsError('internal', 'Could not send SMS.');
+        console.error("FATAL: sendClinicalSms", error.response?.data || error.message);
+        throw new HttpsError('internal', error.message || 'Could not send SMS.');
+    }
+});
+
+/**
+ * Sends an Email message via a third-party gateway (Resend).
+ */
+exports.sendClinicalEmail = onCall({ region: "us-central1", cors: true }, async (request) => {
+    const { recipientEmail, subject, htmlContent, hospitalId } = request.data;
+    if (!recipientEmail || !subject || !htmlContent) {
+        throw new HttpsError('invalid-argument', 'Missing recipientEmail, subject, or htmlContent');
+    }
+
+    try {
+        let finalProvider = 'MOCK';
+        let finalApiKey = null;
+        let finalFromAddress = 'notifications@gammed.com';
+
+        if (hospitalId) {
+            const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
+            if (hospitalDoc.exists) {
+                const hospitalData = hospitalDoc.data();
+                if (hospitalData.emailProvider) {
+                    finalProvider = hospitalData.emailProvider;
+                }
+                if (hospitalData.emailApiKey) {
+                    finalApiKey = hospitalData.emailApiKey;
+                }
+                if (hospitalData.emailFromAddress) {
+                    finalFromAddress = hospitalData.emailFromAddress;
+                }
+            }
+        }
+
+        // Fallback to process.env.EMAIL_API_KEY
+        if (!finalApiKey && process.env.EMAIL_API_KEY) {
+            finalApiKey = process.env.EMAIL_API_KEY;
+            finalProvider = process.env.EMAIL_PROVIDER || 'RESEND';
+        }
+        if (finalFromAddress === 'notifications@gammed.com' && process.env.EMAIL_FROM_ADDRESS) {
+            finalFromAddress = process.env.EMAIL_FROM_ADDRESS;
+        }
+
+        if (finalProvider === 'RESEND' && finalApiKey) {
+            const url = `https://api.resend.com/emails`;
+            await axios.post(url, {
+                from: finalFromAddress,
+                to: [recipientEmail],
+                subject: subject,
+                html: htmlContent
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${finalApiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            await db.collection('email_logs').add({
+                hospitalId: hospitalId || 'SYSTEM',
+                recipient: recipientEmail,
+                subject,
+                status: 'SENT',
+                provider: 'RESEND',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            return { success: true };
+        } else {
+            console.log(`[MOCK EMAIL] To: ${recipientEmail} | From: ${finalFromAddress} | Subject: ${subject}`);
+            await db.collection('email_logs').add({
+                hospitalId: hospitalId || 'SYSTEM',
+                recipient: recipientEmail,
+                subject,
+                status: 'SENT',
+                provider: 'MOCK',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            return { success: true, mock: true };
+        }
+    } catch (error) {
+        console.error("FATAL: sendClinicalEmail", error.response?.data || error.message);
+        throw new HttpsError('internal', error.message || 'Could not send Email.');
     }
 });
 

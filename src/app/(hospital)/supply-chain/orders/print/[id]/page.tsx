@@ -43,6 +43,9 @@ export default function PurchaseOrderPrint() {
     return po.items.reduce((acc: number, item: any) => acc + ((item.quantityOrdered || 1) * (item.price || 0)), 0);
   }, [po]);
 
+  const primaryColor = useMemo(() => hospital?.primaryColor || '#0f172a', [hospital]);
+  const secondaryColor = useMemo(() => hospital?.secondaryColor || '#2563eb', [hospital]);
+
   if (isLoading) return <div className="p-20 text-center animate-pulse font-black uppercase"><Loader2 className="mx-auto animate-spin" /> Generating Legal Document...</div>;
   if (!po) return <div className="p-20 text-center font-black">Purchase Order not found.</div>;
 
@@ -53,7 +56,11 @@ export default function PurchaseOrderPrint() {
         <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-black transition-all">
           <ArrowLeft size={14}/> Back to Orders
         </button>
-        <button onClick={() => window.print()} className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase flex items-center gap-2 shadow-xl hover:bg-black transition-all">
+        <button 
+          onClick={() => window.print()} 
+          className="text-white px-8 py-3 rounded-2xl font-black text-xs uppercase flex items-center gap-2 shadow-xl hover:opacity-90 border-none transition-all"
+          style={{ backgroundColor: secondaryColor }}
+        >
           <Printer size={16}/> Print & Sign PO
         </button>
       </div>
@@ -61,24 +68,54 @@ export default function PurchaseOrderPrint() {
       {/* --- FORMAL PO DOCUMENT (PRINT VIEW) --- */}
       <div className="bg-white border-[1px] border-slate-300 p-12 shadow-sm font-serif">
          {/* HEADER */}
-         <div className="flex justify-between items-start border-b-4 border-slate-900 pb-8 mb-10">
+         <div 
+           className="flex justify-between items-start border-b-4 pb-8 mb-10"
+           style={{ borderBottomColor: primaryColor }}
+         >
             <div className="space-y-1">
-               <h1 className="text-4xl font-black uppercase tracking-tighter text-black">{hospital?.name}</h1>
-               <p className="text-sm font-bold uppercase">{hospital?.region} REGION, GHANA</p>
-               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Type: {po.poType || 'GOODS'} Purchase Order</p>
+               {hospital?.logoUrl && (
+                 <img 
+                   src={hospital.logoUrl} 
+                   alt="Hospital Logo" 
+                   className="h-12 object-contain mb-2"
+                 />
+               )}
+               <h1 
+                 className="text-4xl font-black uppercase tracking-tighter"
+                 style={{ color: primaryColor }}
+               >
+                 {hospital?.name}
+               </h1>
+               <p className="text-sm font-bold uppercase">
+                 {hospital?.address && `${hospital.address} • `}
+                 {hospital?.location && `${hospital.location} • `}
+                 {hospital?.region && `${hospital.region} Region`} Ghana
+               </p>
+               <p className="text-[9px] font-semibold text-slate-400 lowercase tracking-wider">
+                 phone: {hospital?.phone || 'N/A'} • email: {hospital?.email || 'N/A'} • web: {hospital?.website || 'N/A'}
+               </p>
+               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest pt-2">Type: {po.poType || 'GOODS'} Purchase Order</p>
             </div>
             <div className="text-right space-y-2">
-               <div className="bg-slate-900 text-white px-8 py-2 text-xl font-black uppercase tracking-[0.2em]">
+               <div 
+                 className="text-white px-8 py-2 text-xl font-black uppercase tracking-[0.2em]"
+                 style={{ backgroundColor: primaryColor }}
+               >
                  {po.poType === 'GOODS' ? 'Purchase Order' : 'Service Contract PO'}
                </div>
-               <p className="text-lg font-black italic text-blue-600">{po.poNumber}</p>
+               <p className="text-lg font-black italic" style={{ color: secondaryColor }}>{po.poNumber}</p>
             </div>
          </div>
 
          {/* VENDOR & SHIP TO */}
          <div className="grid grid-cols-2 gap-16 mb-12">
             <div className="space-y-3">
-               <h3 className="bg-slate-100 px-4 py-1 text-[10px] font-black uppercase tracking-widest border-l-4 border-slate-900">Supplier Information</h3>
+               <h3 
+                 className="bg-slate-100 px-4 py-1 text-[10px] font-black uppercase tracking-widest border-l-4"
+                 style={{ borderLeftColor: primaryColor }}
+               >
+                 Supplier Information
+               </h3>
                <div className="px-4">
                   <p className="text-lg font-black uppercase">{po.supplierName}</p>
                   <p className="text-sm">TIN: {supplier?.tin || 'N/A'}</p>
@@ -87,7 +124,12 @@ export default function PurchaseOrderPrint() {
                </div>
             </div>
             <div className="space-y-3">
-               <h3 className="bg-slate-100 px-4 py-1 text-[10px] font-black uppercase tracking-widest border-l-4 border-slate-900">Ship To / Billing Address</h3>
+               <h3 
+                 className="bg-slate-100 px-4 py-1 text-[10px] font-black uppercase tracking-widest border-l-4"
+                 style={{ borderLeftColor: primaryColor }}
+               >
+                 Ship To / Billing Address
+               </h3>
                <div className="px-4">
                   <p className="text-lg font-black uppercase">{hospital?.name}</p>
                   <p className="text-sm">Attention: Procurement Department</p>
@@ -97,8 +139,14 @@ export default function PurchaseOrderPrint() {
          </div>
 
          {/* --- DYNAMIC ITEMS TABLE --- */}
-         <table className="w-full border-4 border-slate-900 mb-10 text-sm">
-            <thead className="bg-slate-900 text-white uppercase text-[9px] font-black tracking-widest">
+         <table 
+           className="w-full border-4 mb-10 text-sm"
+           style={{ borderColor: primaryColor }}
+         >
+            <thead 
+              className="text-white uppercase text-[9px] font-black tracking-widest"
+              style={{ backgroundColor: primaryColor }}
+            >
                <tr>
                   <th className="p-4 text-left border-r border-slate-700">
                     {po.poType === 'GOODS' ? 'Item Description / SKU' : 'Scope of Work / Deliverables'}
@@ -118,9 +166,9 @@ export default function PurchaseOrderPrint() {
             <tbody className="font-bold">
                {po.items.map((item: any, i: number) => (
                   <tr key={i} className="border-b-2 border-slate-200">
-                     <td className="p-4 uppercase font-black italic text-xs">
+                     <td className="p-4 uppercase font-black italic text-xs text-slate-800">
                         {item.name}
-                        {po.poType === 'GOODS' && <span className="block text-[8px] text-blue-600 mt-1">SKU: {item.sku}</span>}
+                        {po.poType === 'GOODS' && <span className="block text-[8px] mt-1" style={{ color: secondaryColor }}>SKU: {item.sku}</span>}
                      </td>
                      
                      {po.poType === 'GOODS' && (
@@ -131,7 +179,7 @@ export default function PurchaseOrderPrint() {
                         {(item.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
                      </td>
                      
-                     <td className="p-4 text-right font-black">
+                     <td className="p-4 text-right font-black text-slate-900">
                         {po.poType === 'GOODS' 
                           ? (item.quantityOrdered * item.price).toLocaleString(undefined, {minimumFractionDigits: 2})
                           : item.price.toLocaleString(undefined, {minimumFractionDigits: 2})
@@ -142,12 +190,19 @@ export default function PurchaseOrderPrint() {
                
                {/* TOTALS BLOCK */}
                <tr className="bg-slate-50">
-                  <td colSpan={po.poType === 'GOODS' ? 3 : 2} className="p-6 text-right font-black uppercase text-xs border-r-4 border-slate-900">
+                  <td 
+                    colSpan={po.poType === 'GOODS' ? 3 : 2} 
+                    className="p-6 text-right font-black uppercase text-xs border-r-4"
+                    style={{ borderRightColor: primaryColor }}
+                  >
                      Authorized Contract Sum (Total)
                   </td>
-                   <td className="p-6 text-right font-black text-2xl">
-                     ₵ {totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                   </td>
+                  <td 
+                    className="p-6 text-right font-black text-2xl"
+                    style={{ color: primaryColor }}
+                  >
+                    ₵ {totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                  </td>
                </tr>
             </tbody>
          </table>
@@ -166,19 +221,28 @@ export default function PurchaseOrderPrint() {
 
          {/* SIGNATURE SECTION */}
          <div className="grid grid-cols-3 gap-8 mt-24">
-            <div className="border-t-2 border-slate-900 pt-2 text-center">
-               <p className="text-[10px] font-black uppercase">Procurement Officer</p>
-               <p className="text-[9px] font-bold mt-1 uppercase italic">{po.orderedByName}</p>
+            <div 
+              className="border-t-2 pt-2 text-center"
+              style={{ borderTopColor: primaryColor }}
+            >
+               <p className="text-[10px] font-black uppercase text-slate-500">Procurement Officer</p>
+               <p className="text-[9px] font-bold mt-1 uppercase italic text-slate-800">{po.orderedByName}</p>
             </div>
-            <div className="border-t-2 border-slate-900 pt-2 text-center">
-               <p className="text-[10px] font-black uppercase">Medical Director</p>
+            <div 
+              className="border-t-2 pt-2 text-center"
+              style={{ borderTopColor: primaryColor }}
+            >
+               <p className="text-[10px] font-black uppercase text-slate-500">Medical Director</p>
                <div className="h-10"></div>
-               <p className="text-[8px] italic">Official Stamp Required</p>
+               <p className="text-[8px] italic text-slate-400">Official Stamp Required</p>
             </div>
-            <div className="border-t-2 border-slate-900 pt-2 text-center">
-               <p className="text-[10px] font-black uppercase">Supplier Acceptance</p>
+            <div 
+              className="border-t-2 pt-2 text-center"
+              style={{ borderTopColor: primaryColor }}
+            >
+               <p className="text-[10px] font-black uppercase text-slate-500">Supplier Acceptance</p>
                <div className="h-10"></div>
-               <p className="text-[8px] italic">Signature & Date</p>
+               <p className="text-[8px] italic text-slate-400">Signature & Date</p>
             </div>
          </div>
 

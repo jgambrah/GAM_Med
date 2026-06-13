@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { CheckCircle2, XCircle, Loader2, ShieldAlert, FileSignature } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,22 +18,14 @@ export default function ApproveRequisitionsPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
-
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN'].includes(userRole);
 
   const pendingQuery = useMemoFirebase(() => {
@@ -56,7 +48,7 @@ export default function ApproveRequisitionsPage() {
     });
   };
   
-  const pageIsLoading = isUserLoading || isClaimsLoading;
+  const pageIsLoading = isUserLoading || isProfileLoading;
   if (pageIsLoading) {
     return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }

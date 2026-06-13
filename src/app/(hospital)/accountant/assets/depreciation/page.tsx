@@ -116,15 +116,12 @@ export default function SmartDepreciationEngine() {
         createdByName: user.displayName,
         createdAt: serverTimestamp(),
         type: 'DEPRECIATION',
-        status: 'POSTED',
+        status: 'PENDING_APPROVAL',
         lines: [
             { accountId: expenseAccRef.id, accountName: 'Depreciation Expense', debit: totalMonthlyDepreciation, credit: 0 },
             { accountId: contraAssetAccRef.id, accountName: 'Accumulated Depreciation', debit: 0, credit: totalMonthlyDepreciation }
         ]
       });
-
-      batch.update(expenseAccRef, { currentBalance: increment(totalMonthlyDepreciation) });
-      batch.update(contraAssetAccRef, { currentBalance: increment(totalMonthlyDepreciation) });
 
       eligibleAssets.forEach(asset => {
         const monthlyDep = calculateMonthlyDep(asset);
@@ -198,10 +195,34 @@ export default function SmartDepreciationEngine() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
-      <div className="flex justify-between items-end border-b-4 border-slate-900 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b-4 border-slate-900 pb-6 gap-4">
         <div>
           <h1 className="text-4xl font-black uppercase tracking-tighter italic">Depreciation <span className="text-primary">Engine</span></h1>
           <p className="text-muted-foreground font-bold text-xs uppercase italic">Automated Ledger Adjustments for Asset Wear & Tear.</p>
+        </div>
+        
+        {/* Target Period Selectors */}
+        <div className="flex gap-2">
+          <select 
+            value={period.month} 
+            onChange={e => setPeriod(prev => ({ ...prev, month: parseInt(e.target.value) }))}
+            className="border-2 border-slate-900 rounded-xl p-2 text-xs font-black uppercase tracking-wider text-slate-800 bg-white outline-none"
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <option key={i} value={i}>
+                {new Date(2026, i).toLocaleString('en-US', { month: 'long' })}
+              </option>
+            ))}
+          </select>
+          <select 
+            value={period.year} 
+            onChange={e => setPeriod(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+            className="border-2 border-slate-900 rounded-xl p-2 text-xs font-black uppercase tracking-wider text-slate-800 bg-white outline-none"
+          >
+            {[2025, 2026, 2027, 2028].map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
         </div>
       </div>
 

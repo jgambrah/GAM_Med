@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, serverTimestamp, doc, increment, writeBatch } from 'firebase/firestore';
 import { 
   Trash2, AlertTriangle, ShieldAlert, 
@@ -15,24 +15,16 @@ export default function StockDisposalPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-        setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
 
   const inventoryQuery = useMemoFirebase(() => {
@@ -102,7 +94,7 @@ export default function StockDisposalPage() {
     }
   };
 
-  const isLoading = isUserLoading || isClaimsLoading;
+  const isLoading = isUserLoading || isProfileLoading;
   
   if (isLoading) {
     return (

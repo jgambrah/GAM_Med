@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction } from 'firebase/firestore';
+import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction, getDocs } from 'firebase/firestore';
 import { Receipt, CreditCard, Wallet, Landmark, Printer, CheckCircle2, Loader2, User, FileText } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -39,6 +39,13 @@ export default function PatientInvoicePage() {
     return doc(firestore, 'hospitals', hospitalId, 'patients', patientId as string);
   }, [firestore, hospitalId, patientId]);
   const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+
+  // 1b. Fetch Mortuary Record (if applicable)
+  const mortuaryRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !patientId) return null;
+    return doc(firestore, 'hospitals', hospitalId, 'mortuary_records', patientId as string);
+  }, [firestore, hospitalId, patientId]);
+  const { data: mortuaryRecord, isLoading: isMortuaryLoading } = useDoc(mortuaryRef);
   
   // 2. Fetch all UNPAID billable items for this patient
   const billingItemsQuery = useMemoFirebase(() => {
@@ -64,7 +71,7 @@ export default function PatientInvoicePage() {
   }, [billItems]);
 
   const handleRecordPayment = async () => {
-    if (!hospitalId || !firestore || !user || !patient || !billItems) {
+    if (!hospitalId || !firestore || !user || (!patient && !mortuaryRecord) || !billItems) {
       toast({ variant: "destructive", title: "System Error", description: "System not ready. Please re-login." });
       return;
     }
@@ -76,6 +83,22 @@ export default function PatientInvoicePage() {
     setLoading(true);
 
     try {
+      let resolvedChamberId = mortuaryRecord?.chamberId;
+
+      // Dynamic lookup fallback if chamberId is missing on the record
+      if (mortuaryRecord && !resolvedChamberId) {
+        const chambersRef = collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`);
+        const q = query(chambersRef, where("bodyId", "==", patientId as string));
+        const qSnap = await getDocs(q);
+        if (!qSnap.empty) {
+          resolvedChamberId = qSnap.docs[0].id;
+        }
+      }
+
+      const displayName = patient 
+          ? `${patient.firstName} ${patient.lastName}` 
+          : (mortuaryRecord ? `Family of ${mortuaryRecord.bodyName}` : 'Unknown Recipient');
+
       if (paymentMode === 'Cash' || paymentMode === 'MoMo') {
         const hospitalDocRef = doc(firestore, "hospitals", hospitalId);
         await runTransaction(firestore, async (transaction) => {
@@ -92,7 +115,7 @@ export default function PatientInvoicePage() {
             transaction.set(paymentRef, {
                 paymentId: paymentId,
                 patientId: patientId,
-                patientName: `${patient.firstName} ${patient.lastName}`,
+                patientName: displayName,
                 totalAmount: total,
                 paymentMode: paymentMode,
                 hospitalId: hospitalId,
@@ -107,10 +130,29 @@ export default function PatientInvoicePage() {
                 transaction.update(itemRef, { status: 'PAID', paymentId: paymentId });
             });
 
+            // If it is a mortuary record, finalize the release and free the chamber
+            if (mortuaryRecord) {
+              const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, patientId as string);
+              transaction.update(recordRef, {
+                status: 'RELEASED',
+                releasedAt: serverTimestamp(),
+              });
+
+              if (resolvedChamberId) {
+                const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, resolvedChamberId);
+                transaction.update(chamberRef, {
+                  status: 'AVAILABLE',
+                  bodyId: null,
+                  bodyName: null,
+                  admittedAt: null,
+                });
+              }
+            }
+
             transaction.update(hospitalDocRef, { receiptCounter: increment(1) });
         });
         
-        toast({ title: "Payment Recorded", description: `GHS ${total.toFixed(2)} secured for ${patient.firstName}` });
+        toast({ title: "Payment Recorded", description: `GHS ${total.toFixed(2)} secured for ${displayName}` });
 
       } else { // NHIS or other credit payment
         const payer = payers?.find(p => p.type === paymentMode);
@@ -126,7 +168,7 @@ export default function PatientInvoicePage() {
           transaction.set(arRef, {
             hospitalId: hospitalId,
             patientId: patientId,
-            patientName: `${patient.firstName} ${patient.lastName}`,
+            patientName: displayName,
             payerId: payer.id,
             payerName: payer.name,
             amount: total,
@@ -144,6 +186,25 @@ export default function PatientInvoicePage() {
               const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
               transaction.update(itemRef, { status: 'PAID', paymentId: arRef.id });
           });
+
+          // If it is a mortuary record, finalize the release and free the chamber
+          if (mortuaryRecord) {
+            const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, patientId as string);
+            transaction.update(recordRef, {
+              status: 'RELEASED',
+              releasedAt: serverTimestamp(),
+            });
+
+            if (resolvedChamberId) {
+              const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, resolvedChamberId);
+              transaction.update(chamberRef, {
+                status: 'AVAILABLE',
+                bodyId: null,
+                bodyName: null,
+                admittedAt: null,
+              });
+            }
+          }
         });
         
         toast({ title: "Receivable Created", description: `GHS ${total.toFixed(2)} debt recorded for ${payer.name}.` });
@@ -164,7 +225,7 @@ export default function PatientInvoicePage() {
     window.print();
   };
 
-  const isLoading = isPatientLoading || itemsLoading || payersLoading || isHospitalLoading;
+  const isLoading = isPatientLoading || isMortuaryLoading || itemsLoading || payersLoading || isHospitalLoading;
 
   if (isLoading) {
     return (
@@ -213,9 +274,13 @@ export default function PatientInvoicePage() {
          </div>
          <div className="md:text-right flex flex-col md:items-end justify-between">
             <div>
-               <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Patient Details</p>
-               <p className="text-2xl font-black text-white uppercase tracking-tighter mt-1">{patient?.firstName} {patient?.lastName}</p>
-               <p className="text-[9px] font-bold text-white/80 uppercase tracking-widest mt-0.5">EHR: {patient?.ehrNumber}</p>
+               <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Billing Details</p>
+               <p className="text-2xl font-black text-white uppercase tracking-tighter mt-1">
+                 {patient ? `${patient.firstName} ${patient.lastName}` : (mortuaryRecord ? `Family of ${mortuaryRecord.bodyName}` : 'Unknown Recipient')}
+               </p>
+               <p className="text-[9px] font-bold text-white/80 uppercase tracking-widest mt-0.5">
+                 {patient ? `EHR: ${patient.ehrNumber}` : (mortuaryRecord ? `MORTUARY: ${mortuaryRecord.bodyId}` : '')}
+               </p>
             </div>
             <div className="mt-4 md:mt-0">
                <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Invoice Date</p>
