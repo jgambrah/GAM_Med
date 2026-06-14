@@ -529,7 +529,7 @@ service cloud.firestore {
         allow get, list: if isSignedIn() && resource.data.staffId == request.auth.uid;
         allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
         allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isOwner(resource.data.staffId);
-        allow delete: if false;
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /leave_requests/{requestId} {

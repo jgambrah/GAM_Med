@@ -1,12 +1,14 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import { Users, UserPlus, Clock, Calendar, ShieldCheck, HeartPulse, GraduationCap, Gavel, ChevronRight, Loader2, ShieldAlert, MapPin, AlertTriangle } from 'lucide-react';
+import { collection, query, where, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { Users, UserPlus, Clock, Calendar, ShieldCheck, HeartPulse, GraduationCap, Gavel, ChevronRight, Loader2, ShieldAlert, MapPin, AlertTriangle, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function HRDashboard() {
   const { user, isUserLoading } = useUser();
@@ -15,10 +17,102 @@ export default function HRDashboard() {
 
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const [editingLog, setEditingLog] = useState<any>(null);
+  const [isEditLogOpen, setIsEditLogOpen] = useState(false);
+  const [logForm, setLogForm] = useState({
+    clockInTime: '',
+    clockOutTime: '',
+    hoursWorked: '',
+    paymentStatus: 'UNPAID',
+  });
+
+  const startEditLog = (log: any) => {
+    setEditingLog(log);
+    
+    const formatDateForInput = (date: Date | null) => {
+      if (!date) return '';
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      const mm = pad(date.getMonth() + 1);
+      const dd = pad(date.getDate());
+      const hh = pad(date.getHours());
+      const min = pad(date.getMinutes());
+      return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    };
+
+    const inDate = log.clockInTime?.toDate() || null;
+    const outDate = log.clockOutTime?.toDate() || null;
+
+    setLogForm({
+      clockInTime: formatDateForInput(inDate),
+      clockOutTime: formatDateForInput(outDate),
+      hoursWorked: log.hoursWorked !== undefined ? String(log.hoursWorked) : '0',
+      paymentStatus: log.paymentStatus || 'UNPAID',
+    });
+    setIsEditLogOpen(true);
+  };
+
+  const handleSaveLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !hospitalId || !editingLog) return;
+
+    try {
+      const logDocRef = doc(firestore, `hospitals/${hospitalId}/attendance_logs`, editingLog.id);
+      
+      const clockInTimestamp = logForm.clockInTime 
+        ? Timestamp.fromDate(new Date(logForm.clockInTime)) 
+        : null;
+      const clockOutTimestamp = logForm.clockOutTime 
+        ? Timestamp.fromDate(new Date(logForm.clockOutTime)) 
+        : null;
+
+      await updateDoc(logDocRef, {
+        clockInTime: clockInTimestamp,
+        clockOutTime: clockOutTimestamp,
+        hoursWorked: parseFloat(logForm.hoursWorked) || 0,
+        paymentStatus: logForm.paymentStatus,
+      });
+
+      toast({
+        title: "Attendance Log Updated",
+        description: `Log for ${editingLog.staffName} has been updated.`,
+      });
+      setIsEditLogOpen(false);
+      setEditingLog(null);
+    } catch (error: any) {
+      toast({
+        title: "Update Failed",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteLog = async (logId: string, staffName: string) => {
+    if (!firestore || !hospitalId) return;
+    if (!confirm(`Are you sure you want to delete the attendance log for "${staffName}"?`)) return;
+
+    try {
+      const logDocRef = doc(firestore, `hospitals/${hospitalId}/attendance_logs`, logId);
+      await deleteDoc(logDocRef);
+      toast({
+        title: "Attendance Log Deleted",
+        description: `Log for ${staffName} has been deleted.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
     if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
+      user.getIdTokenResult(true).then((idTokenResult: any) => {
         setClaims(idTokenResult.claims);
         setIsClaimsLoading(false);
       });
@@ -141,11 +235,29 @@ export default function HRDashboard() {
                              )}
                           </div>
                       </div>
-                      <div className="text-right">
-                         <p className="text-xs font-black uppercase text-slate-800">{log.shiftName}</p>
-                         <p className="text-[9px] font-bold text-primary uppercase mt-0.5">
-                            Clocked in at {log.clockInTime ? format(log.clockInTime.toDate(), 'p') : 'N/A'}
-                         </p>
+                      <div className="flex items-center gap-4">
+                         <div className="text-right">
+                            <p className="text-xs font-black uppercase text-slate-800">{log.shiftName}</p>
+                            <p className="text-[9px] font-bold text-primary uppercase mt-0.5">
+                               Clocked in at {log.clockInTime ? format(log.clockInTime.toDate(), 'p') : 'N/A'}
+                            </p>
+                         </div>
+                         <div className="flex items-center gap-1">
+                            <button
+                               onClick={() => startEditLog(log)}
+                               className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
+                               title="Edit Record"
+                            >
+                               <Edit2 size={12} />
+                            </button>
+                            <button
+                               onClick={() => handleDeleteLog(log.id, log.staffName)}
+                               className="p-2 text-slate-400 hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                               title="Delete Record"
+                            >
+                               <Trash2 size={12} />
+                            </button>
+                         </div>
                       </div>
                    </div>
                  ))
@@ -185,13 +297,31 @@ export default function HRDashboard() {
                             </span>
                          </div>
                       </div>
-                      <div className="text-right text-[10px]">
-                         <p className="font-mono font-bold text-slate-700">
-                            {log.clockInTime && format(log.clockInTime.toDate(), 'dd/MM')} — {log.hoursWorked} hrs
-                         </p>
-                         <p className="text-[8px] font-semibold text-muted-foreground mt-0.5 uppercase">
-                            Out: {log.clockOutTime ? format(log.clockOutTime.toDate(), 'p') : 'N/A'}
-                         </p>
+                      <div className="flex items-center gap-3">
+                         <div className="text-right text-[10px]">
+                            <p className="font-mono font-bold text-slate-700">
+                               {log.clockInTime && format(log.clockInTime.toDate(), 'dd/MM')} — {log.hoursWorked} hrs
+                            </p>
+                            <p className="text-[8px] font-semibold text-muted-foreground mt-0.5 uppercase">
+                               Out: {log.clockOutTime ? format(log.clockOutTime.toDate(), 'p') : 'N/A'}
+                            </p>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                            <button
+                               onClick={() => startEditLog(log)}
+                               className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+                               title="Edit Record"
+                            >
+                               <Edit2 size={10} />
+                            </button>
+                            <button
+                               onClick={() => handleDeleteLog(log.id, log.staffName)}
+                               className="p-1.5 text-slate-400 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                               title="Delete Record"
+                            >
+                               <Trash2 size={10} />
+                            </button>
+                         </div>
                       </div>
                    </div>
                  ))
@@ -206,6 +336,92 @@ export default function HRDashboard() {
             <HRAction icon={<HeartPulse className="text-green-600"/>} label="Appraisals & KPIs" href="/hr/appraisal" />
          </div>
       </div>
+
+      {/* Edit Log Dialog */}
+      <Dialog open={isEditLogOpen} onOpenChange={(open) => {
+        setIsEditLogOpen(open);
+        if (!open) setEditingLog(null);
+      }}>
+        <DialogContent className="max-w-md bg-white rounded-[40px] p-8 border">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-lg font-black uppercase tracking-tight text-slate-900">Adjust Attendance Record</DialogTitle>
+          </DialogHeader>
+          {editingLog && (
+            <form onSubmit={handleSaveLog} className="space-y-4 text-black text-left">
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Personnel</p>
+                <p className="font-black text-xs uppercase text-slate-900 mt-0.5">{editingLog.staffName}</p>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase">{editingLog.role} • {editingLog.contractType}</p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Clock In Time</label>
+                <input
+                  required
+                  type="datetime-local"
+                  className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary/20 transition-all text-slate-900"
+                  value={logForm.clockInTime}
+                  onChange={e => setLogForm({ ...logForm, clockInTime: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Clock Out Time</label>
+                <input
+                  type="datetime-local"
+                  className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary/20 transition-all text-slate-900"
+                  value={logForm.clockOutTime}
+                  onChange={e => setLogForm({ ...logForm, clockOutTime: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Hours Worked</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary/20 transition-all text-slate-900"
+                    value={logForm.hoursWorked}
+                    onChange={e => setLogForm({ ...logForm, hoursWorked: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Payment Status</label>
+                  <select
+                    className="w-full p-4 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary/20 transition-all text-slate-900"
+                    value={logForm.paymentStatus}
+                    onChange={e => setLogForm({ ...logForm, paymentStatus: e.target.value })}
+                  >
+                    <option value="UNPAID">UNPAID</option>
+                    <option value="PROCESSING">PROCESSING</option>
+                    <option value="PAID">PAID</option>
+                  </select>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-4 flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditLogOpen(false)}
+                  className="rounded-2xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-primary text-white rounded-2xl hover:bg-black"
+                >
+                  Save Adjustments
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
