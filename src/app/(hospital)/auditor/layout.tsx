@@ -10,6 +10,7 @@ import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/fireb
 import { signOut } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
+import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 const menuGroups = [
   {
@@ -27,8 +28,16 @@ function AuditorSidebar() {
   const auth = useAuth();
   const { user } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
   const handleLogout = async () => {
+    if (auth && firestore && user?.uid) {
+      try {
+        await autoClockOutIfNeeded(user.uid, firestore);
+      } catch (err) {
+        console.error("Error during auto clock-out on logout:", err);
+      }
+    }
     if (auth) await signOut(auth);
     router.push('/');
   };

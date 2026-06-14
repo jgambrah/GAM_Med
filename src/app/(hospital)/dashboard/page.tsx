@@ -4,8 +4,9 @@ import * as React from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { 
-  Users, Activity, Loader2, ShieldAlert, AlertTriangle, Link as LinkIcon, ShieldCheck
+  Users, Activity, Loader2, ShieldAlert, AlertTriangle, Link as LinkIcon, ShieldCheck, Clock
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,9 @@ export default function CommandCenterDashboard() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+
+  const [showPrompt, setShowPrompt] = React.useState(false);
+  const [suggestedShift, setSuggestedShift] = React.useState<any>(null);
   
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -40,6 +44,61 @@ export default function CommandCenterDashboard() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   const hospitalId = userProfile?.hospitalId;
+
+  // Query active clock-in log for this user
+  const activeLogQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !user?.uid) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/attendance_logs`),
+      where("staffId", "==", user.uid),
+      where("clockOutTime", "==", null)
+    );
+  }, [firestore, hospitalId, user?.uid]);
+  const { data: activeLogs, isLoading: isActiveLogLoading } = useCollection(activeLogQuery);
+
+  // Fetch shifts roster for the hospital
+  const shiftsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, `hospitals/${hospitalId}/shifts`));
+  }, [firestore, hospitalId]);
+  const { data: shifts, isLoading: areShiftsLoading } = useCollection(shiftsQuery);
+
+  React.useEffect(() => {
+    if (activeLogs && shifts && activeLogs.length === 0) {
+      const prompted = sessionStorage.getItem('clockInPrompted');
+      if (prompted !== 'true') {
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        let foundShift = null;
+
+        for (const s of shifts) {
+          if (!s.startTime || !s.endTime) continue;
+          const [startH, startM] = s.startTime.split(':').map(Number);
+          const [endH, endM] = s.endTime.split(':').map(Number);
+          const startMin = startH * 60 + startM;
+          const endMin = endH * 60 + endM;
+
+          if (endMin < startMin) {
+            if (currentMinutes >= startMin || currentMinutes <= endMin) {
+              foundShift = s;
+              break;
+            }
+          } else {
+            if (currentMinutes >= startMin && currentMinutes <= endMin) {
+              foundShift = s;
+              break;
+            }
+          }
+        }
+
+        if (foundShift) {
+          setSuggestedShift(foundShift);
+          setShowPrompt(true);
+          sessionStorage.setItem('clockInPrompted', 'true');
+        }
+      }
+    }
+  }, [activeLogs, shifts]);
 
   // 1. Query for active alerts
   const alertsQuery = useMemoFirebase(() => {
@@ -93,7 +152,7 @@ export default function CommandCenterDashboard() {
   };
 
 
-  const isLoading = isUserLoading || isProfileLoading || areAlertsLoading || arePatientsLoading;
+  const isLoading = isUserLoading || isProfileLoading || areAlertsLoading || arePatientsLoading || isActiveLogLoading || areShiftsLoading;
 
   if (isLoading) {
       return (
@@ -153,6 +212,51 @@ export default function CommandCenterDashboard() {
             </Link>
         ))}
       </div>
+
+      {/* Clock-In Prompt Modal */}
+      <Dialog open={showPrompt} onOpenChange={setShowPrompt}>
+        <DialogContent className="max-w-md bg-white rounded-[40px] p-8 border">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-lg font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
+              <Clock className="text-primary" size={20} /> Shift Attendance Prompt
+            </DialogTitle>
+          </DialogHeader>
+          {suggestedShift && (
+            <div className="space-y-4 text-black text-left mt-2">
+              <p className="text-xs font-bold text-slate-500 leading-normal">
+                We noticed you signed in and a shift pattern is currently running:
+              </p>
+              <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-100">
+                <p className="text-[10px] font-black uppercase text-slate-400">Scheduled Shift</p>
+                <p className="font-black text-sm text-slate-800 uppercase mt-0.5">{suggestedShift.name}</p>
+                <p className="text-xs font-bold text-muted-foreground mt-0.5">{suggestedShift.startTime} — {suggestedShift.endTime}</p>
+              </div>
+              <p className="text-xs text-slate-400 font-bold leading-normal">
+                Would you like to clock in for your shift now?
+              </p>
+              <DialogFooter className="pt-2 flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPrompt(false)}
+                  className="rounded-2xl"
+                >
+                  Dismiss
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowPrompt(false);
+                    router.push('/staff/clock-in');
+                  }}
+                  className="bg-primary text-white rounded-2xl hover:bg-black font-black uppercase text-[10px] tracking-widest px-6"
+                >
+                  Yes, Clock In
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

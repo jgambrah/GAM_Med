@@ -83,10 +83,34 @@ export default function ClockInOutPage() {
   }, [firestore, hospitalId]);
   const { data: shifts, isLoading: areShiftsLoading } = useCollection(shiftsQuery);
 
-  // Set default selected shift once shifts are loaded
+  // Set default selected shift once shifts are loaded (auto-detects active roster shift based on time)
   useEffect(() => {
     if (shifts && shifts.length > 0 && !selectedShiftId) {
-      setSelectedShiftId(shifts[0].id);
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      let activeShift = shifts[0]; // fallback
+      
+      for (const s of shifts) {
+        if (!s.startTime || !s.endTime) continue;
+        const [startH, startM] = s.startTime.split(':').map(Number);
+        const [endH, endM] = s.endTime.split(':').map(Number);
+        const startMin = startH * 60 + startM;
+        const endMin = endH * 60 + endM;
+        
+        if (endMin < startMin) { // overnight
+          if (currentMinutes >= startMin || currentMinutes <= endMin) {
+            activeShift = s;
+            break;
+          }
+        } else {
+          if (currentMinutes >= startMin && currentMinutes <= endMin) {
+            activeShift = s;
+            break;
+          }
+        }
+      }
+      
+      setSelectedShiftId(activeShift.id);
     }
   }, [shifts, selectedShiftId]);
 

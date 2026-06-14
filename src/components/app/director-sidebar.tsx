@@ -8,8 +8,9 @@ import {
   LayoutDashboard, Users, HeartPulse, CreditCard, 
   Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp
 } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 const allMenuGroups = [
   {
@@ -214,8 +215,17 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
   const auth = useAuth();
   const { user } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
   const handleLogout = async () => {
+    if (auth && firestore && user?.uid) {
+      try {
+        await autoClockOutIfNeeded(user.uid, firestore, userProfile);
+      } catch (err) {
+        console.error("Error during auto clock-out on logout:", err);
+      }
+    }
+
     if (auth) {
         await signOut(auth);
     }

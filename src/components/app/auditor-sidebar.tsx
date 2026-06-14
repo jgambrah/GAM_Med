@@ -7,8 +7,9 @@ import {
   LayoutDashboard, ShieldCheck, FileText,
   LogOut, ChevronRight, Landmark, Wallet
 } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 const menuGroups = [
   {
@@ -29,8 +30,16 @@ export function AuditorSidebar() {
   const auth = useAuth();
   const { user } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
 
   const handleLogout = async () => {
+    if (auth && firestore && user?.uid) {
+      try {
+        await autoClockOutIfNeeded(user.uid, firestore);
+      } catch (err) {
+        console.error("Error during auto clock-out on logout:", err);
+      }
+    }
     if (auth) await signOut(auth);
     router.push('/');
   };
