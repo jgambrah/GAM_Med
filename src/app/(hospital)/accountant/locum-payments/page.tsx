@@ -58,16 +58,32 @@ export default function LocumPaymentEngine() {
     }, {} as Record<string, any[]>);
 
     return Object.entries(logsByStaff).map(([staffId, shifts]) => {
-      const staffName = shifts[0]?.staffName || 'Unknown Locum';
+      const typedShifts = shifts as any[];
+      const staffName = typedShifts[0]?.staffName || 'Unknown Locum';
       const salaryInfo = salaryProfiles.find(p => p.staffId === staffId);
-      const agreedRate = salaryInfo?.basicSalary || 0; // Use basicSalary as per-shift rate
-      const totalOwed = shifts.length * agreedRate;
+      
+      const billingType = salaryInfo?.billingType || 'SHIFT';
+      const agreedRate = billingType === 'HOURLY'
+        ? (Number(salaryInfo?.hourlyRate) || 80)
+        : (Number(salaryInfo?.basicSalary) || 200);
+
+      let totalOwed = 0;
+      let totalHours = 0;
+
+      if (billingType === 'HOURLY') {
+        totalHours = typedShifts.reduce((sum, shift) => sum + (Number(shift.hoursWorked) || 0), 0);
+        totalOwed = totalHours * agreedRate;
+      } else {
+        totalOwed = typedShifts.length * agreedRate;
+      }
       
       return {
         staffId,
         staffName,
-        shifts,
+        shifts: typedShifts,
+        billingType,
         agreedRate,
+        totalHours,
         totalOwed
       };
     });
@@ -94,7 +110,7 @@ export default function LocumPaymentEngine() {
       batch.set(pvRef, {
         pvNumber,
         payee: locumData.staffName,
-        narration: `Payment for ${locumData.shifts.length} Locum shifts in ${new Date().toLocaleString('en-GB', {month: 'long', year: 'numeric'})}`,
+        narration: `Payment for ${locumData.shifts.length} Locum shifts (${locumData.billingType === 'HOURLY' ? locumData.totalHours + ' hrs' : 'flat rate'}) in ${new Date().toLocaleString('en-GB', {month: 'long', year: 'numeric'})}`,
         grossAmount,
         whtRate: 0.075,
         whtAmount,
@@ -105,6 +121,34 @@ export default function LocumPaymentEngine() {
         status: 'PENDING_APPROVAL',
         processedBy: user.uid,
         processedByName: user.displayName,
+        createdAt: serverTimestamp()
+      });
+
+      // 2. Auto-Generate Accounts Payable record for Net Payout to the Doctor
+      const apDocRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
+      batch.set(apDocRef, {
+        supplierName: `${locumData.staffName} (LOCUM)`,
+        amountOwed: netAmount,
+        category: "PAYROLL",
+        status: 'UNPAID',
+        hospitalId: hospitalId,
+        description: `Locum payment net payable for ${locumData.shifts.length} shifts (${locumData.billingType === 'HOURLY' ? locumData.totalHours + ' hrs' : 'flat rate'})`,
+        pvId: pvRef.id,
+        pvNumber: pvNumber,
+        createdAt: serverTimestamp()
+      });
+
+      // 3. Auto-Generate Accounts Payable record for 7.5% WHT to GRA
+      const whtapDocRef = doc(collection(firestore, `hospitals/${hospitalId}/accounts_payable`));
+      batch.set(whtapDocRef, {
+        supplierName: "GHANA REVENUE AUTHORITY (LOCUM WHT)",
+        amountOwed: whtAmount,
+        category: "STATUTORY",
+        status: 'UNPAID',
+        hospitalId: hospitalId,
+        description: `7.5% Professional Service WHT for ${locumData.staffName} (${pvNumber})`,
+        pvId: pvRef.id,
+        pvNumber: pvNumber,
         createdAt: serverTimestamp()
       });
 
@@ -165,7 +209,12 @@ export default function LocumPaymentEngine() {
                             <div className="bg-primary/10 text-primary p-3 rounded-2xl"><UserCheck size={24}/></div>
                             <div>
                                 <h3 className="text-xl font-black uppercase text-card-foreground">{locum.staffName}</h3>
-                                <p className="text-xs font-bold text-muted-foreground">{locum.shifts.length} Unpaid Shifts @ ₵{locum.agreedRate}/shift</p>
+                                <p className="text-xs font-bold text-muted-foreground">
+                                    {locum.billingType === 'HOURLY' 
+                                      ? `${locum.totalHours} Hrs @ ₵${locum.agreedRate}/hr` 
+                                      : `${locum.shifts.length} Unpaid Shifts @ ₵${locum.agreedRate}/shift`
+                                    }
+                                </p>
                             </div>
                         </div>
                         <div className="text-right">
@@ -177,7 +226,7 @@ export default function LocumPaymentEngine() {
                        {locum.shifts.slice(0, 8).map((s: any) => (
                            <div key={s.id} className="bg-muted/50 p-2 rounded-lg">
                               <p className="font-bold">{s.clockInTime ? format(s.clockInTime.toDate(), 'do MMM') : 'N/A'}</p>
-                              <p className="text-muted-foreground">{s.shiftName}</p>
+                              <p className="text-muted-foreground">{s.shiftName} {locum.billingType === 'HOURLY' && `(${s.hoursWorked || 0} hrs)`}</p>
                            </div>
                        ))}
                     </div>

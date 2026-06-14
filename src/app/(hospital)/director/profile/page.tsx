@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink, CreditCard } from 'lucide-react';
+import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ export default function HospitalProfilePage() {
   const { toast } = useToast();
 
   const [saving, setSaving] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -56,6 +57,8 @@ export default function HospitalProfilePage() {
     emailFromAddress: '',
     paystackPublicKey: '',
     paystackSecretKey: '',
+    latitude: '',
+    longitude: '',
   });
 
   // Sync state once data loads
@@ -79,9 +82,51 @@ export default function HospitalProfilePage() {
         emailFromAddress: hospital.emailFromAddress || '',
         paystackPublicKey: hospital.paystackPublicKey || '',
         paystackSecretKey: hospital.paystackSecretKey || '',
+        latitude: hospital.latitude !== undefined && hospital.latitude !== null ? String(hospital.latitude) : '',
+        longitude: hospital.longitude !== undefined && hospital.longitude !== null ? String(hospital.longitude) : '',
       });
     }
   }, [hospital]);
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        variant: "destructive",
+        title: "Not Supported",
+        description: "Your browser does not support geolocation detection.",
+      });
+      return;
+    }
+
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm(prev => ({
+          ...prev,
+          latitude: String(position.coords.latitude),
+          longitude: String(position.coords.longitude),
+        }));
+        setDetectingGps(false);
+        toast({
+          title: "Location Detected",
+          description: `Set to Lat: ${position.coords.latitude.toFixed(6)}, Lng: ${position.coords.longitude.toFixed(6)}`,
+        });
+      },
+      (error) => {
+        setDetectingGps(false);
+        let msg = "Could not retrieve your current location.";
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = "Location access was denied. Please check your browser permissions.";
+        }
+        toast({
+          variant: "destructive",
+          title: "Detection Failed",
+          description: msg,
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +152,8 @@ export default function HospitalProfilePage() {
         emailFromAddress: form.emailFromAddress.trim(),
         paystackPublicKey: form.paystackPublicKey.trim(),
         paystackSecretKey: form.paystackSecretKey.trim(),
+        latitude: form.latitude ? parseFloat(form.latitude) : null,
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
       });
 
       toast({
@@ -253,6 +300,50 @@ export default function HospitalProfilePage() {
                     value={form.address}
                     onChange={e => setForm({ ...form, address: e.target.value })}
                   />
+                </div>
+
+                <div className="bg-slate-50/50 p-6 rounded-[28px] border border-slate-100 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">GPS Geofencing Coordinates</h4>
+                      <p className="text-[10px] text-slate-400 font-semibold leading-normal">Coordinates used to restrict staff clock-ins within 200m</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={detectLocation}
+                      disabled={detectingGps}
+                      className="rounded-xl text-[10px] font-black uppercase tracking-wider px-3"
+                    >
+                      {detectingGps ? <Loader2 size={12} className="animate-spin mr-1" /> : <MapPin size={12} className="mr-1" />}
+                      Detect GPS
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Latitude</label>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 5.6037"
+                        className="w-full p-4 border rounded-2xl bg-white font-mono font-bold text-sm outline-none focus:border-primary transition-all"
+                        value={form.latitude}
+                        onChange={e => setForm({ ...form, latitude: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Longitude</label>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="e.g. -0.1870"
+                        className="w-full p-4 border rounded-2xl bg-white font-mono font-bold text-sm outline-none focus:border-primary transition-all"
+                        value={form.longitude}
+                        onChange={e => setForm({ ...form, longitude: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-6 pb-4">

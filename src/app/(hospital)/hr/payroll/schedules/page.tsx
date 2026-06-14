@@ -62,14 +62,36 @@ function SchedulesContent() {
   }, [firestore, hospitalId, runId]);
   const { data: payslipData, isLoading: areSlipsLoading } = useCollection(payslipsQuery);
 
+  const staffQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(collection(firestore, "users"), where("hospitalId", "==", hospitalId));
+  }, [firestore, hospitalId]);
+  const { data: staffData } = useCollection(staffQuery);
+
+  const staffNumberMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (staffData) {
+      staffData.forEach((u: any) => {
+        if (u.uid && u.staffNumber) {
+          map.set(u.uid, u.staffNumber);
+        }
+      });
+    }
+    return map;
+  }, [staffData]);
+
   const scheduleData = useMemo(() => {
     if (!payslipData || !selectedItem) return [];
+
+    const getStaffNumber = (sId: string, fallbackNum: string) => {
+      return staffNumberMap.get(sId) || fallbackNum || `STF-${sId.slice(0, 4).toUpperCase()}`;
+    };
 
     if (selectedItem === 'SSNIT') {
         return payslipData.map(s => ({
             name: s.name || "Unknown Staff",
             staffId: s.staffId,
-            staffNumber: s.staffNumber,
+            staffNumber: getStaffNumber(s.staffId, s.staffNumber),
             ssnitNumber: s.ssnitNumber,
             basic: s.basic,
             employeeSsnit: s.basic * 0.055,
@@ -82,7 +104,7 @@ function SchedulesContent() {
         return payslipData.map(s => ({
             name: s.name || "Unknown Staff",
             staffId: s.staffId,
-            staffNumber: s.staffNumber,
+            staffNumber: getStaffNumber(s.staffId, s.staffNumber),
             tinNumber: s.tinNumber,
             gross: s.gross,
             paye: s.paye,
@@ -101,23 +123,23 @@ function SchedulesContent() {
       return {
         name: slip.name || "Unknown Staff",
         staffId: slip.staffId,
-        staffNumber: slip.staffNumber,
+        staffNumber: getStaffNumber(slip.staffId, slip.staffNumber),
         role: slip.role,
         amount: specificDeduction.amount
       };
     }).filter(Boolean); // Removes the nulls
-  }, [payslipData, selectedItem]);
+  }, [payslipData, selectedItem, staffNumberMap]);
 
   const totalRemittance = useMemo(() => {
     if (!scheduleData || scheduleData.length === 0) return 0;
     
     switch (selectedItem) {
         case 'SSNIT':
-            return scheduleData.reduce((acc, s) => acc + s.totalSsnit, 0);
+            return (scheduleData as any[]).reduce((acc, s) => acc + (s?.totalSsnit || 0), 0);
         case 'PAYE':
-            return scheduleData.reduce((acc, s) => acc + s.paye, 0);
+            return (scheduleData as any[]).reduce((acc, s) => acc + (s?.paye || 0), 0);
         default:
-            return scheduleData.reduce((acc, s) => acc + s.amount, 0);
+            return (scheduleData as any[]).reduce((acc, s) => acc + (s?.amount || 0), 0);
     }
   }, [scheduleData, selectedItem]);
 
@@ -207,7 +229,7 @@ function SchedulesContent() {
                     return (
                          <tr key={i} className="hover:bg-slate-50">
                             <td className="p-4 border uppercase font-bold">{s.name}</td>
-                            <td className="p-4 border text-blue-600 font-mono">{s.staffNumber || s.staffId.slice(0,8)}</td>
+                            <td className="p-4 border text-blue-600 font-mono">{s.staffNumber}</td>
                             <td className="p-4 border text-right font-black">GHS {s.amount.toFixed(2)}</td>
                          </tr>
                     );

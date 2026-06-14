@@ -63,8 +63,8 @@ export default function ForcePasswordChangePage() {
 
       toast({ title: "Security Updated", description: "Your private password is now active." });
       
-      // Release them into the app with role-based routing
-      const claims = (await currentUser.getIdTokenResult()).claims;
+      // Release them into the app with role-based routing (force refresh token to get latest claims)
+      const claims = (await currentUser.getIdTokenResult(true)).claims;
       const userRole = claims.role;
       const portalRoutes: { [key: string]: string } = {
           'SUPER_ADMIN': '/app-ceo/dashboard',

@@ -40,7 +40,10 @@ service cloud.firestore {
 
     function isStaffOfHospital(hospitalId) {
       let userData = getCallingUserData();
-      return isSignedIn() && userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
+      let token = request.auth.token;
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
+      return isSignedIn() && (hasHospitalInToken || hasHospitalInDb);
     }
 
     function isDirectorOrAdmin(hospitalId) {
@@ -348,7 +351,7 @@ service cloud.firestore {
           'receiptCounter', 'pvCounter', 'poCounter', 'nhisBatchCounter',
           'name', 'address', 'location', 'region', 'phone', 'email', 'website', 'primaryColor', 'secondaryColor', 'logoUrl',
           'smsProvider', 'smsApiKey', 'smsSenderId', 'emailProvider', 'emailApiKey', 'emailFromAddress',
-          'paystackPublicKey', 'paystackSecretKey'
+          'paystackPublicKey', 'paystackSecretKey', 'latitude', 'longitude'
         ])
       );
 
@@ -512,7 +515,8 @@ service cloud.firestore {
       }
 
       match /shifts/{shiftId} {
-        allow read, write, list, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow write, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /nursing_handovers/{handoverId} {
@@ -521,7 +525,8 @@ service cloud.firestore {
       }
 
       match /attendance_logs/{logId} {
-        allow get, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow get, list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+        allow get, list: if isSignedIn() && resource.data.staffId == request.auth.uid;
         allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.staffId == request.auth.uid);
         allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isOwner(resource.data.staffId);
         allow delete: if false;
@@ -561,7 +566,8 @@ service cloud.firestore {
       }
 
       match /salary_profiles/{staffId} {
-        allow read, write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isOwner(staffId);
+        allow write: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /payroll_archives/{archiveId} {

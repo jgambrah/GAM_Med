@@ -1,18 +1,34 @@
 'use client';
+
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { 
   Wallet, Clock, CheckCircle2, TrendingUp, 
-  Banknote, ShieldCheck, Loader2, ShieldAlert,
-  Calculator
+  Banknote, ShieldCheck, ShieldAlert, Calculator
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+
+// Helper to calculate duration of a shift pattern in hours
+function getShiftStandardHours(startStr?: string, endStr?: string): number {
+  if (!startStr || !endStr) return 8; // fallback to 8 hours
+  const [startH, startM] = startStr.split(':').map(Number);
+  const [endH, endM] = endStr.split(':').map(Number);
+  let diffMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+  if (diffMinutes < 0) {
+    diffMinutes += 24 * 60; // overnight shift
+  }
+  return diffMinutes / 60;
+}
 
 export default function LocumMyClaims() {
   const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+
+  // Tick trigger state to force client-side re-render of active ticking shifts
+  const [tick, setTick] = useState<number>(0);
 
   // Get full user profile for contractType
   const userProfileRef = useMemoFirebase(() => {
@@ -31,7 +47,10 @@ export default function LocumMyClaims() {
   }, [firestore, hospitalId, user]);
   const { data: salaryProfile, isLoading: isSalaryLoading } = useDoc(salaryProfileRef);
   
-  const agreedRate = salaryProfile?.basicSalary || 0;
+  const billingType = salaryProfile?.billingType || 'SHIFT';
+  const agreedRate = billingType === 'HOURLY' 
+    ? (salaryProfile?.hourlyRate || 0) 
+    : (salaryProfile?.basicSalary || 0);
 
   // Get all attendance logs for this user
   const shiftsQuery = useMemoFirebase(() => {
@@ -45,19 +64,61 @@ export default function LocumMyClaims() {
 
   const { data: shifts, isLoading: areShiftsLoading } = useCollection(shiftsQuery);
 
+  // Check if there is an active clocked-in shift to run the ticking interval
+  const hasActiveShift = useMemo(() => {
+    return shifts?.some(s => s.clockOutTime === null || s.clockOutTime === undefined) || false;
+  }, [shifts]);
+
+  // Set up ticker to update active shift calculation progressively every 10 seconds (for efficiency)
+  useEffect(() => {
+    if (!hasActiveShift) return;
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [hasActiveShift]);
+
+  // Progressive calculation of unpaid claims
   const { pendingGHC, whtAmount, unpaidShiftsCount } = useMemo(() => {
     if (!shifts || agreedRate === 0) return { pendingGHC: 0, whtAmount: 0, unpaidShiftsCount: 0 };
     
     const unpaid = shifts.filter(s => s.paymentStatus === 'UNPAID');
-    const gross = unpaid.length * agreedRate;
-    const wht = gross * 0.075;
+    let totalGross = 0;
+
+    unpaid.forEach((s) => {
+      const isActive = s.clockOutTime === null || s.clockOutTime === undefined;
+      if (!isActive) {
+        // Completed Shift
+        if (billingType === 'HOURLY') {
+          totalGross += (s.hoursWorked || 0) * agreedRate;
+        } else {
+          totalGross += agreedRate;
+        }
+      } else if (s.clockInTime) {
+        // Active Shift (calculate progressively based on elapsed minutes)
+        const clockInDate = s.clockInTime.toDate();
+        const elapsedMs = new Date().getTime() - clockInDate.getTime();
+        const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / (1000 * 60)));
+        const elapsedHours = elapsedMinutes / 60;
+
+        if (billingType === 'HOURLY') {
+          totalGross += elapsedHours * agreedRate;
+        } else {
+          const stdHours = getShiftStandardHours(s.startTime, s.endTime);
+          const fraction = Math.min(1, elapsedHours / stdHours);
+          totalGross += fraction * agreedRate;
+        }
+      }
+    });
+
+    const wht = totalGross * 0.075;
     
     return {
-        pendingGHC: gross,
+        pendingGHC: totalGross,
         whtAmount: wht,
         unpaidShiftsCount: unpaid.length
     }
-  }, [shifts, agreedRate]);
+  }, [shifts, agreedRate, billingType, tick]);
 
   const isLoading = isAuthLoading || isProfileLoading || isSalaryLoading || areShiftsLoading;
 
@@ -65,12 +126,12 @@ export default function LocumMyClaims() {
 
   if (!isLocum) {
      return (
-      <div className="flex flex-1 items-center justify-center bg-background p-4">
+      <div className="flex flex-1 items-center justify-center bg-background p-4 text-black">
         <div className="text-center">
           <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">This portal is for Locum clinicians only.</p>
-          <Button onClick={() => router.push('/dashboard')}>Return to Dashboard</Button>
+          <Button onClick={() => router.push('/dashboard')} className="mt-4">Return to Dashboard</Button>
         </div>
       </div>
     );
@@ -86,7 +147,7 @@ export default function LocumMyClaims() {
         <div className="flex justify-between items-start mb-8 relative z-10">
            <div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Total Pending Claim</p>
-              <h1 className="text-5xl font-black italic tracking-tighter mt-1">₵ {pendingGHC.toLocaleString()}</h1>
+              <h1 className="text-5xl font-black italic tracking-tighter mt-1">₵ {pendingGHC.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h1>
            </div>
            <div className="bg-blue-600 p-4 rounded-3xl shadow-xl">
               <TrendingUp size={32} />
@@ -96,15 +157,15 @@ export default function LocumMyClaims() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6 relative z-10 pt-6 border-t border-slate-800">
            <div>
               <p className="text-[9px] font-black uppercase text-slate-400">Net after 7.5% WHT</p>
-              <p className="text-lg font-black text-blue-400">₵ {(pendingGHC - whtAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              <p className="text-lg font-black text-blue-400">₵ {(pendingGHC - whtAmount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
            </div>
            <div>
               <p className="text-[9px] font-black uppercase text-slate-400">Unpaid Shifts</p>
               <p className="text-lg font-black">{unpaidShiftsCount}</p>
            </div>
            <div className="hidden md:block">
-              <p className="text-[9px] font-black uppercase text-slate-400">Agreed Rate</p>
-              <p className="text-lg font-black text-green-400">₵ {agreedRate.toFixed(2)} / Shift</p>
+              <p className="text-[9px] font-black uppercase text-slate-400">Agreed Rate ({billingType})</p>
+              <p className="text-lg font-black text-green-400">₵ {agreedRate.toFixed(2)} / {billingType === 'HOURLY' ? 'Hour' : 'Shift'}</p>
            </div>
         </div>
       </div>
@@ -120,32 +181,63 @@ export default function LocumMyClaims() {
         <div className="bg-white rounded-[40px] border-2 border-slate-50 shadow-sm overflow-hidden divide-y-2 divide-slate-50">
           {shifts?.length === 0 ? (
              <div className="p-20 text-center text-slate-300 italic uppercase text-xs">No shifts recorded in the system.</div>
-          ) : shifts?.map((s) => (
-            <div key={s.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-blue-50/30 transition-all group">
-               <div className="flex items-center gap-5">
-                  <div className={`p-4 rounded-2xl ${s.paymentStatus === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                     {s.paymentStatus === 'PAID' ? <CheckCircle2 size={24}/> : <Clock size={24}/>}
-                  </div>
-                  <div>
-                     <p className="font-black uppercase text-sm">{s.clockInTime?.toDate().toLocaleDateString('en-GB')} — {s.shiftName}</p>
-                     <div className="flex gap-3 mt-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Clock size={10}/> {s.hoursWorked || 0} Hours</span>
-                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1"><ShieldCheck size={10}/> Verified</span>
-                     </div>
-                  </div>
-               </div>
-               
-               <div className="flex items-center gap-6 w-full md:w-auto justify-between border-t md:border-0 pt-4 md:pt-0">
-                  <div className="text-right">
-                     <p className="text-[9px] font-black text-slate-300 uppercase">Estimated Gross</p>
-                     <p className="text-lg font-black">₵ {agreedRate.toFixed(2)}</p>
-                  </div>
-                  <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase italic ${s.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
-                     {s.paymentStatus === 'PAID' ? 'Payment Settled' : 'Payment Processing'}
-                  </div>
-               </div>
-            </div>
-          ))}
+          ) : shifts?.map((s) => {
+            const isActive = s.clockOutTime === null || s.clockOutTime === undefined;
+            let displayHours = s.hoursWorked || 0;
+            let displayGross = 0;
+
+            if (isActive && s.clockInTime) {
+              const elapsedMs = new Date().getTime() - s.clockInTime.toDate().getTime();
+              const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / (1000 * 60)));
+              displayHours = elapsedMinutes / 60;
+              
+              if (billingType === 'HOURLY') {
+                displayGross = displayHours * agreedRate;
+              } else {
+                const stdHours = getShiftStandardHours(s.startTime, s.endTime);
+                const fraction = Math.min(1, displayHours / stdHours);
+                displayGross = fraction * agreedRate;
+              }
+            } else {
+              if (billingType === 'HOURLY') {
+                displayGross = (s.hoursWorked || 0) * agreedRate;
+              } else {
+                displayGross = agreedRate;
+              }
+            }
+
+            return (
+              <div key={s.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-blue-50/30 transition-all group">
+                 <div className="flex items-center gap-5">
+                    <div className={`p-4 rounded-2xl ${s.paymentStatus === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                       {s.paymentStatus === 'PAID' ? <CheckCircle2 size={24}/> : <Clock size={24}/>}
+                    </div>
+                    <div>
+                       <p className="font-black uppercase text-sm">
+                          {s.clockInTime?.toDate().toLocaleDateString('en-GB')} — {s.shiftName}
+                       </p>
+                       <div className="flex gap-3 mt-1">
+                          <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${isActive ? 'text-green-600 animate-pulse' : 'text-slate-400'}`}>
+                             <Clock size={10}/> 
+                             {isActive ? `${displayHours.toFixed(2)} Hours (Active)` : `${displayHours} Hours`}
+                          </span>
+                          <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1"><ShieldCheck size={10}/> Verified</span>
+                       </div>
+                    </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-6 w-full md:w-auto justify-between border-t md:border-0 pt-4 md:pt-0">
+                    <div className="text-right">
+                       <p className="text-[9px] font-black text-slate-300 uppercase">Estimated Gross</p>
+                       <p className="text-lg font-black">₵ {displayGross.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                    </div>
+                    <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase italic ${s.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
+                       {s.paymentStatus === 'PAID' ? 'Payment Settled' : (isActive ? 'Shift Active' : 'Payment Processing')}
+                    </div>
+                 </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

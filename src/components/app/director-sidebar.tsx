@@ -230,6 +230,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGIST', 'ACCOUNTANT', 'CASHIER', 'HR_MANAGER', 'STORE_MANAGER', 'RECEPTIONIST'],
     items: [
        { name: "Request Leave", href: "/staff/request-leave", icon: Calendar },
+       { name: "Clock In / Out", href: "/staff/clock-in", icon: Clock },
        isLocum && { name: "My Locum Claims", href: "/doctor/my-claims", icon: Wallet },
        !isLocum && { name: "My Payslips", href: "/staff/payslips", icon: Wallet },
        { name: "My CPD", href: "/staff/my-cpd", icon: GraduationCap },
@@ -239,7 +240,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
   const visibleMenuGroups = allMenuGroups.map(group => ({
     ...group,
-    items: group.items.filter(item => 
+    items: group.items.filter((item: any) => 
       userRole === 'DIRECTOR' || // Director sees all items in a group they can see
       !item.roles || 
       (item.roles && item.roles.includes(userRole))

@@ -2,10 +2,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { Users, UserPlus, Clock, Calendar, ShieldCheck, HeartPulse, GraduationCap, Gavel, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
+import { Users, UserPlus, Clock, Calendar, ShieldCheck, HeartPulse, GraduationCap, Gavel, ChevronRight, Loader2, ShieldAlert, MapPin, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
 
 export default function HRDashboard() {
   const { user, isUserLoading } = useUser();
@@ -36,8 +37,34 @@ export default function HRDashboard() {
   }, [firestore, hospitalId]);
   
   const { data: staff, isLoading: areStaffLoading } = useCollection(staffQuery);
+
+  const activeAttendanceQuery = useMemoFirebase(() => {
+      if (!firestore || !hospitalId) return null;
+      return query(collection(firestore, `hospitals/${hospitalId}/attendance_logs`), where('clockOutTime', '==', null));
+  }, [firestore, hospitalId]);
+
+  const { data: activeAttendance, isLoading: isActiveAttendanceLoading } = useCollection(activeAttendanceQuery);
+
+  const recentAttendanceQuery = useMemoFirebase(() => {
+      if (!firestore || !hospitalId) return null;
+      return query(collection(firestore, `hospitals/${hospitalId}/attendance_logs`));
+  }, [firestore, hospitalId]);
   
-  const isLoading = isUserLoading || isClaimsLoading || areStaffLoading;
+  const { data: allAttendanceLogs, isLoading: isAllAttendanceLoading } = useCollection(recentAttendanceQuery);
+
+  const completedLogs = useMemo(() => {
+    if (!allAttendanceLogs) return [];
+    return allAttendanceLogs
+      .filter((log: any) => log.clockOutTime !== null)
+      .sort((a: any, b: any) => {
+        const timeA = a.clockOutTime?.toDate()?.getTime() || 0;
+        const timeB = b.clockOutTime?.toDate()?.getTime() || 0;
+        return timeB - timeA;
+      })
+      .slice(0, 5);
+  }, [allAttendanceLogs]);
+  
+  const isLoading = isUserLoading || isClaimsLoading || areStaffLoading || isActiveAttendanceLoading || isAllAttendanceLoading;
 
   if (isLoading) {
     return (
@@ -87,8 +114,88 @@ export default function HRDashboard() {
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 border-b pb-4">
                <Clock size={16} className="text-primary" /> Live Shift Attendance
             </h3>
-            <div className="text-center py-10 text-muted-foreground italic">
-                Attendance module not yet active.
+            <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto pr-2">
+               {activeAttendance?.length === 0 ? (
+                 <div className="text-center py-10 text-muted-foreground italic font-semibold text-xs uppercase tracking-wider">
+                     No personnel currently on shift.
+                 </div>
+               ) : (
+                 activeAttendance?.map((log: any) => (
+                   <div key={log.id} className="py-4 flex justify-between items-center hover:bg-slate-50/50 px-3 rounded-2xl transition-all">
+                      <div className="flex items-center gap-3">
+                         <div className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                         </div>
+                          <div>
+                             <p className="font-black text-xs uppercase text-slate-900">{log.staffName}</p>
+                             <p className="text-[9px] font-bold text-muted-foreground uppercase">{log.role} — {log.contractType}</p>
+                             {log.clockInDistance !== undefined && log.clockInDistance !== null ? (
+                                <p className="text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1 mt-0.5 text-left">
+                                   <MapPin size={10} /> Verified ({log.clockInDistance}m)
+                                </p>
+                             ) : (
+                                <p className="text-[9px] font-black text-amber-600 uppercase flex items-center gap-1 mt-0.5 text-left">
+                                   <AlertTriangle size={10} /> GPS Bypassed
+                                </p>
+                             )}
+                          </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-xs font-black uppercase text-slate-800">{log.shiftName}</p>
+                         <p className="text-[9px] font-bold text-primary uppercase mt-0.5">
+                            Clocked in at {log.clockInTime ? format(log.clockInTime.toDate(), 'p') : 'N/A'}
+                         </p>
+                      </div>
+                   </div>
+                 ))
+               )}
+            </div>
+         </div>
+
+         <div className="bg-card p-8 rounded-[40px] border shadow-sm space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 border-b pb-4 text-left">
+               <ShieldCheck size={16} className="text-primary" /> Geofencing & Clock-Out Audits
+            </h3>
+            <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto pr-2">
+               {completedLogs?.length === 0 ? (
+                 <div className="text-center py-10 text-muted-foreground italic font-semibold text-xs uppercase tracking-wider">
+                     No recently completed shifts.
+                 </div>
+               ) : (
+                 completedLogs?.map((log: any) => (
+                   <div key={log.id} className="py-4 flex justify-between items-start hover:bg-slate-50/50 px-3 rounded-2xl transition-all">
+                      <div className="space-y-1 text-left">
+                         <p className="font-black text-xs uppercase text-slate-900 flex items-center gap-1.5 flex-wrap">
+                            {log.staffName}
+                            {log.flaggedForOffsiteOut && (
+                               <span className="bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider inline-flex items-center gap-0.5">
+                                  <ShieldAlert size={8} /> Off-Site Out
+                               </span>
+                            )}
+                         </p>
+                         <p className="text-[9px] font-bold text-muted-foreground uppercase">{log.role} — {log.shiftName}</p>
+                         <div className="flex gap-2 text-[9px] font-bold text-slate-400 uppercase mt-1">
+                            <span className="flex items-center gap-0.5">
+                               In: {log.clockInDistance !== undefined && log.clockInDistance !== null ? `${log.clockInDistance}m` : 'Bypassed'}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-0.5">
+                               Out: {log.clockOutDistance !== undefined && log.clockOutDistance !== null ? `${log.clockOutDistance}m` : 'N/A'}
+                            </span>
+                         </div>
+                      </div>
+                      <div className="text-right text-[10px]">
+                         <p className="font-mono font-bold text-slate-700">
+                            {log.clockInTime && format(log.clockInTime.toDate(), 'dd/MM')} — {log.hoursWorked} hrs
+                         </p>
+                         <p className="text-[8px] font-semibold text-muted-foreground mt-0.5 uppercase">
+                            Out: {log.clockOutTime ? format(log.clockOutTime.toDate(), 'p') : 'N/A'}
+                         </p>
+                      </div>
+                   </div>
+                 ))
+               )}
             </div>
          </div>
 

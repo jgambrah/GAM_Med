@@ -67,6 +67,9 @@ export default function StaffSalaryProfile() {
     tinNumber: '',
   });
 
+  const [billingType, setBillingType] = useState<'SHIFT' | 'HOURLY'>('SHIFT');
+  const [hourlyRate, setHourlyRate] = useState(0);
+
   useEffect(() => {
     if (salaryProfile) {
       setGradeId(salaryProfile.gradeId || '');
@@ -74,6 +77,8 @@ export default function StaffSalaryProfile() {
       setLevel(salaryProfile.level || '');
       setAllowances(salaryProfile.allowances || []);
       setDeductions(salaryProfile.deductions || []);
+      setBillingType(salaryProfile.billingType || 'SHIFT');
+      setHourlyRate(salaryProfile.hourlyRate || 0);
     }
     if (staffInfo) {
         setBankInfo({
@@ -117,6 +122,8 @@ export default function StaffSalaryProfile() {
         level,
         allowances,
         deductions,
+        billingType,
+        hourlyRate,
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid
       }, { merge: true });
@@ -159,43 +166,94 @@ export default function StaffSalaryProfile() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-8">
             <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">
-              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
-                <ShieldCheck size={16} className="text-primary" /> Standardized Grade Assignment
-              </h3>
-              <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase text-muted-foreground">Select Grade Level</label>
-                <Select 
-                  value={gradeId} 
-                  onValueChange={(value) => {
-                    const grade = grades?.find(g => g.id === value);
-                    if (grade) {
-                        setGradeId(value);
-                        setBasicSalary(grade.basicSalary || 0);
-                        setLevel(`${grade.name} - ${grade.level}`);
-                    }
-                }}>
-                    <SelectTrigger className="w-full p-4 border-2 border-slate-100 rounded-2xl bg-slate-50 text-black font-black uppercase italic outline-none focus:border-blue-600 transition-all">
-                        <SelectValue placeholder="Choose from Hospital Scale..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {grades?.map(g => (
-                            <SelectItem key={g.id} value={g.id}>{g.name} (L{g.level}) — ₵ {g.basicSalary}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <div className="mt-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
-                <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-primary tracking-widest">Authorized Basic Pay</span>
-                    <span className="text-2xl font-black text-foreground">₵ {basicSalary.toLocaleString()}</span>
-                </div>
-                </div>
-                <div className="mt-4 p-6 bg-green-50 rounded-3xl border border-green-100">
-                <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-green-700 tracking-widest">Calculated Gross Salary</span>
-                    <span className="text-2xl font-black text-green-900">₵ {grossSalary.toLocaleString()}</span>
-                </div>
-                </div>
-              </div>
+              {staffInfo?.contractType === 'LOCUM' ? (
+                <>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
+                    <Briefcase size={16} className="text-primary" /> Locum Billing Configuration
+                  </h3>
+                  <div className="space-y-4 font-sans text-xs">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-muted-foreground">Locum Billing Type</label>
+                      <Select 
+                        value={billingType} 
+                        onValueChange={(value: 'SHIFT' | 'HOURLY') => setBillingType(value)}
+                      >
+                        <SelectTrigger className="w-full mt-1 p-4 border-2 border-slate-100 rounded-2xl bg-slate-50 text-black font-black uppercase italic outline-none focus:border-blue-600 transition-all">
+                          <SelectValue placeholder="Choose Billing Method..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SHIFT">Shift-Based (Flat Rate)</SelectItem>
+                          <SelectItem value="HOURLY">Hourly-Based (Time-Tracked)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {billingType === 'SHIFT' ? (
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400">Agreed Rate Per Shift (₵)</label>
+                        <Input 
+                          type="number" 
+                          placeholder="Rate per shift" 
+                          value={basicSalary || ''} 
+                          onChange={(e) => setBasicSalary(Number(e.target.value))} 
+                          className="w-full mt-1 font-bold bg-muted/50"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400">Agreed Hourly Rate (₵)</label>
+                        <Input 
+                          type="number" 
+                          placeholder="Rate per hour" 
+                          value={hourlyRate || ''} 
+                          onChange={(e) => setHourlyRate(Number(e.target.value))} 
+                          className="w-full mt-1 font-bold bg-muted/50"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b pb-3 flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-primary" /> Standardized Grade Assignment
+                  </h3>
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground">Select Grade Level</label>
+                    <Select 
+                      value={gradeId} 
+                      onValueChange={(value) => {
+                        const grade = grades?.find(g => g.id === value);
+                        if (grade) {
+                            setGradeId(value);
+                            setBasicSalary(grade.basicSalary || 0);
+                            setLevel(`${grade.name} - ${grade.level}`);
+                        }
+                    }}>
+                        <SelectTrigger className="w-full p-4 border-2 border-slate-100 rounded-2xl bg-slate-50 text-black font-black uppercase italic outline-none focus:border-blue-600 transition-all">
+                            <SelectValue placeholder="Choose from Hospital Scale..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {grades?.map(g => (
+                                <SelectItem key={g.id} value={g.id}>{g.name} (L{g.level}) — ₵ {g.basicSalary}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <div className="mt-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase text-primary tracking-widest">Authorized Basic Pay</span>
+                        <span className="text-2xl font-black text-foreground">₵ {basicSalary.toLocaleString()}</span>
+                    </div>
+                    </div>
+                    <div className="mt-4 p-6 bg-green-50 rounded-3xl border border-green-100">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase text-green-700 tracking-widest">Calculated Gross Salary</span>
+                        <span className="text-2xl font-black text-green-900">₵ {grossSalary.toLocaleString()}</span>
+                    </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="bg-card p-8 rounded-[40px] border-2 border-border shadow-sm space-y-6">

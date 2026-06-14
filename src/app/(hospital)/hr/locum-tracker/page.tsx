@@ -88,7 +88,7 @@ export default function LocumShiftTracker() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {areLogsLoading && <TableRow><TableCell colSpan={4} className="h-48 text-center"><Loader2 className="animate-spin text-primary" /></TableCell></TableRow>}
+            {areLogsLoading && <tr><td colSpan={4} className="h-48 text-center"><Loader2 className="animate-spin text-primary" /></td></tr>}
             {!areLogsLoading && locumAttendance?.map((log: any) => (
               <tr key={log.id}>
                 <td className="p-6 uppercase text-sm">{log.staffName}</td>
