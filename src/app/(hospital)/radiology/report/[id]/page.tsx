@@ -51,6 +51,30 @@ export default function RadiologyReportingPage() {
 
   const { data: order, isLoading: isOrderLoading } = useDoc(orderRef);
 
+  const patientRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !order?.patientId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/patients`, order.patientId);
+  }, [firestore, hospitalId, order?.patientId]);
+  const { data: patientData } = useDoc(patientRef);
+
+  const providerRef = useMemoFirebase(() => {
+    if (!firestore || !order?.providerUid) return null;
+    return doc(firestore, 'users', order.providerUid);
+  }, [firestore, order?.providerUid]);
+  const { data: providerData } = useDoc(providerRef);
+
+  const resolvedPatientName = order?.patientName || 
+    (patientData ? `${patientData.firstName} ${patientData.lastName}` : '') || 
+    'Unknown Patient';
+
+  const resolvedProviderName = order?.providerName || 
+    providerData?.fullName || 
+    'Unknown Clinician';
+
+  const resolvedUnitName = order?.unitName || 
+    providerData?.department || 
+    'OPD';
+
   const form = useForm<ReportFormValues>({
     resolver: zodResolver(reportSchema),
     defaultValues: { findings: '', impression: '' },
@@ -101,10 +125,10 @@ export default function RadiologyReportingPage() {
       <div className="bg-card border-4 border-foreground p-8 rounded-[40px] shadow-sm flex justify-between items-center">
         <div>
            <h1 className="text-3xl font-black uppercase tracking-tighter italic text-foreground">Imaging <span className="text-orange-600">Report</span></h1>
-           <p className="text-muted-foreground font-bold uppercase text-[10px] mt-1 tracking-widest">{order?.scanName || order?.name} • Patient: {order?.patientName}</p>
+           <p className="text-muted-foreground font-bold uppercase text-[10px] mt-1 tracking-widest">{order?.scanName || order?.name} • Patient: {resolvedPatientName}</p>
            <div className="flex flex-wrap gap-4 mt-2 text-[10px] text-slate-500 font-black uppercase tracking-widest">
-              <span>Doctor: {order?.providerName || 'Unknown Clinician'}</span>
-              <span>Unit: {order?.unitName || 'OPD'}</span>
+              <span>Doctor: {resolvedProviderName}</span>
+              <span>Unit: {resolvedUnitName}</span>
            </div>
            <p className="text-[10px] font-black text-orange-600 mt-2 italic uppercase">Indication: {order?.indication}</p>
         </div>

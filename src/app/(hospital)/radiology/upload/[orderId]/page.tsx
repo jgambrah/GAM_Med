@@ -37,6 +37,30 @@ export default function RadiologyUpload() {
   }, [firestore, hospitalId, orderId]);
   const { data: orderDetails, isLoading: isOrderLoading } = useDoc(orderRef);
 
+  const patientRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !orderDetails?.patientId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/patients`, orderDetails.patientId);
+  }, [firestore, hospitalId, orderDetails?.patientId]);
+  const { data: patientData } = useDoc(patientRef);
+
+  const providerRef = useMemoFirebase(() => {
+    if (!firestore || !orderDetails?.providerUid) return null;
+    return doc(firestore, 'users', orderDetails.providerUid);
+  }, [firestore, orderDetails?.providerUid]);
+  const { data: providerData } = useDoc(providerRef);
+
+  const resolvedPatientName = orderDetails?.patientName || 
+    (patientData ? `${patientData.firstName} ${patientData.lastName}` : '') || 
+    'Unknown Patient';
+
+  const resolvedProviderName = orderDetails?.providerName || 
+    providerData?.fullName || 
+    'Unknown Clinician';
+
+  const resolvedUnitName = orderDetails?.unitName || 
+    providerData?.department || 
+    'OPD';
+
   const handleUpload = async () => {
     if (!file || !hospitalId || !orderId) {
       toast({ variant: 'destructive', title: "Error", description: "File, hospital, or order ID is missing." });
@@ -95,20 +119,20 @@ export default function RadiologyUpload() {
           <div className="bg-slate-900 text-white p-6 rounded-[32px] border-4 border-slate-950 shadow-md space-y-4">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Imaging Scan Request</span>
-              <span className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full uppercase tracking-wider">{orderDetails.name || 'Scan'}</span>
+              <span className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full uppercase tracking-wider">{orderDetails.scanName || orderDetails.name || 'Scan'}</span>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Patient Name</span>
-                <span className="text-sm font-black uppercase text-white">{orderDetails.patientName || 'Unknown Patient'}</span>
+                <span className="text-sm font-black uppercase text-white">{resolvedPatientName}</span>
               </div>
               <div>
                 <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Ordering Clinician</span>
-                <span className="text-sm font-black uppercase text-white">{orderDetails.providerName || 'Unknown Clinician'}</span>
+                <span className="text-sm font-black uppercase text-white">{resolvedProviderName}</span>
               </div>
               <div>
                 <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Originating Unit</span>
-                <span className="text-sm font-black uppercase text-white">{orderDetails.unitName || 'OPD'}</span>
+                <span className="text-sm font-black uppercase text-white">{resolvedUnitName}</span>
               </div>
               <div>
                 <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Request Date</span>

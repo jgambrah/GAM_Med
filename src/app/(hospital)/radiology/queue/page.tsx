@@ -112,10 +112,10 @@ export default function RadiologyQueuePage() {
 
               <div>
                 <p className="font-black text-card-foreground uppercase tracking-tight">{order.scanName}</p>
-                <p className="text-xs font-bold text-muted-foreground">Patient: {order.patientName}</p>
+                <p className="text-xs font-bold text-muted-foreground">Patient: {order.patientName || 'Unknown Patient'}</p>
                 <p className="text-xs italic text-muted-foreground mt-2">"{order.indication}"</p>
                 <p className="text-[10px] font-bold text-muted-foreground mt-2">
-                    Ordered By Dr. {order.providerName} • {formatDistanceToNow(safeToDate(order.orderedAt) || new Date(), { addSuffix: true })}
+                    Ordered By Dr. {order.providerName || 'Unknown Clinician'} • {formatDistanceToNow(safeToDate(order.orderedAt) || new Date(), { addSuffix: true })}
                 </p>
               </div>
               
