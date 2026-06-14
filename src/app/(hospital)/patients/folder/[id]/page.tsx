@@ -7,7 +7,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import {
   Activity, Thermometer, Pill, Beaker,
-  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit
+  History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit, Camera, Download
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -550,87 +550,257 @@ export default function PatientFolderHub() {
                         </p>
                     </div>
                 ) : (
-                    timelineActivities.filter(a => a.viewType === 'ENCOUNTER').map((encounter) => (
-                      <div key={encounter.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
-                        
-                        <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                           <div>
-                              <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
-                                 {encounter.type || 'Consultation'}
-                              </span>
-                              <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                 {encounter.hospitalName} • Dr. {encounter.providerName} ({encounter.providerRole})
-                              </p>
-                           </div>
-                           <div className="text-right">
-                              <p className="text-[10px] font-black text-slate-900 uppercase">
-                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                              </p>
-                              <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
-                                 {encounter.createdAt ? new Date(encounter.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                              </p>
-                           </div>
-                        </div>
+                    timelineActivities.map((activity: any) => {
+                      if (activity.viewType === 'ENCOUNTER') {
+                        return (
+                          <div key={activity.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
+                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                               <div>
+                                  <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
+                                     {activity.type || 'Consultation'}
+                                  </span>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                     {activity.hospitalName} • Dr. {activity.providerName} ({activity.providerRole})
+                                  </p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black text-slate-900 uppercase">
+                                     {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                  </p>
+                                  <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
+                                     {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                               </div>
+                            </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-slate-50 p-6 rounded-[32px]">
-                           <MiniVital label="BP" value={encounter.vitals?.bp} unit="mmHg" />
-                           <MiniVital label="Temp" value={encounter.vitals?.temp} unit="°C" />
-                           <MiniVital label="Pulse" value={encounter.vitals?.pulse} unit="bpm" />
-                           <MiniVital label="Resp" value={encounter.vitals?.respiration} unit="bpm" />
-                           <MiniVital label="BMI" value={encounter.vitals?.bmi} unit="" />
-                           <MiniVital label="Weight" value={encounter.vitals?.weight} unit="kg" />
-                        </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-slate-50 p-6 rounded-[32px]">
+                               <MiniVital label="BP" value={activity.vitals?.bp} unit="mmHg" />
+                               <MiniVital label="Temp" value={activity.vitals?.temp} unit="°C" />
+                               <MiniVital label="Pulse" value={activity.vitals?.pulse} unit="bpm" />
+                               <MiniVital label="Resp" value={activity.vitals?.respiration} unit="bpm" />
+                               <MiniVital label="BMI" value={activity.vitals?.bmi} unit="" />
+                               <MiniVital label="Weight" value={activity.vitals?.weight} unit="kg" />
+                            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                           <div className="space-y-2">
-                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
-                              <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
-                                 "{encounter.chiefComplaint || 'No subjective complaints recorded.'}"
-                              </p>
-                           </div>
-                           <div className="space-y-2">
-                              <p className="text-[9px] font-black text-red-600 uppercase tracking-widest border-l-4 border-red-600 pl-3">Provisional Diagnosis</p>
-                              <p className="text-lg font-black text-black uppercase tracking-tight">
-                                 {encounter.diagnosis || 'Pending Review'}
-                              </p>
-                           </div>
-                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                               <div className="space-y-2">
+                                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
+                                  <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
+                                     "{activity.chiefComplaint || 'No subjective complaints recorded.'}"
+                                  </p>
+                               </div>
+                               <div className="space-y-2">
+                                  <p className="text-[9px] font-black text-red-600 uppercase tracking-widest border-l-4 border-red-600 pl-3">Provisional Diagnosis</p>
+                                  <p className="text-lg font-black text-black uppercase tracking-tight">
+                                     {activity.diagnosis || 'Pending Review'}
+                                  </p>
+                               </div>
+                            </div>
 
-                        {(encounter.labOrders?.length > 0 || encounter.radiologyOrders?.length > 0) && (
-                          <div className="space-y-4">
-                             <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Diagnostic Requests</p>
-                             <div className="flex flex-wrap gap-3">
-                                {encounter.labOrders?.map((lab: any, i: number) => (
-                                   <div key={i} className="bg-purple-50 text-purple-700 px-4 py-2 rounded-2xl border border-purple-100 flex items-center gap-2">
-                                      <div className="w-2 h-2 rounded-full bg-purple-400" />
-                                      <span className="text-[11px] font-black uppercase">{lab.name || lab.testName}</span>
-                                   </div>
-                                ))}
-                                {encounter.radiologyOrders?.map((scan: any, i: number) => (
-                                   <div key={i} className="bg-orange-50 text-orange-700 px-4 py-2 rounded-2xl border border-orange-100 flex items-center gap-2">
-                                      <div className="w-2 h-2 rounded-full bg-orange-400" />
-                                      <span className="text-[11px] font-black uppercase">{scan.name}</span>
-                                   </div>
-                                ))}
-                             </div>
+                            {(activity.labOrders?.length > 0 || activity.radiologyOrders?.length > 0) && (
+                              <div className="space-y-4">
+                                 <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Diagnostic Requests</p>
+                                 <div className="flex flex-wrap gap-3">
+                                    {activity.labOrders?.map((lab: any, i: number) => (
+                                       <div key={i} className="bg-purple-50 text-purple-700 px-4 py-2 rounded-2xl border border-purple-100 flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-purple-400" />
+                                          <span className="text-[11px] font-black uppercase">{lab.name || lab.testName}</span>
+                                       </div>
+                                    ))}
+                                    {activity.radiologyOrders?.map((scan: any, i: number) => (
+                                       <div key={i} className="bg-orange-50 text-orange-700 px-4 py-2 rounded-2xl border border-orange-100 flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full bg-orange-400" />
+                                          <span className="text-[11px] font-black uppercase">{scan.name}</span>
+                                       </div>
+                                    ))}
+                                 </div>
+                              </div>
+                            )}
+
+                            {activity.prescription?.length > 0 && (
+                              <div className="bg-[#0f172a] p-6 rounded-[32px] text-white">
+                                 <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Treatment Plan / RX</p>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {activity.prescription.map((rx: any, idx: number) => (
+                                       <div key={idx} className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+                                          <p className="text-xs font-black uppercase text-white">{rx.name}</p>
+                                          <p className="text-[10px] font-bold text-blue-400 mt-1 uppercase italic">{rx.dosage} • {rx.frequency}</p>
+                                       </div>
+                                    ))}
+                                 </div>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        );
+                      }
 
-                        {encounter.prescription?.length > 0 && (
-                          <div className="bg-[#0f172a] p-6 rounded-[32px] text-white">
-                             <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Treatment Plan / RX</p>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {encounter.prescription.map((rx: any, idx: number) => (
-                                   <div key={idx} className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
-                                      <p className="text-xs font-black uppercase text-white">{rx.name}</p>
-                                      <p className="text-[10px] font-bold text-blue-400 mt-1 uppercase italic">{rx.dosage} • {rx.frequency}</p>
-                                   </div>
-                                ))}
-                             </div>
+                      if (activity.viewType === 'LAB_RESULT') {
+                        const isCritical = activity.isAbnormal || false;
+                        return (
+                          <div key={activity.id} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white ${isCritical ? 'border-red-600' : 'border-purple-600'}`}>
+                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                               <div>
+                                  <span className={`text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic ${isCritical ? 'bg-red-600 animate-pulse' : 'bg-purple-600'}`}>
+                                     {isCritical ? 'Critical Lab Result' : 'Lab Result Release'}
+                                  </span>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                     Tested at: {activity.hospitalName || userProfile?.hospitalName} • Tech: {activity.labTechName || 'Unknown Tech'}
+                                  </p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black text-slate-900 uppercase">
+                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                  </p>
+                                  <p className={`text-[10px] font-bold uppercase mt-1 ${isCritical ? 'text-red-600' : 'text-purple-600'}`}>
+                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                               </div>
+                            </div>
+
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 p-6 rounded-[32px]">
+                               <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Test Parameter</p>
+                                  <p className="text-sm font-black text-black uppercase tracking-tight mt-1">{activity.testName}</p>
+                                </div>
+                                <div className="text-left md:text-right">
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Measured Value</p>
+                                  <p className={`text-2xl font-black italic tracking-tighter mt-1 ${isCritical ? 'text-red-600' : 'text-purple-600'}`}>
+                                     {activity.resultValue} <span className="text-[10px] text-slate-400 not-italic font-bold">{activity.unit}</span>
+                                  </p>
+                                </div>
+                                <div className="text-left md:text-right bg-white px-4 py-2 rounded-xl border border-slate-100">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Reference Range</p>
+                                  <p className="text-xs font-bold text-slate-700 mt-0.5">{activity.referenceRange || 'N/A'} {activity.unit}</p>
+                                </div>
+                            </div>
+
+                            {activity.remarks && (
+                               <div className="space-y-2">
+                                  <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest border-l-4 border-purple-600 pl-3">Lab Tech Remarks</p>
+                                  <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
+                                     "{activity.remarks}"
+                                  </p>
+                               </div>
+                            )}
+
+                            {activity.reportUrl && (
+                               <div className="pt-2">
+                                  <a href={activity.reportUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-purple-50 text-purple-700 hover:bg-purple-100 px-4 py-2.5 rounded-2xl border border-purple-200 text-xs font-black uppercase tracking-wider transition-all">
+                                     <Download size={14} /> Download Digital Report File
+                                  </a>
+                               </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))
+                        );
+                      }
+
+                      if (activity.viewType === 'SCAN_RESULT') {
+                        return (
+                          <div key={activity.id} className="p-8 rounded-[40px] border-4 border-orange-600 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white">
+                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                               <div>
+                                  <span className="text-[10px] font-black bg-orange-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
+                                     Imaging Scan Report
+                                  </span>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                     Acquired at: {activity.hospitalName || userProfile?.hospitalName} • Radiologist: {activity.radiologistName || 'Unknown Clinician'}
+                                  </p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black text-slate-900 uppercase">
+                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                  </p>
+                                  <p className="text-[10px] font-bold text-orange-600 uppercase mt-1">
+                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                               </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-[32px]">
+                               <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scan Request</p>
+                                  <p className="text-lg font-black text-black uppercase tracking-tight mt-1">{activity.scanName || activity.name}</p>
+                               </div>
+                               {activity.indication && (
+                                  <div>
+                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clinical Indication</p>
+                                     <p className="text-xs font-bold text-slate-700 mt-1 uppercase italic">{activity.indication}</p>
+                                  </div>
+                               )}
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                               <div className="space-y-6">
+                                  <div className="space-y-2">
+                                     <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest border-l-4 border-orange-600 pl-3">Clinical Impression (Conclusion)</p>
+                                     <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
+                                        {activity.impression}
+                                     </p>
+                                  </div>
+                                  <div className="space-y-2">
+                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-300 pl-3">Detailed Findings</p>
+                                     <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-line">
+                                        {activity.findings}
+                                     </p>
+                                  </div>
+                               </div>
+
+                               {activity.imageUrl && (
+                                  <div className="space-y-2">
+                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clinical Scan Image</p>
+                                     <div className="relative rounded-[28px] overflow-hidden border-4 border-slate-900 bg-slate-950 aspect-video group">
+                                        <img src={activity.imageUrl} alt={activity.scanName} className="object-cover w-full h-full" />
+                                        <a href={activity.imageUrl} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 text-white font-black text-xs uppercase tracking-widest transition-all">
+                                           <Camera size={16} /> Open Full Image
+                                        </a>
+                                     </div>
+                                  </div>
+                               )}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (activity.viewType === 'PROCEDURE_LOG') {
+                        return (
+                          <div key={activity.id} className="p-8 rounded-[40px] border-4 border-slate-400 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white">
+                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                               <div>
+                                  <span className="text-[10px] font-black bg-slate-400 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
+                                     Surgical / Clinical Procedure
+                                  </span>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                     Performed by: Dr. {activity.doctorName || 'Unknown Doctor'}
+                                  </p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black text-slate-900 uppercase">
+                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                  </p>
+                                  <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">
+                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                               </div>
+                            </div>
+
+                            <div className="space-y-4">
+                               <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Procedure Name</p>
+                                  <p className="text-lg font-black text-black uppercase tracking-tight mt-1">{activity.procedureName}</p>
+                               </div>
+                               <div className="space-y-2">
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-300 pl-3">Procedure Notes</p>
+                                  <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-line">
+                                     {activity.notes}
+                                  </p>
+                               </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })
                 )}
             </div>
         )}

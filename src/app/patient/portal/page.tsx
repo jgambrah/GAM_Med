@@ -153,15 +153,15 @@ export default function PatientPortalPage() {
                       {rec.type === 'LAB' && <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Result: {rec.data.resultValue} {rec.data.unit}</p>}
                       {rec.type === 'SCAN' && <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Impression: {rec.data.impression}</p>}
                    </div>
-                   {rec.data.reportUrl ? (
+                   {(rec.data.reportUrl || rec.data.imageUrl) ? (
                      <a 
-                       href={rec.data.reportUrl} 
+                       href={rec.data.reportUrl || rec.data.imageUrl} 
                        download 
                        target="_blank"
                        rel="noopener noreferrer"
-                       className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg hover:bg-black transition-all"
+                       className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg hover:bg-black transition-all flex items-center justify-center"
                      >
-                        <Download size={18}/>
+                        {rec.type === 'SCAN' ? <Camera size={18}/> : <Download size={18}/>}
                      </a>
                    ) : (
                      <span className="text-[8px] font-bold text-slate-300 uppercase italic">Awaiting Digital Copy</span>
