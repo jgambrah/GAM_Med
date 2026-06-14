@@ -331,6 +331,7 @@ export default function PatientFolderHub() {
                 patientId={id as string} 
                 hospitalId={hospitalId} 
                 patientName={`${patient?.firstName} ${patient?.lastName}`} 
+                encounterId={patient?.activeEncounterId}
             />}
            {!isDeceased && patient && hospitalId && <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}

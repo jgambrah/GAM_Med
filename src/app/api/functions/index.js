@@ -157,7 +157,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   }
   
   const { 
-    patientId, patientName, vitals, encounterType, 
+    patientId, encounterId, patientName, vitals, encounterType, 
     labOrders = [], radiologyOrders = [], 
     items = [], // Standardized field
     isExternal, // Single flag
@@ -176,8 +176,14 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
   const patientRef = db.collection('hospitals').doc(hospitalId).collection('patients').doc(patientId);
   const billingItemsCollection = db.collection('hospitals').doc(hospitalId).collection('billing_items');
 
-  // --- THE SOLID FIX: Use a single top-level encounters collection ---
-  const encounterRef = db.collection('encounters').doc();
+  let encounterRef;
+  let isMerge = false;
+  if (encounterId) {
+    encounterRef = db.collection('encounters').doc(encounterId);
+    isMerge = true;
+  } else {
+    encounterRef = db.collection('encounters').doc();
+  }
 
   // Prepare encounter data
   const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
@@ -237,7 +243,19 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
       hasPendingLabs = true;
       for (const order of labOrders) {
         const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
-        batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+        batch.set(orderRef, { 
+          ...order, 
+          orderId: orderRef.id, 
+          patientId, 
+          patientName, 
+          hospitalId, 
+          encounterId: encounterRef.id, 
+          providerUid: request.auth.uid, 
+          providerName: userProfile?.fullName || request.auth.token.name || 'Unknown Staff', 
+          unitName: userProfile?.department || 'OPD', 
+          orderedAt: admin.firestore.FieldValue.serverTimestamp(), 
+          status: 'PENDING' 
+        });
         createBillingItem(order, 'LABORATORY');
       }
     }
@@ -246,33 +264,66 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
       hasPendingScans = true;
       for (const order of radiologyOrders) {
         const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
-        batch.set(orderRef, { ...order, orderId: orderRef.id, patientId, patientName, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+        batch.set(orderRef, { 
+          ...order, 
+          orderId: orderRef.id, 
+          patientId, 
+          patientName, 
+          hospitalId, 
+          encounterId: encounterRef.id, 
+          providerUid: request.auth.uid, 
+          providerName: userProfile?.fullName || request.auth.token.name || 'Unknown Staff', 
+          unitName: userProfile?.department || 'OPD', 
+          orderedAt: admin.firestore.FieldValue.serverTimestamp(), 
+          status: 'PENDING' 
+        });
         createBillingItem(order, 'IMAGING');
       }
     }
   }
   
-  // Set the main encounter document in the top-level collection
-  batch.set(encounterRef, {
+  const encounterData = {
     id: encounterRef.id, patientId, hospitalId, patientName, ehrNumber: patientData.ehrNumber, type: encounterType,
     hospitalName: hospitalData?.name,
     ghanaCardId: patientData.ghanaCardId,
-    providerUid: request.auth.uid, providerName: request.auth.token.name || 'Unknown Staff', providerRole: request.auth.token.role || 'UNKNOWN',
+    providerUid: request.auth.uid, 
+    providerName: userProfile?.fullName || request.auth.token.name || 'Unknown Staff', 
+    providerRole: request.auth.token.role || 'UNKNOWN',
     doctorMDC: userProfile?.licenseNumber || 'N/A', // For external print
-    vitals: fullVitals, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    vitals: fullVitals,
     items: finalItems, prescription: finalItems, // Support both legacy and new field names
     labOrders: labOrders || [], 
     radiologyOrders: radiologyOrders || [],
     hasPendingLabs, hasPendingScans,
     isExternal: isExternal || false,
     ...restOfEncounterData
-  });
-  
-  batch.update(patientRef, {
-    status: 'Waiting for Doctor', lastVitals: fullVitals, updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  };
 
-  if (!isExternal) {
+  if (isMerge) {
+    encounterData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    batch.set(encounterRef, encounterData, { merge: true });
+  } else {
+    encounterData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    batch.set(encounterRef, encounterData);
+  }
+  
+  const patientUpdates = {};
+  if (isMerge) {
+    patientUpdates.status = 'Active';
+    patientUpdates.activeEncounterId = null;
+    patientUpdates.assignedDoctorId = null;
+    patientUpdates.assignedDoctorName = null;
+    patientUpdates.assignedAt = null;
+  } else {
+    patientUpdates.status = 'Waiting for Assignment';
+    patientUpdates.activeEncounterId = encounterRef.id;
+    patientUpdates.lastVitals = fullVitals;
+  }
+  patientUpdates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+  batch.update(patientRef, patientUpdates);
+
+  if (!isExternal && !isMerge) {
       const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
       if (!serviceSnap.empty) {
           createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');
@@ -282,7 +333,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
 
   try {
     await batch.commit();
-    return { success: true, encounterId: encounterRef.id, message: 'Encounter created successfully.' };
+    return { success: true, encounterId: encounterRef.id, message: 'Encounter created/updated successfully.' };
   } catch (error) {
     console.error("Encounter creation failed:", error);
     throw new HttpsError('internal', 'Failed to save encounter and billing data.');

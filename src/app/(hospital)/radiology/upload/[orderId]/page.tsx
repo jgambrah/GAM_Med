@@ -8,6 +8,7 @@ import { Camera, UploadCloud, FileImage, Loader2, CheckCircle2, ArrowLeft } from
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { safeToDate } from '@/lib/utils';
 
 export default function RadiologyUpload() {
   const { orderId } = useParams();
@@ -29,6 +30,12 @@ export default function RadiologyUpload() {
   const { data: userProfile } = useDoc(userProfileRef);
 
   const hospitalId = userProfile?.hospitalId;
+
+  const orderRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !orderId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/radiology_orders`, orderId as string);
+  }, [firestore, hospitalId, orderId]);
+  const { data: orderDetails, isLoading: isOrderLoading } = useDoc(orderRef);
 
   const handleUpload = async () => {
     if (!file || !hospitalId || !orderId) {
@@ -79,6 +86,43 @@ export default function RadiologyUpload() {
         </Button>
         <h1 className="text-3xl font-black uppercase tracking-tighter italic">Image <span className="text-blue-600">Acquisition</span></h1>
         
+        {isOrderLoading ? (
+          <div className="flex justify-center p-6 bg-slate-50 rounded-[32px] border-2 border-slate-100">
+            <Loader2 className="animate-spin text-primary mr-2" />
+            <span>Loading request details...</span>
+          </div>
+        ) : orderDetails ? (
+          <div className="bg-slate-900 text-white p-6 rounded-[32px] border-4 border-slate-950 shadow-md space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Imaging Scan Request</span>
+              <span className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full uppercase tracking-wider">{orderDetails.name || 'Scan'}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Patient Name</span>
+                <span className="text-sm font-black uppercase text-white">{orderDetails.patientName || 'Unknown Patient'}</span>
+              </div>
+              <div>
+                <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Ordering Clinician</span>
+                <span className="text-sm font-black uppercase text-white">{orderDetails.providerName || 'Unknown Clinician'}</span>
+              </div>
+              <div>
+                <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Originating Unit</span>
+                <span className="text-sm font-black uppercase text-white">{orderDetails.unitName || 'OPD'}</span>
+              </div>
+              <div>
+                <span className="text-[8px] font-black text-slate-400 uppercase block tracking-wider">Request Date</span>
+                <span className="text-sm font-black uppercase text-white">
+                  {(() => {
+                    const d = safeToDate(orderDetails.orderedAt);
+                    return d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="bg-white p-10 rounded-[40px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center space-y-6 group hover:border-blue-600 transition-all">
             {file ? (
             <div className="text-center space-y-4">

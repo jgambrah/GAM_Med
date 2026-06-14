@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Beaker, Settings, Droplets,
-  LogOut, ChevronRight, Users
+  LogOut, ChevronRight, Users,
+  Calendar, Clock, Wallet, GraduationCap, Award
 } from 'lucide-react';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
 import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 const menuGroups = [
@@ -34,10 +36,28 @@ export function LabSidebar() {
   const router = useRouter();
   const firestore = useFirestore();
 
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+  const isLocum = userProfile?.contractType === 'LOCUM';
+
+  const myPortalMenu = {
+    title: "My Portal",
+    items: [
+       { name: "Request Leave", href: "/staff/request-leave", icon: Calendar },
+       { name: "Clock In / Out", href: "/staff/clock-in", icon: Clock },
+       isLocum ? { name: "My Locum Claims", href: "/doctor/my-claims", icon: Wallet } : { name: "My Payslips", href: "/staff/payslips", icon: Wallet },
+       { name: "My CPD", href: "/staff/my-cpd", icon: GraduationCap },
+       { name: "My Performance", href: "/staff/my-performance", icon: Award },
+    ]
+  };
+
   const handleLogout = async () => {
     if (auth && firestore && user?.uid) {
       try {
-        await autoClockOutIfNeeded(user.uid, firestore);
+        await autoClockOutIfNeeded(user.uid, firestore, userProfile);
       } catch (err) {
         console.error("Error during auto clock-out on logout:", err);
       }
@@ -63,6 +83,31 @@ export function LabSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-4">
+        {/* My Portal Menu Group */}
+        <div className="mb-6">
+          <h3 className="text-[10px] font-bold text-slate-400 tracking-widest px-3 mb-2 uppercase">
+            {myPortalMenu.title}
+          </h3>
+          <div className="space-y-1">
+            {myPortalMenu.items.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all group ${
+                    isActive ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-100'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span className="text-sm font-medium">{item.name}</span>
+                  {isActive && <ChevronRight size={14} className="ml-auto text-primary" />}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
         {menuGroups.map((group, idx) => (
           <div key={idx} className="mb-6">
             <h3 className="text-[10px] font-bold text-slate-400 tracking-widest px-3 mb-2 uppercase">

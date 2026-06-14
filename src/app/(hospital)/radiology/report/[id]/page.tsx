@@ -101,7 +101,11 @@ export default function RadiologyReportingPage() {
       <div className="bg-card border-4 border-foreground p-8 rounded-[40px] shadow-sm flex justify-between items-center">
         <div>
            <h1 className="text-3xl font-black uppercase tracking-tighter italic text-foreground">Imaging <span className="text-orange-600">Report</span></h1>
-           <p className="text-muted-foreground font-bold uppercase text-[10px] mt-1 tracking-widest">{order?.scanName} • Patient: {order?.patientName}</p>
+           <p className="text-muted-foreground font-bold uppercase text-[10px] mt-1 tracking-widest">{order?.scanName || order?.name} • Patient: {order?.patientName}</p>
+           <div className="flex flex-wrap gap-4 mt-2 text-[10px] text-slate-500 font-black uppercase tracking-widest">
+              <span>Doctor: {order?.providerName || 'Unknown Clinician'}</span>
+              <span>Unit: {order?.unitName || 'OPD'}</span>
+           </div>
            <p className="text-[10px] font-black text-orange-600 mt-2 italic uppercase">Indication: {order?.indication}</p>
         </div>
         <Camera size={40} className="text-muted-foreground/20" />

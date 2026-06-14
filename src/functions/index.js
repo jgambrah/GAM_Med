@@ -262,7 +262,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
   if (!hospitalId) throw new HttpsError('unauthenticated', 'User not associated with a hospital.');
 
   const data = request.data;
-  const { patientId, ...restOfData } = data;
+  const { patientId, encounterId, ...restOfData } = data;
   
   try {
     const clean = (val) => (val === undefined || val === null ? "" : val);
@@ -291,7 +291,15 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     if (!patientData) throw new HttpsError('not-found', 'Patient data is empty.');
 
     const batch = db.batch();
-    const encounterRef = db.collection("encounters").doc();
+    
+    let encounterRef;
+    let isMerge = false;
+    if (encounterId) {
+      encounterRef = db.collection("encounters").doc(encounterId);
+      isMerge = true;
+    } else {
+      encounterRef = db.collection("encounters").doc();
+    }
     
     const { 
         patientName, vitals, encounterType, 
@@ -348,6 +356,11 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
       }
     }
     
+    const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
+    const hospitalData = hospitalDoc.data();
+    const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
+    const userProfileData = userProfileSnap.data();
+
     let hasPendingLabs = false;
     let hasPendingScans = false;
 
@@ -356,7 +369,19 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
           hasPendingLabs = true;
           for (const order of labOrders) {
             const orderRef = db.collection('hospitals').doc(hospitalId).collection('lab_orders').doc();
-            batch.set(orderRef, { ...order, orderId: orderRef.id, patientId: patientDoc.id, patientName: `${patientData.firstName} ${patientData.lastName}`, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+            batch.set(orderRef, { 
+              ...order, 
+              orderId: orderRef.id, 
+              patientId: patientDoc.id, 
+              patientName: `${patientData.firstName} ${patientData.lastName}`, 
+              hospitalId, 
+              encounterId: encounterRef.id, 
+              providerUid: request.auth.uid, 
+              providerName: userProfileData?.fullName || request.auth.token.name || 'Unknown Staff', 
+              unitName: userProfileData?.department || 'OPD', 
+              orderedAt: admin.firestore.FieldValue.serverTimestamp(), 
+              status: 'PENDING' 
+            });
             createBillingItem(order, 'LABORATORY');
           }
         }
@@ -365,20 +390,27 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
           hasPendingScans = true;
           for (const order of radiologyOrders) {
             const orderRef = db.collection('hospitals').doc(hospitalId).collection('radiology_orders').doc();
-            batch.set(orderRef, { ...order, orderId: orderRef.id, patientId: patientDoc.id, patientName: `${patientData.firstName} ${patientData.lastName}`, hospitalId, encounterId: encounterRef.id, providerUid: request.auth.uid, providerName: request.auth.token.name, orderedAt: admin.firestore.FieldValue.serverTimestamp(), status: 'PENDING' });
+            batch.set(orderRef, { 
+              ...order, 
+              orderId: orderRef.id, 
+              patientId: patientDoc.id, 
+              patientName: `${patientData.firstName} ${patientData.lastName}`, 
+              hospitalId, 
+              encounterId: encounterRef.id, 
+              providerUid: request.auth.uid, 
+              providerName: userProfileData?.fullName || request.auth.token.name || 'Unknown Staff', 
+              unitName: userProfileData?.department || 'OPD', 
+              orderedAt: admin.firestore.FieldValue.serverTimestamp(), 
+              status: 'PENDING' 
+            });
             createBillingItem(order, 'IMAGING');
           }
         }
     }
 
-    const hospitalDoc = await db.collection('hospitals').doc(hospitalId).get();
-    const hospitalData = hospitalDoc.data();
-    const userProfileSnap = await db.collection('users').doc(request.auth.uid).get();
-    const userProfileData = userProfileSnap.data();
-
     const fullVitals = vitals ? { ...vitals, bp: (vitals.systolic && vitals.diastolic) ? `${vitals.systolic}/${vitals.diastolic}` : '' } : {};
 
-    batch.set(encounterRef, {
+    const encounterData = {
         id: encounterRef.id,
         patientId: patientDoc.id,
         hospitalId,
@@ -388,11 +420,10 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         hospitalName: hospitalData?.name,
         ghanaCardId: patientData.ghanaCardId,
         providerUid: request.auth.uid,
-        providerName: request.auth.token.name || 'Unknown Staff',
+        providerName: userProfileData?.fullName || request.auth.token.name || 'Unknown Staff',
         providerRole: request.auth.token.role || 'UNKNOWN',
         doctorMDC: userProfileData?.licenseNumber || 'N/A',
         vitals: fullVitals,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         items: finalItems,
         prescription: finalItems,
         labOrders: labOrders || [],
@@ -404,13 +435,31 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         chiefComplaint: clean(data.chiefComplaint),
         hpi: clean(data.hpi),
         diagnosis: clean(data.diagnosis),
-    });
+    };
 
-    batch.update(patientRef, {
-        status: 'Waiting for Assignment',
-        lastVitals: fullVitals,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    if (isMerge) {
+      encounterData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      batch.set(encounterRef, encounterData, { merge: true });
+    } else {
+      encounterData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      batch.set(encounterRef, encounterData);
+    }
+
+    const patientUpdates = {};
+    if (isMerge) {
+      patientUpdates.status = 'Active';
+      patientUpdates.activeEncounterId = null;
+      patientUpdates.assignedDoctorId = null;
+      patientUpdates.assignedDoctorName = null;
+      patientUpdates.assignedAt = null;
+    } else {
+      patientUpdates.status = 'Waiting for Assignment';
+      patientUpdates.activeEncounterId = encounterRef.id;
+      patientUpdates.lastVitals = fullVitals;
+    }
+    patientUpdates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+    batch.update(patientRef, patientUpdates);
     
     // SERVER-SIDE ALERT ENGINE
     const vitalAlerts = evaluateCriticalAlerts(fullVitals);
@@ -430,7 +479,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         });
     }
 
-    if (!isExternal) {
+    if (!isExternal && !isMerge) {
         const serviceSnap = await db.collection('hospitals').doc(hospitalId).collection('general_services').where('category', '==', 'CONSULTATION').limit(1).get();
         if (!serviceSnap.empty) {
             createBillingItem(serviceSnap.docs[0].data(), 'CONSULTATION');

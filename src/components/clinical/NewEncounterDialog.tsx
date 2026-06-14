@@ -89,6 +89,7 @@ interface NewEncounterDialogProps {
   onSuccess?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  encounterId?: string;
 }
 
 const validateVitals = (vitals: any) => {
@@ -125,6 +126,7 @@ export function NewEncounterDialog({
   onSuccess,
   open: controlledOpen,
   onOpenChange: setControlledOpen,
+  encounterId,
 }: NewEncounterDialogProps) {
   const { id: patientDocIdFromParams } = useParams();
   const patientId = propsPatientId || (patientDocIdFromParams as string);
@@ -139,6 +141,12 @@ export function NewEncounterDialog({
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
+
+  const encounterRef = useMemoFirebase(() => {
+    if (!firestore || !encounterId) return null;
+    return doc(firestore, 'encounters', encounterId);
+  }, [firestore, encounterId]);
+  const { data: existingEncounter } = useDoc(encounterRef);
 
   // State Management
   const [isExternal, setIsExternal] = useState(false);
@@ -246,6 +254,50 @@ export function NewEncounterDialog({
     setRadiologyOrders([]);
   }, [isExternal]);
 
+  useEffect(() => {
+    if (existingEncounter) {
+      const v = existingEncounter.vitals || {};
+      
+      let sys = v.systolic || '';
+      let dia = v.diastolic || '';
+      if (!sys && !dia && v.bp) {
+        const parts = v.bp.split('/');
+        if (parts.length === 2) {
+          sys = parts[0];
+          dia = parts[1];
+        }
+      }
+
+      form.reset({
+        encounterType: existingEncounter.type || 'Consultation',
+        chiefComplaint: existingEncounter.chiefComplaint || '',
+        hpi: existingEncounter.hpi || '',
+        diagnosis: existingEncounter.diagnosis || '',
+        vitals: {
+          temp: v.temp || '',
+          systolic: sys || '',
+          diastolic: dia || '',
+          pulse: v.pulse || '',
+          respiration: v.respiration || '',
+          weight: v.weight || '',
+          height: v.height || '',
+          spo2: v.spo2 || '',
+          bmi: v.bmi || '0.0',
+        }
+      });
+      
+      if (Array.isArray(existingEncounter.items)) {
+        setItems(existingEncounter.items);
+      }
+      if (Array.isArray(existingEncounter.labOrders)) {
+        setLabOrders(existingEncounter.labOrders);
+      }
+      if (Array.isArray(existingEncounter.radiologyOrders)) {
+        setRadiologyOrders(existingEncounter.radiologyOrders);
+      }
+    }
+  }, [existingEncounter, form]);
+
   const addTypedItem = () => {
     if (!extItemName) return;
     const newItem = {
@@ -293,6 +345,7 @@ export function NewEncounterDialog({
     }
 
     const payload = {
+      encounterId: encounterId || null,
       patientId: patientId,
       patientName: patientName || `${patientData?.firstName} ${patientData?.lastName}`,
       ghanaCardId: patientData?.ghanaCardId || 'GHA-NOT-SET',
@@ -360,7 +413,7 @@ export function NewEncounterDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary/90">
-          <Plus /> New Encounter
+          <Plus /> {encounterId ? "Continue Consultation" : "New Encounter"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0">
@@ -368,7 +421,7 @@ export function NewEncounterDialog({
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader className="bg-foreground p-8 text-background rounded-t-lg">
               <DialogTitle className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
-                <HeartPulse className="text-primary" /> New Encounter
+                <HeartPulse className="text-primary" /> {encounterId ? "Continue Consultation" : "New Encounter"}
               </DialogTitle>
               <DialogDescription className="text-primary/70 font-bold uppercase text-xs tracking-widest pt-2">
                 Patient: {patientName}
