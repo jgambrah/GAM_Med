@@ -1,5 +1,7 @@
 
 import * as admin from 'firebase-admin';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // This logic allows it to work on your computer (file) AND on Vercel (env vars)
 const adminConfig = {
@@ -19,13 +21,22 @@ if (!admin.apps.length) {
   } else {
     // LOCAL: Fallback to the local file (only works on your computer)
     try {
-      const serviceAccount = require("../../../serviceAccountKey.json");
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-      console.log("💻 Firebase Admin initialized via Local File");
+      const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
+      if (fs.existsSync(serviceAccountPath)) {
+        const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+        console.log("💻 Firebase Admin initialized via Local File");
+      } else {
+        console.warn("⚠️ serviceAccountKey.json not found in root directory, and environment variables are missing.");
+        admin.initializeApp({
+          projectId: adminConfig.projectId || 'studio-9271533993-3884b'
+        });
+        console.log("🛠️ Firebase Admin initialized with placeholder configuration for build compatibility.");
+      }
     } catch (e) {
-      console.error("❌ Firebase Admin failed to initialize. Missing Credentials. Make sure serviceAccountKey.json is in the root directory OR all FIREBASE_... environment variables are set.");
+      console.error("❌ Firebase Admin failed to initialize via local file:", e);
     }
   }
 }
