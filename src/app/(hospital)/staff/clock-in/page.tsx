@@ -270,7 +270,7 @@ export default function ClockInOutPage() {
     try {
       const clockInDate = activeLog.clockInTime.toDate();
       const diffMs = new Date().getTime() - clockInDate.getTime();
-      const hoursWorked = parseFloat(Math.max(0, diffMs / (1000 * 60 * 60)).toFixed(2));
+      const hoursWorked = parseFloat(Math.max(0, diffMs / (1000 * 60 * 60)).toFixed(6));
 
       const logDocRef = doc(firestore, `hospitals/${hospitalId}/attendance_logs`, activeLog.id);
       await updateDoc(logDocRef, {

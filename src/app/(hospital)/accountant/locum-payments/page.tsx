@@ -62,27 +62,20 @@ export default function LocumPaymentEngine() {
       const staffName = typedShifts[0]?.staffName || 'Unknown Locum';
       const salaryInfo = salaryProfiles.find(p => p.staffId === staffId);
       
-      const billingType = salaryInfo?.billingType || 'SHIFT';
-      const agreedRate = billingType === 'HOURLY'
-        ? (Number(salaryInfo?.hourlyRate) || 80)
-        : (Number(salaryInfo?.basicSalary) || 200);
+      const basicSalary = Number(salaryInfo?.basicSalary) || 0;
+      const hourlyRate = basicSalary > 0 
+        ? (basicSalary / 192) 
+        : (Number(salaryInfo?.hourlyRate) || 80);
 
-      let totalOwed = 0;
-      let totalHours = 0;
-
-      if (billingType === 'HOURLY') {
-        totalHours = typedShifts.reduce((sum, shift) => sum + (Number(shift.hoursWorked) || 0), 0);
-        totalOwed = totalHours * agreedRate;
-      } else {
-        totalOwed = typedShifts.length * agreedRate;
-      }
+      const totalHours = typedShifts.reduce((sum, shift) => sum + (Number(shift.hoursWorked) || 0), 0);
+      const totalOwed = totalHours * hourlyRate;
       
       return {
         staffId,
         staffName,
         shifts: typedShifts,
-        billingType,
-        agreedRate,
+        billingType: 'HOURLY_DERIVED',
+        agreedRate: hourlyRate,
         totalHours,
         totalOwed
       };
@@ -110,7 +103,7 @@ export default function LocumPaymentEngine() {
       batch.set(pvRef, {
         pvNumber,
         payee: locumData.staffName,
-        narration: `Payment for ${locumData.shifts.length} Locum shifts (${locumData.billingType === 'HOURLY' ? locumData.totalHours + ' hrs' : 'flat rate'}) in ${new Date().toLocaleString('en-GB', {month: 'long', year: 'numeric'})}`,
+        narration: `Payment for ${locumData.shifts.length} Locum shifts (${locumData.totalHours.toFixed(2)} hrs) in ${new Date().toLocaleString('en-GB', {month: 'long', year: 'numeric'})}`,
         grossAmount,
         whtRate: 0.075,
         whtAmount,
@@ -132,7 +125,7 @@ export default function LocumPaymentEngine() {
         category: "PAYROLL",
         status: 'UNPAID',
         hospitalId: hospitalId,
-        description: `Locum payment net payable for ${locumData.shifts.length} shifts (${locumData.billingType === 'HOURLY' ? locumData.totalHours + ' hrs' : 'flat rate'})`,
+        description: `Locum payment net payable for ${locumData.shifts.length} shifts (${locumData.totalHours.toFixed(2)} hrs)`,
         pvId: pvRef.id,
         pvNumber: pvNumber,
         createdAt: serverTimestamp()
@@ -209,11 +202,8 @@ export default function LocumPaymentEngine() {
                             <div className="bg-primary/10 text-primary p-3 rounded-2xl"><UserCheck size={24}/></div>
                             <div>
                                 <h3 className="text-xl font-black uppercase text-card-foreground">{locum.staffName}</h3>
-                                <p className="text-xs font-bold text-muted-foreground">
-                                    {locum.billingType === 'HOURLY' 
-                                      ? `${locum.totalHours} Hrs @ ₵${locum.agreedRate}/hr` 
-                                      : `${locum.shifts.length} Unpaid Shifts @ ₵${locum.agreedRate}/shift`
-                                    }
+                                <p className="text-xs font-bold text-muted-foreground text-left">
+                                    {locum.totalHours.toFixed(4)} Hrs @ ₵{locum.agreedRate.toFixed(4)}/hr (derived)
                                 </p>
                             </div>
                         </div>

@@ -47,10 +47,10 @@ export default function LocumMyClaims() {
   }, [firestore, hospitalId, user]);
   const { data: salaryProfile, isLoading: isSalaryLoading } = useDoc(salaryProfileRef);
   
-  const billingType = salaryProfile?.billingType || 'SHIFT';
-  const agreedRate = billingType === 'HOURLY' 
-    ? (salaryProfile?.hourlyRate || 0) 
-    : (salaryProfile?.basicSalary || 0);
+  const basicSalary = salaryProfile?.basicSalary || 0;
+  const hourlyRate = basicSalary > 0 
+    ? (basicSalary / 192) 
+    : (salaryProfile?.hourlyRate || 0);
 
   // Get all attendance logs for this user
   const shiftsQuery = useMemoFirebase(() => {
@@ -69,18 +69,20 @@ export default function LocumMyClaims() {
     return shifts?.some(s => s.clockOutTime === null || s.clockOutTime === undefined) || false;
   }, [shifts]);
 
-  // Set up ticker to update active shift calculation progressively every 10 seconds (for efficiency)
+  // Set up ticker to update active shift calculation progressively every 1 second (for real-time visual progress)
   useEffect(() => {
     if (!hasActiveShift) return;
     const interval = setInterval(() => {
       setTick(t => t + 1);
-    }, 10000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [hasActiveShift]);
 
   // Progressive calculation of unpaid claims
   const { pendingGHC, whtAmount, unpaidShiftsCount } = useMemo(() => {
-    if (!shifts || agreedRate === 0) return { pendingGHC: 0, whtAmount: 0, unpaidShiftsCount: 0 };
+    if (!shifts || (basicSalary === 0 && (salaryProfile?.hourlyRate || 0) === 0)) {
+      return { pendingGHC: 0, whtAmount: 0, unpaidShiftsCount: 0 };
+    }
     
     const unpaid = shifts.filter(s => s.paymentStatus === 'UNPAID');
     let totalGross = 0;
@@ -89,25 +91,13 @@ export default function LocumMyClaims() {
       const isActive = s.clockOutTime === null || s.clockOutTime === undefined;
       if (!isActive) {
         // Completed Shift
-        if (billingType === 'HOURLY') {
-          totalGross += (s.hoursWorked || 0) * agreedRate;
-        } else {
-          totalGross += agreedRate;
-        }
+        totalGross += (s.hoursWorked || 0) * hourlyRate;
       } else if (s.clockInTime) {
-        // Active Shift (calculate progressively based on elapsed minutes)
+        // Active Shift (calculate progressively based on elapsed milliseconds)
         const clockInDate = s.clockInTime.toDate();
         const elapsedMs = new Date().getTime() - clockInDate.getTime();
-        const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / (1000 * 60)));
-        const elapsedHours = elapsedMinutes / 60;
-
-        if (billingType === 'HOURLY') {
-          totalGross += elapsedHours * agreedRate;
-        } else {
-          const stdHours = getShiftStandardHours(s.startTime, s.endTime);
-          const fraction = Math.min(1, elapsedHours / stdHours);
-          totalGross += fraction * agreedRate;
-        }
+        const elapsedHours = Math.max(0, elapsedMs / (1000 * 60 * 60));
+        totalGross += elapsedHours * hourlyRate;
       }
     });
 
@@ -118,7 +108,7 @@ export default function LocumMyClaims() {
         whtAmount: wht,
         unpaidShiftsCount: unpaid.length
     }
-  }, [shifts, agreedRate, billingType, tick]);
+  }, [shifts, basicSalary, hourlyRate, salaryProfile, tick]);
 
   const isLoading = isAuthLoading || isProfileLoading || isSalaryLoading || areShiftsLoading;
 
@@ -163,9 +153,10 @@ export default function LocumMyClaims() {
               <p className="text-[9px] font-black uppercase text-slate-400">Unpaid Shifts</p>
               <p className="text-lg font-black">{unpaidShiftsCount}</p>
            </div>
-           <div className="hidden md:block">
-              <p className="text-[9px] font-black uppercase text-slate-400">Agreed Rate ({billingType})</p>
-              <p className="text-lg font-black text-green-400">₵ {agreedRate.toFixed(2)} / {billingType === 'HOURLY' ? 'Hour' : 'Shift'}</p>
+           <div className="hidden md:block text-left">
+              <p className="text-[9px] font-black uppercase text-slate-400">Agreed Hourly Rate</p>
+              <p className="text-lg font-black text-green-400">₵ {hourlyRate.toFixed(4)} / Hour</p>
+              <p className="text-[8px] font-semibold text-slate-400 uppercase mt-0.5 leading-normal">Derived from Basic Salary (₵{basicSalary.toFixed(2)} / 192 hrs)</p>
            </div>
         </div>
       </div>
@@ -188,22 +179,10 @@ export default function LocumMyClaims() {
 
             if (isActive && s.clockInTime) {
               const elapsedMs = new Date().getTime() - s.clockInTime.toDate().getTime();
-              const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / (1000 * 60)));
-              displayHours = elapsedMinutes / 60;
-              
-              if (billingType === 'HOURLY') {
-                displayGross = displayHours * agreedRate;
-              } else {
-                const stdHours = getShiftStandardHours(s.startTime, s.endTime);
-                const fraction = Math.min(1, displayHours / stdHours);
-                displayGross = fraction * agreedRate;
-              }
+              displayHours = Math.max(0, elapsedMs / (1000 * 60 * 60));
+              displayGross = displayHours * hourlyRate;
             } else {
-              if (billingType === 'HOURLY') {
-                displayGross = (s.hoursWorked || 0) * agreedRate;
-              } else {
-                displayGross = agreedRate;
-              }
+              displayGross = (s.hoursWorked || 0) * hourlyRate;
             }
 
             return (
@@ -219,7 +198,7 @@ export default function LocumMyClaims() {
                        <div className="flex gap-3 mt-1">
                           <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${isActive ? 'text-green-600 animate-pulse' : 'text-slate-400'}`}>
                              <Clock size={10}/> 
-                             {isActive ? `${displayHours.toFixed(2)} Hours (Active)` : `${displayHours} Hours`}
+                             {isActive ? `${displayHours.toFixed(4)} Hours (Active)` : `${Number(displayHours).toFixed(4)} Hours`}
                           </span>
                           <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1"><ShieldCheck size={10}/> Verified</span>
                        </div>
