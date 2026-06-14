@@ -1,9 +1,9 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useFirebaseApp, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useFirebaseApp, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp, collection, query, where } from 'firebase/firestore';
 import { Camera, UploadCloud, FileImage, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -43,11 +43,12 @@ export default function RadiologyUpload() {
   }, [firestore, hospitalId, orderDetails?.patientId]);
   const { data: patientData } = useDoc(patientRef);
 
-  const providerRef = useMemoFirebase(() => {
+  const providerQuery = useMemoFirebase(() => {
     if (!firestore || !orderDetails?.providerUid) return null;
-    return doc(firestore, 'users', orderDetails.providerUid);
+    return query(collection(firestore, 'users'), where('uid', '==', orderDetails.providerUid));
   }, [firestore, orderDetails?.providerUid]);
-  const { data: providerData } = useDoc(providerRef);
+  const { data: providersList } = useCollection(providerQuery);
+  const providerData = providersList?.[0];
 
   const resolvedPatientName = orderDetails?.patientName || 
     (patientData ? `${patientData.firstName} ${patientData.lastName}` : '') || 

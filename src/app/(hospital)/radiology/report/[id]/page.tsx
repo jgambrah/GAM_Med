@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { doc, serverTimestamp, collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -57,11 +57,12 @@ export default function RadiologyReportingPage() {
   }, [firestore, hospitalId, order?.patientId]);
   const { data: patientData } = useDoc(patientRef);
 
-  const providerRef = useMemoFirebase(() => {
+  const providerQuery = useMemoFirebase(() => {
     if (!firestore || !order?.providerUid) return null;
-    return doc(firestore, 'users', order.providerUid);
+    return query(collection(firestore, 'users'), where('uid', '==', order?.providerUid));
   }, [firestore, order?.providerUid]);
-  const { data: providerData } = useDoc(providerRef);
+  const { data: providersList } = useCollection(providerQuery);
+  const providerData = providersList?.[0];
 
   const resolvedPatientName = order?.patientName || 
     (patientData ? `${patientData.firstName} ${patientData.lastName}` : '') || 
