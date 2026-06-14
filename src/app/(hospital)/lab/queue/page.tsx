@@ -6,13 +6,14 @@ import { FlaskConical, Loader2, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
+import { safeToDate } from '@/lib/utils';
 
 type LabOrder = {
   id: string;
   testName: string;
   patientName: string;
   providerName: string;
-  orderedAt: { toDate: () => Date };
+  orderedAt: any;
 };
 
 export default function LabQueuePage() {
@@ -109,7 +110,7 @@ export default function LabQueuePage() {
                 <p className="font-black text-card-foreground uppercase tracking-tight">{order.testName}</p>
                 <p className="text-xs font-bold text-muted-foreground">Patient: {order.patientName}</p>
                 <p className="text-[10px] font-bold text-muted-foreground">
-                    Ordered By Dr. {order.providerName} • {formatDistanceToNow(order.orderedAt.toDate(), { addSuffix: true })}
+                    Ordered By Dr. {order.providerName} • {formatDistanceToNow(safeToDate(order.orderedAt) || new Date(), { addSuffix: true })}
                 </p>
               </div>
 

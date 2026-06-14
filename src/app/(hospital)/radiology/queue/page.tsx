@@ -5,6 +5,7 @@ import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Camera, Loader2, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
+import { safeToDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
@@ -15,7 +16,7 @@ type RadiologyOrder = {
   providerName: string;
   modality: string;
   indication: string;
-  orderedAt: { toDate: () => Date };
+  orderedAt: any;
 };
 
 export default function RadiologyQueuePage() {
@@ -114,7 +115,7 @@ export default function RadiologyQueuePage() {
                 <p className="text-xs font-bold text-muted-foreground">Patient: {order.patientName}</p>
                 <p className="text-xs italic text-muted-foreground mt-2">"{order.indication}"</p>
                 <p className="text-[10px] font-bold text-muted-foreground mt-2">
-                    Ordered By Dr. {order.providerName} • {formatDistanceToNow(order.orderedAt.toDate(), { addSuffix: true })}
+                    Ordered By Dr. {order.providerName} • {formatDistanceToNow(safeToDate(order.orderedAt) || new Date(), { addSuffix: true })}
                 </p>
               </div>
               

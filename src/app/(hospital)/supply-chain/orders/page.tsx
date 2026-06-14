@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import { safeToDate } from '@/lib/utils';
 import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
 import Link from 'next/link';
 
@@ -125,7 +126,7 @@ export default function PurchaseOrderPage() {
                       <TableCell>
                           <Badge variant={po.status === 'RECEIVED' ? 'default' : po.status === 'FORCE_CLOSED' ? 'destructive' : 'secondary'}>{po.status}</Badge>
                       </TableCell>
-                      <TableCell>{po.orderedAt ? format(po.orderedAt.toDate(), 'PPP') : 'N/A'}</TableCell>
+                      <TableCell>{safeToDate(po.orderedAt) ? format(safeToDate(po.orderedAt)!, 'PPP') : 'N/A'}</TableCell>
                       <TableCell>{po.items.length}</TableCell>
                       <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
