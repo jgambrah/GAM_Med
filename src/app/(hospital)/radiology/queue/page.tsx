@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { Camera, Loader2, ShieldAlert, CheckCircle2, Download, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
-import { safeToDate } from '@/lib/utils';
+import { safeToDate, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 
 type RadiologyOrder = {
   id: string;
+  encounterId?: string;
   scanName: string;
   patientName: string;
   providerName: string;
@@ -50,6 +51,37 @@ export default function RadiologyQueuePage() {
   const hospitalId = claims?.hospitalId;
   const userRole = claims?.role;
   const isAuthorized = userRole === 'DIRECTOR' || userRole === 'RADIOLOGIST' || userRole === 'ADMIN';
+
+  const [emergencyOverrides, setEmergencyOverrides] = useState<Record<string, boolean>>({});
+
+  const hospitalRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return doc(firestore, 'hospitals', hospitalId);
+  }, [firestore, hospitalId]);
+  const { data: hospital } = useDoc(hospitalRef);
+  const paymentPolicy = hospital?.diagnosticPaymentPolicy || 'NONE';
+
+  const billingQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/billing_items`),
+      where("status", "==", "UNPAID")
+    );
+  }, [firestore, hospitalId]);
+  const { data: unpaidBillingItems } = useCollection<any>(billingQuery);
+
+  const getOrderPaymentStatus = (order: RadiologyOrder) => {
+    if (paymentPolicy === 'NONE') return 'PAID';
+    if (!unpaidBillingItems) return 'LOADING';
+    const matchingUnpaid = unpaidBillingItems.find(item => 
+      item.encounterId === order.encounterId &&
+      item.category === 'IMAGING' &&
+      item.description.toLowerCase() === order.scanName.toLowerCase()
+    );
+    if (!matchingUnpaid) return 'PAID';
+    if (matchingUnpaid.billingType === 'INSURANCE_CLAIM') return 'INSURANCE';
+    return 'UNPAID';
+  };
 
   const allScansQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -132,6 +164,9 @@ export default function RadiologyQueuePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeOrders.map((order) => {
               const needsUpload = order.status === 'PENDING';
+              const paymentStatus = getOrderPaymentStatus(order);
+              const isLocked = paymentPolicy === 'STRICT' && paymentStatus === 'UNPAID' && !emergencyOverrides[order.id];
+
               return (
                 <div key={order.id} className="bg-card p-6 rounded-[32px] border shadow-sm space-y-4 hover:border-orange-200 transition-all flex flex-col justify-between">
                    <div>
@@ -139,9 +174,22 @@ export default function RadiologyQueuePage() {
                        <div className="bg-orange-100 p-3 rounded-2xl text-orange-600">
                           <Camera size={24} />
                        </div>
-                       <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${needsUpload ? 'bg-blue-100/60 text-blue-800 border-blue-200' : 'bg-green-100/60 text-green-800 border-green-200 animate-pulse'}`}>
-                          {needsUpload ? 'AWAITING UPLOAD' : 'IMAGE READY'}
-                       </span>
+                       <div className="flex flex-col items-end gap-1.5">
+                         <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${needsUpload ? 'bg-blue-100/60 text-blue-800 border-blue-200' : 'bg-green-100/60 text-green-800 border-green-200 animate-pulse'}`}>
+                            {needsUpload ? 'AWAITING UPLOAD' : 'IMAGE READY'}
+                         </span>
+                         {paymentPolicy !== 'NONE' && (
+                           <span className={cn(
+                             "text-[8px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0",
+                             paymentStatus === 'PAID' && "bg-green-50 text-green-700 border-green-200",
+                             paymentStatus === 'INSURANCE' && "bg-blue-50 text-blue-700 border-blue-200",
+                             paymentStatus === 'UNPAID' && "bg-red-50 text-red-700 border-red-200",
+                             paymentStatus === 'LOADING' && "bg-slate-50 text-slate-400 border-slate-200 animate-pulse"
+                           )}>
+                             {paymentStatus}
+                           </span>
+                         )}
+                       </div>
                      </div>
 
                      <div className="space-y-1">
@@ -154,17 +202,48 @@ export default function RadiologyQueuePage() {
                      </div>
                    </div>
                    
+                   {paymentPolicy === 'STRICT' && paymentStatus === 'UNPAID' && (
+                     <div className="flex items-center gap-2 mt-2 bg-red-50/60 p-2.5 rounded-xl border border-red-100">
+                       <input 
+                         type="checkbox" 
+                         id={`override-${order.id}`}
+                         checked={!!emergencyOverrides[order.id]}
+                         onChange={(e) => setEmergencyOverrides(prev => ({ ...prev, [order.id]: e.target.checked }))}
+                         className="w-3.5 h-3.5 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                       />
+                       <label htmlFor={`override-${order.id}`} className="text-[9px] font-black text-red-800 uppercase cursor-pointer select-none">
+                         Emergency Override
+                       </label>
+                     </div>
+                   )}
+
                    {needsUpload ? (
-                     <Button asChild className="w-full bg-foreground hover:bg-orange-600 text-background font-black uppercase text-[10px] tracking-widest transition-all mt-4 py-5 rounded-2xl">
+                     <Button 
+                       disabled={isLocked}
+                       asChild={!isLocked} 
+                       className="w-full bg-foreground hover:bg-orange-600 text-background font-black uppercase text-[10px] tracking-widest transition-all mt-4 py-5 rounded-2xl disabled:bg-slate-100 disabled:text-slate-400"
+                     >
+                       {isLocked ? (
+                         <span>Payment Pending</span>
+                       ) : (
                          <Link href={`/radiology/upload/${order.id}`}>
                              Acquire & Upload Image
                          </Link>
+                       )}
                      </Button>
                    ) : (
-                     <Button asChild className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-widest transition-all mt-4 py-5 rounded-2xl">
+                     <Button 
+                       disabled={isLocked}
+                       asChild={!isLocked} 
+                       className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-widest transition-all mt-4 py-5 rounded-2xl disabled:bg-slate-100 disabled:text-slate-400"
+                     >
+                       {isLocked ? (
+                         <span>Payment Pending</span>
+                       ) : (
                          <Link href={`/radiology/report/${order.id}`}>
                              Write Report & Sign
                          </Link>
+                       )}
                      </Button>
                    )}
                 </div>

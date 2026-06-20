@@ -24,18 +24,19 @@ service cloud.firestore {
     }
 
     function getCallingUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : {};
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : {};
     }
 
     function getCallingUserHospitalId() {
+      let token = request.auth.token;
       let userData = getCallingUserData();
-      return userData != null && 'hospitalId' in userData ? userData.hospitalId : null;
+      return token != null && 'hospitalId' in token ? token.hospitalId : (userData != null && 'hospitalId' in userData ? userData.hospitalId : null);
     }
 
     function getCallingUserRole() {
+      let token = request.auth.token;
       let userData = getCallingUserData();
-      return userData != null && 'role' in userData ? userData.role : null;
+      return token != null && 'role' in token ? token.role : (userData != null && 'role' in userData ? userData.role : null);
     }
 
     function isStaffOfHospital(hospitalId) {
@@ -327,8 +328,7 @@ service cloud.firestore {
     match /users/{userId} {
       function isHospitalAdminForUser() {
         let userData = getCallingUserData();
-        let resourcePath = /databases/$(database)/documents/users/$(userId);
-        let resourceData = exists(resourcePath) ? get(resourcePath).data : null;
+        let resourceData = exists(/databases/$(database)/documents/users/$(userId)) ? get(/databases/$(database)/documents/users/$(userId)).data : null;
         return userData != null && resourceData != null && 'hospitalId' in userData && 'hospitalId' in resourceData && userData.hospitalId == resourceData.hospitalId && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'HR_MANAGER'];
       }
 
@@ -589,7 +589,8 @@ service cloud.firestore {
       }
 
       match /general_services/{serviceId} {
-        allow read, write, list, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow write, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
        match /billing_items/{itemId} {

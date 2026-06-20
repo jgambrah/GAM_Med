@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Package, Truck, Building2,
   Settings, LogOut, ChevronRight, Archive, ArrowUpRight,
-  Calendar, Clock, Wallet, GraduationCap, Award
+  Calendar, Clock, Wallet, GraduationCap, Award, ClipboardList
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -17,6 +17,7 @@ const menuGroups = [
     title: "Pharmacy",
     items: [
       { name: "Dashboard", href: "/pharmacy", icon: LayoutDashboard },
+      { name: "Dispensing Queue", href: "/pharmacy/dispensing", icon: ClipboardList },
       { name: "Inventory", href: "/pharmacy/inventory", icon: Package },
     ]
   },

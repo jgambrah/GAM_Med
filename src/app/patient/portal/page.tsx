@@ -2,11 +2,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
+import { collectionGroup, query, where, orderBy, collection } from 'firebase/firestore';
 import { 
   HeartPulse, Beaker, Camera, Pill, 
   CreditCard, Bell, 
-  Download, Loader2, ServerCrash, LogOut, Calendar, Share2
+  Download, Loader2, ServerCrash, LogOut, Calendar, Share2, BedDouble
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -73,6 +73,25 @@ export default function PatientPortalPage() {
   [firestore, patient]);
   const { data: payments, isLoading: arePaymentsLoading, error: paymentError } = useCollection(paymentsQuery);
 
+  const admissionsQuery = useMemoFirebase(() => 
+    firestore && patient?.id ? query(collectionGroup(firestore, "admissions"), where("patientId", "==", patient.id), orderBy("admittedAt", "desc")) : null,
+  [firestore, patient]);
+  const { data: admissions, isLoading: areAdmissionsLoading } = useCollection(admissionsQuery);
+  
+  const activeAdmission = useMemo(() => {
+    if (!admissions) return null;
+    return admissions.find(adm => adm.status === 'ADMITTED') || null;
+  }, [admissions]);
+
+  const activeRoundQuery = useMemoFirebase(() => {
+    if (!firestore || !patient || !activeAdmission) return null;
+    return query(
+      collection(firestore, `hospitals/${activeAdmission.hospitalId}/admissions/${activeAdmission.id}/rounds`),
+      orderBy("createdAt", "desc")
+    );
+  }, [firestore, patient, activeAdmission]);
+  const { data: activeRounds, isLoading: areRoundsLoading } = useCollection(activeRoundQuery);
+
   const diagnosticRecords: Record[] = useMemo(() => {
     const labs = (labRecords || []).map(r => ({ id: r.id, type: 'LAB' as const, name: r.testName, date: r.completedAt.toDate(), data: r }));
     const scans = (scanRecords || []).map(r => ({ id: r.id, type: 'SCAN' as const, name: r.scanName, date: r.completedAt.toDate(), data: r }));
@@ -88,7 +107,7 @@ export default function PatientPortalPage() {
     router.push('/patient/login');
   };
   
-  const isLoading = !patient || areLabsLoading || areScansLoading || areEncountersLoading || arePaymentsLoading;
+  const isLoading = !patient || areLabsLoading || areScansLoading || areEncountersLoading || arePaymentsLoading || areAdmissionsLoading;
   const hasError = labError || scanError || encounterError || paymentError;
 
   return (
@@ -112,6 +131,69 @@ export default function PatientPortalPage() {
            <StatCard label="My Blood Group" value={patient?.bloodGroup || 'N/A'} color="text-red-600" />
            <StatCard label="My NHIS Status" value={patient?.nhisNumber ? 'ACTIVE' : 'N/A'} color="text-green-600" />
         </div>
+
+        {activeAdmission && (
+          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-8 rounded-[40px] shadow-xl border-4 border-indigo-500 space-y-6">
+            <div className="flex justify-between items-start border-b border-indigo-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-600 p-3 rounded-2xl">
+                  <BedDouble className="text-white animate-pulse" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-xs uppercase tracking-widest text-indigo-300">Active Inpatient Admission</h3>
+                  <p className="text-lg font-black uppercase mt-0.5">{activeAdmission.wardName || 'General Ward'} — {activeAdmission.bedName || 'Bed'}</p>
+                </div>
+              </div>
+              <span className="bg-indigo-500/20 text-indigo-300 font-black px-3 py-1.5 rounded-xl uppercase tracking-wider text-[9px] border border-indigo-500/30 animate-pulse">
+                ADMITTED
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <p className="text-slate-400 font-bold uppercase">Admission Date</p>
+                <p className="font-bold text-slate-200 mt-0.5">{activeAdmission.admittedAt ? format(activeAdmission.admittedAt.toDate(), 'PPP') : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 font-bold uppercase">Hospital / Facility</p>
+                <p className="font-bold text-slate-200 mt-0.5 uppercase tracking-tighter">{activeAdmission.hospitalId}</p>
+              </div>
+            </div>
+
+            {/* Latest Nurse Rounds updates */}
+            <div className="space-y-3 pt-4 border-t border-indigo-800">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Latest Inpatient Vitals & Progress</h4>
+              {areRoundsLoading ? (
+                <div className="flex justify-center py-4"><Loader2 className="animate-spin text-indigo-400" /></div>
+              ) : activeRounds && activeRounds.length > 0 ? (
+                <div className="bg-slate-950/40 p-5 rounded-3xl border border-indigo-900/50 space-y-4">
+                  <div className="grid grid-cols-5 gap-2 text-center bg-indigo-950/30 p-3 rounded-2xl">
+                    <MiniVitalDark label="BP" value={activeRounds[0].vitals?.bp} unit="mmHg" />
+                    <MiniVitalDark label="Temp" value={activeRounds[0].vitals?.temp} unit="°C" />
+                    <MiniVitalDark label="Pulse" value={activeRounds[0].vitals?.pulse} unit="bpm" />
+                    <MiniVitalDark label="Resp" value={activeRounds[0].vitals?.respiration} unit="bpm" />
+                    <MiniVitalDark label="SPO2" value={activeRounds[0].vitals?.spo2} unit="%" />
+                  </div>
+                  {activeRounds[0].nursingNotes && (
+                    <div>
+                      <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">Nursing Progress Note</p>
+                      <p className="text-xs text-slate-300 mt-1 italic font-medium">"{activeRounds[0].nursingNotes}"</p>
+                    </div>
+                  )}
+                  {activeRounds[0].medicationsAdministered && (
+                    <div>
+                      <p className="text-[9px] font-black text-red-400 uppercase tracking-widest">Medications Logged</p>
+                      <p className="text-xs text-slate-300 mt-0.5 font-bold">{activeRounds[0].medicationsAdministered}</p>
+                    </div>
+                  )}
+                  <p className="text-[8px] font-bold text-slate-500 text-right uppercase mt-2">Logged by: {activeRounds[0].nurseName} on {activeRounds[0].createdAt ? format(activeRounds[0].createdAt.toDate(), 'PP p') : ''}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No rounds have been documented by the nursing desk yet.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/patient/portal/book">
@@ -231,3 +313,12 @@ const EmptyState = ({ text }: { text: string }) => (
         {text}
     </div>
 );
+
+function MiniVitalDark({ label, value, unit }: any) {
+  return (
+    <div>
+       <p className="text-[8px] font-black text-indigo-300 uppercase">{label}</p>
+       <p className="text-xs font-black text-white mt-0.5">{value || '--'}<span className="text-[7px] ml-0.5 opacity-60 font-semibold">{unit}</span></p>
+    </div>
+  );
+}

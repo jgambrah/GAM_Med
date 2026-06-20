@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc, orderBy } from 'firebase/firestore';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -68,11 +68,21 @@ export default function NursingTreatmentChart() {
   
   const form = useForm<RoundFormValues>({
     resolver: zodResolver(roundSchema),
-    defaultValues: { vitals: {} },
+    defaultValues: {
+      nursingNotes: '',
+      medicationsAdministered: '',
+      vitals: {
+        temp: '',
+        bp: '',
+        pulse: '',
+        respiration: '',
+        spo2: '',
+      }
+    },
   });
 
   const onSubmit = (values: RoundFormValues) => {
-    if (!user || !admissionRef || !admission) return;
+    if (!user || !admissionRef || !admission || !firestore) return;
     
     addDocumentNonBlocking(collection(admissionRef, 'rounds'), {
         ...values,
@@ -84,6 +94,18 @@ export default function NursingTreatmentChart() {
         nurseName: user.displayName,
         createdAt: serverTimestamp()
     });
+
+    const patientRef = doc(firestore, `hospitals/${hospitalId}/patients/${admission.patientId}`);
+    const updates: any = {};
+    if (values.vitals.temp) updates['lastVitals.temp'] = values.vitals.temp;
+    if (values.vitals.bp) updates['lastVitals.bp'] = values.vitals.bp;
+    if (values.vitals.pulse) updates['lastVitals.pulse'] = values.vitals.pulse;
+    if (values.vitals.respiration) updates['lastVitals.respiration'] = values.vitals.respiration;
+    if (values.vitals.spo2) updates['lastVitals.spo2'] = values.vitals.spo2;
+
+    if (Object.keys(updates).length > 0) {
+      updateDocumentNonBlocking(patientRef, updates);
+    }
 
     toast({ title: 'Nursing Round Documented Successfully' });
     form.reset();
@@ -188,7 +210,7 @@ function VitalInput({ name, label, control, disabled }: any) {
             <FormItem>
                 <FormLabel className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">{label}</FormLabel>
                 <FormControl>
-                    <Input className="font-black text-center" {...field} disabled={disabled} />
+                    <Input className="font-black text-center" {...field} value={field.value || ''} disabled={disabled} />
                 </FormControl>
             </FormItem>
         )} />

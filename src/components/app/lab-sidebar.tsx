@@ -17,6 +17,7 @@ const menuGroups = [
     title: "General Lab",
     items: [
       { name: "Diagnostic Queue", href: "/lab/queue", icon: LayoutDashboard },
+      { name: "Patients Directory", href: "/patients", icon: Users },
       { name: "Test Menu Setup", href: "/lab/setup", icon: Settings },
     ]
   },

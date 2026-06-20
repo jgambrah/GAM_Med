@@ -143,12 +143,14 @@ export default function PatientDirectoryPage() {
             Search and manage all patient records in your facility.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/patients/register">
-            <UserPlus />
-            Register New Patient
-          </Link>
-        </Button>
+        {['DIRECTOR', 'ADMIN', 'RECEPTIONIST'].includes(userProfile?.role) && (
+          <Button asChild>
+            <Link href="/patients/register">
+              <UserPlus />
+              Register New Patient
+            </Link>
+          </Button>
+        )}
       </div>
 
        {/* SEARCH BAR */}

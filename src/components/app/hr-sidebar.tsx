@@ -19,6 +19,7 @@ const menuGroups = [
     title: "HR Management",
     items: [
       { name: "HR Dashboard", href: "/hr", icon: Users },
+      { name: "Staff Directory", href: "/staff", icon: Users },
       { name: "Department Manager", href: "/hr/departments", icon: LayoutGrid },
       { name: "Attendance Setup", href: "/hr/attendance/setup", icon: Clock },
       { name: "Leave Management", href: "/hr/leave", icon: Calendar },

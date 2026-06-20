@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
@@ -15,7 +15,7 @@ import { autoClockOutIfNeeded } from '@/lib/attendance';
 const allMenuGroups = [
   {
     title: "Clinical",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
+    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RADIOLOGIST', 'LAB_TECH'],
     items: [
       { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
@@ -23,7 +23,7 @@ const allMenuGroups = [
       { name: "Nursing Station", href: "/nurse", icon: UserCheck, roles: ['DIRECTOR', 'NURSE'] },
       { name: "Triage Queue", href: "/nurse/triage", icon: Activity, roles: ['DIRECTOR', 'NURSE'] },
       { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
-      { name: "Patients", href: "/patients", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] },
+      { name: "Patients", href: "/patients", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RADIOLOGIST', 'LAB_TECH'] },
     ]
   },
   {
@@ -161,6 +161,7 @@ const allMenuGroups = [
     roles: ['DIRECTOR', 'ADMIN', 'HR_MANAGER'],
     items: [
       { name: "HR Dashboard", href: "/hr", icon: Users },
+      { name: "Staff Directory", href: "/staff", icon: Users },
       { name: "Department Manager", href: "/hr/departments", icon: LayoutGrid },
       { name: "Attendance Setup", href: "/hr/attendance/setup", icon: Clock },
       { name: "Leave Management", href: "/hr/leave", icon: Calendar },
@@ -217,6 +218,16 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
   const router = useRouter();
   const firestore = useFirestore();
 
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  const toggleGroup = (title: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
+
   const handleLogout = async () => {
     if (auth && firestore && user?.uid) {
       try {
@@ -260,6 +271,47 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     (userRole === 'DIRECTOR' || (group.roles && group.roles.includes(userRole)))
   );
 
+  // Initialize and auto-expand active group
+  useEffect(() => {
+    if (!hasInitialized && (visibleMenuGroups.length > 0 || myPortalMenu.items.length > 0)) {
+      const initial: Record<string, boolean> = {};
+      
+      // Collapse all groups by default
+      [myPortalMenu, ...visibleMenuGroups].forEach(group => {
+        initial[group.title] = true;
+      });
+
+      // Find the group with the active item and expand it
+      const activeGroup = [myPortalMenu, ...visibleMenuGroups].find(group => 
+        group.items.some(item => pathname === item.href)
+      );
+
+      if (activeGroup) {
+        initial[activeGroup.title] = false;
+      } else {
+        // Fallback: keep My Portal open if no matching active items (e.g. main dashboard)
+        initial["My Portal"] = false;
+      }
+
+      setCollapsedGroups(initial);
+      setHasInitialized(true);
+    }
+  }, [pathname, visibleMenuGroups, hasInitialized]);
+
+  // Expand parent group when pathname updates
+  useEffect(() => {
+    if (hasInitialized) {
+      const activeGroup = [myPortalMenu, ...visibleMenuGroups].find(group => 
+        group.items.some(item => pathname === item.href)
+      );
+      if (activeGroup) {
+        setCollapsedGroups(prev => ({
+          ...prev,
+          [activeGroup.title]: false
+        }));
+      }
+    }
+  }, [pathname, hasInitialized]);
 
   return (
     <div className="w-64 h-screen bg-white text-slate-800 flex-col border-r border-slate-200 hidden md:flex">
@@ -278,31 +330,50 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 py-4">
-        {[myPortalMenu, ...visibleMenuGroups].map((group, idx) => (
-          <div key={idx} className="mb-6">
-            <h3 className="text-[10px] font-bold text-slate-400 tracking-widest px-3 mb-2 uppercase">
-              {group.title}
-            </h3>
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link 
-                    key={item.name} 
-                    href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all group ${
-                      isActive ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-100'
-                    }`}
-                  >
-                    <item.icon size={18} />
-                    <span className="text-sm font-medium">{item.name}</span>
-                    {isActive && <ChevronRight size={14} className="ml-auto text-primary" />}
-                  </Link>
-                );
-              })}
+        {[myPortalMenu, ...visibleMenuGroups].map((group, idx) => {
+          const isCollapsed = collapsedGroups[group.title] ?? false;
+          return (
+            <div key={idx} className="mb-4">
+              <button 
+                type="button"
+                onClick={() => toggleGroup(group.title)}
+                className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 tracking-widest px-3 mb-2 uppercase hover:text-slate-700 transition-colors select-none text-left"
+              >
+                <span>{group.title}</span>
+                <ChevronRight 
+                  size={12} 
+                  className={`text-slate-400 transition-transform duration-200 ${!isCollapsed ? 'rotate-90 text-primary' : ''}`} 
+                />
+              </button>
+              
+              <div 
+                className="space-y-1 transition-all duration-300 ease-in-out overflow-hidden"
+                style={{ 
+                  maxHeight: isCollapsed ? '0px' : '850px',
+                  opacity: isCollapsed ? 0 : 1,
+                  visibility: isCollapsed ? 'hidden' : 'visible'
+                }}
+              >
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link 
+                      key={item.name} 
+                      href={item.href}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all group ${
+                        isActive ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-100'
+                      }`}
+                    >
+                      <item.icon size={18} />
+                      <span className="text-sm font-medium">{item.name}</span>
+                      {isActive && <ChevronRight size={14} className="ml-auto text-primary" />}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Footer Profile */}

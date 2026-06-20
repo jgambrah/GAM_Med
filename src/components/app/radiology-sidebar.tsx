@@ -5,7 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Camera, Settings,
   LogOut, ChevronRight,
-  Calendar, Clock, Wallet, GraduationCap, Award
+  Calendar, Clock, Wallet, GraduationCap, Award,
+  Users
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -17,6 +18,7 @@ const menuGroups = [
     title: "Radiology",
     items: [
       { name: "Imaging Queue", href: "/radiology/queue", icon: LayoutDashboard },
+      { name: "Patients Directory", href: "/patients", icon: Users },
       { name: "Imaging Menu", href: "/radiology/setup", icon: Settings },
     ]
   }

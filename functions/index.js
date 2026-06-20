@@ -292,12 +292,15 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     const batch = db.batch();
     
     let encounterRef;
+    let subEncounterRef;
     let isMerge = false;
     if (encounterId) {
       encounterRef = db.collection("encounters").doc(encounterId);
+      subEncounterRef = db.collection("hospitals").doc(hospitalId).collection("patients").doc(patientId).collection("encounters").doc(encounterId);
       isMerge = true;
     } else {
       encounterRef = db.collection("encounters").doc();
+      subEncounterRef = db.collection("hospitals").doc(hospitalId).collection("patients").doc(patientId).collection("encounters").doc(encounterRef.id);
     }
     
     const { 
@@ -416,6 +419,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         patientName: `${patientData.firstName} ${patientData.lastName}`,
         ehrNumber: patientData.ehrNumber,
         type: encounterType,
+        encounterType: encounterType,
         hospitalName: hospitalData?.name,
         ghanaCardId: patientData.ghanaCardId,
         providerUid: request.auth.uid,
@@ -439,9 +443,11 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
     if (isMerge) {
       encounterData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
       batch.set(encounterRef, encounterData, { merge: true });
+      batch.set(subEncounterRef, encounterData, { merge: true });
     } else {
       encounterData.createdAt = admin.firestore.FieldValue.serverTimestamp();
       batch.set(encounterRef, encounterData);
+      batch.set(subEncounterRef, encounterData);
     }
 
     const patientUpdates = {};
@@ -814,14 +820,47 @@ exports.createReferral = onCall(GLOBAL_CONFIG, async (request) => {
 });
 
 exports.repairUserIdentity = onCall(GLOBAL_CONFIG, async (request) => {
-  if (request.auth?.token.role !== 'SUPER_ADMIN') {
-    throw new HttpsError('permission-denied', 'You must be a Super Admin.');
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Login Required');
   }
+
+  const callerRole = request.auth.token.role;
+  const callerHospitalId = request.auth.token.hospitalId;
+
+  const isSuperAdmin = callerRole === 'SUPER_ADMIN';
+  const isHospitalManager = ['DIRECTOR', 'ADMIN', 'HR_MANAGER'].includes(callerRole);
+
+  if (!isSuperAdmin && !isHospitalManager) {
+    throw new HttpsError('permission-denied', 'You must be a Super Admin, Director, Admin, or HR Manager.');
+  }
+
   const { targetEmail, hospitalId, role } = request.data;
+
   try {
     const user = await admin.auth().getUserByEmail(targetEmail);
+    
+    // Fetch the target user document to verify their current hospital
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User profile not found.');
+    }
+    const targetUserHospitalId = userDoc.data().hospitalId;
+
+    // Multi-tenant check: non-super-admins can only modify users inside their own hospital,
+    // and cannot change the user's hospital association or move them to another hospital.
+    if (!isSuperAdmin) {
+      if (targetUserHospitalId !== callerHospitalId) {
+        throw new HttpsError('permission-denied', 'Target user is not associated with your hospital.');
+      }
+      if (hospitalId !== callerHospitalId) {
+        throw new HttpsError('permission-denied', 'You cannot change the hospital association of this user.');
+      }
+    }
+
+    // Set claims and update Firestore document
     await admin.auth().setCustomUserClaims(user.uid, { hospitalId, role });
     await db.collection('users').doc(user.uid).update({ hospitalId, role });
+
     return { success: true, message: `Identity for ${targetEmail} has been re-stamped.` };
   } catch (error) {
     console.error("FATAL: repairUserIdentity", error.code, error.message, error.stack);

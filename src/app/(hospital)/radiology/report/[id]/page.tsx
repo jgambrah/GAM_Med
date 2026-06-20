@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { doc, serverTimestamp, collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
@@ -11,15 +11,41 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Camera, FileText, Save, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
+import { Camera, FileText, Save, ArrowLeft, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClinicalImageViewer } from '@/components/clinical/ClinicalImageViewer';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const reportSchema = z.object({
   findings: z.string().min(10, "Findings are required."),
   impression: z.string().min(3, "A final impression is required."),
+  isCritical: z.boolean().default(false),
 });
+
+const TEMPLATES = [
+  {
+    label: "Normal Chest X-Ray",
+    findings: "The lungs are clear and fully expanded. No focal consolidation, pleural effusion, or pneumothorax is seen. The cardiomediastinal contour is normal in size and configuration. The bony thorax and visualised soft tissues are unremarkable.",
+    impression: "NORMAL CHEST X-RAY. NO ACTIVE CARDIOPULMONARY DISEASE."
+  },
+  {
+    label: "Normal Abdominal USS",
+    findings: "The liver is normal in size, shape, and echotexture with no focal lesions. The gallbladder is well-distended, thin-walled, and stone-free. Biliary tree is not dilated. The kidneys are normal in size with normal cortical thickness and no hydronephrosis. Spleen and pancreas are normal. No free fluid in the peritoneum.",
+    impression: "NORMAL ABDOMINAL ULTRASOUND."
+  },
+  {
+    label: "Normal Brain CT",
+    findings: "No acute intracranial hemorrhage, mass effect, or midline shift is identified. The ventricles and sulci are normal in size and appearance for age. Brain parenchyma shows normal attenuation with good grey-white matter differentiation. Bony calvarium is intact.",
+    impression: "NORMAL CT SCAN OF THE BRAIN."
+  },
+  {
+    label: "Normal Pelvic USS",
+    findings: "The uterus is anteverted, normal in size, and shows a homogeneous myometrium. Endometrial stripe is thin and regular. Both ovaries are normal in volume with normal follicular development. No adnexal masses or free fluid in the pouch of Douglas.",
+    impression: "NORMAL PELVIC ULTRASOUND."
+  }
+];
 
 type ReportFormValues = z.infer<typeof reportSchema>;
 
@@ -78,11 +104,11 @@ export default function RadiologyReportingPage() {
 
   const form = useForm<ReportFormValues>({
     resolver: zodResolver(reportSchema),
-    defaultValues: { findings: '', impression: '' },
+    defaultValues: { findings: '', impression: '', isCritical: false },
   });
 
   const onSubmit = (values: ReportFormValues) => {
-    if (!orderRef || !user) return;
+    if (!orderRef || !user || !hospitalId) return;
     
     updateDocumentNonBlocking(orderRef, {
       ...values,
@@ -92,9 +118,25 @@ export default function RadiologyReportingPage() {
       completedAt: serverTimestamp(),
     });
 
+    if (values.isCritical && order) {
+      addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/clinical_alerts`), {
+        hospitalId: hospitalId,
+        patientId: order.patientId,
+        patientName: resolvedPatientName,
+        encounterId: order.encounterId || '',
+        alertType: 'CRITICAL_IMAGING_ALERT',
+        message: `CRITICAL IMAGING ALERT for ${order.scanName || order.name || 'Scan'}: ${values.impression}`,
+        severity: 'Critical',
+        status: 'UNREAD',
+        createdAt: serverTimestamp(),
+      });
+    }
+
     toast({
-      title: "Radiology Report Signed",
-      description: "Report has been validated and pushed to the patient's EHR.",
+      title: values.isCritical ? "⚠️ Critical Report Signed & Alerted" : "Radiology Report Signed",
+      description: values.isCritical 
+        ? "Report submitted. Ordering clinician has been alerted of critical findings." 
+        : "Report has been validated and pushed to the patient's EHR.",
     });
     router.push('/radiology/queue');
   };
@@ -146,9 +188,33 @@ export default function RadiologyReportingPage() {
                     name="findings"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                            <FileText size={14} className="text-orange-600" /> Radiographic Findings
-                        </FormLabel>
+                        <div className="flex justify-between items-center mb-2">
+                            <FormLabel className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                <FileText size={14} className="text-orange-600" /> Radiographic Findings
+                            </FormLabel>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-slate-400 uppercase">Insert Macro:</span>
+                              <Select onValueChange={(val) => {
+                                 const t = TEMPLATES.find(x => x.label === val);
+                                 if (t) {
+                                   form.setValue('findings', t.findings);
+                                   form.setValue('impression', t.impression);
+                                   toast({ title: 'Macro Applied', description: `Loaded template: ${t.label}` });
+                                 }
+                              }}>
+                                 <SelectTrigger className="h-7 px-2.5 rounded-lg text-[9px] font-black uppercase bg-slate-100 border-none text-slate-700 w-36 shadow-none">
+                                    <SelectValue placeholder="SELECT TEMPLATE" />
+                                 </SelectTrigger>
+                                 <SelectContent className="rounded-xl border shadow-lg">
+                                    {TEMPLATES.map((t) => (
+                                       <SelectItem key={t.label} value={t.label} className="text-[9px] font-black uppercase">
+                                          {t.label}
+                                       </SelectItem>
+                                    ))}
+                                 </SelectContent>
+                              </Select>
+                            </div>
+                        </div>
                         <FormControl>
                             <Textarea 
                                 className="w-full p-6 mt-2 bg-muted/50 rounded-2xl border-none text-foreground font-medium text-sm h-64 outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
@@ -183,6 +249,31 @@ export default function RadiologyReportingPage() {
                     )}
                 />
             </Card>
+
+            {/* CRITICAL FINDINGS FLAG */}
+            <FormField
+                control={form.control}
+                name="isCritical"
+                render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-[28px] border-4 border-red-100 p-6 bg-red-50/50 hover:bg-red-50 transition-colors">
+                    <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="mt-0.5 border-red-300 text-red-600 focus-visible:ring-red-500 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
+                        />
+                    </FormControl>
+                    <div className="space-y-1">
+                        <FormLabel className="text-xs font-black text-red-900 uppercase tracking-widest flex items-center gap-1.5 cursor-pointer">
+                            <AlertCircle size={14} className="text-red-600 animate-pulse" /> Flag as Critical Finding
+                        </FormLabel>
+                        <p className="text-[10px] text-red-700 font-bold leading-normal">
+                            Warning: Mark this only if the imaging shows acute, life-threatening pathologies. Selecting this will immediately trigger a critical EHR alert for the physician.
+                        </p>
+                    </div>
+                </FormItem>
+                )}
+            />
 
             <Button type="submit" disabled={form.formState.isSubmitting} className="w-full bg-foreground hover:bg-orange-600 text-background py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all flex items-center justify-center gap-2">
                 {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <Save size={18}/>}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink, CreditCard, MapPin } from 'lucide-react';
+import { Building2, Phone, Mail, Globe, Palette, Save, Loader2, ShieldAlert, CheckCircle, FileText, MessageSquare, Key, HelpCircle, ExternalLink, CreditCard, MapPin, Calculator, Droplets } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,11 @@ export default function HospitalProfilePage() {
     paystackSecretKey: '',
     latitude: '',
     longitude: '',
+    diagnosticPaymentPolicy: 'NONE',
+    bloodDonorBronzeBenefit: 'Verified donor health screening reports & analytics;Priority queuing at blood bank and laboratory desks',
+    bloodDonorSilverBenefit: '15% discount waiver on standard blood processing fees;Priority queuing at blood bank and laboratory desks',
+    bloodDonorGoldBenefit: '50% discount waiver on standard blood processing fees;Exemption from family replacement donation requirements',
+    bloodDonorPlatinumBenefit: '100% full processing fee waiver for donor and immediate family;Direct VIP billing desk priority',
   });
 
   // Sync state once data loads
@@ -84,6 +89,11 @@ export default function HospitalProfilePage() {
         paystackSecretKey: hospital.paystackSecretKey || '',
         latitude: hospital.latitude !== undefined && hospital.latitude !== null ? String(hospital.latitude) : '',
         longitude: hospital.longitude !== undefined && hospital.longitude !== null ? String(hospital.longitude) : '',
+        diagnosticPaymentPolicy: hospital.diagnosticPaymentPolicy || 'NONE',
+        bloodDonorBronzeBenefit: hospital.bloodDonorBronzeBenefit || 'Verified donor health screening reports & analytics;Priority queuing at blood bank and laboratory desks',
+        bloodDonorSilverBenefit: hospital.bloodDonorSilverBenefit || '15% discount waiver on standard blood processing fees;Priority queuing at blood bank and laboratory desks',
+        bloodDonorGoldBenefit: hospital.bloodDonorGoldBenefit || '50% discount waiver on standard blood processing fees;Exemption from family replacement donation requirements',
+        bloodDonorPlatinumBenefit: hospital.bloodDonorPlatinumBenefit || '100% full processing fee waiver for donor and immediate family;Direct VIP billing desk priority',
       });
     }
   }, [hospital]);
@@ -154,6 +164,11 @@ export default function HospitalProfilePage() {
         paystackSecretKey: form.paystackSecretKey.trim(),
         latitude: form.latitude ? parseFloat(form.latitude) : null,
         longitude: form.longitude ? parseFloat(form.longitude) : null,
+        diagnosticPaymentPolicy: form.diagnosticPaymentPolicy,
+        bloodDonorBronzeBenefit: form.bloodDonorBronzeBenefit.trim(),
+        bloodDonorSilverBenefit: form.bloodDonorSilverBenefit.trim(),
+        bloodDonorGoldBenefit: form.bloodDonorGoldBenefit.trim(),
+        bloodDonorPlatinumBenefit: form.bloodDonorPlatinumBenefit.trim(),
       });
 
       toast({
@@ -608,6 +623,109 @@ export default function HospitalProfilePage() {
                         className="w-full p-4 pl-12 border rounded-2xl bg-slate-50 font-bold text-sm outline-none focus:border-primary transition-all"
                         value={form.paystackSecretKey}
                         onChange={e => setForm({ ...form, paystackSecretKey: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-6 pb-4 text-slate-800">
+                  <Calculator size={22} className="text-slate-700" /> Diagnostic Payment Policy
+                </h2>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Select Policy for Laboratory & Radiology</label>
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 cursor-pointer p-3 bg-white rounded-xl border hover:bg-slate-50">
+                      <input 
+                        type="radio" 
+                        name="diagnosticPaymentPolicy" 
+                        value="NONE" 
+                        checked={form.diagnosticPaymentPolicy === 'NONE'}
+                        onChange={e => setForm({ ...form, diagnosticPaymentPolicy: e.target.value })}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="text-xs font-black uppercase text-slate-800">None / Flexible (Default)</p>
+                        <p className="text-[10px] text-slate-500 font-semibold leading-normal">Process diagnostic orders immediately without checking payment status.</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer p-3 bg-white rounded-xl border hover:bg-slate-50">
+                      <input 
+                        type="radio" 
+                        name="diagnosticPaymentPolicy" 
+                        value="INFORMATIONAL" 
+                        checked={form.diagnosticPaymentPolicy === 'INFORMATIONAL'}
+                        onChange={e => setForm({ ...form, diagnosticPaymentPolicy: e.target.value })}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="text-xs font-black uppercase text-blue-600">Informational Badging</p>
+                        <p className="text-[10px] text-slate-500 font-semibold leading-normal">Display real-time PAID or UNPAID badges in the queues but do not block procedures.</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer p-3 bg-white rounded-xl border hover:bg-slate-50">
+                      <input 
+                        type="radio" 
+                        name="diagnosticPaymentPolicy" 
+                        value="STRICT" 
+                        checked={form.diagnosticPaymentPolicy === 'STRICT'}
+                        onChange={e => setForm({ ...form, diagnosticPaymentPolicy: e.target.value })}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="text-xs font-black uppercase text-red-600">Strict Pre-Payment Lock</p>
+                        <p className="text-[10px] text-slate-500 font-semibold leading-normal">Disable queue actions (Acquire, Collect Specimen, Enter Results) if unpaid. Allow emergency override checkbox bedside.</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 border-b pt-8 pb-4 text-slate-800">
+                  <Droplets size={22} className="text-red-600 fill-red-200" /> Blood Donor Privileges (Tier Benefits)
+                </h2>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border space-y-4">
+                  <p className="text-[10px] text-slate-500 font-black uppercase leading-normal">
+                    Customize clinical and financial benefits for blood bank donors at your hospital. Enter benefits separated by semicolons (e.g. 15% fee waiver;Priority lane).
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Bronze Tier (1-4 donations)</label>
+                      <textarea
+                        rows={2}
+                        className="w-full p-4 border rounded-2xl bg-white font-semibold text-xs outline-none focus:border-red-500"
+                        value={form.bloodDonorBronzeBenefit}
+                        onChange={e => setForm({ ...form, bloodDonorBronzeBenefit: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Silver Tier (5-9 donations)</label>
+                      <textarea
+                        rows={2}
+                        className="w-full p-4 border rounded-2xl bg-white font-semibold text-xs outline-none focus:border-red-500"
+                        value={form.bloodDonorSilverBenefit}
+                        onChange={e => setForm({ ...form, bloodDonorSilverBenefit: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Gold Tier (10-19 donations)</label>
+                      <textarea
+                        rows={2}
+                        className="w-full p-4 border rounded-2xl bg-white font-semibold text-xs outline-none focus:border-red-500"
+                        value={form.bloodDonorGoldBenefit}
+                        onChange={e => setForm({ ...form, bloodDonorGoldBenefit: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">Platinum Tier (20+ donations)</label>
+                      <textarea
+                        rows={2}
+                        className="w-full p-4 border rounded-2xl bg-white font-semibold text-xs outline-none focus:border-red-500"
+                        value={form.bloodDonorPlatinumBenefit}
+                        onChange={e => setForm({ ...form, bloodDonorPlatinumBenefit: e.target.value })}
                       />
                     </div>
                   </div>

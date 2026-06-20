@@ -1,24 +1,23 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, writeBatch, serverTimestamp, collection } from 'firebase/firestore';
 import { 
-  ShieldAlert, Droplets, CheckCircle2, 
-  Activity, Thermometer, Clock, Loader2 
+  ShieldAlert, CheckCircle2, Loader2 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
+import { areBloodGroupsCompatible } from '@/lib/blood-compatibility';
 
 export default function TransfusionSafetyGate() {
-  const { pintId } = useParams();
+  const pintId = useParams()?.pintId;
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   
   const [processing, setProcessing] = useState(false);
+  const [manualVerifyChecked, setManualVerifyChecked] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -34,8 +33,32 @@ export default function TransfusionSafetyGate() {
   
   const { data: pint, isLoading } = useDoc(pintRef);
 
+  const patientRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !pint?.crossmatchedForPatientId) return null;
+    return doc(firestore, 'hospitals', hospitalId, 'patients', pint.crossmatchedForPatientId);
+  }, [firestore, hospitalId, pint?.crossmatchedForPatientId]);
+  
+  const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+
+  const compatibility = useMemo(() => {
+    if (!pint || !patient) return { isCompatible: true, isDocumented: false };
+    const patientBg = patient.bloodGroup;
+    if (!patientBg || patientBg === 'N/A') return { isCompatible: false, isDocumented: false };
+    return {
+      isCompatible: areBloodGroupsCompatible(pint.bloodGroup, patientBg),
+      isDocumented: true,
+      patientBg
+    };
+  }, [pint, patient]);
+
+  const canStartTransfusion = useMemo(() => {
+    if (!pint || !patient) return false;
+    if (!compatibility.isDocumented) return manualVerifyChecked;
+    return compatibility.isCompatible;
+  }, [pint, patient, compatibility, manualVerifyChecked]);
+
   const handleTransfusionStart = async () => {
-    if (!pint || !user || !firestore || !hospitalId) {
+    if (!pintRef || !pint || !user || !firestore || !hospitalId) {
         toast({ variant: "destructive", title: "System Error", description: "Critical data missing. Cannot proceed."});
         return;
     }
@@ -80,7 +103,7 @@ export default function TransfusionSafetyGate() {
     }
   };
 
-  if (isLoading) return <div className="p-20 text-center font-black flex items-center justify-center gap-4"><Loader2 className="animate-spin" /> Safety Handshake in Progress...</div>;
+  if (isLoading || isPatientLoading) return <div className="p-20 text-center font-black flex items-center justify-center gap-4"><Loader2 className="animate-spin" /> Safety Handshake in Progress...</div>;
   if (!pint) return <div className="p-20 text-center font-black text-destructive">Pint data not found or invalid ID.</div>;
 
   return (
@@ -108,16 +131,58 @@ export default function TransfusionSafetyGate() {
             </div>
          </div>
 
-         <div className="p-6 bg-amber-50 rounded-3xl border border-amber-200">
-            <p className="text-[10px] text-amber-700 leading-relaxed uppercase">
+         {/* Compatibility Banners */}
+         {!compatibility.isDocumented ? (
+           <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 space-y-3">
+             <p className="text-xs font-bold uppercase flex items-center gap-2">
+               ⚠️ Patient Blood Group Unknown
+             </p>
+             <p className="text-xs">
+               The recipient patient's blood group is not documented in the system. You must manually check the compatibility of the blood bag against the patient's card or record at the bedside.
+             </p>
+             <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+               <input 
+                 type="checkbox" 
+                 checked={manualVerifyChecked} 
+                 onChange={(e) => setManualVerifyChecked(e.target.checked)} 
+                 className="rounded border-amber-300 mr-2"
+               />
+               I have manually verified the patient's blood group compatibility.
+             </label>
+           </div>
+         ) : !compatibility.isCompatible ? (
+           <div className="p-4 rounded-2xl border border-red-200 bg-red-50 text-red-800 space-y-2">
+             <p className="text-xs font-black uppercase flex items-center gap-2">
+               🚨 CRITICAL MISMATCH: INCOMPATIBLE BLOOD
+             </p>
+             <p className="text-xs">
+               Donor Blood Group ({pint.bloodGroup}) is incompatible with Patient's documented Blood Group ({compatibility.patientBg}).
+             </p>
+             <p className="text-xs font-bold text-red-900 border border-red-300 bg-red-100 p-2 rounded-lg">
+               Transfusion has been strictly blocked for patient safety.
+             </p>
+           </div>
+         ) : (
+           <div className="p-4 rounded-2xl border border-green-200 bg-green-50 text-green-800">
+             <p className="text-xs font-bold uppercase flex items-center gap-2">
+               ✓ Verified Blood Compatibility
+             </p>
+             <p className="text-xs">
+               Pint Blood Group ({pint.bloodGroup}) is compatible with Patient Blood Group ({compatibility.patientBg}).
+             </p>
+           </div>
+         )}
+
+         <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200">
+            <p className="text-[10px] text-slate-700 leading-relaxed uppercase">
               Clinical Protocol: Verify baseline vitals (T, BP, P) before starting. Watch for transfusion reactions within the first 15 minutes.
             </p>
          </div>
 
          <button 
            onClick={handleTransfusionStart}
-           disabled={processing}
-           className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-green-600 transition-all flex items-center justify-center gap-3 disabled:bg-slate-400"
+           disabled={processing || !canStartTransfusion}
+           className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-green-600 transition-all flex items-center justify-center gap-3 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
          >
             {processing ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
             Authorize & Start Transfusion

@@ -1,12 +1,12 @@
 
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, orderBy, doc, serverTimestamp } from 'firebase/firestore';
 import { 
   Droplets, Plus, AlertTriangle, 
   History, Thermometer, ShieldCheck, 
-  Search, Calendar, Loader2, ShieldAlert, Save, Link as LinkIcon
+  Search, Calendar, Loader2, ShieldAlert, Save, Link as LinkIcon, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -42,6 +42,8 @@ export default function BloodBankInventory() {
   const router = useRouter();
   const [isAddPintOpen, setIsAddPintOpen] = useState(false);
   const [crossmatchPint, setCrossmatchPint] = useState<any | null>(null);
+  const [discardPint, setDiscardPint] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'AVAILABLE' | 'CROSSMATCHED' | 'QUARANTINE' | 'EXPIRED' | 'DISCARDED' | 'ALL'>('AVAILABLE');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -61,14 +63,64 @@ export default function BloodBankInventory() {
     );
   }, [firestore, hospitalId]);
   
-  const { data: pints, isLoading: arePintsLoading } = useCollection(pintsQuery);
+  const { data: pints, isLoading: arePintsLoading } = useCollection<any>(pintsQuery);
 
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  
+  const counts = useMemo(() => {
+    const res = { AVAILABLE: 0, CROSSMATCHED: 0, QUARANTINE: 0, EXPIRED: 0, DISCARDED: 0, ALL: 0 };
+    if (pints) {
+      const now = new Date();
+      pints.forEach(p => {
+        const isExpired = p.expiryDate && p.expiryDate.toDate() < now;
+        res.ALL++;
+        if (p.status === 'DISCARDED') {
+          res.DISCARDED++;
+        } else if (p.status === 'CROSSMATCHED') {
+          res.CROSSMATCHED++;
+        } else if (isExpired && p.status !== 'TRANSFUSED') {
+          res.EXPIRED++;
+        } else if (p.status === 'AVAILABLE') {
+          if (p.screened === false) {
+            res.QUARANTINE++;
+          } else {
+            res.AVAILABLE++;
+          }
+        }
+      });
+    }
+    return res;
+  }, [pints]);
+
+  const filteredPints = useMemo(() => {
+    if (!pints) return [];
+    const now = new Date();
+    return pints.filter(p => {
+      const isExpired = p.expiryDate && p.expiryDate.toDate() < now;
+      
+      switch (activeTab) {
+        case 'AVAILABLE':
+          return p.status === 'AVAILABLE' && p.screened === true && !isExpired;
+        case 'CROSSMATCHED':
+          return p.status === 'CROSSMATCHED';
+        case 'QUARANTINE':
+          return p.status === 'AVAILABLE' && p.screened === false && !isExpired;
+        case 'EXPIRED':
+          return p.status !== 'DISCARDED' && p.status !== 'TRANSFUSED' && isExpired;
+        case 'DISCARDED':
+          return p.status === 'DISCARDED';
+        case 'ALL':
+        default:
+          return true;
+      }
+    });
+  }, [pints, activeTab]);
+
   const bloodGroupCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     if (pints) {
       for (const group of bloodGroups) {
-        counts[group] = pints.filter(p => p.bloodGroup === group && p.status === 'AVAILABLE').length;
+        counts[group] = pints.filter(p => p.bloodGroup === group && p.status === 'AVAILABLE' && p.screened === true).length;
       }
     }
     return counts;
@@ -130,6 +182,36 @@ export default function BloodBankInventory() {
         })}
       </div>
 
+      {/* TABS CONTROLLERS */}
+      <div className="flex flex-wrap gap-2 bg-slate-50 p-2 rounded-[24px] border no-print">
+        {[
+          { id: 'AVAILABLE', label: 'Available', count: counts.AVAILABLE, color: 'text-green-600 bg-green-50' },
+          { id: 'CROSSMATCHED', label: 'Reserved / Cross-matched', count: counts.CROSSMATCHED, color: 'text-blue-600 bg-blue-50' },
+          { id: 'QUARANTINE', label: 'Quarantine (Unscreened)', count: counts.QUARANTINE, color: 'text-amber-600 bg-amber-50' },
+          { id: 'EXPIRED', label: 'Expired', count: counts.EXPIRED, color: 'text-red-600 bg-red-50' },
+          { id: 'DISCARDED', label: 'Discarded / Waste', count: counts.DISCARDED, color: 'text-slate-600 bg-slate-100' },
+          { id: 'ALL', label: 'All Pints', count: counts.ALL, color: 'text-slate-800' }
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                isActive 
+                  ? 'bg-white text-black shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              {tab.label}
+              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${isActive ? tab.color : 'bg-slate-200 text-slate-600'}`}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="bg-white rounded-[40px] border shadow-sm overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-slate-900 text-white">
@@ -137,20 +219,23 @@ export default function BloodBankInventory() {
               <th className="p-6 text-[10px] uppercase">Pint ID / Batch</th>
               <th className="p-6 text-[10px] uppercase">Blood Group</th>
               <th className="p-6 text-[10px] uppercase">Expiry Date</th>
-              <th className="p-6 text-[10px] uppercase">Screening</th>
+              <th className="p-6 text-[10px] uppercase">Screening / Status</th>
               <th className="p-6 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {isLoading && <tr><td colSpan={5} className="p-20 text-center"><Loader2 className="animate-spin"/></td></tr>}
-            {!isLoading && pints?.length === 0 ? (
-                 <tr><td colSpan={5} className="p-20 text-center text-slate-300 uppercase italic">No available pints in inventory.</td></tr>
-            ) : pints?.map(pint => {
+            {!isLoading && filteredPints?.length === 0 ? (
+                 <tr><td colSpan={5} className="p-20 text-center text-slate-300 uppercase italic">No blood pints in this category.</td></tr>
+            ) : filteredPints?.map(pint => {
               const expiryInfo = getDaysRemaining(pint.expiryDate);
+              const isExpired = expiryInfo.text === 'EXPIRED';
+              const isUnscreened = !pint.screened;
               const isCrossmatched = pint.status === 'CROSSMATCHED';
               const isTransfused = pint.status === 'TRANSFUSED';
+              const isDiscarded = pint.status === 'DISCARDED';
               return (
-              <tr key={pint.id} className={`hover:bg-red-50/30 transition-all font-bold ${isTransfused ? 'opacity-40 grayscale' : ''}`}>
+              <tr key={pint.id} className={`hover:bg-red-50/30 transition-all font-bold ${isTransfused || isDiscarded ? 'opacity-40 grayscale' : ''}`}>
                 <td className="p-6 uppercase text-sm">
                    {pint.pintId}
                    <p className="text-[9px] text-slate-400">Source: {pint.source || 'Donation'}</p>
@@ -165,22 +250,53 @@ export default function BloodBankInventory() {
                    </div>
                 </td>
                 <td className="p-6">
-                   <div className={`flex items-center gap-1 text-[10px] uppercase ${pint.screened ? 'text-green-600' : 'text-amber-600'}`}>
-                      {pint.screened ? <ShieldCheck size={14}/> : <AlertTriangle size={14} />} {pint.screened ? 'Tested (Negative)' : 'UNSCREENED'}
+                   <div className={`flex items-center gap-1 text-[10px] uppercase ${pint.status === 'DISCARDED' ? 'text-red-500' : pint.screened ? 'text-green-600' : 'text-amber-600'}`}>
+                      {pint.status === 'DISCARDED' ? <AlertTriangle size={14}/> : pint.screened ? <ShieldCheck size={14}/> : <AlertTriangle size={14} />} 
+                      {pint.status === 'DISCARDED' ? `Discarded (${pint.discardReason})` : pint.screened ? 'Tested (Negative)' : 'UNSCREENED'}
                    </div>
                 </td>
                 <td className="p-6 text-right">
-                    {isTransfused ? (
-                        <span className="text-xs text-muted-foreground uppercase">Used</span>
-                    ) : isCrossmatched ? (
-                        <Button asChild variant="outline" size="sm">
-                            <Link href={`/nurse/transfusion/confirm/${pint.id}`}>
-                                <LinkIcon size={14}/> Transfusion Link
-                            </Link>
-                        </Button>
-                    ) : (
-                        <Button onClick={() => setCrossmatchPint(pint)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] uppercase hover:bg-red-600 transition-all">Cross-match</Button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {isTransfused ? (
+                          <span className="text-xs text-muted-foreground uppercase">Used</span>
+                      ) : isDiscarded ? (
+                          <span className="text-xs text-red-500 uppercase">Discarded</span>
+                      ) : isCrossmatched ? (
+                          <>
+                            <Button asChild variant="outline" size="sm">
+                                <Link href={`/nurse/transfusion/confirm/${pint.id}`}>
+                                    <LinkIcon size={14}/> Transfusion Link
+                                </Link>
+                            </Button>
+                            <Button 
+                              onClick={() => setDiscardPint(pint)} 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-xl"
+                            >
+                              <Trash2 size={16}/>
+                            </Button>
+                          </>
+                      ) : (
+                          <>
+                            <Button 
+                              disabled={isUnscreened || isExpired}
+                              onClick={() => setCrossmatchPint(pint)} 
+                              className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] uppercase hover:bg-red-600 transition-all disabled:bg-slate-100 disabled:text-slate-400"
+                            >
+                              {isExpired ? 'Expired' : isUnscreened ? 'Awaiting Screening' : 'Cross-match'}
+                            </Button>
+                            <Button 
+                              onClick={() => setDiscardPint(pint)} 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-xl"
+                            >
+                              <Trash2 size={16}/>
+                            </Button>
+                          </>
+                      )}
+                    </div>
                 </td>
               </tr>
             )})}
@@ -189,6 +305,7 @@ export default function BloodBankInventory() {
       </div>
     </div>
     {crossmatchPint && <CrossmatchDialog hospitalId={hospitalId} pint={crossmatchPint} open={!!crossmatchPint} onOpenChange={() => setCrossmatchPint(null)} />}
+    {discardPint && <DiscardPintDialog hospitalId={hospitalId!} pint={discardPint} open={!!discardPint} onOpenChange={() => setDiscardPint(null)} />}
     </>
   );
 }
@@ -228,6 +345,27 @@ function AddPintDialog({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, 
       status: 'AVAILABLE',
       createdAt: serverTimestamp(),
     });
+
+    // Automatically update donor donation count and tier
+    if (values.donorId && values.source !== 'EXTERNAL_PURCHASE') {
+      const donorDoc = donors?.find((d: any) => d.id === values.donorId);
+      if (donorDoc) {
+        const currentCount = donorDoc.donationCount || 0;
+        const newCount = currentCount + 1;
+        let newTier = 'BRONZE';
+        if (newCount >= 20) newTier = 'PLATINUM';
+        else if (newCount >= 10) newTier = 'GOLD';
+        else if (newCount >= 5) newTier = 'SILVER';
+
+        const donorRef = doc(firestore, `hospitals/${hospitalId}/blood_donors`, values.donorId);
+        updateDocumentNonBlocking(donorRef, {
+          donationCount: newCount,
+          donorTier: newTier,
+          lastDonationDate: values.collectionDate,
+        });
+      }
+    }
+
     toast({ title: 'Blood Pint Added to Inventory' });
     setIsOpen(false);
     form.reset();
@@ -277,6 +415,100 @@ function AddPintDialog({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, 
             </DialogFooter>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function DiscardPintDialog({ 
+  pint, 
+  hospitalId, 
+  open, 
+  onOpenChange 
+}: { 
+  pint: any; 
+  hospitalId: string; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+}) {
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [reason, setReason] = useState('EXPIRED');
+  const [remarks, setRemarks] = useState('');
+
+  const handleDiscard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !user || !hospitalId || !pint.id) return;
+
+    setLoading(true);
+    try {
+      const pintRef = doc(firestore, `hospitals/${hospitalId}/blood_pints`, pint.id);
+      await updateDocumentNonBlocking(pintRef, {
+        status: 'DISCARDED',
+        discardedAt: serverTimestamp(),
+        discardedBy: user.uid,
+        discardedByName: user.displayName || user.email,
+        discardReason: reason,
+        discardRemarks: remarks.trim() || null,
+      });
+
+      toast({
+        title: 'Blood Pint Discarded',
+        description: `Pint #${pint.pintId} has been logged as discarded.`,
+      });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error discarding pint', description: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="text-red-600 flex items-center gap-2 font-black uppercase tracking-tight italic">
+            <AlertTriangle /> Log Blood Discard
+          </DialogTitle>
+          <DialogDescription className="font-bold text-slate-500">
+            Record clinical wastage of blood pint #{pint.pintId} ({pint.bloodGroup}).
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleDiscard} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-slate-500">Reason for Discard</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full p-3 border rounded-xl bg-slate-50 text-sm font-semibold outline-none focus:border-red-500"
+            >
+              <option value="EXPIRED">Expired (Shelf life exceeded 42 days)</option>
+              <option value="TTI_POSITIVE">TTI Positive (Failed HIV/Hep/Syphilis screening)</option>
+              <option value="BAG_DAMAGE_LEAKAGE">Bag Damage / Leakage</option>
+              <option value="COLD_CHAIN_EXCURSION">Cold Chain Temp Excursion</option>
+              <option value="OTHER">Other Clinical Reason</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-slate-500">Remarks (Optional)</label>
+            <textarea
+              placeholder="Enter context or disposal logs..."
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              className="w-full p-3 border rounded-xl bg-slate-50 text-sm font-medium outline-none focus:border-red-500 h-24"
+            />
+          </div>
+          <DialogFooter className="pt-4">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="font-bold uppercase text-xs">Cancel</Button>
+            <Button type="submit" disabled={loading} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-wider py-4 h-auto px-6 rounded-xl shadow-lg">
+              {loading ? <Loader2 className="animate-spin" /> : 'Confirm Disposal'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

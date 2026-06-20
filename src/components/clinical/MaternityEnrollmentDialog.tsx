@@ -44,9 +44,13 @@ export function MaternityEnrollmentDialog({ patientId, hospitalId, patientName }
   const form = useForm<EnrollmentFormValues>({
     resolver: zodResolver(enrollmentSchema),
     defaultValues: {
+      lmp: '',
       gravida: 1,
       para: 0,
-      rhesusFactor: 'Positive'
+      bloodGroup: '',
+      sicklingStatus: '',
+      rhesusFactor: 'Positive',
+      tetanusDiphtheriaStatus: '',
     }
   });
 
@@ -125,7 +129,7 @@ export function MaternityEnrollmentDialog({ patientId, hospitalId, patientName }
                   <FormItem>
                     <FormLabel>Last Menstrual Period (LMP)</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="date" {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -139,16 +143,16 @@ export function MaternityEnrollmentDialog({ patientId, hospitalId, patientName }
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                <FormField control={form.control} name="gravida" render={({ field }) => (
-                  <FormItem><FormLabel>Gravida</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Gravida</FormLabel><FormControl><Input type="number" {...field} value={field.value !== undefined ? field.value : ''} /></FormControl><FormMessage /></FormItem>
               )}/>
                <FormField control={form.control} name="para" render={({ field }) => (
-                  <FormItem><FormLabel>Para</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Para</FormLabel><FormControl><Input type="number" {...field} value={field.value !== undefined ? field.value : ''} /></FormControl><FormMessage /></FormItem>
               )}/>
               <FormField control={form.control} name="bloodGroup" render={({ field }) => (
-                  <FormItem><FormLabel>Blood Group</FormLabel><FormControl><Input placeholder="e.g. O+" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Blood Group</FormLabel><FormControl><Input placeholder="e.g. O+" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
               )}/>
               <FormField control={form.control} name="sicklingStatus" render={({ field }) => (
-                  <FormItem><FormLabel>Sickling</FormLabel><FormControl><Input placeholder="e.g. AS" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Sickling</FormLabel><FormControl><Input placeholder="e.g. AS" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
               )}/>
             </div>
              <FormField control={form.control} name="rhesusFactor" render={({ field }) => (
@@ -158,7 +162,7 @@ export function MaternityEnrollmentDialog({ patientId, hospitalId, patientName }
                 </Select><FormMessage /></FormItem>
              )}/>
              <FormField control={form.control} name="tetanusDiphtheriaStatus" render={({ field }) => (
-                  <FormItem><FormLabel>Tetanus-Diphtheria Status (Optional)</FormLabel><FormControl><Input placeholder="e.g., Fully immunized" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Tetanus-Diphtheria Status (Optional)</FormLabel><FormControl><Input placeholder="e.g., Fully immunized" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
               )}/>
 
             <DialogFooter className="sticky bottom-0 bg-background pt-4 pb-0 -mx-6 px-6">

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
 import { AncEncounterDialog } from '@/components/clinical/AncEncounterDialog';
+import { AncHistoryDialog } from '@/components/clinical/AncHistoryDialog';
 import { DeliveryLogDialog } from '@/components/clinical/DeliveryLogDialog';
 
 type MaternityProfile = {
@@ -144,13 +145,24 @@ export default function MaternityDashboardPage() {
                 <p className="text-sm font-bold text-pink-600">EDD: {format(new Date(profile.edd), 'PPP')}</p>
               </div>
               
-              <div className="flex gap-2">
-                <AncEncounterDialog 
-                    maternityProfileId={profile.id}
-                    patientId={profile.patientId}
-                    hospitalId={profile.hospitalId}
-                    patientName={profile.patientName}
-                />
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex gap-2 w-full">
+                  <div className="flex-1">
+                    <AncEncounterDialog 
+                        maternityProfileId={profile.id}
+                        patientId={profile.patientId}
+                        hospitalId={profile.hospitalId}
+                        patientName={profile.patientName}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <AncHistoryDialog
+                        patientId={profile.patientId}
+                        hospitalId={profile.hospitalId}
+                        patientName={profile.patientName}
+                    />
+                  </div>
+                </div>
                 <DeliveryLogDialog
                     maternityProfileId={profile.id}
                     patientId={profile.patientId}

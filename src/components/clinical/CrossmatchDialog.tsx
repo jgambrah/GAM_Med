@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Check, ChevronsUpDown, Loader2, Save, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { areBloodGroupsCompatible } from '@/lib/blood-compatibility';
 
 export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) {
   const firestore = useFirestore();
@@ -19,6 +20,9 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  const [manualVerifyChecked, setManualVerifyChecked] = useState(false);
+  const [emergencyOverrideChecked, setEmergencyOverrideChecked] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -64,14 +68,40 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
       setSelectedPatient(null);
       setSearch('');
       setDropdownOpen(false);
+      setManualVerifyChecked(false);
+      setEmergencyOverrideChecked(false);
     }
   }, [open]);
+
+  // Reset verify states when patient selection changes
+  useEffect(() => {
+    setManualVerifyChecked(false);
+    setEmergencyOverrideChecked(false);
+  }, [selectedPatient]);
 
   const handleSelect = (p: any) => {
     setSelectedPatient(p);
     setDropdownOpen(false);
     setSearch('');
   };
+
+  const compatibility = useMemo(() => {
+    if (!selectedPatient) return { isCompatible: true, isDocumented: false };
+    const patientBg = selectedPatient.bloodGroup;
+    if (!patientBg || patientBg === 'N/A') return { isCompatible: false, isDocumented: false };
+    return {
+      isCompatible: areBloodGroupsCompatible(pint.bloodGroup, patientBg),
+      isDocumented: true,
+      patientBg
+    };
+  }, [selectedPatient, pint.bloodGroup]);
+
+  const isConfirmDisabled = useMemo(() => {
+    if (loading || !selectedPatient) return true;
+    if (!compatibility.isDocumented) return !manualVerifyChecked;
+    if (!compatibility.isCompatible) return !emergencyOverrideChecked;
+    return false;
+  }, [loading, selectedPatient, compatibility, manualVerifyChecked, emergencyOverrideChecked]);
 
   const handleCrossmatch = async () => {
     if (!selectedPatient) {
@@ -86,6 +116,8 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
         crossmatchedForPatientId: selectedPatient.id,
         crossmatchedForPatientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
         crossmatchedAt: serverTimestamp(),
+        compatibilityStatus: compatibility.isCompatible ? 'COMPATIBLE' : 'OVERRIDDEN',
+        overrideReason: !compatibility.isDocumented ? 'Manual Verification' : !compatibility.isCompatible ? 'Emergency Override' : null,
       });
       toast({
         title: 'Cross-match Complete',
@@ -102,9 +134,6 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        // Stop the Dialog itself from closing when the user interacts
-        // with the dropdown list (which sits inside the Dialog DOM tree
-        // but Radix can still misclassify as "outside")
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
@@ -115,18 +144,7 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
-          {/*
-            WHY we dropped Radix Popover + Command:
-            Radix Popover renders into its own portal *outside* the Dialog DOM
-            node. The Dialog's focus-trap and overlay then treat any click on
-            the portal-rendered list as "outside", firing PointerDownOutside
-            and dismissing the dropdown before onSelect can run.
-
-            Solution: a plain inline <div> dropdown that lives *inside* the
-            Dialog DOM tree. No portals, no competing focus-traps, no event
-            interception. Search filtering is done client-side with useMemo.
-          */}
+        <div className="py-4 space-y-4">
           <div ref={containerRef} className="relative w-full">
 
             {/* Trigger */}
@@ -145,7 +163,7 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                 {patientsLoading
                   ? 'Loading patients...'
                   : selectedPatient
-                  ? `${selectedPatient.firstName} ${selectedPatient.lastName} (${selectedPatient.ehrNumber})`
+                  ? `${selectedPatient.firstName} ${selectedPatient.lastName} (${selectedPatient.ehrNumber})${selectedPatient.bloodGroup ? ` - Group ${selectedPatient.bloodGroup}` : ''}`
                   : 'Select Patient...'}
               </span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -165,7 +183,6 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search by name or EHR number..."
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    // Prevent Dialog from intercepting keypresses (e.g. Escape closing Dialog instead of clearing search)
                     onKeyDown={(e) => {
                       e.stopPropagation();
                       if (e.key === 'Escape') setDropdownOpen(false);
@@ -185,9 +202,6 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                         key={p.id}
                         role="option"
                         aria-selected={selectedPatient?.id === p.id}
-                        // onMouseDown fires BEFORE the input loses focus (onBlur),
-                        // so the dropdown stays open long enough to register the click.
-                        // e.preventDefault() stops the input from blurring at all.
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -205,11 +219,18 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
                             selectedPatient?.id === p.id ? 'opacity-100' : 'opacity-0'
                           )}
                         />
-                        <span>
-                          {p.firstName} {p.lastName}
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {p.ehrNumber}
+                        <span className="flex items-center justify-between w-full">
+                          <span>
+                            {p.firstName} {p.lastName}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {p.ehrNumber}
+                            </span>
                           </span>
+                          {p.bloodGroup && (
+                            <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-full font-bold">
+                              {p.bloodGroup}
+                            </span>
+                          )}
                         </span>
                       </li>
                     ))
@@ -218,13 +239,61 @@ export function CrossmatchDialog({ pint, hospitalId, open, onOpenChange }: any) 
               </div>
             )}
           </div>
+
+          {/* Compatibility Warn/Info Banners */}
+          {selectedPatient && !compatibility.isDocumented && (
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 space-y-3">
+              <p className="text-xs font-bold uppercase">⚠️ Patient Blood Group Unknown</p>
+              <p className="text-xs">
+                This patient does not have a documented blood group. Please manually verify compatibility before reserving this pint.
+              </p>
+              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={manualVerifyChecked} 
+                  onChange={(e) => setManualVerifyChecked(e.target.checked)} 
+                  className="rounded border-amber-300"
+                />
+                I have manually verified the patient's blood group is compatible.
+              </label>
+            </div>
+          )}
+
+          {selectedPatient && compatibility.isDocumented && !compatibility.isCompatible && (
+            <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 space-y-3">
+              <p className="text-xs font-black uppercase flex items-center gap-2">
+                🚨 Critical Mismatch Detected
+              </p>
+              <p className="text-xs font-semibold">
+                Donor Group ({pint.bloodGroup}) is NOT compatible with Patient Group ({compatibility.patientBg}).
+              </p>
+              <label className="flex items-center gap-2 text-xs font-black cursor-pointer text-red-900 bg-red-100 p-2.5 rounded-lg border border-red-300">
+                <input 
+                  type="checkbox" 
+                  checked={emergencyOverrideChecked} 
+                  onChange={(e) => setEmergencyOverrideChecked(e.target.checked)} 
+                  className="rounded border-red-400"
+                />
+                Emergency Clinical Override (Authorize matching manually)
+              </label>
+            </div>
+          )}
+
+          {selectedPatient && compatibility.isDocumented && compatibility.isCompatible && (
+            <div className="p-4 rounded-xl border border-green-200 bg-green-50 text-green-800">
+              <p className="text-xs font-bold uppercase">✓ Compatible Blood Group</p>
+              <p className="text-xs">
+                Donor Group {pint.bloodGroup} is compatible with Patient Group {compatibility.patientBg}.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCrossmatch} disabled={loading || !selectedPatient}>
+          <Button onClick={handleCrossmatch} disabled={isConfirmDisabled}>
             {loading ? <Loader2 className="animate-spin" /> : <Save />}
             Confirm &amp; Reserve
           </Button>

@@ -24,6 +24,8 @@ const ancEncounterSchema = z.object({
     urineProtein: z.string().optional(),
     urineSugar: z.string().optional(),
     edema: z.string().optional(),
+    bp: z.string().optional(),
+    weight: z.coerce.number().optional(),
   }),
 });
 
@@ -45,12 +47,17 @@ export function AncEncounterDialog({ patientId, hospitalId, patientName, materni
   const form = useForm<AncEncounterFormValues>({
     resolver: zodResolver(ancEncounterSchema),
     defaultValues: {
+      diagnosis: '',
       ancData: {
         presentation: 'Cephalic',
         fetalMovement: 'Active',
         urineProtein: 'Negative',
         urineSugar: 'Negative',
-        edema: 'None'
+        edema: 'None',
+        bp: '',
+        fundalHeight: undefined,
+        fetalHeartRate: undefined,
+        weight: undefined
       }
     },
   });
@@ -69,6 +76,7 @@ export function AncEncounterDialog({ patientId, hospitalId, patientName, materni
         patientId,
         hospitalId,
         patientName,
+        maternityProfileId,
         encounterType: 'ANC Visit', // Hardcode the type for this specialized dialog
     };
 
@@ -108,12 +116,38 @@ export function AncEncounterDialog({ patientId, hospitalId, patientName, materni
               <div className="grid grid-cols-2 md:grid-cols-3 gap-6 bg-pink-50/50 p-6 rounded-[32px] border border-pink-100">
                 <FormField
                   control={form.control}
+                  name="ancData.bp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Maternal BP (mmHg)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 120/80" {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ancData.weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Maternal Weight (kg)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.1" placeholder="e.g. 70.5" {...field} value={field.value !== undefined ? field.value : ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="ancData.fundalHeight"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Fundal Height (cm)</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} />
+                        <Input type="number" placeholder="e.g. 24" {...field} value={field.value !== undefined ? field.value : ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -126,7 +160,7 @@ export function AncEncounterDialog({ patientId, hospitalId, patientName, materni
                     <FormItem>
                       <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Fetal Heart Rate (bpm)</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} />
+                        <Input type="number" placeholder="e.g. 140" {...field} value={field.value !== undefined ? field.value : ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -144,6 +178,83 @@ export function AncEncounterDialog({ patientId, hospitalId, patientName, materni
                             <SelectItem value="Cephalic">Cephalic</SelectItem>
                             <SelectItem value="Breech">Breech</SelectItem>
                             <SelectItem value="Transverse">Transverse</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="ancData.fetalMovement"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Fetal Movement</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="Active">Active</SelectItem>
+                            <SelectItem value="Reduced">Reduced</SelectItem>
+                            <SelectItem value="Absent">Absent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="ancData.urineProtein"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Urine Protein</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="Negative">Negative</SelectItem>
+                            <SelectItem value="Trace">Trace</SelectItem>
+                            <SelectItem value="+">+</SelectItem>
+                            <SelectItem value="++">++</SelectItem>
+                            <SelectItem value="+++">+++</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="ancData.urineSugar"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Urine Sugar</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="Negative">Negative</SelectItem>
+                            <SelectItem value="Trace">Trace</SelectItem>
+                            <SelectItem value="+">+</SelectItem>
+                            <SelectItem value="++">++</SelectItem>
+                            <SelectItem value="+++">+++</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="ancData.edema"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Maternal Edema</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="None">None</SelectItem>
+                            <SelectItem value="Mild">Mild</SelectItem>
+                            <SelectItem value="Moderate">Moderate</SelectItem>
+                            <SelectItem value="Severe">Severe</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

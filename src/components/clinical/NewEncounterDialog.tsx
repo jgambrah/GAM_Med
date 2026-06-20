@@ -511,6 +511,21 @@ export function NewEncounterDialog({
                 />
                 <FormField
                   control={form.control}
+                  name="hpi"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>History of Present Illness (HPI)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Detailed history of the present illness (onset, duration, severity, progression, etc.)"
+                          {...field}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="diagnosis"
                   render={({ field }) => (
                     <FormItem>

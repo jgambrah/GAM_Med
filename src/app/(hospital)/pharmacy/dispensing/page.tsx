@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collectionGroup, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
-import { ClipboardList, CheckCircle, Clock, User, ShieldAlert, Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
+import { ClipboardList, CheckCircle, Clock, User, ShieldAlert, Loader2, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
 type Order = {
@@ -53,34 +54,9 @@ export default function DispensingQueue() {
   
   const { data: orders, isLoading: areOrdersLoading } = useCollection<Order>(ordersQuery);
 
-  const dispenseOrder = (order: Order) => {
-    if (!firestore || !user) return;
-    try {
-      const encounterRef = doc(firestore, `hospitals/${order.hospitalId}/patients/${order.patientId}/encounters/${order.id}`);
-      
-      updateDocumentNonBlocking(encounterRef, {
-        isDispensed: true,
-        dispensedAt: serverTimestamp(),
-        pharmacistId: user.uid,
-        pharmacistName: user.displayName,
-      });
-
-      // Here you would also loop through order.prescription and decrement stock
-      // This requires a transaction for safety, which is a more advanced topic.
-      // For now, we just mark as dispensed.
-
-      toast({
-        title: "Order Dispensed",
-        description: "Patient's prescription has been marked as completed."
-      });
-    } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Dispensing Failed",
-        description: e.message
-      });
-    }
-  };
+  const filteredOrders = useMemo(() => {
+    return (orders || []).filter(order => order.prescription && order.prescription.length > 0);
+  }, [orders]);
   
   const isLoading = isUserLoading || isClaimsLoading;
 
@@ -113,7 +89,7 @@ export default function DispensingQueue() {
            <p className="text-muted-foreground font-medium">Real-time feed of pending prescriptions from clinical encounters.</p>
         </div>
         <div className="bg-card px-4 py-2 rounded-lg border">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pending Orders: {areOrdersLoading ? '...' : orders?.length ?? 0}</span>
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pending Orders: {areOrdersLoading ? '...' : filteredOrders.length}</span>
         </div>
       </div>
       
@@ -122,28 +98,30 @@ export default function DispensingQueue() {
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
             Fetching pending prescriptions...
          </div>
-      ) : orders && orders.length === 0 ? (
-        <div className="text-center p-20 bg-card border-2 border-dashed rounded-2xl text-muted-foreground">
-          <CheckCircle className="h-12 w-12 mx-auto mb-2" />
+      ) : filteredOrders.length === 0 ? (
+        <div className="text-center p-20 bg-card border-2 border-dashed rounded-[32px] text-muted-foreground">
+          <CheckCircle className="h-12 w-12 mx-auto mb-2 text-primary/50" />
           The dispensing queue is clear. No pending prescriptions.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          {orders?.map(order => (
-            <div key={order.id} className="bg-card p-6 rounded-2xl border shadow-sm space-y-4">
+          {filteredOrders.map(order => (
+            <div key={order.id} className="bg-card p-6 rounded-[32px] border shadow-sm space-y-4 hover:border-primary/20 transition-all flex flex-col justify-between">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-primary/10 text-primary rounded-xl"><User size={20}/></div>
+                  <div className="p-3 bg-primary/10 text-primary rounded-2xl"><User size={20}/></div>
                   <div>
-                    <p className="font-bold text-card-foreground">Patient Prescription</p>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    <p className="font-black text-card-foreground uppercase text-sm">Patient Prescription</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-0.5">
                       By Dr. {order.providerName} • {formatDistanceToNow(order.createdAt.toDate(), { addSuffix: true })}
                     </p>
                   </div>
                 </div>
-                <Button onClick={() => dispenseOrder(order)} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                  <CheckCircle size={14}/> Complete
-                </Button>
+                <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
+                   <Button size="sm" className="bg-primary hover:bg-foreground text-primary-foreground font-black uppercase text-[10px] tracking-widest flex items-center gap-1.5 shadow-md transition-all rounded-xl py-4">
+                      Dispense Now <ChevronRight size={12} />
+                   </Button>
+                </Link>
               </div>
 
               <div className="bg-muted/50 p-4 rounded-xl space-y-2">

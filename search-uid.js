@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const serviceAccount = require("c:/Users/DELL/Documents/GitHub/GAM_Med/serviceAccountKey.json");
+const serviceAccount = require("c:/Users/DELL/Documents/GitHub/GAM_Med/src/serviceAccountKey.json");
 
 if (!admin.apps.length) {
   admin.initializeApp({

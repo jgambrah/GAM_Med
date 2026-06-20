@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, orderBy, limit } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, serverTimestamp, orderBy, limit, doc, getDoc, getDocs, where } from 'firebase/firestore';
 import { 
   ClipboardList, Users, AlertTriangle, 
   Save, History, Clock, CheckCircle2, 
@@ -17,26 +17,20 @@ export default function NursingHandover() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [claims, setClaims] = useState<any>(null);
-  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
-  
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult(true).then((idTokenResult) => {
-        setClaims(idTokenResult.claims);
-        setIsClaimsLoading(false);
-      });
-    } else if (!isUserLoading) {
-      setIsClaimsLoading(false);
-    }
-  }, [user, isUserLoading]);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = claims?.hospitalId;
-  const userRole = claims?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'NURSE', 'DOCTOR'].includes(userRole);
+  const hospitalId = userProfile?.hospitalId;
+  const userRole = userProfile?.role;
+  const isAuthorized = userRole ? ['DIRECTOR', 'ADMIN', 'NURSE', 'DOCTOR'].includes(userRole) : false;
+
+  const [userRolesMap, setUserRolesMap] = useState<Record<string, string>>({});
 
   // HANDOVER FORM STATE
   const [form, setForm] = useState({
@@ -59,6 +53,41 @@ export default function NursingHandover() {
 
   const { data: history, isLoading: isHistoryLoading } = useCollection(historyQuery);
 
+  // Fetch creator roles for historical logs that do not store nurseRole directly
+  useEffect(() => {
+    if (!firestore || !history || !hospitalId) return;
+
+    const missingNurseIds = Array.from(new Set(
+      history
+        .filter((r: any) => !r.nurseRole && r.nurseId)
+        .map((r: any) => r.nurseId)
+    )) as string[];
+
+    if (missingNurseIds.length === 0) return;
+
+    missingNurseIds.forEach(async (nurseId) => {
+      if (userRolesMap[nurseId]) return;
+      try {
+        const userRef = doc(firestore, 'users', nurseId);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          setUserRolesMap(prev => ({ ...prev, [nurseId]: snap.data().role }));
+        }
+      } catch (err) {
+        // Fallback to query (list permission) if direct get fails due to permissions
+        try {
+          const q = query(collection(firestore, 'users'), where('uid', '==', nurseId));
+          const qSnap = await getDocs(q);
+          if (!qSnap.empty) {
+            setUserRolesMap(prev => ({ ...prev, [nurseId]: qSnap.docs[0].data().role }));
+          }
+        } catch (queryErr) {
+          console.error("Failed to fetch nurse role:", queryErr);
+        }
+      }
+    });
+  }, [firestore, history, hospitalId, userRolesMap]);
+
 
   const submitHandover = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +102,7 @@ export default function NursingHandover() {
         hospitalId: hospitalId,
         nurseId: user.uid,
         nurseName: user.displayName,
+        nurseRole: userRole || 'NURSE',
         createdAt: serverTimestamp(),
       });
       toast({ title: "Shift Handover Logged Successfully" });
@@ -91,7 +121,7 @@ export default function NursingHandover() {
     setLoading(false);
   };
   
-  const pageIsLoading = isUserLoading || isClaimsLoading;
+  const pageIsLoading = isUserLoading || isProfileLoading;
 
   if (pageIsLoading) {
     return (
@@ -198,7 +228,14 @@ export default function NursingHandover() {
                    <div className="flex justify-between items-start">
                       <div>
                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{report.shiftType}</p>
-                         <h4 className="text-lg font-black text-card-foreground mt-1">Logged by Nurse {report.nurseName}</h4>
+                         <h4 className="text-lg font-black text-card-foreground mt-1">
+                            Logged by {
+                               (() => {
+                                 const role = report.nurseRole || userRolesMap[report.nurseId];
+                                 return role === 'DOCTOR' ? 'Dr.' : role === 'DIRECTOR' ? 'Director' : role === 'ADMIN' ? 'Admin' : 'Nurse';
+                               })()
+                             } {report.nurseName}
+                         </h4>
                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1">
                             <Clock size={12}/> {report.createdAt ? new Date(report.createdAt?.toDate()).toLocaleString() : ''}
                          </p>

@@ -119,7 +119,14 @@ export default function DoctorDashboard() {
                       {patient.firstName?.[0]}{patient.lastName?.[0]}
                    </div>
                    <div>
-                      <p className="font-black text-card-foreground uppercase text-sm">{patient.firstName} {patient.lastName}</p>
+                      <p className="font-black text-card-foreground uppercase text-sm flex flex-wrap items-center gap-2">
+                         <span>{patient.firstName} {patient.lastName}</span>
+                         {patient.allergies && patient.allergies !== 'NKDA' && patient.allergies !== 'NKDA / No Known Drug Allergies' && (
+                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider flex items-center gap-1 border border-red-200 animate-pulse">
+                               <ShieldAlert size={10} /> Allergies
+                            </span>
+                         )}
+                      </p>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{patient.ehrNumber} • {patient.gender}</p>
                    </div>
                 </div>

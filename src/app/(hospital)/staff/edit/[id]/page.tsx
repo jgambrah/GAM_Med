@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking, useFirebaseApp } from '@/firebase';
 import { doc, serverTimestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { 
   Save, ArrowLeft, ShieldAlert, BadgeCheck, 
   Contact, Briefcase, UserCircle, Loader2 
@@ -36,17 +37,41 @@ export default function EditStaffProfile() {
     }
   }, [staffData]);
 
+  const firebaseApp = useFirebaseApp();
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!docRef) return;
+    if (!docRef || !firebaseApp) return;
 
     setSaving(true);
     try {
-      await updateDocumentNonBlocking(docRef, {
-        ...form,
-        updatedAt: serverTimestamp(),
-        onboardingComplete: !!(form.licenseNumber && form.ghanaCardId)
-      });
+      const roleChanged = form.role !== staffData.role;
+
+      if (roleChanged) {
+        const functions = getFunctions(firebaseApp);
+        const repairTool = httpsCallable(functions, 'repairUserIdentity');
+        
+        await repairTool({
+          targetEmail: form.email,
+          hospitalId: form.hospitalId,
+          role: form.role
+        });
+
+        // Update the rest of the profile properties
+        const { role, ...otherDetails } = form;
+        await updateDocumentNonBlocking(docRef, {
+          ...otherDetails,
+          updatedAt: serverTimestamp(),
+          onboardingComplete: !!(form.licenseNumber && form.ghanaCardId)
+        });
+      } else {
+        await updateDocumentNonBlocking(docRef, {
+          ...form,
+          updatedAt: serverTimestamp(),
+          onboardingComplete: !!(form.licenseNumber && form.ghanaCardId)
+        });
+      }
+      
       toast({ title: "Profile Synchronized Successfully" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Update Failed", description: error.message });
@@ -181,7 +206,7 @@ export default function EditStaffProfile() {
   );
 }
 
-function EditField({ label, value, type="text" }: any) {
+function EditField({ label, value, onChange, type="text" }: any) {
   return (
     <div>
       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</label>

@@ -65,7 +65,7 @@ export default function ForcePasswordChangePage() {
       
       // Release them into the app with role-based routing (force refresh token to get latest claims)
       const claims = (await currentUser.getIdTokenResult(true)).claims;
-      const userRole = claims.role;
+      const userRole = claims.role as string;
       const portalRoutes: { [key: string]: string } = {
           'SUPER_ADMIN': '/app-ceo/dashboard',
           'DIRECTOR': '/dashboard',

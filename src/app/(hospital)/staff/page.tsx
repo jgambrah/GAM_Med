@@ -85,6 +85,10 @@ export default function StaffDirectory() {
             
             <div className="space-y-2 border-t pt-4">
                <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
+                  <span>User ID (UID):</span>
+                  <span className="text-card-foreground font-mono text-[9px] select-all tracking-tighter" title="Double click to select">{member.id}</span>
+               </div>
+               <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
                   <span>License #:</span>
                   <span className="text-card-foreground font-mono">{member.licenseNumber || 'N/A'}</span>
                </div>
