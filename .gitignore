@@ -32,3 +32,5 @@ dataconnect/.dataconnect/
 # Misc
 .DS_Store
 *.pem
+/scratch
+
