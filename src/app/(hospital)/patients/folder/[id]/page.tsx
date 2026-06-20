@@ -8,9 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Activity, Thermometer, Pill, Beaker,
   History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit, Camera, Download,
-  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode
+  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
+import { CwcEncounterDialog } from '@/components/clinical/CwcEncounterDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, differenceInYears } from 'date-fns';
 import { AdmissionDialog } from '@/components/clinical/AdmissionDialog';
@@ -227,7 +228,10 @@ export default function PatientFolderHub() {
                 type: enc.type,
                 hospitalName: enc.hospitalName,
             }));
-            setAllEncounters(normalizedEncounters);
+            const uniqueEncounters = normalizedEncounters.filter((enc, index, self) =>
+              self.findIndex(e => e.id === enc.id) === index
+            );
+            setAllEncounters(uniqueEncounters);
           } else {
              throw new Error("Invalid data format received from history function.");
           }
@@ -378,14 +382,18 @@ export default function PatientFolderHub() {
 
   const timelineActivities = useMemo(() => {
     const allActivities = [
-        ...(allEncounters || []).map(e => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt })),
-        ...(completedLabs || []).map(l => ({ ...l, viewType: 'LAB_RESULT', date: l.completedAt?.toDate() })),
-        ...(completedScans || []).map(s => ({ ...s, viewType: 'SCAN_RESULT', date: s.completedAt?.toDate() })),
-        ...(procedureLogs || []).map(p => ({ ...p, viewType: 'PROCEDURE_LOG', date: p.createdAt?.toDate() })),
-        ...(patientRounds || []).map(r => ({ ...r, viewType: 'NURSING_ROUND', date: r.createdAt?.toDate() }))
+        ...(allEncounters || []).map((e, idx) => ({ ...e, viewType: 'ENCOUNTER', date: e.createdAt, uniqueKey: `ENCOUNTER-${e.id || idx}` })),
+        ...(completedLabs || []).map((l, idx) => ({ ...l, viewType: 'LAB_RESULT', date: l.completedAt?.toDate(), uniqueKey: `LAB_RESULT-${l.id || idx}` })),
+        ...(completedScans || []).map((s, idx) => ({ ...s, viewType: 'SCAN_RESULT', date: s.completedAt?.toDate(), uniqueKey: `SCAN_RESULT-${s.id || idx}` })),
+        ...(procedureLogs || []).map((p, idx) => ({ ...p, viewType: 'PROCEDURE_LOG', date: p.createdAt?.toDate(), uniqueKey: `PROCEDURE_LOG-${p.id || idx}` })),
+        ...(patientRounds || []).map((r, idx) => ({ ...r, viewType: 'NURSING_ROUND', date: r.createdAt?.toDate(), uniqueKey: `NURSING_ROUND-${r.id || idx}` }))
     ];
 
-    return allActivities
+    const uniqueActivities = allActivities.filter((item, index, self) =>
+      self.findIndex(i => i.uniqueKey === item.uniqueKey) === index
+    );
+
+    return uniqueActivities
         .filter(item => item.date)
         .sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [allEncounters, completedLabs, completedScans, procedureLogs, patientRounds]);
@@ -395,6 +403,14 @@ export default function PatientFolderHub() {
   const isDeceased = patient?.status === 'DECEASED';
 
   const latestEncounter = allEncounters && allEncounters.length > 0 ? allEncounters[0] : null;
+  const isChildUnder5 = useMemo(() => {
+    if (!patient?.dateOfBirth) return false;
+    try {
+      return differenceInYears(new Date(), new Date(patient.dateOfBirth)) < 5;
+    } catch (e) {
+      return false;
+    }
+  }, [patient?.dateOfBirth]);
 
   if (isLoading) {
       return (
@@ -466,6 +482,14 @@ export default function PatientFolderHub() {
              ) : (
                <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
              )
+           )}
+           {!isDeceased && patient && hospitalId && isChildUnder5 && (
+             <CwcEncounterDialog
+               patientId={id as string}
+               hospitalId={hospitalId}
+               patientName={`${patient?.firstName} ${patient?.lastName}`}
+               onSuccess={fetchHistory}
+             />
            )}
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
@@ -756,8 +780,96 @@ export default function PatientFolderHub() {
                 ) : (
                     timelineActivities.map((activity: any) => {
                       if (activity.viewType === 'ENCOUNTER') {
+                        const isCwc = activity.encounterType === 'Child Welfare (CWC) Checkup' || activity.type === 'Child Welfare (CWC) Checkup';
+                        if (isCwc) {
+                          return (
+                            <div key={activity.uniqueKey} className="bg-white p-8 rounded-[40px] border-4 border-sky-600 shadow-[12px_12px_0px_0px_rgba(14,165,233,0.05)] space-y-8 mb-8 text-black">
+                              <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                                 <div>
+                                    <span className="text-[10px] font-black bg-sky-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit">
+                                       <Baby size={12} /> {activity.type || 'Child Welfare Checkup'}
+                                    </span>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                       {activity.hospitalName} • Logged by: {activity.providerName} ({activity.providerRole})
+                                    </p>
+                                 </div>
+                                 <div className="text-right">
+                                    <p className="text-[10px] font-black text-slate-900 uppercase">
+                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-sky-600 uppercase mt-1">
+                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </p>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-sky-50/50 p-6 rounded-[32px] border border-sky-100">
+                                 <MiniVital label="Weight" value={activity.vitals?.weight} unit="kg" />
+                                 <MiniVital label="Length" value={activity.vitals?.height} unit="cm" />
+                                 <MiniVital label="Head Circ." value={activity.vitals?.headCircumference} unit="cm" />
+                                 <MiniVital label="MUAC" value={activity.vitals?.muac} unit="cm" />
+                                 <MiniVital label="Feeding" value={activity.vitals?.feedingMethod} unit="" />
+                              </div>
+
+                              {activity.cwcData && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  {activity.cwcData.vaccinesAdministered && activity.cwcData.vaccinesAdministered.length > 0 && (
+                                    <div className="space-y-2 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                      <p className="text-[9px] font-black text-sky-600 uppercase tracking-widest flex items-center gap-1">
+                                        <Syringe size={10} className="text-sky-500" /> Immunizations Administered
+                                      </p>
+                                      <div className="flex flex-wrap gap-2 pt-1">
+                                        {activity.cwcData.vaccinesAdministered.map((v: string) => (
+                                          <span key={v} className="bg-sky-100 text-sky-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border border-sky-200">
+                                            {v}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {activity.cwcData.milestonesObserved && activity.cwcData.milestonesObserved.length > 0 && (
+                                    <div className="space-y-2 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                      <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1">
+                                        <Sparkles size={10} className="text-indigo-500" /> Milestones Observed
+                                      </p>
+                                      <div className="flex flex-wrap gap-2 pt-1">
+                                        {activity.cwcData.milestonesObserved.map((m: string) => (
+                                          <span key={m} className="bg-indigo-100 text-indigo-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border border-indigo-200">
+                                            {m}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                <div className="space-y-2">
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-300 pl-3">Developmental Remarks</p>
+                                  <p className="text-xs font-semibold text-slate-800 leading-relaxed italic">
+                                     "{activity.diagnosis || 'No remarks recorded.'}"
+                                  </p>
+                                </div>
+                                {activity.cwcData?.nextCwcDate && (
+                                  <div className="bg-amber-50 text-amber-900 border border-amber-200 p-4 rounded-2xl flex items-center gap-3">
+                                     <Activity size={16} className="text-amber-600 animate-pulse" />
+                                     <div>
+                                        <p className="text-[9px] font-black uppercase text-amber-700">Next Scheduled CWC Visit</p>
+                                        <p className="text-xs font-black uppercase mt-0.5">
+                                          {new Date(activity.cwcData.nextCwcDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </p>
+                                     </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div key={activity.id} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
+                          <div key={activity.uniqueKey} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
                             <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                                <div>
                                   <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
@@ -851,7 +963,7 @@ export default function PatientFolderHub() {
                       if (activity.viewType === 'LAB_RESULT') {
                         const isCritical = activity.isAbnormal || false;
                         return (
-                          <div key={activity.id} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white ${isCritical ? 'border-red-600' : 'border-purple-600'}`}>
+                          <div key={activity.uniqueKey} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white ${isCritical ? 'border-red-600' : 'border-purple-600'}`}>
                             <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                                <div>
                                   <span className={`text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic ${isCritical ? 'bg-red-600 animate-pulse' : 'bg-purple-600'}`}>
@@ -940,7 +1052,7 @@ export default function PatientFolderHub() {
                       if (activity.viewType === 'SCAN_RESULT') {
                         const isCritical = activity.isCritical || false;
                         return (
-                          <div key={activity.id} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white transition-all ${isCritical ? 'border-red-600 ring-4 ring-red-100/50' : 'border-orange-600'}`}>
+                          <div key={activity.uniqueKey} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white transition-all ${isCritical ? 'border-red-600 ring-4 ring-red-100/50' : 'border-orange-600'}`}>
                             <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                                <div>
                                   <span className={`text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic ${isCritical ? 'bg-red-600 animate-pulse' : 'bg-orange-600'}`}>
@@ -1019,7 +1131,7 @@ export default function PatientFolderHub() {
 
                       if (activity.viewType === 'PROCEDURE_LOG') {
                         return (
-                          <div key={activity.id} className="p-8 rounded-[40px] border-4 border-slate-400 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white">
+                          <div key={activity.uniqueKey} className="p-8 rounded-[40px] border-4 border-slate-400 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white">
                             <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                                <div>
                                   <span className="text-[10px] font-black bg-slate-400 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
@@ -1057,7 +1169,7 @@ export default function PatientFolderHub() {
 
                       if (activity.viewType === 'NURSING_ROUND') {
                         return (
-                          <div key={activity.id} className="p-8 rounded-[40px] border-4 border-indigo-600 shadow-[12px_12px_0px_0px_rgba(99,102,241,0.05)] space-y-6 mb-8 bg-white text-black">
+                          <div key={activity.uniqueKey} className="p-8 rounded-[40px] border-4 border-indigo-600 shadow-[12px_12px_0px_0px_rgba(99,102,241,0.05)] space-y-6 mb-8 bg-white text-black">
                             <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
                                <div>
                                   <span className="text-[10px] font-black bg-indigo-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1 w-fit">

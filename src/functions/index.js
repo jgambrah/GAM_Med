@@ -50,10 +50,14 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
       .orderBy("createdAt", "desc")
       .get();
 
-    // EXPLICIT MAPPING: This ensures the frontend receives a predictable data shape.
-    const encounters = snap.docs.map(doc => {
+    // EXPLICIT MAPPING: This ensures the frontend receives a predictable data shape, de-duplicated by ID.
+    const seen = new Set();
+    const encounters = [];
+    snap.docs.forEach(doc => {
+      if (!seen.has(doc.id)) {
+        seen.add(doc.id);
         const d = doc.data();
-        return {
+        encounters.push({
           id: doc.id,
           createdAt: d.createdAt,
           vitals: d.vitals,
@@ -68,7 +72,8 @@ exports.getPatientHistory = onCall(GLOBAL_CONFIG, async (request) => {
           providerName: d.providerName,
           providerRole: d.providerRole,
           hospitalName: d.hospitalName,
-        };
+        });
+      }
     });
 
     return { success: true, data: encounters };
