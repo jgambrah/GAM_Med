@@ -83,7 +83,14 @@ export default function TriageStation() {
                 </div>
                 <div>
                    <h3 className="text-2xl font-black uppercase tracking-tight">{p.firstName} {p.lastName}</h3>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">EHR: {p.ehrNumber} • Checked-in: {p.checkInTime ? new Date(p.checkInTime?.toDate()).toLocaleTimeString() : 'N/A'}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">EHR: {p.ehrNumber} • Checked-in: {p.checkInTime ? (
+                      (() => {
+                        const d = typeof p.checkInTime.toDate === 'function' 
+                          ? p.checkInTime.toDate() 
+                          : (p.checkInTime.seconds ? new Date(p.checkInTime.seconds * 1000) : new Date(p.checkInTime));
+                        return d.toLocaleTimeString();
+                      })()
+                    ) : 'N/A'}</p>
                 </div>
              </div>
              

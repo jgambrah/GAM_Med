@@ -236,9 +236,16 @@ export default function NursingHandover() {
                                })()
                              } {report.nurseName}
                          </h4>
-                         <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1">
-                            <Clock size={12}/> {report.createdAt ? new Date(report.createdAt?.toDate()).toLocaleString() : ''}
-                         </p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1">
+                             <Clock size={12}/> {report.createdAt ? (
+                               (() => {
+                                 const d = typeof report.createdAt.toDate === 'function' 
+                                   ? report.createdAt.toDate() 
+                                   : (report.createdAt.seconds ? new Date(report.createdAt.seconds * 1000) : new Date(report.createdAt));
+                                 return d.toLocaleString();
+                               })()
+                             ) : ''}
+                          </p>
                       </div>
                       <div className="flex gap-2">
                          <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-[9px] font-black uppercase italic">{report.totalAdmissions} ADM</span>

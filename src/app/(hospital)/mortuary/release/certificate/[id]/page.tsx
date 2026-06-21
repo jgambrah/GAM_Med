@@ -110,7 +110,16 @@ export default function BodyReleaseCertificate() {
          <div className="grid grid-cols-2 gap-10 mb-10 text-sm">
             <div>
                <p className="font-bold text-slate-600">Record ID: <span className="font-mono text-slate-900 font-black underline ml-2">{record.bodyId}</span></p>
-               <p className="font-bold text-slate-600">Date Released: <span className="text-slate-900 font-black underline ml-2">{record.releasedAt ? new Date(record.releasedAt?.toDate()).toLocaleDateString('en-GB') : 'N/A'}</span></p>
+                <p className="font-bold text-slate-600">Date Released: <span className="text-slate-900 font-black underline ml-2">
+                  {record.releasedAt ? (
+                    (() => {
+                      const d = typeof record.releasedAt.toDate === 'function' 
+                        ? record.releasedAt.toDate() 
+                        : (record.releasedAt.seconds ? new Date(record.releasedAt.seconds * 1000) : new Date(record.releasedAt));
+                      return d.toLocaleDateString('en-GB');
+                    })()
+                  ) : 'N/A'}
+                </span></p>
             </div>
          </div>
 

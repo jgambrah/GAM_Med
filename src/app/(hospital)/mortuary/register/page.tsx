@@ -40,9 +40,22 @@ export default function MortuaryRegisterPage() {
   const configRef = useMemoFirebase(() => (hospitalId ? doc(firestore, 'hospitals', hospitalId, 'mortuary_config', 'main') : null), [firestore, hospitalId]);
   const { data: mortuaryConfig, isLoading: isConfigLoading } = useDoc(configRef);
 
+  const chambersQuery = useMemoFirebase(() => (hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`)) : null), [firestore, hospitalId]);
+  const { data: chambers } = useCollection(chambersQuery);
+
+  const chambersMap = useMemo(() => {
+    if (!chambers) return new Map<string, string>();
+    const map = new Map<string, string>();
+    chambers.forEach(c => {
+      map.set(c.id, c.chamberNumber);
+    });
+    return map;
+  }, [chambers]);
+
   const calculateDays = (admittedAt: any) => {
     if (!admittedAt) return 0;
-    return differenceInCalendarDays(new Date(), admittedAt.toDate()) + 1;
+    const date = typeof admittedAt.toDate === 'function' ? admittedAt.toDate() : (admittedAt.seconds ? new Date(admittedAt.seconds * 1000) : new Date(admittedAt));
+    return differenceInCalendarDays(new Date(), date) + 1;
   };
 
   const calculateBill = (record: any) => {
@@ -202,9 +215,22 @@ export default function MortuaryRegisterPage() {
                     <p className="text-sm uppercase">{record.bodyName}</p>
                     <p className="text-[9px] text-blue-600 font-black">ID: {record.bodyId}</p>
                   </td>
-                  <td className="p-6 text-sm text-slate-500">{record.admittedAt ? format(record.admittedAt.toDate(), 'PPP') : 'N/A'}</td>
+                  <td className="p-6 text-sm text-slate-500">
+                    {record.admittedAt ? (
+                      format(
+                        typeof record.admittedAt.toDate === 'function' 
+                          ? record.admittedAt.toDate() 
+                          : (record.admittedAt.seconds ? new Date(record.admittedAt.seconds * 1000) : new Date(record.admittedAt)),
+                        'PPP'
+                      )
+                    ) : 'N/A'}
+                  </td>
                   <td className="p-6 text-center">
-                    <span className="bg-slate-100 px-4 py-1 rounded-full text-xs">{record.chamberNumber}</span>
+                    <span className="bg-slate-100 px-4 py-1 rounded-full text-xs">
+                      {record.chamberNumber && record.chamberNumber.startsWith('C-') 
+                        ? record.chamberNumber 
+                        : (record.chamberId ? chambersMap.get(record.chamberId) || record.chamberNumber || 'N/A' : record.chamberNumber || 'N/A')}
+                    </span>
                   </td>
                   <td className="p-6 text-center text-lg font-black">{calculateDays(record.admittedAt)}</td>
                   <td className="p-6 text-right">

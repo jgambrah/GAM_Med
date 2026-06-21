@@ -74,8 +74,6 @@ export default function MortuaryIntake() {
       const confirmNoClearance = confirm("WARNING: You have indicated this is a 'Brought In Dead' case without police clearance. Are you sure you want to proceed?");
       if (!confirmNoClearance) return;
     }
-    
-    form.control.register('loading', {value: true});
 
     try {
       await runTransaction(firestore, async (transaction) => {
@@ -124,8 +122,6 @@ export default function MortuaryIntake() {
       form.reset();
     } catch (e: any) {
       toast({ variant: "destructive", title: e.message });
-    } finally {
-      form.control.register('loading', {value: false});
     }
   };
 

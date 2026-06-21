@@ -78,7 +78,16 @@ export default function MortuaryArchivePage() {
                     <p className="text-sm uppercase">{record.releasedToName}</p>
                     <p className="text-[9px] text-slate-400 font-black">{record.releasedToID}</p>
                 </td>
-                <td className="p-6 text-sm text-slate-500">{record.releasedAt ? format(record.releasedAt.toDate(), 'PPP, p') : 'N/A'}</td>
+                <td className="p-6 text-sm text-slate-500">
+                  {record.releasedAt ? (
+                    format(
+                      typeof record.releasedAt.toDate === 'function' 
+                        ? record.releasedAt.toDate() 
+                        : (record.releasedAt.seconds ? new Date(record.releasedAt.seconds * 1000) : new Date(record.releasedAt)),
+                      'PPP, p'
+                    )
+                  ) : 'N/A'}
+                </td>
                 <td className="p-6 text-right">
                     <Button asChild variant="outline" size="sm">
                        <Link href={`/mortuary/release/certificate/${record.id}`}>

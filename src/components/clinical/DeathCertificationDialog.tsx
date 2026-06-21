@@ -14,12 +14,18 @@ export function DeathCertificationDialog({ patient }: { patient: any }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const isFemale = patient.gender?.toLowerCase() === 'female';
+  const age = patient.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : 0;
+  const isReproductiveAgeFemale = isFemale && age >= 10 && age <= 55;
+
   const [form, setForm] = useState({
     dateTimeOfDeath: '',
     immediateCause: '',
     underlyingCause: '',
     icd10Code: '',
     placeOfDeath: 'In-Facility',
+    isMaternalDeath: false,
   });
 
   const handleCertify = async () => {
@@ -49,7 +55,10 @@ export function DeathCertificationDialog({ patient }: { patient: any }) {
         patientName: `${patient.firstName} ${patient.lastName}`,
         ehrNumber: patient.ehrNumber,
         familyContact: patient.emergencyContactPhone,
-        ...form, // All causes of death
+        ...form, // All causes of death and isMaternalDeath
+        gender: patient.gender || 'Unknown',
+        ageAtDeath: age,
+        dateOfBirth: patient.dateOfBirth || null,
         certifiedBy: user.uid,
         createdAt: serverTimestamp()
       });
@@ -65,6 +74,7 @@ export function DeathCertificationDialog({ patient }: { patient: any }) {
         gender: patient.gender,
         underlyingCause: form.underlyingCause,
         icd10Code: form.icd10Code,
+        isMaternalDeath: form.isMaternalDeath || false,
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear(),
         createdAt: serverTimestamp()
@@ -117,11 +127,25 @@ export function DeathCertificationDialog({ patient }: { patient: any }) {
                         <input placeholder="e.g. Type II Diabetes Mellitus" className="w-full p-4 bg-red-50 border-2 border-red-100 rounded-2xl mt-1" 
                         onChange={e => setForm({...form, underlyingCause: e.target.value})} />
                     </div>
-                    <div>
+                     <div>
                         <label className="text-xs font-black uppercase text-primary">ICD-10 Code</label>
                         <input placeholder="e.g. E11.9" className="w-full p-4 bg-blue-50 border-2 border-blue-100 rounded-2xl mt-1 font-mono uppercase" 
                         onChange={e => setForm({...form, icd10Code: e.target.value})} />
                     </div>
+                    {isReproductiveAgeFemale && (
+                      <div className="flex items-center gap-3 p-4 bg-pink-50 border-2 border-pink-100 rounded-2xl mt-2 hover:border-pink-300 transition-all select-none">
+                        <input 
+                          type="checkbox" 
+                          id="isMaternalDeath"
+                          className="h-5 w-5 rounded border-pink-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                          checked={form.isMaternalDeath}
+                          onChange={e => setForm({...form, isMaternalDeath: e.target.checked})}
+                        />
+                        <label htmlFor="isMaternalDeath" className="text-xs font-black uppercase text-pink-700 cursor-pointer">
+                          Maternal Death (Pregnancy/childbirth-related)
+                        </label>
+                      </div>
+                    )}
                 </div>
                 </div>
             </div>

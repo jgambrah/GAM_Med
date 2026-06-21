@@ -314,7 +314,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
   }, [pathname, hasInitialized]);
 
   return (
-    <div className="w-64 h-screen bg-white text-slate-800 flex-col border-r border-slate-200 hidden md:flex">
+    <div className="w-64 h-screen bg-white text-slate-800 flex-col border-r border-slate-200 hidden md:flex print:hidden">
       {/* Header */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center gap-3 mb-1">

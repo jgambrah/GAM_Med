@@ -48,6 +48,16 @@ export default function NurseDashboard() {
 
   const isLoading = isUserLoading || isProfileLoading || isTriageLoading || isInpatientsLoading;
 
+  const roundsDueNowCount = useMemo(() => {
+    if (!inpatients) return 0;
+    const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+    return inpatients.filter((adm: any) => {
+      if (!adm.lastRoundAt) return true;
+      const lastRoundTime = adm.lastRoundAt.toDate ? adm.lastRoundAt.toDate().getTime() : new Date(adm.lastRoundAt).getTime();
+      return lastRoundTime < fourHoursAgo;
+    }).length;
+  }, [inpatients]);
+
   if (isUserLoading || isProfileLoading) {
       return (
         <div className="flex h-full w-full items-center justify-center">
@@ -87,7 +97,7 @@ export default function NurseDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <NurseKPI label="Pending Triage" value={triageQueue?.length.toString() ?? '0'} icon={<Activity size={20}/>} color="orange" />
         <NurseKPI label="Bed Occupancy" value={inpatients?.length.toString() ?? '0'} icon={<Bed size={20}/>} color="blue" />
-        <NurseKPI label="Meds Due Now" value="3" icon={<Pill size={20}/>} color="red" />
+        <NurseKPI label="Rounds Due Now" value={roundsDueNowCount.toString()} icon={<Clock size={20}/>} color="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

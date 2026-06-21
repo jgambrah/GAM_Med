@@ -95,6 +95,12 @@ export default function NursingTreatmentChart() {
         createdAt: serverTimestamp()
     });
 
+    updateDocumentNonBlocking(admissionRef, {
+        lastRoundAt: serverTimestamp(),
+        lastRoundNotes: values.nursingNotes || '',
+        lastRoundNurseName: user.displayName || 'Staff',
+    });
+
     const patientRef = doc(firestore, `hospitals/${hospitalId}/patients/${admission.patientId}`);
     const updates: any = {};
     if (values.vitals.temp) updates['lastVitals.temp'] = values.vitals.temp;
@@ -130,7 +136,7 @@ export default function NursingTreatmentChart() {
                         </div>
                     </div>
                 </div>
-                {!isDischarged && admission && <DischargeDialog admission={admission} />}
+                 {!isDischarged && admission && (claims?.role === 'DOCTOR' || claims?.role === 'DIRECTOR' || claims?.role === 'ADMIN') && <DischargeDialog admission={admission} />}
             </div>
         )}
 
@@ -184,7 +190,16 @@ export default function NursingTreatmentChart() {
                 <div key={round.id} className="bg-card p-4 rounded-2xl border flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <div className="bg-muted px-2 py-1 rounded-lg text-xs font-bold">{round.createdAt ? format(round.createdAt.toDate(), 'p') : ''}</div>
+                            <div className="bg-muted px-2 py-1 rounded-lg text-xs font-bold">
+                               {round.createdAt ? (
+                                 format(
+                                   typeof round.createdAt.toDate === 'function' 
+                                     ? round.createdAt.toDate() 
+                                     : (round.createdAt.seconds ? new Date(round.createdAt.seconds * 1000) : new Date(round.createdAt)),
+                                   'p'
+                                 )
+                               ) : ''}
+                            </div>
                             <p className="text-sm"><strong className="text-primary">{round.vitals?.bp || 'N/A'}</strong> mmHg</p>
                             <p className="text-sm"><strong className="text-primary">{round.vitals?.pulse || 'N/A'}</strong> bpm</p>
                             <p className="text-sm"><strong className="text-primary">{round.vitals?.temp || 'N/A'}</strong> °C</p>
@@ -194,7 +209,14 @@ export default function NursingTreatmentChart() {
                     </div>
                     <div className="text-[10px] font-bold text-muted-foreground uppercase text-right shrink-0">
                        By {round.nurseName}<br/>
-                       {round.createdAt ? format(round.createdAt.toDate(), 'PP') : ''}
+                       {round.createdAt ? (
+                          format(
+                            typeof round.createdAt.toDate === 'function' 
+                              ? round.createdAt.toDate() 
+                              : (round.createdAt.seconds ? new Date(round.createdAt.seconds * 1000) : new Date(round.createdAt)),
+                            'PP'
+                          )
+                        ) : ''}
                     </div>
                 </div>
             ))}

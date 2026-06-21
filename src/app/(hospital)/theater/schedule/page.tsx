@@ -48,6 +48,7 @@ export default function TheaterSchedule() {
 
   const hospitalId = userProfile?.hospitalId;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'].includes(userProfile?.role || '');
+  const canSchedule = ['DIRECTOR', 'ADMIN', 'DOCTOR'].includes(userProfile?.role || '');
 
   // Query all surgeries in the hospital (index-free, client-side split)
   const surgeriesQuery = useMemoFirebase(() => {
@@ -301,6 +302,11 @@ export default function TheaterSchedule() {
     e.preventDefault();
     if (!firestore || !hospitalId) return;
 
+    if (!canSchedule) {
+      toast({ variant: 'destructive', title: 'Unauthorized', description: 'You do not have permission to schedule surgeries.' });
+      return;
+    }
+
     if (!selectedPatient) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a patient.' });
       return;
@@ -370,6 +376,11 @@ export default function TheaterSchedule() {
     e.preventDefault();
     if (!firestore || !hospitalId || !rescheduleSurgery) return;
 
+    if (!canSchedule) {
+      toast({ variant: 'destructive', title: 'Unauthorized', description: 'You do not have permission to reschedule surgeries.' });
+      return;
+    }
+
     setLoading(true);
     try {
       const formattedTime = formatTime12Hour(rescheduleTime);
@@ -404,6 +415,11 @@ export default function TheaterSchedule() {
 
   const handleCancelSubmit = async () => {
     if (!firestore || !hospitalId || !cancelSurgery) return;
+
+    if (!canSchedule) {
+      toast({ variant: 'destructive', title: 'Unauthorized', description: 'You do not have permission to cancel surgeries.' });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -459,7 +475,9 @@ export default function TheaterSchedule() {
            <h1 className="text-3xl font-black uppercase tracking-tighter italic text-black">Operating <span className="text-primary">Theater</span></h1>
            <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider mt-1">Surgical logboards, compliance checklists, &amp; logs database.</p>
         </div>
-        <Button onClick={() => setIsNewSurgeryOpen(true)} className="sm:self-end">Schedule Surgery</Button>
+        {canSchedule && (
+          <Button onClick={() => setIsNewSurgeryOpen(true)} className="sm:self-end">Schedule Surgery</Button>
+        )}
       </div>
 
       {/* Tab Switcher */}
@@ -514,22 +532,26 @@ export default function TheaterSchedule() {
                 <div className="pt-4 border-t flex justify-between items-center gap-2">
                    <p className="text-[9px] text-slate-500 font-bold uppercase italic truncate">Surgeon: Dr. {s.surgeonName}</p>
                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        title="Reschedule Surgery"
-                        onClick={() => handleOpenReschedule(s)}
-                        className="text-slate-500 hover:text-blue-600 p-2 rounded-xl hover:bg-slate-50 transition-all border border-slate-100 bg-slate-50/50 cursor-pointer"
-                      >
-                        <Calendar className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Cancel Surgery"
-                        onClick={() => handleOpenCancel(s)}
-                        className="text-slate-500 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition-all border border-slate-100 bg-slate-50/50 cursor-pointer"
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                      </button>
+                      {canSchedule && (
+                        <>
+                          <button
+                            type="button"
+                            title="Reschedule Surgery"
+                            onClick={() => handleOpenReschedule(s)}
+                            className="text-slate-500 hover:text-blue-600 p-2 rounded-xl hover:bg-slate-50 transition-all border border-slate-100 bg-slate-50/50 cursor-pointer"
+                          >
+                            <Calendar className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Cancel Surgery"
+                            onClick={() => handleOpenCancel(s)}
+                            className="text-slate-500 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition-all border border-slate-100 bg-slate-50/50 cursor-pointer"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                       <Link 
                         href={`/theater/log/${s.id}`} 
                         title="Finalize Operative Log (WHO Checklist)"

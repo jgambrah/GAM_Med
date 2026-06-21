@@ -1,9 +1,9 @@
 const admin = require('firebase-admin');
+const serviceAccount = require("./serviceAccountKey.json");
 
-process.env.GCLOUD_PROJECT = "studio-9271533993-3884b";
 try {
   admin.initializeApp({
-    projectId: "studio-9271533993-3884b"
+    credential: admin.credential.cert(serviceAccount)
   });
   const db = admin.firestore();
   

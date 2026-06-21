@@ -13,6 +13,24 @@ export default function CommunicationHub() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const formatLogDate = (createdAt: any) => {
+    if (!createdAt) return '';
+    if (typeof createdAt.toDate === 'function') {
+      try {
+        return createdAt.toDate().toLocaleString();
+      } catch (e) {}
+    }
+    if (createdAt.seconds) {
+      return new Date(createdAt.seconds * 1000).toLocaleString();
+    }
+    const parsed = new Date(createdAt);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleString();
+    }
+    // Fallback for pending writes
+    return new Date().toLocaleString();
+  };
+
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -90,7 +108,9 @@ export default function CommunicationHub() {
                    </div>
                    <div className="text-right">
                       <span className="text-[9px] font-black bg-green-100 text-green-700 px-3 py-1 rounded-full uppercase italic">Delivered</span>
-                      <p className="text-[8px] text-slate-300 font-bold uppercase mt-2">{log.createdAt ? new Date(log.createdAt?.toDate()).toLocaleString() : ''}</p>
+                      <p className="text-[8px] text-slate-300 font-bold uppercase mt-2">
+                        {formatLogDate(log.createdAt)}
+                      </p>
                    </div>
                 </div>
               ))}

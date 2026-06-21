@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, useFirebaseApp, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { doc, collection, query, orderBy, where, onSnapshot, Timestamp, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -8,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Activity, Thermometer, Pill, Beaker,
   History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit, Camera, Download,
-  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe
+  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe, Zap, HeartPulse
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { CwcEncounterDialog } from '@/components/clinical/CwcEncounterDialog';
@@ -137,6 +138,50 @@ export default function PatientFolderHub() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   const hospitalId = userProfile?.hospitalId;
+
+  // Load treatment plans for the patient
+  const treatmentPlansQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !id) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/treatment_plans`),
+      where("patientId", "==", id)
+    );
+  }, [firestore, hospitalId, id]);
+  const { data: treatmentPlans } = useCollection<any>(treatmentPlansQuery);
+
+  const [allSessions, setAllSessions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!firestore || !hospitalId || !treatmentPlans || treatmentPlans.length === 0) {
+      setAllSessions([]);
+      return;
+    }
+    
+    let unsubscribes: (() => void)[] = [];
+    const sessionsMap: Record<string, any[]> = {};
+    
+    treatmentPlans.forEach((plan: any) => {
+      const sRef = collection(firestore, `hospitals/${hospitalId}/treatment_plans/${plan.id}/sessions`);
+      const q = query(sRef, orderBy('createdAt', 'desc'));
+      const unsub = onSnapshot(q, (snapshot) => {
+        const sData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          planId: plan.id,
+          planName: plan.unitName,
+          serviceType: plan.serviceType,
+          ...doc.data()
+        }));
+        sessionsMap[plan.id] = sData;
+        
+        // Flatten and update state
+        const flatSessions = Object.values(sessionsMap).flat();
+        setAllSessions(flatSessions);
+      });
+      unsubscribes.push(unsub);
+    });
+    
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [firestore, hospitalId, treatmentPlans]);
 
   const hospitalRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -455,7 +500,9 @@ export default function PatientFolderHub() {
         ...(completedLabs || []).map((l, idx) => ({ ...l, viewType: 'LAB_RESULT', date: l.completedAt?.toDate(), uniqueKey: `LAB_RESULT-${l.id || idx}` })),
         ...(completedScans || []).map((s, idx) => ({ ...s, viewType: 'SCAN_RESULT', date: s.completedAt?.toDate(), uniqueKey: `SCAN_RESULT-${s.id || idx}` })),
         ...(procedureLogs || []).map((p, idx) => ({ ...p, viewType: 'PROCEDURE_LOG', date: p.createdAt?.toDate(), uniqueKey: `PROCEDURE_LOG-${p.id || idx}` })),
-        ...(patientRounds || []).map((r, idx) => ({ ...r, viewType: 'NURSING_ROUND', date: r.createdAt?.toDate(), uniqueKey: `NURSING_ROUND-${r.id || idx}` }))
+        ...(patientRounds || []).map((r, idx) => ({ ...r, viewType: 'NURSING_ROUND', date: r.createdAt?.toDate(), uniqueKey: `NURSING_ROUND-${r.id || idx}` })),
+        ...(treatmentPlans || []).map((tp, idx) => ({ ...tp, viewType: 'SPECIALTY_PLAN', date: tp.createdAt?.toDate ? tp.createdAt.toDate() : (tp.createdAt ? new Date(tp.createdAt) : null), uniqueKey: `SPECIALTY_PLAN-${tp.id || idx}` })),
+        ...(allSessions || []).map((s, idx) => ({ ...s, viewType: 'SPECIALTY_SESSION', date: s.createdAt?.toDate ? s.createdAt.toDate() : (s.createdAt ? new Date(s.createdAt) : null), uniqueKey: `SPECIALTY_SESSION-${s.id || idx}` }))
     ];
 
     const uniqueActivities = allActivities.filter((item, index, self) =>
@@ -465,7 +512,7 @@ export default function PatientFolderHub() {
     return uniqueActivities
         .filter(item => item.date)
         .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [allEncounters, completedLabs, completedScans, procedureLogs, patientRounds]);
+  }, [allEncounters, completedLabs, completedScans, procedureLogs, patientRounds, treatmentPlans, allSessions]);
 
   const isLoading = isProfileLoading || isPatientLoading;
   const isTimelineLoading = areEncountersLoading || areLabsLoading || areScansLoading || areProceduresLoading || areRoundsLoading;
@@ -546,12 +593,18 @@ export default function PatientFolderHub() {
                 encounterId={patient?.activeEncounterId}
             />}
            {!isDeceased && patient && hospitalId && (
-             activeAdmission ? (
-               <DischargeDialog admission={activeAdmission} />
-             ) : (
-               <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
-             )
-           )}
+              activeAdmission ? (
+                (userProfile?.role === 'DOCTOR' || userProfile?.role === 'DIRECTOR' || userProfile?.role === 'ADMIN') ? (
+                  <DischargeDialog admission={activeAdmission} />
+                ) : (
+                  <div className="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    Patient is Admitted
+                  </div>
+                )
+              ) : (
+                <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
+              )
+            )}
            {!isDeceased && patient && hospitalId && isChildUnder5 && (
              <CwcEncounterDialog
                patientId={id as string}
@@ -563,7 +616,7 @@ export default function PatientFolderHub() {
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && latestEncounter && <ReferralLetterDialog patient={patient} latestEncounter={latestEncounter} />}
-           {!isDeceased && patient && <DeathCertificationDialog patient={patient} />}
+           {!isDeceased && patient && ['DOCTOR', 'DIRECTOR', 'ADMIN'].includes(userProfile?.role || '') && <DeathCertificationDialog patient={patient} />}
         </div>
       </div>
       
@@ -1371,7 +1424,131 @@ export default function PatientFolderHub() {
                                      </p>
                                   </div>
                                 )}
-                             </div>
+                              </div>
+                           </div>
+                         );
+                       }
+
+                      if (activity.viewType === 'SPECIALTY_PLAN') {
+                        const getIcon = (serviceType: string) => {
+                          switch (serviceType) {
+                            case 'DIALYSIS': return <Zap size={12} />;
+                            case 'ONCOLOGY': return <HeartPulse size={12} />;
+                            case 'PHYSIO': return <Activity size={12} />;
+                            default: return <Zap size={12} />;
+                          }
+                        };
+                        const colorClass = activity.serviceType === 'DIALYSIS' ? 'border-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'border-rose-600' : 'border-emerald-600';
+                        const badgeClass = activity.serviceType === 'DIALYSIS' ? 'bg-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'bg-rose-600' : 'bg-emerald-600';
+
+                        return (
+                          <div key={activity.uniqueKey} className={cn("bg-white p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(0,0,0,0.05)] space-y-4 mb-8 text-black", colorClass)}>
+                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                               <div>
+                                  <span className={cn("text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit", badgeClass)}>
+                                     {getIcon(activity.serviceType)} {activity.unitName} Treatment Plan Authorized
+                                  </span>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter font-bold">
+                                     Authorized by: {activity.authorizedByName || 'Clinical Staff'}
+                                  </p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black text-slate-900 uppercase">
+                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                  </p>
+                                  <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 font-bold">
+                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                               </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[32px] border border-slate-100">
+                               <div className="text-center md:border-r border-slate-200">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Frequency</p>
+                                  <p className="text-sm font-black text-slate-900 mt-1 uppercase">{activity.frequency}</p>
+                               </div>
+                               <div className="text-center md:border-r border-slate-200">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Sessions Progress</p>
+                                  <p className="text-sm font-black text-slate-900 mt-1">{activity.sessionsCompleted} / {activity.sessionsAuthorized}</p>
+                               </div>
+                               <div className="text-center flex flex-col items-center justify-center">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Plan Status</p>
+                                  <span className={cn("mt-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border flex items-center gap-1", 
+                                    activity.status === 'ACTIVE' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-slate-100 text-slate-800 border-slate-200'
+                                  )}>
+                                     {activity.status}
+                                  </span>
+                               </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (activity.viewType === 'SPECIALTY_SESSION') {
+                        const getIcon = (serviceType: string) => {
+                          switch (serviceType) {
+                            case 'DIALYSIS': return <Zap size={12} />;
+                            case 'ONCOLOGY': return <HeartPulse size={12} />;
+                            case 'PHYSIO': return <Activity size={12} />;
+                            default: return <Zap size={12} />;
+                          }
+                        };
+                        const colorClass = activity.serviceType === 'DIALYSIS' ? 'border-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'border-rose-600' : 'border-emerald-600';
+                        const badgeClass = activity.serviceType === 'DIALYSIS' ? 'bg-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'bg-rose-600' : 'bg-emerald-600';
+
+                        return (
+                          <div key={activity.uniqueKey} className={cn("bg-white p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(0,0,0,0.05)] space-y-4 mb-8 text-black", colorClass)}>
+                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                               <div>
+                                  <span className={cn("text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit", badgeClass)}>
+                                     {getIcon(activity.serviceType)} {activity.planName} Session Log
+                                  </span>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter font-bold">
+                                     Logged by: {activity.loggedByName || 'Clinical Staff'}
+                                  </p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[10px] font-black text-slate-900 uppercase">
+                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                  </p>
+                                  <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 font-bold">
+                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                               <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs font-bold text-black">
+                                  <div>
+                                     <span className="text-slate-400 uppercase text-[9px] tracking-wider block font-bold">Session Status</span>
+                                     <span className={cn("uppercase text-[10px] font-black", activity.status === 'COMPLETED' ? 'text-green-600' : 'text-amber-600')}>
+                                        {activity.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
+                                     </span>
+                                  </div>
+                                  <Button size="sm" variant="outline" asChild className="h-8 rounded-xl font-black uppercase text-[10px]">
+                                     <Link href={`/specialty/session/${activity.id}?planId=${activity.planId}`}>
+                                        View Flowsheet Log
+                                     </Link>
+                                  </Button>
+                               </div>
+
+                               {activity.readings && activity.readings.length > 0 && (
+                                  <div className="bg-slate-50 p-4 rounded-[28px] border border-slate-100 space-y-2 text-black">
+                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold">Intra-Procedural Readings Log ({activity.readings.length})</p>
+                                     <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                                        {activity.readings.map((r: any, idx: number) => (
+                                           <div key={idx} className="flex justify-between text-[11px] bg-white p-2 rounded-xl border border-slate-200/50 font-bold">
+                                              <div>
+                                                 <span className="font-black text-primary mr-2">{r.time}</span>
+                                                 <span>BP: {r.bp}</span> | <span>Pulse: {r.pulse}</span>
+                                              </div>
+                                              {r.notes && <span className="text-[10px] text-muted-foreground italic truncate max-w-[200px]">"{r.notes}"</span>}
+                                           </div>
+                                        ))}
+                                     </div>
+                                  </div>
+                               )}
+                            </div>
                           </div>
                         );
                       }
