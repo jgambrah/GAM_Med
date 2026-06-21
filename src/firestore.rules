@@ -426,7 +426,7 @@ service cloud.firestore {
 
         match /sessions/{sessionId} {
           allow get, create, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
-          allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+          allow update: if isSuperAdmin() || isClinicalStaff(hospitalId);
           allow delete: if false;
         }
       }

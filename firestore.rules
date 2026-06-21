@@ -432,8 +432,7 @@ service cloud.firestore {
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
 
         match /sessions/{sessionId} {
-          allow get, create, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
-          allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+          allow get, create, list, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
           allow delete: if false;
         }
       }

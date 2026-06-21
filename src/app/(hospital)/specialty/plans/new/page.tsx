@@ -62,6 +62,13 @@ export default function NewTreatmentPlanPage() {
   
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planSchema),
+    defaultValues: {
+      patientId: '',
+      unitId: '',
+      frequency: '',
+      sessionsAuthorized: 1,
+      linkedKitSku: '',
+    },
   });
 
   const onSubmit = async (values: PlanFormValues) => {

@@ -34,6 +34,31 @@ export type Encounter = {
   }[];
   items?: any[];
 
+  // Clinical Details Fallbacks & Extension
+  hpi?: string;
+  encounterType?: string;
+  surgeryDetails?: {
+    findings: string;
+    procedureDone: string;
+    anesthesiaType: string;
+    bloodLoss: string;
+    postOpInstructions: string;
+    checklistAudit?: {
+      patientIdentityConfirmed?: boolean;
+      siteMarked?: boolean;
+      anesthesiaSafetyCheck?: boolean;
+      pulseOxiFunctioning?: boolean;
+      teamIntroduced?: boolean;
+      verbalIncisionConfirm?: boolean;
+      antibioticsAdministered?: boolean;
+      essentialImagingDisplayed?: boolean;
+      countsConfirmed?: boolean;
+      specimenLabeled?: boolean;
+      equipmentProblemsAddressed?: boolean;
+      recoveryPlanReviewed?: boolean;
+    };
+  };
+
   // Meta
   providerName?: string;
   providerRole?: string;

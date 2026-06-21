@@ -97,6 +97,23 @@ export function AdmissionDialog({ patientId, patientName, hospitalId }: Admissio
     const wardRef = doc(firestore, `hospitals/${hospitalId}/wards/${selectedBed.wardId}`);
 
     try {
+      // Check if patient already has an active admission
+      const activeQuery = query(
+        admissionCollectionRef,
+        where('patientId', '==', patientId),
+        where('status', '==', 'ADMITTED')
+      );
+      const activeSnap = await getDocs(activeQuery);
+      if (!activeSnap.empty) {
+        toast({
+          variant: 'destructive',
+          title: 'Admission Failed',
+          description: `${patientName} is already admitted to a ward.`,
+        });
+        setLoading(false);
+        return;
+      }
+
       // These are non-blocking writes
       addDocumentNonBlocking(admissionCollectionRef, {
         admissionId: newAdmissionRef.id,

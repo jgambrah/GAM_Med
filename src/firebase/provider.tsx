@@ -74,13 +74,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
+    let initialRefreshed = false;
     const unsubscribe = onIdTokenChanged(
       auth,
       async (firebaseUser) => { // Auth state determined
-        if (firebaseUser) {
-          // This forces a token refresh to get the latest claims from the backend
-          // It's the core of the "self-healing" token system.
-          await firebaseUser.getIdToken(true);
+        if (firebaseUser && !initialRefreshed) {
+          initialRefreshed = true;
+          try {
+            // This forces a token refresh once to get the latest claims from the backend
+            // It's the core of the "self-healing" token system.
+            await firebaseUser.getIdToken(true);
+          } catch (err) {
+            console.error("FirebaseProvider: initial token refresh failed:", err);
+          }
         }
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
@@ -92,25 +98,43 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe(); // Cleanup
   }, [auth]); // Depends on the auth instance
 
-  // Self-healing Firestore profile hook for Marcus
+  // Self-healing Firestore profile hook for Marcus and James
   useEffect(() => {
     const firebaseUser = userAuthState.user;
-    if (firebaseUser && firestore && firebaseUser.email === 'marcusamosah@gmail.com') {
-      const userRef = doc(firestore, 'users', firebaseUser.uid);
-      setDoc(userRef, {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        fullName: firebaseUser.displayName || 'Marcus Amosah Henaku',
-        role: 'DIRECTOR',
-        hospitalId: 'GAM-GAR-7578',
-        is_active: true,
-        mustChangePassword: false,
-        onboardingComplete: true
-      }, { merge: true }).then(() => {
-        console.log("✅ User profile self-healed in Firestore!");
-      }).catch((e) => {
-        console.error("❌ User profile self-healing failed:", e);
-      });
+    if (firebaseUser && firestore) {
+      if (firebaseUser.email === 'marcusamosah@gmail.com') {
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        setDoc(userRef, {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          fullName: firebaseUser.displayName || 'Marcus Amosah Henaku',
+          role: 'DIRECTOR',
+          hospitalId: 'GAM-GAR-7578',
+          is_active: true,
+          mustChangePassword: false,
+          onboardingComplete: true
+        }, { merge: true }).then(() => {
+          console.log("✅ User profile self-healed in Firestore!");
+        }).catch((e) => {
+          console.error("❌ User profile self-healing failed:", e);
+        });
+      } else if (firebaseUser.email === 'jamesobrempong@gmail.com' || firebaseUser.email === 'jamesobrempong@mail.com') {
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        setDoc(userRef, {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          fullName: firebaseUser.displayName || 'James Obrempong',
+          role: 'DOCTOR',
+          hospitalId: 'GAM-GAR-7578',
+          is_active: true,
+          mustChangePassword: false,
+          onboardingComplete: true
+        }, { merge: true }).then(() => {
+          console.log("✅ James Obrempong profile self-healed in Firestore!");
+        }).catch((e) => {
+          console.error("❌ James Obrempong profile self-healing failed:", e);
+        });
+      }
     }
   }, [userAuthState.user, firestore]);
 

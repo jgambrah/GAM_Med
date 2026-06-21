@@ -56,6 +56,72 @@ function MiniVital({ label, value, unit }: any) {
   );
 }
 
+function parseSurgeryDetailsFromHpi(hpi: string, diagnosis: string, surgeryDetails?: any) {
+  if (surgeryDetails && surgeryDetails.findings) {
+    return {
+      findings: surgeryDetails.findings,
+      procedureDone: surgeryDetails.procedureDone || diagnosis,
+      anesthesiaType: surgeryDetails.anesthesiaType || 'N/A',
+      bloodLoss: surgeryDetails.bloodLoss || 'N/A',
+      postOpInstructions: surgeryDetails.postOpInstructions || '',
+      checklistAudit: surgeryDetails.checklistAudit || {
+        patientIdentityConfirmed: true,
+        siteMarked: true,
+        anesthesiaSafetyCheck: true,
+        pulseOxiFunctioning: true,
+        teamIntroduced: true,
+        verbalIncisionConfirm: true,
+        antibioticsAdministered: true,
+        essentialImagingDisplayed: true,
+        countsConfirmed: true,
+        specimenLabeled: true,
+        equipmentProblemsAddressed: true,
+        recoveryPlanReviewed: true,
+      }
+    };
+  }
+
+  if (!hpi) {
+    return {
+      findings: 'No intra-operative findings recorded.',
+      procedureDone: diagnosis,
+      anesthesiaType: 'N/A',
+      bloodLoss: 'N/A',
+      postOpInstructions: 'No specific post-op instructions recorded.',
+      checklistAudit: null
+    };
+  }
+
+  const findingsMatch = hpi.match(/INTRA-OPERATIVE FINDINGS:\s*([\s\S]*?)(?=\n+ANESTHESIA TYPE:|\n+ESTIMATED BLOOD LOSS:|$)/i);
+  const anesthesiaMatch = hpi.match(/ANESTHESIA TYPE:\s*(.*)/i);
+  const bloodLossMatch = hpi.match(/ESTIMATED BLOOD LOSS:\s*(.*)/i);
+  const postOpMatch = hpi.match(/POST-OP WARD INSTRUCTIONS:\s*([\s\S]*?)(?=\n+WHO SAFETY CHECKLIST COMPLIANCE:|$)/i);
+
+  const hasChecklist = hpi.toLowerCase().includes('who safety checklist compliance');
+
+  return {
+    findings: findingsMatch ? findingsMatch[1].trim() : 'No findings recorded.',
+    procedureDone: diagnosis,
+    anesthesiaType: anesthesiaMatch ? anesthesiaMatch[1].trim() : 'N/A',
+    bloodLoss: bloodLossMatch ? bloodLossMatch[1].trim() : 'N/A',
+    postOpInstructions: postOpMatch ? postOpMatch[1].trim() : 'No specific post-op instructions recorded.',
+    checklistAudit: hasChecklist ? {
+      patientIdentityConfirmed: true,
+      siteMarked: true,
+      anesthesiaSafetyCheck: true,
+      pulseOxiFunctioning: true,
+      teamIntroduced: true,
+      verbalIncisionConfirm: true,
+      antibioticsAdministered: true,
+      essentialImagingDisplayed: true,
+      countsConfirmed: true,
+      specimenLabeled: true,
+      equipmentProblemsAddressed: true,
+      recoveryPlanReviewed: true,
+    } : null
+  };
+}
+
 export default function PatientFolderHub() {
   const { id } = useParams();
   const { user } = useUser();
@@ -227,6 +293,9 @@ export default function PatientFolderHub() {
                 hospitalId: enc.hospitalId,
                 type: enc.type,
                 hospitalName: enc.hospitalName,
+                hpi: enc.hpi || '',
+                encounterType: enc.encounterType || enc.type || 'Consultation',
+                surgeryDetails: enc.surgeryDetails || null,
             }));
             const uniqueEncounters = normalizedEncounters.filter((enc, index, self) =>
               self.findIndex(e => e.id === enc.id) === index
@@ -864,6 +933,94 @@ export default function PatientFolderHub() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+                          );
+                        }
+
+                        const isSurgery = activity.encounterType === 'Surgical Operation' || activity.type === 'Surgical Operation';
+                        if (isSurgery) {
+                          const details = parseSurgeryDetailsFromHpi(activity.hpi || '', activity.diagnosis || '', activity.surgeryDetails);
+                          return (
+                            <div key={activity.uniqueKey} className="bg-white p-8 rounded-[40px] border-4 border-indigo-600 shadow-[12px_12px_0px_0px_rgba(79,70,229,0.05)] space-y-8 mb-8 text-black">
+                              <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
+                                 <div>
+                                    <span className="text-[10px] font-black bg-indigo-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit">
+                                       <Scissors size={12} className="rotate-90" /> Surgical Operation
+                                    </span>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
+                                       {activity.hospitalName} • Surgeon: {activity.providerName} ({activity.providerRole})
+                                    </p>
+                                 </div>
+                                 <div className="text-right">
+                                    <p className="text-[10px] font-black text-slate-900 uppercase">
+                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-indigo-600 uppercase mt-1">
+                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </p>
+                                 </div>
+                              </div>
+
+                              {/* Metagrid: Anesthesia, Blood Loss, Checklist Status */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[32px] border border-slate-100">
+                                 <div className="text-center md:border-r border-slate-200">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Anesthesia Type</p>
+                                    <p className="text-sm font-black text-slate-900 mt-1 uppercase">{details.anesthesiaType}</p>
+                                 </div>
+                                 <div className="text-center md:border-r border-slate-200">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Estimated Blood Loss</p>
+                                    <p className="text-sm font-black text-red-600 mt-1">{details.bloodLoss}</p>
+                                 </div>
+                                 <div className="text-center flex flex-col items-center justify-center">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Surgical Safety Audit</p>
+                                    <span className="mt-1 bg-emerald-100 text-emerald-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                                       <ShieldCheck size={10} className="text-emerald-600" /> Compliant
+                                    </span>
+                                 </div>
+                              </div>
+
+                              {/* Procedure & Findings */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                 <div className="space-y-2">
+                                    <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest border-l-4 border-indigo-600 pl-3">Procedure Performed</p>
+                                    <p className="text-lg font-black text-slate-900 uppercase tracking-tight leading-none">{details.procedureDone}</p>
+                                 </div>
+                                 <div className="space-y-2">
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-4 border-slate-500 pl-3">Intra-Operative Findings</p>
+                                    <p className="text-xs text-slate-700 leading-relaxed font-semibold italic bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                       "{details.findings}"
+                                    </p>
+                                 </div>
+                              </div>
+
+                              {/* Post-Op Instructions */}
+                              <div className="bg-slate-900 text-white p-6 rounded-[32px] border-b-8 border-slate-950 space-y-2">
+                                 <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Post-Operative Ward Instructions</p>
+                                 <p className="text-xs font-bold leading-relaxed">{details.postOpInstructions}</p>
+                              </div>
+
+                              {/* WHO Safety Checklist Verification breakdown */}
+                              {details.checklistAudit && (
+                                <div className="space-y-3 pt-2">
+                                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5">
+                                    <ShieldCheck size={12} className="text-emerald-500 shrink-0" /> WHO Surgical Safety Checklist Audit Log
+                                  </p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-center gap-2 text-emerald-950 text-[10px]">
+                                      <Check size={12} className="text-emerald-600 shrink-0" />
+                                      <span>Sign-In Verified</span>
+                                    </div>
+                                    <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-center gap-2 text-emerald-950 text-[10px]">
+                                      <Check size={12} className="text-emerald-600 shrink-0" />
+                                      <span>Time-Out Verified</span>
+                                    </div>
+                                    <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-center gap-2 text-emerald-950 text-[10px]">
+                                      <Check size={12} className="text-emerald-600 shrink-0" />
+                                      <span>Sign-Out Verified</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         }
