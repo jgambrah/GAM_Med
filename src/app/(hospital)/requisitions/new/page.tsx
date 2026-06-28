@@ -71,9 +71,13 @@ export default function NewRequisitionPage() {
     setLoading(true);
 
     try {
+      const deptName = userRole === 'PHARMACIST' ? 'Pharmacy' : 
+                       userRole === 'NURSE' ? 'Clinical Ward' : 
+                       userRole === 'DOCTOR' ? 'OPD Clinic' : 'General Department';
+
       await addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/requisitions`), {
         items: items.map(i => ({...i, quantityRequested: i.requestedQty})), // Match schema
-        requestingDept: 'Clinical Ward', // This could be dynamic based on user profile
+        requestingDept: deptName,
         requestedBy: user.uid,
         requestedByName: user.displayName,
         hospitalId: hospitalId,

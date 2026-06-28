@@ -51,6 +51,8 @@ const allMenuGroups = [
     items: [
       { name: "Dispensing Queue", href: "/pharmacy/dispensing", icon: LayoutDashboard },
       { name: "Inventory", href: "/pharmacy/inventory", icon: Package },
+      { name: "New Requisition", href: "/requisitions/new", icon: ArrowUpRight, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
+      { name: "My Requisitions", href: "/pharmacy/requisitions", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
     ]
   },
   {
@@ -120,7 +122,7 @@ const allMenuGroups = [
   },
   {
     title: "Supply Chain",
-    roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'],
+    roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'],
     items: [
       { name: "Procurement", href: "/supply-chain", icon: Truck },
       { name: "Suppliers", href: "/supply-chain/procurement", icon: Building2 },

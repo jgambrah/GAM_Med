@@ -92,13 +92,24 @@ export default function NewPurchaseOrderPage() {
 
     const handleConvertFromRequisition = (rfs: any) => {
       setPoType('SERVICE');
-      setItems([{
-        itemId: rfs.id,
-        sku: rfs.rfsNumber,
-        name: rfs.serviceTitle,
-        quantityOrdered: 1, 
-        price: rfs.estimatedCost,
-      }]);
+      if (rfs.items && rfs.items.length > 0) {
+        const newItems = rfs.items.map((item: any, idx: number) => ({
+          itemId: `${rfs.id}_${item.id || idx}`,
+          sku: rfs.rfsNumber,
+          name: item.serviceTitle,
+          quantityOrdered: 1,
+          price: item.estimatedCost,
+        }));
+        setItems(newItems);
+      } else {
+        setItems([{
+          itemId: rfs.id,
+          sku: rfs.rfsNumber,
+          name: rfs.serviceTitle,
+          quantityOrdered: 1, 
+          price: rfs.estimatedCost,
+        }]);
+      }
       toast({title: "Requisition Data Loaded into PO"});
     };
     
@@ -152,7 +163,8 @@ export default function NewPurchaseOrderPage() {
                 transaction.update(hospitalRef, { poCounter: increment(1) });
                 
                 if (poType !== 'GOODS' && items[0]?.itemId) {
-                    const rfsRef = doc(firestore, `hospitals/${hospitalId}/service_requisitions`, items[0].itemId);
+                    const rfsId = items[0].itemId.split('_')[0];
+                    const rfsRef = doc(firestore, `hospitals/${hospitalId}/service_requisitions`, rfsId);
                     transaction.update(rfsRef, { status: 'CONVERTED_TO_PO', poNumber: poNumber });
                 }
             });

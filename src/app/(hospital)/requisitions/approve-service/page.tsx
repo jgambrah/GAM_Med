@@ -79,8 +79,8 @@ export default function ApproveServiceRequisitionsPage() {
          {pendingRequisitions?.length === 0 && <div className="p-20 bg-card rounded-2xl text-center italic text-muted-foreground">No pending service requisitions to approve.</div>}
          {pendingRequisitions?.map(req => (
             <AccordionItem value={req.id} key={req.id} className="bg-card border rounded-2xl shadow-sm overflow-hidden">
-                <AccordionTrigger className="p-6 text-sm font-bold uppercase hover:no-underline">
-                    <span>{req.serviceTitle} (From: {req.requestingDept})</span>
+                <AccordionTrigger className="p-6 text-sm font-bold uppercase hover:no-underline flex justify-between items-center">
+                    <span className="flex-1 text-left">{req.description || req.serviceTitle} (From: {req.requestingDept})</span>
                 </AccordionTrigger>
                 <AccordionContent className="p-6 bg-muted/50 border-t">
                     <div className="space-y-4 mb-6">
@@ -88,9 +88,31 @@ export default function ApproveServiceRequisitionsPage() {
                             <p className="text-xs text-muted-foreground font-bold">Justification</p>
                             <p className="text-sm italic">"{req.justification}"</p>
                         </div>
-                        <div className="flex justify-between">
-                            <p>Est. Cost: <span className="font-mono">GHS {req.estimatedCost}</span></p>
-                            <p>Priority: <span className={`font-mono px-2 py-1 rounded text-xs ${req.priority === 'URGENT' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200'}`}>{req.priority}</span></p>
+
+                        {/* Items list with fallback */}
+                        <div className="border-t border-b py-3 my-3 space-y-2">
+                            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-wider">Service Scope Details</p>
+                            {req.items && req.items.length > 0 ? (
+                                req.items.map((item: any, idx: number) => (
+                                    <div key={item.id || idx} className="flex justify-between items-center bg-white px-4 py-2.5 rounded-xl border text-xs">
+                                        <div>
+                                            <p className="font-bold uppercase text-slate-800">{item.serviceTitle}</p>
+                                            {item.description && <p className="text-[10px] text-slate-500 font-medium italic mt-0.5">{item.description}</p>}
+                                        </div>
+                                        <span className="font-mono text-blue-900">₵ {item.estimatedCost.toFixed(2)}</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex justify-between items-center bg-white px-4 py-2.5 rounded-xl border text-xs">
+                                    <p className="font-bold uppercase text-slate-800">{req.serviceTitle}</p>
+                                    <span className="font-mono text-blue-900">₵ {(req.estimatedCost || 0).toFixed(2)}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                            <p className="text-sm">Total Est. Cost: <span className="font-black font-mono text-blue-900">₵ {(req.estimatedCost || 0).toFixed(2)}</span></p>
+                            <p className="text-xs">Priority: <span className={`font-mono px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${req.priority === 'URGENT' ? 'bg-orange-100 text-orange-700' : (req.priority === 'EMERGENCY' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-700')}`}>{req.priority}</span></p>
                         </div>
                     </div>
                     <div className="flex justify-end gap-3">

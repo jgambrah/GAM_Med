@@ -8,7 +8,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const targetUid = "wALUSwm980TFCBffhKFqCJuVPwh2";
+const targetUid = "tpgFILYY6PTSHFAmWP4wacrypS83";
 
 async function run() {
   try {

@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function PharmacistDashboard() {
   const { user, isUserLoading } = useUser();
@@ -46,9 +47,18 @@ export default function PharmacistDashboard() {
   }, [firestore, hospitalId]);
   const { data: pendingOrdersData, isLoading: areOrdersLoading } = useCollection(pendingOrdersQuery);
   
-  const pendingOrders = useMemo(() => 
-    (pendingOrdersData || []).filter((ord: any) => ord.prescription && ord.prescription.length > 0)
-  , [pendingOrdersData]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const pendingOrders = useMemo(() => {
+    const allOrders = (pendingOrdersData || []).filter((ord: any) => ord.prescription && ord.prescription.length > 0);
+    const queryStr = searchQuery.toLowerCase().trim();
+    if (!queryStr) return allOrders;
+    return allOrders.filter((order: any) => 
+      order.patientName?.toLowerCase().includes(queryStr) ||
+      order.providerName?.toLowerCase().includes(queryStr) ||
+      order.prescription?.some((drug: any) => drug.name?.toLowerCase().includes(queryStr))
+    );
+  }, [pendingOrdersData, searchQuery]);
 
 
   // 2. LISTEN FOR LOW STOCK (Inventory items <= 20 units to be safer)
@@ -114,10 +124,20 @@ export default function PharmacistDashboard() {
         
         {/* --- MAIN DISPENSING QUEUE --- */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center px-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
             <h3 className="font-black text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                <Clock size={16} className="text-primary" /> Live Dispensing Queue
             </h3>
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
+              <Input 
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search queue..."
+                className="pl-9 bg-slate-50 border rounded-xl font-bold h-9 text-xs text-black placeholder:text-slate-400"
+              />
+            </div>
           </div>
 
           <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden divide-y">

@@ -62,7 +62,7 @@ export default function DispensingPage() {
 
       // 2. DEDUCT STOCK (Billing is now handled upstream in the createEncounter function)
       order.prescription.forEach((rx: any) => {
-        const stockItem = inventorySnapshot.find(item => item.sku === rx.sku);
+        const stockItem = inventorySnapshot.find(item => item.name.toLowerCase() === rx.name.toLowerCase());
         if (stockItem) {
           const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, stockItem.id);
           batch.update(itemRef, { quantity: increment(-1) }); // Simplified: assumes qty of 1 for each prescription line

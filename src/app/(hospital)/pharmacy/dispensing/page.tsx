@@ -2,9 +2,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collectionGroup, query, where, orderBy } from 'firebase/firestore';
-import { ClipboardList, CheckCircle, Clock, User, ShieldAlert, Loader2, ChevronRight } from 'lucide-react';
+import { ClipboardList, CheckCircle, Clock, User, ShieldAlert, Loader2, ChevronRight, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -13,6 +14,7 @@ type Order = {
     id: string;
     hospitalId: string;
     patientId: string;
+    patientName: string;
     providerName: string;
     createdAt: { toDate: () => Date };
     prescription: any[];
@@ -54,9 +56,19 @@ export default function DispensingQueue() {
   
   const { data: orders, isLoading: areOrdersLoading } = useCollection<Order>(ordersQuery);
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   const filteredOrders = useMemo(() => {
-    return (orders || []).filter(order => order.prescription && order.prescription.length > 0);
-  }, [orders]);
+    const allOrders = (orders || []).filter(order => order.prescription && order.prescription.length > 0);
+    const queryStr = searchQuery.toLowerCase().trim();
+    if (!queryStr) return allOrders;
+    
+    return allOrders.filter(order => 
+      order.patientName?.toLowerCase().includes(queryStr) ||
+      order.providerName?.toLowerCase().includes(queryStr) ||
+      order.prescription?.some((drug: any) => drug.name?.toLowerCase().includes(queryStr))
+    );
+  }, [orders, searchQuery]);
   
   const isLoading = isUserLoading || isClaimsLoading;
 
@@ -91,6 +103,18 @@ export default function DispensingQueue() {
         <div className="bg-card px-4 py-2 rounded-lg border">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pending Orders: {areOrdersLoading ? '...' : filteredOrders.length}</span>
         </div>
+      </div>
+
+      {/* Search Input */}
+      <div className="max-w-md relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+        <Input 
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search by patient, prescriber, or medication..."
+          className="pl-11 bg-slate-50 border rounded-2xl font-bold h-11 text-black placeholder:text-slate-400"
+        />
       </div>
       
       {areOrdersLoading ? (

@@ -66,12 +66,12 @@ export default function IssueRequisitionsPage() {
             for (const item of currentReqData.items) {
                 const issuingNow = issuingQuantities[item.itemId] || 0;
                 if (issuingNow > 0) {
-                    const stockItem = inventory.find(inv => inv.sku === item.sku);
+                    const stockItem = inventory.find(inv => inv.sku === item.sku || inv.id === item.itemId);
                     if (!stockItem) {
-                        throw new Error(`Stock item with SKU ${item.sku} not found.`);
+                        throw new Error(`Stock item "${item.name}" (SKU: ${item.sku}) does not exist in Central Store (Available: 0). Please receive stock via PO first.`);
                     }
                     if (stockItem.quantity < issuingNow) {
-                        throw new Error(`Not enough stock for ${item.name}. Available: ${stockItem.quantity}, Requested: ${issuingNow}`);
+                        throw new Error(`Not enough stock for ${item.name} in Central Store. Available: ${stockItem.quantity}, Attempted to Issue: ${issuingNow}`);
                     }
                 }
             }
@@ -85,7 +85,7 @@ export default function IssueRequisitionsPage() {
                 }
 
                 if (issuingNow > 0) {
-                    const stockItem = inventory.find(inv => inv.sku === item.sku)!;
+                    const stockItem = inventory.find(inv => inv.sku === item.sku || inv.id === item.itemId)!;
                     const inventoryItemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, stockItem.id);
                     transaction.update(inventoryItemRef, { quantity: increment(-issuingNow) });
 

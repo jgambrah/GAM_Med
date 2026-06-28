@@ -161,6 +161,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "requisitions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "requestingDept",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

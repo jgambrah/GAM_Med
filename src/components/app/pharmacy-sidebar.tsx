@@ -25,8 +25,7 @@ const menuGroups = [
     title: "Supply Chain",
     items: [
       { name: "New Requisition", href: "/requisitions/new", icon: ArrowUpRight },
-      { name: "Suppliers", href: "/supply-chain/procurement", icon: Building2 },
-      { name: "Purchase Orders", href: "/supply-chain/orders", icon: Truck },
+      { name: "My Requisitions", href: "/pharmacy/requisitions", icon: ClipboardList },
       { name: "Stock Disposal", href: "/supply-chain/disposal", icon: Archive },
     ]
   }
