@@ -31,7 +31,7 @@ export default function DisposalLogsPage() {
 
   const totalLoss = useMemo(() => {
       if(!logs) return 0;
-      return logs.reduce((sum, log) => sum + (log.lossValue || 0), 0)
+      return logs.filter(log => log.status === 'APPROVED').reduce((sum, log) => sum + (log.lossValue || 0), 0)
     }, [logs]);
 
   const pageIsLoading = isUserLoading || isProfileLoading || areLogsLoading;
@@ -46,7 +46,7 @@ export default function DisposalLogsPage() {
         <div className="bg-red-50 text-red-600 px-6 py-4 rounded-[32px] border-2 border-red-100 flex items-center gap-4">
            <TrendingDown size={24} />
            <div>
-              <p className="text-[10px] font-black uppercase opacity-60">Total Value Lost</p>
+              <p className="text-[10px] font-black uppercase opacity-60">Total Value Lost (Approved)</p>
               <p className="text-xl font-black">₵ {totalLoss.toLocaleString()}</p>
            </div>
         </div>
@@ -58,16 +58,18 @@ export default function DisposalLogsPage() {
             <tr>
               <th className="p-6">Date & ID</th>
               <th className="p-6">Product & SKU</th>
+              <th className="p-6">Location</th>
               <th className="p-6">Qty</th>
               <th className="p-6">Reason</th>
+              <th className="p-6">Status</th>
               <th className="p-6 text-right">Loss (₵)</th>
               <th className="p-6 text-right">Certificate</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {pageIsLoading && <tr><td colSpan={6} className="p-20 text-center"><Loader2 className="animate-spin mx-auto"/></td></tr>}
+            {pageIsLoading && <tr><td colSpan={8} className="p-20 text-center"><Loader2 className="animate-spin mx-auto"/></td></tr>}
             {!pageIsLoading && logs?.length === 0 ? (
-              <tr><td colSpan={6} className="p-20 text-center text-slate-300 uppercase italic">No disposal records found.</td></tr>
+              <tr><td colSpan={8} className="p-20 text-center text-slate-300 uppercase italic">No disposal records found.</td></tr>
             ) : logs?.map(log => (
               <tr key={log.id} className="hover:bg-slate-50 transition-all font-bold">
                 <td className="p-6">
@@ -78,11 +80,29 @@ export default function DisposalLogsPage() {
                    <p className="uppercase text-sm">{log.productName}</p>
                    <p className="text-[10px] text-blue-600 font-black">{log.sku}</p>
                 </td>
+                <td className="p-6 text-xs text-slate-500 uppercase">
+                   {log.location ? log.location.replace('_', ' ') : 'CENTRAL STORES'}
+                </td>
                 <td className="p-6 text-sm">{log.qty} units</td>
                 <td className="p-6">
-                   <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase italic bg-amber-100 text-amber-700">
+                   <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-slate-100 text-slate-600">
                       {log.reason}
                    </span>
+                </td>
+                <td className="p-6">
+                   {log.status === 'APPROVED' ? (
+                     <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-green-100 text-green-700">
+                       Approved
+                     </span>
+                   ) : log.status === 'REJECTED' ? (
+                     <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-red-100 text-red-700">
+                       Rejected
+                     </span>
+                   ) : (
+                     <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase bg-amber-100 text-amber-700">
+                       Pending
+                     </span>
+                   )}
                 </td>
                 <td className="p-6 text-right text-red-600 italic">₵ {log.lossValue?.toFixed(2)}</td>
                 <td className="p-6 text-right">

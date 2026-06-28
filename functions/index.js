@@ -439,6 +439,7 @@ exports.createEncounter = onCall(GLOBAL_CONFIG, async (request) => {
         hasPendingLabs,
         hasPendingScans,
         isExternal: isExternal || false,
+        isDispensed: false,
         ...restOfEncounterData,
         chiefComplaint: clean(data.chiefComplaint),
         hpi: clean(data.hpi),

@@ -313,8 +313,26 @@ export function NewEncounterDialog({
 
   const addCatalogItem = (item: any) => {
     if (!items.some((i) => i.id === item.id)) {
-      setItems((currentItems) => [...currentItems, item]);
+      setItems((currentItems) => [
+        ...currentItems,
+        {
+          ...item,
+          dosage: '',
+          frequency: '',
+          duration: '',
+          qty: 1,
+          quantity: 1,
+          instruction: '',
+          instructions: '',
+        }
+      ]);
     }
+  };
+
+  const updateItemField = (id: string, field: string, value: any) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
   };
 
   const removeItem = (
@@ -651,27 +669,91 @@ export function NewEncounterDialog({
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {items.map((item, idx) => (
                     <div
                       key={item.id || idx}
-                      className="bg-white p-4 rounded-2xl border-2 border-slate-50 flex justify-between items-center shadow-sm"
+                      className="bg-white p-6 rounded-[24px] border-2 border-slate-50 shadow-sm space-y-4"
                     >
-                      <div>
-                        <p className="font-black text-black uppercase text-sm">
-                          {item.name}
-                        </p>
-                        <p className="text-[10px] text-blue-600 font-bold italic">
-                          {item.instruction || item.dosage || 'No instructions'}
-                        </p>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-black text-black uppercase text-sm">
+                            {item.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-bold">
+                            {item.isExternal ? 'External Prescription' : `SKU: ${item.sku || 'N/A'} • Price: GHS ${(item.price || 0).toFixed(2)}`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id, setItems)}
+                          className="text-red-300 hover:text-red-600 p-1 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id, setItems)}
-                        className="text-red-300 hover:text-red-600"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+
+                      {item.isExternal ? (
+                        <div className="text-xs text-blue-600 font-bold italic bg-slate-50 p-3 rounded-xl border">
+                          {item.instruction || item.dosage || 'No instructions'}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                          <div>
+                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Dosage</label>
+                            <Input
+                              placeholder="e.g. 500mg / 1 tab"
+                              value={item.dosage || ''}
+                              onChange={(e) => updateItemField(item.id, 'dosage', e.target.value)}
+                              className="h-9 text-xs rounded-xl font-bold text-black border-slate-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Frequency</label>
+                            <Input
+                              placeholder="e.g. BD / TDS"
+                              value={item.frequency || ''}
+                              onChange={(e) => updateItemField(item.id, 'frequency', e.target.value)}
+                              className="h-9 text-xs rounded-xl font-bold text-black border-slate-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Duration</label>
+                            <Input
+                              placeholder="e.g. 5 days"
+                              value={item.duration || ''}
+                              onChange={(e) => updateItemField(item.id, 'duration', e.target.value)}
+                              className="h-9 text-xs rounded-xl font-bold text-black border-slate-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Qty to Bill/Disp</label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.qty || 1}
+                              onChange={(e) => {
+                                const val = Math.max(1, Number(e.target.value));
+                                updateItemField(item.id, 'qty', val);
+                                updateItemField(item.id, 'quantity', val);
+                              }}
+                              className="h-9 text-xs rounded-xl font-bold text-black border-slate-200"
+                            />
+                          </div>
+                          <div className="col-span-2 md:col-span-1">
+                            <label className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Instructions</label>
+                            <Input
+                              placeholder="e.g. take after food"
+                              value={item.instruction || ''}
+                              onChange={(e) => {
+                                updateItemField(item.id, 'instruction', e.target.value);
+                                updateItemField(item.id, 'instructions', e.target.value);
+                              }}
+                              className="h-9 text-xs rounded-xl font-bold text-black border-slate-200"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -300,6 +300,7 @@ exports.createEncounter = onCall({ region: "us-central1", cors: true }, async (r
     radiologyOrders: radiologyOrders || [],
     hasPendingLabs, hasPendingScans,
     isExternal: isExternal || false,
+    isDispensed: false,
     ...restOfEncounterData
   };
 

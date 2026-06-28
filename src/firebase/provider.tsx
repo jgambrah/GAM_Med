@@ -134,6 +134,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         }).catch((e) => {
           console.error("❌ James Obrempong profile self-healing failed:", e);
         });
+      } else if (firebaseUser.email === 'shanegambrah@gmail.com') {
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        setDoc(userRef, {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          fullName: firebaseUser.displayName || 'Shane Gambrah',
+          role: 'PHARMACIST',
+          hospitalId: 'GAM-GAR-7578',
+          is_active: true,
+          mustChangePassword: false,
+          onboardingComplete: true
+        }, { merge: true }).then(() => {
+          console.log("✅ Shane Gambrah profile self-healed in Firestore!");
+        }).catch((e) => {
+          console.error("❌ Shane Gambrah profile self-healing failed:", e);
+        });
       }
     }
   }, [userAuthState.user, firestore]);

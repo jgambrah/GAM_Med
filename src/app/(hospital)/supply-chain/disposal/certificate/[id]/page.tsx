@@ -2,10 +2,13 @@
 import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { Printer, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { doc, writeBatch, increment, serverTimestamp } from 'firebase/firestore';
+import { Printer, ShieldCheck, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { useState } from 'react';
 
 export default function DisposalCertificate() {
   const { id } = useParams();
@@ -32,10 +35,70 @@ export default function DisposalCertificate() {
   }, [firestore, hospitalId]);
   const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
 
-  const primaryColor = useMemo(() => hospital?.primaryColor || '#0f172a', [hospital]);
-  const secondaryColor = useMemo(() => hospital?.secondaryColor || '#2563eb', [hospital]);
+  const { toast } = useToast();
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const canApprove = ['DIRECTOR', 'ADMIN'].includes(userProfile?.role);
+
+  const handleApprove = async () => {
+    if (!firestore || !hospitalId || !id || !data || !user) return;
+    setActionLoading(true);
+    const batch = writeBatch(firestore);
+
+    try {
+      // 1. Mark log as APPROVED
+      const logDocRef = doc(firestore, `hospitals/${hospitalId}/disposal_logs`, id as string);
+      batch.update(logDocRef, {
+        status: "APPROVED",
+        approvedBy: user.uid,
+        approvedByName: user.displayName || user.email || "Auditor",
+        approvedAt: serverTimestamp()
+      });
+
+      // 2. Deduct from pharmacy_inventory
+      if (data.productId) {
+        const invRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, data.productId);
+        batch.update(invRef, {
+          quantity: increment(-Number(data.qty))
+        });
+      }
+
+      await batch.commit();
+      toast({ title: "Disposal Approved", description: "Stock level updated." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!firestore || !hospitalId || !id || !data || !user) return;
+    setActionLoading(true);
+    const batch = writeBatch(firestore);
+
+    try {
+      const logDocRef = doc(firestore, `hospitals/${hospitalId}/disposal_logs`, id as string);
+      batch.update(logDocRef, {
+        status: "REJECTED",
+        rejectedBy: user.uid,
+        rejectedByName: user.displayName || user.email || "Auditor",
+        rejectedAt: serverTimestamp()
+      });
+
+      await batch.commit();
+      toast({ title: "Disposal Rejected", description: "The request has been marked as rejected." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Action Failed", description: e.message });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const loading = isProfileLoading || isLogLoading || isHospitalLoading;
+
+  const primaryColor = useMemo(() => hospital?.primaryColor || '#0f172a', [hospital]);
+  const secondaryColor = useMemo(() => hospital?.secondaryColor || '#2563eb', [hospital]);
 
   if (loading) {
     return (
@@ -53,7 +116,7 @@ export default function DisposalCertificate() {
       {/* SCREEN ONLY NAV */}
       <div className="print:hidden flex justify-between items-center">
         <button 
-          onClick={() => router.push('/supply-chain/disposal')} 
+          onClick={() => router.back()} 
           className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-black transition-all outline-none"
         >
           <ArrowLeft size={14}/> Back to Disposal
@@ -66,6 +129,40 @@ export default function DisposalCertificate() {
           <Printer size={16}/> Print Certificate
         </button>
       </div>
+
+      {/* APPROVAL ACTIONS CARD */}
+      {data.status === 'PENDING' && (
+        <div className="print:hidden bg-amber-50 border-2 border-amber-200 p-6 rounded-[32px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+           <div>
+              <p className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-2">
+                <AlertTriangle size={14}/> Awaiting Co-Sign Authorization
+              </p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">This decommission request must be certified by a Director or Admin.</p>
+           </div>
+           {canApprove ? (
+             <div className="flex gap-3 w-full md:w-auto shrink-0">
+                <Button 
+                  onClick={handleReject} 
+                  disabled={actionLoading}
+                  className="bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl border-none shadow-md h-9 disabled:opacity-50"
+                >
+                   Reject Request
+                </Button>
+                <Button 
+                  onClick={handleApprove} 
+                  disabled={actionLoading}
+                  className="bg-green-600 hover:bg-green-700 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl border-none shadow-md h-9 disabled:opacity-50"
+                >
+                   Co-Sign & Approve
+                </Button>
+             </div>
+           ) : (
+             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-200 bg-white/80 p-3 rounded-xl">
+                Pending Manager Review
+             </div>
+           )}
+        </div>
+      )}
 
       {/* --- THE CERTIFICATE (PRINT VIEW) --- */}
       <div 
@@ -104,6 +201,22 @@ export default function DisposalCertificate() {
               style={{ backgroundColor: primaryColor }}
             >
                Disposal Certificate
+            </div>
+
+            <div className="mt-4 flex justify-center">
+               {data.status === 'APPROVED' ? (
+                 <span className="text-[9px] font-black tracking-widest uppercase bg-green-50 text-green-700 border border-green-200/50 px-4 py-1.5 rounded-full">
+                   Status: Approved & Executed
+                 </span>
+               ) : data.status === 'REJECTED' ? (
+                 <span className="text-[9px] font-black tracking-widest uppercase bg-red-50 text-red-700 border border-red-200/50 px-4 py-1.5 rounded-full">
+                   Status: Rejected
+                 </span>
+               ) : (
+                 <span className="text-[9px] font-black tracking-widest uppercase bg-amber-50 text-amber-700 border border-amber-200/50 px-4 py-1.5 rounded-full animate-pulse">
+                   Status: Pending Approval
+                 </span>
+               )}
             </div>
          </div>
 
@@ -174,7 +287,9 @@ export default function DisposalCertificate() {
               style={{ borderTopColor: primaryColor }}
             >
                <p className="text-[10px] font-black uppercase text-slate-500">Facility Director</p>
-               <div className="h-10"></div>
+               <p className="text-xs font-black mt-2 italic text-slate-850 font-mono">
+                 {data.status === 'APPROVED' ? data.approvedByName : data.status === 'REJECTED' ? `REJECTED BY: ${data.rejectedByName}` : 'Awaiting Approval...'}
+               </p>
             </div>
          </div>
 
