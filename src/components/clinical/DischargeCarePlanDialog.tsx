@@ -19,7 +19,7 @@ export function DischargeCarePlanDialog({ patientName, diagnosis = 'General Post
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 border-slate-300">
+        <Button variant="outline" className="bg-white text-slate-900 hover:text-slate-950 border-2 border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/80 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm">
           <FileText size={14} className="text-emerald-600" /> Auto Discharge & Care Plan
         </Button>
       </DialogTrigger>

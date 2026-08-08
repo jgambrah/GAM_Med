@@ -76,7 +76,7 @@ export function ClinicalTaskDelegationDialog({ patientId, patientName, hospitalI
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 border-slate-300">
+        <Button variant="outline" className="bg-white text-slate-900 hover:text-slate-950 border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50/80 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm">
           <CheckSquare size={14} className="text-blue-600" /> Delegate Nurse Task
         </Button>
       </DialogTrigger>

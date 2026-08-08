@@ -72,7 +72,9 @@ export function ReferralLetterDialog({ patient, latestEncounter }: any) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-            <Button variant="outline"><FileSignature size={16}/> New Referral</Button>
+            <Button variant="outline" className="bg-white text-slate-900 hover:text-slate-950 border-2 border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50/80 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm">
+              <FileSignature size={14} className="text-indigo-600" /> New Referral
+            </Button>
         </DialogTrigger>
         <DialogContent className="max-w-3xl">
              <DialogHeader className="p-6">
