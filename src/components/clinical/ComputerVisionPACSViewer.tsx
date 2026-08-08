@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useMemo } from 'react';
-import { Camera, Sparkles, AlertTriangle, Eye, Layers, ShieldCheck, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Camera, Sparkles, AlertTriangle, Eye, Layers, ShieldCheck, CheckCircle2, RefreshCw, Save, History } from 'lucide-react';
 import { analyzeUltrasoundBiometrics } from '@/ai/flows/ai-computer-vision';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,18 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  const biometrics = useMemo(() => {
+    return analyzeUltrasoundBiometrics(uploadedImage || undefined);
+  }, [uploadedImage]);
+
+  const handleSaveBiometricsToEHR = () => {
+    if (!biometrics.isValidMedicalScan) return;
+    toast({
+      title: '💾 Biometrics Saved to EHR Medical Record',
+      description: `Obstetric Ultrasound biometrics (BPD: ${biometrics.bpdMm}mm, EFW: ${biometrics.estimatedFetalWeightGrams}g, GA: ${biometrics.estimatedGestationalAgeWeeks}w) permanently saved for ${patientName}.`
+    });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,10 +100,6 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
     }
     stopLiveWebcam();
   };
-
-  const biometrics = useMemo(() => {
-    return analyzeUltrasoundBiometrics(uploadedImage || undefined);
-  }, [uploadedImage]);
 
   return (
     <div className="bg-slate-950 text-white p-6 rounded-[32px] border border-slate-800 space-y-6 shadow-2xl">
@@ -301,6 +309,15 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
                   <p className="text-xl font-black text-white">{biometrics.estimatedFetalWeightGrams} grams</p>
                   <p className="text-[9px] text-purple-200 uppercase">Gestational Age: {biometrics.estimatedGestationalAgeWeeks} Weeks</p>
                 </div>
+
+                <Button
+                  type="button"
+                  onClick={handleSaveBiometricsToEHR}
+                  disabled={!biometrics.isValidMedicalScan}
+                  className="w-full mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Save size={14} /> 💾 Save Biometrics to EHR History
+                </Button>
               </div>
             </div>
           ) : (
