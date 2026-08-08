@@ -325,6 +325,10 @@ service cloud.firestore {
       allow read, write, list, create, update, delete: if isSignedIn();
     }
 
+    match /ai_audit_logs/{logId} {
+      allow read, write, list, create, update, delete: if isSignedIn();
+    }
+
     match /hospitals/{hospitalId} {
       allow get, list: if isSignedIn();
       allow create, delete: if isSuperAdmin();
