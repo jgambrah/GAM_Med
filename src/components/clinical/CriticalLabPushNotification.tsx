@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { ShieldAlert, Bell, Volume2, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 
 interface CriticalLabAlert {
@@ -13,6 +14,7 @@ interface CriticalLabAlert {
 }
 
 export function CriticalLabPushNotification() {
+  const { toast } = useToast();
   const [alerts, setAlerts] = useState<CriticalLabAlert[]>([
     {
       id: 'CRIT-1',
@@ -23,6 +25,15 @@ export function CriticalLabPushNotification() {
       timestamp: '2 mins ago',
     }
   ]);
+
+  const handleAcknowledge = (id: string) => {
+    const alert = alerts.find(a => a.id === id);
+    setAlerts(prev => prev.filter(a => a.id !== id));
+    toast({
+      title: '✅ Critical Lab Acknowledged & Signed',
+      description: `Doctor digital sign-off recorded for ${alert?.patientName || 'Patient'}'s ${alert?.testName} (${alert?.resultValue}).`
+    });
+  };
 
   const dismissAlert = (id: string) => {
     setAlerts(prev => prev.filter(a => a.id !== id));
@@ -51,8 +62,12 @@ export function CriticalLabPushNotification() {
 
           <div className="flex justify-between items-center pt-1 border-t border-red-900 text-[10px] font-bold text-red-400 uppercase">
             <span>{alert.timestamp}</span>
-            <Button size="sm" className="h-7 bg-red-600 hover:bg-red-500 text-white font-black text-[10px] uppercase rounded-xl">
-              Acknowledge & Sign
+            <Button 
+              size="sm" 
+              onClick={() => handleAcknowledge(alert.id)}
+              className="h-7 bg-red-600 hover:bg-red-500 text-white font-black text-[10px] uppercase rounded-xl shadow-lg"
+            >
+              Acknowledge & Sign ✍️
             </Button>
           </div>
         </div>
