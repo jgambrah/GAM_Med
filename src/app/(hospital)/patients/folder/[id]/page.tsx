@@ -27,6 +27,8 @@ import { ClinicalTaskDelegationDialog } from '@/components/clinical/ClinicalTask
 import { ClinicalRiskOverlay } from '@/components/clinical/ClinicalRiskOverlay';
 import { PreVisitBriefCard } from '@/components/clinical/PreVisitBriefCard';
 import { DischargeCarePlanDialog } from '@/components/clinical/DischargeCarePlanDialog';
+import { ComputerVisionPACSViewer } from '@/components/clinical/ComputerVisionPACSViewer';
+import { SmartWoundTracker } from '@/components/clinical/SmartWoundTracker';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -652,6 +654,20 @@ export default function PatientFolderHub() {
           isMaternity={!!patient?.isMaternity} 
           isPediatric={isChildUnder5} 
           patientId={id as string} 
+          patientName={`${patient?.firstName} ${patient?.lastName}`} 
+        />
+      )}
+
+      {/* COMPUTER VISION ULTRASOUND & PACS DIAGNOSTICS */}
+      {patient && (
+        <ComputerVisionPACSViewer 
+          patientName={`${patient?.firstName} ${patient?.lastName}`} 
+        />
+      )}
+
+      {/* COMPUTER VISION SURGICAL WOUND TRACKER */}
+      {patient && (
+        <SmartWoundTracker 
           patientName={`${patient?.firstName} ${patient?.lastName}`} 
         />
       )}

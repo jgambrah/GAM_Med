@@ -1,5 +1,4 @@
-import { ai } from '../genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 
 export const ICD11CptInputSchema = z.object({
   clinicalNotes: z.string().describe('Clinical diagnosis, HPI, or examination notes'),
