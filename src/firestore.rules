@@ -337,6 +337,10 @@ service cloud.firestore {
         ])
       );
 
+      match /telemetry_streams/{streamId} {
+        allow read, write, list, create, update, delete: if isSignedIn();
+      }
+
       match /jcc_logs/{logId} {
         allow read, list, create: if isSuperAdmin() || isStaffOfHospital(hospitalId);
         allow update, delete: if false;
