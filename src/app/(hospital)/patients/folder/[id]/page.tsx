@@ -7,7 +7,7 @@ import { doc, collection, query, orderBy, where, onSnapshot, Timestamp, serverTi
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Activity, Thermometer, Pill, Beaker,
+  Activity, Thermometer, Pill, Beaker, Dna,
   History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit, Camera, Download,
   Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe, Zap, HeartPulse
 } from 'lucide-react';
@@ -301,6 +301,12 @@ export default function PatientFolderHub() {
     return null;
   }, [matchedDonors, matchedPhoneDonors]);
 
+  const genomicVaultQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !id) return null;
+    return doc(firestore, `hospitals/${hospitalId}/patients/${id as string}/genomic_profile/vault`);
+  }, [firestore, hospitalId, id]);
+  const { data: genomicVaultDoc } = useDoc(genomicVaultQuery);
+
   useEffect(() => {
     if (patient?.status === 'Awaiting Vitals') {
       setIsVitalsDialogOpen(true);
@@ -593,6 +599,12 @@ export default function PatientFolderHub() {
                   ADMITTED: {activeAdmission.wardName || activeAdmission.wardId} — {activeAdmission.bedName || activeAdmission.bedId}
                 </span>
               )}
+              {genomicVaultDoc && (
+                <span className="bg-purple-600/30 text-purple-300 border border-purple-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                  <Dna size={10} className="text-purple-400 animate-pulse" />
+                  🧬 Sequenced Genetic Vault Active
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -686,6 +698,7 @@ export default function PatientFolderHub() {
       {/* PHARMACOGENOMICS (PGX) PRECISION SAFETY ENGINE */}
       {patient && (
         <PharmacogenomicsAlertCard 
+          patientId={id as string}
           patientName={`${patient?.firstName} ${patient?.lastName}`} 
         />
       )}

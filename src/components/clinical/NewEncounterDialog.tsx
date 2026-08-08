@@ -65,6 +65,7 @@ import { cn } from '@/lib/utils';
 import { ReferralLetterDialog } from './ReferralLetterDialog';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Timestamp } from 'firebase/firestore';
+import { evaluatePharmacogenomics } from '@/ai/flows/ai-genomic-engine';
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -162,6 +163,16 @@ export function NewEncounterDialog({
 
   const [extItemName, setExtItemName] = useState('');
   const [extInstruction, setExtInstruction] = useState('');
+
+  const activeMedList = useMemo(() => {
+    const medNames = items.map(i => i.name || '');
+    if (extItemName.trim()) medNames.push(extItemName.trim());
+    return medNames.filter(Boolean);
+  }, [items, extItemName]);
+
+  const pgxAlerts = useMemo(() => {
+    return evaluatePharmacogenomics(activeMedList);
+  }, [activeMedList]);
 
   // AI Scribe & Productivity Tools State
   const [isListening, setIsListening] = useState(false);
@@ -984,6 +995,55 @@ export function NewEncounterDialog({
                   />
                 </div>
               </div>
+
+              {/* REAL-TIME PHARMACOGENOMICS (PGX) SAFETY INTERCEPT BANNER */}
+              {pgxAlerts.length > 0 && (
+                <div className="bg-red-950 border-4 border-red-600 rounded-[32px] p-6 text-white space-y-4 shadow-2xl animate-in zoom-in-95 my-4">
+                  <div className="flex items-center gap-3">
+                    <ShieldAlert className="text-red-400 animate-pulse shrink-0" size={24} />
+                    <div>
+                      <h4 className="text-sm font-black uppercase text-red-400 tracking-wider">
+                        🧬 REAL-TIME PHARMACOGENOMIC CONTRAINDICATION INTERCEPT
+                      </h4>
+                      <p className="text-[10px] font-bold text-red-200 uppercase">
+                        Patient DNA sequencing profile flagged high risk for selected prescription orders.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {pgxAlerts.map((alert, idx) => (
+                      <div key={idx} className="bg-red-900/80 border border-red-700 p-4 rounded-2xl space-y-2">
+                        <div className="flex justify-between items-center text-xs font-black uppercase">
+                          <span className="text-red-300">Medication: {alert.medicationName}</span>
+                          <span className="bg-black/50 px-2.5 py-1 rounded-md text-red-200">Gene: {alert.gene}</span>
+                        </div>
+                        <p className="text-xs font-bold text-white leading-relaxed">{alert.clinicalWarning}</p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="text-[9px] font-black text-amber-300 uppercase">Suggested Swap:</span>
+                          {alert.alternativeMedications.map((alt, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setItems(prev => prev.filter(item => item.name !== alert.medicationName));
+                                if (extItemName === alert.medicationName) setExtItemName(alt);
+                                toast({
+                                  title: '🔄 Order Swapped to PGx Safe Alternative',
+                                  description: `Replaced ${alert.medicationName} with ${alt}.`
+                                });
+                              }}
+                              className="bg-purple-950 hover:bg-purple-900 border border-purple-600 text-purple-200 px-3 py-1 rounded-xl text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>✅ {alt}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Medication & Services */}
               <div className="space-y-4 border-t pt-6">

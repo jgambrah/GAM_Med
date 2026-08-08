@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
+import { doc, serverTimestamp } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
+import { parseVcfContent } from '@/ai/flows/ai-genomic-engine';
 
 interface GenomicProfileCaptureDialogProps {
   patientId?: string;
@@ -18,23 +22,29 @@ interface GeneticMarkerItem {
   gene: string;
   variant: string;
   phenotype: string;
+  notes?: string;
 }
 
-export function GenomicProfileCaptureDialog({ patientName = 'Patient', onProfileUpdated }: GenomicProfileCaptureDialogProps) {
+export function GenomicProfileCaptureDialog({ patientId, patientName = 'Patient', onProfileUpdated }: GenomicProfileCaptureDialogProps) {
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const params = useParams();
+  const effectivePatientId = patientId || (params?.id as string);
+  const hospitalId = (user as any)?.hospitalId || 'default_hospital';
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const [selectedGene, setSelectedGene] = useState('HLA-B');
-  const [variantInput, setVariantInput] = useState('*5701 Positive');
+  const [variantInput, setVariantInput] = useState('');
   const [phenotypeInput, setPhenotypeInput] = useState('HYPERSENSITIVITY_RISK');
 
   const [markerList, setMarkerList] = useState<GeneticMarkerItem[]>([
-    { id: '1', gene: 'HLA-B', variant: '*5701 Positive', phenotype: 'HYPERSENSITIVITY_RISK' },
-    { id: '2', gene: 'CYP2C9', variant: '*2/*3 Compound Heterozygote', phenotype: 'POOR_METABOLIZER' },
-    { id: '3', gene: 'RYR1', variant: 'c.1021C>T (p.Arg341Cys)', phenotype: 'HIGH_RISK_VARIANT' },
-    { id: '4', gene: 'TPMT', variant: '*3A/*3C', phenotype: 'POOR_METABOLIZER' }
+    { id: '1', gene: 'HLA-B', variant: '*5701 Positive', phenotype: 'HYPERSENSITIVITY_RISK', notes: 'Abacavir Hypersensitivity Reaction risk' },
+    { id: '2', gene: 'CYP2C9', variant: '*2/*3 Compound', phenotype: 'POOR_METABOLIZER', notes: 'Reduced Warfarin clearance' },
+    { id: '3', gene: 'RYR1', variant: 'c.1021C>T', phenotype: 'HIGH_RISK_VARIANT', notes: 'Malignant Hyperthermia susceptibility' },
+    { id: '4', gene: 'TPMT', variant: '*3A/*3C', phenotype: 'POOR_METABOLIZER', notes: 'Azathioprine myelosuppression risk' }
   ]);
 
   const handleAddMarker = (e: React.FormEvent) => {
@@ -45,7 +55,8 @@ export function GenomicProfileCaptureDialog({ patientName = 'Patient', onProfile
       id: `MARK-${Date.now()}`,
       gene: selectedGene,
       variant: variantInput.trim(),
-      phenotype: phenotypeInput
+      phenotype: phenotypeInput,
+      notes: `Custom captured variant for ${selectedGene}`
     };
 
     setMarkerList(prev => [...prev, newMarker]);
@@ -61,23 +72,54 @@ export function GenomicProfileCaptureDialog({ patientName = 'Patient', onProfile
     if (file) {
       setIsUploadingFile(true);
       setUploadedFileName(file.name);
-      setTimeout(() => {
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string || '';
+        const parsed = parseVcfContent(content);
+
+        const formatted = parsed.map((m: any, idx: number) => ({
+          id: `vcf-${Date.now()}-${idx}`,
+          gene: m.gene,
+          variant: m.variant,
+          phenotype: m.phenotype,
+          notes: m.clinicalNotes
+        }));
+
+        setMarkerList(formatted);
         setIsUploadingFile(false);
         toast({
           title: '🧬 Genomic Report Parsed Successfully',
-          description: `Extracted 4 variant markers from ${file.name} for ${patientName}.`
+          description: `Extracted ${formatted.length} variant markers from ${file.name} for ${patientName}.`
         });
-      }, 1000);
+      };
+      reader.readAsText(file);
     }
   };
 
-  const handleSaveGenomicProfile = () => {
-    toast({
-      title: '💾 Patient Genomic Vault Saved',
-      description: `Updated DNA variant markers and PGx profile for ${patientName}.`
-    });
-    setIsOpen(false);
-    if (onProfileUpdated) onProfileUpdated();
+  const handleSaveGenomicProfile = async () => {
+    try {
+      if (firestore && effectivePatientId) {
+        const profileRef = doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/genomic_profile/vault`);
+        setDocumentNonBlocking(profileRef, {
+          patientId: effectivePatientId,
+          patientName,
+          markers: markerList,
+          uploadedFileName: uploadedFileName || null,
+          updatedAt: serverTimestamp(),
+          updatedBy: user?.uid || 'system'
+        }, { merge: true });
+      }
+
+      toast({
+        title: '💾 Patient Genomic Vault Saved',
+        description: `Updated DNA variant markers and PGx profile for ${patientName} on EHR file.`
+      });
+      setIsOpen(false);
+      if (onProfileUpdated) onProfileUpdated();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Save Failed', description: err.message });
+    }
   };
 
   return (

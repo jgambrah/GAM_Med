@@ -7,20 +7,48 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { GenomicProfileCaptureDialog } from '@/components/clinical/GenomicProfileCaptureDialog';
 
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
+
 interface PharmacogenomicsAlertCardProps {
+  patientId?: string;
   patientName?: string;
   defaultExpanded?: boolean;
 }
 
-export function PharmacogenomicsAlertCard({ patientName = 'Patient', defaultExpanded = false }: PharmacogenomicsAlertCardProps) {
+export function PharmacogenomicsAlertCard({ patientId, patientName = 'Patient', defaultExpanded = false }: PharmacogenomicsAlertCardProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const params = useParams();
+  const effectivePatientId = patientId || (params?.id as string);
+  const hospitalId = (user as any)?.hospitalId || 'default_hospital';
+
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !effectivePatientId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/genomic_profile/vault`);
+  }, [firestore, hospitalId, effectivePatientId]);
+  const { data: storedProfileDoc } = useDoc(profileRef);
+
+  const storedProfile = useMemo(() => {
+    if (storedProfileDoc && storedProfileDoc.markers) {
+      return {
+        patientId: effectivePatientId || 'p1',
+        patientName,
+        markers: storedProfileDoc.markers
+      };
+    }
+    return undefined;
+  }, [storedProfileDoc, effectivePatientId, patientName]);
+
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [prescribedList, setPrescribedList] = useState<string[]>(['Abacavir 300mg', 'Warfarin 5mg', 'Sevoflurane']);
   const [newMedInput, setNewMedInput] = useState('');
 
   const pgxAlerts = useMemo(() => {
-    return evaluatePharmacogenomics(prescribedList);
-  }, [prescribedList]);
+    return evaluatePharmacogenomics(prescribedList, storedProfile);
+  }, [prescribedList, storedProfile]);
 
   const handleAddMedication = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,12 +193,24 @@ export function PharmacogenomicsAlertCard({ patientName = 'Patient', defaultExpa
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase text-purple-300">PGx Suggested Safe Alternatives:</span>
+                    <span className="text-[10px] font-black uppercase text-purple-300">PGx Suggested Safe Alternatives (Click to Swap Order):</span>
                     <div className="flex flex-wrap gap-2">
                       {alert.alternativeMedications.map((alt, i) => (
-                        <span key={i} className="bg-purple-950 border border-purple-800 px-2.5 py-1 rounded-xl text-[10px] font-black text-purple-200">
-                          ✅ {alt}
-                        </span>
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setPrescribedList(prev => [...prev.filter(m => m !== alert.medicationName), alt]);
+                            toast({
+                              title: '🔄 PGx Medication Order Swapped',
+                              description: `Replaced ${alert.medicationName} with safe alternative ${alt}.`
+                            });
+                          }}
+                          className="bg-purple-950 hover:bg-purple-900 border border-purple-700 px-3 py-1.5 rounded-xl text-[10px] font-black text-purple-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <span>✅ {alt}</span>
+                          <span className="text-[9px] bg-purple-800 text-purple-100 px-1.5 py-0.5 rounded-md uppercase">Swap</span>
+                        </button>
                       ))}
                     </div>
                   </div>

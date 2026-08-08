@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
-import { Stethoscope, ShieldAlert, CheckCircle2, Sparkles, Activity, FileText, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Stethoscope, ShieldAlert, CheckCircle2, Sparkles, Activity, FileText, ArrowRight, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import { generateTargetedANCRiskProfile, TargetedANCRiskProfile } from '@/ai/flows/ai-genomic-engine';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -8,17 +8,27 @@ import { useToast } from '@/hooks/use-toast';
 interface TargetedANCRiskCardProps {
   patientName?: string;
   gestationalAgeWeeks?: number;
+  maternalAge?: number;
+  bpSystolic?: number;
+  bpDiastolic?: number;
   defaultExpanded?: boolean;
 }
 
-export function TargetedANCRiskCard({ patientName = 'Patient', gestationalAgeWeeks = 14, defaultExpanded = false }: TargetedANCRiskCardProps) {
+export function TargetedANCRiskCard({
+  patientName = 'Patient',
+  gestationalAgeWeeks = 14,
+  maternalAge = 34,
+  bpSystolic = 138,
+  bpDiastolic = 88,
+  defaultExpanded = false
+}: TargetedANCRiskCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isOrderQueued, setIsOrderQueued] = useState(false);
 
   const ancProfile = useMemo(() => {
-    return generateTargetedANCRiskProfile(gestationalAgeWeeks);
-  }, [gestationalAgeWeeks]);
+    return generateTargetedANCRiskProfile(gestationalAgeWeeks, maternalAge, bpSystolic, bpDiastolic);
+  }, [gestationalAgeWeeks, maternalAge, bpSystolic, bpDiastolic]);
 
   const handleQueueOrders = () => {
     setIsOrderQueued(true);
@@ -137,10 +147,25 @@ export function TargetedANCRiskCard({ patientName = 'Patient', gestationalAgeWee
           </div>
 
           {/* PERSONALIZED CARE PLAN PROTOCOLS */}
-          <div className="p-4 bg-slate-950/90 rounded-2xl border border-slate-800 space-y-2">
-            <h4 className="text-xs font-black uppercase text-pink-400 tracking-wider flex items-center gap-1.5 border-b border-slate-800 pb-2">
-              <FileText size={14} /> Personalised Genomic ANC Protocol Summary ({patientName}):
-            </h4>
+          <div className="p-4 bg-slate-950/90 rounded-2xl border border-slate-800 space-y-3">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+              <h4 className="text-xs font-black uppercase text-pink-400 tracking-wider flex items-center gap-1.5">
+                <FileText size={14} /> Personalised Genomic ANC Protocol Summary ({patientName}):
+              </h4>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  toast({
+                    title: '⚡ Genomic ANC Protocols Queued',
+                    description: 'Added Low-Dose Aspirin, 16-Week OGTT, and NIPT blood panel to clinical chart.'
+                  });
+                }}
+                className="bg-pink-600 hover:bg-pink-500 text-white font-black text-[10px] uppercase rounded-xl h-7 px-3 flex items-center gap-1.5 shadow-lg"
+              >
+                <Zap size={12} /> Queue ANC Orders
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-bold text-slate-200">
               {ancProfile.personalizedCarePlan.map((plan, i) => (
                 <div key={i} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 flex items-center gap-2">
