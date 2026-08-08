@@ -35,6 +35,8 @@ import { TargetedANCRiskCard } from '@/components/clinical/TargetedANCRiskCard';
 import { ICUTelemetryStreamCard } from '@/components/clinical/ICUTelemetryStreamCard';
 import { MaternalWearableRPMCard } from '@/components/clinical/MaternalWearableRPMCard';
 import { EnterpriseCapacityFederatedCard } from '@/components/clinical/EnterpriseCapacityFederatedCard';
+import { VoiceHandsFreeControl } from '@/components/clinical/VoiceHandsFreeControl';
+import { Anatomical3DMappingCard } from '@/components/clinical/Anatomical3DMappingCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -626,6 +628,14 @@ export default function PatientFolderHub() {
                 <Globe size={10} className="text-purple-400" />
                 🌐 Federated AI Grid Synced
               </span>
+              <span className="bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Activity size={10} className="text-emerald-400" />
+                🎙️ Hands-Free Voice Ready
+              </span>
+              <span className="bg-fuchsia-600/30 text-fuchsia-300 border border-fuchsia-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles size={10} className="text-fuchsia-400" />
+                🧍 3D Anatomical Map Active
+              </span>
             </div>
           </div>
         </div>
@@ -757,6 +767,27 @@ export default function PatientFolderHub() {
       {patient && (
         <EnterpriseCapacityFederatedCard 
           hospitalName="GamMed Grid Hospital"
+        />
+      )}
+
+      {/* INTERACTIVE 3D ANATOMICAL BODY MAPPING CANVAS */}
+      {patient && (
+        <Anatomical3DMappingCard 
+          patientId={id as string}
+          hospitalId={hospitalId}
+          patientName={`${patient?.firstName} ${patient?.lastName}`}
+        />
+      )}
+
+      {/* FLOATING HANDS-FREE VOICE ASSISTANT TOOLBAR */}
+      {patient && (
+        <VoiceHandsFreeControl 
+          patientName={`${patient?.firstName} ${patient?.lastName}`}
+          onExecuteIntent={(result) => {
+            if (result.intent === 'OPEN_LABS') {
+              setIsVitalsDialogOpen(true);
+            }
+          }}
         />
       )}
 
