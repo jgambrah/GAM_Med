@@ -23,6 +23,7 @@ import VitalsTrend from '@/components/clinical/VitalsTrend';
 import { QRCodeSVG } from 'qrcode.react';
 import { DeathCertificationDialog } from '@/components/clinical/DeathCertificationDialog';
 import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
+import { CollapsibleLongitudinalEncounter } from '@/components/clinical/CollapsibleLongitudinalEncounter';
 import { ClinicalTaskDelegationDialog } from '@/components/clinical/ClinicalTaskDelegationDialog';
 import { ClinicalRiskOverlay } from '@/components/clinical/ClinicalRiskOverlay';
 import { PreVisitBriefCard } from '@/components/clinical/PreVisitBriefCard';
@@ -139,6 +140,14 @@ export default function PatientFolderHub() {
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'SUMMARY' | 'LOCAL' | 'NETWORK' | 'BILLING'>('NETWORK');
+  const [expandedEncounters, setExpandedEncounters] = useState<Record<string, boolean>>({});
+
+  const toggleEncounter = (key: string) => {
+    setExpandedEncounters(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -939,16 +948,47 @@ export default function PatientFolderHub() {
 
         {activeTab === 'NETWORK' && (
             <div className="space-y-6">
-                <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-xl flex items-center gap-6 border-b-8 border-blue-900">
-                    <Globe className="animate-pulse" size={40} />
-                    <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter">Unified <span className="text-blue-200 italic">Longitudinal Record</span></h2>
-                    <p className="text-[10px] font-bold uppercase opacity-70">Sourced from the GamMed National Grid</p>
+                <div className="bg-blue-600 p-8 rounded-[40px] text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b-8 border-blue-900">
+                    <div className="flex items-center gap-6">
+                      <Globe className="animate-pulse" size={40} />
+                      <div>
+                        <h2 className="text-2xl font-black uppercase tracking-tighter">Unified <span className="text-blue-200 italic">Longitudinal Record</span></h2>
+                        <p className="text-[10px] font-bold uppercase opacity-70">Sourced from the GamMed National Grid • On-Demand Collapsible Clinical Records</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const map: Record<string, boolean> = {};
+                          timelineActivities.forEach((act: any) => { map[act.uniqueKey] = true; });
+                          setExpandedEncounters(map);
+                        }}
+                        className="bg-blue-700/80 hover:bg-blue-700 text-white border-blue-400 rounded-xl text-[10px] font-black uppercase"
+                      >
+                        Expand All Records ⏬
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const map: Record<string, boolean> = {};
+                          timelineActivities.forEach((act: any) => { map[act.uniqueKey] = false; });
+                          setExpandedEncounters(map);
+                        }}
+                        className="bg-blue-800/80 hover:bg-blue-800 text-white border-blue-500 rounded-xl text-[10px] font-black uppercase"
+                      >
+                        Collapse All ⏫
+                      </Button>
                     </div>
                 </div>
 
                 {isTimelineLoading ? (
-                    <div className="p-10 text-center"><Loader2 className="animate-spin" /></div>
+                    <div className="p-10 text-center"><Loader2 className="animate-spin text-blue-600 mx-auto" /></div>
                 ) : authRequired ? (
                     <div className="bg-amber-100 border-2 border-dashed border-amber-200 p-10 rounded-[40px] text-center">
                         <ShieldAlert size={48} className="mx-auto text-amber-500 mb-4" />
@@ -959,661 +999,13 @@ export default function PatientFolderHub() {
                         </p>
                     </div>
                 ) : (
-                    timelineActivities.map((activity: any) => {
-                      if (activity.viewType === 'ENCOUNTER') {
-                        const isCwc = activity.encounterType === 'Child Welfare (CWC) Checkup' || activity.type === 'Child Welfare (CWC) Checkup';
-                        if (isCwc) {
-                          return (
-                            <div key={activity.uniqueKey} className="bg-white p-8 rounded-[40px] border-4 border-sky-600 shadow-[12px_12px_0px_0px_rgba(14,165,233,0.05)] space-y-8 mb-8 text-black">
-                              <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                                 <div>
-                                    <span className="text-[10px] font-black bg-sky-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit">
-                                       <Baby size={12} /> {activity.type || 'Child Welfare Checkup'}
-                                    </span>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                       {activity.hospitalName} • Logged by: {activity.providerName} ({activity.providerRole})
-                                    </p>
-                                 </div>
-                                 <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-900 uppercase">
-                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                    </p>
-                                    <p className="text-[10px] font-bold text-sky-600 uppercase mt-1">
-                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                    </p>
-                                 </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-sky-50/50 p-6 rounded-[32px] border border-sky-100">
-                                 <MiniVital label="Weight" value={activity.vitals?.weight} unit="kg" />
-                                 <MiniVital label="Length" value={activity.vitals?.height} unit="cm" />
-                                 <MiniVital label="Head Circ." value={activity.vitals?.headCircumference} unit="cm" />
-                                 <MiniVital label="MUAC" value={activity.vitals?.muac} unit="cm" />
-                                 <MiniVital label="Feeding" value={activity.vitals?.feedingMethod} unit="" />
-                              </div>
-
-                              {activity.cwcData && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  {activity.cwcData.vaccinesAdministered && activity.cwcData.vaccinesAdministered.length > 0 && (
-                                    <div className="space-y-2 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                      <p className="text-[9px] font-black text-sky-600 uppercase tracking-widest flex items-center gap-1">
-                                        <Syringe size={10} className="text-sky-500" /> Immunizations Administered
-                                      </p>
-                                      <div className="flex flex-wrap gap-2 pt-1">
-                                        {activity.cwcData.vaccinesAdministered.map((v: string) => (
-                                          <span key={v} className="bg-sky-100 text-sky-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border border-sky-200">
-                                            {v}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {activity.cwcData.milestonesObserved && activity.cwcData.milestonesObserved.length > 0 && (
-                                    <div className="space-y-2 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                                      <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1">
-                                        <Sparkles size={10} className="text-indigo-500" /> Milestones Observed
-                                      </p>
-                                      <div className="flex flex-wrap gap-2 pt-1">
-                                        {activity.cwcData.milestonesObserved.map((m: string) => (
-                                          <span key={m} className="bg-indigo-100 text-indigo-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border border-indigo-200">
-                                            {m}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                <div className="space-y-2">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-300 pl-3">Developmental Remarks</p>
-                                  <p className="text-xs font-semibold text-slate-800 leading-relaxed italic">
-                                     "{activity.diagnosis || 'No remarks recorded.'}"
-                                  </p>
-                                </div>
-                                {activity.cwcData?.nextCwcDate && (
-                                  <div className="bg-amber-50 text-amber-900 border border-amber-200 p-4 rounded-2xl flex items-center gap-3">
-                                     <Activity size={16} className="text-amber-600 animate-pulse" />
-                                     <div>
-                                        <p className="text-[9px] font-black uppercase text-amber-700">Next Scheduled CWC Visit</p>
-                                        <p className="text-xs font-black uppercase mt-0.5">
-                                          {new Date(activity.cwcData.nextCwcDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </p>
-                                     </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const isSurgery = activity.encounterType === 'Surgical Operation' || activity.type === 'Surgical Operation';
-                        if (isSurgery) {
-                          const details = parseSurgeryDetailsFromHpi(activity.hpi || '', activity.diagnosis || '', activity.surgeryDetails);
-                          return (
-                            <div key={activity.uniqueKey} className="bg-white p-8 rounded-[40px] border-4 border-indigo-600 shadow-[12px_12px_0px_0px_rgba(79,70,229,0.05)] space-y-8 mb-8 text-black">
-                              <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                                 <div>
-                                    <span className="text-[10px] font-black bg-indigo-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit">
-                                       <Scissors size={12} className="rotate-90" /> Surgical Operation
-                                    </span>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                       {activity.hospitalName} • Surgeon: {activity.providerName} ({activity.providerRole})
-                                    </p>
-                                 </div>
-                                 <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-900 uppercase">
-                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                    </p>
-                                    <p className="text-[10px] font-bold text-indigo-600 uppercase mt-1">
-                                       {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                    </p>
-                                 </div>
-                              </div>
-
-                              {/* Metagrid: Anesthesia, Blood Loss, Checklist Status */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[32px] border border-slate-100">
-                                 <div className="text-center md:border-r border-slate-200">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Anesthesia Type</p>
-                                    <p className="text-sm font-black text-slate-900 mt-1 uppercase">{details.anesthesiaType}</p>
-                                 </div>
-                                 <div className="text-center md:border-r border-slate-200">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Estimated Blood Loss</p>
-                                    <p className="text-sm font-black text-red-600 mt-1">{details.bloodLoss}</p>
-                                 </div>
-                                 <div className="text-center flex flex-col items-center justify-center">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Surgical Safety Audit</p>
-                                    <span className="mt-1 bg-emerald-100 text-emerald-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
-                                       <ShieldCheck size={10} className="text-emerald-600" /> Compliant
-                                    </span>
-                                 </div>
-                              </div>
-
-                              {/* Procedure & Findings */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                 <div className="space-y-2">
-                                    <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest border-l-4 border-indigo-600 pl-3">Procedure Performed</p>
-                                    <p className="text-lg font-black text-slate-900 uppercase tracking-tight leading-none">{details.procedureDone}</p>
-                                 </div>
-                                 <div className="space-y-2">
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-4 border-slate-500 pl-3">Intra-Operative Findings</p>
-                                    <p className="text-xs text-slate-700 leading-relaxed font-semibold italic bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                       "{details.findings}"
-                                    </p>
-                                 </div>
-                              </div>
-
-                              {/* Post-Op Instructions */}
-                              <div className="bg-slate-900 text-white p-6 rounded-[32px] border-b-8 border-slate-950 space-y-2">
-                                 <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Post-Operative Ward Instructions</p>
-                                 <p className="text-xs font-bold leading-relaxed">{details.postOpInstructions}</p>
-                              </div>
-
-                              {/* WHO Safety Checklist Verification breakdown */}
-                              {details.checklistAudit && (
-                                <div className="space-y-3 pt-2">
-                                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5">
-                                    <ShieldCheck size={12} className="text-emerald-500 shrink-0" /> WHO Surgical Safety Checklist Audit Log
-                                  </p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-center gap-2 text-emerald-950 text-[10px]">
-                                      <Check size={12} className="text-emerald-600 shrink-0" />
-                                      <span>Sign-In Verified</span>
-                                    </div>
-                                    <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-center gap-2 text-emerald-950 text-[10px]">
-                                      <Check size={12} className="text-emerald-600 shrink-0" />
-                                      <span>Time-Out Verified</span>
-                                    </div>
-                                    <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-center gap-2 text-emerald-950 text-[10px]">
-                                      <Check size={12} className="text-emerald-600 shrink-0" />
-                                      <span>Sign-Out Verified</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div key={activity.uniqueKey} className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-8 mb-8">
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className="text-[10px] font-black bg-blue-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
-                                     {activity.type || 'Consultation'}
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                     {activity.hospitalName} • Dr. {activity.providerName} ({activity.providerRole})
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">
-                                     {activity.createdAt ? new Date(activity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-slate-50 p-6 rounded-[32px]">
-                               <MiniVital label="BP" value={activity.vitals?.bp} unit="mmHg" />
-                               <MiniVital label="Temp" value={activity.vitals?.temp} unit="°C" />
-                               <MiniVital label="Pulse" value={activity.vitals?.pulse} unit="bpm" />
-                               <MiniVital label="Resp" value={activity.vitals?.respiration} unit="bpm" />
-                               <MiniVital label="BMI" value={activity.vitals?.bmi} unit="" />
-                               <MiniVital label="Weight" value={activity.vitals?.weight} unit="kg" />
-                            </div>
-
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-black">
-                                <div className="space-y-4">
-                                   <div className="space-y-1">
-                                      <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-l-4 border-blue-600 pl-3">Chief Complaint</p>
-                                      <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
-                                         "{activity.chiefComplaint || 'No subjective complaints recorded.'}"
-                                      </p>
-                                   </div>
-                                   {activity.hpi && (
-                                      <div className="space-y-1">
-                                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-4 border-slate-500 pl-3">History of Present Illness (HPI)</p>
-                                         <p className="text-xs font-medium text-slate-700 leading-relaxed">
-                                            {activity.hpi}
-                                         </p>
-                                      </div>
-                                   )}
-                                </div>
-                                <div className="space-y-2">
-                                   <p className="text-[9px] font-black text-red-600 uppercase tracking-widest border-l-4 border-red-600 pl-3">Provisional Diagnosis</p>
-                                   <p className="text-lg font-black text-black uppercase tracking-tight">
-                                      {activity.diagnosis || 'Pending Review'}
-                                   </p>
-                                </div>
-                             </div>
-
-                            {(activity.labOrders?.length > 0 || activity.radiologyOrders?.length > 0) && (
-                              <div className="space-y-4">
-                                 <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Diagnostic Requests</p>
-                                 <div className="flex flex-wrap gap-3">
-                                    {activity.labOrders?.map((lab: any, i: number) => (
-                                       <div key={i} className="bg-purple-50 text-purple-700 px-4 py-2 rounded-2xl border border-purple-100 flex items-center gap-2">
-                                          <div className="w-2 h-2 rounded-full bg-purple-400" />
-                                          <span className="text-[11px] font-black uppercase">{lab.name || lab.testName}</span>
-                                       </div>
-                                    ))}
-                                    {activity.radiologyOrders?.map((scan: any, i: number) => (
-                                       <div key={i} className="bg-orange-50 text-orange-700 px-4 py-2 rounded-2xl border border-orange-100 flex items-center gap-2">
-                                          <div className="w-2 h-2 rounded-full bg-orange-400" />
-                                          <span className="text-[11px] font-black uppercase">{scan.name}</span>
-                                       </div>
-                                    ))}
-                                 </div>
-                              </div>
-                            )}
-
-                            {activity.prescription?.length > 0 && (
-                              <div className="bg-[#0f172a] p-6 rounded-[32px] text-white">
-                                 <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Treatment Plan / RX</p>
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {activity.prescription.map((rx: any, idx: number) => (
-                                       <div key={idx} className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
-                                          <p className="text-xs font-black uppercase text-white">{rx.name}</p>
-                                          <p className="text-[10px] font-bold text-blue-400 mt-1 uppercase italic">{rx.dosage} • {rx.frequency}</p>
-                                       </div>
-                                    ))}
-                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      if (activity.viewType === 'LAB_RESULT') {
-                        const isCritical = activity.isAbnormal || false;
-                        return (
-                          <div key={activity.uniqueKey} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white ${isCritical ? 'border-red-600' : 'border-purple-600'}`}>
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className={`text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic ${isCritical ? 'bg-red-600 animate-pulse' : 'bg-purple-600'}`}>
-                                     {isCritical ? 'Critical Lab Result' : 'Lab Result Release'}
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                     Tested at: {activity.hospitalName || userProfile?.hospitalName} • Tech: {activity.labTechName || 'Unknown Tech'}
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className={`text-[10px] font-bold uppercase mt-1 ${isCritical ? 'text-red-600' : 'text-purple-600'}`}>
-                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                               </div>
-                            </div>
-
-                             {activity.parameters && activity.parameters.length > 0 ? (
-                               <div className="bg-slate-50 p-6 rounded-[32px] overflow-x-auto border border-slate-100">
-                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Panel Result Details</p>
-                                 <table className="w-full text-left text-xs font-bold text-slate-700 border-collapse">
-                                   <thead>
-                                     <tr className="border-b border-slate-200 text-[9px] text-slate-400 uppercase tracking-wider">
-                                       <th className="pb-2">Parameter</th>
-                                       <th className="pb-2 text-center">Value</th>
-                                       <th className="pb-2 text-right">Reference Range</th>
-                                     </tr>
-                                   </thead>
-                                   <tbody>
-                                     {activity.parameters.map((p: any, idx: number) => (
-                                       <tr key={idx} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-200/30">
-                                         <td className="py-2.5 text-slate-800 font-black uppercase text-[11px]">{p.name}</td>
-                                         <td className="py-2.5 text-center">
-                                           <span className={p.isAbnormal ? "text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full font-black text-[11px] inline-block" : "text-purple-700 font-black"}>
-                                             {p.value} <span className="text-[10px] font-semibold text-slate-400">{p.unit}</span>
-                                           </span>
-                                           {p.isAbnormal && <span className="ml-1 text-[8px] font-black text-red-500 uppercase animate-pulse">ABN</span>}
-                                         </td>
-                                         <td className="py-2.5 text-right font-mono text-slate-500 text-[11px]">{p.referenceRange || 'N/A'} {p.unit}</td>
-                                       </tr>
-                                     ))}
-                                   </tbody>
-                                 </table>
-                               </div>
-                             ) : (
-                               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 p-6 rounded-[32px]">
-                                  <div>
-                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Test Parameter</p>
-                                     <p className="text-sm font-black text-black uppercase tracking-tight mt-1">{activity.testName}</p>
-                                   </div>
-                                   <div className="text-left md:text-right">
-                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Measured Value</p>
-                                     <p className={`text-2xl font-black italic tracking-tighter mt-1 ${isCritical ? 'text-red-600' : 'text-purple-600'}`}>
-                                        {activity.resultValue} <span className="text-[10px] text-slate-400 not-italic font-bold">{activity.unit}</span>
-                                     </p>
-                                   </div>
-                                   <div className="text-left md:text-right bg-white px-4 py-2 rounded-xl border border-slate-100">
-                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Reference Range</p>
-                                     <p className="text-xs font-bold text-slate-700 mt-0.5">{activity.referenceRange || 'N/A'} {activity.unit}</p>
-                                   </div>
-                               </div>
-                             )}
-
-                            {activity.remarks && (
-                               <div className="space-y-2">
-                                  <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest border-l-4 border-purple-600 pl-3">Lab Tech Remarks</p>
-                                  <p className="text-sm font-medium text-slate-800 leading-relaxed italic">
-                                     "{activity.remarks}"
-                                  </p>
-                               </div>
-                            )}
-
-                            {activity.reportUrl && (
-                               <div className="pt-2">
-                                  <a href={activity.reportUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-purple-50 text-purple-700 hover:bg-purple-100 px-4 py-2.5 rounded-2xl border border-purple-200 text-xs font-black uppercase tracking-wider transition-all">
-                                     <Download size={14} /> Download Digital Report File
-                                  </a>
-                               </div>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      if (activity.viewType === 'SCAN_RESULT') {
-                        const isCritical = activity.isCritical || false;
-                        return (
-                          <div key={activity.uniqueKey} className={`p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white transition-all ${isCritical ? 'border-red-600 ring-4 ring-red-100/50' : 'border-orange-600'}`}>
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className={`text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic ${isCritical ? 'bg-red-600 animate-pulse' : 'bg-orange-600'}`}>
-                                     {isCritical ? '⚠️ CRITICAL IMAGING REPORT' : 'Imaging Scan Report'}
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                     Acquired at: {activity.hospitalName || userProfile?.hospitalName} • Radiologist: {activity.radiologistName || 'Unknown Clinician'}
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className={`text-[10px] font-bold uppercase mt-1 ${isCritical ? 'text-red-600' : 'text-orange-600'}`}>
-                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                               </div>
-                            </div>
-
-                            {isCritical && (
-                               <div className="bg-red-50 border-2 border-red-200 text-red-900 p-4 rounded-2xl flex items-center gap-3">
-                                  <AlertCircle className="text-red-600 animate-pulse shrink-0" size={20} />
-                                  <div>
-                                     <p className="text-xs font-black uppercase">Critical Pathology Alert</p>
-                                     <p className="text-[10px] font-bold text-red-700 leading-normal">
-                                        The radiologist has flagged this scan with critical findings. Please review the clinical impression and findings immediately.
-                                     </p>
-                                  </div>
-                               </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-[32px]">
-                               <div>
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Scan Request</p>
-                                  <p className="text-lg font-black text-black uppercase tracking-tight mt-1">{activity.scanName || activity.name}</p>
-                               </div>
-                               {activity.indication && (
-                                  <div>
-                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clinical Indication</p>
-                                     <p className="text-xs font-bold text-slate-700 mt-1 uppercase italic">{activity.indication}</p>
-                                  </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                               <div className="space-y-6">
-                                  <div className="space-y-2">
-                                     <p className={`text-[9px] font-black uppercase tracking-widest border-l-4 pl-3 ${isCritical ? 'text-red-600 border-red-600' : 'text-orange-600 border-orange-600'}`}>Clinical Impression (Conclusion)</p>
-                                     <p className={`text-sm font-black uppercase tracking-tight ${isCritical ? 'text-red-700' : 'text-slate-900'}`}>
-                                        {activity.impression}
-                                     </p>
-                                  </div>
-                                  <div className="space-y-2">
-                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-300 pl-3">Detailed Findings</p>
-                                     <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-line">
-                                        {activity.findings}
-                                     </p>
-                                  </div>
-                               </div>
-
-                               {activity.imageUrl && (
-                                  <div className="space-y-2">
-                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Clinical Scan Image</p>
-                                     <div className="relative rounded-[28px] overflow-hidden border-4 border-slate-900 bg-slate-950 aspect-video group">
-                                        <img src={activity.imageUrl} alt={activity.scanName} className="object-cover w-full h-full" />
-                                        <a href={activity.imageUrl} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 text-white font-black text-xs uppercase tracking-widest transition-all">
-                                           <Camera size={16} /> Open Full Image
-                                        </a>
-                                     </div>
-                                  </div>
-                               )}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (activity.viewType === 'PROCEDURE_LOG') {
-                        return (
-                          <div key={activity.uniqueKey} className="p-8 rounded-[40px] border-4 border-slate-400 shadow-[12px_12px_0px_0px_rgba(15,23,42,0.05)] space-y-6 mb-8 bg-white">
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className="text-[10px] font-black bg-slate-400 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic">
-                                     Surgical / Clinical Procedure
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                     Performed by: Dr. {activity.doctorName || 'Unknown Doctor'}
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">
-                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                               </div>
-                            </div>
-
-                            <div className="space-y-4">
-                               <div>
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Procedure Name</p>
-                                  <p className="text-lg font-black text-black uppercase tracking-tight mt-1">{activity.procedureName}</p>
-                                </div>
-                               <div className="space-y-2">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-300 pl-3">Procedure Notes</p>
-                                  <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-line">
-                                     {activity.notes}
-                                  </p>
-                                </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (activity.viewType === 'NURSING_ROUND') {
-                        return (
-                          <div key={activity.uniqueKey} className="p-8 rounded-[40px] border-4 border-indigo-600 shadow-[12px_12px_0px_0px_rgba(99,102,241,0.05)] space-y-6 mb-8 bg-white text-black">
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className="text-[10px] font-black bg-indigo-600 text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1 w-fit">
-                                     <ClipboardList size={12}/> Inpatient Round Notes
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter">
-                                     Logged by Nurse: {activity.nurseName || 'System'}
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className="text-[10px] font-bold text-indigo-600 uppercase mt-1">
-                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-slate-50 p-6 rounded-[32px]">
-                               <MiniVital label="BP" value={activity.vitals?.bp} unit="mmHg" />
-                               <MiniVital label="Temp" value={activity.vitals?.temp} unit="°C" />
-                               <MiniVital label="Pulse" value={activity.vitals?.pulse} unit="bpm" />
-                               <MiniVital label="Resp" value={activity.vitals?.respiration} unit="bpm" />
-                               <MiniVital label="SPO2" value={activity.vitals?.spo2} unit="%" />
-                            </div>
-
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-black">
-                                <div className="space-y-4">
-                                   <div className="space-y-1">
-                                      <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest border-l-4 border-indigo-600 pl-3">Nursing Progress Notes</p>
-                                      <p className="text-xs font-medium text-slate-700 leading-relaxed italic">
-                                         "{activity.nursingNotes || 'No progress notes recorded.'}"
-                                      </p>
-                                   </div>
-                                </div>
-                                {activity.medicationsAdministered && (
-                                  <div className="space-y-2">
-                                     <p className="text-[9px] font-black text-red-600 uppercase tracking-widest border-l-4 border-red-600 pl-3">Medications Administered</p>
-                                     <p className="text-xs font-bold text-slate-800 leading-relaxed">
-                                        {activity.medicationsAdministered}
-                                     </p>
-                                  </div>
-                                )}
-                              </div>
-                           </div>
-                         );
-                       }
-
-                      if (activity.viewType === 'SPECIALTY_PLAN') {
-                        const getIcon = (serviceType: string) => {
-                          switch (serviceType) {
-                            case 'DIALYSIS': return <Zap size={12} />;
-                            case 'ONCOLOGY': return <HeartPulse size={12} />;
-                            case 'PHYSIO': return <Activity size={12} />;
-                            default: return <Zap size={12} />;
-                          }
-                        };
-                        const colorClass = activity.serviceType === 'DIALYSIS' ? 'border-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'border-rose-600' : 'border-emerald-600';
-                        const badgeClass = activity.serviceType === 'DIALYSIS' ? 'bg-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'bg-rose-600' : 'bg-emerald-600';
-
-                        return (
-                          <div key={activity.uniqueKey} className={cn("bg-white p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(0,0,0,0.05)] space-y-4 mb-8 text-black", colorClass)}>
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className={cn("text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit", badgeClass)}>
-                                     {getIcon(activity.serviceType)} {activity.unitName} Treatment Plan Authorized
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter font-bold">
-                                     Authorized by: {activity.authorizedByName || 'Clinical Staff'}
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 font-bold">
-                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[32px] border border-slate-100">
-                               <div className="text-center md:border-r border-slate-200">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Frequency</p>
-                                  <p className="text-sm font-black text-slate-900 mt-1 uppercase">{activity.frequency}</p>
-                               </div>
-                               <div className="text-center md:border-r border-slate-200">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Sessions Progress</p>
-                                  <p className="text-sm font-black text-slate-900 mt-1">{activity.sessionsCompleted} / {activity.sessionsAuthorized}</p>
-                               </div>
-                               <div className="text-center flex flex-col items-center justify-center">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Plan Status</p>
-                                  <span className={cn("mt-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border flex items-center gap-1", 
-                                    activity.status === 'ACTIVE' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-slate-100 text-slate-800 border-slate-200'
-                                  )}>
-                                     {activity.status}
-                                  </span>
-                               </div>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      if (activity.viewType === 'SPECIALTY_SESSION') {
-                        const getIcon = (serviceType: string) => {
-                          switch (serviceType) {
-                            case 'DIALYSIS': return <Zap size={12} />;
-                            case 'ONCOLOGY': return <HeartPulse size={12} />;
-                            case 'PHYSIO': return <Activity size={12} />;
-                            default: return <Zap size={12} />;
-                          }
-                        };
-                        const colorClass = activity.serviceType === 'DIALYSIS' ? 'border-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'border-rose-600' : 'border-emerald-600';
-                        const badgeClass = activity.serviceType === 'DIALYSIS' ? 'bg-blue-600' : activity.serviceType === 'ONCOLOGY' ? 'bg-rose-600' : 'bg-emerald-600';
-
-                        return (
-                          <div key={activity.uniqueKey} className={cn("bg-white p-8 rounded-[40px] border-4 shadow-[12px_12px_0px_0px_rgba(0,0,0,0.05)] space-y-4 mb-8 text-black", colorClass)}>
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-4">
-                               <div>
-                                  <span className={cn("text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-widest italic flex items-center gap-1.5 w-fit", badgeClass)}>
-                                     {getIcon(activity.serviceType)} {activity.planName} Session Log
-                                  </span>
-                                  <p className="text-[10px] font-bold text-slate-400 mt-3 uppercase tracking-tighter font-bold">
-                                     Logged by: {activity.loggedByName || 'Clinical Staff'}
-                                  </p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] font-black text-slate-900 uppercase">
-                                     {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                                  </p>
-                                  <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 font-bold">
-                                     {activity.date ? new Date(activity.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                               <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs font-bold text-black">
-                                  <div>
-                                     <span className="text-slate-400 uppercase text-[9px] tracking-wider block font-bold">Session Status</span>
-                                     <span className={cn("uppercase text-[10px] font-black", activity.status === 'COMPLETED' ? 'text-green-600' : 'text-amber-600')}>
-                                        {activity.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
-                                     </span>
-                                  </div>
-                                  <Button size="sm" variant="outline" asChild className="h-8 rounded-xl font-black uppercase text-[10px]">
-                                     <Link href={`/specialty/session/${activity.id}?planId=${activity.planId}`}>
-                                        View Flowsheet Log
-                                     </Link>
-                                  </Button>
-                               </div>
-
-                               {activity.readings && activity.readings.length > 0 && (
-                                  <div className="bg-slate-50 p-4 rounded-[28px] border border-slate-100 space-y-2 text-black">
-                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold">Intra-Procedural Readings Log ({activity.readings.length})</p>
-                                     <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
-                                        {activity.readings.map((r: any, idx: number) => (
-                                           <div key={idx} className="flex justify-between text-[11px] bg-white p-2 rounded-xl border border-slate-200/50 font-bold">
-                                              <div>
-                                                 <span className="font-black text-primary mr-2">{r.time}</span>
-                                                 <span>BP: {r.bp}</span> | <span>Pulse: {r.pulse}</span>
-                                              </div>
-                                              {r.notes && <span className="text-[10px] text-muted-foreground italic truncate max-w-[200px]">"{r.notes}"</span>}
-                                           </div>
-                                        ))}
-                                     </div>
-                                  </div>
-                               )}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return null;
-                    })
+                    timelineActivities.map((activity: any, activityIdx: number) => (
+                      <CollapsibleLongitudinalEncounter 
+                        key={activity.uniqueKey} 
+                        activity={activity} 
+                        defaultExpanded={activityIdx === 0} 
+                      />
+                    ))
                 )}
             </div>
         )}
