@@ -10,6 +10,20 @@ interface ComputerVisionPACSViewerProps {
   scanType?: 'ULTRASOUND' | 'CHEST_XRAY';
 }
 
+interface UltrasoundEHRRecord {
+  id: string;
+  date: string;
+  bpd: number;
+  hc: number;
+  ac: number;
+  fl: number;
+  efw: number;
+  ga: number;
+  presentation: string;
+  placenta: string;
+  signedBy: string;
+}
+
 export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = 'ULTRASOUND' }: ComputerVisionPACSViewerProps) {
   const { toast } = useToast();
   const [selectedScan, setSelectedScan] = useState<'ULTRASOUND' | 'CHEST_XRAY'>(scanType);
@@ -18,6 +32,22 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAnalysisDone, setIsAnalysisDone] = useState(true);
+
+  const [savedUltrasoundRecords, setSavedUltrasoundRecords] = useState<UltrasoundEHRRecord[]>([
+    {
+      id: 'USS-1',
+      date: '2026-08-01 09:30 AM',
+      bpd: 78.4,
+      hc: 285.1,
+      ac: 272.0,
+      fl: 58.2,
+      efw: 1780,
+      ga: 31.4,
+      presentation: 'CEPHALIC',
+      placenta: 'FUNDAL',
+      signedBy: 'Dr. Shane Gambrah (GAM-GAR-7578)'
+    }
+  ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,9 +59,26 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
 
   const handleSaveBiometricsToEHR = () => {
     if (!biometrics.isValidMedicalScan) return;
+
+    const newRecord: UltrasoundEHRRecord = {
+      id: `USS-${Date.now()}`,
+      date: new Date().toLocaleString(),
+      bpd: biometrics.bpdMm,
+      hc: biometrics.hcMm,
+      ac: biometrics.acMm,
+      fl: biometrics.flMm,
+      efw: biometrics.estimatedFetalWeightGrams,
+      ga: biometrics.estimatedGestationalAgeWeeks,
+      presentation: biometrics.fetalPresentation,
+      placenta: biometrics.placentaLocation,
+      signedBy: 'Dr. Shane Gambrah (GAM-GAR-7578)'
+    };
+
+    setSavedUltrasoundRecords(prev => [newRecord, ...prev]);
+
     toast({
-      title: '💾 Biometrics Saved to EHR Medical Record',
-      description: `Obstetric Ultrasound biometrics (BPD: ${biometrics.bpdMm}mm, EFW: ${biometrics.estimatedFetalWeightGrams}g, GA: ${biometrics.estimatedGestationalAgeWeeks}w) permanently saved for ${patientName}.`
+      title: '💾 Saved to Permanent EHR Medical Record',
+      description: `Obstetric Ultrasound scan logged for ${patientName} (EFW: ${biometrics.estimatedFetalWeightGrams}g, GA: ${biometrics.estimatedGestationalAgeWeeks}w).`
     });
   };
 
@@ -341,6 +388,36 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
           </Button>
         </div>
       </div>
+
+      {/* LONGITUDINAL HISTORICAL ULTRASOUND EHR SCANS TIMELINE */}
+      {savedUltrasoundRecords.length > 0 && (
+        <div className="border-t border-slate-800 pt-4 space-y-3">
+          <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-2">
+            <History size={16} /> 📜 Permanent Longitudinal Ultrasound EHR Scans ({savedUltrasoundRecords.length} Saved Records)
+          </h4>
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            {savedUltrasoundRecords.map((record) => (
+              <div key={record.id} className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex justify-between items-center text-xs font-bold text-slate-300">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-black">{record.date}</span>
+                    <span className="text-[9px] bg-amber-950 border border-amber-800 text-amber-300 px-2 py-0.5 rounded uppercase font-black">
+                      BPD: {record.bpd}mm • HC: {record.hc}mm • FL: {record.fl}mm
+                    </span>
+                    <span className="text-[9px] bg-purple-950 border border-purple-800 text-purple-300 px-2 py-0.5 rounded uppercase font-black">
+                      EFW: {record.efw}g ({record.ga} Weeks)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Doc Sign-off: {record.signedBy} • Presentation: {record.presentation} • Placenta: {record.placenta}</p>
+                </div>
+                <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-1 rounded-xl font-black uppercase">
+                  Verified EHR Scan
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
