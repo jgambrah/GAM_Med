@@ -31,6 +31,7 @@ export function ClinicalTaskDelegationDialog({ patientId, patientName, hospitalI
 
   const PRESET_TASKS = [
     "Re-check Blood Pressure in 30 minutes",
+    "Administer IM Syntocinon 10 IU stat",
     "Administer IV Iron Infusion 500mg",
     "Monitor SpO2 on 2L/min Nasal O2",
     "Collect Morning Fasting Blood Glucose",

@@ -24,6 +24,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { DeathCertificationDialog } from '@/components/clinical/DeathCertificationDialog';
 import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
 import { ClinicalTaskDelegationDialog } from '@/components/clinical/ClinicalTaskDelegationDialog';
+import { ClinicalRiskOverlay } from '@/components/clinical/ClinicalRiskOverlay';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -631,6 +632,18 @@ export default function PatientFolderHub() {
                 </div>
             </div>
         )}
+
+      {/* CLINICAL RISK STRATIFICATION & PREDICTIVE AI OVERLAY */}
+      {patient && (
+        <ClinicalRiskOverlay 
+          vitals={latestEncounter?.vitals} 
+          patientAge={patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : 30} 
+          isMaternity={!!patient?.isMaternity} 
+          isPediatric={isChildUnder5} 
+          patientId={id as string} 
+          patientName={`${patient?.firstName} ${patient?.lastName}`} 
+        />
+      )}
 
       <div className="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-[32px] space-y-3">
             <div className="flex justify-between items-center">

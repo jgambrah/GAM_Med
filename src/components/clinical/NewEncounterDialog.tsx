@@ -273,7 +273,48 @@ export function NewEncounterDialog({
       form.setValue('chiefComplaint', 'Routine Hypertension & Diabetes Follow-up');
       form.setValue('diagnosis', 'Essential Hypertension & Type 2 Diabetes Mellitus');
       toast({ title: '⚡ Hypertension & Diabetes Bundle Applied', description: 'Metabolic panel, HbA1c, ECG, and renal function queued.' });
+    } else if (bundleType === 'PREECLAMPSIA_SEVERE') {
+      setLabOrders(prev => [
+        ...prev,
+        { id: 'pe_lft', name: 'Liver Function Tests (ALT, AST, Bilirubin)' },
+        { id: 'pe_rft', name: 'Renal Function (Urea, Electrolytes, Creatinine, Urate)' },
+        { id: 'pe_cbc', name: 'Full Blood Count & Platelet Count' },
+        { id: 'pe_uri', name: 'Urine Dipstick Protein Quantification' }
+      ]);
+      setItems(prev => [
+        ...prev,
+        { id: 'pe_mgso4', name: 'Magnesium Sulfate 50% Injection (4g IV loading + 10g IM)', dosage: '4g IV / 10g IM', frequency: 'STAT', duration: '1 Day', qty: 2, isExternal: true },
+        { id: 'pe_labetalol', name: 'IV Labetalol 20mg / Hydralazine 5mg', dosage: '20mg', frequency: 'STAT', duration: '1 Day', qty: 1, isExternal: true }
+      ]);
+      form.setValue('chiefComplaint', 'Severe Preeclampsia protocol activation — High BP, headache, visual disturbance, proteinuria');
+      form.setValue('diagnosis', 'Severe Preeclampsia with Severe Features');
+      toast({ title: '⚡ Severe Preeclampsia Protocol Activated', description: 'IV MgSO4, Labetalol, HELLP lab panel, and Bed Transfer queued.' });
     }
+  };
+
+  const handleSmartPhraseExpansion = (text: string, fieldName: 'hpi' | 'chiefComplaint') => {
+    let expanded = text;
+    if (expanded.includes('.normalanc')) {
+      expanded = expanded.replace('.normalanc', 'Uterus size corresponds to gestational age. Fetal heart rate 140-150 bpm, regular. No vaginal bleeding or fluid escape. Fundal height appropriate for dates. Normotensive.');
+      toast({ title: '✨ SmartPhrase Expanded', description: '.normalanc expanded to full normative obstetric exam notes.' });
+    }
+    if (expanded.includes('.normalcardio')) {
+      expanded = expanded.replace('.normalcardio', 'S1, S2 present, normal intensity. No murmurs, gallops, or rubs. Peripheral pulses equal bilaterally.');
+      toast({ title: '✨ SmartPhrase Expanded', description: '.normalcardio expanded to full normative cardiovascular exam notes.' });
+    }
+    if (expanded.includes('.normalresp')) {
+      expanded = expanded.replace('.normalresp', 'Lungs clear to auscultation bilaterally. Normal vesicular breath sounds. No wheezing, rales, or rhonchi.');
+      toast({ title: '✨ SmartPhrase Expanded', description: '.normalresp expanded to full normative respiratory exam notes.' });
+    }
+    if (expanded.includes('.normalabdo')) {
+      expanded = expanded.replace('.normalabdo', 'Abdomen soft, non-tender, non-distended. Bowel sounds normoactive in all 4 quadrants. No hepatosplenomegaly.');
+      toast({ title: '✨ SmartPhrase Expanded', description: '.normalabdo expanded to full normative abdominal exam notes.' });
+    }
+    if (expanded.includes('.discharge')) {
+      expanded = expanded.replace('.discharge', 'Take prescribed medications as directed. Drink plenty of fluids and rest. Return immediately if fever > 38.5°C, severe abdominal pain, or shortness of breath occurs.');
+      toast({ title: '✨ SmartPhrase Expanded', description: '.discharge expanded to standard discharge instructions.' });
+    }
+    form.setValue(fieldName, expanded);
   };
 
   const insertMacro = (macroType: string) => {
@@ -769,6 +810,7 @@ export function NewEncounterDialog({
                           <SelectItem value="ANC_FIRST">First ANC Visit Bundle</SelectItem>
                           <SelectItem value="MALARIA">Acute Malaria Bundle</SelectItem>
                           <SelectItem value="HTN_DM">Hypertension & Diabetes Bundle</SelectItem>
+                          <SelectItem value="PREECLAMPSIA_SEVERE">Severe Preeclampsia Protocol ⚡</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -822,11 +864,15 @@ export function NewEncounterDialog({
                   name="chiefComplaint"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Chief Complaint</FormLabel>
+                      <FormLabel>Chief Complaint (Type .phrase shortcuts for auto-expansion)</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Why is the patient here?"
+                          placeholder="Why is the patient here? (e.g. type .normalanc or .normalcardio)"
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleSmartPhraseExpansion(e.target.value, 'chiefComplaint');
+                          }}
                         />
                       </FormControl>
                     </FormItem>
@@ -837,11 +883,15 @@ export function NewEncounterDialog({
                   name="hpi"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>History of Present Illness (HPI)</FormLabel>
+                      <FormLabel>History of Present Illness / Physical Exam (SmartPhrases: .normalanc, .normalcardio, .normalresp, .normalabdo, .discharge)</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Detailed history of the present illness (onset, duration, severity, progression, etc.)"
+                          placeholder="Detailed history of present illness. Type .normalanc, .normalcardio, .normalresp, .normalabdo, or .discharge to expand."
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleSmartPhraseExpansion(e.target.value, 'hpi');
+                          }}
                         />
                       </FormControl>
                     </FormItem>
@@ -855,10 +905,44 @@ export function NewEncounterDialog({
                       <FormLabel>Final Diagnosis / Impression</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="ICD-10 or clinical term"
+                          placeholder="ICD-10/11 or clinical term"
                           {...field}
                         />
                       </FormControl>
+
+                      {/* --- AI ICD-11 & CPT CODING AUTO-SUGGEST CHIPS --- */}
+                      <div className="bg-slate-900 text-white p-3 rounded-2xl space-y-2 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1">
+                            <Sparkles size={12} /> AI ICD-11 & CPT Auto-Coder:
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">Click code to auto-insert</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => form.setValue('diagnosis', `${form.getValues('diagnosis') || ''} [ICD-11: 1F40 - Plasmodium falciparum malaria | CPT: 87899]`.trim())}
+                            className="text-[10px] font-black bg-slate-800 hover:bg-slate-700 text-amber-300 px-3 py-1 rounded-xl border border-slate-700 transition-all flex items-center gap-1"
+                          >
+                            + ICD-11: 1F40 (Malaria) • CPT: 87899
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => form.setValue('diagnosis', `${form.getValues('diagnosis') || ''} [ICD-11: BA00 - Essential hypertension | CPT: 99214]`.trim())}
+                            className="text-[10px] font-black bg-slate-800 hover:bg-slate-700 text-sky-300 px-3 py-1 rounded-xl border border-slate-700 transition-all flex items-center gap-1"
+                          >
+                            + ICD-11: BA00 (HTN) • CPT: 99214
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => form.setValue('diagnosis', `${form.getValues('diagnosis') || ''} [ICD-11: QA00 - ANC Routine Supervision | CPT: 59400]`.trim())}
+                            className="text-[10px] font-black bg-slate-800 hover:bg-slate-700 text-purple-300 px-3 py-1 rounded-xl border border-slate-700 transition-all flex items-center gap-1"
+                          >
+                            + ICD-11: QA00 (ANC) • CPT: 59400
+                          </button>
+                        </div>
+                      </div>
                     </FormItem>
                   )}
                 />
