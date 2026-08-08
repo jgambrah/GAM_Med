@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Camera, Sparkles, AlertTriangle, Eye, Layers, ShieldCheck, CheckCircle2, RefreshCw } from 'lucide-react';
 import { analyzeUltrasoundBiometrics } from '@/ai/flows/ai-computer-vision';
 import { Button } from '@/components/ui/button';
@@ -12,24 +12,55 @@ interface ComputerVisionPACSViewerProps {
 export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = 'ULTRASOUND' }: ComputerVisionPACSViewerProps) {
   const [selectedScan, setSelectedScan] = useState<'ULTRASOUND' | 'CHEST_XRAY'>(scanType);
   const [isAiOverlayActive, setIsAiOverlayActive] = useState(true);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const biometrics = useMemo(() => {
-    return analyzeUltrasoundBiometrics();
-  }, []);
+    return analyzeUltrasoundBiometrics(uploadedImage || undefined);
+  }, [uploadedImage]);
 
   return (
     <div className="bg-slate-950 text-white p-6 rounded-[32px] border border-slate-800 space-y-6 shadow-2xl">
+      {/* HIDDEN FILE INPUT */}
+      <input 
+        type="file" 
+        accept="image/*" 
+        capture="environment" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        className="hidden" 
+      />
+
       {/* HEADER */}
-      <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-4 gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="text-amber-400 animate-pulse" size={20} />
           <div>
             <h3 className="text-sm font-black uppercase tracking-wider text-amber-400">Bedside Obstetric Ultrasound & PACS Computer Vision</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase">Automated Fetal Biometrics &PACS Diagnostic Overlay</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">Automated Fetal Biometrics & PACS Diagnostic Overlay</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg"
+          >
+            <Camera size={14} /> Upload Scan / Snap Photo 📁
+          </Button>
+
           <Button
             type="button"
             variant="outline"
@@ -66,17 +97,22 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* DICOM SCAN CANVAS WITH AI BOUNDING BOXES */}
         <div className="md:col-span-2 bg-slate-900 rounded-3xl border border-slate-800 p-4 h-80 flex flex-col justify-between relative overflow-hidden group">
-          {/* SIMULATED SCAN BACKGROUND */}
-          <div className="absolute inset-0 bg-slate-950 opacity-90 flex items-center justify-center">
-            {selectedScan === 'ULTRASOUND' ? (
+          {/* SIMULATED SCAN BACKGROUND / UPLOADED IMAGE */}
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute inset-0 bg-slate-950 flex items-center justify-center cursor-pointer overflow-hidden"
+          >
+            {uploadedImage ? (
+              <img src={uploadedImage} alt="Uploaded Scan" className="w-full h-full object-contain" />
+            ) : selectedScan === 'ULTRASOUND' ? (
               <div className="text-center space-y-2">
                 <Camera size={64} className="text-slate-800 mx-auto animate-pulse" />
-                <span className="text-xs font-black uppercase text-slate-600">DICOM Obstetric Ultrasound Stream</span>
+                <span className="text-xs font-black uppercase text-slate-600">DICOM Obstetric Ultrasound Stream (Click to Upload Photo)</span>
               </div>
             ) : (
               <div className="text-center space-y-2">
                 <Layers size={64} className="text-slate-800 mx-auto animate-pulse" />
-                <span className="text-xs font-black uppercase text-slate-600">Digital Chest Radiograph (PA View)</span>
+                <span className="text-xs font-black uppercase text-slate-600">Digital Chest Radiograph (Click to Upload Photo)</span>
               </div>
             )}
           </div>

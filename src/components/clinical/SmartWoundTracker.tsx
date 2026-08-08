@@ -1,22 +1,47 @@
 'use client';
-import { useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Camera, Sparkles, Activity, ShieldCheck, CheckCircle2, TrendingUp, Scissors } from 'lucide-react';
 import { analyzeSurgicalWound } from '@/ai/flows/ai-computer-vision';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 
 interface SmartWoundTrackerProps {
   patientName?: string;
 }
 
 export function SmartWoundTracker({ patientName = 'Patient' }: SmartWoundTrackerProps) {
+  const [uploadedWoundImage, setUploadedWoundImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedWoundImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const woundData = useMemo(() => {
-    return analyzeSurgicalWound();
-  }, []);
+    return analyzeSurgicalWound(uploadedWoundImage || undefined);
+  }, [uploadedWoundImage]);
 
   return (
     <div className="bg-slate-900 text-white p-6 rounded-[32px] border border-slate-800 space-y-6 shadow-xl">
+      {/* HIDDEN FILE INPUT */}
+      <input 
+        type="file" 
+        accept="image/*" 
+        capture="environment" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        className="hidden" 
+      />
+
       {/* HEADER */}
-      <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-4 gap-3">
         <div className="flex items-center gap-2">
           <Scissors className="text-emerald-400" size={20} />
           <div>
@@ -25,9 +50,19 @@ export function SmartWoundTracker({ patientName = 'Patient' }: SmartWoundTracker
           </div>
         </div>
 
-        <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-3 py-1 rounded-full text-xs font-black uppercase flex items-center gap-1">
-          <ShieldCheck size={14} /> Infection Risk: {woundData.infectionRiskTier}
-        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg"
+          >
+            <Camera size={14} /> Upload Wound Photo 📷
+          </Button>
+
+          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-3 py-1 rounded-full text-xs font-black uppercase flex items-center gap-1">
+            <ShieldCheck size={14} /> Infection Risk: {woundData.infectionRiskTier}
+          </span>
+        </div>
       </div>
 
       {/* METRICS GRID */}
