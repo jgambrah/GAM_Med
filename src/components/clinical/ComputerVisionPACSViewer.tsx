@@ -264,7 +264,15 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
 
         {/* BIOMETRICS & DIAGNOSTIC REPORT SIDEBAR */}
         <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4 flex flex-col justify-between">
-          {selectedScan === 'ULTRASOUND' ? (
+          {!biometrics.isValidMedicalScan ? (
+            <div className="p-4 bg-red-950/90 rounded-2xl border-2 border-red-600 text-red-200 space-y-2">
+              <span className="text-xs font-black uppercase text-red-400 flex items-center gap-1.5">
+                <AlertTriangle size={16} /> Invalid Image Warning
+              </span>
+              <p className="text-[11px] font-bold leading-relaxed">{biometrics.validationMessage}</p>
+              <p className="text-[9px] font-black uppercase text-red-300">Biometrics calculation halted for AI safety compliance.</p>
+            </div>
+          ) : selectedScan === 'ULTRASOUND' ? (
             <div className="space-y-3">
               <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1 border-b border-slate-800 pb-2">
                 <Sparkles size={14} /> Fetal Biometrics Auto-Report

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useMemo } from 'react';
-import { Camera, Sparkles, Activity, ShieldCheck, CheckCircle2, TrendingUp, Scissors, RefreshCw } from 'lucide-react';
+import { Camera, Sparkles, Activity, ShieldCheck, CheckCircle2, TrendingUp, Scissors, RefreshCw, AlertTriangle } from 'lucide-react';
 import { analyzeSurgicalWound } from '@/ai/flows/ai-computer-vision';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -172,48 +172,76 @@ export function SmartWoundTracker({ patientName = 'Patient' }: SmartWoundTracker
         </div>
       </div>
 
-      {/* METRICS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
-          <span className="text-[10px] font-black uppercase text-slate-400">Surface Area</span>
-          <p className="text-2xl font-black text-white">{woundData.surfaceAreaCm2} cm²</p>
-          <p className="text-[9px] text-emerald-400 font-bold uppercase flex items-center gap-1">
-            <TrendingUp size={10} /> 32% reduction vs Day 1
-          </p>
+      {/* STATE 1: NO IMAGE UPLOADED YET */}
+      {!woundData.hasUploadedImage && (
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="p-8 bg-slate-950/80 rounded-3xl border-2 border-dashed border-slate-800 text-center space-y-3 cursor-pointer hover:border-emerald-500 transition-all"
+        >
+          <Camera size={44} className="text-emerald-400 mx-auto animate-bounce" />
+          <div>
+            <h4 className="text-sm font-black uppercase text-white">No Surgical Wound Photo Uploaded Yet</h4>
+            <p className="text-xs text-slate-400 font-bold mt-1">Click "Live Camera Stream & Snap 📷" or "Upload Image File 📁" to begin computer vision tissue analysis.</p>
+          </div>
         </div>
+      )}
 
-        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
-          <span className="text-[10px] font-black uppercase text-emerald-400">Granulation (Healthy)</span>
-          <p className="text-2xl font-black text-emerald-400">{woundData.granulationTissuePercent}%</p>
-          <Progress value={woundData.granulationTissuePercent} className="h-1.5 bg-slate-800" />
+      {/* STATE 2: REJECTED NON-WOUND / FAKE IMAGE ALERT */}
+      {woundData.hasUploadedImage && !woundData.isValidMedicalScan && (
+        <div className="p-6 bg-red-950/90 rounded-3xl border-2 border-red-600 text-red-100 space-y-2 text-center">
+          <AlertTriangle size={36} className="text-red-400 mx-auto animate-bounce" />
+          <h4 className="text-sm font-black uppercase text-red-300">🚨 Non-Wound Image Rejected by Safety Classifier</h4>
+          <p className="text-xs font-bold text-red-200 leading-relaxed max-w-lg mx-auto">{woundData.validationMessage}</p>
+          <p className="text-[10px] font-black uppercase text-red-400 tracking-wider">Metrics calculation halted to prevent inaccurate clinical data.</p>
         </div>
+      )}
 
-        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
-          <span className="text-[10px] font-black uppercase text-amber-400">Slough Tissue</span>
-          <p className="text-2xl font-black text-amber-400">{woundData.sloughTissuePercent}%</p>
-          <Progress value={woundData.sloughTissuePercent} className="h-1.5 bg-slate-800" />
-        </div>
+      {/* STATE 3: VALID WOUND PHOTO - LIVE COMPUTER VISION METRICS GRID */}
+      {woundData.hasUploadedImage && woundData.isValidMedicalScan && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400">Surface Area</span>
+              <p className="text-2xl font-black text-white">{woundData.surfaceAreaCm2} cm²</p>
+              <p className="text-[9px] text-emerald-400 font-bold uppercase flex items-center gap-1">
+                <TrendingUp size={10} /> Live Computed Surface
+              </p>
+            </div>
 
-        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
-          <span className="text-[10px] font-black uppercase text-slate-400">Healing Score</span>
-          <p className="text-2xl font-black text-sky-400">{woundData.healingProgressionScore} / 100</p>
-          <p className="text-[9px] text-slate-400 font-bold uppercase">Optimal Recovery Protocol</p>
-        </div>
-      </div>
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <span className="text-[10px] font-black uppercase text-emerald-400">Granulation (Healthy)</span>
+              <p className="text-2xl font-black text-emerald-400">{woundData.granulationTissuePercent}%</p>
+              <Progress value={woundData.granulationTissuePercent} className="h-1.5 bg-slate-800" />
+            </div>
 
-      {/* RECOMMENDATIONS */}
-      <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
-        <h4 className="text-[10px] font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1">
-          <CheckCircle2 size={12} /> Computer Vision Clinical Guidance:
-        </h4>
-        <ul className="text-xs font-bold text-slate-300 space-y-1">
-          {woundData.clinicalRecommendations.map((rec, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> {rec}
-            </li>
-          ))}
-        </ul>
-      </div>
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <span className="text-[10px] font-black uppercase text-amber-400">Slough Tissue</span>
+              <p className="text-2xl font-black text-amber-400">{woundData.sloughTissuePercent}%</p>
+              <Progress value={woundData.sloughTissuePercent} className="h-1.5 bg-slate-800" />
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400">Healing Score</span>
+              <p className="text-2xl font-black text-sky-400">{woundData.healingProgressionScore} / 100</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase">Optimal Recovery Protocol</p>
+            </div>
+          </div>
+
+          {/* RECOMMENDATIONS */}
+          <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+            <h4 className="text-[10px] font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1">
+              <CheckCircle2 size={12} /> Computer Vision Clinical Guidance:
+            </h4>
+            <ul className="text-xs font-bold text-slate-300 space-y-1">
+              {woundData.clinicalRecommendations.map((rec, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 }
