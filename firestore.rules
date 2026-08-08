@@ -322,8 +322,8 @@ service cloud.firestore {
     }
 
     match /hospitals/{hospitalId} {
-      allow get: if isSuperAdmin() || isAnyStaff(hospitalId);
-      allow list, create, delete: if isSuperAdmin();
+      allow get, list: if isSignedIn();
+      allow create, delete: if isSuperAdmin();
       allow update: if isSuperAdmin() || (
         isAnyStaff(hospitalId) && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['receiptCounter', 'pvCounter', 'poCounter', 'nhisBatchCounter'])
