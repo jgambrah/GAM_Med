@@ -14,6 +14,15 @@ import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 const allMenuGroups = [
   {
+    title: "Executive",
+    roles: ['DIRECTOR', 'ADMIN'],
+    items: [
+      { name: "Executive Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Executive Analytics", href: "/analytics", icon: BarChart3 },
+      { name: "GHS Health Reports", href: "/director/reports/ghs", icon: FileText },
+    ]
+  },
+  {
     title: "Clinical",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RADIOLOGIST', 'LAB_TECH'],
     items: [
@@ -23,6 +32,7 @@ const allMenuGroups = [
       { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Set Availability", href: "/doctor/availability", icon: Clock, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: "Nursing Care & Station", href: "/nursing", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'NURSE'] },
       { name: "Nursing Station", href: "/nurse", icon: UserCheck, roles: ['DIRECTOR', 'NURSE'] },
       { name: "Triage Queue", href: "/nurse/triage", icon: Activity, roles: ['DIRECTOR', 'NURSE'] },
       { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
@@ -132,6 +142,7 @@ const allMenuGroups = [
     title: "Supply Chain",
     roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'],
     items: [
+      { name: "Medical Stores", href: "/inventory", icon: LayoutGrid },
       { name: "Procurement", href: "/supply-chain", icon: Truck },
       { name: "Suppliers", href: "/supply-chain/procurement", icon: Building2 },
       { name: "Product Catalog", href: "/supply-chain/catalog", icon: HardDrive },
@@ -203,7 +214,7 @@ const allMenuGroups = [
       { name: "Payer Registry", href: "/finance/receivables", icon: Building2, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Bank Reconciliation", href: "/accountant/reconciliation", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
-      { name: "Billing Console", href: "/finance/billing", icon: CreditCard, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'] },
+      { name: "Billing Console", href: "/billing", icon: CreditCard, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'CASHIER'] },
       { name: "Insurance Claims", href: "/finance/insurance/claims", icon: FileText, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "Claims Vetting", href: "/finance/insurance/vetting", icon: FileSearch, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },
       { name: "NHIS Batching", href: "/finance/insurance/nhis-batching", icon: Library, roles: ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'] },

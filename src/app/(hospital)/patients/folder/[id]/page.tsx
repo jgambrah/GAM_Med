@@ -23,6 +23,7 @@ import VitalsTrend from '@/components/clinical/VitalsTrend';
 import { QRCodeSVG } from 'qrcode.react';
 import { DeathCertificationDialog } from '@/components/clinical/DeathCertificationDialog';
 import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
+import { ClinicalTaskDelegationDialog } from '@/components/clinical/ClinicalTaskDelegationDialog';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -615,6 +616,7 @@ export default function PatientFolderHub() {
            )}
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
+           {!isDeceased && patient && hospitalId && <ClinicalTaskDelegationDialog patientId={id as string} patientName={`${patient?.firstName} ${patient?.lastName}`} hospitalId={hospitalId} />}
            {!isDeceased && patient && latestEncounter && <ReferralLetterDialog patient={patient} latestEncounter={latestEncounter} />}
            {!isDeceased && patient && ['DOCTOR', 'DIRECTOR', 'ADMIN'].includes(userProfile?.role || '') && <DeathCertificationDialog patient={patient} />}
         </div>

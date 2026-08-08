@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Plus,
   Loader2,
@@ -33,6 +34,11 @@ import {
   ChevronsUpDown,
   Check,
   FileSignature,
+  Mic,
+  MicOff,
+  Sparkles,
+  Zap,
+  FileText,
 } from 'lucide-react';
 import {
   useFirebaseApp,
@@ -156,6 +162,137 @@ export function NewEncounterDialog({
 
   const [extItemName, setExtItemName] = useState('');
   const [extInstruction, setExtInstruction] = useState('');
+
+  // AI Scribe & Productivity Tools State
+  const [isListening, setIsListening] = useState(false);
+
+  const toggleVoiceScribe = () => {
+    if (typeof window === 'undefined' || (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Voice Scribe Unavailable', 
+        description: 'Web Speech Recognition is not supported in this browser. Please use Chrome/Edge.' 
+      });
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      toast({ title: 'Voice Scribe Paused', description: 'Transcribed clinical notes saved.' });
+      return;
+    }
+
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast({ title: '🎙️ AI Ambient Scribe Active', description: 'Listening to consultation. Speak clearly...' });
+      };
+
+      recognition.onresult = (event: any) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
+        }
+        if (currentTranscript.trim()) {
+          const currentHpi = form.getValues('hpi') || '';
+          form.setValue('hpi', `${currentHpi} ${currentTranscript}`.trim());
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (e: any) {
+      console.error(e);
+      setIsListening(false);
+    }
+  };
+
+  const applyOrderBundle = (bundleType: string) => {
+    if (bundleType === 'ANC_FIRST') {
+      setLabOrders(prev => [
+        ...prev,
+        { id: 'anc_cbc', name: 'Full Blood Count (CBC)' },
+        { id: 'anc_uri', name: 'Urinalysis (Routine & Microscopy)' },
+        { id: 'anc_bg', name: 'Blood Group & Rh Typing' },
+        { id: 'anc_hep', name: 'Hepatitis B & C Screening' },
+        { id: 'anc_syph', name: 'Syphilis VDRL / RPR' }
+      ]);
+      setRadiologyOrders(prev => [
+        ...prev,
+        { id: 'anc_uss', scanName: 'Obstetric / Pelvic Ultrasound', modality: 'US' }
+      ]);
+      setItems(prev => [
+        ...prev,
+        { id: 'anc_folic', name: 'Folic Acid 5mg Tablets', dosage: '5mg', frequency: 'Daily', duration: '30 Days', qty: 30, isExternal: true },
+        { id: 'anc_ferrous', name: 'Ferrous Sulfate 200mg', dosage: '200mg', frequency: 'Daily', duration: '30 Days', qty: 30, isExternal: true }
+      ]);
+      form.setValue('chiefComplaint', 'First Antenatal Care (ANC) Routine Intake');
+      form.setValue('diagnosis', 'Pregnancy Confirmation & Routine ANC Intake');
+      toast({ title: '⚡ First ANC Bundle Applied', description: 'Routine ANC labs, ultrasound, and prenatal supplements queued.' });
+    } else if (bundleType === 'MALARIA') {
+      setLabOrders(prev => [
+        ...prev,
+        { id: 'mal_rdt', name: 'Malaria Rapid Diagnostic Test (RDT)' },
+        { id: 'mal_mps', name: 'Blood Film for Malaria Parasites (MPS)' },
+        { id: 'mal_cbc', name: 'Full Blood Count (CBC)' }
+      ]);
+      setItems(prev => [
+        ...prev,
+        { id: 'mal_coartem', name: 'Artemether-Lumefantrine (Coartem) 20/120mg', dosage: '4 tabs', frequency: 'BD', duration: '3 Days', qty: 24, isExternal: true },
+        { id: 'mal_para', name: 'Paracetamol 500mg Tablets', dosage: '1g', frequency: 'TDS', duration: '3 Days', qty: 18, isExternal: true }
+      ]);
+      form.setValue('chiefComplaint', 'High fever, chills, rigors, headache, and body weakness');
+      form.setValue('diagnosis', 'Acute Uncomplicated Malaria');
+      toast({ title: '⚡ Acute Malaria Bundle Applied', description: 'Malaria RDT/MPS labs, Coartem, and Paracetamol queued.' });
+    } else if (bundleType === 'HTN_DM') {
+      setLabOrders(prev => [
+        ...prev,
+        { id: 'dm_fbg', name: 'Fasting Blood Glucose (FBG)' },
+        { id: 'dm_hba1c', name: 'HbA1c (Glycated Hemoglobin)' },
+        { id: 'htn_lipid', name: 'Lipid Profile (Cholesterol, Triglycerides)' },
+        { id: 'htn_lft', name: 'Renal Function (Urea & Electrolytes & Creatinine)' }
+      ]);
+      setRadiologyOrders(prev => [
+        ...prev,
+        { id: 'htn_ecg', scanName: '12-Lead Electrocardiogram (ECG)', modality: 'ECG' }
+      ]);
+      form.setValue('chiefComplaint', 'Routine Hypertension & Diabetes Follow-up');
+      form.setValue('diagnosis', 'Essential Hypertension & Type 2 Diabetes Mellitus');
+      toast({ title: '⚡ Hypertension & Diabetes Bundle Applied', description: 'Metabolic panel, HbA1c, ECG, and renal function queued.' });
+    }
+  };
+
+  const insertMacro = (macroType: string) => {
+    const currentHpi = form.getValues('hpi') || '';
+    let macroText = '';
+    if (macroType === 'NORMAL_CARDIO') {
+      macroText = '\n[CARDIOVASCULAR EXAM]: S1, S2 present, normal intensity. No murmurs, gallops, or rubs. Peripheral pulses equal bilaterally.';
+    } else if (macroType === 'NORMAL_RESP') {
+      macroText = '\n[RESPIRATORY EXAM]: Lungs clear to auscultation bilaterally. Normal vesicular breath sounds. No wheezing, rales, or rhonchi.';
+    } else if (macroType === 'NORMAL_ABDO') {
+      macroText = '\n[ABDOMINAL EXAM]: Abdomen soft, non-tender, non-distended. Bowel sounds normoactive in all 4 quadrants. No hepatosplenomegaly.';
+    } else if (macroType === 'NORMAL_NEURO') {
+      macroText = '\n[NEUROLOGICAL EXAM]: Alert & oriented x3. Cranial nerves II-XII intact. Motor strength 5/5 in all extremities.';
+    } else if (macroType === 'DISCHARGE_INSTRUCTIONS') {
+      macroText = '\n[DISCHARGE INSTRUCTIONS]: Take prescribed medications as directed. Drink plenty of fluids and rest. Return immediately if fever > 38.5°C or chest pain occurs.';
+    }
+    form.setValue('hpi', `${currentHpi}${macroText}`.trim());
+    toast({ title: '📝 Macro Inserted', description: 'Clinical text snippet added to examination notes.' });
+  };
 
   const form = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterSchema),
@@ -298,6 +435,71 @@ export function NewEncounterDialog({
     }
   }, [existingEncounter, form]);
 
+  // --- REAL-TIME CLINICAL DECISION SUPPORT & SAFETY CHECKS ---
+  const currentVitals = form.watch('vitals');
+
+  const riskMetrics = useMemo(() => {
+    let score = 0;
+    const sys = Number(currentVitals?.systolic);
+    const pulse = Number(currentVitals?.pulse);
+    const temp = Number(currentVitals?.temp);
+    const resp = Number(currentVitals?.respiration);
+    const spo2 = Number(currentVitals?.spo2);
+
+    if (resp >= 25 || (resp > 0 && resp <= 8)) score += 3;
+    else if (resp >= 21) score += 2;
+
+    if (spo2 > 0 && spo2 <= 91) score += 3;
+    else if (spo2 <= 93) score += 2;
+    else if (spo2 <= 95) score += 1;
+
+    if (temp >= 39.1 || (temp > 0 && temp <= 35.0)) score += 2;
+
+    if (pulse >= 131 || (pulse > 0 && pulse <= 40)) score += 3;
+    else if (pulse >= 111) score += 2;
+
+    if (sys > 0 && sys <= 90) score += 3;
+    else if (sys <= 100) score += 2;
+    else if (sys <= 110) score += 1;
+
+    let tier: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+    if (score >= 7) tier = 'CRITICAL';
+    else if (score >= 5) tier = 'HIGH';
+    else if (score >= 3) tier = 'MEDIUM';
+
+    return { score, tier };
+  }, [currentVitals]);
+
+  const safetyAlerts = useMemo(() => {
+    const alerts: string[] = [];
+    const knownAllergies = (patientData?.allergies || patientData?.knownAllergies || []);
+
+    // 1. Drug-Allergy Checks
+    items.forEach((item: any) => {
+      const drugName = (item.name || '').toLowerCase();
+      knownAllergies.forEach((allergy: string) => {
+        const algName = allergy.toLowerCase();
+        if (algName.includes('penicillin') && (drugName.includes('penicillin') || drugName.includes('amoxicillin') || drugName.includes('ampicillin') || drugName.includes('co-amoxiclav') || drugName.includes('augmentin'))) {
+          alerts.push(`⚠️ ALLERGY CONFLICT: Patient is allergic to Penicillin! (${item.name})`);
+        } else if (algName.includes('sulfa') && (drugName.includes('sulfa') || drugName.includes('co-trimoxazole') || drugName.includes('septrin'))) {
+          alerts.push(`⚠️ ALLERGY CONFLICT: Patient is allergic to Sulfa drugs! (${item.name})`);
+        } else if (algName.includes('nsaid') && (drugName.includes('ibuprofen') || drugName.includes('diclofenac') || drugName.includes('naproxen') || drugName.includes('aspirin'))) {
+          alerts.push(`⚠️ ALLERGY CONFLICT: Patient is allergic to NSAIDs! (${item.name})`);
+        }
+      });
+    });
+
+    // 2. Drug-Drug Interaction Checks
+    const drugNames = items.map((i: any) => (i.name || '').toLowerCase());
+    const hasWarfarin = drugNames.some(n => n.includes('warfarin'));
+    const hasAspirinOrNSAID = drugNames.some(n => n.includes('aspirin') || n.includes('ibuprofen') || n.includes('diclofenac'));
+    if (hasWarfarin && hasAspirinOrNSAID) {
+      alerts.push(`⚡ DRUG INTERACTION: Warfarin + Aspirin/NSAID significantly increases hemorrhage risk.`);
+    }
+
+    return alerts;
+  }, [items, patientData]);
+
   const addTypedItem = () => {
     if (!extItemName) return;
     const newItem = {
@@ -437,14 +639,38 @@ export function NewEncounterDialog({
       <DialogContent className="max-w-4xl max-h-[90vh] p-0">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader className="bg-foreground p-8 text-background rounded-t-lg">
-              <DialogTitle className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
-                <HeartPulse className="text-primary" /> {encounterId ? "Continue Consultation" : "New Encounter"}
-              </DialogTitle>
-              <DialogDescription className="text-primary/70 font-bold uppercase text-xs tracking-widest pt-2">
-                Patient: {patientName}
-              </DialogDescription>
+            <DialogHeader className="bg-foreground p-8 text-background rounded-t-lg flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div>
+                <DialogTitle className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
+                  <HeartPulse className="text-primary" /> {encounterId ? "Continue Consultation" : "New Encounter"}
+                </DialogTitle>
+                <DialogDescription className="text-primary/70 font-bold uppercase text-xs tracking-widest pt-2">
+                  Patient: {patientName}
+                </DialogDescription>
+              </div>
+
+              {/* EARLY WARNING RISK SCORE BADGE */}
+              <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 font-black text-xs uppercase tracking-wider ${
+                riskMetrics.tier === 'CRITICAL' ? 'bg-red-600 border-red-500 text-white animate-bounce' :
+                riskMetrics.tier === 'HIGH' ? 'bg-orange-500 border-orange-400 text-white' :
+                riskMetrics.tier === 'MEDIUM' ? 'bg-amber-500 border-amber-400 text-slate-950' :
+                'bg-emerald-950 border-emerald-800 text-emerald-300'
+              }`}>
+                <ShieldAlert size={16} />
+                <span>NEWS2: {riskMetrics.score} ({riskMetrics.tier} RISK)</span>
+              </div>
             </DialogHeader>
+
+            {/* REAL-TIME SAFETY ALERTS BANNER */}
+            {safetyAlerts.length > 0 && (
+              <div className="bg-red-950 text-red-200 border-l-4 border-red-500 p-4 space-y-1">
+                {safetyAlerts.map((alert, idx) => (
+                  <p key={idx} className="text-xs font-black uppercase tracking-wide flex items-center gap-2">
+                    {alert}
+                  </p>
+                ))}
+              </div>
+            )}
 
             <div className="p-8 space-y-8 bg-card overflow-y-auto max-h-[calc(90vh-200px)]">
               {/* Vitals and Notes */}
@@ -512,6 +738,85 @@ export function NewEncounterDialog({
                     <span className="text-2xl font-black">{bmiValue}</span>
                   </div>
                 </div>
+                {/* --- AI CLINICAL PRODUCTIVITY TOOLBAR --- */}
+                <div className="bg-slate-900 text-white p-4 rounded-3xl space-y-3">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="text-amber-400 animate-pulse" size={18} />
+                      <span className="text-xs font-black uppercase tracking-widest text-amber-400">AI Clinical Intelligence & Scribe</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        onClick={toggleVoiceScribe}
+                        className={`rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all ${
+                          isListening
+                            ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                            : 'bg-amber-500 hover:bg-amber-600 text-slate-950'
+                        }`}
+                      >
+                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                        {isListening ? "Stop Voice Scribe" : "Start Voice Scribe 🎙️"}
+                      </Button>
+
+                      <Select onValueChange={applyOrderBundle}>
+                        <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white font-bold text-xs rounded-2xl h-10">
+                          <Zap size={14} className="text-amber-400 mr-1" />
+                          <SelectValue placeholder="Quick Order Bundles ⚡" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                          <SelectItem value="ANC_FIRST">First ANC Visit Bundle</SelectItem>
+                          <SelectItem value="MALARIA">Acute Malaria Bundle</SelectItem>
+                          <SelectItem value="HTN_DM">Hypertension & Diabetes Bundle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* CLINICAL MACROS / SMART TEXT SNIPPETS */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+                      <FileText size={12} /> Macros:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => insertMacro('NORMAL_CARDIO')}
+                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 transition-all"
+                    >
+                      + Normal Cardio
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMacro('NORMAL_RESP')}
+                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 transition-all"
+                    >
+                      + Normal Resp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMacro('NORMAL_ABDO')}
+                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 transition-all"
+                    >
+                      + Normal Abdo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMacro('NORMAL_NEURO')}
+                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 transition-all"
+                    >
+                      + Normal Neuro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMacro('DISCHARGE_INSTRUCTIONS')}
+                      className="px-3 py-1 rounded-xl bg-emerald-950 hover:bg-emerald-900 text-emerald-300 text-[10px] font-bold transition-all"
+                    >
+                      + Discharge Notes
+                    </button>
+                  </div>
+                </div>
+
                 <FormField
                   control={form.control}
                   name="chiefComplaint"
