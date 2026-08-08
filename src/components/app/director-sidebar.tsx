@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2, Video
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2, Video, Inbox
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -27,10 +27,12 @@ const allMenuGroups = [
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RADIOLOGIST', 'LAB_TECH'],
     items: [
       { name: "Telehealth Suite", href: "/telehealth", icon: Video, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
+      { name: "Remote Patient Monitoring (RPM)", href: "/telehealth/rpm", icon: Activity, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Outpatient Desk (OPD)", href: "/opd", icon: HeartPulse, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Emergency & Triage", href: "/emergency", icon: Activity, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Pediatrics & NICU", href: "/pediatrics", icon: Baby, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: '"My Day" Command Desk', href: "/doctor/my-day", icon: Inbox, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Set Availability", href: "/doctor/availability", icon: Clock, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Nursing Care & Station", href: "/nursing", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'NURSE'] },
