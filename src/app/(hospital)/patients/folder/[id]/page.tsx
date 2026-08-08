@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Activity, Thermometer, Pill, Beaker, Dna,
   History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit, Camera, Download,
-  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe, Zap, HeartPulse
+  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe, Zap, HeartPulse, Stethoscope
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { CwcEncounterDialog } from '@/components/clinical/CwcEncounterDialog';
@@ -219,6 +219,8 @@ export default function PatientFolderHub() {
   const [isVitalsDialogOpen, setIsVitalsDialogOpen] = useState(false);
   const [isDonorCardOpen, setIsDonorCardOpen] = useState(false);
   const [isEditAllergiesOpen, setIsEditAllergiesOpen] = useState(false);
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'OVERVIEW' | 'GENOMICS' | 'TELEMETRY' | 'SPATIAL_PACS' | 'ENTERPRISE'>('OVERVIEW');
+  const [layoutMode, setLayoutMode] = useState<'TABBED' | 'STACKED'>('TABBED');
 
   const donorsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !id) return null;
@@ -692,91 +694,189 @@ export default function PatientFolderHub() {
             </div>
         )}
 
-      {/* PRE-VISIT AI CHART PREP BRIEF */}
+      {/* --- CLINICAL WORKSPACE NAVIGATION BAR --- */}
       {patient && (
-        <PreVisitBriefCard 
-          patient={patient} 
-          onStartConsultation={() => setIsVitalsDialogOpen(true)} 
-        />
+        <div className="bg-slate-900/90 text-white p-2.5 rounded-3xl border border-slate-800 flex flex-col lg:flex-row justify-between items-center gap-3 my-4 backdrop-blur-md shadow-xl select-none">
+          {/* TAB BUTTONS */}
+          <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
+            <button
+              onClick={() => setActiveWorkspaceTab('OVERVIEW')}
+              className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                activeWorkspaceTab === 'OVERVIEW' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Stethoscope size={14} /> 🏥 Overview & AI
+            </button>
+
+            <button
+              onClick={() => setActiveWorkspaceTab('GENOMICS')}
+              className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                activeWorkspaceTab === 'GENOMICS' ? 'bg-pink-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Sparkles size={14} /> 🧬 Precision & PGx
+            </button>
+
+            <button
+              onClick={() => setActiveWorkspaceTab('TELEMETRY')}
+              className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                activeWorkspaceTab === 'TELEMETRY' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Activity size={14} /> 📡 Telemetry & RPM
+            </button>
+
+            <button
+              onClick={() => setActiveWorkspaceTab('SPATIAL_PACS')}
+              className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                activeWorkspaceTab === 'SPATIAL_PACS' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Layers size={14} /> 🧍 3D Canvas & PACS
+            </button>
+
+            <button
+              onClick={() => setActiveWorkspaceTab('ENTERPRISE')}
+              className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                activeWorkspaceTab === 'ENTERPRISE' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <Globe size={14} /> 🌐 Enterprise AI Grid
+            </button>
+          </div>
+
+          {/* VIEW MODE SWITCHER TOGGLE */}
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-2xl border border-slate-800 shrink-0">
+            <button
+              onClick={() => setLayoutMode('TABBED')}
+              className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase transition-all ${
+                layoutMode === 'TABBED' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              📱 Tabbed View
+            </button>
+            <button
+              onClick={() => setLayoutMode('STACKED')}
+              className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase transition-all ${
+                layoutMode === 'STACKED' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              📜 Show All Cards
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* CLINICAL RISK STRATIFICATION & PREDICTIVE AI OVERLAY */}
-      {patient && (
-        <ClinicalRiskOverlay 
-          vitals={latestEncounter?.vitals} 
-          patientAge={patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : 30} 
-          isMaternity={!!patient?.isMaternity} 
-          isPediatric={isChildUnder5} 
-          patientId={id as string} 
-          patientName={`${patient?.firstName} ${patient?.lastName}`} 
-        />
+      {/* --- TAB 1: OVERVIEW & GENERAL AI BRIEF --- */}
+      {(layoutMode === 'STACKED' || activeWorkspaceTab === 'OVERVIEW') && (
+        <div className="space-y-4">
+          {/* PRE-VISIT AI CHART PREP BRIEF */}
+          {patient && (
+            <PreVisitBriefCard 
+              patient={patient} 
+              onStartConsultation={() => setIsVitalsDialogOpen(true)} 
+            />
+          )}
+
+          {/* CLINICAL RISK STRATIFICATION & PREDICTIVE AI OVERLAY */}
+          {patient && (
+            <ClinicalRiskOverlay 
+              vitals={latestEncounter?.vitals} 
+              patientAge={patient?.dateOfBirth ? differenceInYears(new Date(), new Date(patient.dateOfBirth)) : 30} 
+              isMaternity={!!patient?.isMaternity} 
+              isPediatric={isChildUnder5} 
+              patientId={id as string} 
+              patientName={`${patient?.firstName} ${patient?.lastName}`} 
+            />
+          )}
+        </div>
       )}
 
-      {/* COMPUTER VISION ULTRASOUND & PACS DIAGNOSTICS */}
-      {patient && (
-        <ComputerVisionPACSViewer 
-          patientName={`${patient?.firstName} ${patient?.lastName}`} 
-        />
+      {/* --- TAB 2: PRECISION & PHARMACOGENOMICS (PGX) --- */}
+      {(layoutMode === 'STACKED' || activeWorkspaceTab === 'GENOMICS') && (
+        <div className="space-y-4 my-4">
+          {/* PHARMACOGENOMICS (PGX) PRECISION SAFETY ENGINE */}
+          {patient && hospitalId && (
+            <PharmacogenomicsAlertCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
+              patientName={`${patient?.firstName} ${patient?.lastName}`} 
+            />
+          )}
+
+          {/* TARGETED ANC GENOMIC RISK PROFILER */}
+          {patient && (
+            <TargetedANCRiskCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
+              patientName={`${patient?.firstName} ${patient?.lastName}`} 
+              gestationalAgeWeeks={14}
+            />
+          )}
+        </div>
       )}
 
-      {/* COMPUTER VISION SURGICAL WOUND TRACKER */}
-      {patient && (
-        <SmartWoundTracker 
-          patientName={`${patient?.firstName} ${patient?.lastName}`} 
-        />
+      {/* --- TAB 3: ICU BEDSIDE TELEMETRY & WEARABLE RPM --- */}
+      {(layoutMode === 'STACKED' || activeWorkspaceTab === 'TELEMETRY') && (
+        <div className="space-y-4 my-4">
+          {/* CONTINUOUS ICU/HDU BEDSIDE TELEMETRY STREAM */}
+          {patient && hospitalId && (
+            <ICUTelemetryStreamCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+              bedName={activeAdmission ? `${activeAdmission.wardName || 'ICU Ward'} — ${activeAdmission.bedName || 'Bed 04'}` : 'ICU Bed 04'}
+              initialVitals={latestEncounter?.vitals || (patient as any)?.lastVitals}
+            />
+          )}
+
+          {/* PATIENT WEARABLE & CGM REMOTE MONITORING */}
+          {patient && (
+            <MaternalWearableRPMCard 
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+            />
+          )}
+        </div>
       )}
 
-      {/* PHARMACOGENOMICS (PGX) PRECISION SAFETY ENGINE */}
-      {patient && hospitalId && (
-        <PharmacogenomicsAlertCard 
-          patientId={id as string}
-          hospitalId={hospitalId}
-          patientName={`${patient?.firstName} ${patient?.lastName}`} 
-        />
+      {/* --- TAB 4: SPATIAL 3D CANVAS & PACS DIAGNOSTICS --- */}
+      {(layoutMode === 'STACKED' || activeWorkspaceTab === 'SPATIAL_PACS') && (
+        <div className="space-y-4 my-4">
+          {/* INTERACTIVE 3D ANATOMICAL BODY MAPPING CANVAS */}
+          {patient && (
+            <Anatomical3DMappingCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+            />
+          )}
+
+          {/* COMPUTER VISION ULTRASOUND & PACS DIAGNOSTICS */}
+          {patient && (
+            <ComputerVisionPACSViewer 
+              patientName={`${patient?.firstName} ${patient?.lastName}`} 
+            />
+          )}
+
+          {/* COMPUTER VISION SURGICAL WOUND TRACKER */}
+          {patient && (
+            <SmartWoundTracker 
+              patientName={`${patient?.firstName} ${patient?.lastName}`} 
+            />
+          )}
+        </div>
       )}
 
-      {/* TARGETED ANC GENOMIC RISK PROFILER */}
-      {patient && (
-        <TargetedANCRiskCard 
-          patientId={id as string}
-          hospitalId={hospitalId}
-          patientName={`${patient?.firstName} ${patient?.lastName}`} 
-          gestationalAgeWeeks={14}
-        />
-      )}
-
-      {/* CONTINUOUS ICU/HDU BEDSIDE TELEMETRY STREAM */}
-      {patient && hospitalId && (
-        <ICUTelemetryStreamCard 
-          patientId={id as string}
-          hospitalId={hospitalId}
-          patientName={`${patient?.firstName} ${patient?.lastName}`}
-          bedName={activeAdmission ? `${activeAdmission.wardName || 'ICU Ward'} — ${activeAdmission.bedName || 'Bed 04'}` : 'ICU Bed 04'}
-          initialVitals={latestEncounter?.vitals || (patient as any)?.lastVitals}
-        />
-      )}
-
-      {/* PATIENT WEARABLE & CGM REMOTE MONITORING */}
-      {patient && (
-        <MaternalWearableRPMCard 
-          patientName={`${patient?.firstName} ${patient?.lastName}`}
-        />
-      )}
-
-      {/* MULTI-TENANT ENTERPRISE OPERATIONS & FEDERATED LEARNING */}
-      {patient && (
-        <EnterpriseCapacityFederatedCard 
-          hospitalName="GamMed Grid Hospital"
-        />
-      )}
-
-      {/* INTERACTIVE 3D ANATOMICAL BODY MAPPING CANVAS */}
-      {patient && (
-        <Anatomical3DMappingCard 
-          patientId={id as string}
-          hospitalId={hospitalId}
-          patientName={`${patient?.firstName} ${patient?.lastName}`}
-        />
+      {/* --- TAB 5: MULTI-TENANT ENTERPRISE OPERATIONS & FEDERATED LEARNING --- */}
+      {(layoutMode === 'STACKED' || activeWorkspaceTab === 'ENTERPRISE') && (
+        <div className="space-y-4 my-4">
+          {/* MULTI-TENANT ENTERPRISE OPERATIONS & FEDERATED LEARNING */}
+          {patient && (
+            <EnterpriseCapacityFederatedCard 
+              hospitalName="GamMed Grid Hospital"
+            />
+          )}
+        </div>
       )}
 
       {/* FLOATING HANDS-FREE VOICE ASSISTANT TOOLBAR */}
