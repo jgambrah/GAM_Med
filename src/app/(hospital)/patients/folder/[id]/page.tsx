@@ -708,9 +708,10 @@ export default function PatientFolderHub() {
       )}
 
       {/* PHARMACOGENOMICS (PGX) PRECISION SAFETY ENGINE */}
-      {patient && (
+      {patient && hospitalId && (
         <PharmacogenomicsAlertCard 
           patientId={id as string}
+          hospitalId={hospitalId}
           patientName={`${patient?.firstName} ${patient?.lastName}`} 
         />
       )}

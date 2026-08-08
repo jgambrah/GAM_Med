@@ -13,20 +13,28 @@ import { useParams } from 'next/navigation';
 
 interface PharmacogenomicsAlertCardProps {
   patientId?: string;
+  hospitalId?: string;
   patientName?: string;
   defaultExpanded?: boolean;
 }
 
-export function PharmacogenomicsAlertCard({ patientId, patientName = 'Patient', defaultExpanded = false }: PharmacogenomicsAlertCardProps) {
+export function PharmacogenomicsAlertCard({ patientId, hospitalId: propHospitalId, patientName = 'Patient', defaultExpanded = false }: PharmacogenomicsAlertCardProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
   const params = useParams();
   const effectivePatientId = patientId || (params?.id as string);
-  const hospitalId = (user as any)?.hospitalId || 'default_hospital';
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = propHospitalId || userProfile?.hospitalId;
 
   const profileRef = useMemoFirebase(() => {
-    if (!firestore || !effectivePatientId) return null;
+    if (!firestore || !hospitalId || !effectivePatientId) return null;
     return doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/genomic_profile/vault`);
   }, [firestore, hospitalId, effectivePatientId]);
   const { data: storedProfileDoc } = useDoc(profileRef);

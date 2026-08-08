@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc, serverTimestamp } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 import { parseVcfContent } from '@/ai/flows/ai-genomic-engine';
 
 interface GenomicProfileCaptureDialogProps {
   patientId?: string;
+  hospitalId?: string;
   patientName?: string;
   onProfileUpdated?: () => void;
 }
@@ -25,12 +26,19 @@ interface GeneticMarkerItem {
   notes?: string;
 }
 
-export function GenomicProfileCaptureDialog({ patientId, patientName = 'Patient', onProfileUpdated }: GenomicProfileCaptureDialogProps) {
+export function GenomicProfileCaptureDialog({ patientId, hospitalId: propHospitalId, patientName = 'Patient', onProfileUpdated }: GenomicProfileCaptureDialogProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const params = useParams();
   const effectivePatientId = patientId || (params?.id as string);
-  const hospitalId = (user as any)?.hospitalId || 'default_hospital';
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = propHospitalId || userProfile?.hospitalId;
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -99,7 +107,7 @@ export function GenomicProfileCaptureDialog({ patientId, patientName = 'Patient'
 
   const handleSaveGenomicProfile = async () => {
     try {
-      if (firestore && effectivePatientId) {
+      if (firestore && effectivePatientId && hospitalId) {
         const profileRef = doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/genomic_profile/vault`);
         setDocumentNonBlocking(profileRef, {
           patientId: effectivePatientId,
