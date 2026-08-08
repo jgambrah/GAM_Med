@@ -12,6 +12,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+
 interface EnterpriseCapacityFederatedCardProps {
   hospitalName?: string;
   defaultExpanded?: boolean;
@@ -19,19 +22,51 @@ interface EnterpriseCapacityFederatedCardProps {
 
 export function EnterpriseCapacityFederatedCard({ hospitalName = 'GamMed Grid Hospital', defaultExpanded = false }: EnterpriseCapacityFederatedCardProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+
+  // Query live hospital tenant nodes from Firestore
+  const hospitalsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'hospitals');
+  }, [firestore]);
+  const { data: dbHospitals } = useCollection<any>(hospitalsQuery);
+
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isSimulatingCapacity, setIsSimulatingCapacity] = useState(false);
   const [isAggregatingFederated, setIsAggregatingFederated] = useState(false);
+  const [consensusBoost, setConsensusBoost] = useState(0);
 
-  const [nodes, setNodes] = useState<FederatedNode[]>(getDefaultFederatedNodes());
+  // Map live Firestore hospitals into Federated Learning Nodes
+  const liveNodes = useMemo<FederatedNode[]>(() => {
+    if (dbHospitals && dbHospitals.length > 0) {
+      return dbHospitals.map((h: any, idx: number) => ({
+        nodeId: `NODE-${(h.id || 'HOSP').substring(0, 8).toUpperCase()}`,
+        hospitalName: h.name || h.hospitalName || `Hospital (${h.id})`,
+        region: h.region || h.location || h.city || 'Greater Accra Region',
+        localRecordCount: ((h.patientCounter || h.receiptCounter || 520) * 14 + 18000) + (consensusBoost * 1200),
+        localAccuracyPercent: Number(Math.min(99.6, 94.5 + (idx % 4) * 0.9 + consensusBoost * 0.3).toFixed(1)),
+        gradientEncryptionStatus: idx % 3 === 2 ? 'HOMOMORPHIC_READY' : 'ENCRYPTED_AES256',
+        lastSyncTime: consensusBoost > 0 ? 'Just Now' : 'Live Sync'
+      }));
+    }
+    return getDefaultFederatedNodes().map(n => ({
+      ...n,
+      localRecordCount: n.localRecordCount + (consensusBoost * 1200),
+      localAccuracyPercent: Number(Math.min(99.6, n.localAccuracyPercent + consensusBoost * 0.3).toFixed(1)),
+      lastSyncTime: consensusBoost > 0 ? 'Just Now' : n.lastSyncTime
+    }));
+  }, [dbHospitals, consensusBoost]);
+
   const [capacity, setCapacity] = useState<CapacityPrediction>(predictERSurgeAndBedCapacity('HOSP-01'));
-  const [consensus, setConsensus] = useState<FederatedConsensusResult>(aggregateFederatedGradients(getDefaultFederatedNodes()));
+  const consensus = useMemo<FederatedConsensusResult>(() => {
+    return aggregateFederatedGradients(liveNodes);
+  }, [liveNodes]);
 
   const handleSimulateCapacity = () => {
     setIsSimulatingCapacity(true);
     setTimeout(() => {
       const updatedOccupancy = Math.min(96, capacity.predictedBedOccupancyPercent + 12);
-      const fresh = predictERSurgeAndBedCapacity('HOSP-01', updatedOccupancy);
+      const fresh = predictERSurgeAndBedCapacity('HOSP-01', new Date().getDay(), updatedOccupancy);
       setCapacity(fresh);
       setIsSimulatingCapacity(false);
       toast({
@@ -44,19 +79,11 @@ export function EnterpriseCapacityFederatedCard({ hospitalName = 'GamMed Grid Ho
   const handleTriggerFederatedRound = () => {
     setIsAggregatingFederated(true);
     setTimeout(() => {
-      const updatedNodes = nodes.map(node => ({
-        ...node,
-        localRecordCount: node.localRecordCount + 1200,
-        localAccuracyPercent: Number(Math.min(99.4, node.localAccuracyPercent + 0.3).toFixed(1)),
-        lastSyncTime: 'Just Now'
-      }));
-      setNodes(updatedNodes);
-      const freshConsensus = aggregateFederatedGradients(updatedNodes);
-      setConsensus(freshConsensus);
+      setConsensusBoost(prev => prev + 1);
       setIsAggregatingFederated(false);
       toast({
         title: '🌐 Federated AI Consensus Round Completed',
-        description: `Aggregated encrypted gradients across ${updatedNodes.length} hospital nodes. Global Accuracy: ${freshConsensus.globalModelVersion}.`
+        description: `Aggregated encrypted gradients across ${liveNodes.length} live hospital nodes. Global Model: ${consensus.globalModelVersion}.`
       });
     }, 1000);
   };
@@ -161,7 +188,7 @@ export function EnterpriseCapacityFederatedCard({ hospitalName = 'GamMed Grid Ho
 
             {/* MULTI-HOSPITAL NODES GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {nodes.map((node) => (
+              {liveNodes.map((node) => (
                 <div key={node.nodeId} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2">
                   <div className="flex justify-between items-start">
                     <span className="text-[9px] font-black uppercase text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded-md">
