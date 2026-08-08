@@ -13,7 +13,11 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
   const [selectedScan, setSelectedScan] = useState<'ULTRASOUND' | 'CHEST_XRAY'>(scanType);
   const [isAiOverlayActive, setIsAiOverlayActive] = useState(true);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -24,6 +28,46 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const startLiveWebcam = async () => {
+    setIsCameraModalOpen(true);
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        mediaStreamRef.current = stream;
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Error starting live webcam:', err);
+    }
+  };
+
+  const stopLiveWebcam = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsCameraModalOpen(false);
+  };
+
+  const captureLiveSnapshot = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/png');
+        setUploadedImage(dataUrl);
+      }
+    }
+    stopLiveWebcam();
   };
 
   const biometrics = useMemo(() => {
@@ -42,6 +86,34 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
         className="hidden" 
       />
 
+      {/* LIVE WEBCAM CAPTURE MODAL */}
+      {isCameraModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 text-center">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-2">
+                <Camera size={18} className="animate-pulse" /> Live Camera Stream
+              </span>
+              <button onClick={stopLiveWebcam} className="text-slate-400 hover:text-white font-bold text-xs uppercase">Close</button>
+            </div>
+
+            <div className="relative bg-black rounded-2xl overflow-hidden h-64 border border-slate-800 flex items-center justify-center">
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button type="button" variant="ghost" onClick={stopLiveWebcam}>Cancel</Button>
+              <Button 
+                onClick={captureLiveSnapshot} 
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2"
+              >
+                <Camera size={16} /> 📸 Take Live Snapshot
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-4 gap-3">
         <div className="flex items-center gap-2">
@@ -55,10 +127,19 @@ export function ComputerVisionPACSViewer({ patientName = 'Patient', scanType = '
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={startLiveWebcam}
             className="bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg"
           >
-            <Camera size={14} /> Upload Scan / Snap Photo 📁
+            <Camera size={14} /> Live Camera Stream & Snap 📷
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2"
+          >
+            Upload Image File 📁
           </Button>
 
           <Button
