@@ -32,6 +32,8 @@ import { ComputerVisionPACSViewer } from '@/components/clinical/ComputerVisionPA
 import { SmartWoundTracker } from '@/components/clinical/SmartWoundTracker';
 import { PharmacogenomicsAlertCard } from '@/components/clinical/PharmacogenomicsAlertCard';
 import { TargetedANCRiskCard } from '@/components/clinical/TargetedANCRiskCard';
+import { ICUTelemetryStreamCard } from '@/components/clinical/ICUTelemetryStreamCard';
+import { MaternalWearableRPMCard } from '@/components/clinical/MaternalWearableRPMCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -605,6 +607,16 @@ export default function PatientFolderHub() {
                   🧬 Sequenced Genetic Vault Active
                 </span>
               )}
+              {activeAdmission && (
+                <span className="bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 animate-pulse">
+                  <Activity size={10} className="text-cyan-400" />
+                  📡 ICU Telemetry Stream Active
+                </span>
+              )}
+              <span className="bg-pink-600/30 text-pink-300 border border-pink-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles size={10} className="text-pink-400" />
+                ⌚ Wearable RPM Synced
+              </span>
             </div>
           </div>
         </div>
@@ -708,6 +720,21 @@ export default function PatientFolderHub() {
         <TargetedANCRiskCard 
           patientName={`${patient?.firstName} ${patient?.lastName}`} 
           gestationalAgeWeeks={14}
+        />
+      )}
+
+      {/* CONTINUOUS ICU/HDU BEDSIDE TELEMETRY STREAM */}
+      {patient && (
+        <ICUTelemetryStreamCard 
+          patientName={`${patient?.firstName} ${patient?.lastName}`}
+          bedName={activeAdmission ? `${activeAdmission.wardName || 'ICU Ward'} — ${activeAdmission.bedName || 'Bed 04'}` : 'ICU Bed 04'}
+        />
+      )}
+
+      {/* PATIENT WEARABLE & CGM REMOTE MONITORING */}
+      {patient && (
+        <MaternalWearableRPMCard 
+          patientName={`${patient?.firstName} ${patient?.lastName}`}
         />
       )}
 
