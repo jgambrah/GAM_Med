@@ -29,6 +29,8 @@ import { PreVisitBriefCard } from '@/components/clinical/PreVisitBriefCard';
 import { DischargeCarePlanDialog } from '@/components/clinical/DischargeCarePlanDialog';
 import { ComputerVisionPACSViewer } from '@/components/clinical/ComputerVisionPACSViewer';
 import { SmartWoundTracker } from '@/components/clinical/SmartWoundTracker';
+import { PharmacogenomicsAlertCard } from '@/components/clinical/PharmacogenomicsAlertCard';
+import { TargetedANCRiskCard } from '@/components/clinical/TargetedANCRiskCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -669,6 +671,21 @@ export default function PatientFolderHub() {
       {patient && (
         <SmartWoundTracker 
           patientName={`${patient?.firstName} ${patient?.lastName}`} 
+        />
+      )}
+
+      {/* PHARMACOGENOMICS (PGX) PRECISION SAFETY ENGINE */}
+      {patient && (
+        <PharmacogenomicsAlertCard 
+          patientName={`${patient?.firstName} ${patient?.lastName}`} 
+        />
+      )}
+
+      {/* TARGETED ANC GENOMIC RISK PROFILER */}
+      {patient && (
+        <TargetedANCRiskCard 
+          patientName={`${patient?.firstName} ${patient?.lastName}`} 
+          gestationalAgeWeeks={14}
         />
       )}
 
