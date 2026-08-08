@@ -321,6 +321,10 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /ai_analysis/{patientId} {
+      allow read, write, list, create, update, delete: if isSignedIn();
+    }
+
     match /hospitals/{hospitalId} {
       allow get, list: if isSignedIn();
       allow create, delete: if isSuperAdmin();
