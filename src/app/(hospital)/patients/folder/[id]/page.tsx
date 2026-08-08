@@ -25,6 +25,8 @@ import { DeathCertificationDialog } from '@/components/clinical/DeathCertificati
 import { ReferralLetterDialog } from '@/components/clinical/ReferralLetterDialog';
 import { ClinicalTaskDelegationDialog } from '@/components/clinical/ClinicalTaskDelegationDialog';
 import { ClinicalRiskOverlay } from '@/components/clinical/ClinicalRiskOverlay';
+import { PreVisitBriefCard } from '@/components/clinical/PreVisitBriefCard';
+import { DischargeCarePlanDialog } from '@/components/clinical/DischargeCarePlanDialog';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -618,6 +620,7 @@ export default function PatientFolderHub() {
            {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
            {!isDeceased && patient && hospitalId && <ClinicalTaskDelegationDialog patientId={id as string} patientName={`${patient?.firstName} ${patient?.lastName}`} hospitalId={hospitalId} />}
+           {!isDeceased && patient && <DischargeCarePlanDialog patientName={`${patient?.firstName} ${patient?.lastName}`} diagnosis={latestEncounter?.diagnosis} />}
            {!isDeceased && patient && latestEncounter && <ReferralLetterDialog patient={patient} latestEncounter={latestEncounter} />}
            {!isDeceased && patient && ['DOCTOR', 'DIRECTOR', 'ADMIN'].includes(userProfile?.role || '') && <DeathCertificationDialog patient={patient} />}
         </div>
@@ -632,6 +635,14 @@ export default function PatientFolderHub() {
                 </div>
             </div>
         )}
+
+      {/* PRE-VISIT AI CHART PREP BRIEF */}
+      {patient && (
+        <PreVisitBriefCard 
+          patient={patient} 
+          onStartConsultation={() => setIsVitalsDialogOpen(true)} 
+        />
+      )}
 
       {/* CLINICAL RISK STRATIFICATION & PREDICTIVE AI OVERLAY */}
       {patient && (

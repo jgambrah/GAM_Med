@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2, Video, Inbox
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2, Video, Inbox, Stethoscope, Smartphone
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -33,6 +33,9 @@ const allMenuGroups = [
       { name: "Pediatrics & NICU", href: "/pediatrics", icon: Baby, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: '"My Day" Command Desk', href: "/doctor/my-day", icon: Inbox, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: "Doctor Specialty Hub", href: "/specialty/dashboard", icon: Stethoscope, roles: ['DIRECTOR', 'DOCTOR'] },
+      { name: "Mobile Clinician App 📱", href: "/doctor/mobile", icon: Smartphone, roles: ['DIRECTOR', 'DOCTOR', 'NURSE'] },
+      { name: "Ward Rounding Workspace 🛏️", href: "/inpatient/rounds", icon: BedDouble, roles: ['DIRECTOR', 'DOCTOR', 'NURSE'] },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Set Availability", href: "/doctor/availability", icon: Clock, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Nursing Care & Station", href: "/nursing", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'NURSE'] },

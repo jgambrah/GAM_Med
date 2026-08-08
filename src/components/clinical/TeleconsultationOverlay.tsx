@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Video, VideoOff, Mic, MicOff, PhoneOff, Minimize2, Maximize2, Monitor, Link as LinkIcon, Check, Copy, Share2, MessageSquare, Smartphone, Volume2 } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, PhoneOff, Minimize2, Maximize2, Monitor, Link as LinkIcon, Check, Copy, Share2, MessageSquare, Smartphone, Volume2, Columns } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +21,7 @@ export function TeleconsultationOverlay({
 }: TeleconsultationOverlayProps) {
   const { toast } = useToast();
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isSplitScreen, setIsSplitScreen] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -157,10 +158,12 @@ export function TeleconsultationOverlay({
 
   return (
     <div 
-      className={`fixed z-50 transition-all duration-300 shadow-2xl rounded-3xl border border-slate-700 bg-slate-950 text-white overflow-hidden ${
-        isMinimized 
-          ? 'bottom-6 right-6 w-80 h-48' 
-          : 'bottom-6 right-6 w-96 md:w-[480px] h-[420px]'
+      className={`fixed z-50 transition-all duration-300 shadow-2xl bg-slate-950 text-white overflow-hidden ${
+        isSplitScreen
+          ? 'top-0 left-0 w-full md:w-1/2 h-full rounded-none border-r border-slate-700'
+          : isMinimized 
+          ? 'bottom-6 right-6 w-80 h-48 rounded-3xl border border-slate-700' 
+          : 'bottom-6 right-6 w-96 md:w-[480px] h-[420px] rounded-3xl border border-slate-700'
       }`}
     >
       {/* OVERLAY HEADER */}
@@ -185,13 +188,30 @@ export function TeleconsultationOverlay({
           <span className="text-[9px] font-black text-slate-300">{isAudioOn ? `${audioLevel}%` : 'MUTED'}</span>
         </div>
 
-        <button 
-          onClick={() => setIsMinimized(prev => !prev)} 
-          className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all"
-          title={isMinimized ? "Expand View" : "Minimize Window"}
-        >
-          {isMinimized ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => {
+              setIsSplitScreen(prev => !prev);
+              setIsMinimized(false);
+              toast({ title: !isSplitScreen ? "Split-Screen Mode Active 📱" : "Standard Overlay Mode" });
+            }} 
+            className={`p-1.5 rounded-xl transition-all ${isSplitScreen ? 'bg-sky-600 text-white' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}
+            title={isSplitScreen ? "Exit Split-Screen" : "Snap to Split-Screen (Left 50%)"}
+          >
+            <Columns size={14} />
+          </button>
+
+          <button 
+            onClick={() => {
+              setIsMinimized(prev => !prev);
+              setIsSplitScreen(false);
+            }} 
+            className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all"
+            title={isMinimized ? "Expand View" : "Minimize Window"}
+          >
+            {isMinimized ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+          </button>
+        </div>
       </div>
 
       {/* SHARE INVITATION LINK BAR */}

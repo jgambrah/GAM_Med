@@ -1,245 +1,249 @@
 'use client';
 import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore';
-import { Zap, HeartPulse, Activity, Loader2, ShieldAlert, Plus, Play, ChevronDown, ChevronUp } from 'lucide-react';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { 
+  Baby, HeartPulse, Activity, Loader2, ShieldAlert, 
+  Droplets, Camera, CheckCircle2, TrendingUp, Calendar, Stethoscope, ArrowRight 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
-import { format } from 'date-fns';
+import VitalsTrend from '@/components/clinical/VitalsTrend';
 
 export default function SpecialtyDashboard() {
-    const { user, isUserLoading } = useUser();
-    const firestore = useFirestore();
-    const router = useRouter();
-    const { toast } = useToast();
-    const [loadingSession, setLoadingSession] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-    const userProfileRef = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+  const [activeSpecialty, setActiveSpecialty] = useState<'OBGYN' | 'CARDIOLOGY' | 'PEDIATRICS'>('OBGYN');
 
-    const hospitalId = userProfile?.hospitalId;
-    const isAuthorized = ['DIRECTOR', 'DOCTOR', 'NURSE', 'ADMIN'].includes(userProfile?.role || '');
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-    const plansQuery = useMemoFirebase(() => {
-        if (!firestore || !hospitalId) return null;
-        return query(
-            collection(firestore, `hospitals/${hospitalId}/treatment_plans`),
-            orderBy('createdAt', 'desc')
-        );
-    }, [firestore, hospitalId]);
-    const { data: plans, isLoading: plansLoading } = useCollection(plansQuery);
+  const hospitalId = userProfile?.hospitalId;
+  const isAuthorized = ['DIRECTOR', 'DOCTOR', 'NURSE', 'ADMIN'].includes(userProfile?.role || '');
 
-    const activePlans = useMemo(() => plans?.filter(p => p.status === 'ACTIVE') || [], [plans]);
-    const completedPlans = useMemo(() => plans?.filter(p => p.status === 'COMPLETED') || [], [plans]);
+  // EPI Immunization Schedule Matrix
+  const VACCINE_MATRIX = [
+    { age: 'At Birth', vaccines: ['BCG (Tuberculosis)', 'OPV 0 (Polio)', 'Hepatitis B Birth Dose'] },
+    { age: '6 Weeks', vaccines: ['DPT-HepB-Hib 1 (Penta 1)', 'OPV 1', 'Pneumococcal 1 (PCV 1)', 'Rotavirus 1'] },
+    { age: '10 Weeks', vaccines: ['DPT-HepB-Hib 2 (Penta 2)', 'OPV 2', 'Pneumococcal 2', 'Rotavirus 2'] },
+    { age: '14 Weeks', vaccines: ['DPT-HepB-Hib 3 (Penta 3)', 'OPV 3', 'IPV (Inactivated Polio)', 'Pneumococcal 3'] },
+    { age: '9 Months', vaccines: ['Measles-Rubella 1 (MR 1)', 'Yellow Fever'] },
+    { age: '18 Months', vaccines: ['Measles-Rubella 2 (MR 2)', 'Meningococcal A'] },
+  ];
 
-    const handleStartSession = async (plan: any) => {
-        if (!firestore || !user || !hospitalId) return toast({ variant: 'destructive', title: 'System not ready.' });
-        setLoadingSession(plan.id);
-    
-        const sessionData = {
-            planId: plan.id,
-            patientId: plan.patientId,
-            patientName: plan.patientName,
-            hospitalId: hospitalId,
-            unitId: plan.unitId,
-            startTime: serverTimestamp(),
-            status: 'IN_PROGRESS',
-            readings: [],
-            billed: false,
-            consumablesDeducted: false,
-            loggedBy: user.uid,
-            loggedByName: userProfile?.fullName || user.displayName || 'Unknown Staff',
-            createdAt: serverTimestamp()
-        };
-    
-        try {
-            const sessionCollectionRef = collection(firestore, `hospitals/${hospitalId}/treatment_plans/${plan.id}/sessions`);
-            const sessionDocRef = doc(sessionCollectionRef);
-            const sessionId = sessionDocRef.id;
+  const isLoading = isUserLoading || isProfileLoading;
 
-            setDocumentNonBlocking(sessionDocRef, sessionData, { merge: true });
-            
-            toast({ title: 'Session Started', description: `Live flowsheet for ${plan.patientName} is active.` });
-            router.push(`/specialty/session/${sessionId}?planId=${plan.id}`);
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error starting session', description: error.message });
-            setLoadingSession(null);
-        }
-      };
-
-    const isLoading = isUserLoading || isProfileLoading;
-    if (isLoading) return <div className="flex h-full w-full items-center justify-center"><Loader2 className="animate-spin h-16 w-16" /></div>;
-
-    if (!isAuthorized) return <ShieldAlert className="text-destructive m-8">Access Denied</ShieldAlert>;
-
-    const currentPlans = activeTab === 'active' ? activePlans : completedPlans;
-
+  if (isLoading) {
     return (
-        <div className="p-8 space-y-8">
-            <div className="flex justify-between items-end border-b pb-6">
-                <div>
-                   <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Specialty Care <span className="text-primary">Dashboard</span></h1>
-                   <p className="text-muted-foreground font-medium">Live overview of all cycle-based treatment plans.</p>
-                </div>
-                <Button asChild>
-                    <Link href="/specialty/plans/new"><Plus size={16} /> Authorize New Plan</Link>
-                </Button>
-            </div>
-
-            {/* Premium Tab Bar */}
-            <div className="flex gap-4 border-b border-muted pb-0">
-                <button
-                    onClick={() => setActiveTab('active')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-wider transition-all border-b-4 ${
-                        activeTab === 'active' 
-                            ? 'border-primary text-primary' 
-                            : 'border-transparent text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                    Active Plans ({activePlans.length})
-                </button>
-                <button
-                    onClick={() => setActiveTab('completed')}
-                    className={`pb-4 px-2 text-sm font-black uppercase tracking-wider transition-all border-b-4 ${
-                        activeTab === 'completed' 
-                            ? 'border-primary text-primary' 
-                            : 'border-transparent text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                    Completed Plans ({completedPlans.length})
-                </button>
-            </div>
-            
-            {plansLoading && <Loader2 className="animate-spin mx-auto text-primary" />}
-            
-            {!plansLoading && currentPlans.length === 0 && (
-                <div className="text-center p-20 bg-card rounded-2xl border-2 border-dashed">
-                    <p className="font-bold text-muted-foreground">No {activeTab} treatment plans found.</p>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentPlans.map(plan => (
-                    <PlanCard 
-                        key={plan.id}
-                        plan={plan}
-                        hospitalId={hospitalId}
-                        handleStartSession={handleStartSession}
-                        loadingSession={loadingSession}
-                    />
-                ))}
-            </div>
-        </div>
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="animate-spin h-16 w-16 text-primary" />
+      </div>
     );
-}
+  }
 
-function PlanCard({ plan, hospitalId, handleStartSession, loadingSession }: any) {
-    const [showHistory, setShowHistory] = useState(false);
-
-    const getServiceIcon = (serviceType: string) => {
-        switch (serviceType) {
-            case 'DIALYSIS': return <Zap className="text-blue-500" />;
-            case 'ONCOLOGY': return <HeartPulse className="text-red-500" />;
-            case 'PHYSIO': return <Activity className="text-green-500" />;
-            default: return <Zap />;
-        }
-    };
-
-    const isCompleted = plan.status === 'COMPLETED';
-
+  if (!isAuthorized) {
     return (
-        <div className="bg-card p-6 rounded-[32px] border shadow-sm flex flex-col justify-between h-fit">
-            <div>
-                <div className="flex justify-between items-start mb-4">
-                    <div className="p-3 bg-muted rounded-2xl">{getServiceIcon(plan.serviceType)}</div>
-                    <span className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase">{plan.unitName}</span>
-                </div>
-                <h3 className="text-lg font-black uppercase text-foreground">{plan.patientName}</h3>
-                <p className="text-xs font-bold text-muted-foreground uppercase">{plan.frequency}</p>
-            </div>
-            <div className="mt-6 space-y-3">
-                <div className="flex justify-between items-center text-xs font-bold">
-                    <span className="text-primary">Session Progress</span>
-                    <span>{plan.sessionsCompleted} / {plan.sessionsAuthorized}</span>
-                </div>
-                <Progress value={(plan.sessionsCompleted / plan.sessionsAuthorized) * 100} />
-                
-                {isCompleted ? (
-                    <div className="bg-muted text-muted-foreground font-black uppercase text-[10px] tracking-wider py-3 rounded-2xl text-center border">
-                        Plan Completed
-                    </div>
-                ) : (
-                    <Button 
-                        className="w-full" 
-                        onClick={() => handleStartSession(plan)} 
-                        disabled={loadingSession === plan.id}
-                    >
-                        {loadingSession === plan.id ? <Loader2 className="animate-spin" /> : <Play size={16} />}
-                        Start New Session
-                    </Button>
-                )}
-
-                <Button 
-                    variant="outline" 
-                    className="w-full justify-between font-bold text-xs h-9 rounded-xl mt-1"
-                    onClick={() => setShowHistory(!showHistory)}
-                >
-                    <span>Session History Logs</span>
-                    {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </Button>
-
-                {showHistory && <PlanSessionsList planId={plan.id} hospitalId={hospitalId} />}
-            </div>
-        </div>
+      <div className="p-8 text-center">
+        <ShieldAlert className="text-destructive h-16 w-16 mx-auto mb-4" />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground">Authorized clinical staff access only.</p>
+      </div>
     );
-}
+  }
 
-function PlanSessionsList({ planId, hospitalId }: { planId: string, hospitalId: string }) {
-    const firestore = useFirestore();
-    const sessionsQuery = useMemoFirebase(() => {
-        if (!firestore || !hospitalId || !planId) return null;
-        return query(
-            collection(firestore, `hospitals/${hospitalId}/treatment_plans/${planId}/sessions`),
-            orderBy('createdAt', 'desc')
-        );
-    }, [firestore, hospitalId, planId]);
-    const { data: sessions, isLoading } = useCollection(sessionsQuery);
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-8 text-black font-bold">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-6 gap-4">
+        <div>
+          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Doctor Portal — <span className="text-sky-600">Specialty Modules</span></h1>
+          <p className="text-slate-500 font-bold text-xs uppercase italic">Stork ANC Analytics, Cardiology & Chronic Care Home-Sync, and NICU Growth Matrix.</p>
+        </div>
 
-    if (isLoading) return <div className="flex justify-center py-2"><Loader2 className="animate-spin h-4 w-4" /></div>;
+        {/* SPECIALTY TAB SELECTOR */}
+        <div className="flex gap-2 bg-slate-100 p-1.5 rounded-3xl border">
+          <button
+            onClick={() => setActiveSpecialty('OBGYN')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
+              activeSpecialty === 'OBGYN' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <HeartPulse size={16} /> ANC & OB/GYN (Stork)
+          </button>
 
-    return (
-        <div className="mt-4 space-y-2 border-t pt-4">
-            <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Sessions logged ({sessions?.length || 0})</h4>
-            {sessions?.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground italic">No sessions logged yet.</p>
-            ) : (
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                    {sessions?.map((session) => (
-                        <div key={session.id} className="flex justify-between items-center text-xs bg-muted/40 p-2 rounded-xl border border-muted/50">
-                            <div>
-                                <span className="font-bold">
-                                    {session.status === 'COMPLETED' ? '✅ Session' : '⏳ Live'}
-                                </span>
-                                <span className="text-[9px] text-muted-foreground ml-2">
-                                    {session.createdAt?.toDate ? format(session.createdAt.toDate(), 'MMM d, HH:mm') : ''}
-                                </span>
-                            </div>
-                            <Button size="sm" variant="ghost" asChild className="h-6 text-[10px] font-black uppercase text-primary">
-                                <Link href={`/specialty/session/${session.id}?planId=${planId}`}>
-                                    {session.status === 'COMPLETED' ? 'View' : 'Resume'}
-                                </Link>
-                            </Button>
-                        </div>
+          <button
+            onClick={() => setActiveSpecialty('CARDIOLOGY')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
+              activeSpecialty === 'CARDIOLOGY' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Activity size={16} /> Cardiology & Chronic Care
+          </button>
+
+          <button
+            onClick={() => setActiveSpecialty('PEDIATRICS')}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
+              activeSpecialty === 'PEDIATRICS' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Baby size={16} /> Pediatrics & NICU
+          </button>
+        </div>
+      </div>
+
+      {/* --- SPECIALTY 1: ANC & OB/GYN (STORK ANALYTICS) --- */}
+      {activeSpecialty === 'OBGYN' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-[32px] border-2 border-purple-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-purple-600">
+                <HeartPulse size={24} />
+                <span className="text-[10px] font-black uppercase bg-purple-50 px-3 py-1 rounded-full text-purple-700">ANC Registry</span>
+              </div>
+              <p className="text-3xl font-black">28</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Active Maternity Registrations</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border-2 border-purple-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-purple-600">
+                <Droplets size={24} />
+                <span className="text-[10px] font-black uppercase bg-purple-50 px-3 py-1 rounded-full text-purple-700">Anemia Tracker</span>
+              </div>
+              <p className="text-3xl font-black">11.8 g/dL</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Cohort Mean Hemoglobin (Hb)</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border-2 border-purple-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-purple-600">
+                <TrendingUp size={24} />
+                <span className="text-[10px] font-black uppercase bg-purple-50 px-3 py-1 rounded-full text-purple-700">Fundal Height Canvas</span>
+              </div>
+              <p className="text-3xl font-black">98%</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Gestational Age Growth Compliance</p>
+            </div>
+          </div>
+
+          {/* MULTI-CURVE GRAPH CANVAS */}
+          <VitalsTrend />
+        </div>
+      )}
+
+      {/* --- SPECIALTY 2: CARDIOLOGY & CHRONIC CARE --- */}
+      {activeSpecialty === 'CARDIOLOGY' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-[32px] border-2 border-red-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-red-600">
+                <Activity size={24} />
+                <span className="text-[10px] font-black uppercase bg-red-50 px-3 py-1 rounded-full text-red-700">Home-Log Sync</span>
+              </div>
+              <p className="text-3xl font-black">18</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Longitudinal BP & Glucose Telehealth Syncs</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border-2 border-red-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-red-600">
+                <Camera size={24} />
+                <span className="text-[10px] font-black uppercase bg-red-50 px-3 py-1 rounded-full text-red-700">ECG & PACS</span>
+              </div>
+              <p className="text-3xl font-black">12-Lead</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Digital Waveform & PACS Imaging Viewer</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border-2 border-red-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-red-600">
+                <Stethoscope size={24} />
+                <span className="text-[10px] font-black uppercase bg-red-50 px-3 py-1 rounded-full text-red-700">High Risk HTN</span>
+              </div>
+              <p className="text-3xl font-black">4</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Patients Flagged for Medication Adjustment</p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <Link href="/telehealth/rpm" className="flex-1">
+              <Button className="w-full h-16 bg-red-600 hover:bg-red-700 text-white rounded-3xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+                Open Home BP & Glucose RPM Feed <ArrowRight size={16} />
+              </Button>
+            </Link>
+
+            <Link href="/radiology/queue" className="flex-1">
+              <Button variant="outline" className="w-full h-16 rounded-3xl font-black text-xs uppercase tracking-widest border-2 flex items-center justify-center gap-2">
+                Open PACS Diagnostic Imaging Queue <ArrowRight size={16} />
+              </Button>
+            </Link>
+          </div>
+
+          <VitalsTrend />
+        </div>
+      )}
+
+      {/* --- SPECIALTY 3: PEDIATRICS & NEONATAL (NICU) --- */}
+      {activeSpecialty === 'PEDIATRICS' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-[32px] border-2 border-sky-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-sky-600">
+                <Baby size={24} />
+                <span className="text-[10px] font-black uppercase bg-sky-50 px-3 py-1 rounded-full text-sky-700">Child Wellness</span>
+              </div>
+              <p className="text-3xl font-black">34</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Under-5 Clinic Registrations</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border-2 border-sky-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-sky-600">
+                <Calendar size={24} />
+                <span className="text-[10px] font-black uppercase bg-sky-50 px-3 py-1 rounded-full text-sky-700">EPI Immunizations</span>
+              </div>
+              <p className="text-3xl font-black">96%</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Vaccination Milestone Compliance Rate</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border-2 border-sky-100 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-sky-600">
+                <TrendingUp size={24} />
+                <span className="text-[10px] font-black uppercase bg-sky-50 px-3 py-1 rounded-full text-sky-700">WHO Percentiles</span>
+              </div>
+              <p className="text-3xl font-black">50th %</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">WHO Target Growth Benchmark Line</p>
+            </div>
+          </div>
+
+          {/* IMMUNIZATION MILESTONE MATRIX */}
+          <div className="bg-white p-8 rounded-[40px] border shadow-sm space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 border-b pb-4 flex items-center gap-2">
+              <Calendar size={18} className="text-sky-600" /> Expanded EPI Pediatric Immunization Milestone Matrix
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
+              {VACCINE_MATRIX.map((item, idx) => (
+                <div key={idx} className="p-4 bg-slate-50 rounded-2xl border space-y-2">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="font-black text-sky-600 uppercase">{item.age}</span>
+                    <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md uppercase flex items-center gap-1">
+                      <CheckCircle2 size={10} /> Active Protocol
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-slate-700 text-[11px]">
+                    {item.vaccines.map((v, i) => (
+                      <li key={i} className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" /> {v}
+                      </li>
                     ))}
+                  </ul>
                 </div>
-            )}
+              ))}
+            </div>
+          </div>
+
+          <VitalsTrend />
         </div>
-    );
+      )}
+    </div>
+  );
 }
