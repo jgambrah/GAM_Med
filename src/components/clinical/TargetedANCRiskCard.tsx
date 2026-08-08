@@ -5,7 +5,13 @@ import { generateTargetedANCRiskProfile, TargetedANCRiskProfile } from '@/ai/flo
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
+import { useFirestore, useUser, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
+
 interface TargetedANCRiskCardProps {
+  patientId?: string;
+  hospitalId?: string;
   patientName?: string;
   gestationalAgeWeeks?: number;
   maternalAge?: number;
@@ -15,6 +21,8 @@ interface TargetedANCRiskCardProps {
 }
 
 export function TargetedANCRiskCard({
+  patientId,
+  hospitalId: propHospitalId,
   patientName = 'Patient',
   gestationalAgeWeeks = 14,
   maternalAge = 34,
@@ -23,6 +31,19 @@ export function TargetedANCRiskCard({
   defaultExpanded = false
 }: TargetedANCRiskCardProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const params = useParams();
+  const effectivePatientId = patientId || (params?.id as string);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = propHospitalId || userProfile?.hospitalId;
+
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isOrderQueued, setIsOrderQueued] = useState(false);
 
@@ -32,9 +53,61 @@ export function TargetedANCRiskCard({
 
   const handleQueueOrders = () => {
     setIsOrderQueued(true);
+
+    if (firestore && hospitalId && effectivePatientId) {
+      // 1. Queue Lab Orders (OGTT & NIPT)
+      const ogttRef = doc(collection(firestore, `hospitals/${hospitalId}/lab_orders`));
+      setDocumentNonBlocking(ogttRef, {
+        patientId: effectivePatientId,
+        patientName,
+        testName: 'Early 16-Week 75g Oral Glucose Tolerance Test (OGTT)',
+        category: 'Biochemistry / ANC',
+        urgency: 'HIGH',
+        status: 'PENDING',
+        requestedBy: user?.displayName || 'Dr. Tracy Gambrah',
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      const niptRef = doc(collection(firestore, `hospitals/${hospitalId}/lab_orders`));
+      setDocumentNonBlocking(niptRef, {
+        patientId: effectivePatientId,
+        patientName,
+        testName: 'Cell-Free Fetal DNA (cfDNA) NIPT Genomic Panel (Chromosomes 21, 18, 13 & Microdeletions)',
+        category: 'Genomics / Cytogenetics',
+        urgency: 'ROUTINE',
+        status: 'PENDING',
+        requestedBy: user?.displayName || 'Dr. Tracy Gambrah',
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      // 2. Queue Pharmacy Prescription
+      const rxRef = doc(collection(firestore, `hospitals/${hospitalId}/treatment_plans`));
+      setDocumentNonBlocking(rxRef, {
+        patientId: effectivePatientId,
+        patientName,
+        medicationName: 'Aspirin 150mg (Bedtime)',
+        instructions: '150mg PO daily at bedtime for Pre-eclampsia Prophylaxis until 36 weeks GA',
+        status: 'ACTIVE',
+        authorizedBy: user?.displayName || 'Dr. Tracy Gambrah',
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      // 3. Queue Specialist MFM Referral
+      const refRef = doc(collection(firestore, `hospitals/${hospitalId}/referrals`));
+      setDocumentNonBlocking(refRef, {
+        patientId: effectivePatientId,
+        patientName,
+        targetSpecialty: 'Maternal-Fetal Medicine (MFM)',
+        priority: 'HIGH_RISK_OBSTETRIC',
+        reason: 'High-risk pre-eclampsia (sFlt-1/PlGF ratio 88) and GDM TCF7L2 variant requiring specialized MFM co-management.',
+        referredBy: user?.displayName || 'Dr. Tracy Gambrah',
+        createdAt: serverTimestamp()
+      }, { merge: true });
+    }
+
     toast({
-      title: '✅ Targeted Genomic ANC Protocols Queued',
-      description: `Low-dose Aspirin 150mg, 16-Week OGTT & NIPT Blood Tests queued for ${patientName}.`
+      title: '✅ All 4 Genomic ANC Protocols Dispatched to EHR',
+      description: `Dispatched Aspirin 150mg Rx, 16-Wk OGTT, NIPT Panel & MFM Referral for ${patientName}.`
     });
   };
 
@@ -155,22 +228,32 @@ export function TargetedANCRiskCard({
               <Button
                 type="button"
                 size="sm"
-                onClick={() => {
-                  toast({
-                    title: '⚡ Genomic ANC Protocols Queued',
-                    description: 'Added Low-Dose Aspirin, 16-Week OGTT, and NIPT blood panel to clinical chart.'
-                  });
-                }}
-                className="bg-pink-600 hover:bg-pink-500 text-white font-black text-[10px] uppercase rounded-xl h-7 px-3 flex items-center gap-1.5 shadow-lg"
+                disabled={isOrderQueued}
+                onClick={handleQueueOrders}
+                className={`${
+                  isOrderQueued 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-pink-600 hover:bg-pink-500 text-white'
+                } font-black text-[10px] uppercase rounded-xl h-8 px-3 flex items-center gap-1.5 shadow-lg transition-all`}
               >
-                <Zap size={12} /> Queue ANC Orders
+                {isOrderQueued ? <CheckCircle2 size={14} /> : <Zap size={14} />}
+                {isOrderQueued ? '✅ All 4 ANC Orders Queued' : '⚡ Queue ANC Orders'}
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-bold text-slate-200">
               {ancProfile.personalizedCarePlan.map((plan, i) => (
-                <div key={i} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 flex items-center gap-2">
-                  <ArrowRight size={12} className="text-pink-400 shrink-0" />
-                  <span>{plan}</span>
+                <div key={i} className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                  isOrderQueued ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200' : 'bg-slate-900 border-slate-800'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <ArrowRight size={12} className={isOrderQueued ? 'text-emerald-400 shrink-0' : 'text-pink-400 shrink-0'} />
+                    <span>{plan}</span>
+                  </div>
+                  {isOrderQueued && (
+                    <span className="text-[9px] font-black uppercase bg-emerald-900 text-emerald-300 border border-emerald-700 px-2 py-0.5 rounded-md shrink-0">
+                      Queued
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

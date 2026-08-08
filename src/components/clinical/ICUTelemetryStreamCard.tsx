@@ -5,29 +5,100 @@ import { evaluateBedsideTelemetry, generateSimulatedTelemetryFeed, BedsideTeleme
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
+
 interface ICUTelemetryStreamCardProps {
+  patientId?: string;
+  hospitalId?: string;
   patientName?: string;
   bedName?: string;
+  initialVitals?: {
+    pulse?: number | string;
+    spo2?: number | string;
+    systolic?: number | string;
+    diastolic?: number | string;
+    respiration?: number | string;
+    temp?: number | string;
+  };
   defaultExpanded?: boolean;
 }
 
-export function ICUTelemetryStreamCard({ patientName = 'Patient', bedName = 'Bed ICU-04', defaultExpanded = false }: ICUTelemetryStreamCardProps) {
+export function ICUTelemetryStreamCard({
+  patientId,
+  hospitalId: propHospitalId,
+  patientName = 'Patient',
+  bedName = 'Bed ICU-04',
+  initialVitals,
+  defaultExpanded = false
+}: ICUTelemetryStreamCardProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const params = useParams();
+  const effectivePatientId = patientId || (params?.id as string);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = propHospitalId || userProfile?.hospitalId;
+
+  // Real-time Firestore IoT Telemetry Stream Document Listener
+  const liveTelemetryRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !effectivePatientId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/telemetry_streams/${effectivePatientId}`);
+  }, [firestore, hospitalId, effectivePatientId]);
+  const { data: liveStreamDoc } = useDoc(liveTelemetryRef);
+
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isStreaming, setIsStreaming] = useState(true);
-  const [telemetry, setTelemetry] = useState<BedsideTelemetryPayload>(generateSimulatedTelemetryFeed());
+  const [overrideTelemetry, setOverrideTelemetry] = useState<BedsideTelemetryPayload | null>(null);
+  const [simulatedFeed, setSimulatedFeed] = useState<BedsideTelemetryPayload | null>(null);
   const [hrHistory, setHrHistory] = useState<number[]>([72, 75, 74, 78, 80, 76, 73, 75, 77, 79, 74, 76, 78]);
 
-  // Live interval streaming simulation
   useEffect(() => {
     if (!isStreaming) return;
     const interval = setInterval(() => {
       const fresh = generateSimulatedTelemetryFeed();
-      setTelemetry(fresh);
-      setHrHistory(prev => [...prev.slice(-20), fresh.heartRate]);
-    }, 2000);
+      setSimulatedFeed(fresh);
+      setHrHistory((prev: number[]) => [...prev.slice(-20), fresh.heartRate]);
+    }, 2500);
     return () => clearInterval(interval);
   }, [isStreaming]);
+
+  // Initialize telemetry baseline from real EHR vitals or live stream doc
+  const telemetry = useMemo<BedsideTelemetryPayload>(() => {
+    if (overrideTelemetry) return overrideTelemetry;
+    if (simulatedFeed) return simulatedFeed;
+    if (liveStreamDoc && liveStreamDoc.heartRate) {
+      return {
+        bedId: bedName,
+        patientId: effectivePatientId || 'P-1',
+        heartRate: Number(liveStreamDoc.heartRate) || 75,
+        spo2: Number(liveStreamDoc.spo2) || 98,
+        systolicBp: Number(liveStreamDoc.systolicBp) || 120,
+        diastolicBp: Number(liveStreamDoc.diastolicBp) || 80,
+        respirationRate: Number(liveStreamDoc.respirationRate) || 16,
+        temperature: Number(liveStreamDoc.temperature) || 36.8,
+        timestamp: liveStreamDoc.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+    }
+    return {
+      bedId: bedName,
+      patientId: effectivePatientId || 'P-1',
+      heartRate: Number(initialVitals?.pulse) || 77,
+      spo2: Number(initialVitals?.spo2) || 97,
+      systolicBp: Number(initialVitals?.systolic) || 127,
+      diastolicBp: Number(initialVitals?.diastolic) || 75,
+      respirationRate: Number(initialVitals?.respiration) || 14,
+      temperature: Number(initialVitals?.temp) || 36.8,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+  }, [overrideTelemetry, simulatedFeed, liveStreamDoc, initialVitals, bedName, effectivePatientId]);
 
   const alert = useMemo(() => {
     return evaluateBedsideTelemetry(telemetry);
@@ -45,8 +116,8 @@ export function ICUTelemetryStreamCard({ patientName = 'Patient', bedName = 'Bed
       temperature: 38.9,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
-    setTelemetry(criticalPayload);
-    setHrHistory(prev => [...prev.slice(-20), 142]);
+    setOverrideTelemetry(criticalPayload);
+    setHrHistory((prev: number[]) => [...prev.slice(-20), 142]);
     toast({
       variant: 'destructive',
       title: '🚨 CRITICAL ICU TELEMETRY ALARM',

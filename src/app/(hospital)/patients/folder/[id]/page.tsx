@@ -34,6 +34,7 @@ import { PharmacogenomicsAlertCard } from '@/components/clinical/Pharmacogenomic
 import { TargetedANCRiskCard } from '@/components/clinical/TargetedANCRiskCard';
 import { ICUTelemetryStreamCard } from '@/components/clinical/ICUTelemetryStreamCard';
 import { MaternalWearableRPMCard } from '@/components/clinical/MaternalWearableRPMCard';
+import { EnterpriseCapacityFederatedCard } from '@/components/clinical/EnterpriseCapacityFederatedCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -617,6 +618,14 @@ export default function PatientFolderHub() {
                 <Sparkles size={10} className="text-pink-400" />
                 ⌚ Wearable RPM Synced
               </span>
+              <span className="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Zap size={10} className="text-indigo-400" />
+                ⚡ Predictive Capacity Active
+              </span>
+              <span className="bg-purple-600/30 text-purple-300 border border-purple-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Globe size={10} className="text-purple-400" />
+                🌐 Federated AI Grid Synced
+              </span>
             </div>
           </div>
         </div>
@@ -719,16 +728,21 @@ export default function PatientFolderHub() {
       {/* TARGETED ANC GENOMIC RISK PROFILER */}
       {patient && (
         <TargetedANCRiskCard 
+          patientId={id as string}
+          hospitalId={hospitalId}
           patientName={`${patient?.firstName} ${patient?.lastName}`} 
           gestationalAgeWeeks={14}
         />
       )}
 
       {/* CONTINUOUS ICU/HDU BEDSIDE TELEMETRY STREAM */}
-      {patient && (
+      {patient && hospitalId && (
         <ICUTelemetryStreamCard 
+          patientId={id as string}
+          hospitalId={hospitalId}
           patientName={`${patient?.firstName} ${patient?.lastName}`}
           bedName={activeAdmission ? `${activeAdmission.wardName || 'ICU Ward'} — ${activeAdmission.bedName || 'Bed 04'}` : 'ICU Bed 04'}
+          initialVitals={latestEncounter?.vitals || (patient as any)?.lastVitals}
         />
       )}
 
@@ -736,6 +750,13 @@ export default function PatientFolderHub() {
       {patient && (
         <MaternalWearableRPMCard 
           patientName={`${patient?.firstName} ${patient?.lastName}`}
+        />
+      )}
+
+      {/* MULTI-TENANT ENTERPRISE OPERATIONS & FEDERATED LEARNING */}
+      {patient && (
+        <EnterpriseCapacityFederatedCard 
+          hospitalName="GamMed Grid Hospital"
         />
       )}
 

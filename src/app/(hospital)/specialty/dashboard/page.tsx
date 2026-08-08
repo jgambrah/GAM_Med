@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import VitalsTrend from '@/components/clinical/VitalsTrend';
+import { EnterpriseCapacityFederatedCard } from '@/components/clinical/EnterpriseCapacityFederatedCard';
 
 export default function SpecialtyDashboard() {
   const { user, isUserLoading } = useUser();
@@ -94,6 +95,9 @@ export default function SpecialtyDashboard() {
           </button>
         </div>
       </div>
+
+      {/* MULTI-TENANT ENTERPRISE OPERATIONS & FEDERATED LEARNING DECK */}
+      <EnterpriseCapacityFederatedCard hospitalName={userProfile?.hospitalName || 'GamMed Grid Hospital'} />
 
       {/* --- SPECIALTY 1: ANC & OB/GYN (STORK ANALYTICS) --- */}
       {activeSpecialty === 'OBGYN' && (
