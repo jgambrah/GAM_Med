@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Video, VideoOff, Mic, MicOff, PhoneOff, ShieldCheck, HeartPulse, Sparkles } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, PhoneOff, HeartPulse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,15 +14,62 @@ export default function PatientTelehealthRoomPage() {
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [callConnected, setCallConnected] = useState(false);
 
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // Bind Patient Live Webcam
+  useEffect(() => {
+    async function startPatientWebcam() {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          mediaStreamRef.current = stream;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+        }
+      } catch (err) {
+        console.warn('Patient webcam not accessible:', err);
+      }
+    }
+
+    if (isVideoOn) {
+      startPatientWebcam();
+    }
+
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setCallConnected(true);
-      toast({ title: "Doctor Joined the Teleconsultation", description: "Your virtual consultation has commenced." });
+      toast({ title: "Doctor Joined Teleconsultation", description: "Your virtual consultation has commenced." });
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
+  const toggleVideo = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getVideoTracks().forEach(t => (t.enabled = !isVideoOn));
+    }
+    setIsVideoOn(prev => !prev);
+  };
+
+  const toggleAudio = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach(t => (t.enabled = !isAudioOn));
+    }
+    setIsAudioOn(prev => !prev);
+  };
+
   const handleLeaveCall = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    }
     toast({ title: "Consultation Ended", description: "Thank you for using GAM_Med Remote Care." });
     router.push('/patient/login');
   };
@@ -55,15 +102,19 @@ export default function PatientTelehealthRoomPage() {
             DR
           </div>
           <h2 className="text-2xl font-black uppercase">Dr. Shane Gambrah</h2>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Consultant Physician • HD Video Stream</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Consultant Physician • Live Feed</p>
         </div>
 
-        {/* PATIENT LOCAL THUMBNAIL FEED */}
-        <div className="absolute top-4 right-4 w-40 h-28 bg-slate-950 border-2 border-slate-700 rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center">
+        {/* PATIENT LOCAL LIVE WEBCAM FEED (THUMBNAIL) */}
+        <div className="absolute top-4 right-4 w-44 h-32 bg-slate-950 border-2 border-sky-500/80 rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center">
           {isVideoOn ? (
-            <div className="w-full h-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase text-center p-2">
-              Your Video (Patient)
-            </div>
+            <video 
+              ref={localVideoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
           ) : (
             <VideoOff size={24} className="text-slate-500" />
           )}
@@ -73,19 +124,21 @@ export default function PatientTelehealthRoomPage() {
       {/* BOTTOM CONTROL BAR */}
       <div className="max-w-md mx-auto w-full bg-slate-900 border border-slate-800 p-4 rounded-3xl flex items-center justify-around shadow-2xl">
         <button
-          onClick={() => setIsAudioOn(prev => !prev)}
+          onClick={toggleAudio}
           className={`p-4 rounded-2xl transition-all ${
             isAudioOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-600 text-white'
           }`}
+          title={isAudioOn ? "Mute Microphone" : "Unmute Microphone"}
         >
           {isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}
         </button>
 
         <button
-          onClick={() => setIsVideoOn(prev => !prev)}
+          onClick={toggleVideo}
           className={`p-4 rounded-2xl transition-all ${
             isVideoOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-600 text-white'
           }`}
+          title={isVideoOn ? "Turn Off Camera" : "Turn On Camera"}
         >
           {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
         </button>
