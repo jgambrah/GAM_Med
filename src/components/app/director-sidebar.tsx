@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -49,8 +49,10 @@ const allMenuGroups = [
     title: "Pharmacy",
     roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'],
     items: [
-      { name: "Dispensing Queue", href: "/pharmacy/dispensing", icon: LayoutDashboard },
+      { name: "Pharmacy Hub", href: "/pharmacy", icon: LayoutDashboard },
+      { name: "Dispensing Queue", href: "/pharmacy/dispensing", icon: ClipboardList },
       { name: "Inventory", href: "/pharmacy/inventory", icon: Package },
+      { name: "Shelf Disposal", href: "/pharmacy/disposal", icon: Trash2, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
       { name: "New Requisition", href: "/requisitions/new", icon: ArrowUpRight, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
       { name: "My Requisitions", href: "/pharmacy/requisitions", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
     ]
@@ -59,6 +61,7 @@ const allMenuGroups = [
     title: "Radiology",
     roles: ['DIRECTOR', 'ADMIN', 'RADIOLOGIST'],
     items: [
+      { name: "Radiology Hub", href: "/radiology", icon: Camera },
       { name: "Imaging Queue", href: "/radiology/queue", icon: LayoutDashboard },
       { name: "Imaging Menu", href: "/radiology/setup", icon: Settings },
     ]

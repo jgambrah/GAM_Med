@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Package, Truck, Building2,
   Settings, LogOut, ChevronRight, Archive, ArrowUpRight,
-  Calendar, Clock, Wallet, GraduationCap, Award, ClipboardList
+  Calendar, Clock, Wallet, GraduationCap, Award, ClipboardList, Trash2
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -19,6 +19,7 @@ const menuGroups = [
       { name: "Dashboard", href: "/pharmacy", icon: LayoutDashboard },
       { name: "Dispensing Queue", href: "/pharmacy/dispensing", icon: ClipboardList },
       { name: "Inventory", href: "/pharmacy/inventory", icon: Package },
+      { name: "Shelf Disposal", href: "/pharmacy/disposal", icon: Trash2 },
     ]
   },
   {
@@ -26,7 +27,7 @@ const menuGroups = [
     items: [
       { name: "New Requisition", href: "/requisitions/new", icon: ArrowUpRight },
       { name: "My Requisitions", href: "/pharmacy/requisitions", icon: ClipboardList },
-      { name: "Stock Disposal", href: "/supply-chain/disposal", icon: Archive },
+      { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: Archive },
     ]
   }
 ];
