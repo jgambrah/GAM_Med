@@ -17,6 +17,9 @@ const allMenuGroups = [
     title: "Clinical",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RADIOLOGIST', 'LAB_TECH'],
     items: [
+      { name: "Outpatient Desk (OPD)", href: "/opd", icon: HeartPulse, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
+      { name: "Emergency & Triage", href: "/emergency", icon: Activity, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
+      { name: "Pediatrics & NICU", href: "/pediatrics", icon: Baby, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Doctor's Desk", href: "/doctor", icon: HeartPulse, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Set Availability", href: "/doctor/availability", icon: Clock, roles: ['DIRECTOR', 'DOCTOR'] },
@@ -31,6 +34,7 @@ const allMenuGroups = [
     roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'],
     items: [
         { name: "Front Desk", href: "/reception", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
+        { name: "Register Patient", href: "/patients/register", icon: UserPlus, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
         { name: "Appointments", href: "/reception/appointments", icon: Calendar, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
         { name: "Assign Doctor", href: "/reception/assign-doctor", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'] },
     ]
@@ -93,6 +97,7 @@ const allMenuGroups = [
     title: "Inpatient",
     roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
     items: [
+      { name: "ICU & Critical Care", href: "/icu", icon: Activity, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Ward Setup", href: "/wards/setup", icon: BedDouble, roles: ['DIRECTOR', 'ADMIN'] },
       { name: "Bed Management", href: "/wards/management", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
     ]
