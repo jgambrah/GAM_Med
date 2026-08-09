@@ -15,6 +15,10 @@ import { PharmacyVerificationSuiteCard } from '@/components/pharmacy/PharmacyVer
 import { SmartDispensingInventoryCard } from '@/components/pharmacy/SmartDispensingInventoryCard';
 import { PharmacyInterventionAndCompoundingCard } from '@/components/pharmacy/PharmacyInterventionAndCompoundingCard';
 import { PatientEducationAndRefillCard } from '@/components/pharmacy/PatientEducationAndRefillCard';
+import { AdvancedInpatientDispensingCard } from '@/components/pharmacy/AdvancedInpatientDispensingCard';
+import { IntegratedPharmacyCdssCard } from '@/components/pharmacy/IntegratedPharmacyCdssCard';
+import { ColdChainAndLogisticsCard } from '@/components/pharmacy/ColdChainAndLogisticsCard';
+import { MedSyncAndOutpatientConvenienceCard } from '@/components/pharmacy/MedSyncAndOutpatientConvenienceCard';
 
 const parseDate = (createdAt: any): Date => {
   if (!createdAt) return new Date();
@@ -36,6 +40,7 @@ export default function DispensingPage() {
   const [processing, setProcessing] = useState(false);
   const [isBcmaVerified, setIsBcmaVerified] = useState(false);
   const [isNarcoticCoSigned, setIsNarcoticCoSigned] = useState(false);
+  const [isOrderPaused, setIsOrderPaused] = useState(false);
   const [dispenseQuantities, setDispenseQuantities] = useState<Record<number, number>>({});
 
   const patientId = searchParams.get('patientId');
@@ -197,6 +202,35 @@ export default function DispensingPage() {
           drugName={prescriptionItems[0]?.name || 'Amoxicillin 500mg'}
         />
 
+        {/* ADVANCED INPATIENT & COMPOUNDING DISPENSING SUITE */}
+        <AdvancedInpatientDispensingCard 
+          patientName={order?.patientName || 'Benjamin Hedidor'}
+          expectedNdc={prescriptionItems[0]?.ndc || 'NDC-0093-0058-01'}
+          expectedWristband={`GH-CARD-${(patientId || '9921').slice(-4)}`}
+          wardName="Female Medical Ward 3B"
+        />
+
+        {/* INTEGRATED CLINICAL DECISION SUPPORT SYSTEMS (CDSS) & RTPB */}
+        <IntegratedPharmacyCdssCard 
+          drugName={prescriptionItems[0]?.name || 'Amoxil Brand 500mg'}
+          patientName={order?.patientName || 'Benjamin Hedidor'}
+          patientId={patientId || 'P-100'}
+          prescribingDoctorName={order?.providerName || 'Dr. Kwaku Mensah'}
+          onOrderPausedChange={(paused) => setIsOrderPaused(paused)}
+        />
+
+        {/* INTELLIGENT STOCK & COLD-CHAIN LOGISTICS HUB */}
+        <ColdChainAndLogisticsCard 
+          drugName={prescriptionItems[0]?.name || 'Amoxicillin 500mg'}
+          primaryPharmacistName={user?.displayName || 'Pharmacist'}
+        />
+
+        {/* MEDICATION SYNCHRONIZATION (MED SYNC) & OUTPATIENT CONVENIENCE HUB */}
+        <MedSyncAndOutpatientConvenienceCard 
+          patientName={order?.patientName || 'Benjamin Hedidor'}
+          drugName={prescriptionItems[0]?.name || 'Amoxicillin 500mg'}
+        />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* LEFT: PRESCRIPTION ITEMS */}
           <div className="lg:col-span-2 space-y-6">
@@ -284,14 +318,23 @@ export default function DispensingPage() {
                    </Button>
 
                     <Button 
-                      disabled={processing || hasInsufficientStock || !isBcmaVerified || (hasControlledNarcotic && !isNarcoticCoSigned)}
+                      disabled={processing || hasInsufficientStock || !isBcmaVerified || (hasControlledNarcotic && !isNarcoticCoSigned) || isOrderPaused}
                       onClick={handleFinalizeDispensing}
                       className="w-full bg-primary text-primary-foreground py-5 rounded-[24px] font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:bg-primary/80 transition-all disabled:bg-muted disabled:opacity-50"
                     >
                        {processing ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
-                       Complete & Issue Drugs
+                       {isOrderPaused ? '⏸️ Order Paused for EHR Review' : 'Complete & Issue Drugs'}
                     </Button>
                 </div>
+
+                {isOrderPaused && (
+                  <div className="flex items-start gap-3 p-4 bg-amber-950/90 rounded-2xl border border-amber-600 shadow-md">
+                      <AlertTriangle size={20} className="text-amber-300 shrink-0 mt-0.5" />
+                      <p className="text-[10px] font-bold text-amber-200 leading-relaxed uppercase">
+                         Dispensing Order Paused: Pharmacist has paused order for Doctor EHR Intervention review.
+                      </p>
+                  </div>
+                )}
 
                 {hasControlledNarcotic && !isNarcoticCoSigned && (
                   <div className="flex items-start gap-3 p-4 bg-purple-950/90 rounded-2xl border border-purple-600 shadow-md">
