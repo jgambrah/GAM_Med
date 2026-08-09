@@ -38,16 +38,18 @@ export function VoiceHandsFreeControl({ patientName = 'Patient', onExecuteIntent
           const finalResult = event.results[event.results.length - 1];
           if (finalResult.isFinal) {
             const parsed = parseVoiceCommand(currentTranscript, patientName);
-            setLastResult(parsed);
-            speakVoiceResponse(parsed.feedbackText);
-            
-            toast({
-              title: `🎙️ Voice Command: ${parsed.intent}`,
-              description: parsed.feedbackText
-            });
+            if (parsed.intent !== 'UNKNOWN') {
+              setLastResult(parsed);
+              speakVoiceResponse(parsed.feedbackText);
+              
+              toast({
+                title: `🎙️ Voice Command: ${parsed.intent}`,
+                description: parsed.feedbackText
+              });
 
-            if (onExecuteIntent) {
-              onExecuteIntent(parsed);
+              if (onExecuteIntent) {
+                onExecuteIntent(parsed);
+              }
             }
           }
         };
