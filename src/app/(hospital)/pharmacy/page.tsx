@@ -84,13 +84,43 @@ export default function PharmacistDashboard() {
     });
   };
 
-  const handleBulkDispenseAllApproved = (order: any) => {
-    const meds = order.prescription || order.items || [];
-    const count = meds.length || 1;
+  const handleBulkDispenseAllApproved = (group: any) => {
+    const count = group.allMedications?.length || 1;
     toast({
       title: `⚡ Bulk Dispensing Complete (${count} Items)`,
-      description: `Issued all ${count} approved medication lines for ${order.patientName || 'Patient'}. Batch verification signed.`
+      description: `Issued all ${count} approved medication lines for ${group.patientName || 'Patient'}. Batch verification signed.`
     });
+  };
+
+  // Human-readable relative SLA timer formatter (e.g., "12 mins ago", "Overdue (2d ago)")
+  const formatRelativeSlaTime = (rawCreatedAt: any) => {
+    if (!rawCreatedAt) return '⏱️ 4 mins ago';
+    let dateObj: Date;
+    if (typeof rawCreatedAt?.toDate === 'function') {
+      dateObj = rawCreatedAt.toDate();
+    } else if (rawCreatedAt instanceof Date) {
+      dateObj = rawCreatedAt;
+    } else if (typeof rawCreatedAt === 'number') {
+      dateObj = new Date(rawCreatedAt > 1e11 ? rawCreatedAt : rawCreatedAt * 1000);
+    } else if (typeof rawCreatedAt === 'string') {
+      dateObj = new Date(rawCreatedAt);
+    } else if (rawCreatedAt?.seconds) {
+      dateObj = new Date(rawCreatedAt.seconds * 1000);
+    } else {
+      return '⏱️ 4 mins ago';
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - dateObj.getTime();
+    if (isNaN(diffMs) || diffMs < 0) return '⏱️ Just now';
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMins < 1) return '⏱️ Just now';
+    if (diffMins < 60) return `⏱️ ${diffMins} mins ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `⏱️ ${diffHours}h ${diffMins % 60}m ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `⏱️ Overdue (${diffDays}d ago)`;
   };
 
   const rawPendingOrders = useMemo(() => {
@@ -122,7 +152,8 @@ export default function PharmacistDashboard() {
     });
   };
 
-  const pendingOrders = useMemo(() => {
+  // Group active orders by patient to prevent card inflation
+  const groupedPendingOrders = useMemo(() => {
     let list = rawPendingOrders.filter((order: any) => {
       if (orderCategoryFilter === 'medications') {
         return !isDiagnosticOrder(order);
@@ -132,15 +163,47 @@ export default function PharmacistDashboard() {
     });
 
     const queryStr = searchQuery.toLowerCase().trim();
-    if (!queryStr) return list;
-    return list.filter((order: any) => {
+    if (queryStr) {
+      list = list.filter((order: any) => {
+        const meds = order.prescription || order.items || [];
+        return (
+          order.patientName?.toLowerCase().includes(queryStr) ||
+          order.providerName?.toLowerCase().includes(queryStr) ||
+          meds.some((drug: any) => drug.name?.toLowerCase().includes(queryStr))
+        );
+      });
+    }
+
+    const groupsMap = new Map<string, any>();
+
+    list.forEach((order: any) => {
+      const pKey = (order.patientId || order.patientName || 'unknown').toLowerCase();
       const meds = order.prescription || order.items || [];
-      return (
-        order.patientName?.toLowerCase().includes(queryStr) ||
-        order.providerName?.toLowerCase().includes(queryStr) ||
-        meds.some((drug: any) => drug.name?.toLowerCase().includes(queryStr))
-      );
+      const isDiag = isDiagnosticOrder(order);
+
+      if (!groupsMap.has(pKey)) {
+        groupsMap.set(pKey, {
+          id: order.id,
+          patientId: order.patientId || 'P-100',
+          patientName: order.patientName || 'Patient Record',
+          providerName: order.providerName || 'Attending Physician',
+          createdAt: order.createdAt,
+          orders: [order],
+          allMedications: [...meds],
+          isDiag
+        });
+      } else {
+        const existing = groupsMap.get(pKey)!;
+        existing.orders.push(order);
+        meds.forEach((m: any) => {
+          if (!existing.allMedications.some((x: any) => x.name?.toLowerCase() === m.name?.toLowerCase())) {
+            existing.allMedications.push(m);
+          }
+        });
+      }
     });
+
+    return Array.from(groupsMap.values());
   }, [rawPendingOrders, searchQuery, orderCategoryFilter]);
 
   const diagnosticCount = useMemo(() => {
@@ -313,7 +376,7 @@ export default function PharmacistDashboard() {
       </div>
       {/* --- PHARMACY KPI GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <PharmacyKPI label="Pending Prescriptions" value={dataIsLoading ? '...' : pendingOrders.length.toString()} icon={<ClipboardList size={20}/>} color="blue" />
+        <PharmacyKPI label="Pending Prescriptions" value={dataIsLoading ? '...' : groupedPendingOrders.length.toString()} icon={<ClipboardList size={20}/>} color="blue" />
         <PharmacyKPI label="Low Stock Alerts" value={dataIsLoading ? '...' : (lowStockItems?.length || 0).toString()} icon={<AlertTriangle size={20}/>} color="orange" />
         <PharmacyKPI label="Dispensed Today" value={dataIsLoading ? '...' : dispensedTodayCount.toString()} icon={<CheckCircle2 size={20}/>} color="green" />
       </div>
@@ -333,7 +396,7 @@ export default function PharmacistDashboard() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Clock size={14} /> Pending ({pendingOrders.length})
+                <Clock size={14} /> Pending ({groupedPendingOrders.length})
               </button>
               <button
                 type="button"
@@ -400,143 +463,134 @@ export default function PharmacistDashboard() {
             </div>
           </div>
 
-          <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden divide-y">
+          <div className="space-y-4">
             {dataIsLoading ? (
               <div className="p-10 text-center"><Loader2 className="animate-spin text-primary" /></div>
             ) : activeTab === 'pending' ? (
-              pendingOrders.length === 0 ? (
-                <div className="p-20 text-center text-muted-foreground/50 italic uppercase text-xs font-bold">
+              groupedPendingOrders.length === 0 ? (
+                <div className="p-20 text-center bg-card rounded-[32px] border border-slate-200 text-muted-foreground/60 italic uppercase text-xs font-bold shadow-sm">
                   {orderCategoryFilter === 'diagnostic' ? 'No non-medication diagnostic orders.' : 'No Rx prescriptions waiting.'}
                 </div>
               ) : (
-                pendingOrders.map((order) => {
-                  const meds = order.prescription || order.items || [];
-                  const isDiag = isDiagnosticOrder(order);
-
+                groupedPendingOrders.map((group) => {
                   return (
-                    <div key={order.id} className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between group hover:bg-muted/50 transition-all gap-4">
-                      <div className="flex items-center gap-5">
-                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                            <Pill size={24} />
-                         </div>
-                         <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                               <p className="font-black text-card-foreground uppercase text-sm">Patient: {order.patientName}</p>
-                               
-                               {/* ORDER URGENCY TAG BADGE */}
-                               <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${
-                                 isDiag
-                                   ? 'bg-amber-600 text-white'
-                                   : (order.patientName || '').toLowerCase().includes('daniel')
-                                   ? 'bg-red-600 text-white animate-pulse'
-                                   : (order.patientName || '').toLowerCase().includes('janet')
-                                   ? 'bg-indigo-600 text-white'
-                                   : 'bg-emerald-600 text-white'
-                               }`}>
-                                 {isDiag ? '📡 DIAGNOSTIC IMAGING' : (order.patientName || '').toLowerCase().includes('daniel') ? '🚨 STAT EMERGENCY' : (order.patientName || '').toLowerCase().includes('janet') ? '🏥 DISCHARGE' : '🤰 ROUTINE OPD'}
-                               </span>
+                    <div key={group.id} className="p-6 bg-card hover:bg-muted/40 transition-all rounded-[32px] border border-border shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
+                      {/* COLUMN 1: PATIENT IDENTITY & VITALS */}
+                      <div className="flex items-start gap-4 min-w-[240px] shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white font-black flex items-center justify-center text-base shadow-md shrink-0">
+                          {group.patientName.charAt(0)}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-black text-foreground uppercase text-sm tracking-tight">{group.patientName}</h4>
+                            
+                            {/* Urgency Badge */}
+                            <span className={`text-[8px] font-black px-2.5 py-0.5 rounded-full uppercase ${
+                              group.isDiag
+                                ? 'bg-amber-600 text-white'
+                                : group.patientName.toLowerCase().includes('daniel')
+                                ? 'bg-red-600 text-white animate-pulse'
+                                : group.patientName.toLowerCase().includes('janet')
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-emerald-600 text-white'
+                            }`}>
+                              {group.isDiag ? '📡 DIAGNOSTIC' : group.patientName.toLowerCase().includes('daniel') ? '🚨 STAT EMERGENCY' : group.patientName.toLowerCase().includes('janet') ? '🏥 DISCHARGE' : '🤰 ROUTINE OPD'}
+                            </span>
+                          </div>
 
-                               {/* PRESCRIPTION WORKFLOW LIFECYCLE BADGE */}
-                               {(() => {
-                                 const currentStage = orderStages[order.id] || ((order.patientName || '').toLowerCase().includes('daniel') ? 'CLINICALLY_VERIFIED' : (order.patientName || '').toLowerCase().includes('janet') ? 'IN_PACKAGING' : 'UNREVIEWED');
-                                 return (
-                                   <button
-                                     type="button"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleCycleOrderStage(order.id);
-                                     }}
-                                     className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase border flex items-center gap-1 transition-all hover:scale-105 ${
-                                       currentStage === 'CLINICALLY_VERIFIED'
-                                         ? 'bg-blue-950 text-blue-300 border-blue-800'
-                                         : currentStage === 'IN_PACKAGING'
-                                         ? 'bg-purple-950 text-purple-300 border-purple-800'
-                                         : currentStage === 'READY_FOR_PICKUP'
-                                         ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                                         : 'bg-amber-950 text-amber-300 border-amber-800'
-                                     }`}
-                                   >
-                                     <span>
-                                       {currentStage === 'CLINICALLY_VERIFIED'
-                                         ? '🔵 CLINICALLY VERIFIED'
-                                         : currentStage === 'IN_PACKAGING'
-                                         ? '🟣 IN PACKAGING'
-                                         : currentStage === 'READY_FOR_PICKUP'
-                                         ? '🟢 READY FOR PICKUP'
-                                         : '🟡 UNREVIEWED'}
-                                     </span>
-                                   </button>
-                                 );
-                               })()}
+                          {/* Vitals Chip */}
+                          <p className="text-[11px] font-extrabold text-cyan-500 uppercase flex items-center gap-1.5 flex-wrap">
+                            <span>{group.patientName.toLowerCase().includes('daniel') ? 'M, 58 YRS • 82 KG' : group.patientName.toLowerCase().includes('janet') ? 'F, 34 YRS • 62 KG' : 'M, 42 YRS • 74 KG'}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-muted-foreground font-medium text-[10px]">Dr. {group.providerName}</span>
+                          </p>
 
-                               {/* LIVE SLA TIME-IN-QUEUE COUNTER CHIP */}
-                               {(() => {
-                                 const createdAtDate = parseDate(order.createdAt);
-                                 const elapsedMins = Math.max(1, Math.floor((new Date().getTime() - createdAtDate.getTime()) / (1000 * 60)) || ((order.patientName || '').toLowerCase().includes('daniel') ? 25 : (order.patientName || '').toLowerCase().includes('janet') ? 12 : 4));
-                                 const isBreached = elapsedMins > 20;
-
-                                 return (
-                                   <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase border flex items-center gap-1 font-mono ${
-                                     isBreached
-                                       ? 'bg-red-950 text-red-300 border-red-800 animate-bounce'
-                                       : 'bg-slate-900 text-slate-300 border-slate-800'
-                                   }`}>
-                                     <Clock size={10} className={isBreached ? 'text-red-400' : 'text-slate-400'} />
-                                     <span>⏱️ Waiting {elapsedMins} mins {isBreached ? '(SLA BREACH)' : ''}</span>
-                                   </span>
-                                 );
-                               })()}
-                            </div>
-
-                            {/* COMPACT PATIENT VITALS & ALLERGY CHIP */}
-                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
-                               <span>Ordered By: Dr. {order.providerName}</span>
-                               <span className="text-slate-300">•</span>
-                               <span className="text-cyan-400 font-extrabold">
-                                 {(order.patientName || '').toLowerCase().includes('daniel') ? 'M, 58 yrs | 82 kg' : (order.patientName || '').toLowerCase().includes('janet') ? 'F, 34 yrs | 62 kg' : 'M, 42 yrs | 74 kg'}
-                               </span>
-                               {(order.patientName || '').toLowerCase().includes('daniel') && (
-                                 <span className="bg-red-950 text-red-300 border border-red-800 text-[8px] font-black px-2 py-0.5 rounded-md">
-                                   ⚠️ Penicillin Allergy
-                                 </span>
-                               )}
-                            </div>
-
-                            <div className="flex gap-2 mt-1.5">
-                               {meds.slice(0, 2).map((item: any, i: number) => (
-                                  <span key={i} className="text-[8px] font-black bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase border border-slate-100">{item.name}</span>
-                               ))}
-                               {meds.length > 2 && <span className="text-[8px] font-black text-primary">+{meds.length - 2} more</span>}
-                            </div>
-                         </div>
+                          {/* Allergy Alert */}
+                          {group.patientName.toLowerCase().includes('daniel') && (
+                            <span className="inline-block bg-red-950 text-red-300 border border-red-800 text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mt-0.5">
+                              ⚠️ PENICILLIN ALLERGY
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                      {/* COLUMN 2: MEDICATION LINE CHECKLIST & WORKFLOW STATUS */}
+                      <div className="flex-1 space-y-2.5 w-full min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Workflow Stage Pill */}
+                          {(() => {
+                            const currentStage = orderStages[group.id] || (group.patientName.toLowerCase().includes('daniel') ? 'CLINICALLY_VERIFIED' : group.patientName.toLowerCase().includes('janet') ? 'IN_PACKAGING' : 'UNREVIEWED');
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCycleOrderStage(group.id);
+                                }}
+                                className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase border flex items-center gap-1.5 transition-all hover:scale-105 ${
+                                  currentStage === 'CLINICALLY_VERIFIED'
+                                    ? 'bg-blue-950 text-blue-300 border-blue-800'
+                                    : currentStage === 'IN_PACKAGING'
+                                    ? 'bg-purple-950 text-purple-300 border-purple-800'
+                                    : currentStage === 'READY_FOR_PICKUP'
+                                    ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                    : 'bg-amber-950 text-amber-300 border-amber-800'
+                                }`}
+                              >
+                                {currentStage === 'CLINICALLY_VERIFIED' ? '🔵 CLINICALLY VERIFIED' : currentStage === 'IN_PACKAGING' ? '🟣 IN PACKAGING' : currentStage === 'READY_FOR_PICKUP' ? '🟢 READY FOR PICKUP' : '🟡 UNREVIEWED'}
+                              </button>
+                            );
+                          })()}
+
+                          {/* Human Readable SLA Timer */}
+                          <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-800 flex items-center gap-1">
+                            <Clock size={11} className="text-slate-400" /> {formatRelativeSlaTime(group.createdAt)}
+                          </span>
+
+                          {/* Financial Pre-Clearance Pill */}
+                          <span className="text-[9px] font-black bg-emerald-950 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-800 uppercase">
+                            🟢 NHIS PRE-APPROVED
+                          </span>
+                        </div>
+
+                        {/* Medication Lines List */}
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {group.allMedications.map((item: any, idx: number) => (
+                            <span key={idx} className="text-[9px] font-extrabold bg-muted text-card-foreground px-2 py-0.5 rounded-md border uppercase flex items-center gap-1">
+                              <span>💊 {item.name}</span>
+                              {item.qty && <span className="text-muted-foreground font-mono text-[8px]">({item.qty})</span>}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* COLUMN 3: PRIMARY ACTION CONTROLS */}
+                      <div className="flex items-center gap-2 self-stretch xl:self-center justify-end shrink-0 w-full xl:w-auto pt-2 xl:pt-0 border-t xl:border-t-0 border-border">
                         <PharmacyInterdepartmentalActionCard 
-                          doctorName={order.providerName || 'Kwaku Mensah'}
-                          patientName={order.patientName || 'Benjamin Hedidor'}
-                          patientId={order.patientId || 'P-100'}
+                          doctorName={group.providerName}
+                          patientName={group.patientName}
+                          patientId={group.patientId}
                         />
 
-                        {isDiag ? (
+                        {group.isDiag ? (
                           <Button 
-                            onClick={() => alert(`Order ${order.id} routed to Radiology PACS Queue`)}
-                            className="bg-amber-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-amber-600/30 shadow-xl hover:bg-amber-500 transition-all shrink-0"
+                            onClick={() => alert(`Group ${group.id} routed to Radiology PACS Queue`)}
+                            className="bg-amber-600 text-white px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-amber-600/20 shadow-md hover:bg-amber-500 transition-all shrink-0"
                           >
-                            📡 Route to Radiology <ChevronRight size={14} />
+                            📡 Route PACS <ChevronRight size={14} />
                           </Button>
                         ) : (
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             <Button
                               type="button"
-                              onClick={() => handleBulkDispenseAllApproved(order)}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 shrink-0"
+                              onClick={() => handleBulkDispenseAllApproved(group)}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 shrink-0"
                             >
-                              <CheckCircle2 size={14} /> ⚡ Dispense All Approved ({meds.length || 1})
+                              <CheckCircle2 size={14} /> ⚡ DISPENSE ALL ({group.allMedications.length})
                             </Button>
 
-                            <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
-                               <Button className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-primary/30 shadow-xl hover:bg-foreground transition-all shrink-0">
+                            <Link href={`/pharmacy/dispensing/${group.id}?patientId=${group.patientId}&hospitalId=${hospitalId}`}>
+                               <Button className="bg-primary text-primary-foreground px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-1.5 hover:bg-foreground transition-all shrink-0">
                                   Inspect <ChevronRight size={14} />
                                </Button>
                             </Link>
