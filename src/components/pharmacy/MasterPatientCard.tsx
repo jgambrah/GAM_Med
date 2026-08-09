@@ -6,23 +6,70 @@ import { Button } from '@/components/ui/button';
 import { MedicationRow } from '@/components/pharmacy/MedicationRow';
 import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
 import { PharmacyAdvancedClinicalSafetySuiteCard } from '@/components/pharmacy/PharmacyAdvancedClinicalSafetySuiteCard';
+import { useToast } from '@/hooks/use-toast';
+import { executeAtomicBatchDispenseTransaction } from '@/ai/flows/ai-pharmacy-atomic-dispense-transaction-engine';
+import { useFirestore, useUser } from '@/firebase';
 
 interface MasterPatientCardProps {
   group: any;
   hospitalId?: string;
-  onBulkDispense: (group: any) => void;
+  onBulkDispense?: (group: any) => void;
   formatRelativeSlaTime: (createdAt: any) => string;
 }
 
 export function MasterPatientCard({
   group,
-  hospitalId,
+  hospitalId = 'HOSP-CURRENT',
   onBulkDispense,
   formatRelativeSlaTime
 }: MasterPatientCardProps) {
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const [isDispensingTx, setIsDispensingTx] = useState(false);
+
   const [currentStage, setCurrentStage] = useState<'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP'>(
     group.patientName?.toLowerCase().includes('daniel') ? 'CLINICALLY_VERIFIED' : group.patientName?.toLowerCase().includes('janet') ? 'IN_PACKAGING' : 'UNREVIEWED'
   );
+
+  const meds = group.allMedications || group.medications || [];
+
+  const handleExecuteAcidBatchDispense = async () => {
+    setIsDispensingTx(true);
+
+    const payload = {
+      encounterId: group.id || group.encounterId || 'ENC-8812',
+      hospitalId,
+      pharmacistId: user?.uid || 'PHARM-8801',
+      pharmacistName: user?.displayName || 'Senior Pharmacist',
+      itemsToDispense: meds.map((m: any, idx: number) => ({
+        prescriptionId: m.id || `RX-${idx + 1}`,
+        drugId: `DRUG-${(m.name || 'item').toLowerCase().replace(/\s+/g, '-')}`,
+        drugName: m.name || 'Medication Line',
+        dispenseQty: m.qty || m.quantity || 1,
+        coPayAmount: 0,
+      })),
+    };
+
+    const res = await executeAtomicBatchDispenseTransaction(firestore, payload);
+
+    setIsDispensingTx(false);
+
+    if (res.success) {
+      setCurrentStage('READY_FOR_PICKUP');
+      toast({
+        title: '⚡ ACID ATOMIC BATCH DISPENSE COMPLETE',
+        description: `All ${meds.length} Items Finalized & Ledger Postings Signed. (${res.message})`,
+      });
+      if (onBulkDispense) onBulkDispense(group);
+    } else {
+      toast({
+        variant: 'destructive',
+        title: '🚨 TRANSACTION ROLLED BACK',
+        description: `${res.message || 'Insufficient stock for requested medication.'} 0 items deducted, financial ledger untouched.`,
+      });
+    }
+  };
 
   const handleCycleStage = () => {
     if (currentStage === 'UNREVIEWED') setCurrentStage('CLINICALLY_VERIFIED');
@@ -31,7 +78,6 @@ export function MasterPatientCard({
     else setCurrentStage('UNREVIEWED');
   };
 
-  const meds = group.allMedications || group.medications || [];
   const triage = group.triageLevel || (group.patientName?.toLowerCase().includes('daniel') ? 'STAT' : 'ROUTINE');
   const age = group.patientAge || (group.patientName?.toLowerCase().includes('daniel') ? 58 : 42);
   const weight = group.patientWeight || (group.patientName?.toLowerCase().includes('daniel') ? 82 : 74);
@@ -122,10 +168,11 @@ export function MasterPatientCard({
 
             <Button
               type="button"
-              onClick={() => onBulkDispense(group)}
+              disabled={isDispensingTx}
+              onClick={handleExecuteAcidBatchDispense}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
             >
-              <CheckCircle2 size={16} /> ⚡ DISPENSE ALL ({meds.length})
+              <CheckCircle2 size={16} /> {isDispensingTx ? 'EXECUTING ACID TX...' : `⚡ DISPENSE ALL (${meds.length})`}
             </Button>
 
             <Link href={`/pharmacy/dispensing/${group.id || group.encounterId}?patientId=${group.patientId}&hospitalId=${hospitalId}`} className="block w-full">
