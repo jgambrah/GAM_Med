@@ -15,6 +15,11 @@ import { PharmacySafetyQueueInspectorCard } from '@/components/pharmacy/Pharmacy
 import { PharmacyPriorityTriageCard } from '@/components/pharmacy/PharmacyPriorityTriageCard';
 import { PharmacyStockTelemetryPulseCard } from '@/components/pharmacy/PharmacyStockTelemetryPulseCard';
 import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
+import { PharmacyMultiBranchInventoryTransferCard } from '@/components/pharmacy/PharmacyMultiBranchInventoryTransferCard';
+import { PharmacyDemandForecastingCard } from '@/components/pharmacy/PharmacyDemandForecastingCard';
+import { PharmacyFinancialReconciliationCard } from '@/components/pharmacy/PharmacyFinancialReconciliationCard';
+import { PharmacyAdvancedClinicalSafetySuiteCard } from '@/components/pharmacy/PharmacyAdvancedClinicalSafetySuiteCard';
+import { postPharmacyDispensingJournalEntry } from '@/ai/flows/ai-pharmacy-financial-reconciliation-engine';
 
 import { useToast } from '@/hooks/use-toast';
 
@@ -86,9 +91,20 @@ export default function PharmacistDashboard() {
 
   const handleBulkDispenseAllApproved = (group: any) => {
     const count = group.allMedications?.length || 1;
+
+    // Trigger automated double-entry journal postings in the central financial ledger
+    const journalEntries = postPharmacyDispensingJournalEntry(
+      hospitalId || 'HOSP-CURRENT',
+      group.id,
+      group.patientName,
+      count * 25.0, // Estimated batch value
+      0,
+      'National Health Insurance Scheme (NHIS)'
+    );
+
     toast({
-      title: `⚡ Bulk Dispensing Complete (${count} Items)`,
-      description: `Issued all ${count} approved medication lines for ${group.patientName || 'Patient'}. Batch verification signed.`
+      title: `⚡ Bulk Dispense Complete & Financial Ledger Auto-Synced`,
+      description: `Fulfilling ${count} lines for ${group.patientName}. Posted ${journalEntries.length} double-entry journals to Central Finance Ledger.`
     });
   };
 
@@ -544,19 +560,14 @@ export default function PharmacistDashboard() {
                       <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
                         {/* LEFT SIDE: CONSOLIDATED PRESCRIPTIONS NESTED LIST TABLE */}
                         <div className="space-y-3 min-w-0">
-                          {/* HIGH-CONTRAST ALLERGY SAFETY CONTAINER */}
+                          {/* HIGH-CONTRAST ALLERGY & ADVANCED CLINICAL SAFETY SUITE */}
                           {group.patientName.toLowerCase().includes('daniel') && (
-                            <div className="bg-red-950/90 text-red-200 border-2 border-red-600 p-3 rounded-2xl flex items-center justify-between shadow-md">
-                              <div className="flex items-center gap-2">
-                                <AlertTriangle className="text-red-400 h-4 w-4 shrink-0 animate-pulse" />
-                                <span className="text-[11px] font-black uppercase tracking-wider text-red-200">
-                                  CRITICAL SAFETY WARNING: SEVERE PENICILLIN ALLERGY FLAGGED
-                                </span>
-                              </div>
-                              <span className="text-[9px] font-mono font-extrabold bg-red-900 text-red-100 px-2 py-0.5 rounded border border-red-700 shrink-0">
-                                VERIFY 5-RIGHTS
-                              </span>
-                            </div>
+                            <PharmacyAdvancedClinicalSafetySuiteCard 
+                              patientName={group.patientName}
+                              drugList={group.allMedications.map((m: any) => m.name || 'Drug Item')}
+                              ageYears={58}
+                              weightKg={82}
+                            />
                           )}
 
                           <div className="flex items-center justify-between">
@@ -691,6 +702,15 @@ export default function PharmacistDashboard() {
            <h3 className="font-black text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2 px-2">
               <TrendingUp size={16} className="text-orange-500" /> Stock Pulse
            </h3>
+
+           {/* AUTOMATED FINANCIAL RECONCILIATION & DOUBLE-ENTRY LEDGER SYNC */}
+           <PharmacyFinancialReconciliationCard />
+
+           {/* AI-DRIVEN DEMAND FORECASTING & AUTO PURCHASE ORDER ENGINE */}
+           <PharmacyDemandForecastingCard />
+
+           {/* MULTI-TENANT INVENTORY SYNC & SISTER BRANCH STOCK TRANSFER CARD */}
+           <PharmacyMultiBranchInventoryTransferCard />
 
            {/* ADVANCED INVENTORY, COLD-CHAIN & NARCOTIC TELEMETRY CARD */}
            <PharmacyStockTelemetryPulseCard />
