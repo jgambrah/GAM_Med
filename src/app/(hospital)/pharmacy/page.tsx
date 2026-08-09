@@ -544,16 +544,25 @@ export default function PharmacistDashboard() {
                       <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
                         {/* LEFT SIDE: CONSOLIDATED PRESCRIPTIONS NESTED LIST TABLE */}
                         <div className="space-y-3 min-w-0">
+                          {/* HIGH-CONTRAST ALLERGY SAFETY CONTAINER */}
+                          {group.patientName.toLowerCase().includes('daniel') && (
+                            <div className="bg-red-950/90 text-red-200 border-2 border-red-600 p-3 rounded-2xl flex items-center justify-between shadow-md">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="text-red-400 h-4 w-4 shrink-0 animate-pulse" />
+                                <span className="text-[11px] font-black uppercase tracking-wider text-red-200">
+                                  CRITICAL SAFETY WARNING: SEVERE PENICILLIN ALLERGY FLAGGED
+                                </span>
+                              </div>
+                              <span className="text-[9px] font-mono font-extrabold bg-red-900 text-red-100 px-2 py-0.5 rounded border border-red-700 shrink-0">
+                                VERIFY 5-RIGHTS
+                              </span>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between">
                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                               Prescribed Medications ({group.allMedications.length} Lines)
                             </p>
-
-                            {group.patientName.toLowerCase().includes('daniel') && (
-                              <span className="bg-red-100 text-red-700 border border-red-200 text-[9px] font-black px-2.5 py-0.5 rounded-md uppercase tracking-wider">
-                                ⚠️ PENICILLIN ALLERGY
-                              </span>
-                            )}
                           </div>
 
                           {/* NESTED LIST TABLE FOR ALL DRUGS */}
@@ -623,7 +632,7 @@ export default function PharmacistDashboard() {
                                 </Button>
 
                                 <Link href={`/pharmacy/dispensing/${group.id}?patientId=${group.patientId}&hospitalId=${hospitalId}`} className="w-full">
-                                   <Button variant="outline" className="w-full bg-background hover:bg-muted text-foreground border border-input font-black text-[10px] uppercase rounded-xl py-2.5 flex items-center justify-center gap-1.5">
+                                   <Button variant="outline" className="w-full bg-slate-900/40 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/80 font-black text-[10px] uppercase rounded-xl py-2.5 flex items-center justify-center gap-1.5 transition-all">
                                       Inspect <ChevronRight size={14} />
                                    </Button>
                                 </Link>
