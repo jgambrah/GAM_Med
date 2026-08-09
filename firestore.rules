@@ -182,6 +182,14 @@ service cloud.firestore {
                    || (isSignedIn() && get(/databases/$(database)/documents/patient_consents/$(resource.data.ghanaCardId)).data.consentedHospitals[getCallingUserHospitalId()] != null);
     }
 
+    match /{path=**}/e_consults/{consultId} {
+      allow read, write, list, create, update, delete: if isSignedIn();
+    }
+
+    match /{path=**}/nurse_tasks/{taskId} {
+      allow read, write, list, create, update, delete: if isSignedIn();
+    }
+
 
 
 
@@ -616,11 +624,11 @@ service cloud.firestore {
            allow read, write, list, create, update, delete: if isSignedIn();
         }
 
-        match /e_consults/{document=**} {
+        match /e_consults/{consultId} {
            allow read, write, list, create, update, delete: if isSignedIn();
         }
 
-        match /nurse_tasks/{document=**} {
+        match /nurse_tasks/{taskId} {
            allow read, write, list, create, update, delete: if isSignedIn();
         }
       }
