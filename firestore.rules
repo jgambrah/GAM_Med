@@ -643,8 +643,15 @@ service cloud.firestore {
       }
 
       match /pharmacy_inventory/{itemId} {
-        allow get, create, delete, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow update: if isSuperAdmin() || isSupplyChainStaff(hospitalId) || isClinicalStaff(hospitalId);
+        allow read, write, get, create, update, delete, list: if isSignedIn();
+      }
+
+      match /financial_journals/{journalId} {
+        allow read, write, create, update, list: if isSignedIn();
+      }
+
+      match /pharmacy_audit_logs/{auditId} {
+        allow read, write, create, list: if isSignedIn();
       }
 
       match /inventory_movements/{movementId} {

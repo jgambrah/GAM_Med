@@ -210,20 +210,7 @@ export async function executeAtomicBatchDispenseTransaction(
 
     return result;
   } catch (err: any) {
-    const errorMsg = (err.message || '').toLowerCase();
-
-    // Graceful permission fallback if Firestore security rules block subcollection writes
-    if (errorMsg.includes('permission') || errorMsg.includes('denied')) {
-      return {
-        success: true,
-        transactionId,
-        message: `⚡ BATCH DISPENSE COMPLETED LOCALLY: ${payload.itemsToDispense.length} items marked DISPENSED. Security rules active.`,
-        itemsProcessedCount: payload.itemsToDispense.length,
-        financialJournalPosted: true,
-      };
-    }
-
-    // Automatic Firestore ACID Rollback occurred for stock deficit
+    // Automatic Firestore ACID Rollback occurred
     return {
       success: false,
       message: `🚨 TRANSACTION ROLLED BACK: ${err.message}`,
