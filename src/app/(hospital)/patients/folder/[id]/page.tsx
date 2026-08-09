@@ -39,6 +39,9 @@ import { VoiceHandsFreeControl } from '@/components/clinical/VoiceHandsFreeContr
 import { Anatomical3DMappingCard } from '@/components/clinical/Anatomical3DMappingCard';
 import { AmbientScribeCard } from '@/components/clinical/AmbientScribeCard';
 import { ClinicalOrdersCard } from '@/components/clinical/ClinicalOrdersCard';
+import { MultidisciplinaryCollabCard } from '@/components/clinical/MultidisciplinaryCollabCard';
+import { GrowthAndBiomarkerTrendsCard } from '@/components/clinical/GrowthAndBiomarkerTrendsCard';
+import { DoctorProductivityInboxCard } from '@/components/clinical/DoctorProductivityInboxCard';
 import { DictatedNotesCard } from '@/components/clinical/DictatedNotesCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
@@ -630,9 +633,9 @@ export default function PatientFolderHub() {
               <span className="bg-slate-900/90 text-indigo-300 border border-indigo-500/40 px-3.5 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-wrap items-center gap-2 shadow-inner">
                 <span className="flex items-center gap-1 text-emerald-400 font-extrabold">
                   <Zap size={12} className="animate-pulse text-yellow-400" />
-                  ⚡ 7 AI Clinical Grid Engines Synced:
+                  ⚡ 10 AI Clinical Grid Engines Synced:
                 </span>
-                <span className="text-slate-300 font-bold">RPM • PGx • Telemetry • Voice • 3D Map • ACI Scribe • e-Rx Safety Checker Active</span>
+                <span className="text-slate-300 font-bold">RPM • PGx • Telemetry • Voice • 3D Map • ACI Scribe • e-Rx • E-Consult & Nurse • Trends • Command Inbox & SmartPhrases</span>
               </span>
             </div>
           </div>
@@ -858,6 +861,31 @@ export default function PatientFolderHub() {
               hospitalId={hospitalId}
               patientName={`${patient?.firstName} ${patient?.lastName}`}
               allergies={patient?.allergies || 'NKDA'}
+            />
+          )}
+
+          {/* ASYNCHRONOUS MULTI-DISCIPLINARY COLLABORATION HUB */}
+          {patient && (
+            <MultidisciplinaryCollabCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+            />
+          )}
+
+          {/* DIAGNOSTIC & TREND VISUALIZERS */}
+          {patient && (
+            <GrowthAndBiomarkerTrendsCard 
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+              isMaternity={!!patient?.isMaternity}
+              isPediatric={isChildUnder5}
+            />
+          )}
+
+          {/* UNIFIED CLINICAL INBOX & DOCTOR COMMAND CENTER */}
+          {patient && (
+            <DoctorProductivityInboxCard 
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
             />
           )}
 
