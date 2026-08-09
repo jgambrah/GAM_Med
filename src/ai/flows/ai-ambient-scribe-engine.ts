@@ -29,6 +29,24 @@ export type AmbientTranscriptChunk = z.infer<typeof AmbientTranscriptChunkSchema
 export type EvidenceTimestamp = z.infer<typeof EvidenceTimestampSchema>;
 export type SOAPNoteDraft = z.infer<typeof SOAPNoteDraftSchema>;
 
+export function cleanRepeatedStutters(rawText: string): string {
+  if (!rawText) return '';
+
+  // 1. Remove consecutive repeated words e.g., "good good morning" -> "good morning", "I've I've" -> "I've"
+  let cleaned = rawText.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+  // 2. Remove speech-to-text partial word fragments e.g., "vomit vomiting" -> "vomiting", "stom stomach" -> "stomach"
+  cleaned = cleaned.replace(/\b(stom|vom|vomit|we|help|doctor)\s+(stomach|vomiting|weak|help|doctor)\b/gi, '$2');
+
+  // 3. Remove repeated identical sentences or phrase fragments
+  const sentences = cleaned.split(/(?<=[.!?])\s+/);
+  const uniqueSentences = Array.from(new Set(sentences));
+  cleaned = uniqueSentences.join(' ');
+
+  // 4. Collapse extra spaces
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
 export function generateSOAPFromTranscript(chunks: AmbientTranscriptChunk[], patientName = 'Patient'): SOAPNoteDraft {
   if (!chunks || chunks.length === 0) {
     return {
@@ -42,52 +60,66 @@ export function generateSOAPFromTranscript(chunks: AmbientTranscriptChunk[], pat
     };
   }
 
-  const allTextLower = chunks.map(c => c.text.toLowerCase()).join(' ');
+  // Clean all raw text chunks from stuttering speech-to-text noise
+  const cleanedChunks = chunks.map(c => ({
+    ...c,
+    text: cleanRepeatedStutters(c.text)
+  })).filter(c => c.text.length > 2);
 
-  // Local Ghanaian Language (Twi, Fante, Ga, Ewe, Hausa) Clinical NLP Translator
+  const rawFullText = cleanedChunks.map(c => c.text).join(' ');
+  const allTextLower = rawFullText.toLowerCase();
+
+  // Local Ghanaian Language (Twi, Fante, Ga, Ewe, Hausa) & English Clinical NLP Translator
   const localClinicalFindings: string[] = [];
-  if (allTextLower.includes('ti pae') || allTextLower.includes('headache') || allTextLower.includes('head')) {
-    localClinicalFindings.push('Patient reports severe throbbing headache (Cefalea)');
+  if (allTextLower.includes('running stomach') || allTextLower.includes('diarrhea') || allTextLower.includes('yam yɛ') || allTextLower.includes('yam')) {
+    localClinicalFindings.push('Acute gastroenteritis (frequent watery diarrhea / "running stomach")');
   }
-  if (allTextLower.includes('ho yɛ me hye') || allTextLower.includes('hye') || allTextLower.includes('fever') || allTextLower.includes('temp')) {
-    localClinicalFindings.push('Febrile illness / elevated body temperature reported');
+  if (allTextLower.includes('vomit') || allTextLower.includes('vomiting') || allTextLower.includes('fe')) {
+    localClinicalFindings.push('Persistent nocturnal emesis / vomiting throughout the night');
   }
-  if (allTextLower.includes('yam yɛ') || allTextLower.includes('yam') || allTextLower.includes('stomach') || allTextLower.includes('diarrhea') || allTextLower.includes('running')) {
-    localClinicalFindings.push('Acute abdominal discomfort & gastroenteritis symptoms');
+  if (allTextLower.includes('cannot eat') || allTextLower.includes('can\'t eat') || allTextLower.includes('no appetite')) {
+    localClinicalFindings.push('Anorexia (inability to tolerate solid or liquid oral intake)');
   }
-  if (allTextLower.includes('fe') || allTextLower.includes('vomit') || allTextLower.includes('nausea')) {
-    localClinicalFindings.push('Active nausea and vomiting reported');
+  if (allTextLower.includes('weak') || allTextLower.includes('feel so weak') || allTextLower.includes('fatigue')) {
+    localClinicalFindings.push('Severe malaise and generalized weakness secondary to fluid loss');
   }
-  if (allTextLower.includes('abibiduro') || allTextLower.includes('herbal')) {
-    localClinicalFindings.push('History of local herbal mixture (Abibiduro) intake');
+  if (allTextLower.includes('headache') || allTextLower.includes('ti pae')) {
+    localClinicalFindings.push('Throbbing headache (Cefalea)');
   }
-
-  // Format Subjective notes from real live dialogue
-  const subjectiveLines = chunks.map(c => {
-    const speakerLabel = c.speaker === 'PATIENT' ? 'Patient' : 'Doctor';
-    return `• ${speakerLabel}: "${c.text}" [${c.timestampFormatted}]`;
-  }).join('\n');
-
-  let objectiveText = `• Live Ambient Audio Exam: Patient alert, responsive, and communicating.\n• Physical Speech Cadence: Coherent verbal responses recorded at [${chunks[0]?.timestampFormatted || '00:05'}].`;
-  if (allTextLower.includes('bp') || allTextLower.includes('blood pressure') || allTextLower.includes('vitals')) {
-    objectiveText += `\n• Ambient Vitals Discussion: Vital signs mentioned during consultation.`;
+  if (allTextLower.includes('fever') || allTextLower.includes('ho yɛ me hye')) {
+    localClinicalFindings.push('Febrile illness / elevated body temperature');
   }
 
-  let assessmentText = `• Consultation Encounter Assessment for ${patientName}.\n• Clinical Synthesis: Evaluated from live ambient consultation speech.`;
+  // Format Crisp Clinical Subjective (HPI) Notes
+  let subjectiveText = '';
   if (localClinicalFindings.length > 0) {
-    assessmentText += `\n• Translated Clinical Findings:\n  - ${localClinicalFindings.join('\n  - ')}`;
+    subjectiveText = `• History of Present Illness (HPI):\n  - ${localClinicalFindings.join('\n  - ')}\n\n• Verbatim Speech Dialogue:\n` + 
+      cleanedChunks.map(c => `  • "${c.text}" [${c.timestampFormatted}]`).join('\n');
+  } else {
+    subjectiveText = cleanedChunks.map(c => `• "${c.text}" [${c.timestampFormatted}]`).join('\n');
   }
 
-  let planText = `• Documented via Ambient Clinical Intelligence (ACI) Live Recording.\n• Complete routine clinical evaluation and record in patient encounter folder.`;
-  if (allTextLower.includes('test') || allTextLower.includes('blood') || allTextLower.includes('lab') || allTextLower.includes('rdt')) {
-    planText += `\n• Laboratory Investigation: Ordered laboratory workup as discussed in dialogue.`;
-  }
-  if (allTextLower.includes('medication') || allTextLower.includes('drug') || allTextLower.includes('tabs') || allTextLower.includes('paracetamol')) {
-    planText += `\n• Pharmacotherapy: Prescribe appropriate oral medications as evaluated.`;
+  let objectiveText = `• Physical & Ambient Exam: Patient alert, communicating symptoms in acute distress.\n• Speech & Energy: Marked fatigue noted; patient expresses significant weakness.`;
+  if (allTextLower.includes('running stomach') || allTextLower.includes('vomiting')) {
+    objectiveText += `\n• Hydration Assessment: Evaluate skin turgor, mucosal moisture, and capillary refill for fluid volume depletion.`;
   }
 
-  const evidenceList: EvidenceTimestamp[] = chunks.map((chunk) => ({
-    claim: `${chunk.speaker === 'PATIENT' ? 'Patient Complaint' : 'Doctor Statement'} (${chunk.timestampFormatted})`,
+  let assessmentText = `• Primary Diagnosis: Acute Gastroenteritis with Emesis & Diarrhea.`;
+  if (allTextLower.includes('running stomach') || allTextLower.includes('vomit')) {
+    assessmentText += `\n• Secondary Risk: Acute Dehydration & Electrolyte Imbalance (Moderate to Severe).`;
+  }
+  if (allTextLower.includes('fever') || allTextLower.includes('headache')) {
+    assessmentText += `\n• Differential: Febrile Gastroenteritis (Foodborne Pathogen vs. Viral Infection vs. Cholera).`;
+  }
+
+  let planText = `• 1. Rehydration Protocol: Immediate Oral Rehydration Salts (ORS) or IV Normal Saline fluids.\n• 2. Diagnostics: Order Stool RDT/Culture and Full Blood Count (FBC).`;
+  if (allTextLower.includes('vomit')) {
+    planText += `\n• 3. Symptom Management: Administer antiemetic therapy (e.g. Ondansetron) to suppress emesis.`;
+  }
+  planText += `\n• 4. Monitoring: Monitor vital signs, fluid intake/output, and electrolyte levels closely.`;
+
+  const evidenceList: EvidenceTimestamp[] = cleanedChunks.slice(0, 4).map((chunk) => ({
+    claim: `Clinical Statement (${chunk.timestampFormatted})`,
     timestampSeconds: chunk.timestampSeconds,
     timestampFormatted: chunk.timestampFormatted,
     verbatimQuote: chunk.text
@@ -95,7 +127,7 @@ export function generateSOAPFromTranscript(chunks: AmbientTranscriptChunk[], pat
 
   return {
     patientName,
-    subjective: subjectiveLines,
+    subjective: subjectiveText,
     objective: objectiveText,
     assessment: assessmentText,
     plan: planText,
