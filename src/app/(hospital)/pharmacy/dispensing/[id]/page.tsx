@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { PharmacyVerificationSuiteCard } from '@/components/pharmacy/PharmacyVerificationSuiteCard';
+import { SmartDispensingInventoryCard } from '@/components/pharmacy/SmartDispensingInventoryCard';
+import { PharmacyInterventionAndCompoundingCard } from '@/components/pharmacy/PharmacyInterventionAndCompoundingCard';
+import { PatientEducationAndRefillCard } from '@/components/pharmacy/PatientEducationAndRefillCard';
 
 const parseDate = (createdAt: any): Date => {
   if (!createdAt) return new Date();
@@ -32,8 +35,9 @@ export default function DispensingPage() {
 
   const [processing, setProcessing] = useState(false);
   const [isBcmaVerified, setIsBcmaVerified] = useState(false);
+  const [isNarcoticCoSigned, setIsNarcoticCoSigned] = useState(false);
   const [dispenseQuantities, setDispenseQuantities] = useState<Record<number, number>>({});
-  
+
   const patientId = searchParams.get('patientId');
   const hospitalId = searchParams.get('hospitalId');
 
@@ -43,7 +47,7 @@ export default function DispensingPage() {
   }, [firestore, hospitalId, patientId, encounterId]);
 
   const { data: order, isLoading: isOrderLoading } = useDoc(encounterRef);
-  
+
   const inventoryQuery = useMemoFirebase(() => {
       if(!firestore || !hospitalId) return null;
       return query(collection(firestore, `hospitals/${hospitalId}/pharmacy_inventory`));
@@ -59,6 +63,13 @@ export default function DispensingPage() {
   const prescriptionItems = useMemo(() => {
     return order?.prescription || order?.items || [];
   }, [order]);
+
+  const hasControlledNarcotic = useMemo(() => {
+    return (prescriptionItems || []).some((rx: any) => {
+      const name = (rx.name || rx.drugName || '').toLowerCase();
+      return name.includes('morphine') || name.includes('fentanyl') || name.includes('pethidine') || name.includes('diazepam');
+    });
+  }, [prescriptionItems]);
 
   useEffect(() => {
     if (prescriptionItems.length > 0) {
@@ -164,6 +175,28 @@ export default function DispensingPage() {
           onVerificationComplete={(passed) => setIsBcmaVerified(passed)}
         />
 
+        {/* SMART DISPENSING & INVENTORY MANAGEMENT HUB */}
+        <SmartDispensingInventoryCard 
+          drugName={prescriptionItems[0]?.name || 'Amoxicillin 500mg'}
+          patientName={order?.patientName || 'Patient'}
+          primaryPharmacistName={user?.displayName || 'Pharmacist'}
+          isControlledSubstance={hasControlledNarcotic}
+          onCoSignSuccess={() => setIsNarcoticCoSigned(true)}
+        />
+
+        {/* SEAMLESS DOCTOR-PHARMACY COMMUNICATION & IV COMPOUNDING HUB */}
+        <PharmacyInterventionAndCompoundingCard 
+          patientName={order?.patientName || 'Patient'}
+          patientId={patientId || 'P-100'}
+          prescribingDoctorName={order?.providerName || 'Dr. Kwaku Mensah'}
+        />
+
+        {/* PATIENT ENGAGEMENT & OUTPATIENT FULFILLMENT HUB */}
+        <PatientEducationAndRefillCard 
+          patientName={order?.patientName || 'Benjamin Hedidor'}
+          drugName={prescriptionItems[0]?.name || 'Amoxicillin 500mg'}
+        />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* LEFT: PRESCRIPTION ITEMS */}
           <div className="lg:col-span-2 space-y-6">
@@ -251,7 +284,7 @@ export default function DispensingPage() {
                    </Button>
 
                     <Button 
-                      disabled={processing || hasInsufficientStock || !isBcmaVerified}
+                      disabled={processing || hasInsufficientStock || !isBcmaVerified || (hasControlledNarcotic && !isNarcoticCoSigned)}
                       onClick={handleFinalizeDispensing}
                       className="w-full bg-primary text-primary-foreground py-5 rounded-[24px] font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:bg-primary/80 transition-all disabled:bg-muted disabled:opacity-50"
                     >
@@ -259,6 +292,15 @@ export default function DispensingPage() {
                        Complete & Issue Drugs
                     </Button>
                 </div>
+
+                {hasControlledNarcotic && !isNarcoticCoSigned && (
+                  <div className="flex items-start gap-3 p-4 bg-purple-950/90 rounded-2xl border border-purple-600 shadow-md">
+                      <AlertTriangle size={20} className="text-purple-300 shrink-0 mt-0.5" />
+                      <p className="text-[10px] font-bold text-purple-200 leading-relaxed uppercase">
+                         Dual-Pharmacist Narcotic Co-Sign Required: Controlled substance detected in prescription. Co-sign required in vault above.
+                      </p>
+                  </div>
+                )}
 
                 {!isBcmaVerified && (
                   <div className="flex items-start gap-3 p-4 bg-cyan-950/80 rounded-2xl border border-cyan-700 shadow-md">
