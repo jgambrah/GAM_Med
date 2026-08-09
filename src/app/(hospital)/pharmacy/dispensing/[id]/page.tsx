@@ -31,6 +31,7 @@ export default function DispensingPage() {
   const { toast } = useToast();
 
   const [processing, setProcessing] = useState(false);
+  const [isBcmaVerified, setIsBcmaVerified] = useState(false);
   const [dispenseQuantities, setDispenseQuantities] = useState<Record<number, number>>({});
   
   const patientId = searchParams.get('patientId');
@@ -160,6 +161,7 @@ export default function DispensingPage() {
           patientName={order?.patientName || 'Patient'}
           patientId={patientId || 'P-100'}
           allergies="Penicillin, Sulfa"
+          onVerificationComplete={(passed) => setIsBcmaVerified(passed)}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -249,7 +251,7 @@ export default function DispensingPage() {
                    </Button>
 
                     <Button 
-                      disabled={processing || hasInsufficientStock}
+                      disabled={processing || hasInsufficientStock || !isBcmaVerified}
                       onClick={handleFinalizeDispensing}
                       className="w-full bg-primary text-primary-foreground py-5 rounded-[24px] font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:bg-primary/80 transition-all disabled:bg-muted disabled:opacity-50"
                     >
@@ -257,6 +259,15 @@ export default function DispensingPage() {
                        Complete & Issue Drugs
                     </Button>
                 </div>
+
+                {!isBcmaVerified && (
+                  <div className="flex items-start gap-3 p-4 bg-cyan-950/80 rounded-2xl border border-cyan-700 shadow-md">
+                      <AlertTriangle size={20} className="text-cyan-400 shrink-0 mt-0.5" />
+                      <p className="text-[10px] font-bold text-cyan-200 leading-relaxed uppercase">
+                         BCMA 5-Rights Barcode Scan Required: Please scan Patient Wristband and Drug Package NDC above to enable dispensing.
+                      </p>
+                  </div>
+                )}
 
                 {hasInsufficientStock && (
                   <div className="flex items-start gap-3 p-4 bg-red-50 rounded-2xl border border-red-100">

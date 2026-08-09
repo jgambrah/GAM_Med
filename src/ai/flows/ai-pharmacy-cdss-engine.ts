@@ -110,6 +110,8 @@ export function checkPharmacyCDSS(
         recommendation: 'Check trough levels prior to 3rd dose.'
       });
     }
+  }
+
   if (allergiesLower.includes('nsaid') || allergiesLower.includes('aspirin') || allergiesLower.includes('ibuprofen')) {
     if (drugLower.includes('aspirin') || drugLower.includes('ibuprofen') || drugLower.includes('diclofenac') || drugLower.includes('ketorolac')) {
       alerts.push({
