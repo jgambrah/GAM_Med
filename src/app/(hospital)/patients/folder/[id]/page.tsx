@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Activity, Thermometer, Pill, Beaker, Dna,
   History, Plus, Clipboard, User, Loader2, Layers, FileText, Bed, Scissors, Package, Baby, Skull, Eye, FileSignature, Globe, ShieldAlert, AlertCircle, ClipboardList, CreditCard, BrainCircuit, Camera, Download,
-  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe, Zap, HeartPulse, Stethoscope
+  Award, Sparkles, Droplets, Printer, Check, ShieldCheck, QrCode, Syringe, Zap, HeartPulse, Stethoscope, Mic
 } from 'lucide-react';
 import { NewEncounterDialog } from '@/components/clinical/NewEncounterDialog';
 import { CwcEncounterDialog } from '@/components/clinical/CwcEncounterDialog';
@@ -37,6 +37,7 @@ import { MaternalWearableRPMCard } from '@/components/clinical/MaternalWearableR
 import { EnterpriseCapacityFederatedCard } from '@/components/clinical/EnterpriseCapacityFederatedCard';
 import { VoiceHandsFreeControl } from '@/components/clinical/VoiceHandsFreeControl';
 import { Anatomical3DMappingCard } from '@/components/clinical/Anatomical3DMappingCard';
+import { AmbientScribeCard } from '@/components/clinical/AmbientScribeCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -638,6 +639,10 @@ export default function PatientFolderHub() {
                 <Sparkles size={10} className="text-fuchsia-400" />
                 🧍 3D Anatomical Map Active
               </span>
+              <span className="bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Mic size={10} className="text-emerald-400 animate-pulse" />
+                🎙️ Ambient ACI Scribe Ready
+              </span>
             </div>
           </div>
         </div>
@@ -777,6 +782,13 @@ export default function PatientFolderHub() {
             <PreVisitBriefCard 
               patient={patient} 
               onStartConsultation={() => setIsVitalsDialogOpen(true)} 
+            />
+          )}
+
+          {/* AMBIENT CLINICAL INTELLIGENCE (ACI) AI SCRIBE */}
+          {patient && (
+            <AmbientScribeCard 
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
             />
           )}
 
