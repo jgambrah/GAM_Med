@@ -850,16 +850,9 @@ export default function PatientFolderHub() {
             />
           )}
 
-          {/* AMBIENT CLINICAL INTELLIGENCE (ACI) AI SCRIBE */}
+          {/* MASTER AMBIENT CLINICAL INTELLIGENCE (ACI) AI SCRIBE & VOICE VAULT */}
           {patient && (
             <AmbientScribeCard 
-              patientName={`${patient?.firstName} ${patient?.lastName}`}
-            />
-          )}
-
-          {/* HANDS-FREE VOICE DICTATIONS REPOSITORY */}
-          {patient && (
-            <DictatedNotesCard 
               patientId={id as string}
               hospitalId={hospitalId}
               patientName={`${patient?.firstName} ${patient?.lastName}`}

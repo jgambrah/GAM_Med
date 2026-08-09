@@ -1,33 +1,64 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Play, Pause, Sparkles, CheckCircle2, FileText, Activity, ShieldCheck, Clock, ArrowRight, Zap, ChevronDown, ChevronUp, RefreshCw, Globe, Plus, Trash2 } from 'lucide-react';
+import { Mic, MicOff, Play, Pause, Sparkles, CheckCircle2, FileText, Activity, ShieldCheck, Clock, ArrowRight, Zap, ChevronDown, ChevronUp, RefreshCw, Globe, Plus, Trash2, Copy, Check } from 'lucide-react';
 import {
   generateSOAPFromTranscript,
   AmbientTranscriptChunk,
   SOAPNoteDraft,
   EvidenceTimestamp
 } from '@/ai/flows/ai-ambient-scribe-engine';
+import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 interface AmbientScribeCardProps {
+  patientId?: string;
+  hospitalId?: string;
   patientName?: string;
   onTransferSOAP?: (soap: SOAPNoteDraft) => void;
   defaultExpanded?: boolean;
 }
 
 export function AmbientScribeCard({
+  patientId,
+  hospitalId: propHospitalId,
   patientName = 'Patient',
   onTransferSOAP,
   defaultExpanded = true
 }: AmbientScribeCardProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const params = useParams();
+  const effectivePatientId = patientId || (params?.id as string);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = propHospitalId || userProfile?.hospitalId;
+
+  // Live query for hands-free voice dictations
+  const notesQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !effectivePatientId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/dictated_notes`),
+      orderBy('createdAt', 'desc')
+    );
+  }, [firestore, hospitalId, effectivePatientId]);
+  const { data: dbNotes } = useCollection<any>(notesQuery);
+
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<'en-US' | 'ak-GH' | 'ga-GH' | 'ee-GH' | 'ha-GH'>('en-US');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [chunks, setChunks] = useState<AmbientTranscriptChunk[]>([]);
   const [soap, setSoap] = useState<SOAPNoteDraft>(generateSOAPFromTranscript([], patientName));
@@ -174,12 +205,47 @@ export function AmbientScribeCard({
     const freshSOAP = generateSOAPFromTranscript(liveChunksRef.current, patientName);
     setSoap(freshSOAP);
 
+    // Save to Firestore dictations repository
+    if (firestore && hospitalId && effectivePatientId) {
+      const noteId = `NOTE-${Date.now()}`;
+      const noteRef = doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/dictated_notes/${noteId}`);
+      setDocumentNonBlocking(noteRef, {
+        patientId: effectivePatientId,
+        patientName,
+        text: manualDialogue.trim(),
+        authorName: user?.displayName || userProfile?.name || 'Attending Doctor',
+        source: 'MANUAL_ENTRY',
+        createdAt: serverTimestamp()
+      }, { merge: true });
+    }
+
     toast({
-      title: '💬 Dialogue Line Added',
+      title: '💬 Dialogue Line Added & Saved',
       description: 'Updated clinical SOAP draft with new consultation dialogue.'
     });
 
     setManualDialogue('');
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    if (firestore && hospitalId && effectivePatientId) {
+      const noteRef = doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/dictated_notes/${noteId}`);
+      deleteDocumentNonBlocking(noteRef);
+      toast({
+        title: '🗑️ Dictated Note Deleted',
+        description: 'Removed note from repository.'
+      });
+    }
+  };
+
+  const handleCopyNote = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast({
+      title: '📋 Copied to Clipboard',
+      description: 'Dictation copied ready to paste into encounter chart.'
+    });
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const jumpToTimestamp = (seconds: number) => {
@@ -230,7 +296,7 @@ export function AmbientScribeCard({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-300">Multilingual Ambient Clinical Intelligence (ACI) Scribe</h3>
+              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-300">Master Ambient AI Scribe & Voice Dictations Engine</h3>
               <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase flex items-center gap-1 ${
                 isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-600 text-white'
               }`}>
@@ -238,7 +304,7 @@ export function AmbientScribeCard({
               </span>
             </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-              Ghanaian Multilingual Support (Asante Twi • Ga • Ewe • Hausa • English) • Live SOAP Translator
+              Ghanaian Multilingual Support (Asante Twi • Ga • Ewe • Hausa • English) • Live SOAP Translator • Dictations Repository
             </p>
           </div>
         </div>
@@ -249,12 +315,12 @@ export function AmbientScribeCard({
           </span>
           <Button size="sm" variant="ghost" className="text-emerald-400 font-black text-xs uppercase rounded-xl">
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            {isExpanded ? 'Collapse' : 'Expand ACI Scribe'}
+            {isExpanded ? 'Collapse' : 'Expand Master Scribe'}
           </Button>
         </div>
       </div>
 
-      {/* EXPANDABLE AMBIENT SCRIBE WORKSPACE */}
+      {/* EXPANDABLE MASTER AMBIENT SCRIBE WORKSPACE */}
       {isExpanded && (
         <div className="p-6 space-y-6">
           {/* TOP TOOLBAR: LANGUAGE SELECTOR & RECORDING CONTROLS */}
@@ -421,6 +487,54 @@ export function AmbientScribeCard({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* BOTTOM DECK: SAVED HANDS-FREE VOICE DICTATIONS REPOSITORY */}
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <div className="flex justify-between items-center">
+              <h4 className="text-xs font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+                <Mic size={14} /> Saved Hands-Free Voice Dictations Repository ({dbNotes ? dbNotes.length : 0}):
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              {dbNotes && dbNotes.length > 0 ? (
+                dbNotes.map((n: any) => (
+                  <div key={n.id} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-900/80 text-indigo-300 px-2 py-0.5 rounded-md flex items-center gap-1">
+                          <Sparkles size={10} /> {n.source === 'HANDS_FREE_VOICE' ? '🎙️ Hands-Free Dictation' : '📝 Saved Dictation'}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400">By: {n.authorName || 'Doctor'}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleCopyNote(n.id, n.text)}
+                          className="text-slate-400 hover:text-white p-1 rounded-md bg-slate-800 hover:bg-slate-700 transition-all text-xs font-bold flex items-center gap-1"
+                        >
+                          {copiedId === n.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                          <span className="text-[9px]">{copiedId === n.id ? 'Copied' : 'Copy'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(n.id)}
+                          className="text-slate-500 hover:text-red-400 p-1 rounded-md bg-slate-800 hover:bg-slate-700 transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-200 font-medium italic">"{n.text}"</p>
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 bg-slate-900/40 rounded-xl border border-dashed border-slate-800 text-center text-[10px] text-slate-500">
+                  No saved voice dictations yet. Say <span className="text-indigo-300 italic font-mono">"GAM_Med dictate note..."</span> into floating mic toolbar to capture.
+                </div>
+              )}
             </div>
           </div>
         </div>
