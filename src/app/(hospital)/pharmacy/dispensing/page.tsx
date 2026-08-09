@@ -43,6 +43,7 @@ export default function DispensingQueue() {
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
   const [orderStages, setOrderStages] = useState<Record<string, 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP'>>({});
+  const [dispensedGroupIds, setDispensedGroupIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -199,8 +200,10 @@ export default function DispensingQueue() {
       }
     });
 
-    return Array.from(groupsMap.values());
-  }, [rawOrders, searchQuery, orderCategoryFilter]);
+    return Array.from(groupsMap.values()).filter(
+      (g) => !dispensedGroupIds.includes(g.id) && !dispensedGroupIds.includes(g.encounterId)
+    );
+  }, [rawOrders, searchQuery, orderCategoryFilter, dispensedGroupIds]);
 
   const diagnosticCount = useMemo(() => {
     return rawOrders.filter(isDiagnosticOrder).length;

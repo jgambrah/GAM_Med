@@ -76,6 +76,7 @@ export default function PharmacistDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
   const [orderStages, setOrderStages] = useState<Record<string, 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP'>>({});
+  const [dispensedGroupIds, setDispensedGroupIds] = useState<string[]>([]);
 
   const handleCycleOrderStage = (orderId: string) => {
     setOrderStages(prev => {
@@ -90,6 +91,11 @@ export default function PharmacistDashboard() {
   };
 
   const handleBulkDispenseAllApproved = (group: any) => {
+    const groupId = group.id || group.encounterId;
+    if (groupId && !dispensedGroupIds.includes(groupId)) {
+      setDispensedGroupIds((prev) => [...prev, groupId]);
+    }
+
     const count = group.allMedications?.length || 1;
 
     // Trigger automated double-entry journal postings in the central financial ledger
@@ -104,7 +110,7 @@ export default function PharmacistDashboard() {
 
     toast({
       title: `⚡ Bulk Dispense Complete & Financial Ledger Auto-Synced`,
-      description: `Fulfilling ${count} lines for ${group.patientName}. Posted ${journalEntries.length} double-entry journals to Central Finance Ledger.`
+      description: `Fulfilling all ${count} lines for ${group.patientName}. Encounter removed from active queue.`
     });
   };
 
@@ -219,8 +225,10 @@ export default function PharmacistDashboard() {
       }
     });
 
-    return Array.from(groupsMap.values());
-  }, [rawPendingOrders, searchQuery, orderCategoryFilter]);
+    return Array.from(groupsMap.values()).filter(
+      (g) => !dispensedGroupIds.includes(g.id) && !dispensedGroupIds.includes(g.encounterId)
+    );
+  }, [rawPendingOrders, searchQuery, orderCategoryFilter, dispensedGroupIds]);
 
   const diagnosticCount = useMemo(() => {
     return rawPendingOrders.filter(isDiagnosticOrder).length;
