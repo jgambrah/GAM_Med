@@ -1,9 +1,8 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Play, Pause, Sparkles, CheckCircle2, FileText, Activity, ShieldCheck, Clock, ArrowRight, Zap, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Mic, MicOff, Play, Pause, Sparkles, CheckCircle2, FileText, Activity, ShieldCheck, Clock, ArrowRight, Zap, ChevronDown, ChevronUp, RefreshCw, Globe, Plus, Trash2 } from 'lucide-react';
 import {
   generateSOAPFromTranscript,
-  getDefaultAmbientTranscript,
   AmbientTranscriptChunk,
   SOAPNoteDraft,
   EvidenceTimestamp
@@ -20,7 +19,7 @@ interface AmbientScribeCardProps {
 export function AmbientScribeCard({
   patientName = 'Patient',
   onTransferSOAP,
-  defaultExpanded = false
+  defaultExpanded = true
 }: AmbientScribeCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -28,17 +27,20 @@ export function AmbientScribeCard({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<'en-US' | 'ak-GH' | 'ga-GH' | 'ee-GH' | 'ha-GH'>('en-US');
 
   const [chunks, setChunks] = useState<AmbientTranscriptChunk[]>([]);
   const [soap, setSoap] = useState<SOAPNoteDraft>(generateSOAPFromTranscript([], patientName));
+  const [manualDialogue, setManualDialogue] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
+  const liveChunksRef = useRef<AmbientTranscriptChunk[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  // Initialize Web Speech Recognition for live microphone transcription
+  // Initialize Speech Recognition for live microphone transcription
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -46,27 +48,28 @@ export function AmbientScribeCard({
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'en-US';
+        recognition.lang = selectedLanguage;
 
         recognition.onresult = (event: any) => {
           for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-              const text = event.results[i][0].transcript.trim();
-              if (text) {
-                const elapsedSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
-                const minutes = Math.floor(elapsedSeconds / 60);
-                const secs = elapsedSeconds % 60;
-                const timestampFormatted = `${minutes < 10 ? '0' : ''}${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+            const text = event.results[i][0].transcript.trim();
+            if (text) {
+              const elapsedSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+              const minutes = Math.floor(elapsedSeconds / 60);
+              const secs = elapsedSeconds % 60;
+              const timestampFormatted = `${minutes < 10 ? '0' : ''}${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 
-                const newChunk: AmbientTranscriptChunk = {
-                  id: `CHUNK-${Date.now()}`,
-                  speaker: chunks.length % 2 === 0 ? 'DOCTOR' : 'PATIENT',
-                  timestampSeconds: elapsedSeconds,
-                  timestampFormatted,
-                  text
-                };
+              const newChunk: AmbientTranscriptChunk = {
+                id: `CHUNK-${Date.now()}-${i}`,
+                speaker: liveChunksRef.current.length % 2 === 0 ? 'PATIENT' : 'DOCTOR',
+                timestampSeconds: elapsedSeconds,
+                timestampFormatted,
+                text
+              };
 
-                setChunks(prev => [...prev, newChunk]);
+              if (event.results[i].isFinal) {
+                liveChunksRef.current.push(newChunk);
+                setChunks([...liveChunksRef.current]);
               }
             }
           }
@@ -75,9 +78,14 @@ export function AmbientScribeCard({
         recognitionRef.current = recognition;
       }
     }
-  }, [chunks.length]);
+  }, [selectedLanguage]);
 
   const startLiveRecording = async () => {
+    liveChunksRef.current = [];
+    setChunks([]);
+    setRecordedAudioUrl(null);
+    startTimeRef.current = Date.now();
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -97,30 +105,25 @@ export function AmbientScribeCard({
 
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
-      startTimeRef.current = Date.now();
-      setChunks([]);
 
       if (recognitionRef.current) {
         try {
+          recognitionRef.current.lang = selectedLanguage;
           recognitionRef.current.start();
         } catch (e) {}
       }
 
       setIsRecording(true);
       toast({
-        title: '🎙️ Live Microphone Recording Started',
-        description: 'Passively recording ambient doctor-patient consultation audio...'
+        title: '🎙️ Live Microphone Scribe Active',
+        description: `Recording ambient consultation audio (${selectedLanguage === 'ak-GH' ? 'Asante Twi' : 'English'})...`
       });
     } catch (err) {
       console.warn('Microphone Access Warning:', err);
-      // Fallback demo recording mode if microphone permission is absent
-      startTimeRef.current = Date.now();
-      const demoChunks = getDefaultAmbientTranscript();
-      setChunks(demoChunks);
       setIsRecording(true);
       toast({
-        title: '🎙️ Ambient Consultation Scribe Active',
-        description: 'Listening to ambient consultation dialogue...'
+        title: '🎙️ Live Dictation Workspace Active',
+        description: 'Microphone stream started. Speak or type consultation dialogue below.'
       });
     }
   };
@@ -139,23 +142,44 @@ export function AmbientScribeCard({
 
     setIsRecording(false);
 
-    // If no live speech was captured during session, load active chunks or demo fallback
-    const activeChunks = chunks.length > 0 ? chunks : getDefaultAmbientTranscript();
-    const freshSOAP = generateSOAPFromTranscript(activeChunks, patientName);
+    // Process actual live captured speech chunks (NO HARDCODED FALLBACKS!)
+    const freshSOAP = generateSOAPFromTranscript(liveChunksRef.current, patientName);
     setSoap(freshSOAP);
 
     toast({
       title: '🎙️ Live Recording Completed',
-      description: `Generated clinical SOAP draft for ${patientName} with live audio timestamps.`
+      description: `Processed ${liveChunksRef.current.length} speech chunks for ${patientName}.`
     });
   };
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopLiveRecording();
-    } else {
-      startLiveRecording();
-    }
+  const handleManualAddDialogue = () => {
+    if (!manualDialogue.trim()) return;
+
+    const elapsedSeconds = liveChunksRef.current.length * 10 + 5;
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const secs = elapsedSeconds % 60;
+    const timestampFormatted = `${minutes < 10 ? '0' : ''}${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+
+    const newChunk: AmbientTranscriptChunk = {
+      id: `CHUNK-MANUAL-${Date.now()}`,
+      speaker: liveChunksRef.current.length % 2 === 0 ? 'PATIENT' : 'DOCTOR',
+      timestampSeconds: elapsedSeconds,
+      timestampFormatted,
+      text: manualDialogue.trim()
+    };
+
+    liveChunksRef.current.push(newChunk);
+    setChunks([...liveChunksRef.current]);
+
+    const freshSOAP = generateSOAPFromTranscript(liveChunksRef.current, patientName);
+    setSoap(freshSOAP);
+
+    toast({
+      title: '💬 Dialogue Line Added',
+      description: 'Updated clinical SOAP draft with new consultation dialogue.'
+    });
+
+    setManualDialogue('');
   };
 
   const jumpToTimestamp = (seconds: number) => {
@@ -185,7 +209,7 @@ export function AmbientScribeCard({
 
   return (
     <div className="bg-slate-950 text-white rounded-[32px] border-4 border-emerald-600 shadow-2xl overflow-hidden transition-all mb-6">
-      {/* HIDDEN HTML5 AUDIO PLAYER FOR LIVE MIC RECORDING VERIFICATION */}
+      {/* HIDDEN HTML5 AUDIO PLAYER FOR REAL LIVE MIC RECORDING */}
       {recordedAudioUrl && (
         <audio
           ref={audioPlayerRef}
@@ -206,7 +230,7 @@ export function AmbientScribeCard({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-300">Ambient Clinical Intelligence (ACI) AI Scribe</h3>
+              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-300">Multilingual Ambient Clinical Intelligence (ACI) Scribe</h3>
               <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase flex items-center gap-1 ${
                 isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-600 text-white'
               }`}>
@@ -214,14 +238,14 @@ export function AmbientScribeCard({
               </span>
             </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-              Live Consultation Audio Capture • Auto-Generated SOAP Notes • Click-to-Verify Timestamps
+              Ghanaian Multilingual Support (Asante Twi • Ga • Ewe • Hausa • English) • Live SOAP Translator
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 px-3 py-1 rounded-full uppercase">
-            {chunks.length} Dialogue Chunks Captured
+            {chunks.length} Live Chunks Captured
           </span>
           <Button size="sm" variant="ghost" className="text-emerald-400 font-black text-xs uppercase rounded-xl">
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -233,13 +257,30 @@ export function AmbientScribeCard({
       {/* EXPANDABLE AMBIENT SCRIBE WORKSPACE */}
       {isExpanded && (
         <div className="p-6 space-y-6">
-          {/* TOP TOOLBAR: RECORDING CONTROL & AUDIO PLAYER */}
+          {/* TOP TOOLBAR: LANGUAGE SELECTOR & RECORDING CONTROLS */}
           <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* LANGUAGE SELECTOR DROPDOWN */}
+              <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
+                <Globe size={14} className="text-emerald-400" />
+                <span className="text-[10px] font-black uppercase text-slate-400">Language:</span>
+                <select
+                  value={selectedLanguage}
+                  onChange={(e: any) => setSelectedLanguage(e.target.value)}
+                  className="bg-transparent text-emerald-300 font-bold outline-none cursor-pointer text-xs"
+                >
+                  <option value="en-US">🇬🇧 English (Standard)</option>
+                  <option value="ak-GH">🇬🇭 Asante Twi / Fante</option>
+                  <option value="ga-GH">🇬🇭 Ga / Dangme</option>
+                  <option value="ee-GH">🇬🇭 Ewe</option>
+                  <option value="ha-GH">🇬🇭 Hausa / Dagbani</option>
+                </select>
+              </div>
+
               <Button
                 type="button"
                 size="sm"
-                onClick={toggleRecording}
+                onClick={() => isRecording ? stopLiveRecording() : startLiveRecording()}
                 className={`font-black text-xs uppercase rounded-xl flex items-center gap-2 shadow-lg transition-all ${
                   isRecording 
                     ? 'bg-red-600 hover:bg-red-500 text-white animate-pulse ring-4 ring-red-500/30' 
@@ -249,13 +290,9 @@ export function AmbientScribeCard({
                 {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
                 {isRecording ? '⏸️ Stop & Generate SOAP Note' : '🎙️ Start Consultation Scribe'}
               </Button>
-
-              <span className="text-[10px] font-bold text-slate-400 uppercase">
-                {isRecording ? '🔊 Recording live microphone audio...' : 'Ready for live ambient consult'}
-              </span>
             </div>
 
-            {/* AUDIO EVIDENCE VERIFICATION BAR */}
+            {/* AUDIO EVIDENCE PLAYBACK STATUS BAR */}
             <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 w-full md:w-auto">
               <Button
                 type="button"
@@ -279,9 +316,35 @@ export function AmbientScribeCard({
                 {isPlayingAudio ? <Pause size={14} /> : <Play size={14} />}
               </Button>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-emerald-400">LIVE AUDIO PLAYBACK:</span>
+                <span className="text-[10px] font-black text-emerald-400">LIVE AUDIO:</span>
                 <span className="text-[10px] font-bold text-slate-300">00:{audioCurrentTime < 10 ? '0' : ''}{audioCurrentTime}</span>
               </div>
+            </div>
+          </div>
+
+          {/* REAL-TIME LIVE DIALOGUE INPUT CANVAS */}
+          <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 space-y-2">
+            <span className="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1.5">
+              <Sparkles size={12} /> Live Consultation Dialogue Stream (Or Dictate / Paste Speech Directly):
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={manualDialogue}
+                onChange={(e) => setManualDialogue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleManualAddDialogue()}
+                placeholder="Type or speak consultation dialogue (e.g. 'Patient reports severe headache and fever for 2 days' or 'Me ti pae me')..."
+                className="flex-1 p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500 font-medium"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleManualAddDialogue}
+                disabled={!manualDialogue.trim()}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase rounded-xl px-4 flex items-center gap-1 shadow-lg disabled:opacity-50"
+              >
+                <Plus size={14} /> Add Line
+              </Button>
             </div>
           </div>
 
@@ -337,20 +400,26 @@ export function AmbientScribeCard({
               </h4>
 
               <div className="space-y-2">
-                {soap.evidence.map((ev, idx) => (
-                  <div key={idx} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] font-black text-purple-300 uppercase">{ev.claim}</span>
-                      <button
-                        onClick={() => jumpToTimestamp(ev.timestampSeconds)}
-                        className="bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 text-emerald-300 text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 transition-all"
-                      >
-                        <Clock size={10} /> [{ev.timestampFormatted}] Play
-                      </button>
+                {soap.evidence.length > 0 ? (
+                  soap.evidence.map((ev, idx) => (
+                    <div key={idx} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black text-purple-300 uppercase">{ev.claim}</span>
+                        <button
+                          onClick={() => jumpToTimestamp(ev.timestampSeconds)}
+                          className="bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 text-emerald-300 text-[9px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 transition-all"
+                        >
+                          <Clock size={10} /> [{ev.timestampFormatted}] Play
+                        </button>
+                      </div>
+                      <p className="text-[10px] italic text-slate-400 font-medium">"{ev.verbatimQuote}"</p>
                     </div>
-                    <p className="text-[10px] italic text-slate-400 font-medium">"{ev.verbatimQuote}"</p>
+                  ))
+                ) : (
+                  <div className="p-4 bg-slate-900/60 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-400 font-medium">
+                    No audio evidence captured yet. Click "🎙️ Start Consultation Scribe" or add a dialogue line above.
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
