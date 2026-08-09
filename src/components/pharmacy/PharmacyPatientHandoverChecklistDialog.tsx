@@ -10,9 +10,11 @@ interface PharmacyPatientHandoverChecklistDialogProps {
   onOpenChange: (open: boolean) => void;
   patientName: string;
   mrn?: string;
+  encounterId?: string;
   medications: any[];
   prescriberName?: string;
   transactionId?: string;
+  onComplete?: (encounterId: string) => void;
 }
 
 export function PharmacyPatientHandoverChecklistDialog({
@@ -20,9 +22,11 @@ export function PharmacyPatientHandoverChecklistDialog({
   onOpenChange,
   patientName,
   mrn = '88421',
+  encounterId,
   medications = [],
   prescriberName = 'Dr. Marcus Amosah Henaku',
-  transactionId = 'TX-ACID-944864'
+  transactionId = 'TX-ACID-944864',
+  onComplete
 }: PharmacyPatientHandoverChecklistDialogProps) {
   const { toast } = useToast();
 
@@ -41,6 +45,13 @@ export function PharmacyPatientHandoverChecklistDialog({
       title: '✅ Patient Handover & Counseling Signed Off',
       description: `Medication batch for ${patientName} (MRN #${mrn}) successfully handed over. Audit log updated.`
     });
+
+    setTimeout(() => {
+      if (onComplete && encounterId) {
+        onComplete(encounterId);
+      }
+      onOpenChange(false);
+    }, 450);
   };
 
   const handlePrintReceipt = () => {

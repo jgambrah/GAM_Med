@@ -394,8 +394,15 @@ export default function DispensingQueue() {
           onOpenChange={(open) => !open && setSelectedHandoverGroup(null)}
           patientName={selectedHandoverGroup.patientName}
           mrn={selectedHandoverGroup.mrn || '88421'}
+          encounterId={selectedHandoverGroup.id || selectedHandoverGroup.encounterId}
           medications={selectedHandoverGroup.allMedications || selectedHandoverGroup.medications || []}
           prescriberName={selectedHandoverGroup.providerName || selectedHandoverGroup.prescriber}
+          onComplete={(encId) => {
+            if (encId && !dispensedGroupIds.includes(encId)) {
+              setDispensedGroupIds((prev) => [...prev, encId]);
+            }
+            setSelectedHandoverGroup(null);
+          }}
         />
       )}
     </div>
