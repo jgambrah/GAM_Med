@@ -19,6 +19,8 @@ import { AdvancedInpatientDispensingCard } from '@/components/pharmacy/AdvancedI
 import { IntegratedPharmacyCdssCard } from '@/components/pharmacy/IntegratedPharmacyCdssCard';
 import { ColdChainAndLogisticsCard } from '@/components/pharmacy/ColdChainAndLogisticsCard';
 import { MedSyncAndOutpatientConvenienceCard } from '@/components/pharmacy/MedSyncAndOutpatientConvenienceCard';
+import { PharmacySafetyQueueInspectorCard } from '@/components/pharmacy/PharmacySafetyQueueInspectorCard';
+import { PharmacyPriorityTriageCard } from '@/components/pharmacy/PharmacyPriorityTriageCard';
 
 const parseDate = (createdAt: any): Date => {
   if (!createdAt) return new Date();
@@ -170,6 +172,18 @@ export default function DispensingPage() {
              <p className="text-lg font-black uppercase">{order?.patientName || 'Clinical Record'}</p>
           </div>
         </div>
+
+        {/* CLINICAL PRESCRIPTION SAFETY & DATA FLAG INSPECTOR */}
+        <PharmacySafetyQueueInspectorCard 
+          patientName={order?.patientName || 'Benjamin Hedidor'}
+          orderItems={prescriptionItems}
+          doctorName={order?.providerName || 'Dr. Tracy Gambrah'}
+        />
+
+        {/* PRIORITY TRIAGE & WORKFLOW SLA HUB */}
+        <PharmacyPriorityTriageCard 
+          patientName={order?.patientName || 'Benjamin Hedidor'}
+        />
 
         {/* AUTOMATED PHARMACY VERIFICATION & CLINICAL SAFETY SUITE */}
         <PharmacyVerificationSuiteCard 

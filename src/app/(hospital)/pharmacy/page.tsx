@@ -11,6 +11,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PharmacySafetyQueueInspectorCard } from '@/components/pharmacy/PharmacySafetyQueueInspectorCard';
+import { PharmacyPriorityTriageCard } from '@/components/pharmacy/PharmacyPriorityTriageCard';
+import { PharmacyStockTelemetryPulseCard } from '@/components/pharmacy/PharmacyStockTelemetryPulseCard';
+import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
 
 const parseDate = (createdAt: any): Date => {
   if (!createdAt) return new Date();
@@ -305,6 +309,20 @@ export default function PharmacistDashboard() {
             </div>
           </div>
 
+          {/* PHARMACY SAFETY & QUEUE INSPECTOR BANNER */}
+          <PharmacySafetyQueueInspectorCard 
+            patientName={pendingOrders[0]?.patientName || 'Benjamin Hedidor'}
+            orderItems={pendingOrders[0]?.prescription || pendingOrders[0]?.items || [{ name: 'Vita C Syrup' }, { name: 'Nugel-O Suspension' }]}
+            doctorName={pendingOrders[0]?.providerName || 'Dr. Tracy Gambrah'}
+            defaultExpanded={false}
+          />
+
+          {/* PRIORITY TRIAGE & WORKFLOW SLA HUB */}
+          <PharmacyPriorityTriageCard 
+            patientName={pendingOrders[0]?.patientName || 'Benjamin Hedidor'}
+            defaultExpanded={false}
+          />
+
           <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden divide-y">
             {dataIsLoading ? (
               <div className="p-10 text-center"><Loader2 className="animate-spin text-primary" /></div>
@@ -315,7 +333,7 @@ export default function PharmacistDashboard() {
                 pendingOrders.map((order) => {
                   const meds = order.prescription || order.items || [];
                   return (
-                    <div key={order.id} className="p-6 flex items-center justify-between group hover:bg-muted/50 transition-all">
+                    <div key={order.id} className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between group hover:bg-muted/50 transition-all gap-4">
                       <div className="flex items-center gap-5">
                          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
                             <Pill size={24} />
@@ -331,11 +349,20 @@ export default function PharmacistDashboard() {
                             </div>
                          </div>
                       </div>
-                      <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
-                         <Button className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-primary/30 shadow-xl hover:bg-foreground transition-all">
-                            Dispense Now <ChevronRight size={14} />
-                         </Button>
-                      </Link>
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                        <PharmacyInterdepartmentalActionCard 
+                          doctorName={order.providerName || 'Kwaku Mensah'}
+                          patientName={order.patientName || 'Benjamin Hedidor'}
+                          patientId={order.patientId || 'P-100'}
+                        />
+
+                        <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
+                           <Button className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-primary/30 shadow-xl hover:bg-foreground transition-all shrink-0">
+                              Dispense Now <ChevronRight size={14} />
+                           </Button>
+                        </Link>
+                      </div>
                     </div>
                   );
                 })
@@ -381,11 +408,14 @@ export default function PharmacistDashboard() {
           </div>
         </div>
 
-        {/* --- SIDEBAR: INVENTORY HEALTH --- */}
+        {/* --- SIDEBAR: INVENTORY HEALTH & TELEMETRY PULSE --- */}
         <div className="space-y-6">
            <h3 className="font-black text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2 px-2">
               <TrendingUp size={16} className="text-orange-500" /> Stock Pulse
            </h3>
+
+           {/* ADVANCED INVENTORY, COLD-CHAIN & NARCOTIC TELEMETRY CARD */}
+           <PharmacyStockTelemetryPulseCard />
            
            <div className="bg-[#0f172a] p-8 rounded-[40px] text-white shadow-2xl space-y-6">
               <div>
