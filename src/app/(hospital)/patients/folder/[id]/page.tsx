@@ -38,6 +38,7 @@ import { EnterpriseCapacityFederatedCard } from '@/components/clinical/Enterpris
 import { VoiceHandsFreeControl } from '@/components/clinical/VoiceHandsFreeControl';
 import { Anatomical3DMappingCard } from '@/components/clinical/Anatomical3DMappingCard';
 import { AmbientScribeCard } from '@/components/clinical/AmbientScribeCard';
+import { ClinicalOrdersCard } from '@/components/clinical/ClinicalOrdersCard';
 import { DictatedNotesCard } from '@/components/clinical/DictatedNotesCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
@@ -629,9 +630,9 @@ export default function PatientFolderHub() {
               <span className="bg-slate-900/90 text-indigo-300 border border-indigo-500/40 px-3.5 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-wrap items-center gap-2 shadow-inner">
                 <span className="flex items-center gap-1 text-emerald-400 font-extrabold">
                   <Zap size={12} className="animate-pulse text-yellow-400" />
-                  ⚡ 6 AI Clinical Grid Engines Synced:
+                  ⚡ 7 AI Clinical Grid Engines Synced:
                 </span>
-                <span className="text-slate-300 font-bold">RPM • PGx • Telemetry • Voice • 3D Map • ACI Scribe</span>
+                <span className="text-slate-300 font-bold">RPM • PGx • Telemetry • Voice • 3D Map • ACI Scribe • e-Rx Safety Checker Active</span>
               </span>
             </div>
           </div>
@@ -847,6 +848,16 @@ export default function PatientFolderHub() {
             <PreVisitBriefCard 
               patient={patient} 
               onStartConsultation={() => setIsVitalsDialogOpen(true)} 
+            />
+          )}
+
+          {/* INTEGRATED CLINICAL ORDERS & e-Rx EXECUTION HUB */}
+          {patient && (
+            <ClinicalOrdersCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+              allergies={patient?.allergies || 'NKDA'}
             />
           )}
 
