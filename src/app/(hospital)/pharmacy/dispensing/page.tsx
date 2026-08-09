@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collectionGroup, query, where, orderBy, doc } from 'firebase/firestore';
-import { ClipboardList, CheckCircle2, Clock, User, ShieldAlert, Loader2, ChevronRight, Search, Pill, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ClipboardList, CheckCircle2, Clock, User, ShieldAlert, Loader2, ChevronRight, Search, Pill, ShieldCheck, AlertTriangle, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,12 +33,16 @@ const parseDate = (createdAt: any): Date => {
   return new Date();
 };
 
+import { PharmacyPatientHandoverChecklistDialog } from '@/components/pharmacy/PharmacyPatientHandoverChecklistDialog';
+
 export default function DispensingQueue() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
 
+  const [queueTab, setQueueTab] = useState<'pending' | 'completed'>('pending');
+  const [selectedHandoverGroup, setSelectedHandoverGroup] = useState<any | null>(null);
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
@@ -200,14 +204,22 @@ export default function DispensingQueue() {
       }
     });
 
-    return Array.from(groupsMap.values()).filter(
+    const allGroups = Array.from(groupsMap.values());
+    if (queueTab === 'completed') {
+      return allGroups.filter((g) => dispensedGroupIds.includes(g.id) || dispensedGroupIds.includes(g.encounterId));
+    }
+    return allGroups.filter(
       (g) => !dispensedGroupIds.includes(g.id) && !dispensedGroupIds.includes(g.encounterId)
     );
-  }, [rawOrders, searchQuery, orderCategoryFilter, dispensedGroupIds]);
+  }, [rawOrders, searchQuery, orderCategoryFilter, dispensedGroupIds, queueTab]);
 
   const diagnosticCount = useMemo(() => {
     return rawOrders.filter(isDiagnosticOrder).length;
   }, [rawOrders]);
+
+  const completedCount = useMemo(() => {
+    return dispensedGroupIds.length;
+  }, [dispensedGroupIds]);
   
   const isLoading = isUserLoading || isClaimsLoading;
 
@@ -268,30 +280,57 @@ export default function DispensingQueue() {
           />
         </div>
 
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shrink-0">
-          <button
-            type="button"
-            onClick={() => setOrderCategoryFilter('medications')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-              orderCategoryFilter === 'medications'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            💊 Rx Medications
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrderCategoryFilter('diagnostic')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-              orderCategoryFilter === 'diagnostic'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            📡 Diagnostic Orders ({diagnosticCount})
-          </button>
+        {/* Queue Mode & Category Pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setQueueTab('pending')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                queueTab === 'pending'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ⏳ Pending Queue ({groupedOrders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setQueueTab('completed')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                queueTab === 'completed'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ✅ Completed / Handover ({completedCount})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setOrderCategoryFilter('medications')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                orderCategoryFilter === 'medications'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              💊 Rx Medications
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrderCategoryFilter('diagnostic')}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                orderCategoryFilter === 'diagnostic'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              📡 Diagnostic Orders ({diagnosticCount})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -299,22 +338,65 @@ export default function DispensingQueue() {
       {areOrdersLoading ? (
         <div className="text-center p-20"><Loader2 className="animate-spin text-primary mx-auto h-8 w-8" /></div>
       ) : groupedOrders.length === 0 ? (
-        <div className="text-center p-20 bg-card border-2 border-dashed rounded-[32px] text-muted-foreground italic font-bold text-xs uppercase">
-          <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-primary/50" />
-          {orderCategoryFilter === 'diagnostic' ? 'No non-medication diagnostic requests pending.' : 'The dispensing queue is clear. No pending prescriptions.'}
+        <div className="text-center p-20 bg-card border-2 border-dashed rounded-[32px] text-muted-foreground italic font-bold text-xs uppercase space-y-3">
+          <CheckCircle2 className="h-12 w-12 mx-auto text-primary/50" />
+          <p>
+            {queueTab === 'completed' 
+              ? 'No completed orders in history log for this session.' 
+              : orderCategoryFilter === 'diagnostic' 
+              ? 'No non-medication diagnostic requests pending.' 
+              : 'The active dispensing queue is clear. No pending prescriptions.'}
+          </p>
+          {queueTab === 'pending' && completedCount > 0 && (
+            <Button
+              type="button"
+              onClick={() => setQueueTab('completed')}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs uppercase rounded-xl px-4 py-2"
+            >
+              View Completed Handover History ({completedCount})
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
           {groupedOrders.map((group) => (
-            <MasterPatientCard
-              key={group.id || group.encounterId}
-              group={group}
-              hospitalId={hospitalId}
-              onBulkDispense={handleBulkDispenseAllApproved}
-              formatRelativeSlaTime={formatRelativeSlaTime}
-            />
+            <div key={group.id || group.encounterId} className="relative">
+              <MasterPatientCard
+                group={group}
+                hospitalId={hospitalId}
+                onBulkDispense={(g) => {
+                  handleBulkDispenseAllApproved(g);
+                  setSelectedHandoverGroup(g);
+                }}
+                formatRelativeSlaTime={formatRelativeSlaTime}
+              />
+              
+              {queueTab === 'completed' && (
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => setSelectedHandoverGroup(group)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase rounded-xl py-2 px-4 flex items-center gap-1.5 shadow-md"
+                  >
+                    <UserCheck size={14} /> Open Handover & Counseling Protocol 📋
+                  </Button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
+      )}
+
+      {/* 5-RIGHTS PATIENT HANDOVER CHECKLIST MODAL */}
+      {selectedHandoverGroup && (
+        <PharmacyPatientHandoverChecklistDialog
+          open={!!selectedHandoverGroup}
+          onOpenChange={(open) => !open && setSelectedHandoverGroup(null)}
+          patientName={selectedHandoverGroup.patientName}
+          mrn={selectedHandoverGroup.mrn || '88421'}
+          medications={selectedHandoverGroup.allMedications || selectedHandoverGroup.medications || []}
+          prescriberName={selectedHandoverGroup.providerName || selectedHandoverGroup.prescriber}
+        />
       )}
     </div>
   );
