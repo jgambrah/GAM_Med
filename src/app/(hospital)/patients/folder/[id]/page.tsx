@@ -43,8 +43,14 @@ import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
 import { askClinicalAssistant, ClinicalAssistantOutput } from '@/ai/flows/ai-clinical-assistant';
-import { ClinicalAssistant } from '@/components/clinical/ClinicalAssistant';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
@@ -620,37 +626,22 @@ export default function PatientFolderHub() {
                   📡 ICU Telemetry Stream Active
                 </span>
               )}
-              <span className="bg-pink-600/30 text-pink-300 border border-pink-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles size={10} className="text-pink-400" />
-                ⌚ Wearable RPM Synced
-              </span>
-              <span className="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Zap size={10} className="text-indigo-400" />
-                ⚡ Predictive Capacity Active
-              </span>
-              <span className="bg-purple-600/30 text-purple-300 border border-purple-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Globe size={10} className="text-purple-400" />
-                🌐 Federated AI Grid Synced
-              </span>
-              <span className="bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Activity size={10} className="text-emerald-400" />
-                🎙️ Hands-Free Voice Ready
-              </span>
-              <span className="bg-fuchsia-600/30 text-fuchsia-300 border border-fuchsia-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles size={10} className="text-fuchsia-400" />
-                🧍 3D Anatomical Map Active
-              </span>
-              <span className="bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Mic size={10} className="text-emerald-400 animate-pulse" />
-                🎙️ Ambient ACI Scribe Ready
+              <span className="bg-slate-900/90 text-indigo-300 border border-indigo-500/40 px-3.5 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex flex-wrap items-center gap-2 shadow-inner">
+                <span className="flex items-center gap-1 text-emerald-400 font-extrabold">
+                  <Zap size={12} className="animate-pulse text-yellow-400" />
+                  ⚡ 6 AI Clinical Grid Engines Synced:
+                </span>
+                <span className="text-slate-300 font-bold">RPM • PGx • Telemetry • Voice • 3D Map • ACI Scribe</span>
               </span>
             </div>
           </div>
         </div>
 
-        {/* CLINICAL ACTION TOOLBAR INSIDE HEADER BANNER */}
-        <div className="flex flex-wrap items-center gap-2.5 pt-4 border-t border-slate-800/80 w-full justify-start md:justify-end">
-           {!isDeceased && patient && hospitalId && <NewEncounterDialog 
+        {/* --- RE-ORGANIZED 4-BUTTON CLINICAL TOOLBAR --- */}
+        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-800/80 w-full justify-start md:justify-end">
+           {/* BUTTON 1: PRIMARY NEW ENCOUNTER */}
+           {!isDeceased && patient && hospitalId && (
+             <NewEncounterDialog 
                 open={isVitalsDialogOpen}
                 onOpenChange={setIsVitalsDialogOpen}
                 onSuccess={() => {
@@ -661,34 +652,107 @@ export default function PatientFolderHub() {
                 hospitalId={hospitalId} 
                 patientName={`${patient?.firstName} ${patient?.lastName}`} 
                 encounterId={patient?.activeEncounterId}
-            />}
-           {!isDeceased && patient && hospitalId && (
-              activeAdmission ? (
-                (userProfile?.role === 'DOCTOR' || userProfile?.role === 'DIRECTOR' || userProfile?.role === 'ADMIN') ? (
-                  <DischargeDialog admission={activeAdmission} />
-                ) : (
-                  <div className="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                    Patient is Admitted
-                  </div>
-                )
-              ) : (
-                <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
-              )
-            )}
-           {!isDeceased && patient && hospitalId && isChildUnder5 && (
-             <CwcEncounterDialog
-               patientId={id as string}
-               hospitalId={hospitalId}
-               patientName={`${patient?.firstName} ${patient?.lastName}`}
-               onSuccess={fetchHistory}
              />
            )}
-           {!isDeceased && patient && hospitalId && <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
-           {!isDeceased && patient && hospitalId && <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />}
-           {!isDeceased && patient && hospitalId && <ClinicalTaskDelegationDialog patientId={id as string} patientName={`${patient?.firstName} ${patient?.lastName}`} hospitalId={hospitalId} />}
-           {!isDeceased && patient && <DischargeCarePlanDialog patientName={`${patient?.firstName} ${patient?.lastName}`} diagnosis={latestEncounter?.diagnosis} />}
-           {!isDeceased && patient && latestEncounter && <ReferralLetterDialog patient={patient} latestEncounter={latestEncounter} />}
-           {!isDeceased && patient && ['DOCTOR', 'DIRECTOR', 'ADMIN'].includes(userProfile?.role || '') && <DeathCertificationDialog patient={patient} />}
+
+           {/* GROUP 2: WARD & INPATIENT CARE DROPDOWN */}
+           {!isDeceased && patient && hospitalId && (
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="outline" className="bg-indigo-950/80 hover:bg-indigo-900 border-indigo-700 text-indigo-200 text-xs font-black uppercase tracking-wider rounded-2xl flex items-center gap-1.5 h-10 px-4 shadow-md">
+                   <Bed size={15} className="text-indigo-400" /> 🏥 Ward & Care <ChevronDown size={14} />
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-64 bg-slate-950 text-white border border-slate-800 p-2 space-y-1.5 rounded-2xl shadow-2xl">
+                 <div className="p-2 border-b border-slate-800/80 text-[10px] font-black uppercase text-indigo-400 tracking-widest">
+                   Inpatient & Ward Bed Actions
+                 </div>
+                 
+                 <div className="p-1">
+                   {activeAdmission ? (
+                     (userProfile?.role === 'DOCTOR' || userProfile?.role === 'DIRECTOR' || userProfile?.role === 'ADMIN') ? (
+                       <DischargeDialog admission={activeAdmission} />
+                     ) : (
+                       <div className="text-xs text-slate-400 p-2">Patient is Admitted</div>
+                     )
+                   ) : (
+                     <AdmissionDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
+                   )}
+                 </div>
+
+                 <div className="p-1">
+                   <DischargeCarePlanDialog patientName={`${patient?.firstName} ${patient?.lastName}`} diagnosis={latestEncounter?.diagnosis} />
+                 </div>
+
+                 <div className="p-1">
+                   <ClinicalTaskDelegationDialog patientId={id as string} patientName={`${patient?.firstName} ${patient?.lastName}`} hospitalId={hospitalId} />
+                 </div>
+               </DropdownMenuContent>
+             </DropdownMenu>
+           )}
+
+           {/* GROUP 3: SPECIALTY LOGS & PROCEDURES DROPDOWN */}
+           {!isDeceased && patient && hospitalId && (
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="outline" className="bg-purple-950/80 hover:bg-purple-900 border-purple-700 text-purple-200 text-xs font-black uppercase tracking-wider rounded-2xl flex items-center gap-1.5 h-10 px-4 shadow-md">
+                   <Scissors size={15} className="text-purple-400" /> 📋 Specialty & Logs <ChevronDown size={14} />
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-64 bg-slate-950 text-white border border-slate-800 p-2 space-y-1.5 rounded-2xl shadow-2xl">
+                 <div className="p-2 border-b border-slate-800/80 text-[10px] font-black uppercase text-purple-400 tracking-widest">
+                   Clinical & Specialty Log Dialogs
+                 </div>
+
+                 <div className="p-1">
+                   <ProcedureLogDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
+                 </div>
+
+                 <div className="p-1">
+                   <MaternityEnrollmentDialog patientId={id as string} hospitalId={hospitalId} patientName={`${patient?.firstName} ${patient?.lastName}`} />
+                 </div>
+
+                 {isChildUnder5 && (
+                   <div className="p-1">
+                     <CwcEncounterDialog
+                       patientId={id as string}
+                       hospitalId={hospitalId}
+                       patientName={`${patient?.firstName} ${patient?.lastName}`}
+                       onSuccess={fetchHistory}
+                     />
+                   </div>
+                 )}
+               </DropdownMenuContent>
+             </DropdownMenu>
+           )}
+
+           {/* GROUP 4: ADMIN, REFERRALS & TRANSFERS DROPDOWN */}
+           {!isDeceased && patient && (
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="outline" className="bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200 text-xs font-black uppercase tracking-wider rounded-2xl flex items-center gap-1.5 h-10 px-4 shadow-md">
+                   <FileSignature size={15} className="text-amber-400" /> ⚡ Admin & Transfers <ChevronDown size={14} />
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-64 bg-slate-950 text-white border border-slate-800 p-2 space-y-1.5 rounded-2xl shadow-2xl">
+                 <div className="p-2 border-b border-slate-800/80 text-[10px] font-black uppercase text-amber-400 tracking-widest">
+                   Transfers & Administrative Actions
+                 </div>
+
+                 {latestEncounter && (
+                   <div className="p-1">
+                     <ReferralLetterDialog patient={patient} latestEncounter={latestEncounter} />
+                   </div>
+                 )}
+
+                 {['DOCTOR', 'DIRECTOR', 'ADMIN'].includes(userProfile?.role || '') && (
+                   <div className="p-1 border-t border-slate-800/80 pt-1">
+                     <DeathCertificationDialog patient={patient} />
+                   </div>
+                 )}
+               </DropdownMenuContent>
+             </DropdownMenu>
+           )}
         </div>
       </div>
       
