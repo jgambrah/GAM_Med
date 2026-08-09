@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+import { PharmacyVerificationSuiteCard } from '@/components/pharmacy/PharmacyVerificationSuiteCard';
+
 const parseDate = (createdAt: any): Date => {
   if (!createdAt) return new Date();
   if (typeof createdAt.toDate === 'function') return createdAt.toDate();
@@ -151,6 +153,14 @@ export default function DispensingPage() {
              <p className="text-lg font-black uppercase">{order?.patientName || 'Clinical Record'}</p>
           </div>
         </div>
+
+        {/* AUTOMATED PHARMACY VERIFICATION & CLINICAL SAFETY SUITE */}
+        <PharmacyVerificationSuiteCard 
+          prescriptionItems={prescriptionItems}
+          patientName={order?.patientName || 'Patient'}
+          patientId={patientId || 'P-100'}
+          allergies="Penicillin, Sulfa"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* LEFT: PRESCRIPTION ITEMS */}

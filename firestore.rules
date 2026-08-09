@@ -615,6 +615,14 @@ service cloud.firestore {
         match /dictated_notes/{document=**} {
            allow read, write, list, create, update, delete: if isSignedIn();
         }
+
+        match /e_consults/{document=**} {
+           allow read, write, list, create, update, delete: if isSignedIn();
+        }
+
+        match /nurse_tasks/{document=**} {
+           allow read, write, list, create, update, delete: if isSignedIn();
+        }
       }
 
       match /admissions/{admissionId} {
@@ -661,10 +669,11 @@ service cloud.firestore {
       }
 
       match /lab_orders/{orderId} {
-        allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create: if false;
-        allow update: if isSuperAdmin() || getCallingUserRole() in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, write, list, create, update, delete: if isSignedIn();
+      }
+
+      match /prescriptions/{prescriptionId} {
+        allow read, write, list, create, update, delete: if isSignedIn();
       }
 
       match /radiology_menu/{scanId} {

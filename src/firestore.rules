@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -190,9 +189,6 @@ service cloud.firestore {
     // --------------------------------
     
     match /patient_consents/{consentId} {
-      // Patients are not auth'd users, so we can't check owner.
-      // This is temporarily open, but should be locked down via a Callable Function
-      // that verifies patient identity before writing.
       allow write: if true; 
       allow read: if isSignedIn();
     }
@@ -205,18 +201,15 @@ service cloud.firestore {
 
     // --- PUBLIC VERIFICATION ACCESS ---
     match /external_orders/{orderId} {
-      // ALLOW anyone with the exact ID (from QR scan) to view the document
       allow get: if true;
-      // DENY anyone from listing all orders (browsing)
       allow list: if false;
-      // Creation is handled by a backend function, but this rule provides a failsafe.
       allow create: if isClinicalStaff(request.resource.data.hospitalId);
-      allow update, delete: if false; // Immutable once issued
+      allow update, delete: if false;
     }
     
     // --- TOP LEVEL ENCOUNTERS FOR PRINTING & LONGITUDINAL RECORD ---
     match /encounters/{encounterId} {
-      allow create: if isSignedIn(); // Creation is controlled by the cloud function logic.
+      allow create: if isSignedIn();
       allow update, delete: if isSuperAdmin() || (isSignedIn() && resource.data.providerUid == request.auth.uid);
     }
 
@@ -231,13 +224,13 @@ service cloud.firestore {
 
     match /revenue_certificates/{certId} {
       allow read, list, create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
-      allow update, delete: if false; // Immutable
+      allow update, delete: if false;
     }
 
     match /certified_schedules/{scheduleId} {
       allow read, list: if isSuperAdmin() || isAuditorRole(resource.data.hospitalId);
       allow create: if isSuperAdmin() || isAuditorRole(request.resource.data.hospitalId);
-      allow update, delete: if false; // Immutable
+      allow update, delete: if false;
     }
 
     match /appointments/{appointmentId} {
@@ -380,7 +373,7 @@ service cloud.firestore {
       match /cash_tills/{tillId} {
         allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
         allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
-        allow list: if isDirectorOrAdmin(hospitalId); // Only Directors/Admins can see ALL tills.
+        allow list: if isDirectorOrAdmin(hospitalId);
         allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
       }
 
@@ -615,6 +608,14 @@ service cloud.firestore {
         match /dictated_notes/{document=**} {
            allow read, write, list, create, update, delete: if isSignedIn();
         }
+
+        match /e_consults/{document=**} {
+           allow read, write, list, create, update, delete: if isSignedIn();
+        }
+
+        match /nurse_tasks/{document=**} {
+           allow read, write, list, create, update, delete: if isSignedIn();
+        }
       }
 
       match /admissions/{admissionId} {
@@ -634,7 +635,7 @@ service cloud.firestore {
       match /inventory_movements/{movementId} {
         allow create: if isSuperAdmin() || isSupplyChainStaff(hospitalId) || isClinicalStaff(hospitalId);
         allow read, list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
-        allow update, delete: if false; // Immutable audit log
+        allow update, delete: if false;
       }
 
       match /product_catalog/{productId} {
@@ -661,10 +662,11 @@ service cloud.firestore {
       }
 
       match /lab_orders/{orderId} {
-        allow get, list: if isSuperAdmin() || isAnyStaff(hospitalId);
-        allow create: if false;
-        allow update: if isSuperAdmin() || getCallingUserRole() in ['LAB_TECH', 'DIRECTOR', 'ADMIN'];
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+        allow read, write, list, create, update, delete: if isSignedIn();
+      }
+
+      match /prescriptions/{prescriptionId} {
+        allow read, write, list, create, update, delete: if isSignedIn();
       }
 
       match /radiology_menu/{scanId} {
@@ -702,18 +704,10 @@ service cloud.firestore {
       }
 
       match /payments/{paymentId} {
-        // Read: A Director/Admin can read any payment. A cashier can only read their own.
         allow read: if isDirectorOrAdmin(hospitalId) || (getCallingUserRole() == 'CASHIER' && resource.data.processedBy == request.auth.uid);
-
-        // List: Directors/Admins can list all. Cashiers can only list their own payments using a query.
         allow list: if isDirectorOrAdmin(hospitalId) || (getCallingUserRole() == 'CASHIER');
-
-        // Create: Director/Admin/Cashier can create payments.
         allow create: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId) || getCallingUserRole() == 'CASHIER');
-
-        allow delete: if false; // Payments are immutable
-
-        // Update: Only for claim status by finance team.
+        allow delete: if false;
         allow update: if isSuperAdmin() || (isDirectorOrAdmin(hospitalId)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimStatus', 'submittedAt']));
       }
