@@ -611,6 +611,10 @@ service cloud.firestore {
         match /anatomical_annotations/{document=**} {
            allow read, write, list, create, update, delete: if isSignedIn();
         }
+
+        match /dictated_notes/{document=**} {
+           allow read, write, list, create, update, delete: if isSignedIn();
+        }
       }
 
       match /admissions/{admissionId} {

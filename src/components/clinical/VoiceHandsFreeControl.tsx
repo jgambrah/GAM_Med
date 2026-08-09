@@ -5,13 +5,36 @@ import { parseVoiceCommand, speakVoiceResponse, VoiceCommandResult } from '@/ai/
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
+import { useFirestore, useUser, useDoc, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { doc, serverTimestamp } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
+
 interface VoiceHandsFreeControlProps {
+  patientId?: string;
+  hospitalId?: string;
   patientName?: string;
   onExecuteIntent?: (result: VoiceCommandResult) => void;
 }
 
-export function VoiceHandsFreeControl({ patientName = 'Patient', onExecuteIntent }: VoiceHandsFreeControlProps) {
+export function VoiceHandsFreeControl({
+  patientId,
+  hospitalId: propHospitalId,
+  patientName = 'Patient',
+  onExecuteIntent
+}: VoiceHandsFreeControlProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const params = useParams();
+  const effectivePatientId = patientId || (params?.id as string);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userProfileRef);
+
+  const hospitalId = propHospitalId || userProfile?.hospitalId;
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [lastResult, setLastResult] = useState<VoiceCommandResult | null>(null);
@@ -41,11 +64,29 @@ export function VoiceHandsFreeControl({ patientName = 'Patient', onExecuteIntent
             if (parsed.intent !== 'UNKNOWN') {
               setLastResult(parsed);
               speakVoiceResponse(parsed.feedbackText);
-              
-              toast({
-                title: `🎙️ Voice Command: ${parsed.intent}`,
-                description: parsed.feedbackText
-              });
+
+              if (parsed.intent === 'DICTATE_NOTE' && parsed.payload && firestore && hospitalId && effectivePatientId) {
+                const noteId = `NOTE-${Date.now()}`;
+                const noteRef = doc(firestore, `hospitals/${hospitalId}/patients/${effectivePatientId}/dictated_notes/${noteId}`);
+                setDocumentNonBlocking(noteRef, {
+                  patientId: effectivePatientId,
+                  patientName,
+                  text: parsed.payload,
+                  authorName: user?.displayName || userProfile?.name || 'Attending Doctor',
+                  source: 'HANDS_FREE_VOICE',
+                  createdAt: serverTimestamp()
+                }, { merge: true });
+
+                toast({
+                  title: '🎙️ Dictated Note Captured & Saved',
+                  description: `Stored note payload in patient folder for ${patientName}.`
+                });
+              } else {
+                toast({
+                  title: `🎙️ Voice Command: ${parsed.intent}`,
+                  description: parsed.feedbackText
+                });
+              }
 
               if (onExecuteIntent) {
                 onExecuteIntent(parsed);

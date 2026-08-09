@@ -38,6 +38,7 @@ import { EnterpriseCapacityFederatedCard } from '@/components/clinical/Enterpris
 import { VoiceHandsFreeControl } from '@/components/clinical/VoiceHandsFreeControl';
 import { Anatomical3DMappingCard } from '@/components/clinical/Anatomical3DMappingCard';
 import { AmbientScribeCard } from '@/components/clinical/AmbientScribeCard';
+import { DictatedNotesCard } from '@/components/clinical/DictatedNotesCard';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Button } from '@/components/ui/button';
 import { type Encounter } from '@/types/encounter';
@@ -788,6 +789,15 @@ export default function PatientFolderHub() {
           {/* AMBIENT CLINICAL INTELLIGENCE (ACI) AI SCRIBE */}
           {patient && (
             <AmbientScribeCard 
+              patientName={`${patient?.firstName} ${patient?.lastName}`}
+            />
+          )}
+
+          {/* HANDS-FREE VOICE DICTATIONS REPOSITORY */}
+          {patient && (
+            <DictatedNotesCard 
+              patientId={id as string}
+              hospitalId={hospitalId}
               patientName={`${patient?.firstName} ${patient?.lastName}`}
             />
           )}
