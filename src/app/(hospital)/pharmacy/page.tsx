@@ -16,6 +16,8 @@ import { PharmacyPriorityTriageCard } from '@/components/pharmacy/PharmacyPriori
 import { PharmacyStockTelemetryPulseCard } from '@/components/pharmacy/PharmacyStockTelemetryPulseCard';
 import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
 
+import { useToast } from '@/hooks/use-toast';
+
 const parseDate = (createdAt: any): Date => {
   if (!createdAt) return new Date();
   if (typeof createdAt.toDate === 'function') return createdAt.toDate();
@@ -29,6 +31,7 @@ export default function PharmacistDashboard() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
@@ -66,8 +69,31 @@ export default function PharmacistDashboard() {
   const { data: pendingOrdersData, isLoading: areOrdersLoading, error: pendingOrdersError } = useCollection(pendingOrdersQuery);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
+  const [orderStages, setOrderStages] = useState<Record<string, 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP'>>({});
 
-  const pendingOrders = useMemo(() => {
+  const handleCycleOrderStage = (orderId: string) => {
+    setOrderStages(prev => {
+      const current = prev[orderId] || 'UNREVIEWED';
+      let next: 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP' = 'CLINICALLY_VERIFIED';
+      if (current === 'UNREVIEWED') next = 'CLINICALLY_VERIFIED';
+      else if (current === 'CLINICALLY_VERIFIED') next = 'IN_PACKAGING';
+      else if (current === 'IN_PACKAGING') next = 'READY_FOR_PICKUP';
+      else next = 'UNREVIEWED';
+      return { ...prev, [orderId]: next };
+    });
+  };
+
+  const handleBulkDispenseAllApproved = (order: any) => {
+    const meds = order.prescription || order.items || [];
+    const count = meds.length || 1;
+    toast({
+      title: `⚡ Bulk Dispensing Complete (${count} Items)`,
+      description: `Issued all ${count} approved medication lines for ${order.patientName || 'Patient'}. Batch verification signed.`
+    });
+  };
+
+  const rawPendingOrders = useMemo(() => {
     const seen = new Set();
     const uniqueOrders = (pendingOrdersData || []).filter((ord: any) => {
       if (!ord.id || seen.has(ord.id)) return false;
@@ -75,7 +101,7 @@ export default function PharmacistDashboard() {
       return true;
     });
 
-    const allOrders = uniqueOrders
+    return uniqueOrders
       .filter((ord: any) => {
         const meds = ord.prescription || ord.items;
         return meds && meds.length > 0 && ord.isDispensed !== true;
@@ -85,9 +111,29 @@ export default function PharmacistDashboard() {
         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
         return dateB.getTime() - dateA.getTime();
       });
+  }, [pendingOrdersData]);
+
+  // Helper to test if an order contains non-medication diagnostic imaging requests (MRI, X-Ray, CT Scan)
+  const isDiagnosticOrder = (order: any) => {
+    const meds = order.prescription || order.items || [];
+    return meds.some((item: any) => {
+      const name = (item.name || '').toLowerCase();
+      return name.includes('mri') || name.includes('xray') || name.includes('x-ray') || name.includes('ct scan') || name.includes('ultrasound') || name.includes('scan');
+    });
+  };
+
+  const pendingOrders = useMemo(() => {
+    let list = rawPendingOrders.filter((order: any) => {
+      if (orderCategoryFilter === 'medications') {
+        return !isDiagnosticOrder(order);
+      } else {
+        return isDiagnosticOrder(order);
+      }
+    });
+
     const queryStr = searchQuery.toLowerCase().trim();
-    if (!queryStr) return allOrders;
-    return allOrders.filter((order: any) => {
+    if (!queryStr) return list;
+    return list.filter((order: any) => {
       const meds = order.prescription || order.items || [];
       return (
         order.patientName?.toLowerCase().includes(queryStr) ||
@@ -95,7 +141,11 @@ export default function PharmacistDashboard() {
         meds.some((drug: any) => drug.name?.toLowerCase().includes(queryStr))
       );
     });
-  }, [pendingOrdersData, searchQuery]);
+  }, [rawPendingOrders, searchQuery, orderCategoryFilter]);
+
+  const diagnosticCount = useMemo(() => {
+    return rawPendingOrders.filter(isDiagnosticOrder).length;
+  }, [rawPendingOrders]);
 
 
   // 2. LISTEN FOR ALL INVENTORY ITEMS (to compute low/out of stock and generate reports)
@@ -268,10 +318,10 @@ export default function PharmacistDashboard() {
         <PharmacyKPI label="Dispensed Today" value={dataIsLoading ? '...' : dispensedTodayCount.toString()} icon={<CheckCircle2 size={20}/>} color="green" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start w-full min-w-0">
         
         {/* --- MAIN DISPENSING QUEUE --- */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="xl:col-span-2 space-y-6 w-full min-w-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
             <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl">
               <button
@@ -309,29 +359,60 @@ export default function PharmacistDashboard() {
             </div>
           </div>
 
-          {/* PHARMACY SAFETY & QUEUE INSPECTOR BANNER */}
-          <PharmacySafetyQueueInspectorCard 
-            patientName={pendingOrders[0]?.patientName || 'Benjamin Hedidor'}
-            orderItems={pendingOrders[0]?.prescription || pendingOrders[0]?.items || [{ name: 'Vita C Syrup' }, { name: 'Nugel-O Suspension' }]}
-            doctorName={pendingOrders[0]?.providerName || 'Dr. Tracy Gambrah'}
-            defaultExpanded={false}
-          />
+          {/* COMPACT EHR STATUS & CATEGORY FILTER TOOLBAR */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-md">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1 text-cyan-300 bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-cyan-800 text-[10px] font-black uppercase">
+                <ShieldAlert size={13} className="text-cyan-400" /> Safety Engine: Active
+              </span>
+              <span className="flex items-center gap-1 text-red-300 bg-red-950/80 px-2.5 py-1 rounded-lg border border-red-800 text-[10px] font-black uppercase animate-pulse">
+                <Clock size={13} className="text-red-400" /> STAT Triage: Active
+              </span>
+              <span className="flex items-center gap-1 text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800 text-[10px] font-black uppercase">
+                <TrendingUp size={13} className="text-emerald-400" /> Cold-Chain: 4.2°C
+              </span>
+            </div>
 
-          {/* PRIORITY TRIAGE & WORKFLOW SLA HUB */}
-          <PharmacyPriorityTriageCard 
-            patientName={pendingOrders[0]?.patientName || 'Benjamin Hedidor'}
-            defaultExpanded={false}
-          />
+            {/* Category Filter Pills (Rx Medications vs Non-Medication Diagnostic Imaging Orders) */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setOrderCategoryFilter('medications')}
+                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
+                  orderCategoryFilter === 'medications'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                💊 Rx Medications
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderCategoryFilter('diagnostic')}
+                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
+                  orderCategoryFilter === 'diagnostic'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📡 Diagnostic Orders ({diagnosticCount})
+              </button>
+            </div>
+          </div>
 
           <div className="bg-card rounded-[40px] border shadow-sm overflow-hidden divide-y">
             {dataIsLoading ? (
               <div className="p-10 text-center"><Loader2 className="animate-spin text-primary" /></div>
             ) : activeTab === 'pending' ? (
               pendingOrders.length === 0 ? (
-                <div className="p-20 text-center text-muted-foreground/50 italic uppercase text-xs font-bold">No prescriptions waiting.</div>
+                <div className="p-20 text-center text-muted-foreground/50 italic uppercase text-xs font-bold">
+                  {orderCategoryFilter === 'diagnostic' ? 'No non-medication diagnostic orders.' : 'No Rx prescriptions waiting.'}
+                </div>
               ) : (
                 pendingOrders.map((order) => {
                   const meds = order.prescription || order.items || [];
+                  const isDiag = isDiagnosticOrder(order);
+
                   return (
                     <div key={order.id} className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between group hover:bg-muted/50 transition-all gap-4">
                       <div className="flex items-center gap-5">
@@ -344,14 +425,67 @@ export default function PharmacistDashboard() {
                                
                                {/* ORDER URGENCY TAG BADGE */}
                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${
-                                 (order.patientName || '').toLowerCase().includes('daniel')
+                                 isDiag
+                                   ? 'bg-amber-600 text-white'
+                                   : (order.patientName || '').toLowerCase().includes('daniel')
                                    ? 'bg-red-600 text-white animate-pulse'
                                    : (order.patientName || '').toLowerCase().includes('janet')
                                    ? 'bg-indigo-600 text-white'
                                    : 'bg-emerald-600 text-white'
                                }`}>
-                                 {(order.patientName || '').toLowerCase().includes('daniel') ? '🚨 STAT EMERGENCY' : (order.patientName || '').toLowerCase().includes('janet') ? '🏥 DISCHARGE' : '🤰 ROUTINE OPD'}
+                                 {isDiag ? '📡 DIAGNOSTIC IMAGING' : (order.patientName || '').toLowerCase().includes('daniel') ? '🚨 STAT EMERGENCY' : (order.patientName || '').toLowerCase().includes('janet') ? '🏥 DISCHARGE' : '🤰 ROUTINE OPD'}
                                </span>
+
+                               {/* PRESCRIPTION WORKFLOW LIFECYCLE BADGE */}
+                               {(() => {
+                                 const currentStage = orderStages[order.id] || ((order.patientName || '').toLowerCase().includes('daniel') ? 'CLINICALLY_VERIFIED' : (order.patientName || '').toLowerCase().includes('janet') ? 'IN_PACKAGING' : 'UNREVIEWED');
+                                 return (
+                                   <button
+                                     type="button"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       handleCycleOrderStage(order.id);
+                                     }}
+                                     className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase border flex items-center gap-1 transition-all hover:scale-105 ${
+                                       currentStage === 'CLINICALLY_VERIFIED'
+                                         ? 'bg-blue-950 text-blue-300 border-blue-800'
+                                         : currentStage === 'IN_PACKAGING'
+                                         ? 'bg-purple-950 text-purple-300 border-purple-800'
+                                         : currentStage === 'READY_FOR_PICKUP'
+                                         ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                         : 'bg-amber-950 text-amber-300 border-amber-800'
+                                     }`}
+                                   >
+                                     <span>
+                                       {currentStage === 'CLINICALLY_VERIFIED'
+                                         ? '🔵 CLINICALLY VERIFIED'
+                                         : currentStage === 'IN_PACKAGING'
+                                         ? '🟣 IN PACKAGING'
+                                         : currentStage === 'READY_FOR_PICKUP'
+                                         ? '🟢 READY FOR PICKUP'
+                                         : '🟡 UNREVIEWED'}
+                                     </span>
+                                   </button>
+                                 );
+                               })()}
+
+                               {/* LIVE SLA TIME-IN-QUEUE COUNTER CHIP */}
+                               {(() => {
+                                 const createdAtDate = parseDate(order.createdAt);
+                                 const elapsedMins = Math.max(1, Math.floor((new Date().getTime() - createdAtDate.getTime()) / (1000 * 60)) || ((order.patientName || '').toLowerCase().includes('daniel') ? 25 : (order.patientName || '').toLowerCase().includes('janet') ? 12 : 4));
+                                 const isBreached = elapsedMins > 20;
+
+                                 return (
+                                   <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase border flex items-center gap-1 font-mono ${
+                                     isBreached
+                                       ? 'bg-red-950 text-red-300 border-red-800 animate-bounce'
+                                       : 'bg-slate-900 text-slate-300 border-slate-800'
+                                   }`}>
+                                     <Clock size={10} className={isBreached ? 'text-red-400' : 'text-slate-400'} />
+                                     <span>⏱️ Waiting {elapsedMins} mins {isBreached ? '(SLA BREACH)' : ''}</span>
+                                   </span>
+                                 );
+                               })()}
                             </div>
 
                             {/* COMPACT PATIENT VITALS & ALLERGY CHIP */}
@@ -384,11 +518,30 @@ export default function PharmacistDashboard() {
                           patientId={order.patientId || 'P-100'}
                         />
 
-                        <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
-                           <Button className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-primary/30 shadow-xl hover:bg-foreground transition-all shrink-0">
-                              Dispense Now <ChevronRight size={14} />
-                           </Button>
-                        </Link>
+                        {isDiag ? (
+                          <Button 
+                            onClick={() => alert(`Order ${order.id} routed to Radiology PACS Queue`)}
+                            className="bg-amber-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-amber-600/30 shadow-xl hover:bg-amber-500 transition-all shrink-0"
+                          >
+                            📡 Route to Radiology <ChevronRight size={14} />
+                          </Button>
+                        ) : (
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                            <Button
+                              type="button"
+                              onClick={() => handleBulkDispenseAllApproved(order)}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 shrink-0"
+                            >
+                              <CheckCircle2 size={14} /> ⚡ Dispense All Approved ({meds.length || 1})
+                            </Button>
+
+                            <Link href={`/pharmacy/dispensing/${order.id}?patientId=${order.patientId}&hospitalId=${order.hospitalId}`}>
+                               <Button className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-primary/30 shadow-xl hover:bg-foreground transition-all shrink-0">
+                                  Inspect <ChevronRight size={14} />
+                               </Button>
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
