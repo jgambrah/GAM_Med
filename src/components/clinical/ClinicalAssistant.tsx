@@ -124,7 +124,7 @@ export function ClinicalAssistant() {
   if (!user || !patientId) return null;
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 font-bold print:hidden">
+    <div className="fixed bottom-24 right-6 z-50 font-bold print:hidden">
       {isOpen ? (
         <div className="bg-white w-[380px] h-[550px] rounded-[32px] border-4 border-slate-900 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
           <div className="bg-[#0f172a] p-5 text-white flex justify-between items-center border-b-4 border-blue-600">
