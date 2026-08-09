@@ -635,6 +635,14 @@ service cloud.firestore {
         }
       }
 
+      match /encounters/{encounterId} {
+        allow read, write, get, create, update, delete, list: if isSignedIn();
+
+        match /prescriptions/{prescriptionId} {
+          allow read, write, get, create, update, delete, list: if isSignedIn();
+        }
+      }
+
       match /pharmacy_inventory/{itemId} {
         allow read, write, get, create, update, delete, list: if isSignedIn();
       }
