@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { runTransaction, doc, collection, Firestore } from 'firebase/firestore';
+import { runTransaction, doc, collection, increment, Firestore } from 'firebase/firestore';
 
 export const AtomicBatchDispensePayloadSchema = z.object({
   encounterId: z.string(),
@@ -45,14 +45,9 @@ export type FEFOInventoryBatch = z.infer<typeof FEFOInventoryBatchSchema>;
 export type AtomicTransactionResult = z.infer<typeof AtomicTransactionResultSchema>;
 
 /**
- * Executes a locked 5-Step Atomic Database Transaction (ACID) for batch prescription dispensing:
- * 1. Concurrency Lock & Stock Verification
- * 2. FEFO Inventory Deduction
- * 3. Prescription Line Status -> DISPENSED
- * 4. Financial Ledger Posting
- * 5. Immutable Audit Trail Creation
- *
- * If ANY single item fails stock validation, the ENTIRE transaction automatically ROLLS BACK.
+ * Executes a locked 5-Step Firestore Atomic Transaction adhering strictly to:
+ * - PHASE 1: ALL READS (Must execute before any mutation writes)
+ * - PHASE 2: ALL WRITES (Inventory deduction, Rx status, Financial Ledger, Audit Trail)
  */
 export async function executeAtomicBatchDispenseTransaction(
   db: Firestore | null,
@@ -62,7 +57,6 @@ export async function executeAtomicBatchDispenseTransaction(
 
   // Simulated fallback transaction runner if db instance is offline/mock mode
   if (!db) {
-    // Perform in-memory ACID simulation
     const deficientItem = payload.itemsToDispense.find((item) =>
       item.drugName.toLowerCase().includes('out_of_stock_trigger')
     );
@@ -89,50 +83,48 @@ export async function executeAtomicBatchDispenseTransaction(
 
   try {
     const result = await runTransaction(db, async (transaction) => {
+      // ==========================================
+      // PHASE 1: ALL READS (Must happen first)
+      // ==========================================
+      const inventoryRefs = payload.itemsToDispense.map((item) =>
+        doc(db, 'hospitals', payload.hospitalId, 'pharmacy_inventory', item.drugId)
+      );
+
+      const inventorySnapshots = await Promise.all(
+        inventoryRefs.map((ref) => transaction.get(ref))
+      );
+
       let totalCoPay = 0;
-
-      // 1. Concurrency Lock & Stock Verification (Read phase)
-      for (const item of payload.itemsToDispense) {
-        const inventoryRef = doc(
-          db,
-          'hospitals',
-          payload.hospitalId,
-          'pharmacy_inventory',
-          item.drugId
-        );
-        const inventoryDoc = await transaction.get(inventoryRef);
-
-        if (inventoryDoc.exists()) {
-          const currentQty = inventoryDoc.data().quantityInStock || 0;
-          if (currentQty < item.dispenseQty) {
-            throw new Error(
-              `Insufficient stock for ${item.drugName} (Required: ${item.dispenseQty}, Available: ${currentQty}). Aborting batch transaction.`
-            );
-          }
+      inventorySnapshots.forEach((snap, idx) => {
+        const item = payload.itemsToDispense[idx];
+        const currentStock = snap.exists() ? snap.data().quantityInStock || 0 : 500;
+        if (currentStock < item.dispenseQty) {
+          throw new Error(
+            `Insufficient stock for ${item.drugName} (Required: ${item.dispenseQty}, Available: ${currentStock}). Aborting transaction.`
+          );
         }
         totalCoPay += item.coPayAmount || 0;
-      }
+      });
 
-      // 2. FEFO Inventory Stock Decrement (Write phase)
-      for (const item of payload.itemsToDispense) {
-        const inventoryRef = doc(
-          db,
-          'hospitals',
-          payload.hospitalId,
-          'pharmacy_inventory',
-          item.drugId
-        );
-        const inventoryDoc = await transaction.get(inventoryRef);
-
-        if (inventoryDoc.exists()) {
-          const currentQty = inventoryDoc.data().quantityInStock || 0;
-          transaction.update(inventoryRef, {
-            quantityInStock: currentQty - item.dispenseQty,
+      // ==========================================
+      // PHASE 2: ALL WRITES (Must happen second)
+      // ==========================================
+      
+      // A. Deduct Inventory Stock (using increment(-dispenseQty))
+      inventoryRefs.forEach((ref, idx) => {
+        const item = payload.itemsToDispense[idx];
+        transaction.set(
+          ref,
+          {
+            quantityInStock: increment(-item.dispenseQty),
             lastDispensedAt: new Date().toISOString(),
-          });
-        }
+          },
+          { merge: true }
+        );
+      });
 
-        // 3. Mark Prescription Line as DISPENSED
+      // B. Update individual prescription lines -> DISPENSED
+      payload.itemsToDispense.forEach((item) => {
         const prescriptionRef = doc(
           db,
           'hospitals',
@@ -153,9 +145,26 @@ export async function executeAtomicBatchDispenseTransaction(
           },
           { merge: true }
         );
-      }
+      });
 
-      // 4. Financial Ledger Posting
+      // C. Update master encounter status -> FULFILLED
+      const encounterRef = doc(
+        db,
+        'hospitals',
+        payload.hospitalId,
+        'encounters',
+        payload.encounterId
+      );
+      transaction.set(
+        encounterRef,
+        {
+          pharmacyStatus: 'FULFILLED',
+          lastUpdatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      // D. Post to Financial Ledger
       const journalRef = doc(
         collection(db, 'hospitals', payload.hospitalId, 'financial_journals')
       );
@@ -169,7 +178,7 @@ export async function executeAtomicBatchDispenseTransaction(
         status: 'POSTED_TO_LEDGER',
       });
 
-      // 5. Immutable Compliance Audit Log Entry
+      // E. Write to Immutable Audit Log
       const auditRef = doc(
         collection(db, 'hospitals', payload.hospitalId, 'pharmacy_audit_logs')
       );
@@ -195,7 +204,7 @@ export async function executeAtomicBatchDispenseTransaction(
 
     return result;
   } catch (err: any) {
-    // Automatic ACID Rollback occurred
+    // Automatic Firestore ACID Rollback occurred
     return {
       success: false,
       message: `🚨 TRANSACTION ROLLED BACK: ${err.message}`,
