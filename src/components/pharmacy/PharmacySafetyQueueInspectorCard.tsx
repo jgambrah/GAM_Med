@@ -20,7 +20,7 @@ export function PharmacySafetyQueueInspectorCard({
   patientName = 'Benjamin Hedidor',
   orderItems = [{ name: 'Vita C Syrup' }, { name: 'Nugel-O Suspension' }],
   doctorName = 'Dr. Tracy Gambrah',
-  defaultExpanded = true
+  defaultExpanded = false
 }: PharmacySafetyQueueInspectorCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);

@@ -17,7 +17,7 @@ interface PharmacyStockTelemetryPulseCardProps {
 }
 
 export function PharmacyStockTelemetryPulseCard({
-  defaultExpanded = true
+  defaultExpanded = false
 }: PharmacyStockTelemetryPulseCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);

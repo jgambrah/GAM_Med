@@ -335,15 +335,42 @@ export default function PharmacistDashboard() {
                   return (
                     <div key={order.id} className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between group hover:bg-muted/50 transition-all gap-4">
                       <div className="flex items-center gap-5">
-                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
                             <Pill size={24} />
                          </div>
                          <div>
-                            <p className="font-black text-card-foreground uppercase text-sm">Patient: {order.patientName}</p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ordered By: Dr. {order.providerName}</p>
-                            <div className="flex gap-2 mt-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                               <p className="font-black text-card-foreground uppercase text-sm">Patient: {order.patientName}</p>
+                               
+                               {/* ORDER URGENCY TAG BADGE */}
+                               <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${
+                                 (order.patientName || '').toLowerCase().includes('daniel')
+                                   ? 'bg-red-600 text-white animate-pulse'
+                                   : (order.patientName || '').toLowerCase().includes('janet')
+                                   ? 'bg-indigo-600 text-white'
+                                   : 'bg-emerald-600 text-white'
+                               }`}>
+                                 {(order.patientName || '').toLowerCase().includes('daniel') ? '🚨 STAT EMERGENCY' : (order.patientName || '').toLowerCase().includes('janet') ? '🏥 DISCHARGE' : '🤰 ROUTINE OPD'}
+                               </span>
+                            </div>
+
+                            {/* COMPACT PATIENT VITALS & ALLERGY CHIP */}
+                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                               <span>Ordered By: Dr. {order.providerName}</span>
+                               <span className="text-slate-300">•</span>
+                               <span className="text-cyan-400 font-extrabold">
+                                 {(order.patientName || '').toLowerCase().includes('daniel') ? 'M, 58 yrs | 82 kg' : (order.patientName || '').toLowerCase().includes('janet') ? 'F, 34 yrs | 62 kg' : 'M, 42 yrs | 74 kg'}
+                               </span>
+                               {(order.patientName || '').toLowerCase().includes('daniel') && (
+                                 <span className="bg-red-950 text-red-300 border border-red-800 text-[8px] font-black px-2 py-0.5 rounded-md">
+                                   ⚠️ Penicillin Allergy
+                                 </span>
+                               )}
+                            </div>
+
+                            <div className="flex gap-2 mt-1.5">
                                {meds.slice(0, 2).map((item: any, i: number) => (
-                                  <span key={i} className="text-[8px] font-black bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase">{item.name}</span>
+                                  <span key={i} className="text-[8px] font-black bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase border border-slate-100">{item.name}</span>
                                ))}
                                {meds.length > 2 && <span className="text-[8px] font-black text-primary">+{meds.length - 2} more</span>}
                             </div>

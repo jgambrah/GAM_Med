@@ -178,11 +178,13 @@ export default function DispensingPage() {
           patientName={order?.patientName || 'Benjamin Hedidor'}
           orderItems={prescriptionItems}
           doctorName={order?.providerName || 'Dr. Tracy Gambrah'}
+          defaultExpanded={true}
         />
 
         {/* PRIORITY TRIAGE & WORKFLOW SLA HUB */}
         <PharmacyPriorityTriageCard 
           patientName={order?.patientName || 'Benjamin Hedidor'}
+          defaultExpanded={true}
         />
 
         {/* AUTOMATED PHARMACY VERIFICATION & CLINICAL SAFETY SUITE */}

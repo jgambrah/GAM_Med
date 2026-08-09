@@ -17,7 +17,7 @@ interface PharmacyPriorityTriageCardProps {
 
 export function PharmacyPriorityTriageCard({
   patientName = 'Benjamin Hedidor',
-  defaultExpanded = true
+  defaultExpanded = false
 }: PharmacyPriorityTriageCardProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
