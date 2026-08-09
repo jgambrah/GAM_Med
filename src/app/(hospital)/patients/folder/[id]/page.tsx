@@ -641,7 +641,9 @@ export default function PatientFolderHub() {
             </div>
           </div>
         </div>
-        <div className="flex gap-3">
+
+        {/* CLINICAL ACTION TOOLBAR INSIDE HEADER BANNER */}
+        <div className="flex flex-wrap items-center gap-2.5 pt-4 border-t border-slate-800/80 w-full justify-start md:justify-end">
            {!isDeceased && patient && hospitalId && <NewEncounterDialog 
                 open={isVitalsDialogOpen}
                 onOpenChange={setIsVitalsDialogOpen}
