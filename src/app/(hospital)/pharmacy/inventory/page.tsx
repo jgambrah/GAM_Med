@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
-import { Pill, Plus, AlertCircle, Package, Loader2, ShieldAlert, Edit3, Trash2, Search, FileText, AlertTriangle, Clock, Download, Printer, Filter } from 'lucide-react';
+import { Pill, Plus, AlertCircle, Package, Loader2, ShieldAlert, Edit3, Edit2, Trash2, Search, FileText, AlertTriangle, Clock, Download, Printer, Filter, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -344,6 +344,33 @@ export default function PharmacyInventoryPage() {
     });
   };
 
+  const getStockHealth = (level: number) => {
+    if (level <= 0) {
+      return { label: 'Out of Stock', css: 'bg-red-500/10 text-red-600 border-red-500/20', Icon: XCircle };
+    }
+    if (level <= 50) {
+      return { label: 'Low Stock', css: 'bg-amber-500/10 text-amber-600 border-amber-500/20 animate-pulse', Icon: AlertTriangle };
+    }
+    return { label: 'Healthy', css: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', Icon: CheckCircle };
+  };
+
+  const getExpiryDisplay = (expiryDate: string) => {
+    if (!expiryDate || expiryDate === 'N/A') return <span className="text-slate-400 font-mono">N/A</span>;
+    
+    const expDate = new Date(expiryDate);
+    if (isNaN(expDate.getTime())) return <span className="text-slate-600 font-mono">{expiryDate}</span>;
+
+    const daysUntilExpiry = Math.floor((expDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilExpiry < 0) {
+      return <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-600 text-[10px] font-bold border border-red-500/30 font-mono uppercase">EXPIRED</span>;
+    }
+    if (daysUntilExpiry <= 90) {
+      return <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-600 text-[10px] font-bold border border-amber-500/30 font-mono uppercase">⚠️ IN {daysUntilExpiry}d</span>;
+    }
+    return <span className="text-slate-600 dark:text-slate-400 font-mono font-bold">{expiryDate}</span>;
+  };
+
   const handlePrintAudit = () => {
     window.print();
   };
@@ -568,25 +595,18 @@ export default function PharmacyInventoryPage() {
                   const isControlled = isNarcoticCheck(item, displayName);
                   const formIcon = displayForm.includes('Syrup') ? '🧪' : displayForm.includes('Injection') ? '💉' : displayForm.includes('Ointment') ? '🧴' : '💊';
 
-                  // Days until expiry calculation
-                  let expiryDiffDays: number | null = null;
-                  if (displayExpiry !== 'N/A') {
-                    const expDate = new Date(displayExpiry);
-                    if (!isNaN(expDate.getTime())) {
-                      const now = new Date();
-                      expiryDiffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
-                    }
-                  }
+                  const stockStatus = getStockHealth(displayQty);
+                  const StatusIcon = stockStatus.Icon;
 
                   return (
-                    <TableRow key={item.id} className="hover:bg-muted/50 transition-all border-b">
-                      {/* 1. DRUG NAME & TYPE */}
-                      <TableCell className="p-4 py-3">
+                    <TableRow key={item.id} className="border-b border-gray-100 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
+                      {/* DRUG NAME & FORMULATION */}
+                      <TableCell className="py-4 px-4">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-black uppercase tracking-tight text-sm text-card-foreground flex items-center gap-1.5">
-                              <span>{formIcon}</span> {displayName} {displayStrength ? `${displayStrength}` : ''}
-                            </h4>
+                            <p className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5 uppercase">
+                              <span>{formIcon}</span> {displayName}
+                            </p>
                             
                             {isControlled && (
                               <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse shadow-sm">
@@ -595,88 +615,68 @@ export default function PharmacyInventoryPage() {
                             )}
                           </div>
 
-                          <p className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
-                            <span className="text-primary font-mono font-black">↳ {displayForm}</span>
-                            {displayGeneric ? <span className="text-slate-400">• {displayGeneric}</span> : null}
-                          </p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-sm text-gray-500 font-medium">
+                              {displayGeneric ? `${displayGeneric} • ` : ''}{displayStrength || 'Standard Dose'}
+                            </span>
+                            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                              {displayForm}
+                            </span>
+                          </div>
                         </div>
                       </TableCell>
 
-                      {/* 2. BATCH NO. */}
-                      <TableCell className="p-4 py-3 text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                      {/* BATCH NUMBER */}
+                      <TableCell className="py-4 px-4 text-sm text-gray-600 dark:text-gray-300 font-mono font-bold">
                         {displayBatch}
                       </TableCell>
 
-                      {/* 3. EXPIRY */}
-                      <TableCell className="p-4 py-3">
-                        <div className="space-y-1">
-                          <p className="text-xs font-mono font-bold text-muted-foreground">{displayExpiry}</p>
-                          {expiryDiffDays !== null && expiryDiffDays <= 90 ? (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 border border-amber-500/30">
-                              <Clock size={10} /> {expiryDiffDays <= 0 ? '⚠️ EXPIRED' : `⚠️ IN ${expiryDiffDays}d`}
-                            </span>
-                          ) : null}
+                      {/* EXPIRY WITH WARNINGS */}
+                      <TableCell className="py-4 px-4">
+                        {getExpiryDisplay(displayExpiry)}
+                      </TableCell>
+
+                      {/* DYNAMIC STOCK HEALTH BADGE */}
+                      <TableCell className="py-4 px-4">
+                        <div className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs font-semibold ${stockStatus.css}`}>
+                          <StatusIcon size={16} />
+                          <span>{displayQty} {stockStatus.label}</span>
                         </div>
                       </TableCell>
 
-                      {/* 4. STOCK HEALTH */}
-                      <TableCell className="p-4 py-3">
-                        {displayQty > 100 ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-black uppercase px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-sm">
-                            🟢 {displayQty} Healthy
-                          </span>
-                        ) : displayQty > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-black uppercase px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse shadow-sm">
-                            <AlertCircle size={12} /> 🟡 {displayQty} Low Stock
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-black uppercase px-3 py-1 rounded-full bg-red-500/10 text-red-600 border border-red-500/20 shadow-sm">
-                            <AlertTriangle size={12} /> 🔴 {displayQty} Stockout
-                          </span>
-                        )}
-                      </TableCell>
-
-                      {/* 5. PRICE */}
-                      <TableCell className="p-4 py-3 text-right font-mono font-bold text-sm text-card-foreground">
+                      {/* UNIT PRICE */}
+                      <TableCell className="py-4 px-4 text-sm font-bold text-gray-900 dark:text-gray-100 text-right font-mono">
                         GHS {displayPrice.toFixed(2)}
                       </TableCell>
 
-                      {/* 6. ACTIONS */}
-                      <TableCell className="p-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
+                      {/* ACTIONS COLUMN */}
+                      <TableCell className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
                             type="button"
-                            variant="ghost"
-                            size="icon"
                             onClick={() => openEditDialog(item)}
-                            className="hover:bg-primary/10 hover:text-primary h-8 w-8 rounded-xl transition-all text-slate-500"
-                            title="Quick Edit / Adjust Stock ✏️"
+                            title="Adjust Stock"
+                            className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 rounded-md transition"
                           >
-                            <Edit3 size={15} />
-                          </Button>
-
-                          <Button
+                            <Edit2 size={18} />
+                          </button>
+                          <button 
                             type="button"
-                            variant="ghost"
-                            size="icon"
                             onClick={() => setSelectedLedgerItem({ ...item, name: displayName, quantity: displayQty, price: displayPrice, batchNumber: displayBatch, expiryDate: displayExpiry })}
-                            className="hover:bg-slate-800 hover:text-cyan-400 h-8 w-8 rounded-xl text-slate-500 transition-all"
-                            title="View Immutable Stock Ledger 📊"
+                            title="View Ledger"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md transition"
                           >
-                            <FileText size={15} />
-                          </Button>
-
+                            <FileText size={18} />
+                          </button>
                           {isManager && (
-                            <Button
+                            <button 
                               type="button"
-                              variant="ghost"
-                              size="icon"
                               onClick={() => handleDeleteStock(item.id, displayName)}
-                              className="hover:bg-red-500/10 hover:text-destructive text-slate-400 h-8 w-8 rounded-xl transition-all"
                               title="Delete Item"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-md transition"
                             >
-                              <Trash2 size={15} />
-                            </Button>
+                              <Trash2 size={18} />
+                            </button>
                           )}
                         </div>
                       </TableCell>
