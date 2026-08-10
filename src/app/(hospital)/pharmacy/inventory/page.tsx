@@ -74,11 +74,16 @@ export default function PharmacyInventory() {
     if (!inventory) return [];
     const queryStr = searchQuery.toLowerCase().trim();
     if (!queryStr) return inventory;
-    return inventory.filter(item => 
-      item.name?.toLowerCase().includes(queryStr) ||
-      item.genericName?.toLowerCase().includes(queryStr) ||
-      item.batchNumber?.toLowerCase().includes(queryStr)
-    );
+    return inventory.filter(item => {
+      const nameStr = item.name || item.drugName || item.itemName || item.title || '';
+      const genStr = item.genericName || item.generic || '';
+      const batchStr = item.batchNumber || item.batchNo || item.batch || '';
+      return (
+        nameStr.toLowerCase().includes(queryStr) ||
+        genStr.toLowerCase().includes(queryStr) ||
+        batchStr.toLowerCase().includes(queryStr)
+      );
+    });
   }, [inventory, searchQuery]);
 
   const form = useForm<StockFormValues>({
@@ -107,6 +112,21 @@ export default function PharmacyInventory() {
 
     const stockData = {
       ...values,
+      drugName: values.name,
+      itemName: values.name,
+      name: values.name,
+      genericName: values.genericName,
+      generic: values.genericName,
+      strength: values.strength || '',
+      dosage: values.strength || '',
+      quantity: values.quantity,
+      quantityInStock: values.quantity,
+      price: values.price,
+      unitPrice: values.price,
+      batchNumber: values.batchNumber || 'N/A',
+      batchNo: values.batchNumber || 'N/A',
+      expiryDate: values.expiryDate || 'N/A',
+      expirationDate: values.expiryDate || 'N/A',
       hospitalId,
       lastUpdated: serverTimestamp(),
     };
@@ -125,14 +145,14 @@ export default function PharmacyInventory() {
     if (!isManager) return;
     setEditingItem(item);
     editForm.reset({
-      name: item.name || '',
-      genericName: item.genericName || '',
-      strength: item.strength || '',
+      name: item.name || item.drugName || item.itemName || '',
+      genericName: item.genericName || item.generic || '',
+      strength: item.strength || item.dosage || '',
       form: item.form || 'Tablet',
-      quantity: item.quantity || 0,
-      price: item.price || 0,
-      batchNumber: item.batchNumber || '',
-      expiryDate: item.expiryDate || '',
+      quantity: item.quantity ?? item.quantityInStock ?? 0,
+      price: item.price ?? item.unitPrice ?? 0,
+      batchNumber: item.batchNumber || item.batchNo || '',
+      expiryDate: item.expiryDate || item.expirationDate || '',
     });
     setIsEditStockOpen(true);
   };
@@ -151,6 +171,13 @@ export default function PharmacyInventory() {
     const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, editingItem.id);
     updateDocumentNonBlocking(itemRef, {
       ...values,
+      drugName: values.name,
+      itemName: values.name,
+      generic: values.genericName,
+      quantityInStock: values.quantity,
+      unitPrice: values.price,
+      batchNo: values.batchNumber || 'N/A',
+      expirationDate: values.expiryDate || 'N/A',
       lastUpdated: serverTimestamp()
     });
     toast({
@@ -314,33 +341,47 @@ export default function PharmacyInventory() {
                     No stock items match your search.
                 </TableCell></TableRow>
             ) : (
-                filteredInventory.map(item => (
-                <TableRow key={item.id} className="hover:bg-muted/50 transition-all">
-                    <TableCell className="p-4">
-                    <p className="font-bold uppercase tracking-tight text-card-foreground">{item.name}</p>
-                    <p className="text-[10px] font-bold text-primary">{item.genericName} • {item.strength}</p>
-                    </TableCell>
-                    <TableCell className="p-4 text-xs font-mono text-muted-foreground">{item.batchNumber}</TableCell>
-                    <TableCell className="p-4 text-xs font-bold text-muted-foreground">{item.expiryDate}</TableCell>
-                    <TableCell className="p-4">
-                    <div className={`flex items-center gap-2 font-black ${item.quantity < 20 ? 'text-destructive' : 'text-green-600'}`}>
-                        <span>{item.quantity}</span>
-                        {item.quantity < 20 && <AlertCircle size={14} />}
-                    </div>
-                    </TableCell>
-                    <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{(typeof item.price === 'number' ? item.price : Number(item.price) || 0).toFixed(2)}</TableCell>
-                    {isManager && (
-                      <TableCell className="p-4 text-right space-x-2">
-                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)} className="hover:text-primary h-8 w-8 rounded-lg">
-                            <Edit3 size={14} />
-                         </Button>
-                         <Button variant="ghost" size="icon" onClick={() => handleDeleteStock(item.id, item.name)} className="hover:text-destructive text-muted-foreground h-8 w-8 rounded-lg">
-                            <Trash2 size={14} />
-                         </Button>
+                filteredInventory.map(item => {
+                  const displayName = item.name || item.drugName || item.itemName || item.title || 'UNNAMED DRUG ITEM';
+                  const displayGeneric = item.genericName || item.generic || '';
+                  const displayStrength = item.strength || item.dosage || item.dose || '';
+                  const displayBatch = item.batchNumber || item.batchNo || item.batch || 'N/A';
+                  const displayExpiry = item.expiryDate || item.expirationDate || item.expiry || 'N/A';
+                  const displayQty = typeof item.quantity === 'number' ? item.quantity : (typeof item.quantityInStock === 'number' ? item.quantityInStock : Number(item.quantity || item.quantityInStock) || 0);
+                  const displayPrice = typeof item.price === 'number' ? item.price : (typeof item.unitPrice === 'number' ? item.unitPrice : Number(item.price || item.unitPrice) || 0);
+
+                  return (
+                    <TableRow key={item.id} className="hover:bg-muted/50 transition-all">
+                      <TableCell className="p-4">
+                        <p className="font-bold uppercase tracking-tight text-card-foreground">{displayName}</p>
+                        {(displayGeneric || displayStrength) ? (
+                          <p className="text-[10px] font-bold text-primary">
+                            {displayGeneric}{displayGeneric && displayStrength ? ' • ' : ''}{displayStrength}
+                          </p>
+                        ) : null}
                       </TableCell>
-                    )}
-                </TableRow>
-                ))
+                      <TableCell className="p-4 text-xs font-mono text-muted-foreground">{displayBatch}</TableCell>
+                      <TableCell className="p-4 text-xs font-bold text-muted-foreground">{displayExpiry}</TableCell>
+                      <TableCell className="p-4">
+                        <div className={`flex items-center gap-2 font-black ${displayQty < 20 ? 'text-destructive' : 'text-green-600'}`}>
+                          <span>{displayQty}</span>
+                          {displayQty < 20 && <AlertCircle size={14} />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="p-4 text-right font-mono font-bold text-card-foreground">{displayPrice.toFixed(2)}</TableCell>
+                      {isManager && (
+                        <TableCell className="p-4 text-right space-x-2">
+                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)} className="hover:text-primary h-8 w-8 rounded-lg">
+                              <Edit3 size={14} />
+                           </Button>
+                           <Button variant="ghost" size="icon" onClick={() => handleDeleteStock(item.id, displayName)} className="hover:text-destructive text-muted-foreground h-8 w-8 rounded-lg">
+                              <Trash2 size={14} />
+                           </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })
             )}
           </TableBody>
         </Table>
