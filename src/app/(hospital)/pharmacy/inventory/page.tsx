@@ -658,34 +658,42 @@ export default function PharmacyInventoryPage() {
                         GHS {displayPrice.toFixed(2)}
                       </TableCell>
 
-                      {/* ACTIONS COLUMN */}
+                      {/* ACTIONS COLUMN - PERMANENTLY VISIBLE */}
                       <TableCell className="py-4 px-4 text-right">
-                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button 
                             type="button"
-                            onClick={() => openEditDialog(item)}
-                            title="Adjust Stock"
-                            className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 rounded-md transition"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button 
-                            type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={() => setSelectedLedgerItem({ ...item, name: displayName, quantity: displayQty, price: displayPrice, batchNumber: displayBatch, expiryDate: displayExpiry })}
-                            title="View Ledger"
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-md transition"
+                            className="h-8 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white border border-slate-700 text-[10px] font-black uppercase px-2.5 rounded-lg flex items-center gap-1 shadow-sm"
+                            title="View Stock Movement Ledger 📊"
                           >
-                            <FileText size={18} />
-                          </button>
+                            <FileText size={12} className="text-cyan-400" /> View Ledger
+                          </Button>
+
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(item)}
+                            className="h-8 bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 text-[10px] font-black uppercase px-2.5 rounded-lg flex items-center gap-1 shadow-sm"
+                            title="Quick Edit / Adjust Stock ✏️"
+                          >
+                            <Edit2 size={12} /> Adjust
+                          </Button>
+
                           {isManager && (
-                            <button 
+                            <Button 
                               type="button"
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleDeleteStock(item.id, displayName)}
-                              title="Delete Item"
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-md transition"
+                              className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition"
+                              title="Delete Stock Record"
                             >
-                              <Trash2 size={18} />
-                            </button>
+                              <Trash2 size={15} />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
