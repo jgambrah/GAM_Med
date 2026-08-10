@@ -72,9 +72,42 @@ export default function PharmacyInventory() {
 
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
+
+    const map = new Map<string, any>();
+
+    // 1. DEDUPLICATE & CONSOLIDATE INVENTORY RECORDS BY DRUG KEY
+    inventory.forEach((item: any) => {
+      const rawName = item.name || item.drugName || item.itemName || item.title || '';
+      if (!rawName.trim()) return; // Filter out blank ghost documents
+
+      const key = rawName.toLowerCase().trim();
+
+      if (!map.has(key)) {
+        map.set(key, { ...item });
+      } else {
+        const existing = map.get(key);
+        // Merge metadata: prioritize non-empty fields
+        existing.name = existing.name || item.name || item.drugName;
+        existing.genericName = (existing.genericName && existing.genericName !== '') ? existing.genericName : (item.genericName || item.generic);
+        existing.strength = (existing.strength && existing.strength !== '') ? existing.strength : (item.strength || item.dosage);
+        existing.batchNumber = (existing.batchNumber && existing.batchNumber !== 'N/A') ? existing.batchNumber : (item.batchNumber || item.batchNo || 'N/A');
+        existing.expiryDate = (existing.expiryDate && existing.expiryDate !== 'N/A') ? existing.expiryDate : (item.expiryDate || item.expirationDate || 'N/A');
+        existing.price = existing.price || item.price || item.unitPrice || 25.0;
+
+        // Consolidate quantity: pick highest active stock
+        const qty1 = typeof existing.quantity === 'number' ? existing.quantity : (typeof existing.quantityInStock === 'number' ? existing.quantityInStock : 0);
+        const qty2 = typeof item.quantity === 'number' ? item.quantity : (typeof item.quantityInStock === 'number' ? item.quantityInStock : 0);
+        const consolidatedQty = Math.max(qty1, qty2);
+        existing.quantity = consolidatedQty > 0 ? consolidatedQty : 100;
+        existing.quantityInStock = existing.quantity;
+      }
+    });
+
+    const list = Array.from(map.values());
     const queryStr = searchQuery.toLowerCase().trim();
-    if (!queryStr) return inventory;
-    return inventory.filter(item => {
+    if (!queryStr) return list;
+
+    return list.filter((item: any) => {
       const nameStr = item.name || item.drugName || item.itemName || item.title || '';
       const genStr = item.genericName || item.generic || '';
       const batchStr = item.batchNumber || item.batchNo || item.batch || '';
@@ -110,8 +143,13 @@ export default function PharmacyInventory() {
       return;
     }
 
+    // Deterministic Single Source of Truth Document ID (e.g. DRUG-vita-c)
+    const docId = `DRUG-${values.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')}`;
+    const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, docId);
+
     const stockData = {
       ...values,
+      id: docId,
       drugName: values.name,
       itemName: values.name,
       name: values.name,
@@ -131,11 +169,11 @@ export default function PharmacyInventory() {
       lastUpdated: serverTimestamp(),
     };
     
-    addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/pharmacy_inventory`), stockData);
+    updateDocumentNonBlocking(itemRef, stockData);
 
     toast({
-      title: 'Stock Added',
-      description: `${values.name} has been added to the inventory.`,
+      title: 'Single-Source Stock Consolidated',
+      description: `${values.name} stock consolidated under document ID ${docId}.`,
     });
     form.reset();
     setIsAddStockOpen(false);
