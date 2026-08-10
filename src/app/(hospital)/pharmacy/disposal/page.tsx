@@ -288,48 +288,44 @@ export default function PharmacyStockDisposalPage() {
                     <div 
                       key={item.id} 
                       onClick={() => setSelectedItem({ ...item, name: displayName, batchNumber: displayBatch, expiryDate: displayExpiry, quantity: displayQty })}
-                      className={`p-4 cursor-pointer transition-all border-b border-slate-100 dark:border-slate-800 ${selectedItem?.id === item.id ? 'bg-destructive/5 border-l-8 border-destructive shadow-inner' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                      className={`p-3.5 bg-card border rounded-2xl cursor-pointer transition-all space-y-2 border-slate-200 dark:border-slate-800 ${
+                        selectedItem?.id === item.id 
+                          ? 'border-l-8 border-l-destructive border-indigo-400 bg-destructive/5 shadow-md' 
+                          : 'hover:border-indigo-400 hover:shadow-sm'
+                      }`}
                     >
-                       {/* ROW 1: BRAND NAME & FORM */}
-                       <div className="flex items-center justify-between gap-2">
-                         <p className="uppercase text-xs font-black text-foreground flex items-center gap-1.5 truncate">
-                           <span>💊</span> {displayName} {item.strength ? `(${item.strength} ${item.form || ''})` : ''}
-                         </p>
-                       </div>
+                      {/* Top Row: Name + Status Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm">💊</span>
+                          <h4 className="text-xs font-black text-foreground truncate uppercase tracking-tight">
+                            {displayName} {item.strength ? `(${item.strength})` : ''}
+                          </h4>
+                        </div>
 
-                       {/* ROW 2: BATCH & LOCATION */}
-                       <div className="flex items-center gap-2 mt-1.5 text-[10px] font-mono">
-                          <span className="font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                            Batch: {displayBatch}
-                          </span>
-                          <span className="text-slate-300">|</span>
-                          <span className="font-bold text-slate-500 dark:text-slate-400">
-                            Location: {item.location || 'Shelf A-04'}
-                          </span>
-                       </div>
+                        {/* Status Badge */}
+                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-md shrink-0 flex items-center gap-1 border ${tagStyle}`}>
+                          {tagLabel}
+                        </span>
+                      </div>
 
-                       {/* ROW 3: QTY, EXPIRY & COLOR-CODED STATUS BADGE */}
-                       <div className="flex justify-between items-center mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] font-mono">
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-emerald-600 dark:text-emerald-400 uppercase">
-                              QTY: {displayQty}
-                            </span>
-                            <span className="text-slate-300">|</span>
-                            {hasNoExpiry ? (
-                              <span className="font-bold text-red-500 flex items-center gap-1 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/30">
-                                <AlertTriangle size={10} /> EXP: N/A
-                              </span>
-                            ) : (
-                              <span className="font-bold text-slate-600 dark:text-slate-300">
-                                EXP: {displayExpiry}
-                              </span>
-                            )}
-                          </div>
-
-                          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${tagStyle}`}>
-                            {tagLabel}
+                      {/* Bottom Row: Compact Metadata Grid */}
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2 text-[10px] font-mono">
+                          <span className="font-bold bg-muted text-foreground px-1.5 py-0.5 rounded border">
+                            {displayBatch}
                           </span>
-                       </div>
+                          <span>•</span>
+                          <span className="font-medium text-slate-500">{item.location || 'Shelf A-04'}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[11px] font-mono font-bold">
+                          <span>QTY: <strong className="text-indigo-600 dark:text-indigo-400 font-black">{displayQty}</strong></span>
+                          <span className={hasNoExpiry ? 'text-rose-500 font-black italic' : 'text-slate-600 dark:text-slate-300'}>
+                            EXP: {hasNoExpiry ? 'N/A' : displayExpiry}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   );
                 })
