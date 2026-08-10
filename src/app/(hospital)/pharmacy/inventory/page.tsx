@@ -217,7 +217,14 @@ export default function PharmacyInventoryPage() {
   };
 
   const openEditDialog = (item: any) => {
-    if (!isManager) return;
+    if (!isAuthorized) {
+      toast({
+        variant: 'destructive',
+        title: 'Access Denied',
+        description: 'You do not have permission to edit inventory items.',
+      });
+      return;
+    }
     setEditingItem(item);
     editForm.reset({
       name: item.name || item.drugName || item.itemName || '',
@@ -234,7 +241,7 @@ export default function PharmacyInventoryPage() {
 
   const handleEditStock = (values: StockFormValues) => {
     if (!firestore || !hospitalId || !editingItem) return;
-    if (!isManager) {
+    if (!isAuthorized) {
       toast({
         variant: 'destructive',
         title: 'Access Denied',
@@ -243,7 +250,9 @@ export default function PharmacyInventoryPage() {
       return;
     }
 
-    const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, editingItem.id);
+    const docId = editingItem.id || `DRUG-${values.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')}`;
+    const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, docId);
+    
     updateDocumentNonBlocking(itemRef, {
       ...values,
       drugName: values.name,
@@ -257,7 +266,7 @@ export default function PharmacyInventoryPage() {
     });
     toast({
       title: 'Stock Updated',
-      description: `${values.name} has been updated.`,
+      description: `${values.name} has been updated in inventory.`,
     });
     setIsEditStockOpen(false);
     setEditingItem(null);
@@ -689,68 +698,66 @@ export default function PharmacyInventoryPage() {
       </div>
 
       {/* EDIT STOCK DIALOG */}
-      {isManager && (
-        <Dialog open={isEditStockOpen} onOpenChange={setIsEditStockOpen}>
-           <DialogContent>
-               <DialogHeader>
-                   <DialogTitle>Edit Drug Entry</DialogTitle>
-               </DialogHeader>
-               <Form {...editForm}>
-                   <form onSubmit={editForm.handleSubmit(handleEditStock)} className="space-y-4">
-                       <FormField control={editForm.control} name="name" render={({ field }) => (
-                          <FormItem><FormLabel>Brand Name</FormLabel><FormControl><Input placeholder="e.g. Panadol" {...field} /></FormControl><FormMessage /></FormItem>
+      <Dialog open={isEditStockOpen} onOpenChange={setIsEditStockOpen}>
+         <DialogContent>
+             <DialogHeader>
+                 <DialogTitle>Edit Drug Entry</DialogTitle>
+             </DialogHeader>
+             <Form {...editForm}>
+                 <form onSubmit={editForm.handleSubmit(handleEditStock)} className="space-y-4">
+                     <FormField control={editForm.control} name="name" render={({ field }) => (
+                        <FormItem><FormLabel>Brand Name</FormLabel><FormControl><Input placeholder="e.g. Panadol" {...field} /></FormControl><FormMessage /></FormItem>
+                     )} />
+                     <FormField control={editForm.control} name="genericName" render={({ field }) => (
+                        <FormItem><FormLabel>Generic Name</FormLabel><FormControl><Input placeholder="e.g. Paracetamol" {...field} /></FormControl><FormMessage /></FormItem>
+                     )} />
+                     <div className="grid grid-cols-2 gap-4">
+                        <FormField control={editForm.control} name="strength" render={({ field }) => (
+                           <FormItem><FormLabel>Strength</FormLabel><FormControl><Input placeholder="e.g. 500mg" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={editForm.control} name="form" render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Form</FormLabel>
+                           <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                             <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                             <SelectContent>
+                               <SelectItem value="Tablet">Tablet</SelectItem>
+                               <SelectItem value="Capsule">Capsule</SelectItem>
+                               <SelectItem value="Syrup">Syrup</SelectItem>
+                               <SelectItem value="Injection">Injection</SelectItem>
+                               <SelectItem value="Ointment">Ointment</SelectItem>
+                               <SelectItem value="Other">Other</SelectItem>
+                             </SelectContent>
+                           </Select>
+                           <FormMessage />
+                         </FormItem>
                        )} />
-                       <FormField control={editForm.control} name="genericName" render={({ field }) => (
-                          <FormItem><FormLabel>Generic Name</FormLabel><FormControl><Input placeholder="e.g. Paracetamol" {...field} /></FormControl><FormMessage /></FormItem>
-                       )} />
-                       <div className="grid grid-cols-2 gap-4">
-                          <FormField control={editForm.control} name="strength" render={({ field }) => (
-                             <FormItem><FormLabel>Strength</FormLabel><FormControl><Input placeholder="e.g. 500mg" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={editForm.control} name="form" render={({ field }) => (
-                           <FormItem>
-                             <FormLabel>Form</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                               <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                               <SelectContent>
-                                 <SelectItem value="Tablet">Tablet</SelectItem>
-                                 <SelectItem value="Capsule">Capsule</SelectItem>
-                                 <SelectItem value="Syrup">Syrup</SelectItem>
-                                 <SelectItem value="Injection">Injection</SelectItem>
-                                 <SelectItem value="Ointment">Ointment</SelectItem>
-                                 <SelectItem value="Other">Other</SelectItem>
-                               </SelectContent>
-                             </Select>
-                             <FormMessage />
-                           </FormItem>
-                         )} />
-                       </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField control={editForm.control} name="quantity" render={({ field }) => (
-                             <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={editForm.control} name="price" render={({ field }) => (
-                             <FormItem><FormLabel>Price (GHS)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                       </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <FormField control={editForm.control} name="batchNumber" render={({ field }) => (
-                             <FormItem><FormLabel>Batch Number</FormLabel><FormControl><Input placeholder="e.g. AB1234" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={editForm.control} name="expiryDate" render={({ field }) => (
-                             <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                        </div>
+                     </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={editForm.control} name="quantity" render={({ field }) => (
+                           <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={editForm.control} name="price" render={({ field }) => (
+                           <FormItem><FormLabel>Price (GHS)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                     </div>
+                      <div className="grid grid-cols-2 gap-4">
+                         <FormField control={editForm.control} name="batchNumber" render={({ field }) => (
+                           <FormItem><FormLabel>Batch Number</FormLabel><FormControl><Input placeholder="e.g. AB1234" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={editForm.control} name="expiryDate" render={({ field }) => (
+                           <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                      </div>
 
-                        <DialogFooter>
-                           <Button type="button" variant="outline" onClick={() => setIsEditStockOpen(false)}>Cancel</Button>
-                           <Button type="submit" disabled={editForm.formState.isSubmitting}>Update Stock</Button>
-                        </DialogFooter>
-                   </form>
-               </Form>
-           </DialogContent>
-        </Dialog>
-       )}
+                      <DialogFooter>
+                         <Button type="button" variant="outline" onClick={() => setIsEditStockOpen(false)}>Cancel</Button>
+                         <Button type="submit" disabled={editForm.formState.isSubmitting}>Update Stock</Button>
+                      </DialogFooter>
+                 </form>
+             </Form>
+         </DialogContent>
+      </Dialog>
 
       {/* DRUG LEDGER & AUDIT TRAIL DIALOG */}
       <PharmacyDrugLedgerDrawerDialog
