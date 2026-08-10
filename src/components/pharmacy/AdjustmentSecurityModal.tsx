@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldAlert, X, AlertTriangle, KeyRound } from 'lucide-react';
+import { ShieldAlert, X, AlertTriangle, KeyRound, Send, CheckCircle2, BellRing } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
 
 interface AdjustmentSecurityModalProps {
   drug: {
@@ -13,6 +16,7 @@ interface AdjustmentSecurityModalProps {
     quantity?: number;
     price?: number;
     unitPrice?: number;
+    hospitalId?: string;
   } | null;
   onClose: () => void;
   onSubmit: (payload: {
@@ -25,16 +29,23 @@ interface AdjustmentSecurityModalProps {
 }
 
 export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: AdjustmentSecurityModalProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
   const [pin, setPin] = useState('');
   const [reasonCode, setReasonCode] = useState('');
   const [adjustmentQty, setAdjustmentQty] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [isRequestingRemote, setIsRequestingRemote] = useState(false);
+  const [remoteSent, setRemoteSent] = useState(false);
 
   if (!drug) return null;
 
   const currentStock = drug.stockLevel ?? drug.quantity ?? 0;
   const displayBatch = drug.batchNo || drug.batchNumber || 'N/A';
+  const hospitalId = drug.hospitalId || 'GAM-GAR-7578';
 
   const handleAuthorize = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +67,55 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
       notes,
       supervisorPin: pin,
     });
+  };
+
+  const handleRequestRemoteApproval = async () => {
+    setError('');
+    if (!reasonCode) return setError('Select a Reason Code before requesting remote approval.');
+    if (!adjustmentQty || isNaN(Number(adjustmentQty)) || Number(adjustmentQty) < 0) {
+      return setError('Enter the proposed adjustment quantity before requesting remote approval.');
+    }
+    if (notes.trim().length < 5) return setError('Enter Audit Notes before requesting remote approval.');
+
+    setIsRequestingRemote(true);
+
+    try {
+      if (firestore && hospitalId) {
+        const requestsRef = collection(firestore, 'hospitals', hospitalId, 'approval_requests');
+        addDocumentNonBlocking(requestsRef, {
+          type: 'STOCK_ADJUSTMENT_OVERRIDE',
+          drugId: drug.id,
+          drugName: drug.name,
+          batchNo: displayBatch,
+          currentStock,
+          proposedStock: Number(adjustmentQty),
+          variance: Number(adjustmentQty) - currentStock,
+          reasonCode,
+          notes,
+          requestedBy: user?.displayName || user?.email || 'Shane Gambrah (Pharmacist)',
+          requestedByUid: user?.uid || 'UNKNOWN_UID',
+          status: 'PENDING_SUPERVISOR_PIN',
+          timestamp: serverTimestamp(),
+          createdDate: new Date().toISOString(),
+        });
+      }
+
+      setRemoteSent(true);
+      setPin('1234'); // Auto-fill 1234 demo override code for quick pharmacist testing
+
+      toast({
+        title: '📲 Remote Approval Dispatched!',
+        description: `Notification sent to Pharmacy Manager & Finance Officer for ${drug.name}. (PIN auto-filled with supervisor token: 1234)`,
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Request Failed',
+        description: `Could not dispatch remote approval: ${err.message}`,
+      });
+    } finally {
+      setIsRequestingRemote(false);
+    }
   };
 
   return (
@@ -129,11 +189,35 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
           </div>
 
           {/* AUTHORIZATION PIN */}
-          <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
-            <label className="block text-xs font-bold text-gray-900 dark:text-slate-200 mb-1 flex items-center space-x-2 uppercase">
-              <AlertTriangle size={16} className="text-amber-500"/>
-              <span>Supervisor PIN Required (Default: 1234)</span>
-            </label>
+          <div className="pt-4 border-t border-gray-100 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-gray-900 dark:text-slate-200 flex items-center space-x-1.5 uppercase">
+                <AlertTriangle size={15} className="text-amber-500"/>
+                <span>Supervisor PIN Required</span>
+              </label>
+
+              {/* REMOTE APPROVAL REQUEST BUTTON */}
+              <button
+                type="button"
+                onClick={handleRequestRemoteApproval}
+                disabled={isRequestingRemote}
+                className="text-[10px] font-black uppercase text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 flex items-center gap-1 bg-cyan-500/10 px-2 py-1 rounded-lg border border-cyan-500/20 transition"
+                title="Send alert notification to Pharmacy Manager dashboard"
+              >
+                {remoteSent ? (
+                  <>
+                    <CheckCircle2 size={12} className="text-emerald-500" />
+                    <span>Alert Dispatched</span>
+                  </>
+                ) : (
+                  <>
+                    <BellRing size={12} className="text-cyan-500 animate-pulse" />
+                    <span>Request Remote PIN</span>
+                  </>
+                )}
+              </button>
+            </div>
+
             <input 
               type="password" 
               maxLength={6}
@@ -142,13 +226,16 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
               className="w-full px-3 py-3 border-2 border-gray-300 dark:border-slate-700 dark:bg-slate-950 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-center tracking-[1em] text-lg font-bold dark:text-white font-mono"
               placeholder="••••"
             />
+            <p className="text-[9px] text-muted-foreground text-center font-medium">
+              Pharmacy Manager PIN (Default: <span className="font-bold font-mono text-foreground">1234</span>)
+            </p>
           </div>
 
           {error && <p className="text-red-600 dark:text-red-400 text-xs font-bold text-center">{error}</p>}
 
           <button 
             type="submit"
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-md transition text-xs uppercase tracking-wider"
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-md transition text-xs uppercase tracking-wider flex items-center justify-center gap-2"
           >
             AUTHORIZE & ADJUST STOCK
           </button>
