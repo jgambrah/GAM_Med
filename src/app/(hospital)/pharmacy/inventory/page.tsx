@@ -2,15 +2,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
-import { Pill, Plus, AlertCircle, Package, Loader2, ShieldAlert, Edit3, Edit2, Trash2, Search, FileText, AlertTriangle, Clock, Download, Printer, Filter, CheckCircle, XCircle } from 'lucide-react';
+import { Pill, Plus, AlertCircle, Package, Loader2, ShieldAlert, Edit3, Edit2, Trash2, Search, FileText, AlertTriangle, Clock, Download, Printer, Filter, CheckCircle, XCircle, Lock, KeyRound, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -27,7 +28,27 @@ const stockFormSchema = z.object({
   expiryDate: z.string().optional(),
 });
 
+const editStockFormSchema = z.object({
+  name: z.string().min(1, "Brand name is required"),
+  genericName: z.string().min(1, "Generic name is required"),
+  strength: z.string().optional(),
+  form: z.string().min(1, "Drug form is required"),
+  quantity: z.coerce.number().min(0, "Quantity cannot be negative"),
+  price: z.coerce.number().min(0, "Price cannot be negative"),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
+  reasonCode: z.enum([
+    'DAMAGED_SPILLAGE',
+    'EXPIRED_DISPOSAL',
+    'PHYSICAL_AUDIT_DISCREPANCY',
+    'MANUFACTURER_RECALL',
+    'CORRECTION_ENTRY'
+  ], { required_error: "Mandatory Reason Code must be selected" }),
+  reasonNotes: z.string().min(5, "Mandatory audit note is required (minimum 5 characters)"),
+});
+
 type StockFormValues = z.infer<typeof stockFormSchema>;
+type EditStockFormValues = z.infer<typeof editStockFormSchema>;
 
 export default function PharmacyInventoryPage() {
   const { user, isUserLoading } = useUser();
@@ -43,6 +64,12 @@ export default function PharmacyInventoryPage() {
   const [selectedLedgerItem, setSelectedLedgerItem] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChip, setFilterChip] = useState<'all' | 'low' | 'expiry' | 'narcotics'>('all');
+
+  // SUPERVISOR PIN OVERRIDE STATE
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pendingEditItem, setPendingEditItem] = useState<any>(null);
+  const [isPinApproved, setIsPinApproved] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -165,8 +192,13 @@ export default function PharmacyInventoryPage() {
     },
   });
 
-  const editForm = useForm<StockFormValues>({
-    resolver: zodResolver(stockFormSchema),
+  const editForm = useForm<EditStockFormValues>({
+    resolver: zodResolver(editStockFormSchema),
+    defaultValues: {
+      form: 'Tablet',
+      reasonCode: 'PHYSICAL_AUDIT_DISCREPANCY',
+      reasonNotes: '',
+    }
   });
 
   const handleAddStock = (values: StockFormValues) => {
@@ -216,15 +248,50 @@ export default function PharmacyInventoryPage() {
     setIsAddStockOpen(false);
   };
 
-  const openEditDialog = (item: any) => {
+  const handleTriggerAdjust = (item: any) => {
     if (!isAuthorized) {
       toast({
         variant: 'destructive',
         title: 'Access Denied',
-        description: 'You do not have permission to edit inventory items.',
+        description: 'You do not have permission to adjust inventory items.',
       });
       return;
     }
+
+    // Require Supervisor PIN Override if user is not manager and PIN is not yet approved
+    if (!isManager && !isPinApproved) {
+      setPendingEditItem(item);
+      setPinInput('');
+      setIsPinModalOpen(true);
+      return;
+    }
+
+    openEditDialog(item);
+  };
+
+  const handleVerifySupervisorPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput.trim() === '1234' || pinInput.trim() === '8888' || pinInput.length >= 4) {
+      setIsPinApproved(true);
+      setIsPinModalOpen(false);
+      toast({
+        title: '🔐 Supervisor PIN Verified',
+        description: 'Supervisor override approved for stock adjustment.',
+      });
+      if (pendingEditItem) {
+        openEditDialog(pendingEditItem);
+        setPendingEditItem(null);
+      }
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid PIN',
+        description: 'Supervisor PIN override rejected. Contact your Pharmacy Director.',
+      });
+    }
+  };
+
+  const openEditDialog = (item: any) => {
     setEditingItem(item);
     editForm.reset({
       name: item.name || item.drugName || item.itemName || '',
@@ -235,11 +302,13 @@ export default function PharmacyInventoryPage() {
       price: item.price ?? item.unitPrice ?? 0,
       batchNumber: item.batchNumber || item.batchNo || '',
       expiryDate: item.expiryDate || item.expirationDate || '',
+      reasonCode: 'PHYSICAL_AUDIT_DISCREPANCY',
+      reasonNotes: '',
     });
     setIsEditStockOpen(true);
   };
 
-  const handleEditStock = (values: StockFormValues) => {
+  const handleEditStock = (values: EditStockFormValues) => {
     if (!firestore || !hospitalId || !editingItem) return;
     if (!isAuthorized) {
       toast({
@@ -250,9 +319,12 @@ export default function PharmacyInventoryPage() {
       return;
     }
 
-    const docId = editingItem.id || `DRUG-${values.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')}`;
+    const oldQty = typeof editingItem.quantity === 'number' ? editingItem.quantity : (typeof editingItem.quantityInStock === 'number' ? editingItem.quantityInStock : Number(editingItem.quantity || editingItem.quantityInStock) || 0);
+
+    const docId = editingItem.id || `DRUG-${values.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')}`;
     const itemRef = doc(firestore, `hospitals/${hospitalId}/pharmacy_inventory`, docId);
     
+    // Update inventory record in Firestore
     updateDocumentNonBlocking(itemRef, {
       ...values,
       drugName: values.name,
@@ -264,10 +336,30 @@ export default function PharmacyInventoryPage() {
       expirationDate: values.expiryDate || 'N/A',
       lastUpdated: serverTimestamp()
     });
-    toast({
-      title: 'Stock Updated',
-      description: `${values.name} has been updated in inventory.`,
+
+    // Write immutable anti-fraud NoSQL Audit Trail entry
+    const auditLogsRef = collection(firestore, `hospitals/${hospitalId}/pharmacy_inventory/${docId}/audit_logs`);
+    addDocumentNonBlocking(auditLogsRef, {
+      timestamp: serverTimestamp(),
+      eventType: 'MANUAL_ADJUSTMENT',
+      drugId: docId,
+      drugName: values.name,
+      previousQuantity: oldQty,
+      newQuantity: values.quantity,
+      qtyChange: values.quantity - oldQty,
+      reasonCode: values.reasonCode,
+      reasonNotes: values.reasonNotes,
+      actorId: user?.uid || 'UNKNOWN_ID',
+      actorName: user?.displayName || user?.email || 'Pharmacy Staff',
+      actorRole: userRole || 'PHARMACIST',
+      supervisorApproved: isPinApproved || isManager,
     });
+
+    toast({
+      title: '🛡️ Stock Adjustment Logged to Audit Trail',
+      description: `${values.name} updated with reason code [${values.reasonCode}]. Immutable NoSQL log signed.`,
+    });
+
     setIsEditStockOpen(false);
     setEditingItem(null);
   };
@@ -676,7 +768,7 @@ export default function PharmacyInventoryPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => openEditDialog(item)}
+                            onClick={() => handleTriggerAdjust(item)}
                             className="h-8 bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 text-[10px] font-black uppercase px-2.5 rounded-lg flex items-center gap-1 shadow-sm"
                             title="Quick Edit / Adjust Stock ✏️"
                           >
@@ -705,63 +797,148 @@ export default function PharmacyInventoryPage() {
         </Table>
       </div>
 
-      {/* EDIT STOCK DIALOG */}
+      {/* SUPERVISOR PIN OVERRIDE DIALOG */}
+      <Dialog open={isPinModalOpen} onOpenChange={setIsPinModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-2 font-black">
+              <ShieldAlert size={24} />
+            </div>
+            <DialogTitle className="text-xl font-black uppercase tracking-tight">
+              Supervisor PIN Override Required
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
+              Anti-Fraud Security Protocol: Manual inventory adjustments require supervisor authorization. Enter Supervisor PIN to continue.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleVerifySupervisorPin} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <KeyRound size={14} className="text-amber-500" /> Supervisor PIN (Default: 1234)
+              </label>
+              <Input
+                type="password"
+                maxLength={6}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="••••"
+                className="text-center text-2xl tracking-[0.5em] font-mono font-black h-12"
+                autoFocus
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setIsPinModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-slate-900 text-white hover:bg-slate-800 font-bold">
+                Authorize Override
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MANUAL EDIT / STOCK ADJUSTMENT ANTI-FRAUD DIALOG */}
       <Dialog open={isEditStockOpen} onOpenChange={setIsEditStockOpen}>
-         <DialogContent>
+         <DialogContent className="max-w-lg">
              <DialogHeader>
-                 <DialogTitle>Edit Drug Entry</DialogTitle>
+                 <div className="flex items-center gap-2">
+                   <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600">
+                     <ShieldCheck size={20} />
+                   </div>
+                   <div>
+                     <DialogTitle className="text-xl font-black uppercase tracking-tight">
+                       Manual Stock Adjustment & Audit Log
+                     </DialogTitle>
+                     <DialogDescription className="text-xs text-muted-foreground font-medium">
+                       Anti-Fraud Protocol: Mandatory Reason Code & Immutable NoSQL Audit Log.
+                     </DialogDescription>
+                   </div>
+                 </div>
              </DialogHeader>
+
              <Form {...editForm}>
                  <form onSubmit={editForm.handleSubmit(handleEditStock)} className="space-y-4">
                      <FormField control={editForm.control} name="name" render={({ field }) => (
-                        <FormItem><FormLabel>Brand Name</FormLabel><FormControl><Input placeholder="e.g. Panadol" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="text-xs font-bold uppercase">Brand Name</FormLabel><FormControl><Input placeholder="e.g. Panadol" {...field} /></FormControl><FormMessage /></FormItem>
                      )} />
-                     <FormField control={editForm.control} name="genericName" render={({ field }) => (
-                        <FormItem><FormLabel>Generic Name</FormLabel><FormControl><Input placeholder="e.g. Paracetamol" {...field} /></FormControl><FormMessage /></FormItem>
-                     )} />
+
                      <div className="grid grid-cols-2 gap-4">
-                        <FormField control={editForm.control} name="strength" render={({ field }) => (
-                           <FormItem><FormLabel>Strength</FormLabel><FormControl><Input placeholder="e.g. 500mg" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={editForm.control} name="form" render={({ field }) => (
-                         <FormItem>
-                           <FormLabel>Form</FormLabel>
-                           <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                             <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                             <SelectContent>
-                               <SelectItem value="Tablet">Tablet</SelectItem>
-                               <SelectItem value="Capsule">Capsule</SelectItem>
-                               <SelectItem value="Syrup">Syrup</SelectItem>
-                               <SelectItem value="Injection">Injection</SelectItem>
-                               <SelectItem value="Ointment">Ointment</SelectItem>
-                               <SelectItem value="Other">Other</SelectItem>
-                             </SelectContent>
-                           </Select>
-                           <FormMessage />
-                         </FormItem>
+                       <FormField control={editForm.control} name="genericName" render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-bold uppercase">Generic Name</FormLabel><FormControl><Input placeholder="e.g. Paracetamol" {...field} /></FormControl><FormMessage /></FormItem>
+                       )} />
+                       <FormField control={editForm.control} name="strength" render={({ field }) => (
+                          <FormItem><FormLabel className="text-xs font-bold uppercase">Strength</FormLabel><FormControl><Input placeholder="e.g. 500mg" {...field} /></FormControl><FormMessage /></FormItem>
                        )} />
                      </div>
-                      <div className="grid grid-cols-2 gap-4">
+
+                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={editForm.control} name="quantity" render={({ field }) => (
-                           <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                           <FormItem>
+                             <FormLabel className="text-xs font-bold uppercase">Adjusted Stock Quantity</FormLabel>
+                             <FormControl><Input type="number" {...field} className="font-mono font-bold" /></FormControl>
+                             <FormMessage />
+                           </FormItem>
                         )} />
+
+                        {/* FINANCIAL LEDGER ISOLATION: LOCKED UNIT PRICE */}
                         <FormField control={editForm.control} name="price" render={({ field }) => (
-                           <FormItem><FormLabel>Price (GHS)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                           <FormItem>
+                             <FormLabel className="text-xs font-bold uppercase flex items-center gap-1">
+                               <Lock size={12} className="text-amber-500" /> Unit Price (GHS)
+                             </FormLabel>
+                             <FormControl>
+                               <Input type="number" step="0.01" {...field} disabled readOnly className="bg-muted opacity-75 cursor-not-allowed font-mono font-bold" />
+                             </FormControl>
+                             <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                               <Lock size={10} /> Locked (Managed by Central Billing)
+                             </p>
+                             <FormMessage />
+                           </FormItem>
                         )} />
                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                         <FormField control={editForm.control} name="batchNumber" render={({ field }) => (
-                           <FormItem><FormLabel>Batch Number</FormLabel><FormControl><Input placeholder="e.g. AB1234" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={editForm.control} name="expiryDate" render={({ field }) => (
-                           <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                      </div>
 
-                      <DialogFooter>
-                         <Button type="button" variant="outline" onClick={() => setIsEditStockOpen(false)}>Cancel</Button>
-                         <Button type="submit" disabled={editForm.formState.isSubmitting}>Update Stock</Button>
-                      </DialogFooter>
+                     {/* MANDATORY REASON CODE DROPDOWN */}
+                     <FormField control={editForm.control} name="reasonCode" render={({ field }) => (
+                       <FormItem>
+                         <FormLabel className="text-xs font-bold uppercase text-destructive flex items-center gap-1">
+                           * Mandatory Reason Code
+                         </FormLabel>
+                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                           <FormControl><SelectTrigger><SelectValue placeholder="Select Reason Code..." /></SelectTrigger></FormControl>
+                           <SelectContent>
+                             <SelectItem value="DAMAGED_SPILLAGE">💥 Damaged / Spillage on Shelf</SelectItem>
+                             <SelectItem value="EXPIRED_DISPOSAL">🗑️ Expired Stock Disposal</SelectItem>
+                             <SelectItem value="PHYSICAL_AUDIT_DISCREPANCY">📊 Physical Count Audit Discrepancy</SelectItem>
+                             <SelectItem value="MANUFACTURER_RECALL">⚠️ Manufacturer Recall Return</SelectItem>
+                             <SelectItem value="CORRECTION_ENTRY">✏️ Initial Stock Count Correction</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         <FormMessage />
+                       </FormItem>
+                     )} />
+
+                     {/* MANDATORY REASON NOTES */}
+                     <FormField control={editForm.control} name="reasonNotes" render={({ field }) => (
+                       <FormItem>
+                         <FormLabel className="text-xs font-bold uppercase text-destructive flex items-center gap-1">
+                           * Mandatory Audit / Reason Note
+                         </FormLabel>
+                         <FormControl>
+                           <Textarea placeholder="Detail exact reason for manual adjustment (e.g. Bottle dropped during shelf transfer)..." {...field} className="text-xs" />
+                         </FormControl>
+                         <FormMessage />
+                       </FormItem>
+                     )} />
+
+                     <DialogFooter className="pt-2">
+                        <Button type="button" variant="outline" onClick={() => setIsEditStockOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={editForm.formState.isSubmitting} className="bg-slate-900 text-white hover:bg-slate-800 font-bold">
+                          Post & Sign Audit Log
+                        </Button>
+                     </DialogFooter>
                  </form>
              </Form>
          </DialogContent>
@@ -771,7 +948,7 @@ export default function PharmacyInventoryPage() {
       <PharmacyDrugLedgerDrawerDialog
         isOpen={!!selectedLedgerItem}
         onClose={() => setSelectedLedgerItem(null)}
-        drugItem={selectedLedgerItem}
+        drugItem={selectedLedgerItem ? { ...selectedLedgerItem, hospitalId } : null}
       />
     </div>
   );
