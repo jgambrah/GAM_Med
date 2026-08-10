@@ -47,7 +47,27 @@ export default function DispensingQueue() {
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
   const [orderStages, setOrderStages] = useState<Record<string, 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP'>>({});
-  const [dispensedGroupIds, setDispensedGroupIds] = useState<string[]>([]);
+  const [dispensedGroupIds, setDispensedGroupIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('gam_med_dispensed_group_ids');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('gam_med_dispensed_group_ids', JSON.stringify(dispensedGroupIds));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [dispensedGroupIds]);
 
   useEffect(() => {
     if (user) {
