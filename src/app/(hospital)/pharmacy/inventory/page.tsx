@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { PharmacyDrugLedgerDrawerDialog } from '@/components/pharmacy/PharmacyDrugLedgerDrawerDialog';
 import AdjustmentSecurityModal from '@/components/pharmacy/AdjustmentSecurityModal';
+import { SupervisorApprovalQueueDrawer } from '@/components/pharmacy/SupervisorApprovalQueueDrawer';
 
 const stockFormSchema = z.object({
   name: z.string().min(1, "Brand name is required"),
@@ -72,6 +73,7 @@ export default function PharmacyInventoryPage() {
   const [pendingEditItem, setPendingEditItem] = useState<any>(null);
   const [isPinApproved, setIsPinApproved] = useState(false);
   const [securityModalDrug, setSecurityModalDrug] = useState<any | null>(null);
+  const [isSupervisorQueueOpen, setIsSupervisorQueueOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -647,6 +649,16 @@ export default function PharmacyInventoryPage() {
             <Printer size={14} className="text-primary" /> Print Audit Sheet
           </Button>
 
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsSupervisorQueueOpen(true)}
+            className="bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 font-black text-xs uppercase px-3 py-2 rounded-xl border border-amber-500/30 flex items-center gap-1.5 shadow-sm"
+            title="Review pending staff adjustment requests & release 1-Time Security PINs"
+          >
+            <KeyRound size={14} className="text-amber-500" /> Supervisor PIN Queue
+          </Button>
+
           {isManager && (
            <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
               <DialogTrigger asChild>
@@ -1076,6 +1088,13 @@ export default function PharmacyInventoryPage() {
         drug={securityModalDrug}
         onClose={() => setSecurityModalDrug(null)}
         onSubmit={handleSecurityAdjustmentSubmit}
+      />
+
+      {/* SUPERVISOR APPROVAL QUEUE DRAWER */}
+      <SupervisorApprovalQueueDrawer
+        isOpen={isSupervisorQueueOpen}
+        onClose={() => setIsSupervisorQueueOpen(false)}
+        hospitalId={hospitalId}
       />
     </div>
   );

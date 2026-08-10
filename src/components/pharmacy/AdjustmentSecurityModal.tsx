@@ -1,10 +1,8 @@
-'use client';
-
-import React, { useState } from 'react';
-import { ShieldAlert, X, AlertTriangle, KeyRound, Send, CheckCircle2, BellRing } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldAlert, X, AlertTriangle, KeyRound, Send, CheckCircle2, BellRing, Loader2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 
 interface AdjustmentSecurityModalProps {
   drug: {
@@ -39,13 +37,38 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [isRequestingRemote, setIsRequestingRemote] = useState(false);
-  const [remoteSent, setRemoteSent] = useState(false);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
 
   if (!drug) return null;
 
   const currentStock = drug.stockLevel ?? drug.quantity ?? 0;
   const displayBatch = drug.batchNo || drug.batchNumber || 'N/A';
   const hospitalId = drug.hospitalId || 'GAM-GAR-7578';
+
+  // Real-time listener for supervisor PIN release
+  const activeReqRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !activeRequestId) return null;
+    return doc(firestore, `hospitals/${hospitalId}/approval_requests`, activeRequestId);
+  }, [firestore, hospitalId, activeRequestId]);
+
+  const { data: requestDocData } = useDoc(activeReqRef);
+
+  useEffect(() => {
+    if (requestDocData && requestDocData.status === 'APPROVED' && requestDocData.issuedPin) {
+      setPin(requestDocData.issuedPin);
+      toast({
+        title: '🎉 Supervisor Approved & PIN Released!',
+        description: `Pharmacy Director released 1-Time Security PIN [${requestDocData.issuedPin}]. You can now authorize the stock adjustment.`,
+      });
+    } else if (requestDocData && requestDocData.status === 'REJECTED') {
+      setError('Supervisor rejected this stock adjustment request.');
+      toast({
+        variant: 'destructive',
+        title: '❌ Remote Request Rejected',
+        description: 'Pharmacy Director rejected this manual stock modification.',
+      });
+    }
+  }, [requestDocData, toast]);
 
   const handleAuthorize = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,8 +104,11 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
 
     try {
       if (firestore && hospitalId) {
-        const requestsRef = collection(firestore, 'hospitals', hospitalId, 'approval_requests');
-        addDocumentNonBlocking(requestsRef, {
+        const requestId = `REQ-${Date.now()}`;
+        const requestDocRef = doc(firestore, `hospitals/${hospitalId}/approval_requests`, requestId);
+
+        updateDocumentNonBlocking(requestDocRef, {
+          id: requestId,
           type: 'STOCK_ADJUSTMENT_OVERRIDE',
           drugId: drug.id,
           drugName: drug.name,
@@ -98,14 +124,13 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
           timestamp: serverTimestamp(),
           createdDate: new Date().toISOString(),
         });
+
+        setActiveRequestId(requestId);
       }
 
-      setRemoteSent(true);
-      setPin('1234'); // Auto-fill 1234 demo override code for quick pharmacist testing
-
       toast({
-        title: '📲 Remote Approval Dispatched!',
-        description: `Notification sent to Pharmacy Manager & Finance Officer for ${drug.name}. (PIN auto-filled with supervisor token: 1234)`,
+        title: '📲 Remote Approval Request Dispatched!',
+        description: `Notification sent to Pharmacy Director Queue. Waiting for supervisor to release 1-Time Security PIN...`,
       });
     } catch (err: any) {
       toast({
@@ -200,14 +225,19 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
               <button
                 type="button"
                 onClick={handleRequestRemoteApproval}
-                disabled={isRequestingRemote}
+                disabled={isRequestingRemote || !!activeRequestId}
                 className="text-[10px] font-black uppercase text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 flex items-center gap-1 bg-cyan-500/10 px-2 py-1 rounded-lg border border-cyan-500/20 transition"
                 title="Send alert notification to Pharmacy Manager dashboard"
               >
-                {remoteSent ? (
+                {isRequestingRemote ? (
                   <>
-                    <CheckCircle2 size={12} className="text-emerald-500" />
-                    <span>Alert Dispatched</span>
+                    <Loader2 size={12} className="animate-spin text-cyan-500" />
+                    <span>Dispatching Alert...</span>
+                  </>
+                ) : activeRequestId ? (
+                  <>
+                    <Clock size={12} className="text-amber-500 animate-spin" />
+                    <span>Waiting for Manager Release...</span>
                   </>
                 ) : (
                   <>

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, ArrowDownRight, ArrowUpRight, ShieldCheck, Clock, User, Package, AlertTriangle, ShieldAlert, Download, Search, Filter, Lock } from 'lucide-react';
+import { FileText, ArrowDownRight, ArrowUpRight, ShieldCheck, Clock, User, Package, AlertTriangle, ShieldAlert, Download, Printer, Search, Filter, Lock } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 
@@ -208,15 +208,27 @@ export function PharmacyDrugLedgerDrawerDialog({ isOpen, onClose, drugItem }: Ph
               </div>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleExportLedgerCSV}
-              className="text-xs font-black uppercase px-3 py-1.5 rounded-xl flex items-center gap-1.5 border"
-            >
-              <Download size={14} className="text-cyan-500" /> Export Ledger CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="text-xs font-black uppercase px-3 py-1.5 rounded-xl flex items-center gap-1.5 border"
+              >
+                <Printer size={14} className="text-primary" /> Print Audit Sheet
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportLedgerCSV}
+                className="text-xs font-black uppercase px-3 py-1.5 rounded-xl flex items-center gap-1.5 border"
+              >
+                <Download size={14} className="text-cyan-500" /> Export Ledger CSV
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
