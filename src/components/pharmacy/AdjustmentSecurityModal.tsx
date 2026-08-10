@@ -39,11 +39,7 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
   const [isRequestingRemote, setIsRequestingRemote] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
 
-  if (!drug) return null;
-
-  const currentStock = drug.stockLevel ?? drug.quantity ?? 0;
-  const displayBatch = drug.batchNo || drug.batchNumber || 'N/A';
-  const hospitalId = drug.hospitalId || 'GAM-GAR-7578';
+  const hospitalId = drug?.hospitalId || 'GAM-GAR-7578';
 
   // Real-time listener for supervisor PIN release
   const activeReqRef = useMemoFirebase(() => {
@@ -69,6 +65,11 @@ export default function AdjustmentSecurityModal({ drug, onClose, onSubmit }: Adj
       });
     }
   }, [requestDocData, toast]);
+
+  if (!drug) return null;
+
+  const currentStock = drug.stockLevel ?? drug.quantity ?? 0;
+  const displayBatch = drug.batchNo || drug.batchNumber || 'N/A';
 
   const handleAuthorize = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -25,8 +25,6 @@ interface PharmacyDrugLedgerDrawerDialogProps {
 }
 
 export function PharmacyDrugLedgerDrawerDialog({ isOpen, onClose, drugItem }: PharmacyDrugLedgerDrawerDialogProps) {
-  if (!drugItem) return null;
-
   const firestore = useFirestore();
   const [filterType, setFilterType] = useState<'all' | 'adjustments' | 'dispenses' | 'procurement'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,7 +155,9 @@ export function PharmacyDrugLedgerDrawerDialog({ isOpen, onClose, drugItem }: Ph
     return list;
   }, [mergedLedgerEvents, filterType, searchQuery]);
 
-  const totalValue = (drugItem.quantity * drugItem.price).toFixed(2);
+  if (!drugItem) return null;
+
+  const totalValue = ((drugItem.quantity || 0) * (drugItem.price || 0)).toFixed(2);
 
   const handleExportLedgerCSV = () => {
     if (filteredEvents.length === 0) return;
