@@ -655,6 +655,10 @@ service cloud.firestore {
         allow read, write, get, create, update, delete, list: if isSignedIn();
       }
 
+      match /approval_requests/{requestId} {
+        allow read, write, get, create, update, delete, list: if isSignedIn();
+      }
+
       match /financial_journals/{journalId} {
         allow read, write, create, update, list: if isSignedIn();
       }
