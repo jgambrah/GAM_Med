@@ -285,43 +285,45 @@ export default function PharmacyStockDisposalPage() {
                     : '🟢 HEALTHY';
 
                   return (
-                    <div 
-                      key={item.id} 
+                    <div
+                      key={item.id}
                       onClick={() => setSelectedItem({ ...item, name: displayName, batchNumber: displayBatch, expiryDate: displayExpiry, quantity: displayQty })}
-                      className={`p-3.5 bg-card border rounded-2xl cursor-pointer transition-all space-y-2 border-slate-200 dark:border-slate-800 ${
-                        selectedItem?.id === item.id 
-                          ? 'border-l-8 border-l-destructive border-indigo-400 bg-destructive/5 shadow-md' 
+                      className={`p-3 bg-card border rounded-xl cursor-pointer space-y-2 border-slate-200 dark:border-slate-800 transition-all ${
+                        selectedItem?.id === item.id
+                          ? 'border-l-8 border-l-destructive border-indigo-400 bg-destructive/5 shadow-sm'
                           : 'hover:border-indigo-400 hover:shadow-sm'
                       }`}
                     >
-                      {/* Top Row: Name + Status Badge */}
+                      {/* Top Row: Title + Status Pill */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm">💊</span>
-                          <h4 className="text-xs font-black text-foreground truncate uppercase tracking-tight">
+                          <span className="text-xs">💊</span>
+                          <h4 className="text-xs font-bold text-foreground truncate uppercase">
                             {displayName} {item.strength ? `(${item.strength})` : ''}
                           </h4>
                         </div>
 
                         {/* Status Badge */}
-                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-md shrink-0 flex items-center gap-1 border ${tagStyle}`}>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md shrink-0 flex items-center gap-1 border ${tagStyle}`}>
                           {tagLabel}
                         </span>
                       </div>
 
-                      {/* Bottom Row: Compact Metadata Grid */}
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-2 text-[10px] font-mono">
-                          <span className="font-bold bg-muted text-foreground px-1.5 py-0.5 rounded border">
+                      {/* Bottom Row: Metadata Grid */}
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                          <span className="bg-muted text-foreground px-1.5 py-0.5 rounded font-medium border">
                             {displayBatch}
                           </span>
                           <span>•</span>
-                          <span className="font-medium text-slate-500">{item.location || 'Shelf A-04'}</span>
+                          <span className="text-slate-500 font-medium">{item.location || 'Shelf A-04'}</span>
                         </div>
 
-                        <div className="flex items-center gap-3 text-[11px] font-mono font-bold">
-                          <span>QTY: <strong className="text-indigo-600 dark:text-indigo-400 font-black">{displayQty}</strong></span>
-                          <span className={hasNoExpiry ? 'text-rose-500 font-black italic' : 'text-slate-600 dark:text-slate-300'}>
+                        <div className="flex items-center gap-3 shrink-0 font-mono">
+                          <span className="text-muted-foreground font-medium">
+                            QTY: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{displayQty}</strong>
+                          </span>
+                          <span className={`font-semibold whitespace-nowrap ${hasNoExpiry ? 'text-rose-500 italic font-bold' : 'text-slate-600 dark:text-slate-300'}`}>
                             EXP: {hasNoExpiry ? 'N/A' : displayExpiry}
                           </span>
                         </div>
@@ -394,7 +396,7 @@ export default function PharmacyStockDisposalPage() {
                      <div>
                        <div className="flex justify-between items-center mb-1">
                          <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                           * Disposal Quantity ($1 \le Qty \le {selectedItem.quantity}$)
+                           * Disposal Quantity (1 – {selectedItem.quantity})
                          </label>
                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">
                            Max: {selectedItem.quantity}
@@ -410,7 +412,7 @@ export default function PharmacyStockDisposalPage() {
                            const val = Math.min(Number(e.target.value), selectedItem.quantity);
                            setDisposalData({...disposalData, qty: val < 0 ? 0 : val});
                          }}
-                         className="w-full p-4 border rounded-2xl bg-slate-50 dark:bg-slate-950 text-foreground font-black text-2xl outline-none focus:ring-4 focus:ring-destructive/10 focus:border-destructive transition-all font-mono"
+                         className="w-full px-3.5 py-2.5 border rounded-xl bg-slate-50 dark:bg-slate-950 text-foreground font-mono font-bold text-sm outline-none focus:ring-2 focus:ring-destructive placeholder:text-xs"
                          placeholder="e.g. 10"
                        />
                      </div>
