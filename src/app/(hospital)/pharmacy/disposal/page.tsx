@@ -209,25 +209,47 @@ export default function PharmacyStockDisposalPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 text-black">
+    <div className="p-8 max-w-7xl mx-auto space-y-6 text-black">
       <Button variant="ghost" onClick={() => router.push('/pharmacy')} className="flex items-center gap-2 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:text-black transition-all pl-0">
         <ArrowLeft size={14}/> Back to Operations
       </Button>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-6 gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Pharmacy Shelf <span className="text-destructive">Wastage & Disposal</span></h1>
-          <p className="text-muted-foreground font-medium">Localized Decommissioning of Pharmacy Shelf Stocks.</p>
+      {/* DARK HERO BANNER HEADER */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-4">
+        {/* Header & Badges Row */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white uppercase italic">
+              PHARMACY SHELF <span className="text-destructive">WASTAGE & DISPOSAL</span>
+            </h1>
+            <p className="text-xs text-slate-400 font-medium mt-1">
+              Clinical Decommissioning, FEFO Audit Trails & Regulatory Stock Loss Logging
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1 text-xs font-semibold bg-pink-500/10 text-pink-400 border border-pink-500/20 rounded-full flex items-center gap-1.5">
+              <Skull size={14} /> Pharmacy Personnel
+            </span>
+            <Link href="/supply-chain/disposal/logs">
+              <button className="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 transition flex items-center gap-2">
+                <Archive size={14} /> Disposal Archive
+              </button>
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/supply-chain/disposal/logs">
-            <Button className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg h-9">
-              <Archive size={14} /> Disposal Archive
-            </Button>
-          </Link>
-          <div className="bg-destructive/10 text-destructive px-6 py-2 rounded-2xl border border-destructive/20 flex items-center gap-3 h-9">
-             <Skull size={18} />
-             <span className="text-[10px] font-black uppercase tracking-widest">Pharmacy Personnel</span>
+
+        {/* Search & Filter Bar Row */}
+        <div className="pt-2 border-t border-slate-800 flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search affected batches, drug names, or shelf locations..."
+              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+            />
           </div>
         </div>
       </div>
@@ -235,16 +257,6 @@ export default function PharmacyStockDisposalPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-5 space-y-4">
            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">Step 1: Select Affected Stock</h3>
-           <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
-              <Input 
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search stock by name, generic, or batch..."
-                className="pl-9 bg-slate-50 border rounded-xl font-bold h-10 text-xs text-black placeholder:text-slate-400"
-              />
-           </div>
 
            <div className="bg-card rounded-[32px] border shadow-sm h-[560px] overflow-y-auto divide-y bg-white dark:bg-slate-900 dark:border-slate-800 p-2 space-y-2">
               {isInventoryLoading ? (
