@@ -287,8 +287,6 @@ export default function PharmacyStockDisposalPage() {
                     ? '🚨 NO EXPIRY'
                     : isExpired
                     ? '🔴 EXPIRED'
-                    : isNearExpiry
-                    ? '⚠️ NEAR EXPIRY'
                     : isControlled
                     ? '🔵 RECALL / CLASS II'
                     : '🟢 HEALTHY';
@@ -307,35 +305,33 @@ export default function PharmacyStockDisposalPage() {
                           : 'hover:border-indigo-400 hover:shadow-sm'
                       }`}
                     >
-                      {/* Row 1: Item Name & Status Pill */}
+                      {/* Top Row: Product Name & Health Badge */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-xs">💊</span>
+                          <span className="text-sm">💊</span>
                           <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate uppercase">
                             {displayName} {item.strength ? `(${item.strength})` : ''}
                           </h4>
                         </div>
-
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md shrink-0 flex items-center gap-1 border ${tagStyle}`}>
+                        
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md shrink-0 border ${tagStyle}`}>
                           {tagLabel}
                         </span>
                       </div>
 
-                      {/* Row 2: Metadata Grid */}
+                      {/* Bottom Row: Horizontal Metadata */}
                       <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-1.5 font-mono text-[10px]">
-                          <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium whitespace-nowrap border border-slate-200 dark:border-slate-700">
                             {displayBatch}
                           </span>
                           <span>•</span>
-                          <span className="text-slate-500 font-medium">{item.location || 'Shelf A-04'}</span>
+                          <span className="whitespace-nowrap">{item.location || 'Shelf A-04'}</span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 shrink-0 font-mono text-[11px]">
-                          <span className="text-slate-700 dark:text-slate-300 font-medium">QTY: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{displayQty}</strong></span>
-                          <span className={`font-semibold whitespace-nowrap ${hasNoExpiry ? 'text-rose-500 italic font-bold' : 'text-slate-600 dark:text-slate-300'}`}>
-                            EXP: {hasNoExpiry ? 'N/A' : displayExpiry}
-                          </span>
+                        <div className="flex items-center gap-2 shrink-0 font-medium font-mono text-[11px]">
+                          <span>QTY: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{displayQty}</strong></span>
+                          <span className="whitespace-nowrap">EXP: {hasNoExpiry ? 'N/A' : displayExpiry}</span>
                         </div>
                       </div>
                     </div>
