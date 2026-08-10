@@ -134,19 +134,6 @@ export default function PharmacistDashboard() {
     });
   };
 
-  const handleClearEntireQueue = () => {
-    if (groupedPendingOrders.length === 0) return;
-    if (confirm(`Are you sure you want to clear all ${groupedPendingOrders.length} pending patient encounters from the dashboard queue?`)) {
-      const allIds = groupedPendingOrders.map((g) => g.id || g.encounterId).filter(Boolean);
-      setDispensedGroupIds((prev) => Array.from(new Set([...prev, ...allIds])));
-
-      toast({
-        title: '⚡ Dashboard Dispensing Queue Cleared',
-        description: `Successfully cleared all ${allIds.length} patient encounters from active feed.`
-      });
-    }
-  };
-
   // Human-readable relative SLA timer formatter (e.g., "12 mins ago", "Overdue (2d ago)")
   const formatRelativeSlaTime = (rawCreatedAt: any) => {
     if (!rawCreatedAt) return '⏱️ 4 mins ago';
@@ -493,42 +480,30 @@ export default function PharmacistDashboard() {
               </span>
             </div>
 
-            {/* Clear Entire Queue Action Button */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
+            {/* Category Filter Pills (Rx Medications vs Non-Medication Diagnostic Imaging Orders) */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
                 type="button"
-                disabled={groupedPendingOrders.length === 0}
-                onClick={handleClearEntireQueue}
-                className="bg-red-600 hover:bg-red-500 text-white font-black text-[10px] uppercase px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+                onClick={() => setOrderCategoryFilter('medications')}
+                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
+                  orderCategoryFilter === 'medications'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
               >
-                <Trash2 size={13} /> Clear Queue ({groupedPendingOrders.length})
-              </Button>
-
-              {/* Category Filter Pills (Rx Medications vs Non-Medication Diagnostic Imaging Orders) */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setOrderCategoryFilter('medications')}
-                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
-                    orderCategoryFilter === 'medications'
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  💊 Rx Medications
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderCategoryFilter('diagnostic')}
-                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
-                    orderCategoryFilter === 'diagnostic'
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  📡 Diagnostic Orders ({diagnosticCount})
-                </button>
-              </div>
+                💊 Rx Medications
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderCategoryFilter('diagnostic')}
+                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
+                  orderCategoryFilter === 'diagnostic'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📡 Diagnostic Orders ({diagnosticCount})
+              </button>
             </div>
           </div>
 
