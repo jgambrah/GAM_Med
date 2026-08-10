@@ -40,12 +40,37 @@ export function PharmacyDrugLedgerDrawerDialog({ isOpen, onClose, drugItem }: Ph
     );
   }, [firestore, drugItem?.hospitalId, drugItem?.id]);
 
-  const { data: realAuditLogs, isLoading: isAuditLogsLoading } = useCollection(auditLogsQuery);
+  const globalLedgerQuery = useMemoFirebase(() => {
+    if (!firestore || !drugItem?.hospitalId) return null;
+    return query(
+      collection(firestore, "hospitals", drugItem.hospitalId, "inventory_ledger"),
+      orderBy("timestamp", "desc"),
+      limit(100)
+    );
+  }, [firestore, drugItem?.hospitalId]);
+
+  const { data: realAuditLogs } = useCollection(auditLogsQuery);
+  const { data: globalLedgerLogs } = useCollection(globalLedgerQuery);
 
   const mergedLedgerEvents = useMemo(() => {
     if (!drugItem) return [];
 
-    const realList = (realAuditLogs || []).map((log: any) => {
+    const combinedRaw = [...(realAuditLogs || []), ...(globalLedgerLogs || [])].filter((log: any) => {
+      if (!log) return false;
+      if (log.drugId) return log.drugId === drugItem.id || log.drugId.toLowerCase().includes(drugItem.name.toLowerCase());
+      return true;
+    });
+
+    // Deduplicate by ledger ID
+    const map = new Map<string, any>();
+    combinedRaw.forEach((log: any) => {
+      const id = log.ledgerId || log.id || `LOG-${Math.random().toString(36).substr(2, 6)}`;
+      if (!map.has(id)) {
+        map.set(id, log);
+      }
+    });
+
+    const realList = Array.from(map.values()).map((log: any) => {
       const prevQty = typeof log.previousQuantity === 'number' ? log.previousQuantity : 495;
       const newQty = typeof log.newQuantity === 'number' ? log.newQuantity : drugItem.quantity;
       const variance = typeof log.variance === 'number' ? log.variance : (typeof log.qtyChange === 'number' ? log.qtyChange : newQty - prevQty);
@@ -105,7 +130,7 @@ export function PharmacyDrugLedgerDrawerDialog({ isOpen, onClose, drugItem }: Ph
         notes: 'Goods Receipt Note GRN-2026-NOVARTIS received and verified',
       },
     ];
-  }, [realAuditLogs, drugItem]);
+  }, [realAuditLogs, globalLedgerLogs, drugItem]);
 
   const filteredEvents = useMemo(() => {
     let list = mergedLedgerEvents;

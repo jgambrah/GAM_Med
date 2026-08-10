@@ -645,6 +645,14 @@ service cloud.firestore {
 
       match /pharmacy_inventory/{itemId} {
         allow read, write, get, create, update, delete, list: if isSignedIn();
+
+        match /audit_logs/{auditId} {
+          allow read, write, get, create, update, delete, list: if isSignedIn();
+        }
+      }
+
+      match /inventory_ledger/{ledgerId} {
+        allow read, write, get, create, update, delete, list: if isSignedIn();
       }
 
       match /financial_journals/{journalId} {
