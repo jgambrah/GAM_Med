@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collectionGroup, query, where, orderBy, doc } from 'firebase/firestore';
-import { ClipboardList, CheckCircle2, Clock, User, ShieldAlert, Loader2, ChevronRight, Search, Pill, ShieldCheck, AlertTriangle, UserCheck } from 'lucide-react';
+import { ClipboardList, CheckCircle2, Clock, User, ShieldAlert, Loader2, ChevronRight, Search, Pill, ShieldCheck, AlertTriangle, UserCheck, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -251,6 +251,19 @@ export default function DispensingQueue() {
     );
   }
 
+  const handleClearEntireQueue = () => {
+    if (groupedOrders.length === 0) return;
+    if (confirm(`Are you sure you want to clear all ${groupedOrders.length} pending patient encounters from the active queue?`)) {
+      const allIds = groupedOrders.map((g) => g.id || g.encounterId).filter(Boolean);
+      setDispensedGroupIds((prev) => Array.from(new Set([...prev, ...allIds])));
+
+      toast({
+        title: '⚡ Entire Dispensing Queue Cleared',
+        description: `Successfully cleared all ${allIds.length} patient encounters from the active queue feed.`
+      });
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* HEADER */}
@@ -260,10 +273,21 @@ export default function DispensingQueue() {
            <p className="text-muted-foreground font-bold text-xs uppercase italic">Real-time consolidated prescription encounters ready for fulfillment.</p>
         </div>
         
-        <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-2xl border font-bold text-xs">
-           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-           <span className="text-muted-foreground uppercase">Pending Encounters:</span>
-           <span className="text-card-foreground font-black">{groupedOrders.length}</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-2xl border font-bold text-xs">
+             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+             <span className="text-muted-foreground uppercase">Pending Encounters:</span>
+             <span className="text-card-foreground font-black">{groupedOrders.length}</span>
+          </div>
+
+          <Button
+            type="button"
+            disabled={groupedOrders.length === 0}
+            onClick={handleClearEntireQueue}
+            className="bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase px-4 py-2.5 rounded-2xl shadow-md flex items-center gap-1.5 transition-all"
+          >
+            <Trash2 size={14} /> Clear Entire Queue ({groupedOrders.length})
+          </Button>
         </div>
       </div>
 
