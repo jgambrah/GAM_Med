@@ -59,6 +59,18 @@ export default function DispensingQueue() {
     return [];
   });
 
+  const [completedHistoryList, setCompletedHistoryList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('gam_med_completed_history_records');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -68,6 +80,16 @@ export default function DispensingQueue() {
       }
     }
   }, [dispensedGroupIds]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('gam_med_completed_history_records', JSON.stringify(completedHistoryList));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [completedHistoryList]);
 
   useEffect(() => {
     if (user) {
@@ -114,8 +136,26 @@ export default function DispensingQueue() {
   };
 
   const handleBulkDispenseAllApproved = (group: any) => {
+    const groupId = group.id || group.encounterId;
+    if (groupId && !dispensedGroupIds.includes(groupId)) {
+      setDispensedGroupIds((prev) => [...prev, groupId]);
+    }
+
+    setCompletedHistoryList((prev) => {
+      if (prev.some((x) => (x.id || x.encounterId) === groupId)) return prev;
+      return [
+        {
+          ...group,
+          isDispensed: true,
+          pharmacyStatus: 'FULFILLED',
+          dispensedAt: new Date().toISOString(),
+        },
+        ...prev,
+      ];
+    });
+
     const count = group.allMedications?.length || 1;
-    const journalEntries = postPharmacyDispensingJournalEntry(
+    postPharmacyDispensingJournalEntry(
       hospitalId || 'HOSP-CURRENT',
       group.id,
       group.patientName,
@@ -126,7 +166,7 @@ export default function DispensingQueue() {
 
     toast({
       title: `⚡ Bulk Dispense Complete & Financial Ledger Auto-Synced`,
-      description: `Fulfilling ${count} lines for ${group.patientName}. Posted ${journalEntries.length} double-entry journals to Central Finance Ledger.`
+      description: `Fulfilling ${count} lines for ${group.patientName}. Posted double-entry journals to Central Finance Ledger.`
     });
   };
 
@@ -226,12 +266,22 @@ export default function DispensingQueue() {
 
     const allGroups = Array.from(groupsMap.values());
     if (queueTab === 'completed') {
-      return allGroups.filter((g) => dispensedGroupIds.includes(g.id) || dispensedGroupIds.includes(g.encounterId));
+      const dbCompleted = allGroups.filter(
+        (g) => g.isDispensed || g.pharmacyStatus === 'FULFILLED' || dispensedGroupIds.includes(g.id) || dispensedGroupIds.includes(g.encounterId)
+      );
+
+      const map = new Map<string, any>();
+      [...completedHistoryList, ...dbCompleted].forEach((g) => {
+        const k = g.id || g.encounterId;
+        if (k && !map.has(k)) map.set(k, g);
+      });
+      return Array.from(map.values());
     }
+
     return allGroups.filter(
-      (g) => !dispensedGroupIds.includes(g.id) && !dispensedGroupIds.includes(g.encounterId)
+      (g) => !g.isDispensed && g.pharmacyStatus !== 'FULFILLED' && !dispensedGroupIds.includes(g.id) && !dispensedGroupIds.includes(g.encounterId)
     );
-  }, [rawOrders, searchQuery, orderCategoryFilter, dispensedGroupIds, queueTab]);
+  }, [rawOrders, searchQuery, orderCategoryFilter, dispensedGroupIds, completedHistoryList, queueTab]);
 
   const diagnosticCount = useMemo(() => {
     return rawOrders.filter(isDiagnosticOrder).length;

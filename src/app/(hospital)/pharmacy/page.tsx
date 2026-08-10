@@ -88,15 +88,27 @@ export default function PharmacistDashboard() {
     return [];
   });
 
+  const [completedHistoryList, setCompletedHistoryList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('gam_med_completed_history_records');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('gam_med_dispensed_group_ids', JSON.stringify(dispensedGroupIds));
+        localStorage.setItem('gam_med_completed_history_records', JSON.stringify(completedHistoryList));
       } catch (e) {
         console.error(e);
       }
     }
-  }, [dispensedGroupIds]);
+  }, [completedHistoryList]);
 
   const handleCycleOrderStage = (orderId: string) => {
     setOrderStages(prev => {
@@ -116,6 +128,19 @@ export default function PharmacistDashboard() {
       setDispensedGroupIds((prev) => [...prev, groupId]);
     }
 
+    setCompletedHistoryList((prev) => {
+      if (prev.some((x) => (x.id || x.encounterId) === groupId)) return prev;
+      return [
+        {
+          ...group,
+          isDispensed: true,
+          pharmacyStatus: 'FULFILLED',
+          dispensedAt: new Date().toISOString(),
+        },
+        ...prev,
+      ];
+    });
+
     const count = group.allMedications?.length || 1;
 
     // Trigger automated double-entry journal postings in the central financial ledger
@@ -130,7 +155,7 @@ export default function PharmacistDashboard() {
 
     toast({
       title: `⚡ Bulk Dispense Complete & Financial Ledger Auto-Synced`,
-      description: `Fulfilling all ${count} lines for ${group.patientName}. Encounter removed from active queue.`
+      description: `Fulfilling all ${count} lines for ${group.patientName}. Encounter moved to Dispensed History.`
     });
   };
 
@@ -275,29 +300,39 @@ export default function PharmacistDashboard() {
   const { data: dispensedData, isLoading: isDispensedLoading } = useCollection(dispensedQuery);
 
   const dispensedOrders = useMemo(() => {
-    const seen = new Set();
-    const uniqueOrders = (dispensedData || []).filter((ord: any) => {
-      if (!ord.id || seen.has(ord.id)) return false;
-      seen.add(ord.id);
-      return true;
+    const map = new Map<string, any>();
+
+    // 1. Persistent/memory completed history state
+    (completedHistoryList || []).forEach((ord: any) => {
+      const key = ord.id || ord.encounterId;
+      if (key) map.set(key, ord);
     });
 
-    const allOrders = uniqueOrders
-      .filter((ord: any) => {
-        const meds = ord.prescription || ord.items;
-        return meds && meds.length > 0;
-      })
-      .sort((a, b) => {
-        const dateA = a.dispensedAt?.toDate ? a.dispensedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0));
-        const dateB = b.dispensedAt?.toDate ? b.dispensedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0));
-        return dateB.getTime() - dateA.getTime();
-      });
+    // 2. Firestore query data
+    (dispensedData || []).forEach((ord: any) => {
+      const key = ord.id || ord.encounterId;
+      if (key && !map.has(key)) map.set(key, ord);
+    });
+
+    // 3. Raw pending orders marked dispensed
+    (rawPendingOrders || []).forEach((ord: any) => {
+      const key = ord.id || ord.encounterId;
+      if ((ord.isDispensed || ord.pharmacyStatus === 'FULFILLED' || dispensedGroupIds.includes(key)) && key) {
+        if (!map.has(key)) map.set(key, ord);
+      }
+    });
+
+    const allOrders = Array.from(map.values()).sort((a, b) => {
+      const dateA = a.dispensedAt?.toDate ? a.dispensedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.dispensedAt || 0));
+      const dateB = b.dispensedAt?.toDate ? b.dispensedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.dispensedAt || 0));
+      return dateB.getTime() - dateA.getTime();
+    });
 
     const queryStr = searchQuery.toLowerCase().trim();
     if (!queryStr) return allOrders;
-    
+
     return allOrders.filter((order: any) => {
-      const meds = order.prescription || order.items || [];
+      const meds = order.prescription || order.items || order.allMedications || order.medications || [];
       return (
         order.patientName?.toLowerCase().includes(queryStr) ||
         order.providerName?.toLowerCase().includes(queryStr) ||
@@ -305,7 +340,7 @@ export default function PharmacistDashboard() {
         meds.some((drug: any) => drug.name?.toLowerCase().includes(queryStr))
       );
     });
-  }, [dispensedData, searchQuery]);
+  }, [dispensedData, rawPendingOrders, completedHistoryList, dispensedGroupIds, searchQuery]);
 
   const lowStockItems = useMemo(() => {
     return (inventoryData || []).filter((item: any) => item.quantity <= 20);
@@ -689,7 +724,9 @@ export default function PharmacistDashboard() {
                 <div className="p-20 text-center text-muted-foreground/50 italic uppercase text-xs font-bold">No prescriptions dispensed yet.</div>
               ) : (
                 dispensedOrders.map((order) => {
-                  const meds = order.prescription || order.items || [];
+                  const meds = order.prescription || order.items || order.allMedications || order.medications || [
+                    { name: order.drugName || 'Medication Line', qty: order.dispenseQty || 1 }
+                  ];
                   const dispensedDate = order.dispensedAt?.toDate ? order.dispensedAt.toDate() : (order.createdAt?.toDate ? order.createdAt.toDate() : new Date());
                   return (
                     <div key={order.id} className="p-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-muted/50 transition-all">
