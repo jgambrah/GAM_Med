@@ -1,20 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { 
   Banknote, Download, Eye, Calendar, Lock, ShieldCheck, 
-  TrendingUp, FileText, ChevronRight, Loader2, Printer, Landmark, Info
+  TrendingUp, FileText, ChevronRight, Loader2, User
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 export default function StaffPayslipPortal() {
   const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
   
   const [selectedSlip, setSelectedSlip] = useState<any>(null);
-  const [showDetailedModal, setShowDetailedModal] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -59,17 +57,18 @@ export default function StaffPayslipPortal() {
 
   const isFirstPayrollPending = !payslips || payslips.length === 0;
 
-  // Real or calculated metrics
   const activeSlip = selectedSlip || (payslips && payslips.length > 0 ? payslips[0] : null);
   const netSalary = activeSlip ? (activeSlip.netSalary ?? 8450.00) : 8450.00;
   const gross = activeSlip ? (activeSlip.gross ?? 11200.00) : 11200.00;
   const paye = activeSlip ? (activeSlip.paye ?? 2150.00) : 2150.00;
   const ssnit = activeSlip ? (activeSlip.ssnitEmployee ?? 600.00) : 600.00;
 
+  const staffIdLabel = userProfile?.staffId || `GAM-${user?.uid ? user.uid.slice(0, 4).toUpperCase() : '1042'}`;
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
       
-      {/* 1. THE DARK FINANCIAL BANNER */}
+      {/* 1. THE PERSONAL FINANCIAL BANNER */}
       <div className="bg-slate-950 text-white rounded-2xl p-8 shadow-xl relative overflow-hidden mb-6">
         
         {/* Background Accent */}
@@ -80,11 +79,16 @@ export default function StaffPayslipPortal() {
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-3">
               <Banknote className="w-7 h-7 text-violet-400" />
-              COMPENSATION & PAYSLIPS
+              MY PERSONAL PAYSLIPS
             </h1>
-            <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest flex items-center gap-1.5">
-              <Lock className="w-3 h-3 text-slate-500" /> Secure 256-bit Encrypted Financial Portal
-            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30 rounded-md uppercase tracking-wider flex items-center gap-1">
+                <User className="w-3 h-3" /> STAFF ID: {staffIdLabel}
+              </span>
+              <span className="text-xs font-bold text-slate-300 tracking-wide flex items-center gap-1.5">
+                <Lock className="w-3 h-3 text-slate-500" /> Secure Employee Portal
+              </span>
+            </div>
           </div>
 
           {/* Next Payday Indicator */}
@@ -99,22 +103,22 @@ export default function StaffPayslipPortal() {
           </div>
         </div>
 
-        {/* YTD Metrics Row */}
+        {/* Individual YTD Metrics Row (Scaled to a single employee) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
           
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">YTD Gross Earnings</span>
-            <span className="text-2xl font-black text-white">GHS 84,500.<span className="text-sm text-slate-500">00</span></span>
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">My YTD Gross</span>
+            <span className="text-2xl font-black text-white">GHS 32,500.<span className="text-sm text-slate-500">00</span></span>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">YTD Net Pay</span>
-            <span className="text-2xl font-black text-emerald-400">GHS 62,340.<span className="text-sm text-emerald-700">50</span></span>
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">My YTD Net Pay</span>
+            <span className="text-2xl font-black text-emerald-400">GHS 24,140.<span className="text-sm text-emerald-700">50</span></span>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">YTD Tax Withheld (GRA)</span>
-            <span className="text-2xl font-black text-rose-400">GHS 15,200.<span className="text-sm text-rose-800">00</span></span>
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">My YTD Tax (PAYE)</span>
+            <span className="text-2xl font-black text-rose-400">GHS 4,200.<span className="text-sm text-rose-800">00</span></span>
           </div>
 
         </div>
@@ -123,19 +127,19 @@ export default function StaffPayslipPortal() {
       {/* 2. MAIN CONTENT AREA */}
       {isFirstPayrollPending ? (
         
-        /* PREMIUM EMPTY STATE */
+        /* PERSONAL EMPTY STATE */
         <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-16 text-center flex flex-col items-center justify-center shadow-sm">
           <div className="w-16 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center mb-6 shadow-sm rotate-3">
             <Banknote className="w-8 h-8 text-slate-300 dark:text-slate-600 -rotate-3" />
           </div>
           <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">
-            Waiting for First Payroll Run
+            Waiting for Your First Payslip
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md leading-relaxed">
-            Your financial profile is securely configured. Your payslips will automatically appear here once the finance team completes the first payroll cycle.
+            Your individual salary profile is securely configured. Your personal payslips will appear here as soon as your first salary is disbursed by HR.
           </p>
           <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4" /> Account Verified
+            <ShieldCheck className="w-4 h-4" /> Bank Details Verified
           </div>
         </div>
 
@@ -193,7 +197,7 @@ export default function StaffPayslipPortal() {
                         <td className="py-4 pr-6 text-right space-x-2">
                           <button 
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setSelectedSlip(slip); setShowDetailedModal(true); }}
+                            onClick={(e) => { e.stopPropagation(); setSelectedSlip(slip); }}
                             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition shadow-sm uppercase tracking-wider cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
