@@ -434,30 +434,95 @@ export default function PharmacistDashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      {/* --- PHARMACY HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-4xl font-black text-foreground uppercase tracking-tighter italic">Pharmacy <span className="text-primary">Operations</span></h1>
-          <p className="text-muted-foreground font-bold text-xs uppercase italic">Lead Pharmacist: {user?.displayName}</p>
+      {/* --- 1. DARK HERO COMMAND CENTER BANNER --- */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-6 relative overflow-hidden">
+        {/* Background Ambient Glow */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+
+        {/* Header & Quick Action Buttons */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-2.5">
+              <Package className="w-6 h-6 text-rose-500" />
+              PHARMACY COMMAND HUB
+            </h1>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="px-2.5 py-0.5 text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse"></span>
+                Lead Pharmacist: {user?.displayName || 'Shane Gambrah'}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                • Clinical Operations & Stock Engine
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/pharmacy/disposal">
+              <button className="bg-slate-900 hover:bg-rose-950 text-rose-400 border border-rose-500/30 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-sm">
+                <Trash2 size={16} className="text-rose-500" /> Decommission Stock
+              </button>
+            </Link>
+            <Link href="/pharmacy/inventory">
+              <button className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-sm">
+                <Package size={16} /> Manage Inventory
+              </button>
+            </Link>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Link href="/pharmacy/disposal">
-            <Button className="bg-destructive text-destructive-foreground px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-foreground transition-all shadow-lg">
-               <Trash2 size={16}/> Decommission Stock
-            </Button>
-          </Link>
-          <Link href="/pharmacy/inventory">
-            <Button className="bg-foreground text-background px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-primary transition-all shadow-lg">
-               <Package size={16}/> Manage Inventory
-            </Button>
-          </Link>
+
+        {/* EMBEDDED LIVE METRIC READOUT CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 relative z-10">
+          
+          {/* Pending Encounters */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                Pending Encounters
+              </span>
+              <span className="text-2xl font-black text-emerald-400">
+                {dataIsLoading ? '...' : groupedPendingOrders.length}
+              </span>
+            </div>
+            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+              <ClipboardList size={20} />
+            </div>
+          </div>
+
+          {/* Low Stock Alerts */}
+          <div className={`bg-slate-900/90 border rounded-xl p-4 flex items-center justify-between ${
+            (lowStockItems?.length || 0) > 0 ? 'border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.15)]' : 'border-slate-800'
+          }`}>
+            <div>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                Low Stock Alerts
+              </span>
+              <span className="text-2xl font-black text-rose-400">
+                {dataIsLoading ? '...' : (lowStockItems?.length || 0)}
+              </span>
+            </div>
+            <div className="p-3 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
+              <AlertTriangle size={20} />
+            </div>
+          </div>
+
+          {/* Dispensed Today */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                Dispensed Today
+              </span>
+              <span className="text-2xl font-black text-cyan-400">
+                {dataIsLoading ? '...' : dispensedTodayCount}
+              </span>
+            </div>
+            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-400">
+              <CheckCircle2 size={20} />
+            </div>
+          </div>
+
         </div>
-      </div>
-      {/* --- PHARMACY KPI GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <PharmacyKPI label="Pending Prescriptions" value={dataIsLoading ? '...' : groupedPendingOrders.length.toString()} icon={<ClipboardList size={20}/>} color="blue" />
-        <PharmacyKPI label="Low Stock Alerts" value={dataIsLoading ? '...' : (lowStockItems?.length || 0).toString()} icon={<AlertTriangle size={20}/>} color="orange" />
-        <PharmacyKPI label="Dispensed Today" value={dataIsLoading ? '...' : dispensedTodayCount.toString()} icon={<CheckCircle2 size={20}/>} color="green" />
+
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start w-full min-w-0">
