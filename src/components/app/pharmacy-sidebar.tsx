@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -51,7 +51,13 @@ export function PharmacySidebar() {
   const router = useRouter();
   const firestore = useFirestore();
 
-  const [isPortalExpanded, setIsPortalExpanded] = useState(false);
+  const [isPortalExpanded, setIsPortalExpanded] = useState<boolean>(() => pathname.startsWith('/staff') || pathname.startsWith('/doctor/my-claims'));
+
+  useEffect(() => {
+    if (pathname.startsWith('/staff') || pathname.startsWith('/doctor/my-claims')) {
+      setIsPortalExpanded(true);
+    }
+  }, [pathname]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -86,7 +92,7 @@ export function PharmacySidebar() {
   };
 
   return (
-    <aside className="w-64 h-screen bg-slate-950 text-slate-100 flex-col border-r border-slate-800 hidden md:flex shrink-0">
+    <aside className="w-64 h-screen bg-slate-950 text-slate-100 flex flex-col border-r border-slate-800 hidden md:flex shrink-0">
       
       {/* BRANDING HEADER */}
       <div className="p-5 border-b border-slate-800 bg-slate-950">
@@ -140,6 +146,7 @@ export function PharmacySidebar() {
         {/* MY PORTAL (EMPLOYEE TOOLS - PLACED AT THE BOTTOM, COLLAPSIBLE) */}
         <div className="pt-2 border-t border-slate-800/80">
           <button
+            type="button"
             onClick={() => setIsPortalExpanded(!isPortalExpanded)}
             className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-200 uppercase tracking-widest transition cursor-pointer"
           >

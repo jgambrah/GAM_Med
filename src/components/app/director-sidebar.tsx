@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -99,92 +98,10 @@ const allMenuGroups = [
     title: "Communication",
     roles: ['DIRECTOR', 'ADMIN'],
     items: [
-      { name: "Comms Hub", href: "/director/communication", icon: MessageSquare },
+      { name: "Announcements Hub", href: "/announcements", icon: MessageSquare },
     ]
   },
   {
-    title: "Operating Theater",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
-    items: [
-      { name: "Theater Setup", href: "/theater/setup", icon: Settings, roles: ['DIRECTOR', 'ADMIN'] },
-      { name: "OT Schedule", href: "/theater/schedule", icon: Calendar, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
-    ]
-  },
-  {
-    title: "Inpatient",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
-    items: [
-      { name: "ICU & Critical Care", href: "/icu", icon: Activity, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
-      { name: "Ward Setup", href: "/wards/setup", icon: BedDouble, roles: ['DIRECTOR', 'ADMIN'] },
-      { name: "Bed Management", href: "/wards/management", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
-    ]
-  },
-  {
-    title: "Maternity",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
-    items: [
-      { name: "ANC Dashboard", href: "/maternity/dashboard", icon: Baby },
-    ]
-  },
-   {
-    title: "Mortuary Services",
-    roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'],
-    items: [
-        { name: "Body Intake", href: "/mortuary/intake", icon: UserPlus, roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] },
-        { name: "Mortuary Register", href: "/mortuary/register", icon: FileText, roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] },
-        { name: "Release Archive", href: "/mortuary/archive", icon: Archive, roles: ['DIRECTOR', 'ADMIN', 'MORTUARY_ATTENDANT'] },
-        { name: "Setup", href: "/mortuary/setup", icon: Settings, roles: ['DIRECTOR', 'ADMIN'] },
-    ]
-  },
-  {
-    title: "Specialty Units",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'],
-    items: [
-      { name: "Unit Setup", href: "/specialty/setup", icon: Zap, roles: ['DIRECTOR', 'ADMIN'] },
-      { name: "Treatment Dashboard", href: "/specialty/dashboard", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
-      { name: "New Plan", href: "/specialty/plans/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR'] },
-    ]
-  },
-  {
-    title: "Supply Chain",
-    roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'],
-    items: [
-      { name: "Medical Stores", href: "/inventory", icon: LayoutGrid },
-      { name: "Procurement", href: "/supply-chain", icon: Truck },
-      { name: "Suppliers", href: "/supply-chain/procurement", icon: Building2 },
-      { name: "Product Catalog", href: "/supply-chain/catalog", icon: HardDrive },
-      { name: "Purchase Orders", href: "/supply-chain/orders", icon: FileText },
-      { name: "Re-Order Intel", href: "/supply-chain/reorder", icon: TrendingUp },
-      { name: "Bulk Stock Upload", href: "/supply-chain/bulk-upload", icon: FileUp },
-      { name: "Inventory Pulse", href: "/supply-chain/inventory-pulse", icon: BarChart3 },
-      { name: "Store Dashboard", href: "/supply-chain/store", icon: LayoutGrid },
-      { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: History },
-      { name: "New Disposal", href: "/supply-chain/disposal", icon: Archive },
-    ]
-  },
-  {
-    title: "Requisitions",
-    roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'],
-    items: [
-      { name: "New Request (Supplies)", href: "/requisitions/new", icon: Plus, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
-      { name: "New Request (Service)", href: "/requisitions/new-service", icon: FileSignature, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'STORE_MANAGER', 'PHARMACIST'] },
-      { name: "Approve Supplies", href: "/requisitions/approve", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
-      { name: "Approve Services", href: "/requisitions/approve-service", icon: CheckCircle2, roles: ['DIRECTOR', 'ADMIN'] },
-      { name: "Certify Service", href: "/supply-chain/services/certify", icon: Award, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER'] },
-      { name: "JCC Archive", href: "/supply-chain/services/archive", icon: History, roles: ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'] },
-    ]
-  },
-  {
-    title: "Administrative",
-    roles: ['DIRECTOR', 'ADMIN'],
-    items: [
-      { name: "Hospital Profile", href: "/director/profile", icon: Settings },
-      { name: "Staff", href: "/staff", icon: Users },
-      { name: "Procedure Setup", href: "/procedures/setup", icon: Scissors },
-      { name: "Subscription", href: "/director/subscription", icon: CreditCard },
-    ]
-  },
-   {
     title: "Human Resources",
     roles: ['DIRECTOR', 'ADMIN', 'HR_MANAGER'],
     items: [
@@ -266,7 +183,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     }
 
     if (auth) {
-        await signOut(auth);
+      await signOut(auth);
     }
     router.push('/');
   };
@@ -290,26 +207,23 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
   const visibleMenuGroups = allMenuGroups.map(group => ({
     ...group,
     items: group.items.filter((item: any) => 
-      userRole === 'DIRECTOR' || // Director sees all items in a group they can see
+      userRole === 'DIRECTOR' || 
       !item.roles || 
       (item.roles && item.roles.includes(userRole))
     )
   })).filter(group => 
-    group.items.length > 0 && // Group must have items left after filtering
+    group.items.length > 0 && 
     (userRole === 'DIRECTOR' || (group.roles && group.roles.includes(userRole)))
   );
 
-  // Initialize and auto-expand active group
   useEffect(() => {
     if (!hasInitialized && (visibleMenuGroups.length > 0 || myPortalMenu.items.length > 0)) {
       const initial: Record<string, boolean> = {};
       
-      // Collapse all groups by default
       [myPortalMenu, ...visibleMenuGroups].forEach(group => {
         initial[group.title] = true;
       });
 
-      // Find the group with the active item and expand it
       const activeGroup = [myPortalMenu, ...visibleMenuGroups].find(group => 
         group.items.some(item => pathname === item.href)
       );
@@ -317,7 +231,6 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
       if (activeGroup) {
         initial[activeGroup.title] = false;
       } else {
-        // Fallback: keep My Portal open if no matching active items (e.g. main dashboard)
         initial["My Portal"] = false;
       }
 
@@ -326,7 +239,6 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     }
   }, [pathname, visibleMenuGroups, hasInitialized]);
 
-  // Expand parent group when pathname updates
   useEffect(() => {
     if (hasInitialized) {
       const activeGroup = [myPortalMenu, ...visibleMenuGroups].find(group => 
@@ -342,16 +254,16 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
   }, [pathname, hasInitialized]);
 
   return (
-    <div className="w-64 h-screen bg-white text-slate-800 flex-col border-r border-slate-200 hidden md:flex print:hidden">
+    <div className="w-64 h-screen bg-slate-950 text-slate-100 flex flex-col border-r border-slate-800 hidden md:flex shrink-0 print:hidden">
       {/* Header */}
-      <div className="p-6 border-b border-slate-200">
+      <div className="p-6 border-b border-slate-800 bg-slate-950">
         <div className="flex items-center gap-3 mb-1">
-          <div className="bg-primary/10 p-2 rounded-lg">
-            <Hospital size={20} className="text-primary" />
+          <div className="bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+            <Hospital size={20} className="text-rose-500" />
           </div>
-          <span className="font-bold text-primary text-xl tracking-tight">GAM_Med</span>
+          <span className="font-black text-white text-xl tracking-tight uppercase italic">GAM Med</span>
         </div>
-        <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+        <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">
           Hospital Portal
         </div>
       </div>
@@ -365,12 +277,12 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
               <button 
                 type="button"
                 onClick={() => toggleGroup(group.title)}
-                className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 tracking-widest px-3 mb-2 uppercase hover:text-slate-700 transition-colors select-none text-left"
+                className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 tracking-widest px-3 mb-2 uppercase hover:text-slate-200 transition-colors select-none text-left cursor-pointer"
               >
                 <span>{group.title}</span>
                 <ChevronRight 
                   size={12} 
-                  className={`text-slate-400 transition-transform duration-200 ${!isCollapsed ? 'rotate-90 text-primary' : ''}`} 
+                  className={`text-slate-400 transition-transform duration-200 ${!isCollapsed ? 'rotate-90 text-rose-500' : ''}`} 
                 />
               </button>
               
@@ -388,13 +300,15 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
                     <Link 
                       key={item.name} 
                       href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all group ${
-                        isActive ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-100'
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${
+                        isActive 
+                          ? 'bg-rose-600/15 text-rose-400 font-bold border border-rose-500/20' 
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                       }`}
                     >
-                      <item.icon size={18} />
+                      <item.icon size={18} className={isActive ? 'text-rose-500' : 'text-slate-400 group-hover:text-slate-200'} />
                       <span className="text-sm font-medium">{item.name}</span>
-                      {isActive && <ChevronRight size={14} className="ml-auto text-primary" />}
+                      {isActive && <ChevronRight size={14} className="ml-auto text-rose-500" />}
                     </Link>
                   );
                 })}
@@ -405,16 +319,16 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
       </nav>
 
       {/* Footer Profile */}
-      <div className="p-4 border-t border-slate-200">
+      <div className="p-4 border-t border-slate-800 bg-slate-950">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-primary border border-slate-300">
+          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-rose-400 border border-slate-700">
             {user?.email?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800 truncate">{user?.displayName || 'Director'}</p>
-            <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+            <p className="text-xs font-bold text-slate-200 truncate">{user?.displayName || 'Director'}</p>
+            <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
           </div>
-          <button onClick={handleLogout} className="text-slate-500 hover:text-destructive cursor-pointer">
+          <button onClick={handleLogout} className="text-slate-500 hover:text-rose-400 transition cursor-pointer p-1">
             <LogOut size={16} />
           </button>
         </div>
