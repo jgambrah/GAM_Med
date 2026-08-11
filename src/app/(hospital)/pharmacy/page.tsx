@@ -20,6 +20,7 @@ import { PharmacyMultiBranchInventoryTransferCard } from '@/components/pharmacy/
 import { PharmacyDemandForecastingCard } from '@/components/pharmacy/PharmacyDemandForecastingCard';
 import { PharmacyFinancialReconciliationCard } from '@/components/pharmacy/PharmacyFinancialReconciliationCard';
 import { PharmacyAdvancedClinicalSafetySuiteCard } from '@/components/pharmacy/PharmacyAdvancedClinicalSafetySuiteCard';
+import { MasterPatientCard } from '@/components/pharmacy/MasterPatientCard';
 import { postPharmacyDispensingJournalEntry } from '@/ai/flows/ai-pharmacy-financial-reconciliation-engine';
 
 import { useToast } from '@/hooks/use-toast';
@@ -669,173 +670,15 @@ export default function PharmacistDashboard() {
                   
                 </div>
               ) : (
-                groupedPendingOrders.map((group) => {
-                  return (
-                    <div key={group.id} className="bg-card rounded-[28px] border border-border shadow-sm overflow-hidden divide-y divide-border">
-                      {/* 1. STATUS BAR HEADER (Full-Width Horizontal Header) */}
-                      <div className="p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
-                        {/* Left: Patient Name & Vitals */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="w-9 h-9 rounded-xl bg-primary text-primary-foreground font-black flex items-center justify-center text-sm shadow-sm shrink-0">
-                            {group.patientName.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="font-black uppercase text-sm tracking-tight text-white">{group.patientName}</h4>
-                              
-                              {/* Triage Level Badge */}
-                              <span className={`text-[8px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                                group.isDiag
-                                  ? 'bg-amber-600 text-white'
-                                  : group.patientName.toLowerCase().includes('daniel')
-                                  ? 'bg-red-600 text-white animate-pulse'
-                                  : group.patientName.toLowerCase().includes('janet')
-                                  ? 'bg-indigo-600 text-white'
-                                  : 'bg-emerald-600 text-white'
-                              }`}>
-                                {group.isDiag ? '📡 DIAGNOSTIC' : group.patientName.toLowerCase().includes('daniel') ? '🚨 STAT EMERGENCY' : group.patientName.toLowerCase().includes('janet') ? '🏥 DISCHARGE' : 'MRN #88421 • ROUTINE OPD'}
-                              </span>
-                            </div>
-
-                            <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
-                              {group.patientName.toLowerCase().includes('daniel') ? 'M, 58 YRS • 82 KG' : group.patientName.toLowerCase().includes('janet') ? 'F, 34 YRS • 62 KG' : 'M, 42 YRS • 74 KG'} • Prescribed by Dr. {group.providerName}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Right: Human-Readable SLA Timer & Workflow Stage Pill */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {/* SLA Timer */}
-                          <span className="text-[9px] font-mono font-bold bg-slate-950 text-slate-300 px-3 py-1 rounded-xl border border-slate-800 flex items-center gap-1">
-                            <Clock size={11} className="text-slate-400" /> {formatRelativeSlaTime(group.createdAt)}
-                          </span>
-
-                          {/* Workflow Stage Pill */}
-                          {(() => {
-                            const currentStage = orderStages[group.id] || (group.patientName.toLowerCase().includes('daniel') ? 'CLINICALLY_VERIFIED' : group.patientName.toLowerCase().includes('janet') ? 'IN_PACKAGING' : 'UNREVIEWED');
-                            return (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCycleOrderStage(group.id);
-                                }}
-                                className={`text-[9px] font-black px-3 py-1 rounded-xl uppercase border flex items-center gap-1.5 transition-all hover:scale-105 ${
-                                  currentStage === 'CLINICALLY_VERIFIED'
-                                    ? 'bg-blue-950 text-blue-300 border-blue-800'
-                                    : currentStage === 'IN_PACKAGING'
-                                    ? 'bg-purple-950 text-purple-300 border-purple-800'
-                                    : currentStage === 'READY_FOR_PICKUP'
-                                    ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                                    : 'bg-amber-950 text-amber-300 border-amber-800'
-                                }`}
-                              >
-                                {currentStage === 'CLINICALLY_VERIFIED' ? '🔵 VERIFIED' : currentStage === 'IN_PACKAGING' ? '🟣 PACKAGING' : currentStage === 'READY_FOR_PICKUP' ? '🟢 READY' : '🟡 UNREVIEWED'}
-                              </button>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* 2. CARD CONTENT CONTAINER (grid-cols-1 lg:grid-cols-[1fr_320px] gap-6) */}
-                      <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-                        {/* LEFT SIDE: CONSOLIDATED PRESCRIPTIONS NESTED LIST TABLE */}
-                        <div className="space-y-3 min-w-0">
-                          {/* HIGH-CONTRAST ALLERGY & ADVANCED CLINICAL SAFETY SUITE */}
-                          {group.patientName.toLowerCase().includes('daniel') && (
-                            <PharmacyAdvancedClinicalSafetySuiteCard 
-                              patientName={group.patientName}
-                              drugList={group.allMedications.map((m: any) => m.name || 'Drug Item')}
-                              ageYears={58}
-                              weightKg={82}
-                            />
-                          )}
-
-                          <div className="flex items-center justify-between">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                              Prescribed Medications ({group.allMedications.length} Lines)
-                            </p>
-                          </div>
-
-                          {/* NESTED LIST TABLE FOR ALL DRUGS */}
-                          <div className="bg-muted/30 rounded-2xl border border-border/80 overflow-hidden divide-y divide-border/60">
-                            {group.allMedications.map((item: any, idx: number) => (
-                              <div key={idx} className="p-3 flex items-center justify-between text-xs gap-3 hover:bg-muted/60 transition-all">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary font-black text-[10px] flex items-center justify-center shrink-0">
-                                    {idx + 1}
-                                  </span>
-                                  <span className="font-extrabold uppercase text-card-foreground truncate">
-                                    💊 {item.name}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <span className="text-[10px] font-mono text-muted-foreground font-semibold">
-                                    Qty: {item.qty || item.quantity || 1}
-                                  </span>
-                                  <span className="text-[8px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded uppercase border border-emerald-200">
-                                    In Stock
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* RIGHT SIDE: FINANCIAL STATUS & UNIFIED ACTION PALETTE */}
-                        <div className="space-y-4 bg-muted/20 p-4 rounded-2xl border border-border/80 flex flex-col justify-between h-full">
-                          {/* FINANCIAL STATUS BADGES */}
-                          <div className="space-y-2">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Financial Clearance</p>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[9px] font-black bg-emerald-950 text-emerald-300 px-3 py-1 rounded-xl border border-emerald-800 uppercase">
-                                🟢 NHIS PRE-APPROVED
-                              </span>
-                              <span className="text-[9px] font-mono font-bold text-muted-foreground">
-                                Copay: GHS 0.00
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* UNIFIED ACTION BUTTON PALETTE */}
-                          <div className="space-y-2 pt-2 border-t border-border/60">
-                            <PharmacyInterdepartmentalActionCard 
-                              doctorName={group.providerName}
-                              patientName={group.patientName}
-                              patientId={group.patientId}
-                            />
-
-                            {group.isDiag ? (
-                              <Button 
-                                onClick={() => alert(`Group ${group.id} routed to Radiology PACS Queue`)}
-                                className="w-full bg-amber-500 hover:bg-amber-400 text-white font-black text-[10px] uppercase rounded-xl py-2.5 flex items-center justify-center gap-2 shadow-sm"
-                              >
-                                📡 Route to Radiology PACS <ChevronRight size={14} />
-                              </Button>
-                            ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-                                <Button
-                                  type="button"
-                                  onClick={() => handleBulkDispenseAllApproved(group)}
-                                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase rounded-xl py-2.5 flex items-center justify-center gap-1.5 shadow-sm"
-                                >
-                                  <CheckCircle2 size={14} /> ⚡ DISPENSE ALL ({group.allMedications.length})
-                                </Button>
-
-                                <Link href={`/pharmacy/dispensing/${group.id}?patientId=${group.patientId}&hospitalId=${hospitalId}`} className="w-full">
-                                   <Button variant="outline" className="w-full bg-slate-900/40 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/80 font-black text-[10px] uppercase rounded-xl py-2.5 flex items-center justify-center gap-1.5 transition-all">
-                                      Inspect <ChevronRight size={14} />
-                                   </Button>
-                                </Link>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                groupedPendingOrders.map((group) => (
+                <MasterPatientCard
+                  key={group.id || group.encounterId}
+                  group={group}
+                  hospitalId={hospitalId}
+                  onBulkDispense={(g) => handleBulkDispenseAllApproved(g)}
+                  formatRelativeSlaTime={formatRelativeSlaTime}
+                />
+              ))
               )
             ) : (
               dispensedOrders.length === 0 ? (
