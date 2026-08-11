@@ -47,37 +47,36 @@ export function PharmacyFinancialReconciliationCard({
   };
 
   return (
-    <div className="bg-slate-900 text-white rounded-[28px] border border-slate-800 shadow-xl overflow-hidden my-4">
+    <div className={`bg-slate-950 text-white rounded-2xl border transition-all duration-300 overflow-hidden relative ${
+      isExpanded ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'border-slate-800 hover:border-slate-700'
+    }`}>
+      {isExpanded && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] z-20"></div>
+      )}
       {/* HEADER BAR */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-800/60 transition-all"
+        className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-slate-900/40 transition select-none"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-black">
-            <BookOpen size={20} />
+        <div className="flex items-center gap-4 pl-2">
+          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 shrink-0">
+            <BookOpen className="w-6 h-6 text-emerald-400" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-black text-sm uppercase tracking-wider text-white">Financial Ledger Auto-Sync</h3>
-              <span className="text-[9px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full uppercase">
-                🟢 Ledger Connected
+            <div className="flex items-center gap-3 mb-1">
+              <h3 className="text-sm font-black text-white uppercase tracking-wide">Financial Ledger Auto-Sync</h3>
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                LEDGER CONNECTED
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-              Automated Double-Entry Postings & Inventory Asset Reconciliation
-            </p>
+            <p className="text-xs text-slate-400 font-medium">Automated double-entry postings & inventory asset reconciliation.</p>
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-slate-400 hover:text-white font-bold text-xs uppercase"
-        >
-          {isExpanded ? 'Collapse ▲' : 'View Ledger Telemetry ▼'}
-        </Button>
+        <button className="text-[10px] font-bold text-slate-500 hover:text-slate-300 uppercase tracking-wider flex items-center gap-1 shrink-0 cursor-pointer">
+          {isExpanded ? 'Collapse Ledger' : 'View Ledger Telemetry'}
+        </button>
       </div>
 
       {/* EXPANDED CONTENT */}

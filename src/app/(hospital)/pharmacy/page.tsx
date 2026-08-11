@@ -762,12 +762,8 @@ export default function PharmacistDashboard() {
           </div>
         </div>
 
-        {/* --- SIDEBAR: INVENTORY HEALTH & TELEMETRY PULSE --- */}
-        <div className="space-y-6">
-           <h3 className="font-black text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2 px-2">
-              <TrendingUp size={16} className="text-orange-500" /> Stock Pulse
-           </h3>
-
+        {/* --- TELEMETRY COMMAND MODULES STACK --- */}
+        <div className="space-y-4">
            {/* AUTOMATED FINANCIAL RECONCILIATION & DOUBLE-ENTRY LEDGER SYNC */}
            <PharmacyFinancialReconciliationCard />
 
@@ -777,29 +773,13 @@ export default function PharmacistDashboard() {
            {/* MULTI-TENANT INVENTORY SYNC & SISTER BRANCH STOCK TRANSFER CARD */}
            <PharmacyMultiBranchInventoryTransferCard />
 
-           {/* ADVANCED INVENTORY, COLD-CHAIN & NARCOTIC TELEMETRY CARD */}
-           <PharmacyStockTelemetryPulseCard />
-           
-           <div className="bg-[#0f172a] p-8 rounded-[40px] text-white shadow-2xl space-y-6">
-              <div>
-                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Inventory Status</p>
-                 <h4 className="text-xl font-black mt-1">Pharmacy Store A</h4>
-              </div>
-              
-              <div className="space-y-4">
-                 <InventoryItem label="Healthy Stock (>20)" status={dataIsLoading ? '...' : `${stockStats.stableCount} items`} percent={stockStats.stablePercent} color="bg-green-500" />
-                 <InventoryItem label="Low Stock (1-20)" status={dataIsLoading ? '...' : `${stockStats.lowCount} items`} percent={stockStats.lowPercent} color="bg-orange-500" />
-                 <InventoryItem label="Out of Stock (0)" status={dataIsLoading ? '...' : `${stockStats.outCount} items`} percent={stockStats.outPercent} color="bg-red-500" />
-              </div>
-
-              <Button 
-                onClick={generateInventoryReport}
-                disabled={dataIsLoading || !inventoryData || inventoryData.length === 0}
-                className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
-              >
-                 Generate Inventory Report
-              </Button>
-           </div>
+           {/* ADVANCED INVENTORY, COLD-CHAIN, NARCOTIC TELEMETRY & INTEGRATED INVENTORY STATUS */}
+           <PharmacyStockTelemetryPulseCard 
+             defaultExpanded={true}
+             stockStats={stockStats}
+             generateReportFn={generateInventoryReport}
+             isLoadingStats={dataIsLoading}
+           />
         </div>
 
       </div>

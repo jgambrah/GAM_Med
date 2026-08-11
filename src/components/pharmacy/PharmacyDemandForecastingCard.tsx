@@ -48,37 +48,36 @@ export function PharmacyDemandForecastingCard({
   };
 
   return (
-    <div className="bg-slate-900 text-white rounded-[28px] border border-slate-800 shadow-xl overflow-hidden my-4">
+    <div className={`bg-slate-950 text-white rounded-2xl border transition-all duration-300 overflow-hidden relative ${
+      isExpanded ? 'border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.15)]' : 'border-slate-800 hover:border-slate-700'
+    }`}>
+      {isExpanded && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-fuchsia-500 shadow-[0_0_10px_rgba(217,70,239,0.8)] z-20"></div>
+      )}
       {/* HEADER BAR */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-800/60 transition-all"
+        className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-slate-900/40 transition select-none"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-black">
-            <Sparkles size={20} />
+        <div className="flex items-center gap-4 pl-2">
+          <div className="p-3 bg-fuchsia-500/10 rounded-xl border border-fuchsia-500/20 text-fuchsia-400 shrink-0">
+            <Sparkles className="w-6 h-6 text-fuchsia-400" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-black text-sm uppercase tracking-wider text-white">AI Demand Forecasting</h3>
-              <span className="text-[9px] font-black bg-purple-950 text-purple-300 border border-purple-800 px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                <Zap size={10} className="text-purple-400" /> Dynamic Reorder Active
+            <div className="flex items-center gap-3 mb-1">
+              <h3 className="text-sm font-black text-white uppercase tracking-wide">AI Demand Forecasting</h3>
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30 rounded-full flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-fuchsia-400" />
+                DYNAMIC REORDER ACTIVE
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-              Predictive Seasonal Demand Spikes & Supplier Auto-PO Engine
-            </p>
+            <p className="text-xs text-slate-400 font-medium">Predictive seasonal demand spikes & supplier auto-PO engine.</p>
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-slate-400 hover:text-white font-bold text-xs uppercase"
-        >
-          {isExpanded ? 'Collapse ▲' : 'View AI Forecasts ▼'}
-        </Button>
+        <button className="text-[10px] font-bold text-slate-500 hover:text-slate-300 uppercase tracking-wider flex items-center gap-1 shrink-0 cursor-pointer">
+          {isExpanded ? 'Collapse Forecasts' : 'View AI Forecasts'}
+        </button>
       </div>
 
       {/* EXPANDED CONTENT */}
