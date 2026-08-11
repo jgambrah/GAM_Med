@@ -61,8 +61,8 @@ export default function HospitalLayout({
   const isReceptionRoute = pathname.startsWith('/reception');
   const isMortuaryRoute = pathname.startsWith('/mortuary');
 
-  // If user is a Pharmacist navigating across shared staff/requisition routes, retain PharmacySidebar
-  if (userProfile?.role === 'PHARMACIST' && !isAccountantRoute && !isFinanceRoute && !isHrRoute && !isAuditorRoute && !isRadiologyRoute && !isLabRoute && !isReceptionRoute && !isMortuaryRoute) {
+  // If user is a Pharmacist navigating across shared non-pharmacy routes (like /staff/*, /requisitions/*, /patients), retain PharmacySidebar without duplicating on /pharmacy routes
+  if (userProfile?.role === 'PHARMACIST' && !isPharmacyRoute && !isSupplyChainRoute && !isAccountantRoute && !isFinanceRoute && !isHrRoute && !isAuditorRoute && !isRadiologyRoute && !isLabRoute && !isReceptionRoute && !isMortuaryRoute) {
     return (
       <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         <PharmacySidebar />
@@ -74,7 +74,7 @@ export default function HospitalLayout({
     );
   }
 
-  // If the path matches a specialized layout, render children directly within container (the layout itself provides sidebar)
+  // If the path matches a specialized layout (e.g. /pharmacy, /hr, /accountant), render children directly within container (the nested layout itself provides the single sidebar)
   if (isSupplyChainRoute || isAccountantRoute || isFinanceRoute || isHrRoute || isAuditorRoute || isPharmacyRoute || isRadiologyRoute || isLabRoute || isReceptionRoute || isMortuaryRoute) {
     return (
       <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
