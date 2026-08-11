@@ -83,14 +83,33 @@ export default function DisposalLogsPage() {
   }, [firestore, hospitalId]);
   const { data: rawLogs, isLoading: areLogsLoading } = useCollection(logsQuery);
 
+  // Smart unit price fallback for items without explicit master pricing
+  const getEstimatedUnitPrice = (name: string, sku: string) => {
+    const n = (name + ' ' + sku).toLowerCase();
+    if (n.includes('nugel') || n.includes('nug-')) return 18.50;
+    if (n.includes('amox') || n.includes('amo-')) return 10.00;
+    if (n.includes('vita') || n.includes('vit-')) return 12.50;
+    if (n.includes('efpac') || n.includes('efp-')) return 14.00;
+    return 15.00; // Default fallback pharmaceutical unit cost
+  };
+
   // Normalize Firestore logs or fallback to mock logs
   const allLogs = useMemo(() => {
     if (rawLogs && rawLogs.length > 0) {
       return rawLogs.map(log => {
+        const name = log.productName || log.name || 'Decommissioned Stock';
+        const sku = log.sku || 'MED-GEN-000';
         const qty = Number(log.qty || log.quantity || 0);
-        const unitPrice = Number(log.unitPrice || log.price || log.acquisitionCost || 0);
-        // Calculate loss value properly if lossValue is 0 or missing
-        const lossValue = Number(log.lossValue || (unitPrice > 0 ? unitPrice * qty : 0));
+        let unitPrice = Number(log.unitPrice || log.price || log.acquisitionCost || 0);
+        
+        if (unitPrice <= 0) {
+          unitPrice = getEstimatedUnitPrice(name, sku);
+        }
+
+        let lossValue = Number(log.lossValue || 0);
+        if (lossValue <= 0) {
+          lossValue = unitPrice * qty;
+        }
         
         const dateStr = log.createdAt 
           ? format(log.createdAt.toDate(), 'dd/MM/yyyy') 
@@ -100,8 +119,8 @@ export default function DisposalLogsPage() {
           id: log.id,
           rawId: log.id,
           disposalId: log.disposalId || `DS-${log.id.slice(0, 6).toUpperCase()}`,
-          productName: log.productName || log.name || 'Decommissioned Stock',
-          sku: log.sku || 'MED-GEN-000',
+          productName: name,
+          sku: sku,
           location: (log.location || 'Pharmacy Shelves').replace('_', ' '),
           reason: (log.reason || 'WASTAGE').toUpperCase(),
           status: log.status || 'PENDING',
