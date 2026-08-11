@@ -3,9 +3,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, limit, collectionGroup, doc } from 'firebase/firestore';
 import { 
-  Pill, Package, AlertTriangle, CheckCircle2, 
+  Pill, Package, AlertTriangle, CheckCircle2, CheckCircle,
   Clock, ShoppingBag, BarChart3, ChevronRight,
-  ClipboardList, Search, TrendingUp, Loader2, ShieldAlert, Trash2
+  ClipboardList, Search, TrendingUp, Loader2, ShieldAlert, Trash2,
+  History, Activity, ShieldCheck, AlertCircle, Thermometer
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -434,177 +435,202 @@ export default function PharmacistDashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      {/* --- 1. DARK HERO COMMAND CENTER BANNER --- */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-6 relative overflow-hidden">
-        {/* Background Ambient Glow */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+      {/* --- THE MASTER COMMAND BANNER --- */}
+      <div className="bg-slate-950 text-white rounded-2xl p-8 shadow-xl relative overflow-hidden">
+        
+        {/* Subtle Background Accent */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
 
-        {/* Header & Quick Action Buttons */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        {/* TOP ROW: Identity & Actions */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 border-b border-slate-800/60 pb-6 mb-6">
+          
+          {/* Title & Identity */}
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-2.5">
-              <Package className="w-6 h-6 text-rose-500" />
-              PHARMACY COMMAND HUB
+            <h1 className="text-3xl font-black tracking-tight text-white uppercase italic flex items-center gap-3">
+              <Pill className="w-8 h-8 text-indigo-400" />
+              PHARMACY OPERATIONS
             </h1>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="px-2.5 py-0.5 text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse"></span>
-                Lead Pharmacist: {user?.displayName || 'Shane Gambrah'}
+            <div className="flex items-center gap-2 mt-2">
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-md uppercase tracking-wider">
+                Lead Pharmacist
               </span>
-              <span className="text-xs text-slate-400 font-medium">
-                • Clinical Operations & Stock Engine
+              <span className="text-sm font-bold text-slate-300 tracking-wide">
+                {user?.displayName || 'Shane Gambrah'}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Core Action Buttons */}
+          <div className="flex items-center gap-3">
             <Link href="/pharmacy/disposal">
-              <button className="bg-slate-900 hover:bg-rose-950 text-rose-400 border border-rose-500/30 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-sm">
-                <Trash2 size={16} className="text-rose-500" /> Decommission Stock
+              <button className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-2 uppercase tracking-wide cursor-pointer">
+                <Trash2 className="w-4 h-4" />
+                Decommission Stock
               </button>
             </Link>
             <Link href="/pharmacy/inventory">
-              <button className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition cursor-pointer shadow-sm">
-                <Package size={16} /> Manage Inventory
+              <button className="px-5 py-2.5 text-xs font-bold text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg shadow-sm transition flex items-center gap-2 uppercase tracking-wide cursor-pointer">
+                <Package className="w-4 h-4" />
+                Manage Inventory
               </button>
             </Link>
           </div>
         </div>
 
-        {/* EMBEDDED LIVE METRIC READOUT CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 relative z-10">
+        {/* BOTTOM ROW: Integrated Telemetry Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
           
-          {/* Pending Encounters */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          {/* Metric 1: Pending */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
             <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                Pending Encounters
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                Pending Prescriptions
               </span>
-              <span className="text-2xl font-black text-emerald-400">
+              <span className="text-3xl font-black text-white">
                 {dataIsLoading ? '...' : groupedPendingOrders.length}
               </span>
             </div>
-            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
-              <ClipboardList size={20} />
+            <div className="p-3 bg-indigo-500/10 rounded-lg">
+              <ClipboardList className="w-6 h-6 text-indigo-400" />
             </div>
           </div>
 
-          {/* Low Stock Alerts */}
-          <div className={`bg-slate-900/90 border rounded-xl p-4 flex items-center justify-between ${
-            (lowStockItems?.length || 0) > 0 ? 'border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.15)]' : 'border-slate-800'
-          }`}>
-            <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+          {/* Metric 2: Low Stock (With Alert Glow) */}
+          <div className="bg-slate-900 border border-rose-900/50 shadow-[0_0_15px_rgba(225,29,72,0.1)] rounded-xl p-4 flex items-center justify-between relative overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
+            <div className="pl-2">
+              <span className="block text-[10px] font-bold text-rose-400/80 uppercase tracking-widest mb-1">
                 Low Stock Alerts
               </span>
-              <span className="text-2xl font-black text-rose-400">
+              <span className="text-3xl font-black text-rose-400">
                 {dataIsLoading ? '...' : (lowStockItems?.length || 0)}
               </span>
             </div>
-            <div className="p-3 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
-              <AlertTriangle size={20} />
+            <div className="p-3 bg-rose-500/10 rounded-lg">
+              <AlertTriangle className="w-6 h-6 text-rose-400" />
             </div>
           </div>
 
-          {/* Dispensed Today */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          {/* Metric 3: Dispensed */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
             <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
                 Dispensed Today
               </span>
-              <span className="text-2xl font-black text-cyan-400">
+              <span className="text-3xl font-black text-emerald-400">
                 {dataIsLoading ? '...' : dispensedTodayCount}
               </span>
             </div>
-            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-400">
-              <CheckCircle2 size={20} />
+            <div className="p-3 bg-emerald-500/10 rounded-lg">
+              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
             </div>
           </div>
 
         </div>
-
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start w-full min-w-0">
         
         {/* --- MAIN DISPENSING QUEUE --- */}
         <div className="xl:col-span-2 space-y-6 w-full min-w-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
-            <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => setActiveTab('pending')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
-                  activeTab === 'pending'
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Clock size={14} /> Pending ({groupedPendingOrders.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('history')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
-                  activeTab === 'history'
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <CheckCircle2 size={14} /> History ({dispensedOrders.length})
-              </button>
-            </div>
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
-              <Input 
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder={activeTab === 'pending' ? "Search queue..." : "Search history..."}
-                className="pl-9 bg-slate-50 border rounded-xl font-bold h-9 text-xs text-black placeholder:text-slate-400"
-              />
-            </div>
-          </div>
+          {/* UNIFIED FILTER & TELEMETRY COMMAND STRIP */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+            
+            {/* TOP ROW: Search & Queue Filters */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              
+              {/* Universal Search Input */}
+              <div className="relative w-full lg:max-w-md">
+                <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-500" />
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition" 
+                  placeholder="Search queue by MRN, Name, or Drug..." 
+                />
+              </div>
+              
+              {/* Toggles (Queue State & Category) */}
+              <div className="flex items-center gap-3 overflow-x-auto pb-2 lg:pb-0 hide-scrollbar">
+                
+                {/* Status Toggle */}
+                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 shrink-0">
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('pending')}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-md flex items-center gap-2 transition cursor-pointer ${
+                      activeTab === 'pending' 
+                        ? 'bg-slate-700 text-white shadow-sm' 
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" /> PENDING ({groupedPendingOrders.length})
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-md flex items-center gap-2 transition cursor-pointer ${
+                      activeTab === 'history' 
+                        ? 'bg-slate-700 text-white shadow-sm' 
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <History className="w-3.5 h-3.5" /> HISTORY ({dispensedOrders.length})
+                  </button>
+                </div>
 
-          {/* COMPACT EHR STATUS & CATEGORY FILTER TOOLBAR */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-md">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1 text-cyan-300 bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-cyan-800 text-[10px] font-black uppercase">
-                <ShieldAlert size={13} className="text-cyan-400" /> Safety Engine: Active
+                {/* Category Toggle */}
+                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 shrink-0">
+                  <button 
+                    type="button"
+                    onClick={() => setOrderCategoryFilter('medications')}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-md flex items-center gap-2 transition cursor-pointer ${
+                      orderCategoryFilter === 'medications' 
+                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/20' 
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Pill className="w-3.5 h-3.5" /> RX MEDS
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setOrderCategoryFilter('diagnostic')}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-md flex items-center gap-2 transition cursor-pointer ${
+                      orderCategoryFilter === 'diagnostic' 
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20' 
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Activity className="w-3.5 h-3.5" /> DIAGNOSTICS ({diagnosticCount})
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+            {/* BOTTOM ROW: System Telemetry */}
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-800/60 overflow-x-auto hide-scrollbar">
+              <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest mr-2 shrink-0">
+                Live Telemetry:
               </span>
-              <span className="flex items-center gap-1 text-red-300 bg-red-950/80 px-2.5 py-1 rounded-lg border border-red-800 text-[10px] font-black uppercase animate-pulse">
-                <Clock size={13} className="text-red-400" /> STAT Triage: Active
+              
+              <span className="px-2.5 py-1 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1.5 shrink-0">
+                <ShieldCheck className="w-3 h-3" /> 
+                SAFETY ENGINE: ACTIVE
               </span>
-              <span className="flex items-center gap-1 text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800 text-[10px] font-black uppercase">
-                <TrendingUp size={13} className="text-emerald-400" /> Cold-Chain: 4.2°C
+              
+              <span className="px-2.5 py-1 text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-full flex items-center gap-1.5 shrink-0">
+                <AlertCircle className="w-3 h-3" /> 
+                STAT TRIAGE: ACTIVE
+              </span>
+              
+              <span className="px-2.5 py-1 text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-full flex items-center gap-1.5 shrink-0">
+                <Thermometer className="w-3 h-3" /> 
+                COLD-CHAIN: 4.2°C
               </span>
             </div>
 
-            {/* Category Filter Pills (Rx Medications vs Non-Medication Diagnostic Imaging Orders) */}
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => setOrderCategoryFilter('medications')}
-                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
-                  orderCategoryFilter === 'medications'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                💊 Rx Medications
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderCategoryFilter('diagnostic')}
-                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${
-                  orderCategoryFilter === 'diagnostic'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                📡 Diagnostic Orders ({diagnosticCount})
-              </button>
-            </div>
           </div>
 
           <div className="space-y-4">
@@ -612,8 +638,35 @@ export default function PharmacistDashboard() {
               <div className="p-10 text-center"><Loader2 className="animate-spin text-primary" /></div>
             ) : activeTab === 'pending' ? (
               groupedPendingOrders.length === 0 ? (
-                <div className="p-20 text-center bg-card rounded-[32px] border border-slate-200 text-muted-foreground/60 italic uppercase text-xs font-bold shadow-sm">
-                  {orderCategoryFilter === 'diagnostic' ? 'No non-medication diagnostic orders.' : 'No Rx prescriptions waiting.'}
+                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-16 text-center flex flex-col items-center justify-center shadow-sm">
+                  
+                  {/* Icon Container with subtle rotation */}
+                  <div className="w-16 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center mb-6 shadow-sm rotate-3">
+                    <CheckCircle className="w-8 h-8 text-emerald-500 -rotate-3" />
+                  </div>
+                  
+                  {/* Primary Message */}
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">
+                    {orderCategoryFilter === 'diagnostic' ? 'No Diagnostic Orders Waiting' : 'No Rx Prescriptions Waiting'}
+                  </h3>
+                  
+                  {/* Contextual Subtitle */}
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md leading-relaxed">
+                    {orderCategoryFilter === 'diagnostic'
+                      ? 'The active diagnostic queue is currently clear. No pending imaging or lab requests.'
+                      : 'The active dispensing queue is currently clear. All incoming medication orders for this session have been successfully processed.'}
+                  </p>
+                  
+                  {/* Call to Action */}
+                  <button 
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className="mt-8 px-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition shadow-sm flex items-center gap-2 cursor-pointer"
+                  >
+                    <History className="w-4 h-4 text-slate-500" />
+                    Review Today's History ({dispensedOrders.length})
+                  </button>
+                  
                 </div>
               ) : (
                 groupedPendingOrders.map((group) => {
