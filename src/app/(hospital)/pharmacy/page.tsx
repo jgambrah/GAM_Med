@@ -552,7 +552,7 @@ export default function PharmacistDashboard() {
               </div>
               
               {/* Toggles (Queue State & Category) */}
-              <div className="flex items-center gap-3 overflow-x-auto pb-2 lg:pb-0 hide-scrollbar">
+              <div className="flex items-center gap-3 overflow-x-auto pb-2 lg:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 
                 {/* Status Toggle */}
                 <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 shrink-0">
@@ -610,7 +610,7 @@ export default function PharmacistDashboard() {
             </div>
 
             {/* BOTTOM ROW: System Telemetry */}
-            <div className="flex items-center gap-3 pt-4 border-t border-slate-800/60 overflow-x-auto hide-scrollbar">
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-800/60 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest mr-2 shrink-0">
                 Live Telemetry:
               </span>

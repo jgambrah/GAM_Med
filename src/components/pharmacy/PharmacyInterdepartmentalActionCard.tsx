@@ -74,9 +74,9 @@ export function PharmacyInterdepartmentalActionCard({
           type="button"
           size="sm"
           onClick={() => setIsQueryModalOpen(true)}
-          className="bg-amber-600 hover:bg-amber-500 text-white font-black text-[10px] uppercase rounded-xl h-8 px-3 flex items-center gap-1.5 shadow-lg shadow-amber-600/20"
+          className="w-full text-xs font-bold text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-slate-800 rounded-lg py-2.5 transition shadow-sm flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer"
         >
-          <MessageSquare size={13} /> 🚩 Hold & Query Doctor
+          <MessageSquare size={14} /> Hold & Query Doctor
         </Button>
       </div>
 
