@@ -315,50 +315,50 @@ export default function DisposalCertificate() {
               "{data.notes || 'No additional remarks recorded.'}"
             </p>
           </div>
-
-          {/* 6. CRYPTOGRAPHIC 3-TIER SIGNATURE BLOCK */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+          
+          {/* 6. CRYPTOGRAPHIC 3-TIER SIGNATURE BLOCK (Forced Horizontal for Print & Single A4 Page) */}
+          <div className="grid grid-cols-3 gap-6 mb-8 mt-10">
             {/* Initiator (Pharmacist) */}
-            <div className="border-t-2 border-slate-200 dark:border-slate-800 print:border-slate-300 pt-4 text-center">
-              <h5 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Storekeeper / Pharmacist</h5>
+            <div className="border-t-2 border-slate-300 dark:border-slate-800 print:border-slate-300 pt-4 text-center">
+              <h5 className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-2">Storekeeper / Pharmacist</h5>
               <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
                 {data.authorizedByName || 'Shane Gambrah'}
               </p>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-full print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
                 <CheckCircle className="w-3 h-3" /> VERIFIED
               </span>
-              <p className="text-[9px] text-slate-400 print:text-slate-500 mt-2 font-mono">IP: 192.168.1.104 • {createdDateStr}</p>
+              <p className="text-[8px] text-slate-400 print:text-slate-500 mt-2 font-mono">IP: 192.168.1.104 • {createdDateStr}</p>
             </div>
 
             {/* Witness */}
-            <div className="border-t-2 border-slate-200 dark:border-slate-800 print:border-slate-300 pt-4 text-center">
-              <h5 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Witnessing Staff</h5>
+            <div className="border-t-2 border-slate-300 dark:border-slate-800 print:border-slate-300 pt-4 text-center">
+              <h5 className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-2">Witnessing Staff</h5>
               <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
                 {data.witnessName || 'Internal Auditor'}
               </p>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-full print:bg-slate-100 print:text-slate-700 print:border-slate-300">
                 SYSTEM LOGGED
               </span>
-              <p className="text-[9px] text-slate-400 print:text-slate-500 mt-2 font-mono">AUDIT ID: #{data.disposalId}</p>
+              <p className="text-[8px] text-slate-400 print:text-slate-500 mt-2 font-mono">AUDIT ID: #{data.disposalId}</p>
             </div>
 
             {/* Approver (Facility Director) */}
             {data.status === 'APPROVED' ? (
               <div className="border-t-2 border-emerald-400 dark:border-emerald-500 print:border-emerald-500 pt-4 text-center">
-                <h5 className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 print:text-emerald-800 tracking-wider mb-2">Facility Director</h5>
+                <h5 className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 print:text-emerald-800 tracking-wider mb-2">Facility Director</h5>
                 <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
                   {data.approvedByName || 'Auditor Lead'}
                 </p>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-full print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
                   <CheckCircle className="w-3 h-3" /> CO-SIGNED & APPROVED
                 </span>
-                <p className="text-[9px] text-slate-400 print:text-slate-500 mt-2 font-mono">
+                <p className="text-[8px] text-slate-400 print:text-slate-500 mt-2 font-mono">
                   {data.approvedAt ? format(new Date(data.approvedAt?.toDate()), 'dd/MM/yyyy p') : 'Certified'}
                 </p>
               </div>
             ) : data.status === 'REJECTED' ? (
               <div className="border-t-2 border-rose-400 dark:border-rose-500 print:border-rose-500 pt-4 text-center">
-                <h5 className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 print:text-rose-800 tracking-wider mb-2">Facility Director</h5>
+                <h5 className="text-[9px] uppercase font-bold text-rose-600 dark:text-rose-400 print:text-rose-800 tracking-wider mb-2">Facility Director</h5>
                 <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
                   {data.rejectedByName || 'Auditor Lead'}
                 </p>
@@ -368,7 +368,7 @@ export default function DisposalCertificate() {
               </div>
             ) : (
               <div className="border-t-2 border-amber-300 dark:border-amber-500/40 print:border-amber-400 pt-4 text-center">
-                <h5 className="text-[10px] uppercase font-bold text-amber-500 tracking-wider mb-2">Facility Director</h5>
+                <h5 className="text-[9px] uppercase font-bold text-amber-500 tracking-wider mb-2">Facility Director</h5>
                 <p className="font-bold text-slate-400 print:text-slate-500 mb-1 text-xs italic">Awaiting Approval...</p>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-full animate-pulse print:animate-none print:bg-amber-50 print:text-amber-800 print:border-amber-300">
                   <Clock className="w-3 h-3" /> PENDING CO-SIGN
@@ -377,17 +377,17 @@ export default function DisposalCertificate() {
             )}
           </div>
 
-          {/* 7. DIGITAL AUDIT FOOTER WITH VERIFICATION QR CODE */}
-          <div className="flex items-center justify-between pt-6 border-t border-slate-100 dark:border-slate-800 print:border-slate-200">
+          {/* 7. DIGITAL AUDIT FOOTER WITH VERIFICATION QR CODE (Tightened for Single A4 Page) */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800 print:border-slate-200 mt-auto">
             <div className="flex flex-col">
               <div className="flex items-center gap-2 text-[10px] text-slate-400 print:text-slate-500 font-bold uppercase tracking-wider">
-                <ShieldAlert className="w-3.5 h-3.5 text-indigo-500" />
+                <ShieldAlert className="w-3 h-3 text-indigo-500" />
                 Digitally Audited by GAMMED ERP
               </div>
-              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 print:text-slate-700 mt-1">GAM-GAR-{data.disposalId}</span>
+              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 print:text-slate-700 mt-1">GAM-GAR-{data.disposalId}</span>
             </div>
-            <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 print:bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 print:border-slate-300 shrink-0">
-              <QrCode className="w-8 h-8 text-slate-400 print:text-slate-700" />
+            <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 print:bg-slate-50 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 print:border-slate-300 shrink-0">
+              <QrCode className="w-6 h-6 text-slate-400 print:text-slate-600" />
             </div>
           </div>
 
