@@ -260,11 +260,30 @@ export default function PharmacyRequisitionsPage() {
   const dataIsLoading = areReqsLoading || isInventoryLoading;
 
   return (
-    <div className="p-8 space-y-8 max-w-5xl mx-auto text-black font-bold bg-white rounded-[40px] border shadow-sm relative">
-      <div className="flex justify-between items-end border-b pb-6">
-        <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter italic">Requisitions <span className="text-primary">Registry</span></h1>
-          <p className="text-slate-500 font-bold text-xs uppercase italic mt-1">Track internal stock refill requests and acknowledge warehouse releases.</p>
+    <div className="p-8 space-y-6 max-w-5xl mx-auto text-foreground">
+      {/* DARK HERO BANNER HEADER */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white uppercase italic">
+              REQUISITIONS <span className="text-primary">REGISTRY & ARCHIVES</span>
+            </h1>
+            <p className="text-xs text-slate-400 font-medium mt-1">
+              Track inter-departmental stock refill requests, audit releases, and acknowledge warehouse receipts.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1.5">
+              <ClipboardList size={14} /> Active Registry
+            </span>
+            <Button 
+              onClick={() => router.push('/requisitions/new')} 
+              className="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition flex items-center gap-2 h-9"
+            >
+              + Create Requisition
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -300,54 +319,97 @@ export default function PharmacyRequisitionsPage() {
         <div className="space-y-6">
           {activeTab === 'ACTIVE' ? (
             activeRequisitions.length === 0 ? (
-              <div className="p-20 bg-slate-50 border-2 border-dashed rounded-[32px] text-center text-slate-300 italic uppercase">No active requisitions found.</div>
+              <div className="p-20 bg-card border-2 border-dashed rounded-2xl text-center text-slate-400 italic uppercase font-bold text-xs">No active requisitions found.</div>
             ) : (
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-4">
                 {activeRequisitions.map(req => {
                   const hasStockToAcknowledge = ['ISSUED', 'PARTIALLY_ISSUED', 'ISSUED_PARTIAL'].includes(req.status) || 
                     req.items.some((i: any) => (i.quantityIssued || 0) > (i.quantityReceived || 0));
+                  const refId = req.referenceId || `REQ-${req.id.slice(0, 8).toUpperCase()}`;
+                  const dept = req.destinationDept || req.requestingDept || 'Outpatient Pharmacy';
+                  const officer = req.requestingOfficer || req.requestedByName || 'Staff Lead';
+
                   return (
-                    <div key={req.id} className="bg-card p-6 rounded-[32px] border shadow-sm space-y-4 hover:border-primary/20 transition-all">
-                      <div className="flex justify-between items-start">
+                    <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+                      {/* Card Header: IDs, Badges, and Audit Data */}
+                      <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                          <span className={cn(
-                            "text-[9px] font-black px-3 py-1 rounded-full uppercase italic border",
-                            req.status === 'PENDING' && "bg-amber-50 text-amber-800 border-amber-200",
-                            req.status === 'APPROVED' && "bg-blue-50 text-blue-800 border-blue-200",
-                            req.status === 'PARTIALLY_ISSUED' && "bg-purple-50 text-purple-800 border-purple-200",
-                            req.status === 'ISSUED' && "bg-sky-50 text-sky-800 border-sky-200"
-                          )}>
-                            {req.status}
-                          </span>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">
-                            Requested: {req.createdAt ? format(req.createdAt.toDate(), 'PPp') : ''}
-                          </p>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-bold text-slate-800 dark:text-slate-100 font-mono text-sm">{refId}</h3>
+                            <span className={cn(
+                              "px-2 py-0.5 text-[10px] font-bold border rounded-full uppercase",
+                              req.status === 'PENDING' && "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20",
+                              req.status === 'APPROVED' && "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",
+                              req.status === 'PARTIALLY_ISSUED' && "bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20",
+                              req.status === 'ISSUED' && "bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20"
+                            )}>
+                              {req.status}
+                            </span>
+                            {req.priorityLevel && (
+                              <span className={cn(
+                                "px-2 py-0.5 text-[10px] font-bold border rounded-full uppercase",
+                                req.priorityLevel.includes('STAT') ? "bg-rose-600 text-white animate-pulse" : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                              )}>
+                                {req.priorityLevel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 font-medium">
+                            Requested by: <strong className="text-slate-700 dark:text-slate-200">{dept}</strong> ({officer}) • {req.createdAt ? format(req.createdAt.toDate(), 'PPp') : ''}
+                          </div>
                         </div>
-                        {hasStockToAcknowledge && (
+                        
+                        {hasStockToAcknowledge ? (
                           <Button 
                             onClick={() => openReceiptModal(req)}
                             disabled={actionLoading}
-                            className="bg-primary text-primary-foreground hover:bg-black font-black uppercase text-[10px] tracking-widest flex items-center gap-1.5 shadow-md transition-all rounded-xl py-4"
+                            className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
                           >
-                            <ArrowDownLeft size={14}/> Acknowledge / Verify Receipt
+                            <ArrowDownLeft size={14}/> Acknowledge & Receive
                           </Button>
+                        ) : (
+                          <button className="px-3 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-lg transition border border-indigo-200 dark:border-indigo-500/20">
+                            View Request Details
+                          </button>
                         )}
                       </div>
 
-                      <div className="bg-muted/50 p-4 rounded-2xl border space-y-2">
-                        {req.items.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between items-center text-xs">
-                            <div>
-                              <p className="font-bold uppercase text-slate-800">{item.name}</p>
-                              <p className="text-[9px] text-slate-400">SKU: {item.sku}</p>
+                      {/* Card Body: The Line Items */}
+                      <div className="p-4 space-y-3">
+                        {req.items.map((item: any, idx: number) => {
+                          const issued = item.quantityIssued ?? 0;
+                          const requested = item.quantityRequested ?? 0;
+                          const returned = item.quantityReturned ?? 0;
+                          const accepted = item.quantityReceived;
+                          const isUnfulfilled = issued === 0 && requested > 0;
+
+                          return (
+                            <div key={idx} className={`flex items-center justify-between py-2 ${idx !== req.items.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}>
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <h4 className={`text-sm font-bold uppercase ${isUnfulfilled ? 'text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{item.name}</h4>
+                                  <p className={`text-[10px] font-mono mt-0.5 ${isUnfulfilled ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{item.sku}</p>
+                                </div>
+                                {isUnfulfilled && (
+                                  <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-md">
+                                    OUT OF STOCK
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className={`flex items-center gap-4 text-xs font-medium text-right ${isUnfulfilled ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                                <div>Req: <span className={isUnfulfilled ? 'text-slate-400' : 'text-slate-800 dark:text-slate-100 font-bold'}>{requested}</span></div>
+                                <div>Issued: <span className={isUnfulfilled ? 'text-rose-500 font-bold' : 'text-slate-800 dark:text-slate-100 font-bold'}>{issued}</span></div>
+                                {accepted !== undefined && (
+                                  <div>Accepted: <span className="text-emerald-600 font-bold">{accepted}</span></div>
+                                )}
+                                {returned > 0 && (
+                                  <div className="text-rose-600 font-bold">Returned: {returned}</div>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-slate-600 font-bold">Requested: {item.quantityRequested}</p>
-                              {(item.quantityIssued || 0) > 0 && <p className="text-primary font-black">Issued: {item.quantityIssued}</p>}
-                              {(item.quantityReceived || 0) > 0 && <p className="text-green-600 font-bold">Received so far: {item.quantityReceived}</p>}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -356,44 +418,79 @@ export default function PharmacyRequisitionsPage() {
             )
           ) : (
             archivedRequisitions.length === 0 ? (
-              <div className="p-20 bg-card border-2 border-dashed rounded-[32px] text-center text-slate-300 italic uppercase">No archived requisitions found.</div>
+              <div className="p-20 bg-card border-2 border-dashed rounded-2xl text-center text-slate-400 italic uppercase font-bold text-xs">No archived requisitions found.</div>
             ) : (
-              <div className="grid grid-cols-1 gap-6">
-                {archivedRequisitions.map(req => (
-                  <div key={req.id} className="bg-card p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className={cn(
-                          "text-[9px] font-black px-3 py-1 rounded-full uppercase italic border",
-                          req.status === 'RECEIVED' && "bg-green-50 text-green-800 border-green-200",
-                          req.status === 'REJECTED' && "bg-red-50 text-red-800 border-red-200"
-                        )}>
-                          {req.status}
-                        </span>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">
-                          Received: {req.receivedAt ? format(req.receivedAt.toDate(), 'PPp') : (req.createdAt ? format(req.createdAt.toDate(), 'PPp') : '')}
-                        </p>
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 gap-4">
+                {archivedRequisitions.map(req => {
+                  const refId = req.referenceId || `REQ-${req.id.slice(0, 8).toUpperCase()}`;
+                  const dept = req.destinationDept || req.requestingDept || 'Outpatient Pharmacy';
+                  const officer = req.requestingOfficer || req.requestedByName || 'Staff Lead';
 
-                    <div className="bg-muted/30 p-4 rounded-2xl border space-y-2 text-slate-500">
-                      {req.items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center text-xs">
-                          <div>
-                            <p className="font-bold uppercase">{item.name}</p>
-                            <p className="text-[9px]">SKU: {item.sku}</p>
+                  return (
+                    <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+                      {/* Card Header: IDs, Badges, and Audit Data */}
+                      <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-bold text-slate-800 dark:text-slate-100 font-mono text-sm">{refId}</h3>
+                            <span className={cn(
+                              "px-2 py-0.5 text-[10px] font-bold border rounded-full uppercase",
+                              req.status === 'RECEIVED' && "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20",
+                              req.status === 'REJECTED' && "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20"
+                            )}>
+                              {req.status === 'RECEIVED' ? 'COMPLETED & RECEIVED' : req.status}
+                            </span>
                           </div>
-                          <div className="text-right">
-                            <p>Requested: {item.quantityRequested}</p>
-                            <p className="text-slate-600 font-bold">Issued: {item.quantityIssued}</p>
-                            {item.quantityReceived !== undefined && <p className="text-green-600 font-black">Accepted: {item.quantityReceived}</p>}
-                            {(item.quantityReturned || 0) > 0 && <p className="text-red-600 font-black">Returned: {item.quantityReturned}</p>}
+                          <div className="text-xs text-slate-500 font-medium">
+                            Requested by: <strong className="text-slate-700 dark:text-slate-200">{dept}</strong> ({officer}) • {req.receivedAt ? `Received: ${format(req.receivedAt.toDate(), 'PPp')}` : (req.createdAt ? `Requested: ${format(req.createdAt.toDate(), 'PPp')}` : '')}
                           </div>
                         </div>
-                      ))}
+                        
+                        <button className="px-3 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-lg transition border border-indigo-200 dark:border-indigo-500/20">
+                          View Full Invoice
+                        </button>
+                      </div>
+
+                      {/* Card Body: The Line Items */}
+                      <div className="p-4 space-y-3">
+                        {req.items.map((item: any, idx: number) => {
+                          const issued = item.quantityIssued ?? 0;
+                          const requested = item.quantityRequested ?? 0;
+                          const returned = item.quantityReturned ?? 0;
+                          const accepted = item.quantityReceived;
+                          const isUnfulfilled = issued === 0 && requested > 0;
+
+                          return (
+                            <div key={idx} className={`flex items-center justify-between py-2 ${idx !== req.items.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}>
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <h4 className={`text-sm font-bold uppercase ${isUnfulfilled ? 'text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{item.name}</h4>
+                                  <p className={`text-[10px] font-mono mt-0.5 ${isUnfulfilled ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400'}`}>{item.sku}</p>
+                                </div>
+                                {isUnfulfilled && (
+                                  <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-md">
+                                    OUT OF STOCK
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className={`flex items-center gap-4 text-xs font-medium text-right ${isUnfulfilled ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                                <div>Req: <span className={isUnfulfilled ? 'text-slate-400' : 'text-slate-800 dark:text-slate-100 font-bold'}>{requested}</span></div>
+                                <div>Issued: <span className={isUnfulfilled ? 'text-rose-500 font-bold' : 'text-slate-800 dark:text-slate-100 font-bold'}>{issued}</span></div>
+                                {accepted !== undefined && (
+                                  <div>Accepted: <span className="text-emerald-600 font-bold">{accepted}</span></div>
+                                )}
+                                {returned > 0 && (
+                                  <div className="text-rose-600 font-bold">Returned: {returned}</div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )
           )}

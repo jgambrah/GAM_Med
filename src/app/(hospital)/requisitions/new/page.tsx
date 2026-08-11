@@ -332,12 +332,12 @@ export default function NewRequisitionPage() {
                       <div className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{item.sku}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-[10px] font-bold border rounded-md ${
+                      <span className={`px-2 py-1 text-[10px] font-bold border rounded-md uppercase ${
                         item.soh > 50 
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' 
                           : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
                       }`}>
-                        {item.soh} {item.unit}S
+                        {item.soh} {item.unit} IN STOCK
                       </span>
                     </td>
                     <td className="px-4 py-3">
