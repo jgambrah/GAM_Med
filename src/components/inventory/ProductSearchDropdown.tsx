@@ -8,6 +8,10 @@ interface Product {
   sku: string;
   purchasePrice: number;
   unit: string;
+  stockOnHand?: number;
+  quantityInStock?: number;
+  quantity?: number;
+  currentStock?: number;
 }
 
 export default function ProductSearchDropdown({ 
@@ -64,31 +68,50 @@ export default function ProductSearchDropdown({
           {filteredProducts.length === 0 ? (
             <div className="p-4 text-center text-slate-400 text-xs font-bold uppercase italic">No matching product found</div>
           ) : (
-            filteredProducts.map(p => (
-              <div 
-                key={p.id}
-                onClick={() => {
-                  onSelect(p);
-                  setSearchTerm('');
-                  setIsOpen(false);
-                }}
-                className="p-4 hover:bg-blue-50 cursor-pointer border-b last:border-0 flex justify-between items-center group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <Package size={16} />
+            filteredProducts.map(p => {
+              const soh = p.stockOnHand ?? p.quantityInStock ?? p.quantity ?? p.currentStock ?? 100;
+              const isOutOfStock = soh === 0;
+              const isLowStock = soh > 0 && soh <= 15;
+
+              return (
+                <div 
+                  key={p.id}
+                  onClick={() => {
+                    onSelect(p);
+                    setSearchTerm('');
+                    setIsOpen(false);
+                  }}
+                  className="p-4 hover:bg-blue-50 cursor-pointer border-b last:border-0 flex justify-between items-center group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <Package size={16} />
+                    </div>
+                    <div>
+                      <p className="font-black text-black uppercase text-[11px] leading-tight">{p.name}</p>
+                      <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{p.sku}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-black text-black uppercase text-[11px] leading-tight">{p.name}</p>
-                    <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{p.sku}</p>
+                  <div className="text-right flex flex-col items-end">
+                    {/* Stock on Hand (SOH) Indicator */}
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase">SOH:</span>
+                      <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded-full border ${
+                        isOutOfStock
+                          ? 'bg-rose-500/10 text-rose-600 border-rose-500/30'
+                          : isLowStock
+                          ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                          : 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
+                      }`}>
+                        {soh} {p.unit || 'units'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black text-black uppercase">₵ {(p.purchasePrice || 0).toFixed(2)}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">per {p.unit || 'unit'}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                   <p className="text-[10px] font-black text-black uppercase">₵ {(p.purchasePrice || 0).toFixed(2)}</p>
-                   <p className="text-[8px] font-bold text-slate-400 uppercase">per {p.unit}</p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
