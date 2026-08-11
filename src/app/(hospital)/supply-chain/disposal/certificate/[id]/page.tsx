@@ -5,14 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, writeBatch, increment, serverTimestamp } from 'firebase/firestore';
 import { 
-  Printer, ArrowLeft, AlertTriangle, ShieldAlert, 
+  Download, ArrowLeft, AlertTriangle, ShieldAlert, 
   CheckCircle, XCircle, Clock, QrCode, Building2
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { useReactToPrint } from 'react-to-print';
 
 export default function DisposalCertificate() {
   const { id } = useParams();
@@ -22,6 +21,7 @@ export default function DisposalCertificate() {
   const { toast } = useToast();
 
   const [actionLoading, setActionLoading] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const certificateRef = useRef<HTMLDivElement>(null);
 
   const userProfileRef = useMemoFirebase(() => {
@@ -62,7 +62,7 @@ export default function DisposalCertificate() {
         method: 'INCINERATION',
         status: 'PENDING',
         authorizedByName: userProfile?.displayName || userProfile?.email || 'Shane Gambrah',
-        witnessName: 'Internal Auditor Lead',
+        witnessName: 'Internal Auditor',
         notes: 'Stock decommissioned following mandatory FEFO expiration audit.',
         createdAt: null
       };
@@ -70,16 +70,34 @@ export default function DisposalCertificate() {
     return null;
   }, [rawData, id, userProfile]);
 
-  const reactToPrintFn = useReactToPrint({
-    contentRef: certificateRef,
-    documentTitle: `Disposal_Certificate_${data?.disposalId || id || 'DS-404557'}`,
-  });
+  // 1-Click Client-Side PDF Generation & Direct Download
+  const handleDownloadPDF = async () => {
+    const element = certificateRef.current;
+    if (!element) return;
 
-  const handlePrint = () => {
-    if (reactToPrintFn) {
-      reactToPrintFn();
-    } else {
+    setDownloadingPDF(true);
+    toast({ title: "Generating PDF...", description: "Preparing pixel-perfect A4 cryptographic receipt." });
+
+    try {
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+
+      const opt = {
+        margin: 10, // 10mm margins
+        filename: `Disposal_Certificate_${data?.disposalId || 'DS-404557'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      toast({ title: "Download Complete", description: `Disposal_Certificate_${data?.disposalId}.pdf saved.` });
+    } catch (err: any) {
+      console.error("PDF Direct Download Error:", err);
+      // Fallback to browser print dialog
       window.print();
+    } finally {
+      setDownloadingPDF(false);
     }
   };
 
@@ -157,7 +175,7 @@ export default function DisposalCertificate() {
     <div className="p-8 max-w-4xl mx-auto space-y-6 text-slate-800 dark:text-slate-100">
       
       {/* SCREEN ONLY NAVIGATION BAR */}
-      <div className="print:hidden flex justify-between items-center">
+      <div className="print:hidden flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
         <button 
           onClick={() => router.back()} 
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer"
@@ -165,14 +183,15 @@ export default function DisposalCertificate() {
           <ArrowLeft size={16}/> Back to Disposal Archive
         </button>
         <button 
-          onClick={handlePrint} 
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition cursor-pointer"
+          onClick={handleDownloadPDF} 
+          disabled={downloadingPDF}
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition cursor-pointer"
         >
-          <Printer size={16}/> Print Certificate
+          <Download size={16}/> {downloadingPDF ? 'Generating PDF...' : 'Download PDF'}
         </button>
       </div>
 
-      {/* SUPERVISOR APPROVAL BANNER (PENDING STATE) */}
+      {/* SUPERVISOR APPROVAL BANNER (PENDING STATE - SCREEN ONLY) */}
       {data.status === 'PENDING' && (
         <div className="print:hidden bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -208,7 +227,7 @@ export default function DisposalCertificate() {
         </div>
       )}
 
-      {/* --- FORMAL DIGITAL CERTIFICATE DOCUMENT (PRINT TARGET) --- */}
+      {/* --- FORMAL DIGITAL CERTIFICATE DOCUMENT (PDF TARGET) --- */}
       <div 
         ref={certificateRef}
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden relative p-8 md:p-12 print:border-none print:shadow-none print:bg-white print:text-black print:p-0"
@@ -236,7 +255,7 @@ export default function DisposalCertificate() {
                   {hospital?.name || 'Marcus Memorial Hospital'}
                 </h1>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 print:text-slate-600 tracking-widest mt-1">
-                  OFFICIAL DISPOSAL CERTIFICATE • {hospital?.location?.toUpperCase() || 'KNUST CANR'}
+                  OFFICIAL DISPOSAL CERTIFICATE • {hospital?.location?.toUpperCase() || 'KUMASI'}
                 </p>
               </div>
             </div>
@@ -261,7 +280,7 @@ export default function DisposalCertificate() {
             </div>
           </div>
 
-          {/* 2. OPEN METADATA GRID (No inner gray boxes) */}
+          {/* 2. OPEN METADATA GRID */}
           <div className="flex flex-wrap justify-between items-center gap-6 py-2 text-sm">
             <div>
               <span className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Certificate No.</span>
@@ -281,8 +300,8 @@ export default function DisposalCertificate() {
             </div>
           </div>
 
-          {/* 3. FORMAL LEGAL DECLARATION (Left aligned / Justified) */}
-          <div className="text-slate-700 dark:text-slate-300 print:text-slate-800 leading-relaxed text-justify font-medium text-sm md:text-base">
+          {/* 3. FORMAL LEGAL DECLARATION */}
+          <div className="text-slate-700 dark:text-slate-300 print:text-slate-800 leading-relaxed text-justify font-medium text-sm">
             <p>
               This document serves as the official certification that the following medical supplies and pharmaceuticals have been thoroughly inspected and deemed unfit for clinical use. They have been permanently decommissioned and removed from the active inventory of <strong className="text-slate-900 dark:text-white print:text-black font-bold">{hospital?.name || 'Marcus Memorial Hospital'}</strong> in strict accordance with national health regulatory guidelines and hospital compliance protocols.
             </p>
@@ -315,13 +334,13 @@ export default function DisposalCertificate() {
               "{data.notes || 'No additional remarks recorded.'}"
             </p>
           </div>
-          
+
           {/* 6. CRYPTOGRAPHIC 3-TIER SIGNATURE BLOCK (Forced Horizontal for Print & Single A4 Page) */}
           <div className="grid grid-cols-3 gap-6 mb-8 mt-10">
             {/* Initiator (Pharmacist) */}
             <div className="border-t-2 border-slate-300 dark:border-slate-800 print:border-slate-300 pt-4 text-center">
               <h5 className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-2">Storekeeper / Pharmacist</h5>
-              <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
+              <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-sm mb-1">
                 {data.authorizedByName || 'Shane Gambrah'}
               </p>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-full print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
@@ -333,7 +352,7 @@ export default function DisposalCertificate() {
             {/* Witness */}
             <div className="border-t-2 border-slate-300 dark:border-slate-800 print:border-slate-300 pt-4 text-center">
               <h5 className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-2">Witnessing Staff</h5>
-              <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
+              <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-sm mb-1">
                 {data.witnessName || 'Internal Auditor'}
               </p>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-full print:bg-slate-100 print:text-slate-700 print:border-slate-300">
@@ -346,7 +365,7 @@ export default function DisposalCertificate() {
             {data.status === 'APPROVED' ? (
               <div className="border-t-2 border-emerald-400 dark:border-emerald-500 print:border-emerald-500 pt-4 text-center">
                 <h5 className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 print:text-emerald-800 tracking-wider mb-2">Facility Director</h5>
-                <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
+                <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-sm mb-1">
                   {data.approvedByName || 'Auditor Lead'}
                 </p>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-full print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
@@ -359,7 +378,7 @@ export default function DisposalCertificate() {
             ) : data.status === 'REJECTED' ? (
               <div className="border-t-2 border-rose-400 dark:border-rose-500 print:border-rose-500 pt-4 text-center">
                 <h5 className="text-[9px] uppercase font-bold text-rose-600 dark:text-rose-400 print:text-rose-800 tracking-wider mb-2">Facility Director</h5>
-                <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-xs mb-1">
+                <p className="font-bold text-slate-800 dark:text-slate-100 print:text-black text-sm mb-1">
                   {data.rejectedByName || 'Auditor Lead'}
                 </p>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-full print:bg-rose-50 print:text-rose-800 print:border-rose-300">
@@ -369,7 +388,7 @@ export default function DisposalCertificate() {
             ) : (
               <div className="border-t-2 border-amber-300 dark:border-amber-500/40 print:border-amber-400 pt-4 text-center">
                 <h5 className="text-[9px] uppercase font-bold text-amber-500 tracking-wider mb-2">Facility Director</h5>
-                <p className="font-bold text-slate-400 print:text-slate-500 mb-1 text-xs italic">Awaiting Approval...</p>
+                <p className="font-bold text-slate-400 print:text-slate-500 mb-1 text-sm italic">Awaiting Approval...</p>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-full animate-pulse print:animate-none print:bg-amber-50 print:text-amber-800 print:border-amber-300">
                   <Clock className="w-3 h-3" /> PENDING CO-SIGN
                 </span>
@@ -377,7 +396,7 @@ export default function DisposalCertificate() {
             )}
           </div>
 
-          {/* 7. DIGITAL AUDIT FOOTER WITH VERIFICATION QR CODE (Tightened for Single A4 Page) */}
+          {/* 7. DIGITAL AUDIT FOOTER WITH VERIFICATION QR CODE */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800 print:border-slate-200 mt-auto">
             <div className="flex flex-col">
               <div className="flex items-center gap-2 text-[10px] text-slate-400 print:text-slate-500 font-bold uppercase tracking-wider">
