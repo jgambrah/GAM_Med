@@ -86,6 +86,7 @@ export default function DisposalLogsPage() {
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'PHARMACIST', 'STORE_MANAGER', 'AUDITOR', 'SUPERVISOR'].includes(userRole || '');
+  const canApproveDisposal = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'SUPERVISOR'].includes(userRole || '');
 
   const logsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -438,8 +439,8 @@ export default function DisposalLogsPage() {
                           </button>
                         </Link>
 
-                        {/* Supervisor Actions for PENDING items */}
-                        {log.status === 'PENDING' && (
+                        {/* Supervisor Actions for PENDING items (Enforces Segregation of Duties) */}
+                        {log.status === 'PENDING' && canApproveDisposal && (
                           <>
                             <button 
                               onClick={() => handleUpdateStatus(log, 'APPROVED')}
