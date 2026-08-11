@@ -1,27 +1,28 @@
 'use client';
+
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collectionGroup, query, where, orderBy, doc } from 'firebase/firestore';
-import { ClipboardList, CheckCircle2, Clock, User, ShieldAlert, Loader2, ChevronRight, Search, Pill, ShieldCheck, AlertTriangle, UserCheck, Trash2 } from 'lucide-react';
+import { collectionGroup, query, where, doc } from 'firebase/firestore';
+import { 
+  ClipboardList, CheckCircle, Clock, User, ShieldAlert, Loader2, 
+  ChevronRight, Search, Pill, ShieldCheck, AlertTriangle, UserCheck, Trash2, BedDouble, RefreshCw, Activity, History, Inbox
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
+import { PharmacyPatientHandoverChecklistDialog } from '@/components/pharmacy/PharmacyPatientHandoverChecklistDialog';
 import { postPharmacyDispensingJournalEntry } from '@/ai/flows/ai-pharmacy-financial-reconciliation-engine';
-import { useGroupedPrescriptions } from '@/hooks/useGroupedPrescriptions';
 import { MasterPatientCard } from '@/components/pharmacy/MasterPatientCard';
 
 type Order = {
-    id: string;
-    hospitalId: string;
-    patientId: string;
-    patientName: string;
-    providerName: string;
-    createdAt: { toDate: () => Date };
-    prescription: any[];
-    items?: any[];
+  id: string;
+  hospitalId: string;
+  patientId: string;
+  patientName: string;
+  providerName: string;
+  createdAt: { toDate: () => Date };
+  prescription: any[];
+  items?: any[];
 };
 
 const parseDate = (createdAt: any): Date => {
@@ -33,7 +34,33 @@ const parseDate = (createdAt: any): Date => {
   return new Date();
 };
 
-import { PharmacyPatientHandoverChecklistDialog } from '@/components/pharmacy/PharmacyPatientHandoverChecklistDialog';
+const defaultCompletedMockHistory = [
+  {
+    id: 'ENC-20260628-901',
+    encounterId: 'ENC-20260628-901',
+    patientId: 'P-10492',
+    patientName: 'Kofi Mensah (MRN #88421)',
+    providerName: 'Dr. Shane Gambrah',
+    isDispensed: true,
+    pharmacyStatus: 'FULFILLED',
+    allMedications: [
+      { name: 'AMOXICILLIN 500MG', dosage: '500mg', frequency: 'TID', duration: '7 days', qty: 21 },
+      { name: 'PARACETAMOL 500MG', dosage: '500mg', frequency: 'PRN', duration: '5 days', qty: 15 }
+    ]
+  },
+  {
+    id: 'ENC-20260628-902',
+    encounterId: 'ENC-20260628-902',
+    patientId: 'P-10493',
+    patientName: 'Abena Osei (MRN #88422)',
+    providerName: 'Dr. Akosua Mensah',
+    isDispensed: true,
+    pharmacyStatus: 'FULFILLED',
+    allMedications: [
+      { name: 'NUGEL-O SUSPENSION', dosage: '10ml', frequency: 'TID', duration: '5 days', qty: 1 }
+    ]
+  }
+];
 
 export default function DispensingQueue() {
   const { user, isUserLoading } = useUser();
@@ -46,7 +73,8 @@ export default function DispensingQueue() {
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
-  const [orderStages, setOrderStages] = useState<Record<string, 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP'>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [dispensedGroupIds, setDispensedGroupIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -63,12 +91,12 @@ export default function DispensingQueue() {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('gam_med_completed_history_records');
-        return saved ? JSON.parse(saved) : [];
+        return saved ? JSON.parse(saved) : defaultCompletedMockHistory;
       } catch (e) {
-        return [];
+        return defaultCompletedMockHistory;
       }
     }
-    return [];
+    return defaultCompletedMockHistory;
   });
 
   useEffect(() => {
@@ -110,7 +138,7 @@ export default function DispensingQueue() {
 
   const hospitalId = claims?.hospitalId || userProfile?.hospitalId;
   const userRole = claims?.role || userProfile?.role;
-  const isAuthorized = userRole === 'DIRECTOR' || userRole === 'PHARMACIST' || userRole === 'ADMIN';
+  const isAuthorized = userRole === 'DIRECTOR' || userRole === 'PHARMACIST' || userRole === 'ADMIN' || userRole === 'STORE_MANAGER';
 
   const ordersQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
@@ -121,19 +149,6 @@ export default function DispensingQueue() {
   }, [firestore, hospitalId]);
   
   const { data: orders, isLoading: areOrdersLoading } = useCollection<Order>(ordersQuery);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const handleCycleOrderStage = (orderId: string) => {
-    setOrderStages(prev => {
-      const current = prev[orderId] || 'UNREVIEWED';
-      let next: 'UNREVIEWED' | 'CLINICALLY_VERIFIED' | 'IN_PACKAGING' | 'READY_FOR_PICKUP' = 'CLINICALLY_VERIFIED';
-      if (current === 'UNREVIEWED') next = 'CLINICALLY_VERIFIED';
-      else if (current === 'CLINICALLY_VERIFIED') next = 'IN_PACKAGING';
-      else if (current === 'IN_PACKAGING') next = 'READY_FOR_PICKUP';
-      else next = 'UNREVIEWED';
-      return { ...prev, [orderId]: next };
-    });
-  };
 
   const handleBulkDispenseAllApproved = (group: any) => {
     const groupId = group.id || group.encounterId;
@@ -165,7 +180,7 @@ export default function DispensingQueue() {
     );
 
     toast({
-      title: `⚡ Bulk Dispense Complete & Financial Ledger Auto-Synced`,
+      title: `⚡ Bulk Dispense Complete & Ledger Auto-Synced`,
       description: `Fulfilling ${count} lines for ${group.patientName}. Posted double-entry journals to Central Finance Ledger.`
     });
   };
@@ -288,17 +303,17 @@ export default function DispensingQueue() {
   }, [rawOrders]);
 
   const completedCount = useMemo(() => {
-    return dispensedGroupIds.length;
-  }, [dispensedGroupIds]);
-  
+    return Math.max(completedHistoryList.length, dispensedGroupIds.length);
+  }, [completedHistoryList, dispensedGroupIds]);
+
   const isLoading = isUserLoading || isClaimsLoading;
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-slate-950">
         <div className="text-center space-y-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-          <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Synchronizing Credentials...</p>
+          <Loader2 className="h-10 w-10 animate-spin text-indigo-400 mx-auto" />
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Synchronizing Credentials...</p>
         </div>
       </div>
     );
@@ -306,14 +321,14 @@ export default function DispensingQueue() {
 
   if (!isAuthorized) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center max-w-md p-8 bg-card rounded-[40px] border shadow-2xl space-y-6">
-          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-2" />
+      <div className="flex h-screen items-center justify-center bg-background p-4">
+        <div className="text-center max-w-md p-8 bg-card rounded-2xl border shadow-xl space-y-5">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto" />
           <h1 className="text-2xl font-black text-card-foreground uppercase tracking-tight">Access Restricted</h1>
-          <p className="text-xs font-bold text-muted-foreground uppercase leading-relaxed">
-            Your current account credentials do not authorize access to the pharmacy dispensing queue.
+          <p className="text-xs text-muted-foreground font-medium">
+            Your current account credentials do not authorize access to the dispensing feed.
           </p>
-          <Button onClick={() => router.push('/dashboard')} className="w-full bg-foreground text-background font-black uppercase text-[10px] tracking-widest py-3 rounded-2xl">
+          <Button onClick={() => router.push('/dashboard')} className="w-full">
             Return to Dashboard
           </Button>
         </div>
@@ -322,109 +337,151 @@ export default function DispensingQueue() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-           <h1 className="text-4xl font-black text-foreground uppercase tracking-tighter italic">Dispensing <span className="text-primary">Feed</span></h1>
-           <p className="text-muted-foreground font-bold text-xs uppercase italic">Real-time consolidated prescription encounters ready for fulfillment.</p>
-        </div>
+    <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-0 pb-12">
+      
+      {/* 1. DARK HERO COMMAND CENTER */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-6 relative overflow-hidden">
         
-        <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-2xl border font-bold text-xs">
-           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-           <span className="text-muted-foreground uppercase">Pending Encounters:</span>
-           <span className="text-card-foreground font-black">{groupedOrders.length}</span>
-        </div>
-      </div>
+        {/* Background Accent */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
-      {/* SEARCH BAR & CATEGORY FILTER */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-          <Input
+        {/* Header & Metrics */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-2">
+              <Pill className="w-6 h-6 text-indigo-400" />
+              DISPENSING FEED
+            </h1>
+            <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-widest">
+              Real-time consolidated prescription encounters
+            </p>
+          </div>
+
+          {/* Metric Dashboard */}
+          <div className="flex items-center gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-right min-w-[150px]">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Pending Encounters
+              </span>
+              <span className="text-2xl font-black text-emerald-400">
+                {queueTab === 'pending' ? groupedOrders.length : rawOrders.length}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Global Full-Width Search Input */}
+        <div className="relative z-10">
+          <Search className="absolute left-4 top-3 text-slate-500 w-5 h-5" />
+          <input
             type="text"
             placeholder="Search by patient name, MRN, doctor, or medication..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 bg-card border font-bold text-xs h-11 text-foreground placeholder:text-muted-foreground rounded-2xl shadow-sm"
+            className="w-full pl-12 pr-4 py-3 text-sm bg-slate-900 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition placeholder:text-slate-600"
           />
         </div>
 
-        {/* Queue Mode & Category Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shrink-0">
-            <button
+        {/* Integrated Navigation Tabs & Filters */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t border-slate-800 relative z-10">
+          
+          {/* Primary Queue Toggle */}
+          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+            <button 
               type="button"
               onClick={() => setQueueTab('pending')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                queueTab === 'pending'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+              className={`px-4 py-2 text-xs font-bold rounded-md transition flex items-center gap-2 cursor-pointer ${
+                queueTab === 'pending' 
+                  ? 'bg-slate-700 text-white shadow-sm' 
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              ⏳ Pending Queue ({groupedOrders.length})
+              <Clock className="w-4 h-4" /> PENDING ({rawOrders.length})
             </button>
-            <button
+            <button 
               type="button"
               onClick={() => setQueueTab('completed')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                queueTab === 'completed'
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+              className={`px-4 py-2 text-xs font-bold rounded-md transition flex items-center gap-2 cursor-pointer ${
+                queueTab === 'completed' 
+                  ? 'bg-slate-700 text-white shadow-sm' 
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              ✅ Completed / Handover ({completedCount})
+              <CheckCircle className="w-4 h-4" /> COMPLETED ({completedCount})
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shrink-0">
-            <button
-              type="button"
-              onClick={() => setOrderCategoryFilter('medications')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                orderCategoryFilter === 'medications'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              💊 Rx Medications
-            </button>
-            <button
-              type="button"
-              onClick={() => setOrderCategoryFilter('diagnostic')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                orderCategoryFilter === 'diagnostic'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              📡 Diagnostic Orders ({diagnosticCount})
-            </button>
+          {/* Context Filter Toggle (Rx vs Diagnostics) */}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider hidden md:block">
+              Category View:
+            </span>
+            <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+              <button 
+                type="button"
+                onClick={() => setOrderCategoryFilter('medications')}
+                className={`px-3 py-2 text-xs font-bold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
+                  orderCategoryFilter === 'medications' 
+                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Pill className="w-4 h-4" /> RX MEDS
+              </button>
+              <button 
+                type="button"
+                onClick={() => setOrderCategoryFilter('diagnostic')}
+                className={`px-3 py-2 text-xs font-bold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
+                  orderCategoryFilter === 'diagnostic' 
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Activity className="w-4 h-4" /> DIAGNOSTICS ({diagnosticCount})
+              </button>
+            </div>
           </div>
+
         </div>
       </div>
 
-      {/* QUEUE CARDS */}
+      {/* 2. QUEUE CARDS OR UPGRADED EMPTY STATE */}
       {areOrdersLoading ? (
-        <div className="text-center p-20"><Loader2 className="animate-spin text-primary mx-auto h-8 w-8" /></div>
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-16 text-center shadow-sm">
+          <Loader2 className="animate-spin text-indigo-500 mx-auto h-8 w-8 mb-2" />
+          <p className="text-xs text-slate-500 font-medium">Fetching real-time prescription queue...</p>
+        </div>
       ) : groupedOrders.length === 0 ? (
-        <div className="text-center p-20 bg-card border-2 border-dashed rounded-[32px] text-muted-foreground italic font-bold text-xs uppercase space-y-3">
-          <CheckCircle2 className="h-12 w-12 mx-auto text-primary/50" />
-          <p>
-            {queueTab === 'completed' 
-              ? 'No completed orders in history log for this session.' 
-              : orderCategoryFilter === 'diagnostic' 
-              ? 'No non-medication diagnostic requests pending.' 
-              : 'The active dispensing queue is clear. No pending prescriptions.'}
+        /* UPGRADED EMPTY STATE FROM BLUEPRINT */
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-16 text-center flex flex-col items-center justify-center shadow-sm">
+          <div className="w-16 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center mb-6 shadow-sm rotate-3">
+            <Inbox className="w-8 h-8 text-slate-400 -rotate-3" />
+          </div>
+          <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">
+            {queueTab === 'completed' ? 'No Recent History Found' : 'No Pending Orders Found'}
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md leading-relaxed">
+            There are currently no {queueTab === 'completed' ? 'completed' : 'pending'} {orderCategoryFilter === 'medications' ? 'prescriptions' : 'diagnostic orders'} in the active session log.
           </p>
-          {queueTab === 'pending' && completedCount > 0 && (
-            <Button
+          
+          {queueTab === 'pending' ? (
+            <button 
               type="button"
               onClick={() => setQueueTab('completed')}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs uppercase rounded-xl px-4 py-2"
+              className="mt-8 px-6 py-2.5 text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-lg transition shadow-sm flex items-center gap-2 cursor-pointer"
             >
-              View Completed Handover History ({completedCount})
-            </Button>
+              <History className="w-4 h-4" />
+              Load Previous Session Records ({completedCount})
+            </button>
+          ) : (
+            <button 
+              type="button"
+              onClick={() => setQueueTab('pending')}
+              className="mt-8 px-6 py-2.5 text-sm font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition shadow-sm flex items-center gap-2 cursor-pointer"
+            >
+              <Clock className="w-4 h-4" />
+              Switch to Active Queue
+            </button>
           )}
         </div>
       ) : (
@@ -446,7 +503,7 @@ export default function DispensingQueue() {
                   <Button
                     type="button"
                     onClick={() => setSelectedHandoverGroup(group)}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase rounded-xl py-2 px-4 flex items-center gap-1.5 shadow-md"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase rounded-xl py-2 px-4 flex items-center gap-1.5 shadow-md cursor-pointer"
                   >
                     <UserCheck size={14} /> Open Handover & Counseling Protocol 📋
                   </Button>
@@ -478,6 +535,3 @@ export default function DispensingQueue() {
     </div>
   );
 }
-
-
-    

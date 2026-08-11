@@ -75,6 +75,7 @@ const allMenuGroups = [
       { name: "Shelf Disposal", href: "/pharmacy/disposal", icon: Trash2, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
       { name: "New Requisition", href: "/requisitions/new", icon: ArrowUpRight, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
       { name: "My Requisitions", href: "/pharmacy/requisitions", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
+      { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: Archive, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST', 'AUDITOR'] },
     ]
   },
   {
