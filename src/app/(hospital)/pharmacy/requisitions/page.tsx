@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, query, orderBy, doc, runTransaction, serverTimestamp, increment, updateDoc } from 'firebase/firestore';
 import { 
   FileText, CheckCircle, Clock, 
   ArrowLeftRight, ArrowDownLeft, X, Loader2, ShieldAlert, Check, Printer, Search
@@ -81,11 +81,15 @@ export default function PharmacyRequisitionsPage() {
   const formattedRealRequisitions = useMemo(() => {
     if (!rawRequisitions) return [];
     return rawRequisitions.map(req => {
+      const isReqCompleted = ['RECEIVED', 'COMPLETED'].includes(req.status);
       const formattedItems = (req.items || []).map((item: any) => {
         const reqQty = item.quantityRequested ?? item.req ?? 0;
         const issuedQty = item.quantityIssued ?? item.issued ?? 0;
-        const acceptedQty = item.quantityReceived ?? item.accepted;
         const returnedQty = item.quantityReturned ?? item.returned ?? 0;
+        let acceptedQty = item.quantityReceived ?? item.accepted;
+        if (acceptedQty === undefined && (isReqCompleted || issuedQty > 0)) {
+          acceptedQty = Math.max(0, issuedQty - returnedQty);
+        }
         const outOfStock = item.outOfStock ?? (issuedQty === 0 && reqQty > 0);
 
         return {
@@ -298,6 +302,27 @@ export default function PharmacyRequisitionsPage() {
     }
   };
 
+  const handleCancelRequisition = async (req: any) => {
+    if (!firestore || !hospitalId) {
+      toast({ variant: 'destructive', title: "System Error", description: "Database is not ready." });
+      return;
+    }
+
+    const targetDocId = req.rawId || req.id;
+    try {
+      const reqRef = doc(firestore, `hospitals/${hospitalId}/requisitions`, targetDocId);
+      await updateDoc(reqRef, {
+        status: 'REJECTED',
+        rejectionReason: 'Cancelled by requesting officer',
+        updatedAt: serverTimestamp()
+      });
+      toast({ title: "Requisition Cancelled", description: `Request ${req.id} was successfully cancelled.` });
+    } catch (err: any) {
+      console.error("Cancel Error:", err);
+      toast({ variant: 'destructive', title: "Action Failed", description: err.message || "Could not cancel request." });
+    }
+  };
+
   const pageIsLoading = isUserLoading || isProfileLoading;
   if (pageIsLoading) return <div className="flex h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-950"><Loader2 className="h-12 w-12 animate-spin text-indigo-600"/></div>;
 
@@ -383,8 +408,9 @@ export default function PharmacyRequisitionsPage() {
           </div>
         ) : displayedRequisitions.length > 0 ? (
           displayedRequisitions.map((req) => {
-            const hasStockToAcknowledge = ['ISSUED', 'PARTIALLY_ISSUED'].includes(req.status) || 
-              req.items.some((i: any) => (i.issued || 0) > (i.accepted || 0));
+            const hasStockToAcknowledge = activeTab === 'ACTIVE' && 
+              (['ISSUED', 'PARTIALLY_ISSUED'].includes(req.status) || req.items.some((i: any) => (i.issued || 0) > (i.accepted || 0))) &&
+              !['RECEIVED', 'COMPLETED', 'REJECTED'].includes(req.status);
 
             return (
               <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden transition hover:border-indigo-200 dark:hover:border-indigo-500/30">
@@ -434,6 +460,14 @@ export default function PharmacyRequisitionsPage() {
                   </div>
                   
                   <div className="flex items-center gap-2">
+                    {activeTab === 'ACTIVE' && req.status === 'PENDING' && (
+                      <button 
+                        onClick={() => handleCancelRequisition(req)}
+                        className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition border border-rose-200 dark:border-rose-500/20 cursor-pointer"
+                      >
+                        Cancel Requisition
+                      </button>
+                    )}
                     {hasStockToAcknowledge && (
                       <button 
                         onClick={() => openReceiptModal(req)}
@@ -447,7 +481,7 @@ export default function PharmacyRequisitionsPage() {
                       onClick={() => setViewInvoiceReq(req)}
                       className="px-4 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-lg transition border border-indigo-200 dark:border-indigo-500/20 cursor-pointer"
                     >
-                      View Full Invoice
+                      {activeTab === 'HISTORY' ? 'View Full Invoice' : 'Track Request'}
                     </button>
                   </div>
                 </div>
@@ -482,9 +516,9 @@ export default function PharmacyRequisitionsPage() {
                         </div>
                         {!item.outOfStock && (
                           <>
-                            {item.accepted !== undefined && (
+                            {(item.accepted !== undefined || req.status === 'RECEIVED' || req.status === 'COMPLETED' || activeTab === 'HISTORY') && (
                               <div className="text-slate-500 dark:text-slate-400">
-                                Accepted: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{item.accepted}</span>
+                                Accepted: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{item.accepted ?? Math.max(0, item.issued - item.returned)}</span>
                               </div>
                             )}
                             {item.returned > 0 && (
@@ -625,12 +659,16 @@ export default function PharmacyRequisitionsPage() {
             <div className="bg-slate-950 p-6 text-white flex justify-between items-center border-b border-slate-800">
               <div>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-black uppercase tracking-tight italic">REQUISITION <span className="text-indigo-400">INVOICE</span></h3>
+                  <h3 className="text-lg font-black uppercase tracking-tight italic">
+                    {activeTab === 'HISTORY' ? <>REQUISITION <span className="text-indigo-400">INVOICE</span></> : <>REQUISITION <span className="text-indigo-400">TRACKING</span></>}
+                  </h3>
                   <span className="px-2.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full font-mono">
                     {viewInvoiceReq.id}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 font-medium mt-1">Audit Record & Granular Item Telemetry</p>
+                <p className="text-xs text-slate-400 font-medium mt-1">
+                  {activeTab === 'HISTORY' ? 'Audit Record & Granular Item Telemetry' : 'Live Request Telemetry & Departmental Audit Log'}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <button 
