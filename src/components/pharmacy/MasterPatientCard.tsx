@@ -1,11 +1,14 @@
 'use client';
+
 import { useState } from 'react';
 import Link from 'next/link';
-import { Clock, CheckCircle2, ChevronRight, AlertTriangle } from 'lucide-react';
+import { 
+  Clock, CheckCircle, ChevronRight, AlertCircle, 
+  Send, MessageSquareWarning, Package, ShieldCheck, CheckCircle2 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MedicationRow } from '@/components/pharmacy/MedicationRow';
-import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
 import { PharmacyAdvancedClinicalSafetySuiteCard } from '@/components/pharmacy/PharmacyAdvancedClinicalSafetySuiteCard';
+import { PharmacyInterdepartmentalActionCard } from '@/components/pharmacy/PharmacyInterdepartmentalActionCard';
 import { useToast } from '@/hooks/use-toast';
 import { executeAtomicBatchDispenseTransaction } from '@/ai/flows/ai-pharmacy-atomic-dispense-transaction-engine';
 import { useFirestore, useUser } from '@/firebase';
@@ -78,57 +81,76 @@ export function MasterPatientCard({
     else setCurrentStage('UNREVIEWED');
   };
 
-  const triage = group.triageLevel || (group.patientName?.toLowerCase().includes('daniel') ? 'STAT' : 'ROUTINE');
-  const age = group.patientAge || (group.patientName?.toLowerCase().includes('daniel') ? 58 : 42);
-  const weight = group.patientWeight || (group.patientName?.toLowerCase().includes('daniel') ? 82 : 74);
-  const mrn = group.mrn || '88421';
+  const triage = group.triageLevel || (group.patientName?.toLowerCase().includes('daniel') ? 'STAT' : group.isDiag ? 'DIAGNOSTIC' : 'ROUTINE');
+  const age = group.patientAge || (group.patientName?.toLowerCase().includes('daniel') ? 58 : 34);
+  const weight = group.patientWeight || (group.patientName?.toLowerCase().includes('daniel') ? 82 : 62);
+  const gender = group.patientGender || (group.patientName?.toLowerCase().includes('daniel') ? 'M' : 'F');
+  const provider = group.providerName || group.prescriber || 'Dr. Marcus Amosah Henaku';
 
   return (
-    <div className="bg-card rounded-[24px] shadow-sm border border-border mb-6 overflow-hidden transition-all hover:border-primary/30">
-      {/* 1. STATUS & DEMOGRAPHICS HEADER */}
-      <div className="bg-slate-900 px-6 py-4 border-b border-slate-800 flex justify-between items-center flex-wrap gap-4 text-white">
-        <div className="flex items-center space-x-3 flex-wrap">
-          <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-            triage === 'STAT' ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-600 text-white'
-          }`}>
-            {triage === 'STAT' ? '🚨 STAT EMERGENCY' : 'ROUTINE OPD'}
-          </span>
-
-          <h3 className="font-extrabold text-white text-lg tracking-tight uppercase">{group.patientName}</h3>
-
-          <span className="text-sm font-bold text-cyan-400 font-mono">
-            {age} YRS • {weight} KG • MRN: #{mrn}
-          </span>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/40 transition-all duration-200 overflow-hidden mb-6">
+      
+      {/* 1. UNIFIED CARD HEADER */}
+      <div className="bg-slate-900 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        
+        {/* Patient Identity */}
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-indigo-500/20 border border-indigo-500/30 rounded-full flex items-center justify-center text-indigo-300 font-black text-lg">
+            {group.patientName ? group.patientName.charAt(0).toUpperCase() : 'P'}
+          </div>
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-black text-white tracking-wide uppercase">{group.patientName}</h2>
+              {group.isDiag ? (
+                <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full uppercase tracking-wider flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> DIAGNOSTIC
+                </span>
+              ) : triage === 'STAT' ? (
+                <span className="px-2 py-0.5 text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                  <AlertCircle className="w-3 h-3" /> STAT EMERGENCY
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full uppercase tracking-wider flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> ROUTINE OPD
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              {gender}, {age} YRS • {weight} KG • DR. {provider.toUpperCase()}
+            </p>
+          </div>
         </div>
 
+        {/* Status Tags */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono font-bold text-slate-300 bg-slate-950 px-3 py-1 rounded-xl border border-slate-800 flex items-center gap-1.5">
-            <Clock size={13} className="text-slate-400" /> {formatRelativeSlaTime(group.createdAt)}
+          <span className="px-2.5 py-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-md flex items-center gap-1.5">
+            <Clock className="w-3 h-3" /> {formatRelativeSlaTime(group.createdAt)}
           </span>
-
           <button
             type="button"
             onClick={handleCycleStage}
-            className={`text-[9px] font-black px-3 py-1 rounded-xl uppercase border transition-all hover:scale-105 ${
+            className={`px-2.5 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 uppercase transition cursor-pointer ${
               currentStage === 'CLINICALLY_VERIFIED'
-                ? 'bg-blue-950 text-blue-300 border-blue-800'
+                ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
                 : currentStage === 'IN_PACKAGING'
-                ? 'bg-purple-950 text-purple-300 border-purple-800'
+                ? 'text-fuchsia-400 bg-fuchsia-500/10 border border-fuchsia-500/20'
                 : currentStage === 'READY_FOR_PICKUP'
-                ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                : 'bg-amber-950 text-amber-300 border-amber-800'
+                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
             }`}
           >
-            {currentStage === 'CLINICALLY_VERIFIED' ? '🔵 VERIFIED' : currentStage === 'IN_PACKAGING' ? '🟣 PACKAGING' : currentStage === 'READY_FOR_PICKUP' ? '🟢 READY' : '🟡 UNREVIEWED'}
+            <Package className="w-3 h-3" /> {currentStage.replace('_', ' ')}
           </button>
         </div>
       </div>
 
-      {/* 2. TWO-COLUMN INTERIOR GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-        {/* LEFT: MEDICATION LIST (Takes up 2 columns) */}
-        <div className="md:col-span-2 space-y-4">
-          {/* HIGH-CONTRAST CLINICAL SAFETY & ALLERGY ENGINE SUITE */}
+      {/* 2. CARD BODY (Data & Actions) */}
+      <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* LEFT COLUMN: Prescriptions (Takes up 7/12 columns) */}
+        <div className="lg:col-span-7 space-y-4">
+          
+          {/* Clinical Safety Suite for Alert Patients */}
           {group.patientName?.toLowerCase().includes('daniel') && (
             <PharmacyAdvancedClinicalSafetySuiteCard 
               patientName={group.patientName}
@@ -138,52 +160,80 @@ export function MasterPatientCard({
             />
           )}
 
-          <h4 className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-2">
-            Prescribed Medications ({meds.length} Lines)
+          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+            Prescribed Items ({meds.length} Lines)
           </h4>
-
-          <div className="bg-muted/30 rounded-2xl border border-border/80 overflow-hidden divide-y divide-border/60">
-            {meds.map((med: any, index: number) => (
-              <MedicationRow key={index} index={index} item={med} />
-            ))}
+          
+          <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {meds.map((m: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                    <td className="w-8 py-3 pl-4 text-xs font-bold text-slate-400">{idx + 1}</td>
+                    <td className="py-3 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-rose-400 rounded-full"></span> 
+                      {(m.name || m.drugName || 'Medication Item').toUpperCase()}
+                    </td>
+                    <td className="py-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Qty: {m.qty || m.quantity || 1}
+                    </td>
+                    <td className="py-3 pr-4 text-right">
+                      <span className="px-2 py-0.5 text-[9px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20 rounded-md">
+                        IN STOCK
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* RIGHT: ACTION & FINANCIAL HUB */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4 text-white">
+        {/* RIGHT COLUMN: Financial Clearance & Actions (Takes up 5/12 columns) */}
+        <div className="lg:col-span-5 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-slate-800 pt-6 lg:pt-0 lg:pl-8">
+          
+          {/* Financial Clearance Block */}
           <div>
-            <span className="inline-block px-3 py-1 bg-emerald-950 text-emerald-300 border border-emerald-800 text-xs font-black rounded-xl uppercase mb-4">
-              🟢 NHIS PRE-APPROVED
-            </span>
-            <p className="text-xs text-slate-400 font-bold uppercase mb-1">Prescribed by:</p>
-            <p className="font-extrabold text-white text-sm uppercase">Dr. {group.providerName || group.prescriber || 'Attending Physician'}</p>
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+              Financial Clearance
+            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <span className="px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-md flex items-center gap-1.5">
+                <CheckCircle className="w-3 h-3" /> NHIS PRE-APPROVED
+              </span>
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Copay: GHS 0.00</span>
+            </div>
+            
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-center mt-3">
+              <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide flex items-center justify-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-indigo-500" /> FULLY PAID (GHS 0.00 DUE)
+              </span>
+            </div>
           </div>
 
-          <div className="space-y-2.5">
-            <PharmacyInterdepartmentalActionCard 
-              doctorName={group.providerName || group.prescriber}
-              patientName={group.patientName}
-              patientId={group.patientId}
-            />
+          {/* Action Buttons */}
+          <div className="space-y-2 mt-6">
+            <div className="w-full">
+              <PharmacyInterdepartmentalActionCard 
+                doctorName={provider}
+                patientName={group.patientName}
+                patientId={group.patientId}
+              />
+            </div>
 
-            <Button
+            <button 
               type="button"
               disabled={isDispensingTx}
               onClick={handleExecuteAcidBatchDispense}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <CheckCircle2 size={16} /> {isDispensingTx ? 'EXECUTING ACID TX...' : `⚡ DISPENSE ALL (${meds.length})`}
-            </Button>
-
-            <Link href={`/pharmacy/dispensing/${group.id || group.encounterId}?patientId=${group.patientId}&hospitalId=${hospitalId}`} className="block w-full">
-              <Button variant="outline" className="w-full bg-slate-900/60 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700/80 font-bold text-xs uppercase py-2.5 rounded-xl transition-all flex items-center justify-center gap-1">
-                Inspect <ChevronRight size={14} />
-              </Button>
-            </Link>
+              <Send className="w-4 h-4" />
+              {isDispensingTx ? 'EXECUTING TRANSACTION...' : group.isDiag ? 'ROUTE TO RADIOLOGY PACS' : `DISPENSE ALL (${meds.length} ITEMS)`}
+            </button>
           </div>
+
         </div>
       </div>
     </div>
   );
 }
-
