@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
-import { Pill, Plus, AlertCircle, Package, Loader2, ShieldAlert, Edit3, Edit2, Trash2, Search, FileText, AlertTriangle, Clock, Download, Printer, Filter, CheckCircle, XCircle, Lock, KeyRound, ShieldCheck } from 'lucide-react';
+import { Pill, Plus, AlertCircle, Package, Loader2, ShieldAlert, Edit3, Edit2, Trash2, Search, FileText, AlertTriangle, Clock, Download, Printer, Filter, CheckCircle, XCircle, Lock, KeyRound, ShieldCheck, Layers, AlertOctagon, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -623,173 +623,188 @@ export default function PharmacyInventoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-           <h1 className="text-3xl font-black text-foreground uppercase tracking-tighter italic">Pharmacy <span className="text-primary">Inventory Command Center</span></h1>
-           <p className="text-muted-foreground font-medium text-xs uppercase">Single Source of Truth drug stock levels, FEFO telemetry & audit trail log.</p>
-        </div>
+      {/* 1. STOCK DIRECTORY DARK HERO BANNER */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden mb-6">
+        
+        {/* Ambient Background Accent */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleExportCSV}
-            className="bg-card hover:bg-muted font-black text-xs uppercase px-3 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"
-          >
-            <Download size={14} className="text-primary" /> Export CSV
-          </Button>
+        {/* TOP ROW: Title & Core Actions */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10 pb-5 border-b border-slate-800/60">
+          
+          {/* Title & Subtitle */}
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-3">
+              <Package className="w-7 h-7 text-cyan-400" />
+              INVENTORY COMMAND CENTER
+            </h1>
+            <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest">
+              Single Source of Truth: Drug Stock Levels, FEFO Telemetry & Audit Trail Log
+            </p>
+          </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePrintAudit}
-            className="bg-card hover:bg-muted font-black text-xs uppercase px-3 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"
-          >
-            <Printer size={14} className="text-primary" /> Print Audit Sheet
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button 
+              type="button"
+              onClick={handleExportCSV}
+              className="px-4 py-2 text-[10px] font-bold text-slate-300 bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-lg transition flex items-center gap-2 uppercase tracking-wide cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsSupervisorQueueOpen(true)}
-            className="bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 font-black text-xs uppercase px-3 py-2 rounded-xl border border-amber-500/30 flex items-center gap-1.5 shadow-sm"
-            title="Review pending staff adjustment requests & release 1-Time Security PINs"
-          >
-            <KeyRound size={14} className="text-amber-500" /> Supervisor PIN Queue
-          </Button>
+            <button 
+              type="button"
+              onClick={handlePrintAudit}
+              className="px-4 py-2 text-[10px] font-bold text-slate-300 bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-lg transition flex items-center gap-2 uppercase tracking-wide cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print Audit
+            </button>
 
-          {isManager && (
-           <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
-              <DialogTrigger asChild>
-                  <Button className="font-black text-xs uppercase rounded-xl py-2 px-4 flex items-center gap-1.5 shadow-md">
-                      <Plus size={14} /> Add New Stock
-                  </Button>
-              </DialogTrigger>
-              <DialogContent>
+            <button 
+              type="button"
+              onClick={() => setIsSupervisorQueueOpen(true)}
+              className="px-4 py-2 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 rounded-lg transition shadow-sm flex items-center gap-2 uppercase tracking-wide cursor-pointer"
+              title="Review pending staff adjustment requests & release 1-Time Security PINs"
+            >
+              <Key className="w-3.5 h-3.5" /> Supervisor PIN Queue
+            </button>
+
+            {isManager && (
+              <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
+                <DialogTrigger asChild>
+                  <button type="button" className="px-4 py-2 text-[10px] font-bold text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition shadow-sm flex items-center gap-2 uppercase tracking-wide cursor-pointer">
+                    <Plus className="w-3.5 h-3.5" /> Add New Stock
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
                   <DialogHeader>
-                      <DialogTitle>New Drug Entry</DialogTitle>
+                    <DialogTitle>New Drug Entry</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
-                      <form onSubmit={form.handleSubmit(handleAddStock)} className="space-y-4">
-                          <FormField control={form.control} name="name" render={({ field }) => (
-                             <FormItem><FormLabel>Brand Name</FormLabel><FormControl><Input placeholder="e.g. Panadol" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={form.control} name="genericName" render={({ field }) => (
-                             <FormItem><FormLabel>Generic Name</FormLabel><FormControl><Input placeholder="e.g. Paracetamol" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <div className="grid grid-cols-2 gap-4">
-                             <FormField control={form.control} name="strength" render={({ field }) => (
-                                <FormItem><FormLabel>Strength</FormLabel><FormControl><Input placeholder="e.g. 500mg" {...field} /></FormControl><FormMessage /></FormItem>
-                             )} />
-                             <FormField control={form.control} name="form" render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Form</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="Tablet">Tablet</SelectItem>
-                                    <SelectItem value="Capsule">Capsule</SelectItem>
-                                    <SelectItem value="Syrup">Syrup</SelectItem>
-                                    <SelectItem value="Injection">Injection</SelectItem>
-                                    <SelectItem value="Ointment">Ointment</SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )} />
-                          </div>
-                           <div className="grid grid-cols-2 gap-4">
-                             <FormField control={form.control} name="quantity" render={({ field }) => (
-                                <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                             )} />
-                             <FormField control={form.control} name="price" render={({ field }) => (
-                                <FormItem><FormLabel>Price (GHS)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
-                             )} />
-                          </div>
-                           <div className="grid grid-cols-2 gap-4">
-                              <FormField control={form.control} name="batchNumber" render={({ field }) => (
-                                <FormItem><FormLabel>Batch Number</FormLabel><FormControl><Input placeholder="e.g. AB1234" {...field} /></FormControl><FormMessage /></FormItem>
-                             )} />
-                             <FormField control={form.control} name="expiryDate" render={({ field }) => (
-                                <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                             )} />
-                           </div>
+                    <form onSubmit={form.handleSubmit(handleAddStock)} className="space-y-4">
+                      <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem><FormLabel>Brand Name</FormLabel><FormControl><Input placeholder="e.g. Panadol" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="genericName" render={({ field }) => (
+                        <FormItem><FormLabel>Generic Name</FormLabel><FormControl><Input placeholder="e.g. Paracetamol" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="strength" render={({ field }) => (
+                          <FormItem><FormLabel>Strength</FormLabel><FormControl><Input placeholder="e.g. 500mg" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="form" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Form</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Tablet">Tablet</SelectItem>
+                                <SelectItem value="Capsule">Capsule</SelectItem>
+                                <SelectItem value="Syrup">Syrup</SelectItem>
+                                <SelectItem value="Injection">Injection</SelectItem>
+                                <SelectItem value="Ointment">Ointment</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="quantity" render={({ field }) => (
+                          <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="price" render={({ field }) => (
+                          <FormItem><FormLabel>Price (GHS)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="batchNumber" render={({ field }) => (
+                          <FormItem><FormLabel>Batch Number</FormLabel><FormControl><Input placeholder="e.g. AB1234" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="expiryDate" render={({ field }) => (
+                          <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                      </div>
 
-                           <DialogFooter>
-                              <Button type="submit" disabled={form.formState.isSubmitting}>Save to Store</Button>
-                          </DialogFooter>
-                      </form>
+                      <DialogFooter>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>Save to Store</Button>
+                      </DialogFooter>
+                    </form>
                   </Form>
-              </DialogContent>
-           </Dialog>
-          )}
-        </div>
-      </div>
-
-      {/* SEARCH BAR & ADVANCED FILTER CHIPS TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 bg-slate-900 rounded-2xl border border-slate-800 shadow-md">
-        <div className="max-w-md relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-          <Input 
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by brand name, generic name, or batch..."
-            className="pl-11 bg-slate-950 border-slate-800 rounded-xl font-bold h-10 text-white placeholder:text-slate-500 text-xs"
-          />
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
-        {/* Filter Chips */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            type="button"
-            onClick={() => setFilterChip('all')}
-            className={`h-8 px-3 rounded-lg font-black text-[10px] uppercase transition-all ${
-              filterChip === 'all'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            Show All ({inventory?.length || 0})
-          </Button>
+        {/* BOTTOM ROW: Integrated Search & Telemetry Filters */}
+        <div className="pt-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+          
+          {/* Search Engine */}
+          <div className="relative w-full lg:max-w-md">
+            <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-500" />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 hover:border-slate-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 outline-none transition" 
+              placeholder="Search by brand name, generic name, or batch..." 
+            />
+          </div>
 
-          <Button
-            type="button"
-            onClick={() => setFilterChip('low')}
-            className={`h-8 px-3 rounded-lg font-black text-[10px] uppercase transition-all ${
-              filterChip === 'low'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            🟡 Low Stock
-          </Button>
+          {/* Telemetry Filters */}
+          <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <button 
+              type="button"
+              onClick={() => setFilterChip('all')}
+              className={`px-3 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                filterChip === 'all'
+                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                  : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
+              }`}
+            >
+              <Layers className="w-3 h-3"/> SHOW ALL ({inventory?.length || 0})
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setFilterChip('low')}
+              className={`px-3 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                filterChip === 'low'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  : 'bg-slate-900 text-amber-400/80 hover:bg-amber-500/10 border border-slate-800'
+              }`}
+            >
+              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div> LOW STOCK
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setFilterChip('expiry')}
+              className={`px-3 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                filterChip === 'expiry'
+                  ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+              }`}
+            >
+              <Clock className="w-3 h-3 text-fuchsia-400"/> NEAR EXPIRY (90D)
+            </button>
 
-          <Button
-            type="button"
-            onClick={() => setFilterChip('expiry')}
-            className={`h-8 px-3 rounded-lg font-black text-[10px] uppercase transition-all ${
-              filterChip === 'expiry'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            ⏱️ Near Expiry (90d)
-          </Button>
+            <button 
+              type="button"
+              onClick={() => setFilterChip('narcotics')}
+              className={`px-3 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
+                filterChip === 'narcotics'
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                  : 'bg-slate-900 text-rose-400 hover:bg-rose-500/10 border border-slate-800'
+              }`}
+            >
+              <AlertOctagon className="w-3 h-3"/> NARCOTICS & CONTROLLED
+            </button>
+          </div>
 
-          <Button
-            type="button"
-            onClick={() => setFilterChip('narcotics')}
-            className={`h-8 px-3 rounded-lg font-black text-[10px] uppercase transition-all ${
-              filterChip === 'narcotics'
-                ? 'bg-red-600 text-white shadow-sm'
-                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            ⚠️ Narcotics & Controlled
-          </Button>
         </div>
       </div>
 
