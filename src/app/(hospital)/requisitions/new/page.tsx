@@ -1,23 +1,20 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
-import ProductSearchDropdown from '@/components/inventory/ProductSearchDropdown';
-import { Send, Plus, Trash2, Loader2, ClipboardList, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Search, Plus, Trash2, Send, AlertCircle, ShieldAlert, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 
-interface RequisitionItem {
-    itemId: string;
-    name: string;
-    sku: string;
-    unit: string;
-    unitPrice: number;
-    soh: number;
-    requestedQty: number;
-    itemNotes?: string;
+interface DraftedItem {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  unit: string;
+  soh: number;
+  reqQty: number;
 }
 
 export default function NewRequisitionPage() {
@@ -34,117 +31,132 @@ export default function NewRequisitionPage() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'NURSE', 'DOCTOR', 'PHARMACIST', 'STORE_MANAGER'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'NURSE', 'DOCTOR', 'PHARMACIST', 'STORE_MANAGER'].includes(userRole || '');
 
-  const [items, setItems] = useState<RequisitionItem[]>([]);
-  const [destinationDept, setDestinationDept] = useState('Pharmacy');
-  const [priorityLevel, setPriorityLevel] = useState<'ROUTINE' | 'URGENT' | 'STAT'>('ROUTINE');
-  const [requestingOfficer, setRequestingOfficer] = useState('');
-  const [notes, setNotes] = useState('');
+  // State Management
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [draftedItems, setDraftedItems] = useState<DraftedItem[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  const [destinationUnit, setDestinationUnit] = useState('Outpatient Pharmacy');
+  const [priorityLevel, setPriorityLevel] = useState('Routine Restock');
 
-  useEffect(() => {
-    if (user?.displayName && !requestingOfficer) {
-      setRequestingOfficer(user.displayName);
-    }
-  }, [user, requestingOfficer]);
-
+  // Query Catalog from Firestore
   const catalogQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(collection(firestore, "hospitals", hospitalId, "product_catalog"));
   }, [firestore, hospitalId]);
   const { data: catalog, isLoading: isCatalogLoading } = useCollection(catalogQuery);
 
-  const handleProductSelect = (product: any) => {
-    if (!items.some(i => i.itemId === product.id)) {
-        const soh = product.stockOnHand ?? product.quantityInStock ?? product.quantity ?? product.currentStock ?? 100;
-        const unitPrice = product.purchasePrice || product.price || 15.0;
-
-        setItems([...items, { 
-            itemId: product.id, 
-            name: product.name,
-            sku: product.sku,
-            unit: product.unit || 'units',
-            unitPrice: unitPrice,
-            soh: soh,
-            requestedQty: 1,
-            itemNotes: ''
-        }]);
-        toast({ title: `Added ${product.name} to drafting cart.` });
-    } else {
-        toast({ variant: 'destructive', title: "Item already in drafting cart."});
+  const catalogItems = useMemo(() => {
+    if (!catalog || catalog.length === 0) {
+      return [
+        { id: '1', name: 'VITA C', sku: 'MED-VIT-647', price: 5.00, unit: 'SACHET', soh: 1250 },
+        { id: '2', name: 'NUGEL-O', sku: 'MED-NUG-773', price: 25.00, unit: 'BOTTLE', soh: 495 },
+        { id: '3', name: 'AMOXICILLIN 500MG', sku: 'MED-AMO-327', price: 8.00, unit: 'BOX', soh: 604 },
+        { id: '4', name: 'EFPAC', sku: 'MED-EFP-382', price: 5.00, unit: 'BOX', soh: 320 },
+      ];
     }
+    return catalog.map(p => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku || `SKU-${p.id.slice(0, 6)}`,
+      price: p.purchasePrice || p.price || 15.00,
+      unit: p.unit || 'BOX',
+      soh: p.stockOnHand ?? p.quantityInStock ?? p.quantity ?? p.currentStock ?? 100,
+    }));
+  }, [catalog]);
+
+  // Filter catalog based on search
+  const filteredCatalog = catalogItems.filter(item => 
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    item.sku.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Cart Functions
+  const handleAddItem = (item: any) => {
+    if (!draftedItems.find(draft => draft.id === item.id)) {
+      setDraftedItems([...draftedItems, { 
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        price: item.price,
+        unit: item.unit,
+        soh: item.soh,
+        reqQty: 1 
+      }]);
+      toast({ title: `Added ${item.name} to draft` });
+    } else {
+      toast({ variant: 'destructive', title: "Item already in draft" });
+    }
+    setSearchQuery('');
+    setIsDropdownOpen(false);
   };
 
-  const updateItemQuantity = (itemId: string, quantity: number) => {
-    setItems(items.map(item => item.itemId === itemId ? { ...item, requestedQty: Math.max(1, quantity) } : item));
+  const handleUpdateQuantity = (id: string, newQty: any) => {
+    setDraftedItems(draftedItems.map(item => 
+      item.id === id ? { ...item, reqQty: Math.max(1, Number(newQty)) } : item
+    ));
   };
 
-  const updateItemNote = (itemId: string, noteText: string) => {
-    setItems(items.map(item => item.itemId === itemId ? { ...item, itemNotes: noteText } : item));
+  const handleRemoveItem = (id: string) => {
+    setDraftedItems(draftedItems.filter(item => item.id !== id));
   };
-  
-  const removeItem = (itemId: string) => {
-      setItems(items.filter(item => item.itemId !== itemId));
-  }
 
-  const grandTotalValue = useMemo(() => {
-    return items.reduce((acc, item) => acc + (item.requestedQty * item.unitPrice), 0);
-  }, [items]);
+  const handleClearDraft = () => {
+    setDraftedItems([]);
+  };
 
-  const totalUnitsRequested = useMemo(() => {
-    return items.reduce((acc, item) => acc + item.requestedQty, 0);
-  }, [items]);
+  // Calculate Total Requisition Value
+  const totalValue = draftedItems.reduce((sum, item) => sum + (item.price * item.reqQty), 0);
 
   const handleSendRequest = async () => {
-    if (items.length === 0) {
-        toast({ variant: 'destructive', title: "Cannot send an empty request." });
-        return;
-    }
-    if (!destinationDept) {
-        toast({ variant: 'destructive', title: "Destination Unit Required", description: "Select target department." });
-        return;
+    if (draftedItems.length === 0) {
+      toast({ variant: 'destructive', title: "Cannot submit an empty draft." });
+      return;
     }
     if (!user || !hospitalId || !firestore) return;
     setLoading(true);
 
     try {
       await addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/requisitions`), {
-        items: items.map(i => ({
-          itemId: i.itemId,
+        items: draftedItems.map(i => ({
+          itemId: i.id,
           name: i.name,
           sku: i.sku,
           unit: i.unit,
-          unitPrice: i.unitPrice,
+          price: i.price,
           soh: i.soh,
-          quantityRequested: i.requestedQty,
-          itemNotes: i.itemNotes || ''
+          quantityRequested: i.reqQty,
+          lineTotal: i.price * i.reqQty
         })),
-        requestingDept: destinationDept,
-        destinationDept: destinationDept,
+        requestingDept: destinationUnit,
+        destinationDept: destinationUnit,
         priorityLevel: priorityLevel,
-        requestingOfficer: requestingOfficer || user.displayName || 'Shane Gambrah (Staff)',
-        notes: notes,
-        totalValue: grandTotalValue,
+        totalValue: totalValue,
         requestedBy: user.uid,
-        requestedByName: user.displayName || requestingOfficer,
+        requestedByName: user.displayName || 'Pharmacist Staff',
         hospitalId: hospitalId,
         status: 'PENDING',
         createdAt: serverTimestamp()
       });
-      toast({ title: "✅ Requisition Transmitted to Central Store", description: `Staged ${items.length} items valued at ₵ ${grandTotalValue.toFixed(2)}.` });
-      setItems([]);
-      setNotes('');
-    } catch (e: any) { 
-        toast({ variant: 'destructive', title: "Request Failed", description: e.message });
+
+      toast({ 
+        title: "✅ Requisition Submitted Successfully!", 
+        description: `Submitted ${draftedItems.length} items valued at ₵ ${totalValue.toFixed(2)} for ${destinationUnit}.` 
+      });
+      setDraftedItems([]);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Submission Failed", description: e.message });
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   const pageIsLoading = isUserLoading || isProfileLoading;
   if (pageIsLoading) {
-    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin"/></div>
+    return <div className="flex h-full w-full items-center justify-center p-20"><Loader2 className="h-16 w-16 animate-spin text-primary"/></div>;
   }
 
   if (!isAuthorized) {
@@ -161,10 +173,10 @@ export default function NewRequisitionPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 text-foreground">
-      {/* DARK HERO BANNER & CONTEXT HEADER */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md mb-6 space-y-5">
-        {/* Header Row */}
+    <div className="max-w-6xl mx-auto space-y-6 p-8 text-foreground">
+      
+      {/* 1. DARK HERO BANNER & CONTEXT */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-black tracking-tight text-white uppercase italic">
@@ -175,7 +187,8 @@ export default function NewRequisitionPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1 text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full">
+            <span className="px-3 py-1 text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"></span>
               Drafting Mode
             </span>
             <Button 
@@ -188,192 +201,193 @@ export default function NewRequisitionPage() {
           </div>
         </div>
 
-        {/* Requisition Context Variables */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-800">
           <div>
             <label className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
               Destination / Requesting Unit
             </label>
-            <select
-              value={destinationDept}
-              onChange={e => setDestinationDept(e.target.value)}
+            <select 
+              value={destinationUnit}
+              onChange={(e) => setDestinationUnit(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
             >
-              <option value="Outpatient Pharmacy">Outpatient Pharmacy</option>
-              <option value="Main Pharmacy">Main Pharmacy</option>
-              <option value="ICU Ward">ICU Ward</option>
-              <option value="Maternity Ward">Maternity Ward</option>
-              <option value="Emergency Department">Emergency Department</option>
-              <option value="Operating Theatre">Operating Theatre</option>
-              <option value="Pediatrics Ward">Pediatrics Ward</option>
+              <option>Outpatient Pharmacy</option>
+              <option>Main Pharmacy</option>
+              <option>ICU Ward</option>
+              <option>Maternity Ward</option>
+              <option>Emergency Department</option>
+              <option>Operating Theatre</option>
+              <option>Pediatrics Ward</option>
             </select>
           </div>
-
           <div>
             <label className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
               Priority Level
             </label>
-            <select
+            <select 
               value={priorityLevel}
-              onChange={e => setPriorityLevel(e.target.value as any)}
-              className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:ring-2 focus:ring-rose-500 outline-none font-bold"
+              onChange={(e) => setPriorityLevel(e.target.value)}
+              className={`w-full px-3 py-2 text-sm bg-slate-900 border rounded-lg outline-none font-bold focus:ring-2 ${
+                priorityLevel === 'STAT / Urgent' ? 'border-rose-500/50 text-rose-400 focus:ring-rose-500' : 'border-slate-700 text-slate-200 focus:ring-indigo-500'
+              }`}
             >
-              <option value="ROUTINE">Routine Restock</option>
-              <option value="STAT">STAT / Urgent (Emergency)</option>
+              <option>Routine Restock</option>
+              <option>STAT / Urgent</option>
             </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
-              Requesting Officer / Lead
-            </label>
-            <Input
-              type="text"
-              required
-              value={requestingOfficer}
-              onChange={e => setRequestingOfficer(e.target.value)}
-              placeholder="e.g. Dr. Shane Gambrah (Shift Lead)"
-              className="px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 font-bold outline-none h-10"
-            />
           </div>
         </div>
       </div>
-      
-      {/* DRAFTING CART & SUPPLIES SELECTION CARD */}
-      <div className="bg-card p-6 rounded-[32px] border-2 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b pb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs">
-              2
-            </span>
-            <div>
-              <h3 className="text-xs font-black uppercase text-foreground">Drafting Cart & Supplies Selection</h3>
-              <p className="text-[10px] text-muted-foreground">Search catalog by Name or SKU to add items into the staging cart</p>
-            </div>
+
+      {/* 2. SEARCH & ADD SECTION */}
+      <div className="relative z-20">
+        <div className="relative">
+          <Search className="absolute left-4 top-3.5 text-slate-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search Catalog (Name or SKU)..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setIsDropdownOpen(true);
+            }}
+            onFocus={() => setIsDropdownOpen(true)}
+            className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-foreground focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm font-bold placeholder:font-normal"
+          />
+        </div>
+
+        {/* Search Dropdown Results */}
+        {isDropdownOpen && searchQuery && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-80 overflow-y-auto z-50">
+            {filteredCatalog.length > 0 ? (
+              filteredCatalog.map(item => (
+                <div 
+                  key={item.id}
+                  onClick={() => handleAddItem(item)}
+                  className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground uppercase">{item.name}</h4>
+                      <p className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400">{item.sku}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <span className="block text-xs font-bold text-foreground">SOH: {item.soh}</span>
+                      <span className="block text-[10px] text-slate-400 uppercase font-bold">Available</span>
+                    </div>
+                    <div className="text-right w-24">
+                      <span className="block text-sm font-bold text-foreground">₵ {item.price.toFixed(2)}</span>
+                      <span className="block text-[10px] text-slate-400 uppercase font-bold">PER {item.unit}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-6 text-center text-slate-500 text-sm font-bold">
+                No catalog items found matching "{searchQuery}"
+              </div>
+            )}
           </div>
-          <span className="text-[10px] font-black uppercase bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20">
-            🛒 {items.length} {items.length === 1 ? 'Item' : 'Items'} Staged
+        )}
+      </div>
+
+      {/* 3. DRAFTED ITEMS TABLE (CART) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden z-10 relative">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
+          <h3 className="text-sm font-bold text-foreground">Drafted Supplies ({draftedItems.length})</h3>
+          <span className="text-xs font-semibold text-slate-500">
+            Total Est. Value: <strong className="text-foreground text-sm ml-1">₵ {totalValue.toFixed(2)}</strong>
           </span>
         </div>
 
-        <ProductSearchDropdown catalog={catalog || []} onSelect={handleProductSelect} />
-        
-        {/* STAGED DRAFTING CART TABLE */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden mt-4">
-          {/* Table Header / Summary */}
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Drafted Supplies</h3>
-            <span className="text-xs font-semibold text-slate-500">
-              Total Est. Value: <strong className="text-slate-800 dark:text-slate-100 text-sm font-bold">₵ {grandTotalValue.toFixed(2)}</strong>
-            </span>
+        {draftedItems.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 flex flex-col items-center">
+            <AlertCircle className="w-8 h-8 mb-3 text-slate-300 dark:text-slate-700" />
+            <p className="text-sm font-bold">Your requisition draft is empty.</p>
+            <p className="text-xs mt-1">Search the catalog above to add supplies.</p>
           </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-100/50 dark:bg-slate-900/50 text-[10px] uppercase font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="px-4 py-3">Item / SKU</th>
+                  <th className="px-4 py-3">Available SOH</th>
+                  <th className="px-4 py-3">Req. Qty</th>
+                  <th className="px-4 py-3 text-right">Unit Value</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {draftedItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-foreground uppercase">{item.name}</div>
+                      <div className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{item.sku}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-[10px] font-bold border rounded-md ${
+                        item.soh > 50 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' 
+                          : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
+                      }`}>
+                        {item.soh} {item.unit}S
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input 
+                        type="number" 
+                        min="1"
+                        max={item.soh}
+                        value={item.reqQty}
+                        onChange={(e) => handleUpdateQuantity(item.id, e.target.value)}
+                        className="w-20 px-2 py-1 text-sm border border-slate-300 dark:border-slate-700 rounded-lg text-center font-bold focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-950" 
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-medium">₵ {item.price.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-foreground text-xs">
+                      ₵ {(item.price * item.reqQty).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button 
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md transition"
+                      >
+                        <Trash2 className="w-4 h-4 mx-auto" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          {items.length > 0 ? (
-            <>
-              {/* Responsive Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-                  <thead className="bg-slate-100/50 dark:bg-slate-900/50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                    <tr>
-                      <th className="px-4 py-3">Item / SKU</th>
-                      <th className="px-4 py-3">Available SOH</th>
-                      <th className="px-4 py-3">Req. Qty</th>
-                      <th className="px-4 py-3">Item Justification</th>
-                      <th className="px-4 py-3 text-right">Unit Value</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                      <th className="px-4 py-3 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {items.map((item, idx) => {
-                      const lineTotal = item.requestedQty * item.unitPrice;
-                      const isExceedingSoh = item.requestedQty > item.soh;
-
-                      return (
-                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-                          <td className="px-4 py-3">
-                            <div className="font-bold text-slate-800 dark:text-slate-100 uppercase">{item.name}</div>
-                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">{item.sku}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 text-[10px] font-bold border rounded-md ${
-                              item.soh === 0
-                                ? 'bg-rose-50 text-rose-600 border-rose-200'
-                                : item.soh <= 15
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}>
-                              {item.soh} IN STOCK
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input 
-                              type="number" 
-                              min="1" 
-                              value={item.requestedQty}
-                              onChange={e => updateItemQuantity(item.itemId, Number(e.target.value))}
-                              className={`w-20 px-2 py-1 text-sm border rounded-lg text-center focus:ring-2 focus:ring-indigo-500 outline-none font-bold bg-white dark:bg-slate-950 ${
-                                isExceedingSoh ? 'border-rose-500 text-rose-600 bg-rose-50' : 'border-slate-300'
-                              }`} 
-                            />
-                            {isExceedingSoh && (
-                              <p className="text-[9px] font-bold text-rose-500 mt-0.5">Exceeds SOH!</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <input 
-                              type="text"
-                              placeholder="Optional note..."
-                              value={item.itemNotes || ''}
-                              onChange={e => updateItemNote(item.itemId, e.target.value)}
-                              className="px-2 py-1 text-xs border border-slate-200 dark:border-slate-800 rounded-lg w-full bg-white dark:bg-slate-950 text-foreground"
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-right text-xs font-medium">₵ {item.unitPrice.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-800 dark:text-slate-100 text-xs">₵ {lineTotal.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button 
-                              type="button"
-                              onClick={() => removeItem(item.itemId)} 
-                              className="text-slate-400 hover:text-rose-500 transition inline-flex items-center gap-1"
-                            >
-                              <Trash2 size={14} />
-                              <span className="text-xs font-semibold">Remove</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Action Footer */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setItems([])}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition"
-                >
-                  Clear Draft
-                </button>
-                <Button 
-                  onClick={handleSendRequest}
-                  disabled={loading}
-                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-2"
-                >
-                  {loading ? <Loader2 className="animate-spin" /> : <Send size={14} />}
-                  Submit Requisition
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="p-12 text-center bg-white dark:bg-slate-900 space-y-2">
-              <p className="text-xs font-bold text-slate-400 uppercase">Your drafting cart is currently empty.</p>
-              <p className="text-[10px] text-slate-400">Search for supplies in the search bar above to stage items for this requisition.</p>
-            </div>
-          )}
-        </div>
+        {/* Action Footer */}
+        {draftedItems.length > 0 && (
+          <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+            <button 
+              onClick={handleClearDraft}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition"
+            >
+              Clear Draft
+            </button>
+            <button 
+              onClick={handleSendRequest}
+              disabled={loading}
+              className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Submit Requisition
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
