@@ -85,9 +85,9 @@ export default function DisposalCertificate() {
       const opt = {
         margin: 10, // 10mm margins
         filename: `Disposal_Certificate_${data?.disposalId || 'DS-404557'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
       };
 
       await html2pdf().set(opt).from(element).save();
