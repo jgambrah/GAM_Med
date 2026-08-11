@@ -2,6 +2,7 @@
 
 import { DirectorSidebar } from "@/components/app/director-sidebar";
 import { PharmacySidebar } from "@/components/app/pharmacy-sidebar";
+import { DoctorSidebar } from "@/components/app/doctor-sidebar";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -61,7 +62,7 @@ export default function HospitalLayout({
   const isReceptionRoute = pathname.startsWith('/reception');
   const isMortuaryRoute = pathname.startsWith('/mortuary');
 
-  // If user is a Pharmacist navigating across shared non-pharmacy routes (like /staff/*, /requisitions/*, /patients), retain PharmacySidebar without duplicating on /pharmacy routes
+  // If user is a Pharmacist navigating across shared non-pharmacy routes, retain PharmacySidebar
   if (userProfile?.role === 'PHARMACIST' && !isPharmacyRoute && !isSupplyChainRoute && !isAccountantRoute && !isFinanceRoute && !isHrRoute && !isAuditorRoute && !isRadiologyRoute && !isLabRoute && !isReceptionRoute && !isMortuaryRoute) {
     return (
       <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -84,10 +85,12 @@ export default function HospitalLayout({
     );
   }
 
-  // Default layout for Director, Doctor, Nurse, etc., using the main DirectorSidebar.
+  // Default layout for Director, Doctor, Nurse, etc.
+  const activeSidebar = userProfile?.role === 'DOCTOR' ? <DoctorSidebar /> : <DirectorSidebar userProfile={userProfile} />;
+
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <DirectorSidebar userProfile={userProfile} />
+      {activeSidebar}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {children}
       </main>
