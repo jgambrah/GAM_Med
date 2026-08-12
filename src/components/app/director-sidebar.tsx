@@ -220,11 +220,11 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
     if (!hasInitialized && (visibleMenuGroups.length > 0 || myPortalMenu.items.length > 0)) {
       const initial: Record<string, boolean> = {};
       
-      [myPortalMenu, ...visibleMenuGroups].forEach(group => {
+      [...visibleMenuGroups, myPortalMenu].forEach(group => {
         initial[group.title] = true;
       });
 
-      const activeGroup = [myPortalMenu, ...visibleMenuGroups].find(group => 
+      const activeGroup = [...visibleMenuGroups, myPortalMenu].find(group => 
         group.items.some(item => pathname === item.href)
       );
 
@@ -241,7 +241,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
   useEffect(() => {
     if (hasInitialized) {
-      const activeGroup = [myPortalMenu, ...visibleMenuGroups].find(group => 
+      const activeGroup = [...visibleMenuGroups, myPortalMenu].find(group => 
         group.items.some(item => pathname === item.href)
       );
       if (activeGroup) {
@@ -270,7 +270,7 @@ export function DirectorSidebar({ userProfile }: { userProfile: any }) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 py-4">
-        {[myPortalMenu, ...visibleMenuGroups].map((group, idx) => {
+        {[...visibleMenuGroups, myPortalMenu].map((group, idx) => {
           const isCollapsed = collapsedGroups[group.title] ?? false;
           return (
             <div key={idx} className="mb-4">
