@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -8,11 +8,32 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
   Clock, UserCheck, Plus, SlidersHorizontal, 
   CheckCircle2, AlertCircle, CalendarDays, Sparkles, 
-  Loader2, ExternalLink, X, User, Building2, Check 
+  Loader2, ExternalLink, X, User, Building2, Check, Search, 
+  FileText, Activity, HeartPulse, ShieldCheck, ChevronDown 
 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+
+interface PatientRecord {
+  id: string;
+  name: string;
+  ehrNumber: string;
+  vitals?: { bp: string; temp: string; pulse: string; spo2: string };
+  diagnosis?: string;
+}
+
+interface CalendarAppointment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  ehrNumber: string;
+  doctorName?: string;
+  date: string; // YYYY-MM-DD
+  timeSlot: string;
+  department?: string;
+  status: 'CONFIRMED' | 'PENDING' | 'COMPLETED' | 'CANCELLED_BY_PATIENT';
+}
 
 // Helper to convert time slots e.g. "09:00 AM" to minutes and compare against 24h start/end strings e.g. "08:00"
 const isTimeWithinRange = (timeStr: string, start: string, end: string) => {
@@ -45,6 +66,18 @@ export default function WeeklyPlannerCommandDesk() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  // Patient Directory Mock Data for Combobox Lookup
+  const patientDirectory: PatientRecord[] = useMemo(() => [
+    { id: 'p_ama', name: 'AMA SERWAA PREMPEH', ehrNumber: 'MMH/EHR/26/0014', vitals: { bp: '120/80', temp: '36.8°C', pulse: '72 bpm', spo2: '99%' }, diagnosis: 'Gestational Diabetes / Routine ANC' },
+    { id: 'p_kofi', name: 'KOFI MENSAH', ehrNumber: 'MMH/EHR/26/0009', vitals: { bp: '158/96', temp: '37.1°C', pulse: '84 bpm', spo2: '97%' }, diagnosis: 'Stage 2 Primary Hypertension' },
+    { id: 'p_benjamin', name: 'BENJAMIN HEDIDOR', ehrNumber: 'MMH/EHR/26/0007', vitals: { bp: '130/85', temp: '36.9°C', pulse: '78 bpm', spo2: '98%' }, diagnosis: 'Post-Op Surgical Follow-up' },
+    { id: 'p_janet', name: 'JANET BONAH', ehrNumber: 'MMH/EHR/26/0005', vitals: { bp: '125/82', temp: '36.5°C', pulse: '75 bpm', spo2: '99%' }, diagnosis: 'Acute Gastroenteritis / Dehydration' },
+    { id: 'p_yaw', name: 'YAW DABO', ehrNumber: 'MMH/EHR/26/0006', vitals: { bp: '118/76', temp: '37.0°C', pulse: '80 bpm', spo2: '96%' }, diagnosis: 'Bronchial Asthma / Respiratory Review' },
+    { id: 'p_akua', name: 'AKUA DENTEH', ehrNumber: 'MMH/EHR/26/0104', vitals: { bp: '115/75', temp: '36.6°C', pulse: '70 bpm', spo2: '100%' }, diagnosis: 'General OPD Routine Medical Check' },
+    { id: 'p_esi', name: 'ESI ADAZEWAA', ehrNumber: 'MMH/EHR/26/0002', vitals: { bp: '122/78', temp: '36.7°C', pulse: '74 bpm', spo2: '98%' }, diagnosis: 'Antenatal Care Visit 3' },
+    { id: 'p_nana', name: 'NANA ADWOA', ehrNumber: 'MMH-00001', vitals: { bp: '145/92', temp: '38.1°C', pulse: '92 bpm', spo2: '95%' }, diagnosis: 'Acute Febrile Illness / Malaria suspect' },
+  ], []);
+
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date();
     const day = today.getDay();
@@ -54,16 +87,58 @@ export default function WeeklyPlannerCommandDesk() {
 
   // Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [bookingPatientName, setBookingPatientName] = useState('');
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [selectedPatientRecord, setSelectedPatientRecord] = useState<PatientRecord | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  
   const [bookingDate, setBookingDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [bookingTimeSlot, setBookingTimeSlot] = useState('09:00 AM');
   const [bookingConsultType, setBookingConsultType] = useState('General OPD');
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
 
-  // Local additions to update counter dynamically
-  const [localBookingCount, setLocalBookingCount] = useState(0);
+  // Quick EHR Overview Slide-Over Modal State
+  const [quickEhrPatient, setQuickEhrPatient] = useState<PatientRecord | null>(null);
 
-  // Fetch appointments for this doctor.
+  // Local state for dynamically booked appointments
+  const [locallyBookedAppointments, setLocallyBookedAppointments] = useState<CalendarAppointment[]>([
+    {
+      id: 'app_1',
+      patientId: 'p_kofi',
+      patientName: 'KOFI MENSAH',
+      ehrNumber: 'MMH/EHR/26/0009',
+      doctorName: 'Dr. Tracy Gambrah',
+      date: new Date().toISOString().split('T')[0],
+      timeSlot: '09:00 AM',
+      department: 'Hypertension Review',
+      status: 'CONFIRMED'
+    },
+    {
+      id: 'app_2',
+      patientId: 'p_ama',
+      patientName: 'AMA SERWAA PREMPEH',
+      ehrNumber: 'MMH/EHR/26/0014',
+      doctorName: 'Dr. Tracy Gambrah',
+      date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      timeSlot: '10:00 AM',
+      department: 'Gestational Diabetes',
+      status: 'CONFIRMED'
+    }
+  ]);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch appointments for this doctor from Firestore.
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
@@ -72,7 +147,7 @@ export default function WeeklyPlannerCommandDesk() {
     );
   }, [firestore, user]);
 
-  const { data: appointments, isLoading: areAppointmentsLoading } = useCollection<any>(appointmentsQuery);
+  const { data: firestoreAppointments, isLoading: areAppointmentsLoading } = useCollection<any>(appointmentsQuery);
 
   // Fetch doctor availability configuration
   const availabilityRef = useMemoFirebase(() => {
@@ -99,6 +174,15 @@ export default function WeeklyPlannerCommandDesk() {
     "04:00 PM", "05:00 PM"
   ];
 
+  // Filtered Patient Directory for Combobox
+  const filteredPatients = useMemo(() => {
+    if (!patientSearchQuery) return patientDirectory;
+    const q = patientSearchQuery.toLowerCase().trim();
+    return patientDirectory.filter(p => 
+      p.name.toLowerCase().includes(q) || p.ehrNumber.toLowerCase().includes(q)
+    );
+  }, [patientDirectory, patientSearchQuery]);
+
   // Check if a specific slot is within set availability
   const isAvailable = useMemo(() => {
     return (date: Date, timeStr: string) => {
@@ -119,9 +203,22 @@ export default function WeeklyPlannerCommandDesk() {
     };
   }, [availability]);
 
+  // Unified Appointment Retriever across Firestore & Local State
   const getAppointment = (date: Date, time: string) => {
     const dateStr = date.toISOString().split('T')[0];
-    return appointments?.find((a: any) => a.date === dateStr && a.timeSlot === time);
+    const fromFirestore = firestoreAppointments?.find((a: any) => a.date === dateStr && a.timeSlot === time);
+    if (fromFirestore) {
+      return {
+        id: fromFirestore.id,
+        patientId: fromFirestore.patientId || 'p_ama',
+        patientName: fromFirestore.patientName,
+        ehrNumber: fromFirestore.ehrNumber || 'MMH/EHR/26/0001',
+        timeSlot: fromFirestore.timeSlot,
+        date: fromFirestore.date,
+        status: fromFirestore.status || 'CONFIRMED'
+      };
+    }
+    return locallyBookedAppointments.find(a => a.date === dateStr && a.timeSlot === time);
   };
 
   const handleOpenBookingModal = (dateObj?: Date, timeStr?: string) => {
@@ -131,24 +228,51 @@ export default function WeeklyPlannerCommandDesk() {
     if (timeStr) {
       setBookingTimeSlot(timeStr);
     }
+    setSelectedPatientRecord(null);
+    setPatientSearchQuery('');
+    setIsDropdownOpen(false);
     setIsBookingModalOpen(true);
+  };
+
+  const handleSelectPatient = (patient: PatientRecord) => {
+    setSelectedPatientRecord(patient);
+    setPatientSearchQuery(patient.name);
+    setIsDropdownOpen(false);
   };
 
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookingPatientName.trim()) {
-      toast({ variant: 'destructive', title: "Patient Required", description: "Please enter a patient name to schedule the appointment." });
+    const finalPatientName = selectedPatientRecord ? selectedPatientRecord.name : patientSearchQuery.trim();
+    const finalEhrNumber = selectedPatientRecord ? selectedPatientRecord.ehrNumber : 'MMH/EHR/26/0100';
+    const finalPatientId = selectedPatientRecord ? selectedPatientRecord.id : `p_${Date.now()}`;
+
+    if (!finalPatientName) {
+      toast({ variant: 'destructive', title: "Patient Required", description: "Please search and select a patient from the directory." });
       return;
     }
 
     setIsSubmittingBooking(true);
+
+    const newAppt: CalendarAppointment = {
+      id: `app_${Date.now()}`,
+      patientId: finalPatientId,
+      patientName: finalPatientName,
+      ehrNumber: finalEhrNumber,
+      doctorName: user?.displayName || 'Dr. Tracy Gambrah',
+      date: bookingDate,
+      timeSlot: bookingTimeSlot,
+      department: bookingConsultType,
+      status: 'CONFIRMED'
+    };
 
     try {
       if (firestore && user?.uid) {
         await addDoc(collection(firestore, "appointments"), {
           doctorId: user.uid,
           doctorName: user.displayName || 'Lead Physician',
-          patientName: bookingPatientName.trim(),
+          patientId: finalPatientId,
+          patientName: finalPatientName,
+          ehrNumber: finalEhrNumber,
           date: bookingDate,
           timeSlot: bookingTimeSlot,
           department: bookingConsultType,
@@ -157,14 +281,16 @@ export default function WeeklyPlannerCommandDesk() {
         });
       }
 
-      setLocalBookingCount(prev => prev + 1);
+      setLocallyBookedAppointments(prev => [...prev, newAppt]);
+
       toast({
-        title: "Appointment Scheduled",
-        description: `Consultation with ${bookingPatientName} confirmed for ${bookingDate} at ${bookingTimeSlot}.`
+        title: "Appointment Scheduled & Grid Updated",
+        description: `Confirmed ${finalPatientName} (${finalEhrNumber}) on ${bookingDate} at ${bookingTimeSlot}.`
       });
 
       setIsBookingModalOpen(false);
-      setBookingPatientName('');
+      setSelectedPatientRecord(null);
+      setPatientSearchQuery('');
     } catch (err: any) {
       console.error("Booking error:", err);
       toast({ variant: 'destructive', title: "Booking Error", description: err.message });
@@ -172,11 +298,26 @@ export default function WeeklyPlannerCommandDesk() {
       setIsSubmittingBooking(false);
     }
   };
-  
+
+  const handleApptBlockClick = (appt: any) => {
+    const matchedRecord = patientDirectory.find(p => p.id === appt.patientId || p.name === appt.patientName);
+    if (matchedRecord) {
+      setQuickEhrPatient(matchedRecord);
+    } else {
+      setQuickEhrPatient({
+        id: appt.patientId || 'p_ama',
+        name: appt.patientName,
+        ehrNumber: appt.ehrNumber || 'MMH/EHR/26/0001',
+        vitals: { bp: '120/80', temp: '36.8°C', pulse: '74 bpm', spo2: '98%' },
+        diagnosis: 'General Consultation'
+      });
+    }
+  };
+
   const isLoading = isUserLoading || areAppointmentsLoading || isAvailabilityLoading;
 
-  const confirmedCount = (appointments?.filter((a: any) => a.status === 'CONFIRMED' || a.status === 'COMPLETED').length ?? 12) + localBookingCount;
-  const pendingCount = appointments?.filter((a: any) => a.status === 'PENDING').length ?? 3;
+  const allCombinedAppointmentsCount = (firestoreAppointments?.length || 0) + locallyBookedAppointments.length;
+  const confirmedCount = allCombinedAppointmentsCount > 0 ? allCombinedAppointmentsCount : 12;
 
   const activeDateRangeStr = `${weekDays[0].toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()} — ${weekDays[6].toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}`;
 
@@ -298,7 +439,7 @@ export default function WeeklyPlannerCommandDesk() {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
                 Pending Requests
               </span>
-              <div className="text-2xl font-black text-amber-400">{pendingCount} Pending</div>
+              <div className="text-2xl font-black text-amber-400">3 Pending</div>
               <span className="text-[10px] font-bold text-amber-400 mt-1 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" /> Requires Approval
               </span>
@@ -340,11 +481,8 @@ export default function WeeklyPlannerCommandDesk() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> CONFIRMED CONSULTATION
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-amber-500" /> PENDING REQUEST
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950 border border-indigo-300 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-[10px] font-black uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-indigo-600" /> CONFIRMED CONSULTATION
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-black uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-slate-400" /> AVAILABLE SLOT
@@ -408,24 +546,21 @@ export default function WeeklyPlannerCommandDesk() {
 
                     if (appt) {
                       return (
-                        <Link key={dayIdx} href={appt.status !== 'CANCELLED_BY_PATIENT' ? `/patients/folder/${appt.patientId}` : '#'}>
-                          <div className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[52px] cursor-pointer hover:shadow-md ${
-                            appt.status === 'CANCELLED_BY_PATIENT' ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 opacity-50' :
-                            appt.status === 'CONFIRMED' ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100' :
-                            appt.status === 'COMPLETED' ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-300 dark:border-sky-800 text-sky-950 dark:text-sky-100' :
-                            'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100'
-                          }`}>
-                            <div className="flex items-center justify-between">
-                              <p className={`text-[10px] font-black uppercase truncate ${appt.status === 'CANCELLED_BY_PATIENT' ? 'line-through' : ''}`}>
-                                {appt.patientName || 'Patient'}
-                              </p>
-                              {appt.status !== 'CANCELLED_BY_PATIENT' && <ExternalLink className="w-3 h-3 opacity-60" />}
-                            </div>
-                            <span className="text-[8px] font-black uppercase tracking-wider opacity-75 mt-0.5">
-                              {appt.status}
-                            </span>
+                        <div 
+                          key={dayIdx} 
+                          onClick={() => handleApptBlockClick(appt)}
+                          className="p-2.5 rounded-xl border border-indigo-600 bg-indigo-600 text-white shadow-md transition-all flex flex-col justify-between min-h-[52px] cursor-pointer hover:bg-indigo-700 hover:shadow-lg"
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black uppercase truncate text-white">
+                              {appt.patientName}
+                            </p>
+                            <ExternalLink className="w-3 h-3 text-indigo-200 opacity-80" />
                           </div>
-                        </Link>
+                          <span className="text-[8px] font-mono font-bold bg-indigo-800/80 text-indigo-100 px-1.5 py-0.5 rounded w-fit mt-0.5">
+                            {appt.ehrNumber}
+                          </span>
+                        </div>
                       );
                     }
 
@@ -459,7 +594,7 @@ export default function WeeklyPlannerCommandDesk() {
       </div>
 
       {/* ========================================== */}
-      {/* 3. BOOK APPOINTMENT MODAL OVERLAY           */}
+      {/* 3. SEARCHABLE BOOK APPOINTMENT MODAL       */}
       {/* ========================================== */}
       {isBookingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
@@ -493,20 +628,68 @@ export default function WeeklyPlannerCommandDesk() {
             {/* Modal Form Body */}
             <form onSubmit={handleConfirmBooking} className="p-6 space-y-4">
               
-              {/* Patient Search Input */}
-              <div className="space-y-1.5">
+              {/* Searchable Patient Combobox Input */}
+              <div className="space-y-1.5 relative" ref={dropdownRef}>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-indigo-500" /> Patient Name / EHR #
+                  <User className="w-3.5 h-3.5 text-indigo-500" /> Patient Search / Select Directory
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ama Serwaa Prempeh or MMH/EHR/26/0014"
-                  value={bookingPatientName}
-                  onChange={(e) => setBookingPatientName(e.target.value)}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
+                
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Search by Patient Name or EHR # (e.g. Ama or 0014)..."
+                    value={patientSearchQuery}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    onChange={(e) => {
+                      setPatientSearchQuery(e.target.value);
+                      setSelectedPatientRecord(null);
+                      setIsDropdownOpen(true);
+                    }}
+                    className="w-full pl-10 pr-10 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                {/* Combobox Options Dropdown */}
+                {isDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredPatients.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400 italic">No matching patient found in directory. Write-in name will be stored.</div>
+                    ) : (
+                      filteredPatients.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSelectPatient(p)}
+                          className="p-3 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 cursor-pointer flex items-center justify-between transition-colors"
+                        >
+                          <div>
+                            <span className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase block">{p.name}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">EHR: {p.ehrNumber}</span>
+                          </div>
+                          {selectedPatientRecord?.id === p.id && (
+                            <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Selected Patient Confirmation Pill */}
+              {selectedPatientRecord && (
+                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <span className="text-xs font-black text-indigo-950 dark:text-indigo-100 uppercase block">{selectedPatientRecord.name}</span>
+                      <span className="text-[9px] font-mono text-indigo-700 dark:text-indigo-300">SELECTED EHR: {selectedPatientRecord.ehrNumber}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Date & Time Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -578,6 +761,98 @@ export default function WeeklyPlannerCommandDesk() {
               </div>
 
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 4. QUICK EHR OVERVIEW SLIDE-OVER MODAL     */}
+      {/* ========================================== */}
+      {quickEhrPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
+            
+            {/* Header */}
+            <div className="p-6 bg-slate-950 text-white border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                    QUICK EHR SUMMARY
+                  </span>
+                  <h2 className="text-base font-black italic uppercase tracking-wider text-white">
+                    {quickEhrPatient.name}
+                  </h2>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => setQuickEhrPatient(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">EHR Number</span>
+                <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs font-bold text-slate-800 dark:text-slate-200 rounded">
+                  {quickEhrPatient.ehrNumber}
+                </span>
+              </div>
+
+              {/* Vitals Summary */}
+              {quickEhrPatient.vitals && (
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 flex items-center gap-1">
+                    <HeartPulse className="w-3.5 h-3.5" /> Recent Baseline Vitals
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+                    <div>BP: <span className="font-mono text-indigo-600 dark:text-indigo-400">{quickEhrPatient.vitals.bp}</span></div>
+                    <div>Temp: <span className="font-mono">{quickEhrPatient.vitals.temp}</span></div>
+                    <div>Pulse: <span className="font-mono">{quickEhrPatient.vitals.pulse}</span></div>
+                    <div>SpO2: <span className="font-mono">{quickEhrPatient.vitals.spo2}</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Diagnosis */}
+              {quickEhrPatient.diagnosis && (
+                <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                    Primary Clinical Diagnosis:
+                  </span>
+                  <p className="text-xs font-bold text-indigo-950 dark:text-indigo-200 uppercase">
+                    {quickEhrPatient.diagnosis}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setQuickEhrPatient(null)}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push(`/patients`)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+              >
+                OPEN FULL EHR CHART <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
           </div>
         </div>
