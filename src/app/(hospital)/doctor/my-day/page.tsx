@@ -6,16 +6,41 @@ import { doc } from 'firebase/firestore';
 import { 
   Stethoscope, Inbox, Clock, Award, AlertCircle, Pill, 
   ClipboardList, FileText, UserCheck, ChevronRight, TrendingUp, 
-  Activity, ShieldAlert, Loader2, CheckCircle2, ArrowRight
+  Activity, ShieldAlert, Loader2, CheckCircle2, ArrowRight,
+  X, Lock, ShieldCheck, Check, Sparkles, AlertTriangle, LineChart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+
+interface InboxItem {
+  id: string;
+  category: string;
+  title: string;
+  patientName: string;
+  ehrNumber: string;
+  urgency: 'HIGH' | 'MEDIUM' | 'ROUTINE' | 'URGENT';
+  timestamp: string;
+  details: string;
+  icon: any;
+  color: 'rose' | 'amber' | 'sky' | 'indigo';
+  labTrend?: {
+    metric: string;
+    previous: string;
+    current: string;
+    trendNote: string;
+  };
+}
 
 export default function MyDayCommandDesk() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
   const [activeTab, setActiveTab] = useState<'inbox' | 'wait' | 'cme'>('inbox');
+
+  // Interactive Modal State for Review & Sign
+  const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null);
+  const [pinCode, setPinCode] = useState('');
+  const [isSigned, setIsSigned] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -25,35 +50,8 @@ export default function MyDayCommandDesk() {
 
   const isDoctor = ['DIRECTOR', 'DOCTOR'].includes(userProfile?.role || '');
 
-  const isLoading = isUserLoading || isProfileLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center p-20">
-        <Loader2 className="h-16 w-16 animate-spin text-rose-500" />
-      </div>
-    );
-  }
-
-  if (!isDoctor) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-background p-4">
-        <div className="text-center">
-          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
-          <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">Physician Command Center access restricted to doctors.</p>
-          <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">Return Home</Button>
-        </div>
-      </div>
-    );
-  }
-
-  const doctorName = userProfile?.fullName || user?.displayName || 'Tracy Gambrah';
-  const doctorInitials = doctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'TG';
-  const roleTitle = userProfile?.specialty || 'Lead Physician';
-
-  // 1. UNIFIED CLINICAL INBOX FEED ITEMS
-  const mockInboxItems = [
+  // 1. UNIFIED CLINICAL INBOX FEED ITEMS (Managed in state for live sign-off removal)
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>([
     {
       id: 'inbox_1',
       category: 'LAB_RESULT',
@@ -64,7 +62,13 @@ export default function MyDayCommandDesk() {
       timestamp: '12 MINS AGO',
       details: 'Full Blood Count shows severe anemia. Transfusion evaluation required.',
       icon: AlertCircle,
-      color: 'rose'
+      color: 'rose',
+      labTrend: {
+        metric: 'Hemoglobin (Hb)',
+        previous: '9.2 g/dL (12 Jun 2026)',
+        current: '7.8 g/dL (Today 10:14 AM)',
+        trendNote: 'Critical drop of 1.4 g/dL. Red cell morphology shows microcytic hypochromic picture.'
+      }
     },
     {
       id: 'inbox_2',
@@ -76,7 +80,13 @@ export default function MyDayCommandDesk() {
       timestamp: '25 MINS AGO',
       details: 'Pharmacy requesting doctor sign-off for 7-day extension.',
       icon: Pill,
-      color: 'amber'
+      color: 'amber',
+      labTrend: {
+        metric: 'Antibiotic Duration',
+        previous: '7 Days Completed (500mg/125mg TID)',
+        current: 'Requesting +7 Days Extension',
+        trendNote: 'Symptom resolution at 80%. No adverse drug reactions reported.'
+      }
     },
     {
       id: 'inbox_3',
@@ -88,7 +98,13 @@ export default function MyDayCommandDesk() {
       timestamp: '1 HOUR AGO',
       details: 'Post-op Day 2 appendix. Vitals stable overnight. Pain controlled.',
       icon: ClipboardList,
-      color: 'sky'
+      color: 'sky',
+      labTrend: {
+        metric: 'WBC & Inflammatory Trend',
+        previous: 'WBC 14.2 x10^3/uL (Pre-op)',
+        current: 'WBC 9.1 x10^3/uL (Post-op Day 2)',
+        trendNote: 'Afebril 36.6°C. Surgical wound dressing dry and intact.'
+      }
     },
     {
       id: 'inbox_4',
@@ -100,9 +116,15 @@ export default function MyDayCommandDesk() {
       timestamp: '2 HOURS AGO',
       details: 'Gestational HTN workup consult requested by Dr. Osei.',
       icon: UserCheck,
-      color: 'indigo'
+      color: 'indigo',
+      labTrend: {
+        metric: 'Blood Pressure & Proteinuria',
+        previous: 'BP 130/84 mmHg (3 Weeks Ago)',
+        current: 'BP 152/96 mmHg (Today 09:30 AM)',
+        trendNote: 'Urine Dipstick: 2+ Protein. Fetal heart rate normal (142 bpm).'
+      }
     },
-  ];
+  ]);
 
   // 2. PATIENT FLOW QUEUE
   const mockPatientQueue = [
@@ -131,6 +153,55 @@ export default function MyDayCommandDesk() {
       vitalsTaken: 'Weight: 12.4kg, Temp: 38.2°C',
     },
   ];
+
+  const handleOpenReviewModal = (item: InboxItem) => {
+    setSelectedItem(item);
+    setPinCode('');
+    setIsSigned(false);
+  };
+
+  const handleConfirmAndSign = () => {
+    if (pinCode.length !== 4) return;
+    
+    setIsSigned(true);
+    
+    // Auto-remove signed item after success notification
+    setTimeout(() => {
+      if (selectedItem) {
+        setInboxItems(prev => prev.filter(item => item.id !== selectedItem.id));
+      }
+      setSelectedItem(null);
+      setIsSigned(false);
+      setPinCode('');
+    }, 1200);
+  };
+
+  const isLoading = isUserLoading || isProfileLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-20">
+        <Loader2 className="h-16 w-16 animate-spin text-rose-500" />
+      </div>
+    );
+  }
+
+  if (!isDoctor) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-muted-foreground">Physician Command Center access restricted to doctors.</p>
+          <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">Return Home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const doctorName = userProfile?.fullName || user?.displayName || 'Tracy Gambrah';
+  const doctorInitials = doctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'TG';
+  const roleTitle = userProfile?.specialty || 'Lead Physician';
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
@@ -189,13 +260,13 @@ export default function MyDayCommandDesk() {
                 <Inbox className="w-3.5 h-3.5 text-rose-400" /> Unified Clinical Inbox
               </span>
               <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 text-[10px] font-black">
-                {mockInboxItems.length} Pending
+                {inboxItems.length} Pending
               </span>
             </div>
-            <div className="text-2xl font-black text-white">{mockInboxItems.length} Action Items</div>
+            <div className="text-2xl font-black text-white">{inboxItems.length} Action Items</div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              1 Critical sign-off required
+              {inboxItems.filter(i => i.urgency === 'HIGH' || i.urgency === 'URGENT').length} High priority sign-offs
             </div>
           </button>
 
@@ -261,7 +332,7 @@ export default function MyDayCommandDesk() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
           <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
             <h2 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Actionable Inbox Items Requiring Doctor Attention
+              Actionable Inbox Items Requiring Doctor Attention ({inboxItems.length})
             </h2>
             <span className="text-xs font-bold text-slate-400">
               Sorted by Urgency
@@ -269,62 +340,80 @@ export default function MyDayCommandDesk() {
           </div>
 
           {/* Action Items List */}
-          <div className="space-y-4">
-            {mockInboxItems.map((item) => {
-              const ItemIcon = item.icon;
-              const isRose = item.color === 'rose';
+          {inboxItems.length === 0 ? (
+            <div className="p-16 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-center flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-1">
+                ALL INBOX ITEMS SIGNED & VERIFIED
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm font-medium">
+                Your clinical inbox is clear. New lab reports, e-refills, and consult requests will appear here in real-time.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {inboxItems.map((item) => {
+                const ItemIcon = item.icon;
+                const isRose = item.color === 'rose' || item.urgency === 'HIGH';
 
-              return (
-                <div 
-                  key={item.id}
-                  className={`p-5 rounded-xl border transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                    isRose
-                      ? 'border-rose-200 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20 hover:border-rose-300'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={`p-3 rounded-xl mt-1 ${
-                      isRose ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' :
-                      item.color === 'amber' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' :
-                      item.color === 'sky' ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400' :
-                      'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
-                    }`}>
-                      <ItemIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm md:text-base">
-                          {item.title}
-                        </h3>
-                        {isRose && (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider">
-                            Action Required
-                          </span>
-                        )}
+                return (
+                  <div 
+                    key={item.id}
+                    className={`p-5 rounded-xl border transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                      isRose
+                        ? 'border-rose-200 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20 hover:border-rose-300'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-xl mt-1 ${
+                        isRose ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' :
+                        item.color === 'amber' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' :
+                        item.color === 'sky' ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400' :
+                        'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
+                      }`}>
+                        <ItemIcon className="w-6 h-6" />
                       </div>
-                      <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300 font-medium mb-2">
-                        {item.details}
-                      </p>
-                      <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
-                        <span>PATIENT: <strong className="text-slate-800 dark:text-slate-200">{item.patientName}</strong></span>
-                        <span>•</span>
-                        <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px]">{item.ehrNumber}</span>
-                        <span>•</span>
-                        <span className="text-slate-400">{item.timestamp}</span>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm md:text-base">
+                            {item.title}
+                          </h3>
+                          {isRose && (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider">
+                              Action Required
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300 font-medium mb-2">
+                          {item.details}
+                        </p>
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+                          <span>PATIENT: <strong className="text-slate-800 dark:text-slate-200">{item.patientName}</strong></span>
+                          <span>•</span>
+                          <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px]">{item.ehrNumber}</span>
+                          <span>•</span>
+                          <span className="text-slate-400">{item.timestamp}</span>
+                        </div>
                       </div>
                     </div>
+
+                    <button 
+                      type="button"
+                      onClick={() => handleOpenReviewModal(item)}
+                      className={`self-end md:self-center px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                        isRose ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-900 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 text-white'
+                      }`}
+                    >
+                      REVIEW & SIGN <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
-
-                  <button className={`self-end md:self-center px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                    isRose ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
-                  }`}>
-                    REVIEW & SIGN <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -439,6 +528,199 @@ export default function MyDayCommandDesk() {
                 <p>Hand hygiene compliance and sterile protocol adherence audited at 100%.</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 3. INTERACTIVE "REVIEW & SIGN" OVERLAY MODAL */}
+      {/* ========================================== */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Modal Signature Dark Header */}
+            <div className={`p-6 text-white border-b relative overflow-hidden flex items-center justify-between ${
+              selectedItem.color === 'rose' || selectedItem.urgency === 'HIGH'
+                ? 'bg-rose-950 border-rose-900'
+                : 'bg-slate-950 border-slate-800'
+            }`}>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className={`p-2.5 rounded-xl border ${
+                  selectedItem.color === 'rose' || selectedItem.urgency === 'HIGH'
+                    ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                    : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+                }`}>
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      CLINICAL AUTHENTICATION & SIGN-OFF
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                      selectedItem.urgency === 'HIGH' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300'
+                    }`}>
+                      {selectedItem.urgency} PRIORITY
+                    </span>
+                  </div>
+                  <h2 className="text-lg md:text-xl font-black italic uppercase tracking-wider text-white mt-0.5">
+                    {selectedItem.title}
+                  </h2>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors relative z-10 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-slate-900 dark:text-slate-100 flex-1">
+              
+              {/* Signed Success Banner State */}
+              {isSigned ? (
+                <div className="p-8 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center flex flex-col items-center justify-center space-y-3 animate-in zoom-in-95 duration-200">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                    <Check className="w-8 h-8 stroke-[3]" />
+                  </div>
+                  <h3 className="text-lg font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    SIGNATURE VERIFIED & AUTHENTICATED
+                  </h3>
+                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300 max-w-sm">
+                    Cryptographic signature logged for Dr. {doctorName}. Item marked complete and archived.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Patient Record Card */}
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
+                        Patient Record
+                      </span>
+                      <h3 className="text-base font-black uppercase text-slate-900 dark:text-slate-100">
+                        {selectedItem.patientName}
+                      </h3>
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        EHR: <span className="text-slate-800 dark:text-slate-200">{selectedItem.ehrNumber}</span>
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
+                        Category / Received
+                      </span>
+                      <span className="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase tracking-wider inline-block">
+                        {selectedItem.category.replace('_', ' ')}
+                      </span>
+                      <p className="text-[11px] font-bold text-slate-400 mt-1">
+                        {selectedItem.timestamp}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Clinical Details Card */}
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-slate-500" /> Clinical Summary & Report
+                    </span>
+                    <p className="text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">
+                      {selectedItem.details}
+                    </p>
+                  </div>
+
+                  {/* Lab Trend / Clinical Metric Overlay Card */}
+                  {selectedItem.labTrend && (
+                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                        <LineChart className="w-3.5 h-3.5 text-rose-500" /> Clinical & Laboratory Telemetry Overlay
+                      </span>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">
+                            Previous Baseline
+                          </span>
+                          <div className="text-xs font-black text-slate-700 dark:text-slate-300">
+                            {selectedItem.labTrend.previous}
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-rose-200 dark:border-rose-900/60">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-rose-500 block mb-0.5">
+                            Latest Telemetry (Today)
+                          </span>
+                          <div className="text-xs font-black text-rose-600 dark:text-rose-400">
+                            {selectedItem.labTrend.current}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                        <strong className="text-slate-800 dark:text-slate-100">Physician Impression: </strong>
+                        {selectedItem.labTrend.trendNote}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Clinician Security PIN Authentication Box */}
+                  <div className="p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-300 flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-rose-400" /> Enter Clinician Security PIN (4-Digits)
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        Required for E-Signature
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 justify-center py-2">
+                      <input
+                        type="password"
+                        maxLength={4}
+                        placeholder="••••"
+                        value={pinCode}
+                        onChange={(e) => setPinCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                        className="w-40 text-center px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-black tracking-[0.5em] text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+            </div>
+
+            {/* Modal Footer Controls */}
+            {!isSigned && (
+              <div className="p-6 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedItem(null)}
+                  className="px-5 py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={pinCode.length !== 4}
+                  onClick={handleConfirmAndSign}
+                  className={`px-6 py-2.5 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer ${
+                    pinCode.length === 4
+                      ? (selectedItem.color === 'rose' || selectedItem.urgency === 'HIGH' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700')
+                      : 'bg-slate-400 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" /> CONFIRM & SIGN OFF
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       )}
